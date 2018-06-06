@@ -114,3 +114,63 @@ func NewBlockChain(chainDb ethdb.Database, config *params.ChainConfig, engine co
 		go bc.update()
 		return bc, nil
 }
+
+// loadLastState loads the last known chain state from the database. This method
+// assumes that the chain manager mutex is held.
+func (bc *BlockChain) loadLastState() error {
+		// Restore the last known head block
+		// 返回我们知道的最新的区块的hash
+		head := GetHeadBlockHash(bc.chainDb)
+		if head == (common.Hash{}) { // 如果获取到了空.那么认为数据库已经被破坏.那么设置区块链为创世区块.
+		// Corrupt or empty database, init from scratch
+		log.Warn("Empty database, resetting chain")
+		return bc.Reset()
+		}
+		// Make sure the entire head block is available
+		// 根据blockHash 来查找block
+		currentBlock := bc.GetBlockByHash(head)
+		if currentBlock == nil {
+		// Corrupt or empty database, init from scratch
+		log.Warn("Head block missing, resetting chain", "hash", head)
+		return bc.Reset()
+		}
+		// Make sure the state associated with the block is available
+		// 确认和这个区块的world state是否正确.
+		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+		// Dangling block without a state associated, init from scratch
+		log.Warn("Head state missing, resetting chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
+		return bc.Reset()
+		}
+		// Everything seems to be fine, set as the head block
+		bc.currentBlock = currentBlock
+
+		// Restore the last known head header
+		// 获取最新的区块头的hash
+		currentHeader := bc.currentBlock.Header()
+		if head := GetHeadHeaderHash(bc.chainDb); head != (common.Hash{}) {
+		if header := bc.GetHeaderByHash(head); header != nil {
+		currentHeader = header
+		}
+		}
+		// header chain 设置为当前的区块头.
+		bc.hc.SetCurrentHeader(currentHeader)
+
+		// Restore the last known head fast block
+		bc.currentFastBlock = bc.currentBlock
+		if head := GetHeadFastBlockHash(bc.chainDb); head != (common.Hash{}) {
+		if block := bc.GetBlockByHash(head); block != nil {
+		bc.currentFastBlock = block
+		}
+		}
+
+		// Issue a status log for the user 用来打印日志.
+		headerTd := bc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64())
+		blockTd := bc.GetTd(bc.currentBlock.Hash(), bc.currentBlock.NumberU64())
+		fastTd := bc.GetTd(bc.currentFastBlock.Hash(), bc.currentFastBlock.NumberU64())
+
+		log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
+		log.Info("Loaded most recent local full block", "number", bc.currentBlock.Number(), "hash", bc.currentBlock.Hash(), "td", blockTd)
+		log.Info("Loaded most recent local fast block", "number", bc.currentFastBlock.Number(), "hash", bc.currentFastBlock.Hash(), "td", fastTd)
+
+		return nil
+}
