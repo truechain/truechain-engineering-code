@@ -1,9 +1,5 @@
 package true
 
-package main
-
-//"strings"
-
 type CommitteeMember struct {
 	Nodeid string
 	Addr   string
@@ -12,9 +8,9 @@ type CommitteeMember struct {
 
 type StandbyInfo struct {
 	NodeId   string
-	coinbase string
-	addr     string
-	port     int
-	height   *big.Int
-	comfire  bool
+	Coinbase string
+	Addr     string
+	Port     int
+	Height   *big.Int
+	Comfire  bool
 }
