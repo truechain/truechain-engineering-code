@@ -1,5 +1,9 @@
 package true
 
+import (
+	"math/big"
+)
+
 type CommitteeMember struct {
 	Nodeid string
 	Addr   string
