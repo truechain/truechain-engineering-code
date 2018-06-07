@@ -1,0 +1,67 @@
+syntax = "proto3";  //protobuf3协议
+
+package truechain;
+
+service HybridConsensusHelp {
+   rpc PutBlock(TruePbftBlock) returns (CommonReply) {}
+   rpc ViewChange(EmptyParam) returns (CommonReply) {}
+}
+
+service PyHybConsensus {
+   rpc Start(EmptyParam) returns (CommonReply) {}
+   rpc Stop(EmptyParam) returns (CommonReply) {}
+   rpc MembersNodes(Nodes) returns (CommonReply) {}
+   rpc SetTransactions(Transactions) returns (CommonReply) {}
+}
+
+message EmptyParam {
+
+}
+
+message CommonReply {
+    string Message = 1;
+}
+
+message TruePbftNode {
+    string addr	     = 1;
+    string pubkey    = 2;
+    string privkey   = 3;
+}
+
+message Nodes {
+    repeated TruePbftNode nodes = 1;
+}
+
+message TruePbftBlockHeader {
+    int64  Number 	= 1;
+    int64  GasLimit     = 2;
+    int64  GasUsed	= 3;
+    int64  Time		= 4;
+}
+message TxData {
+    uint64 AccountNonce       	 = 1;
+    int64  Price 	     	 = 2;
+    int64  GasLimit		 = 3;
+    bytes  Recipient		 = 4;
+    int64  Amount 		 = 5;
+    bytes  Payload		 = 6;
+    
+    int64  V 			 = 7;
+    int64  R			 = 8;
+    int64  S			 = 9;
+
+    bytes Hash			 = 10;
+}
+message Transaction {
+    TxData data 		 = 1;
+}
+
+message Transactions {
+    repeated Transaction txs = 1;
+}
+
+message TruePbftBlock {
+    TruePbftBlockHeader   header    = 1;
+    Transactions 	  txs	    = 2;
+    repeated string       sigs      = 3;   
+}
