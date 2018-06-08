@@ -57,6 +57,22 @@ type CommitteeMember struct {
 	addr		string 			
 	port		int
 }
+type TrueCryptoMsg struct {
+	heigth		*big.Int
+	msg			[]byte
+}
+
+func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
+	return nil
+}
+
+func Validation(msg *TrueCryptoMsg) bool {
+	node := msg.ToStandbyInfo()
+	if node == nil {
+		return false
+	}
+	return true
+}
 
 // type HybridConsensus interface {
 // 	// main chain set node to the py-pbft
