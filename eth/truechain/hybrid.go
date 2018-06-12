@@ -33,7 +33,7 @@ type TruePbftNode struct {
 	Privkey		string  	//
 }
 type TruePbftBlockHeader struct {
-	Number      *big.Int       // block height out of pbft 
+	Number      *big.Int       // block Height out of pbft 
 	GasLimit    *big.Int       // gaslimit in block include bonus tx
 	GasUsed     *big.Int       // gasused in block
 	Time        *big.Int       // generate time
@@ -50,7 +50,7 @@ type StandbyInfo struct {
 	coinbase	string			// the bonus address of miner
 	addr		string 			
 	port		int
-	height		*big.Int		// block height who pow success 
+	Height		*big.Int		// block Height who pow success 
 	comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
 type CommitteeMember struct {
@@ -59,21 +59,24 @@ type CommitteeMember struct {
 	port		int
 }
 type TrueCryptoMsg struct {
-	heigth		*big.Int
-	msg			[]byte
-	sig 		[]byte
+	Height		*big.Int
+	Msg			[]byte
+	Sig 		[]byte
+	use			bool
 }
 
+func (t *TrueCryptoMsg) Use() bool { return t.use }
+func (t *TrueCryptoMsg) SetUse(u bool) { t.use = u }
 func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
-	info := struct StandbyInfo{height:big.NewInt(0)}
-	info.FromByte(t.msg)
+	info := struct StandbyInfo{Height:big.NewInt(0)}
+	info.FromByte(t.Msg)
 	return &info
 }
 func (t *StandbyInfo) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	to := struct StandbyInfo{
-		height:		big.NewInt(0),
+		Height:		big.NewInt(0),
 		comfire:	false,
 	}
 	dec.Decode(to)
@@ -81,7 +84,7 @@ func (t *StandbyInfo) FromByte(data []byte) error {
 	t.coinbase = to.coinbase
 	t.addr = to.addr
 	t.port = to.port
-	t.height = to.height
+	t.Height = to.Height
 	t.comfire = to.comfire
 	return nil
 }
@@ -99,14 +102,16 @@ func (t *TrueCryptoMsg) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	to := struct TrueCryptoMsg{
-		height:		big.NewInt(0),
-		msg:		make([]byte,0,0),
-		sig:		make([]byte,0,0),
+		Height:		big.NewInt(0),
+		Msg:		make([]byte,0,0),
+		Sig:		make([]byte,0,0),
+		use:		false,
 	}
 	dec.Decode(to)
-	t.heigth = to.height
-	t.msg = to.msg
-	t.sig = to.sig
+	t.Height = to.Height
+	t.Msg = to.Msg
+	t.Sig = to.Sig
+	t.use = to.use
 	return nil
 } 
 func (t *TrueCryptoMsg) ToByte() ([]byte,error) {

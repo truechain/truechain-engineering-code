@@ -13,6 +13,7 @@ limitations under the License.
 package truechain
 
 import (
+	"strconv"
 	"crypto/ecdsa"
 	"net"
     "math/big"
@@ -37,13 +38,23 @@ func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
 	t.sdm = append(t.sdm,node)
 	return nil
 }
+func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
+	for _,v := range t.crpmsg {
+		if v.heigth.Cmp(h) == 0 {
+			return v
+		}		
+	}
+	return nil
+}
+
 func (t *TrueHybrid) AddMsg(msg *TrueCryptoMsg,bc *core.BlockChain) {
 	// verify the msg when the block is on
 	res := verityMsg(msg,bc)
 	if res == 1 {
 		t.crpmsg = append(t.crpmsg,msg)
 	} else if res == 0 {
-	}	
+		t.crptmp = append(t.crptmp,msg)
+	}
 }
 func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	vv := make([]*CommitteeMember,0,0)
@@ -61,51 +72,116 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	}
 	return vv,nil
 }
-// crpmsg was be check and insert to the standbyqueue
-// when the blockchain has the block
-func (t *TrueHybrid) VerifyCheck(bc *core.BlockChain) error {	
-	sheight := t.sdm[len(t.sdm)-1].height
-	cur := big.NewInt(40000)
-	if cur.Abs(sheight).Cmp(big.NewInt(12)) >= 0 {
-		msg := findMsg(sheight.Add(sheight,big.NewInt(1)))
-		if msg != nil {
-			res := verityMsg(msg,bc)
-			if res == 1 {
-				add(msg)
-			}
-		}
+// check the crypmsg when blockchain has the block
+func (t *TrueHybrid) VerifyCheck(bc *core.BlockChain) error {
+	// sheight := t.sdm[len(t.sdm)-1].height
+	// cur := bc.CurrentHeader().Number()	
+	// if cur.Abs(sheight).Cmp(big.NewInt(12)) >= 0 {
+	// 	msg := findMsg(sheight.Add(sheight,big.NewInt(1)))
+	// 	if msg != nil {
+	// 		res := verityMsg(msg,bc)
+	// 		if res == 1 {
+	// 			add(msg)
+	// 		}
+	// 	}
+	// }
+	msg := t.crptmp[0]
+	res := verityMsg(msg,bc)
+	if res == 1 {
+		t.crpmsg = append(t.crpmsg,msg)
+		t.crptmp = t.crptmp[1:]
 	}
 	return nil
 }
-func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
-	for _,v := range t.crpmsg {
-		if v.heigth.Cmp(h) == 0 {
-			return v
-		}		
+// crpmsg was be check and insert to the standbyqueue
+// when the blockchain has the block
+func (t *TrueHybrid) insertToSDM(bc *core.BlockChain) error {
+	m := t.minMsg(false)
+	if m == nil {
+		return errors.New("no minMsg,msglen=",strconv.Atoi(len(t.crpmsg)))
 	}
+	msgHeight := m.Height
+	cur := big.NewInt(bc.CurrentHeader().Number().Int64())	
+	if cur.Abs(msgHeight).Cmp(big.NewInt(12)) >= 0 {
+		res := verityMsg(m,bc)
+		if res == 1 {
+			add(m)
+		}
+		m.SetUse(true)
+	}
+	return nil
+}
+// remove the msg that has same height and it was used
+func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
+
+}
+// use=true include msg which was used 
+func (t *TrueHybrid) minMsg(use bool) *TrueCryptoMsg {
+	if len(t.crpmsg) <= 0 {
+		return nil
+	} 
+	min := t.crpmsg[0].Height
+	pos := 0
+	for ii,v := range t.crpmsg {
+		if use {
+			if min.Cmp(v.Height) == -1 {
+				min = v.Height
+				pos = ii
+			}
+		} else {
+			if t.crpmsg[pos].Use() == true {
+				min = v.Height
+				pos = ii
+			}
+			if min.Cmp(v.Height) == -1 {
+				min = v.Height
+				pos = ii
+			}
+		}
+	}
+	if use {
+		return t.crpmsg[pos]
+	} else {
+		if t.crpmsg[pos].Use() {
+			return nil
+		} else {
+			return t.crpmsg[pos]
+		}
+	}
+}
+func (t *TrueHybrid) standbyWork(bc *core.BlockChain) error {
+	t.insertToSDM()
 	return nil
 }
 // after success pow,send the node by p2p
 func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMsg,error) {
 	cmsg := struct TrueCryptoMsg{
-		height:		n.height,
-		msg:		make([]byte,0,0),
-		sig:		make([]byte,0,0),
+		Height:		n.Height,
+		Msg:		make([]byte,0,0),
+		Sig:		make([]byte,0,0),
+		use:		false,
 	}
 	var err error 
-	cmsg.msg,err = n.ToByte()
+	cmsg.Msg,err = n.ToByte()
 	if err != nil {
 		return nil,err
 	}
-	
+	cmsg.Sig,err = crypto.Sign(cmsg.Msg,priv)
+	if err != nil {
+		return nil,err
+	}
 	return cmsg,nil
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
 func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
 	// find the coinbase address from the heigth
-	coinbase := bc.GetHeaderByNumber(msg.heigth).Coinbase.String()
+	header := bc.GetHeaderByNumber(msg.heigth)
+	if header == nil {
+		return 0
+	}
+	coinbase := header.Coinbase.String()
 
-	pub,err := crypto.SigToPub(msg.msg,msg.sig)
+	pub,err := crypto.SigToPub(msg.Msg,msg.Sig)
 	if err != nil {
 		return -1
 	}

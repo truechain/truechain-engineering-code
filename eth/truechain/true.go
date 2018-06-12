@@ -47,7 +47,8 @@ type TrueHybrid struct {
     address     string
     sdmsize     int
     sdm         []*StandbyInfo
-    crpmsg      []*TrueCryptoMsg
+    crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
+    crptmp      []*TrueCryptoMsg        // unauthenticated msg by block comfirm
 }
 
 func (t *TrueHybrid) HybridConsensusHelpInit() {
