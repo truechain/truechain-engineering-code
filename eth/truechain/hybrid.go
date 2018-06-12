@@ -45,21 +45,22 @@ type TruePbftBlock struct {
 }
 
 type StandbyInfo struct {
-	nodeid		string			// pubkey节点的公钥
-	coinbase	string			// 出块节点的奖励地址
+	nodeid		string			// the pubkey of the node(nodeid)
+	coinbase	string			// the bonus address of miner
 	addr		string 			
 	port		int
-	height		*big.Int		// 对应于块高度
-	comfire		bool			// 经过12块确认
+	height		*big.Int		// block height who pow success 
+	comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
 type CommitteeMember struct {
-	nodeid		string			// pubkey节点的公钥
+	nodeid		string			// the pubkey of the node(nodeid)
 	addr		string 			
 	port		int
 }
 type TrueCryptoMsg struct {
 	heigth		*big.Int
 	msg			[]byte
+	sig 		[]byte
 }
 
 func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
