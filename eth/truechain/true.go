@@ -46,7 +46,8 @@ type PyHybConsensus struct {
 type TrueHybrid struct {
     address     string
     sdmsize     int
-    sdm         []StandbyInfo
+    sdm         []*StandbyInfo
+    crpmsg      []*TrueCryptoMsg
 }
 
 func (t *TrueHybrid) HybridConsensusHelpInit() {

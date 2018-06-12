@@ -712,6 +712,24 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 	}
 }
 
+
+//broadcast bftblocks
+func (pm ProtocolManager)BftBroadcastBlock(block *types.TruePbftBlock, propagate bool) {
+	hash := block.Hash()
+	peers := pm.peers.BftPeersWithoutBlock(hash)
+
+	//if propagation is requested, send to a subset of the peer
+	if propagate {
+		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+		for _, peer := range transfer {
+			peer.BftAsyncSendNewBlock(block)
+		}
+		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer))
+		return
+	}
+
+}
+
 // BroadcastTxs will propagate a batch of transactions to all peers which are not known to
 // already have the given transaction.
 func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {

@@ -72,6 +72,11 @@ type propEvent struct {
 	td    *big.Int
 }
 
+//bftpropEvent
+type bftpropEvent struct{
+	block *types.TruePbftBlock
+}
+
 type peer struct {
 	id string
 
@@ -86,10 +91,13 @@ type peer struct {
 	lock sync.RWMutex
 
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
-	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
+	knownBlocks *set.Set // Set of block hashes known to be known by this peer
+	knownBftBlocks *set.Set               //bftblocks
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
+	bftqueuedProps chan *bftPropEvent     //bftblocks
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
+	bftqueuedAnns chan *types.TruePbftBlock //bftblocks
 	term        chan struct{}             // Termination channel to stop the broadcaster
 }
 
@@ -105,6 +113,10 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
 		term:        make(chan struct{}),
+		//bftblocks
+		knownBftBlocks:set.New(),
+		bftqueuedProps:make(chan *bftPropEvent,maxQueuedProps),
+		bftqueuedAnns:make(chan *types.TruePbftBlock,maxQueuedAnns),
 	}
 }
 
@@ -125,12 +137,24 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
+			//bftblocks
+		case prop := <-p.bftqueuedProps:
+			if err := p.BftSendNewBlock(prop.bftblock); err != nil {
+				return
+			}
+			p.Log().Trace("Propagated block", "hash", prop.bftblock.Hash())
 
 		case block := <-p.queuedAnns:
 			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
 				return
 			}
 			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
+		case block := <-p.bftqueuedAnns:
+			if err := p.BftSendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
+				return
+			}
+			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
+
 
 		case <-p.term:
 			return
@@ -183,6 +207,15 @@ func (p *peer) MarkBlock(hash common.Hash) {
 	p.knownBlocks.Add(hash)
 }
 
+//bftblocks
+func (p *peer) BftMarkBlock(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known block hash
+	for p.knownBftBlocks.Size() >= maxKnownBlocks {
+		p.knownBftBlocks.Pop()
+	}
+	p.knownBftBlocks.Add(hash)
+}
+
 // MarkTransaction marks a transaction as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
 func (p *peer) MarkTransaction(hash common.Hash) {
@@ -229,6 +262,19 @@ func (p *peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error 
 	return p2p.Send(p.rw, NewBlockHashesMsg, request)
 }
 
+//bftsendnewblockhashes
+func (p *peer) BftSendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
+	for _, hash := range hashes {
+		p.knownBftBlocks.Add(hash)
+	}
+	request := make(newBlockHashesData, len(hashes))
+	for i := 0; i < len(hashes); i++ {
+		request[i].Hash = hashes[i]
+		request[i].Number = numbers[i]
+	}
+	return p2p.Send(p.rw, NewBlockHashesMsg, request)
+}
+
 // AsyncSendNewBlockHash queues the availability of a block for propagation to a
 // remote peer. If the peer's broadcast queue is full, the event is silently
 // dropped.
@@ -240,11 +286,24 @@ func (p *peer) AsyncSendNewBlockHash(block *types.Block) {
 		p.Log().Debug("Dropping block announcement", "number", block.NumberU64(), "hash", block.Hash())
 	}
 }
-
+//bftblocks
+func (p *peer) BftAsyncSendNewBlockHash(block *types.TruePbftBlock) {
+	select {
+	case p.bftqueuedAnns <- block:
+		p.knownBftBlocks.Add(block.Hash())
+	default:
+		p.Log().Debug("Dropping block announcement","hash", block.Hash())
+	}
+}
 // SendNewBlock propagates an entire block to a remote peer.
 func (p *peer) SendNewBlock(block *types.Block, td *big.Int) error {
 	p.knownBlocks.Add(block.Hash())
 	return p2p.Send(p.rw, NewBlockMsg, []interface{}{block, td})
+}
+//bftblocks
+func (p *peer) BftSendNewBlock(block *types.TruePbftBlock) error {
+	p.knownBftBlocks.Add(block.Hash())
+	return p2p.Send(p.rw, NewBlockMsg, []interface{}{block})
 }
 
 // AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
@@ -255,6 +314,16 @@ func (p *peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
 		p.knownBlocks.Add(block.Hash())
 	default:
 		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
+	}
+}
+
+//bftblocks
+func (p *peer) BftAsyncSendNewBlock(block *types.TruePbftBlock)  {
+	select {
+	case p.bftqueuedProps <- &bftPropEvent{bftblock:block}:
+		p.knownBftBlocks.Add(block.Hash())
+	default:
+		p.Log().Debug("Dropping block propagation","hash",block.Hash())
 	}
 }
 
@@ -471,6 +540,19 @@ func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownBlocks.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+//bftblocks
+func (ps *peerSet) BftPeersWithoutBlock(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.Unlock()
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownBftBlocks.Has(hash) {
 			list = append(list, p)
 		}
 	}
