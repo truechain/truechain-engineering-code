@@ -14,11 +14,12 @@ limitations under the License.
 package truechain
 
 import (
-	// "reflect"
+	"bytes"
+	"encoding/gob"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	// "github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	// "github.com/ethereum/go-ethereum/ethdb"
 	// "github.com/ethereum/go-ethereum/event"
 	// "github.com/ethereum/go-ethereum/p2p"
@@ -64,15 +65,58 @@ type TrueCryptoMsg struct {
 }
 
 func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
+	info := struct StandbyInfo{height:big.NewInt(0)}
+	info.FromByte(t.msg)
+	return &info
+}
+func (t *StandbyInfo) FromByte(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	to := struct StandbyInfo{
+		height:		big.NewInt(0),
+		comfire:	false,
+	}
+	dec.Decode(to)
+	t.nodeid = to.nodeid
+	t.coinbase = to.coinbase
+	t.addr = to.addr
+	t.port = to.port
+	t.height = to.height
+	t.comfire = to.comfire
 	return nil
 }
-
-func Validation(msg *TrueCryptoMsg) bool {
-	node := msg.ToStandbyInfo()
-	if node == nil {
-		return false
+func (t *StandbyInfo) ToByte() ([]byte,error) {
+	// return common.FromHex(t.ToMsg())
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(t)
+	if err != nil {
+		return nil,err
 	}
-	return true
+	return buf.Bytes(),nil
+}
+func (t *TrueCryptoMsg) FromByte(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	to := struct TrueCryptoMsg{
+		height:		big.NewInt(0),
+		msg:		make([]byte,0,0),
+		sig:		make([]byte,0,0),
+	}
+	dec.Decode(to)
+	t.heigth = to.height
+	t.msg = to.msg
+	t.sig = to.sig
+	return nil
+} 
+func (t *TrueCryptoMsg) ToByte() ([]byte,error) {
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(t)
+	if err != nil {
+		return nil,err
+	}
+	return buf.Bytes(),nil
 }
 
 // type HybridConsensus interface {
