@@ -13,6 +13,7 @@ limitations under the License.
 package truechain
 
 import (
+	"time"
 	"strconv"
 	"crypto/ecdsa"
 	"net"
@@ -33,7 +34,7 @@ func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
 	}
 	// verfiy and add 
     if len(t.sdm) >= t.sdmsize {
-		t.sdm = append(t.sdm[:0],t.sdm[1:])
+		t.sdm = append(t.sdm[:0],t.sdm[1:]...)
 	} 	
 	t.sdm = append(t.sdm,node)
 	return nil
@@ -73,30 +74,26 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	return vv,nil
 }
 // check the crypmsg when blockchain has the block
-func (t *TrueHybrid) VerifyCheck(bc *core.BlockChain) error {
-	// sheight := t.sdm[len(t.sdm)-1].height
-	// cur := bc.CurrentHeader().Number()	
-	// if cur.Abs(sheight).Cmp(big.NewInt(12)) >= 0 {
-	// 	msg := findMsg(sheight.Add(sheight,big.NewInt(1)))
-	// 	if msg != nil {
-	// 		res := verityMsg(msg,bc)
-	// 		if res == 1 {
-	// 			add(msg)
-	// 		}
-	// 	}
-	// }
-	msg := t.crptmp[0]
-	res := verityMsg(msg,bc)
-	if res == 1 {
-		t.crpmsg = append(t.crpmsg,msg)
-		t.crptmp = t.crptmp[1:]
+func (t *TrueHybrid) checkTmpMsg(bc *core.BlockChain) {
+	for {
+		if len(t.crptmp) <= 0 {
+			break
+		}
+		msg,pos := t.minMsg(t.crptmp,true)
+		res := verityMsg(msg,bc)
+		if res == 1 {
+			t.crpmsg = append(t.crpmsg,msg)
+			t.removemgs(t.crptmp,pos)
+		} else {
+			break
+		}	
 	}
 	return nil
 }
 // crpmsg was be check and insert to the standbyqueue
-// when the blockchain has the block
+// when the blockchain has the block.
 func (t *TrueHybrid) insertToSDM(bc *core.BlockChain) error {
-	m := t.minMsg(false)
+	m,_ := t.minMsg(t.crpmsg,false)
 	if m == nil {
 		return errors.New("no minMsg,msglen=",strconv.Atoi(len(t.crpmsg)))
 	}
@@ -108,28 +105,42 @@ func (t *TrueHybrid) insertToSDM(bc *core.BlockChain) error {
 			add(m)
 		}
 		m.SetUse(true)
+		t.removeUnuseMsg(m.Height)
 	}
 	return nil
 }
 // remove the msg that has same height and it was used
 func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
-
+	pos := make([]int,0,0)
+	for i,v := range t.crpmsg {
+		if v.Height.Cmp(num) == 0 {
+			if !v.Use() {
+				pos = append(pos,i)
+			}
+		}
+	}
+	for _,i := range pos {
+		t.removemgs(t.crpmsg,i)
+	}
+}
+func (t *TrueHybrid) removemgs(crpmsg []*TrueCryptoMsg,i int) []*TrueCryptoMsg {
+    return append(crpmsg[:i], crpmsg[i+1:]...)
 }
 // use=true include msg which was used 
-func (t *TrueHybrid) minMsg(use bool) *TrueCryptoMsg {
-	if len(t.crpmsg) <= 0 {
-		return nil
+func (t *TrueHybrid) minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,int) {
+	if len(crpmsg) <= 0 {
+		return nil,0
 	} 
-	min := t.crpmsg[0].Height
+	min := crpmsg[0].Height
 	pos := 0
-	for ii,v := range t.crpmsg {
+	for ii,v := range crpmsg {
 		if use {
 			if min.Cmp(v.Height) == -1 {
 				min = v.Height
 				pos = ii
 			}
 		} else {
-			if t.crpmsg[pos].Use() == true {
+			if crpmsg[pos].Use() == true {
 				min = v.Height
 				pos = ii
 			}
@@ -140,17 +151,24 @@ func (t *TrueHybrid) minMsg(use bool) *TrueCryptoMsg {
 		}
 	}
 	if use {
-		return t.crpmsg[pos]
+		return crpmsg[pos],pos
 	} else {
-		if t.crpmsg[pos].Use() {
-			return nil
+		if crpmsg[pos].Use() {
+			return nil,0
 		} else {
-			return t.crpmsg[pos]
+			return crpmsg[pos],pos
 		}
 	}
 }
 func (t *TrueHybrid) standbyWork(bc *core.BlockChain) error {
-	t.insertToSDM()
+	for {
+		if t.quit { break }
+		
+		t.insertToSDM(bc)
+		t.checkTmpMsg(bc)
+
+		time.Sleep(5 * time.Second)
+	}
 	return nil
 }
 // after success pow,send the node by p2p

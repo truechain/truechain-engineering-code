@@ -44,6 +44,7 @@ type PyHybConsensus struct {
 }
 
 type TrueHybrid struct {
+    quit        bool
     address     string
     sdmsize     int
     sdm         []*StandbyInfo
