@@ -13,15 +13,40 @@ limitations under the License.
 package truechain
 
 import (
+	"encoding/hex"
 	"net"
     "math/big"
     "errors"
     
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
-	// "github.com/ethereum/go-ethereum/accounts"
-	// "github.com/ethereum/go-ethereum/ethdb"
-	// "github.com/ethereum/go-ethereum/event"
-	// "github.com/ethereum/go-ethereum/p2p"
-	// "github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/p2p"
 )
+// all function was not tread-safe
+func (t *TrueHybrid) SyncMainMembers() {
+	// sync current CommitteeMember 
+	data,err := t.curCmm.ToByte()
+	if err != nil {
+		// send data 
+	}
+	// sync old CommitteeMember???
+}
+func (t *TrueHybrid) CheckPbftBlock() error {
+	
+	return nil
+}
+func (t *TrueHybrid) InPbftCommittee() bool {
+	_,nodeid,_ := getNodeID()
+	if nodeid == t.curCmm.Nodeid {
+		return true
+	}
+	return false
+}
+func getNodeID(/*server *p2p.Server*/) (string,string,string) {
+	// get p2p server later
+	var server *p2p.Server  // tmp
+	ip := server.NodeInfo().IP
+	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
+	pub := hex.EncodeToString(crypto.FromECDSAPub(server.PrivateKey.Public()))
+	return ip,pub,priv
+}

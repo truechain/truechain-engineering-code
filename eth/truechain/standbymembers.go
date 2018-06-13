@@ -209,3 +209,13 @@ func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
 	}
 	return -1
 }
+func (t *TrueHybrid) SyncStandbyMembers() {
+	// sync crypmsg 
+	for _,v := range t.crpmsg {
+		data,err := v.ToByte()
+		if err != nil {
+			// send data 
+		}
+	}
+	// sync tmpcrypmsg???
+}

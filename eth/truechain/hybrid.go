@@ -72,32 +72,6 @@ func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
 	info.FromByte(t.Msg)
 	return &info
 }
-func (t *StandbyInfo) FromByte(data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	to := struct StandbyInfo{
-		Height:		big.NewInt(0),
-		comfire:	false,
-	}
-	dec.Decode(to)
-	t.nodeid = to.nodeid
-	t.coinbase = to.coinbase
-	t.addr = to.addr
-	t.port = to.port
-	t.Height = to.Height
-	t.comfire = to.comfire
-	return nil
-}
-func (t *StandbyInfo) ToByte() ([]byte,error) {
-	// return common.FromHex(t.ToMsg())
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(t)
-	if err != nil {
-		return nil,err
-	}
-	return buf.Bytes(),nil
-}
 func (t *TrueCryptoMsg) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
@@ -122,6 +96,66 @@ func (t *TrueCryptoMsg) ToByte() ([]byte,error) {
 		return nil,err
 	}
 	return buf.Bytes(),nil
+}
+func (t *StandbyInfo) FromByte(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	to := struct StandbyInfo{
+		Height:		big.NewInt(0),
+		comfire:	false,
+	}
+	dec.Decode(to)
+	t.Nodeid = to.Nodeid
+	t.coinbase = to.coinbase
+	t.addr = to.addr
+	t.port = to.port
+	t.Height = to.Height
+	t.comfire = to.comfire
+	return nil
+}
+func (t *StandbyInfo) ToByte() ([]byte,error) {
+	// return common.FromHex(t.ToMsg())
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(t)
+	if err != nil {
+		return nil,err
+	}
+	return buf.Bytes(),nil
+}
+func (t *CommitteeMember) ToByte() ([]byte,error) {
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(t)
+	if err != nil {
+		return nil,err
+	}
+	return buf.Bytes(),nil
+}
+func (t *CommitteeMember) FromByte(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	to := struct CommitteeMember{}
+	dec.Decode(to)
+	t.Nodeid = to.Nodeid
+	t.addr = to.addr
+	t.port = to.port
+	return nil
+}
+func toByte(e interface{}) ([]byte,error) {
+	buf := bytes.NewBuffer(nil)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(t)
+	if err != nil {
+		return nil,err
+	}
+	return buf.Bytes(),nil
+}
+func fromByte(data []byte,to interface{}) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	dec.Decode(to)
+	return nil
 }
 
 // type HybridConsensus interface {

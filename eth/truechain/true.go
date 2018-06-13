@@ -46,6 +46,9 @@ type PyHybConsensus struct {
 type TrueHybrid struct {
     quit        bool
     address     string
+    curCmm     *CommitteeMember
+    oldCmm      []*CommitteeMember
+
     sdmsize     int
     sdm         []*StandbyInfo
     crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
