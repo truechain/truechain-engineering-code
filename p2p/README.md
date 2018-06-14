@@ -1,3 +1,0 @@
-# truechain-engineering-code
-
-init
