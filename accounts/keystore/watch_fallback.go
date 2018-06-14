@@ -1,4 +1,4 @@
-// Copyright 2015 The go-ethereum Authors
+// Copyright 2016 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,31 +14,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package abi
+// +build ios linux,arm64 windows !darwin,!freebsd,!linux,!netbsd,!solaris
 
-import (
-	"bytes"
-	"math/big"
-	"reflect"
-	"testing"
-)
+// This is the fallback implementation of directory watching.
+// It is used on unsupported platforms.
 
-func TestNumberTypes(t *testing.T) {
-	ubytes := make([]byte, 32)
-	ubytes[31] = 1
+package keystore
 
-	unsigned := U256(big.NewInt(1))
-	if !bytes.Equal(unsigned, ubytes) {
-		t.Errorf("expected %x got %x", ubytes, unsigned)
-	}
-}
+type watcher struct{ running bool }
 
-func TestSigned(t *testing.T) {
-	if isSigned(reflect.ValueOf(uint(10))) {
-		t.Error("signed")
-	}
-
-	if !isSigned(reflect.ValueOf(int(10))) {
-		t.Error("not signed")
-	}
-}
+func newWatcher(*accountCache) *watcher { return new(watcher) }
+func (*watcher) start()                 {}
+func (*watcher) close()                 {}
