@@ -253,13 +253,13 @@ func (self *worker) update() {
 		case <-self.chainHeadCh:
 			self.commitNewWork()
 
-			// Handle ChainSideEvent
+		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
 			self.uncleMu.Lock()
 			self.possibleUncles[ev.Block.Hash()] = ev.Block
 			self.uncleMu.Unlock()
 
-			// Handle NewTxsEvent
+		// Handle NewTxsEvent
 		case ev := <-self.txsCh:
 			// Apply transactions to the pending state if we're not mining.
 			//
@@ -284,7 +284,7 @@ func (self *worker) update() {
 				}
 			}
 
-			// System stopped
+		// System stopped
 		case <-self.txsSub.Err():
 			return
 		case <-self.chainHeadSub.Err():

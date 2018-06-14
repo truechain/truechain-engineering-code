@@ -43,11 +43,10 @@ type Backend interface {
 }
 
 // Miner creates blocks and searches for proof-of-work values.
-// Miner创建block，并寻找POW values
 type Miner struct {
 	mux *event.TypeMux
 
-	worker *worker //管理mine过程
+	worker *worker
 
 	coinbase common.Address
 	mining   int32
@@ -58,7 +57,6 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-//初始化miner，创建worker，登记Agent对象给worker，运行miner.Update()
 func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:      eth,
@@ -107,8 +105,7 @@ out:
 
 func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
-	self.worker.setEtherbase(coinbase)
-	self.coinbase = coinbase
+	self.SetEtherbase(coinbase)
 
 	if atomic.LoadInt32(&self.canStart) == 0 {
 		log.Info("Network syncing, will start miner afterwards")
