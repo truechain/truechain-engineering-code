@@ -20,8 +20,18 @@ import (
     
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
+	// "github.com/ethereum/go-ethereum/common/hexutil"
+	// "github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
 )
+
+type checkPair struct {
+	left	int
+	right 	int
+}
+
 // all function was not tread-safe
 func (t *TrueHybrid) SyncMainMembers() {
 	// sync current CommitteeMember 
@@ -32,16 +42,64 @@ func (t *TrueHybrid) SyncMainMembers() {
 	// sync old CommitteeMember???
 }
 // verify the block which from pbft Committee
-func (t *TrueHybrid) CheckPbftBlock(block *TruePbftBlock) error {
-	// check with current committee 
-	// for _,v := range block.
-	// check with old committee
-	return nil
+func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
+	// check with current committee
+	signcount := len(block.Sigs)
+	hash := rlpHash(block.Txs)
+	keys := make(map[int]bool)
+	all := len(block.Sigs)
+	if all == 0 {
+		return errors.New("empty...")
+	}
+	err,useold := checkPbftBlock(t.curCmm,block)
+	if useold {
+		erro,_ := checkPbftBlock(t.oldCmm,block)
+		return erro
+	} 
+	return err
+}
+// return true means maybe old committee check
+func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,bool) {
+	sCount := len(block.Sigs)
+	vCount := len(verifier)
+	if sCount != vCount {
+		return errors.New("not all members sign"),true
+	}
+	keys := make(map[checkPair]bool)
+	msg := rlpHash(block.Txs)
+	for i,s := range block.Sigs {
+		err,r := verifyMember(verifier,msg,s)
+		if err != nil {
+			keys[checkPair{left:i,right:r}] = true
+		} else {
+			return err,true
+		}
+	}
+	if all == len(keys) {
+		return nil,false
+	} else {
+		return errors.New("not all members sign"),true
+	}
+}
+func (t *TrueHybrid) verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,int) {
+	for i,v := range cc {
+		pub,err := crypto.SigToPub(crypto.Keccak256(msg),sig)
+		if err != nil {
+			return err,0
+		}
+		if v.Nodeid == hex.EncodeToString(crypto.FromECDSAPub(pub)) {
+			return nil,i
+		}
+	} 
+	return errors.New("has no one sign..."),0
 }
 func (t *TrueHybrid) InPbftCommittee() bool {
 	_,nodeid,_ := getNodeID()
-	if nodeid == t.curCmm.Nodeid {
-		return true
+	
+	for _,v := range t.curCmm {
+		if nodeid == v.Nodeid {
+			return true
+		}
 	}
 	return false
 }
@@ -52,4 +110,10 @@ func getNodeID(/*server *p2p.Server*/) (string,string,string) {
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
 	pub := hex.EncodeToString(crypto.FromECDSAPub(server.PrivateKey.Public()))
 	return ip,pub,priv
+}
+func rlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }

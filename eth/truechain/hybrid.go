@@ -54,7 +54,7 @@ type StandbyInfo struct {
 	comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
 type CommitteeMember struct {
-	nodeid		string			// the pubkey of the node(nodeid)
+	Nodeid		string			// the pubkey of the node(nodeid)
 	addr		string 			
 	port		int
 }

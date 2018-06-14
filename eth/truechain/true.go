@@ -40,7 +40,7 @@ type PyHybConsensus struct {
 type TrueHybrid struct {
     quit        bool
     address     string
-    curCmm     *CommitteeMember
+    curCmm      []*CommitteeMember
     oldCmm      []*CommitteeMember
 
     sdmsize     int
@@ -155,7 +155,7 @@ func (t *TrueHybrid) Stop() error{
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    
+
     _, err1 := c.Stop(ctx, &EmptyParam{})
     if err1 != nil {
         return err1
