@@ -31,8 +31,11 @@ func (t *TrueHybrid) SyncMainMembers() {
 	}
 	// sync old CommitteeMember???
 }
-func (t *TrueHybrid) CheckPbftBlock() error {
-	
+// verify the block which from pbft Committee
+func (t *TrueHybrid) CheckPbftBlock(block *TruePbftBlock) error {
+	// check with current committee 
+	// for _,v := range block.
+	// check with old committee
 	return nil
 }
 func (t *TrueHybrid) InPbftCommittee() bool {

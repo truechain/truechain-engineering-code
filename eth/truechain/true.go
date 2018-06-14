@@ -13,7 +13,6 @@ limitations under the License.
 package truechain
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"net"
     "math/big"
     "errors"
@@ -21,23 +20,18 @@ import (
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
-    pb "github.com/ethereum/go-ethereum/eth/truechain"
-	// "github.com/ethereum/go-ethereum/accounts"
-	// "github.com/ethereum/go-ethereum/ethdb"
-	// "github.com/ethereum/go-ethereum/event"
-	// "github.com/ethereum/go-ethereum/p2p"
-	// "github.com/ethereum/go-ethereum/rpc"
+    "github.com/ethereum/go-ethereum/common"
 )
 
 type HybridConsensusHelp struct {
 }
-func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *pb.TruePbftBlock) (*pb.CommonReply, error) {
+func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
-    return &pb.CommonReply{Message: "success "}, nil
+    return &CommonReply{Message: "success "}, nil
 }
-func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *pb.EmptyParam) (*pb.CommonReply, error) {
+func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {
     // do something
-    return &pb.CommonReply{Message: "success "}, nil
+    return &CommonReply{Message: "success "}, nil
 }
 
 type PyHybConsensus struct {
@@ -62,7 +56,7 @@ func (t *TrueHybrid) HybridConsensusHelpInit() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterGreeterServer(s, &HybridConsensusHelp{})
+	RegisterGreeterServer(s, &HybridConsensusHelp{})
 	// Register reflection service on gRPC server.
 	// reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
@@ -77,19 +71,19 @@ func (t *TrueHybrid) MembersNodes(nodes []*TruePbftNode) error{
         return err
     }
     defer conn.Close()   
-    c := pb.NewPyHybConsensusClient(conn)
+    c := NewPyHybConsensusClient(conn)
  
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    pbNodes := make([]*pb.TruePbftNode,0,0)
-    for _,v := range nodes {
-        pbNodes = append(pbNodes,&pb.TruePbftNode{
-            Addr:       v.Addr,
-            Pubkey:     v.pubkey,
-            Privkey:    v.Privkey,
-        })
-    }
-    _, err1 := c.MembersNodes(ctx, &pb.Nodes{Nodes:pbNodes})
+    // pbNodes := make([]*TruePbftNode,0,0)
+    // for _,v := range nodes {
+    //     pbNodes = append(pbNodes,&TruePbftNode{
+    //         Addr:       v.Addr,
+    //         Pubkey:     v.pubkey,
+    //         Privkey:    v.Privkey,
+    //     })
+    // }
+    _, err1 := c.MembersNodes(ctx, &Nodes{Nodes:nodes})
     if err1 != nil {
         return err1
     }
@@ -102,20 +96,20 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction){
         return err
     }
     defer conn.Close()   
-    c := pb.NewPyHybConsensusClient(conn)
- 
+
+    c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
 
-    pbTxs := make([]*pb.Transaction,0,0)
+    pbTxs := make([]*Transaction,0,0)
     for _,v := range txs {
         to := make([]byte,0,0)
         if t := v.To(); t != nil {
             to = t.Bytes()
         }
         v,r,s := v.RawSignatureValues()
-        pbTxs = append(pbTxs,&pb.Transaction{
-            Data:       &pb.TxData{
+        pbTxs = append(pbTxs,&Transaction{
+            Data:       &TxData{
                 AccountNonce:       v.Nonce(),
                 Price:              v.GasPrice().Int64(),
                 GasLimit:           v.Gas().Int64(),
@@ -128,7 +122,7 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction){
             },
         })
     }
-    _, err1 := c.SetTransactions(ctx, &pb.Transactions{Txs:pbTxs})
+    _, err1 := c.SetTransactions(ctx, &Transactions{Txs:pbTxs})
     if err1 != nil {
         return err1
     }
@@ -141,11 +135,11 @@ func (t *TrueHybrid) Start() error{
         return err
     }
     defer conn.Close()   
-    c := pb.NewPyHybConsensusClient(conn)
+    c := NewPyHybConsensusClient(conn)
 
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    _, err1 := c.Start(ctx, &pb.EmptyParam{})
+    _, err1 := c.Start(ctx, &EmptyParam{})
     if err1 != nil {
         return err1
     }
@@ -158,11 +152,11 @@ func (t *TrueHybrid) Stop() error{
         return err
     }
     defer conn.Close()   
-    c := pb.NewPyHybConsensusClient(conn)
- 
+    c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    _, err1 := c.Stop(ctx, &pb.EmptyParam{})
+    
+    _, err1 := c.Stop(ctx, &EmptyParam{})
     if err1 != nil {
         return err1
     }   
