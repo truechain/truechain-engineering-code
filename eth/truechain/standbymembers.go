@@ -65,7 +65,7 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 			break
 		} else {
 			vv = append(vv,&CommitteeMember{
-				nodeid:		v.nodeid,
+				Nodeid:		v.Nodeid,
 				addr:		v.addr,			
 				port:		v.port,			
 			})
@@ -109,6 +109,7 @@ func (t *TrueHybrid) insertToSDM(bc *core.BlockChain) error {
 	}
 	return nil
 }
+
 // remove the msg that has same height and it was used
 func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 	pos := make([]int,0,0)

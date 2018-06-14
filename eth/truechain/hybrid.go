@@ -27,26 +27,26 @@ import (
 )
 
 
-type TruePbftNode struct {
-	Addr 		string 		// node ip like 127.0.0.1,the port use default
-	Pubkey  	string		// 
-	Privkey		string  	//
-}
-type TruePbftBlockHeader struct {
-	Number      *big.Int       // block Height out of pbft 
-	GasLimit    *big.Int       // gaslimit in block include bonus tx
-	GasUsed     *big.Int       // gasused in block
-	Time        *big.Int       // generate time
-}
+// type TruePbftNode struct {
+// 	Addr 		string 		// node ip like 127.0.0.1,the port use default
+// 	Pubkey  	string		// 
+// 	Privkey		string  	//
+// }
+// type TruePbftBlockHeader struct {
+// 	Number      *big.Int       // block Height out of pbft 
+// 	GasLimit    *big.Int       // gaslimit in block include bonus tx
+// 	GasUsed     *big.Int       // gasused in block
+// 	Time        *big.Int       // generate time
+// }
 
-type TruePbftBlock struct {
-	header       *TruePbftBlockHeader
-	Transactions []*types.Transaction		// raw tx（include bonus tx）
-	sig		     []*string					// sign with all members
-}
+// type TruePbftBlock struct {
+// 	header       *TruePbftBlockHeader
+// 	Transactions []*types.Transaction		// raw tx（include bonus tx）
+// 	sig		     []*string					// sign with all members
+// }
 
 type StandbyInfo struct {
-	nodeid		string			// the pubkey of the node(nodeid)
+	Nodeid		string			// the pubkey of the node(nodeid)
 	coinbase	string			// the bonus address of miner
 	addr		string 			
 	port		int
