@@ -24,6 +24,13 @@ import (
 )
 
 type HybridConsensusHelp struct {
+    tt          *TrueHybrid
+}
+func (s *HybridConsensusHelp) setTrue(t *TrueHybrid) {
+    tt = t
+}
+func (s *HybridConsensusHelp) getTrue() *TrueHybrid {
+    return tt
 }
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
@@ -31,7 +38,12 @@ func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock
 }
 func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {
     // do something
-    return &CommonReply{Message: "success "}, nil
+    m,err := s.getTrue().Vote(t.GetCommitteeCount())
+    if err != nil {
+        return &CommonReply{Message: "fail "}, err
+    }
+    err = s.getTrue().MembersNodes(m)
+    return &CommonReply{Message: "success "}, err
 }
 
 type PyHybConsensus struct {
@@ -40,6 +52,8 @@ type PyHybConsensus struct {
 type TrueHybrid struct {
     quit        bool
     address     string
+    commCount   int
+
     curCmm      []*CommitteeMember
     oldCmm      []*CommitteeMember
 
@@ -48,15 +62,34 @@ type TrueHybrid struct {
     crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
     crptmp      []*TrueCryptoMsg        // unauthenticated msg by block comfirm
 }
-
+func New() *TrueHybrid {
+    // init TrueHybrid object 
+    // read cfg 
+    return &TrueHybrid{
+        quit:               false,
+        address:            "127.0.0.1",
+        commCount:          5,
+        curCmm:             make([]*CommitteeMember,0,0),
+        oldCmm:             make([]*CommitteeMember,0,0),
+        sdmsize:            1000,
+        sdm:                make([]*StandbyInfo),
+        crpmsg:             make([]*TrueCryptoMsg),
+        crptmp:             make([]*TrueCryptoMsg),
+    }
+}
+func (t *TrueHybrid) GetCommitteeCount() int {
+    return t.commCount
+}
 func (t *TrueHybrid) HybridConsensusHelpInit() {
     port = 17546
     lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
-	RegisterGreeterServer(s, &HybridConsensusHelp{})
+    s := grpc.NewServer()
+    rpcServer := HybridConsensusHelp{}
+    rpcServer.setTrue(t)
+    RegisterHybridConsensusHelpServer(s, rpcServer)
 	// Register reflection service on gRPC server.
 	// reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
@@ -64,7 +97,7 @@ func (t *TrueHybrid) HybridConsensusHelpInit() {
 	}
 }
 
-func (t *TrueHybrid) MembersNodes(nodes []*TruePbftNode) error{
+func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     // Set up a connection to the server.
     conn, err := grpc.Dial(t.address, grpc.WithInsecure())
     if err != nil {
@@ -72,18 +105,22 @@ func (t *TrueHybrid) MembersNodes(nodes []*TruePbftNode) error{
     }
     defer conn.Close()   
     c := NewPyHybConsensusClient(conn)
- 
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    // pbNodes := make([]*TruePbftNode,0,0)
-    // for _,v := range nodes {
-    //     pbNodes = append(pbNodes,&TruePbftNode{
-    //         Addr:       v.Addr,
-    //         Pubkey:     v.pubkey,
-    //         Privkey:    v.Privkey,
-    //     })
-    // }
-    _, err1 := c.MembersNodes(ctx, &Nodes{Nodes:nodes})
+    _,lnodeid,priv := getNodeID()
+    pbNodes := make([]*TruePbftNode,0,0)
+    for _,v := range nodes {
+        n := TruePbftNode{
+            Addr:       v.addr,
+            Pubkey:     v.Nodeid,
+            Privkey:    "",
+        }
+        if lnodeid == v.Nodeid {
+            n.Privkey = priv
+        }
+        pbNodes = append(pbNodes,&n)
+    }
+    _, err1 := c.MembersNodes(ctx, &Nodes{Nodes:pbNodes})
     if err1 != nil {
         return err1
     }
@@ -102,20 +139,20 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction){
     defer cancel()
 
     pbTxs := make([]*Transaction,0,0)
-    for _,v := range txs {
+    for _,vv := range txs {
         to := make([]byte,0,0)
-        if t := v.To(); t != nil {
-            to = t.Bytes()
+        if tt := vv.To(); tt != nil {
+            to = tt.Bytes()
         }
-        v,r,s := v.RawSignatureValues()
+        v,r,s := vv.RawSignatureValues()
         pbTxs = append(pbTxs,&Transaction{
             Data:       &TxData{
-                AccountNonce:       v.Nonce(),
-                Price:              v.GasPrice().Int64(),
-                GasLimit:           v.Gas().Int64(),
+                AccountNonce:       vv.Nonce(),
+                Price:              vv.GasPrice().Int64(),
+                GasLimit:           vv.Gas().Int64(),
                 Recipient:          to,
-                Amount:             v.Value().Int64(),
-                Payload:            v.Data(),
+                Amount:             vv.Value().Int64(),
+                Payload:            vv.Data(),
                 V:                  v.Int64(),
                 R:                  r.Int64(),
                 S:                  s.Int64(),

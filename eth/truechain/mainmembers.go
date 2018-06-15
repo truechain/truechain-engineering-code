@@ -16,7 +16,8 @@ import (
 	"encoding/hex"
 	"net"
     "math/big"
-    "errors"
+	"errors"
+	"bytes"
     
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,12 +34,20 @@ type checkPair struct {
 }
 
 // all function was not tread-safe
+
 func (t *TrueHybrid) SyncMainMembers() {
 	// sync current CommitteeMember 
-	data,err := t.curCmm.ToByte()
-	if err != nil {
-		// send data 
+	buf := bytes.NewBuffer(nil)
+	for _,v := range t.curCmm {
+		data,err := v.ToByte()
+		if err != nil {
+			// fmt.Println("ToByte error=",err)
+			return 
+		} else {
+			buf.Write(data)
+		}
 	}
+	// send by p2p network
 	// sync old CommitteeMember???
 }
 // verify the block which from pbft Committee
@@ -102,6 +111,14 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 		}
 	}
 	return false
+}
+func (t *TrueHybrid) SyncMain(committee []*CommitteeMember,from string) {
+	// sync all current main committee 
+	if len(t.curCmm) <= 0 {
+		t.curCmm = committee
+	} else {
+		// do nothing temporarily
+	}
 }
 func getNodeID(/*server *p2p.Server*/) (string,string,string) {
 	// get p2p server later
