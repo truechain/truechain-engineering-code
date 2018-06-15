@@ -56,7 +56,7 @@ func (t *TrueHybrid) HybridConsensusHelpInit() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	RegisterGreeterServer(s, &HybridConsensusHelp{})
+	RegisterHybridConsensusHelpServer(s, &HybridConsensusHelp{})
 	// Register reflection service on gRPC server.
 	// reflection.Register(s)
 	if err := s.Serve(lis); err != nil {
