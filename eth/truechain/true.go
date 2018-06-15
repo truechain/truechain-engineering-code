@@ -139,20 +139,20 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction){
     defer cancel()
 
     pbTxs := make([]*Transaction,0,0)
-    for _,v := range txs {
+    for _,vv := range txs {
         to := make([]byte,0,0)
-        if t := v.To(); t != nil {
-            to = t.Bytes()
+        if tt := vv.To(); tt != nil {
+            to = tt.Bytes()
         }
-        v,r,s := v.RawSignatureValues()
+        v,r,s := vv.RawSignatureValues()
         pbTxs = append(pbTxs,&Transaction{
             Data:       &TxData{
-                AccountNonce:       v.Nonce(),
-                Price:              v.GasPrice().Int64(),
-                GasLimit:           v.Gas().Int64(),
+                AccountNonce:       vv.Nonce(),
+                Price:              vv.GasPrice().Int64(),
+                GasLimit:           vv.Gas().Int64(),
                 Recipient:          to,
-                Amount:             v.Value().Int64(),
-                Payload:            v.Data(),
+                Amount:             vv.Value().Int64(),
+                Payload:            vv.Data(),
                 V:                  v.Int64(),
                 R:                  r.Int64(),
                 S:                  s.Int64(),
