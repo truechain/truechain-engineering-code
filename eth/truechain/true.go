@@ -13,6 +13,7 @@ limitations under the License.
 package truechain
 
 import (
+	"time"
 	"net"
     "math/big"
     "errors"
@@ -21,6 +22,8 @@ import (
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
     "github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/p2p"
+
 )
 
 type HybridConsensusHelp struct {
@@ -61,12 +64,15 @@ type TrueHybrid struct {
     sdm         []*StandbyInfo
     crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
     crptmp      []*TrueCryptoMsg        // unauthenticated msg by block comfirm
+    grpcServer  *grpc.Server
+    p2pServer   *p2p.Server
 }
+
 func New() *TrueHybrid {
     // init TrueHybrid object 
     // read cfg 
     return &TrueHybrid{
-        quit:               false,
+        quit:               true,
         address:            "127.0.0.1",
         commCount:          5,
         curCmm:             make([]*CommitteeMember,0,0),
@@ -75,26 +81,57 @@ func New() *TrueHybrid {
         sdm:                make([]*StandbyInfo),
         crpmsg:             make([]*TrueCryptoMsg),
         crptmp:             make([]*TrueCryptoMsg),
+        p2pServer:          nil,
+        grpcServer:         nil,
     }
+}
+func (t *TrueHybrid) StartTrueChain() error {
+    t.quit = false
+    t.grpcServer = grpc.NewServer() 
+    go HybridConsensusHelpInit(t)
+    go SyncWork()
+    return nil
+}
+func (t *TrueHybrid) StopTrueChain() {
+    t.quit = true
+    if t.grpcServer != nil {
+        t.grpcServer.Stop()
+    }
+    time.Sleep(2*time.Second)
 }
 func (t *TrueHybrid) GetCommitteeCount() int {
     return t.commCount
 }
-func (t *TrueHybrid) HybridConsensusHelpInit() {
+func HybridConsensusHelpInit(t *TrueHybrid) {
     port = 17546
     lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
-	}
-    s := grpc.NewServer()
+    }
     rpcServer := HybridConsensusHelp{}
     rpcServer.setTrue(t)
-    RegisterHybridConsensusHelpServer(s, rpcServer)
+    RegisterHybridConsensusHelpServer(t.GrpcServer(), rpcServer)
 	// Register reflection service on gRPC server.
-	// reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
+	// reflection.Register(t.GrpcServer())
+	if err := t.GrpcServer().Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
-	}
+    }
+    
+}
+func SyncWork(t *TrueHybrid) {
+    for {
+        if t.quit {
+            break
+        }
+        t.SyncMainMembers()
+        t.SyncStandbyMembers()
+        for i:=0;i<30;i++ {
+            if t.quit {
+                return 
+            }
+            time.Sleep(1*time.Second)
+        }
+    }
 }
 
 func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
@@ -198,4 +235,13 @@ func (t *TrueHybrid) Stop() error{
         return err1
     }   
     return nil
+}
+func (t *TrueHybrid) P2PServer() *p2p.Server {
+    return t.p2pServer
+}
+func (t *TrueHybrid) SetP2PServer(s *p2p.Server) {
+    t.p2pServer = s
+}
+func (t *TrueHybrid) GrpcServer() *grpc.Server {
+    return t.grpcServer
 }

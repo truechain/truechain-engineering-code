@@ -34,7 +34,6 @@ type checkPair struct {
 }
 
 // all function was not tread-safe
-
 func (t *TrueHybrid) SyncMainMembers() {
 	// sync current CommitteeMember 
 	buf := bytes.NewBuffer(nil)
@@ -103,7 +102,7 @@ func (t *TrueHybrid) verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,i
 	return errors.New("has no one sign..."),0
 }
 func (t *TrueHybrid) InPbftCommittee() bool {
-	_,nodeid,_ := getNodeID()
+	_,nodeid,_ := t.getNodeID()
 	
 	for _,v := range t.curCmm {
 		if nodeid == v.Nodeid {
@@ -112,6 +111,7 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 	}
 	return false
 }
+// receive the sync message 
 func (t *TrueHybrid) SyncMain(committee []*CommitteeMember,from string) {
 	// sync all current main committee 
 	if len(t.curCmm) <= 0 {
@@ -120,9 +120,8 @@ func (t *TrueHybrid) SyncMain(committee []*CommitteeMember,from string) {
 		// do nothing temporarily
 	}
 }
-func getNodeID(/*server *p2p.Server*/) (string,string,string) {
-	// get p2p server later
-	var server *p2p.Server  // tmp
+func (t *TrueHybrid) getNodeID(/*server *p2p.Server*/) (string,string,string) {
+	var server *p2p.Server = t.P2PServer()  // tmp
 	ip := server.NodeInfo().IP
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
 	pub := hex.EncodeToString(crypto.FromECDSAPub(server.PrivateKey.Public()))

@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/prometheus/util/flock"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 // Node is a container on which services can be registered.
@@ -71,6 +72,7 @@ type Node struct {
 	lock sync.RWMutex
 
 	log log.Logger
+	tc 	*truechain.TrueHybrid
 }
 
 // New creates a new P2P node, ready for protocol registration.
@@ -224,6 +226,13 @@ func (n *Node) Start() error {
 	n.server = running
 	n.stop = make(chan struct{})
 
+	if err := n.StartTrueChain(); err != nil {
+		for _, service := range services {
+			service.Stop()
+		}
+		running.Stop()
+		return err
+	}
 	return nil
 }
 
@@ -408,6 +417,7 @@ func (n *Node) Stop() error {
 	}
 
 	// Terminate the API, services and the p2p server.
+	n.StopTrueChain()
 	n.stopWS()
 	n.stopHTTP()
 	n.stopIPC()
@@ -605,5 +615,15 @@ func (n *Node) apis() []rpc.API {
 			Service:   NewPublicWeb3API(n),
 			Public:    true,
 		},
+	}
+}
+func (n *Node) StartTrueChain() error {
+	tc := truechain.New()	
+	tc.SetP2PServer(n.Server())
+	return tc.StartTrueChain()
+}
+func (n *Node) StopTrueChain() {
+	if tc != nil {
+		tc.StopTrueChain()
 	}
 }
