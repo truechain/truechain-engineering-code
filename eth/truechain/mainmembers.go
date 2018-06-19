@@ -14,17 +14,17 @@ package truechain
 
 import (
 	"encoding/hex"
-	"net"
-    "math/big"
+	"crypto/ecdsa"
+   	// "math/big"
 	"errors"
 	"bytes"
     
-	"github.com/ethereum/go-ethereum/core/types"
+	//"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	// "github.com/ethereum/go-ethereum/common/hexutil"
-	// "github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -52,9 +52,6 @@ func (t *TrueHybrid) SyncMainMembers() {
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
 	// check with current committee
-	signcount := len(block.Sigs)
-	hash := rlpHash(block.Txs)
-	keys := make(map[int]bool)
 	all := len(block.Sigs)
 	if all == 0 {
 		return errors.New("empty...")
@@ -76,20 +73,20 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 	keys := make(map[checkPair]bool)
 	msg := rlpHash(block.Txs)
 	for i,s := range block.Sigs {
-		err,r := verifyMember(verifier,msg,s)
+		err,r := verifyMember(verifier,msg,common.FromHex(s))
 		if err != nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
 			return err,true
 		}
 	}
-	if all == len(keys) {
+	if vCount == len(keys) {
 		return nil,false
 	} else {
 		return errors.New("not all members sign"),true
 	}
 }
-func (t *TrueHybrid) verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,int) {
+func verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	for i,v := range cc {
 		pub,err := crypto.SigToPub(crypto.Keccak256(msg),sig)
 		if err != nil {
@@ -124,10 +121,14 @@ func (t *TrueHybrid) getNodeID(/*server *p2p.Server*/) (string,string,string) {
 	var server *p2p.Server = t.P2PServer()  // tmp
 	ip := server.NodeInfo().IP
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
-	pub := hex.EncodeToString(crypto.FromECDSAPub(server.PrivateKey.Public()))
+	pub := hex.EncodeToString(crypto.FromECDSAPub(
+		&ecdsa.PublicKey{
+			Curve: 	server.PrivateKey.PublicKey.Curve, 
+			X: 		server.PrivateKey.PublicKey.X, 
+			Y: 		server.PrivateKey.PublicKey.Y}))
 	return ip,pub,priv
 }
-func rlpHash(x interface{}) (h common.Hash) {
+func rlpHash(x interface{}) (h []byte) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])

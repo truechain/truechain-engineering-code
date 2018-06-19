@@ -15,13 +15,13 @@ package truechain
 import (
 	"time"
 	"net"
-    "math/big"
-    "errors"
+   	// "math/big"
+   	// "errors"
     
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
-    "github.com/ethereum/go-ethereum/common"
+    //"github.com/ethereum/go-ethereum/common"
     "github.com/ethereum/go-ethereum/p2p"
 
 )
@@ -29,25 +29,27 @@ import (
 type HybridConsensusHelp struct {
     tt          *TrueHybrid
 }
-func (s *HybridConsensusHelp) setTrue(t *TrueHybrid) {
-    tt = t
-}
-func (s *HybridConsensusHelp) getTrue() *TrueHybrid {
-    return tt
-}
+
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {
     // do something
-    m,err := s.getTrue().Vote(t.GetCommitteeCount())
+    m,err := s.getTrue().Vote(s.getTrue().GetCommitteeCount())
     if err != nil {
         return &CommonReply{Message: "fail "}, err
     }
     err = s.getTrue().MembersNodes(m)
     return &CommonReply{Message: "success "}, err
 }
+func (s *HybridConsensusHelp) setTrue(t *TrueHybrid) {
+   s.tt = t
+}
+func (s *HybridConsensusHelp) getTrue() *TrueHybrid {
+    return s.tt
+}
+
 
 type PyHybConsensus struct {
 }
@@ -78,9 +80,9 @@ func New() *TrueHybrid {
         curCmm:             make([]*CommitteeMember,0,0),
         oldCmm:             make([]*CommitteeMember,0,0),
         sdmsize:            1000,
-        sdm:                make([]*StandbyInfo),
-        crpmsg:             make([]*TrueCryptoMsg),
-        crptmp:             make([]*TrueCryptoMsg),
+        sdm:                make([]*StandbyInfo,0,0),
+        crpmsg:             make([]*TrueCryptoMsg,0,0),
+        crptmp:             make([]*TrueCryptoMsg,0,0),
         p2pServer:          nil,
         grpcServer:         nil,
     }
@@ -89,7 +91,7 @@ func (t *TrueHybrid) StartTrueChain() error {
     t.quit = false
     t.grpcServer = grpc.NewServer() 
     go HybridConsensusHelpInit(t)
-    go SyncWork()
+    go SyncWork(t)
     return nil
 }
 func (t *TrueHybrid) StopTrueChain() {
@@ -103,18 +105,19 @@ func (t *TrueHybrid) GetCommitteeCount() int {
     return t.commCount
 }
 func HybridConsensusHelpInit(t *TrueHybrid) {
-    port = 17546
-    lis, err := net.Listen("tcp", port)
+    addr := "127.0.0.1:17546" 
+    lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		//log.Fatalf("failed to listen: %v", err)
+	return
     }
     rpcServer := HybridConsensusHelp{}
     rpcServer.setTrue(t)
-    RegisterHybridConsensusHelpServer(t.GrpcServer(), rpcServer)
+    RegisterHybridConsensusHelpServer(t.GrpcServer(), &rpcServer)
 	// Register reflection service on gRPC server.
 	// reflection.Register(t.GrpcServer())
 	if err := t.GrpcServer().Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		//log.Fatalf("failed to serve: %v", err)
     }
     
 }
@@ -144,7 +147,7 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    _,lnodeid,priv := getNodeID()
+    _,lnodeid,priv := t.getNodeID()
     pbNodes := make([]*TruePbftNode,0,0)
     for _,v := range nodes {
         n := TruePbftNode{
@@ -163,7 +166,7 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     }
     return nil
 }
-func (t *TrueHybrid) SetTransactions(txs []*types.Transaction){
+func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
     // Set up a connection to the server.
     conn, err := grpc.Dial(t.address, grpc.WithInsecure())
     if err != nil {
@@ -182,11 +185,13 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction){
             to = tt.Bytes()
         }
         v,r,s := vv.RawSignatureValues()
+	var gaslimit int64 
+	gaslimit = 0
         pbTxs = append(pbTxs,&Transaction{
             Data:       &TxData{
                 AccountNonce:       vv.Nonce(),
                 Price:              vv.GasPrice().Int64(),
-                GasLimit:           vv.Gas().Int64(),
+                GasLimit:           gaslimit,
                 Recipient:          to,
                 Amount:             vv.Value().Int64(),
                 Payload:            vv.Data(),

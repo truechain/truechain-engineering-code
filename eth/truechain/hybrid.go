@@ -18,8 +18,8 @@ import (
 	"encoding/gob"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/common"
+	//"github.com/ethereum/go-ethereum/core/types"
+	//"github.com/ethereum/go-ethereum/common"
 	// "github.com/ethereum/go-ethereum/ethdb"
 	// "github.com/ethereum/go-ethereum/event"
 	// "github.com/ethereum/go-ethereum/p2p"
@@ -68,14 +68,14 @@ type TrueCryptoMsg struct {
 func (t *TrueCryptoMsg) Use() bool { return t.use }
 func (t *TrueCryptoMsg) SetUse(u bool) { t.use = u }
 func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
-	info := struct StandbyInfo{Height:big.NewInt(0)}
+	info := StandbyInfo{Height:big.NewInt(0),}
 	info.FromByte(t.Msg)
 	return &info
 }
 func (t *TrueCryptoMsg) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to := struct TrueCryptoMsg{
+	to :=  TrueCryptoMsg{
 		Height:		big.NewInt(0),
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
@@ -100,7 +100,7 @@ func (t *TrueCryptoMsg) ToByte() ([]byte,error) {
 func (t *StandbyInfo) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to := struct StandbyInfo{
+	to :=  StandbyInfo{
 		Height:		big.NewInt(0),
 		comfire:	false,
 	}
@@ -135,7 +135,7 @@ func (t *CommitteeMember) ToByte() ([]byte,error) {
 func (t *CommitteeMember) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to := struct CommitteeMember{}
+	to := CommitteeMember{}
 	dec.Decode(to)
 	t.Nodeid = to.Nodeid
 	t.addr = to.addr
@@ -145,7 +145,7 @@ func (t *CommitteeMember) FromByte(data []byte) error {
 func toByte(e interface{}) ([]byte,error) {
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
-	err := enc.Encode(t)
+	err := enc.Encode(e)
 	if err != nil {
 		return nil,err
 	}

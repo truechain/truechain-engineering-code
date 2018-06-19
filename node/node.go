@@ -618,12 +618,12 @@ func (n *Node) apis() []rpc.API {
 	}
 }
 func (n *Node) StartTrueChain() error {
-	tc := truechain.New()	
-	tc.SetP2PServer(n.Server())
-	return tc.StartTrueChain()
+	n.tc = truechain.New()	
+	n.tc.SetP2PServer(n.Server())
+	return n.tc.StartTrueChain()
 }
 func (n *Node) StopTrueChain() {
-	if tc != nil {
-		tc.StopTrueChain()
+	if n.tc != nil {
+		n.tc.StopTrueChain()
 	}
 }

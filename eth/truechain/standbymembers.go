@@ -16,12 +16,12 @@ import (
 	"time"
 	"strconv"
 	"crypto/ecdsa"
-	"net"
-    "math/big"
-    "errors"
+	//"net"
+    	"math/big"
+    	"errors"
     
-    "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/common"
+    	//"github.com/ethereum/go-ethereum/core/types"
+	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core"
 )
@@ -41,7 +41,7 @@ func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
 }
 func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
 	for _,v := range t.crpmsg {
-		if v.heigth.Cmp(h) == 0 {
+		if v.Height.Cmp(h) == 0 {
 			return v
 		}		
 	}
@@ -88,21 +88,21 @@ func (t *TrueHybrid) checkTmpMsg(bc *core.BlockChain) {
 			break
 		}	
 	}
-	return nil
+	return
 }
 // crpmsg was be check and insert to the standbyqueue
 // when the blockchain has the block.
 func (t *TrueHybrid) insertToSDM(bc *core.BlockChain) error {
 	m,_ := t.minMsg(t.crpmsg,false)
 	if m == nil {
-		return errors.New("no minMsg,msglen=",strconv.Atoi(len(t.crpmsg)))
+		return errors.New("no minMsg,msglen=" + strconv.Itoa(len(t.crpmsg)))
 	}
 	msgHeight := m.Height
-	cur := big.NewInt(bc.CurrentHeader().Number().Int64())	
+	cur := big.NewInt(bc.CurrentHeader().Number.Int64())	
 	if cur.Abs(msgHeight).Cmp(big.NewInt(12)) >= 0 {
 		res := verityMsg(m,bc)
 		if res == 1 {
-			add(m)
+			t.add(m)
 		}
 		m.SetUse(true)
 		t.removeUnuseMsg(m.Height)
@@ -174,7 +174,7 @@ func (t *TrueHybrid) standbyWork(bc *core.BlockChain) error {
 }
 // after success pow,send the node by p2p
 func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMsg,error) {
-	cmsg := struct TrueCryptoMsg{
+	cmsg := TrueCryptoMsg{
 		Height:		n.Height,
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
@@ -189,12 +189,12 @@ func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMs
 	if err != nil {
 		return nil,err
 	}
-	return cmsg,nil
+	return &cmsg,nil
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
 func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
 	// find the coinbase address from the heigth
-	header := bc.GetHeaderByNumber(msg.heigth)
+	header := bc.GetHeaderByNumber(msg.Height.Uint64())
 	if header == nil {
 		return 0
 	}
@@ -204,7 +204,7 @@ func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
 	if err != nil {
 		return -1
 	}
-	addr := crypto.PubkeyToAddress(pub).String()
+	addr := crypto.PubkeyToAddress(*pub).String()
 	if addr == coinbase {
 		return 1
 	}
@@ -213,7 +213,7 @@ func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
 func (t *TrueHybrid) SyncStandbyMembers() {
 	// sync crypmsg 
 	for _,v := range t.crpmsg {
-		data,err := v.ToByte()
+		_,err := v.ToByte()
 		if err != nil {
 			// send data 
 		}
