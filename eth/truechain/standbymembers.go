@@ -16,11 +16,10 @@ import (
 	"time"
 	"strconv"
 	"crypto/ecdsa"
-	//"net"
-    	"math/big"
-    	"errors"
+    "math/big"
+    "errors"
     
-    	//"github.com/ethereum/go-ethereum/core/types"
+    //"github.com/ethereum/go-ethereum/core/types"
 	//"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core"
@@ -48,9 +47,9 @@ func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
 	return nil
 }
 
-func (t *TrueHybrid) AddMsg(msg *TrueCryptoMsg,bc *core.BlockChain) {
+func (t *TrueHybrid) AddMsg(msg *TrueCryptoMsg) {
 	// verify the msg when the block is on
-	res := verityMsg(msg,bc)
+	res := verityMsg(msg,t.bc)
 	if res == 1 {
 		t.crpmsg = append(t.crpmsg,msg)
 	} else if res == 0 {
@@ -74,13 +73,13 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	return vv,nil
 }
 // check the crypmsg when blockchain has the block
-func (t *TrueHybrid) checkTmpMsg(bc *core.BlockChain) {
+func (t *TrueHybrid) checkTmpMsg() {
 	for {
 		if len(t.crptmp) <= 0 {
 			break
 		}
 		msg,pos := t.minMsg(t.crptmp,true)
-		res := verityMsg(msg,bc)
+		res := verityMsg(msg,t.bc)
 		if res == 1 {
 			t.crpmsg = append(t.crpmsg,msg)
 			t.removemgs(t.crptmp,pos)
@@ -92,15 +91,15 @@ func (t *TrueHybrid) checkTmpMsg(bc *core.BlockChain) {
 }
 // crpmsg was be check and insert to the standbyqueue
 // when the blockchain has the block.
-func (t *TrueHybrid) insertToSDM(bc *core.BlockChain) error {
+func (t *TrueHybrid) insertToSDM() error {
 	m,_ := t.minMsg(t.crpmsg,false)
 	if m == nil {
 		return errors.New("no minMsg,msglen=" + strconv.Itoa(len(t.crpmsg)))
 	}
 	msgHeight := m.Height
-	cur := big.NewInt(bc.CurrentHeader().Number.Int64())	
+	cur := big.NewInt(t.bc.CurrentHeader().Number.Int64())	
 	if cur.Abs(msgHeight).Cmp(big.NewInt(12)) >= 0 {
-		res := verityMsg(m,bc)
+		res := verityMsg(m,t.bc)
 		if res == 1 {
 			t.add(m)
 		}
@@ -161,14 +160,16 @@ func (t *TrueHybrid) minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,in
 		}
 	}
 }
-func (t *TrueHybrid) standbyWork(bc *core.BlockChain) error {
+func (t *TrueHybrid) StandbyWork() error {
 	for {
 		if t.quit { break }
 		
-		t.insertToSDM(bc)
-		t.checkTmpMsg(bc)
-
-		time.Sleep(5 * time.Second)
+		t.insertToSDM()
+		t.checkTmpMsg()
+		for i:=0;i<5;i++ {
+			if t.quit { return nil }
+			time.Sleep(1 * time.Second)
+		}
 	}
 	return nil
 }

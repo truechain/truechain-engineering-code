@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/prometheus/util/flock"
+	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
@@ -620,10 +621,17 @@ func (n *Node) apis() []rpc.API {
 func (n *Node) StartTrueChain() error {
 	n.tc = truechain.New()	
 	n.tc.SetP2PServer(n.Server())
-	return n.tc.StartTrueChain()
+	var ethereum *eth.Ethereum
+	if err := n.Service(&ethereum); err != nil {
+		return err
+	}
+	return n.tc.StartTrueChain(ethereum.BlockChain())
 }
 func (n *Node) StopTrueChain() {
 	if n.tc != nil {
 		n.tc.StopTrueChain()
 	}
+}
+func (n *Node) GetTrueChain() *truechain.TrueHybrid {
+	return n.tc
 }

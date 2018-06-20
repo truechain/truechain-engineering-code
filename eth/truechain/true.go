@@ -13,16 +13,16 @@ limitations under the License.
 package truechain
 
 import (
+	"math/big"
 	"time"
 	"net"
-   	"math/big"
+   	"errors"
     
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
-    //"github.com/ethereum/go-ethereum/common"
+    "github.com/ethereum/go-ethereum/core"
     "github.com/ethereum/go-ethereum/p2p"
-
 )
 
 type HybridConsensusHelp struct {
@@ -67,6 +67,7 @@ type TrueHybrid struct {
     crptmp      []*TrueCryptoMsg        // unauthenticated msg by block comfirm
     grpcServer  *grpc.Server
     p2pServer   *p2p.Server
+    bc          *core.BlockChain
 }
 
 func New() *TrueHybrid {
@@ -86,11 +87,13 @@ func New() *TrueHybrid {
         grpcServer:         nil,
     }
 }
-func (t *TrueHybrid) StartTrueChain() error {
+func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
+    t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer() 
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
+    go TrueChainWork(t)
     return nil
 }
 func (t *TrueHybrid) StopTrueChain() {
@@ -118,7 +121,9 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
 	if err := t.GrpcServer().Serve(lis); err != nil {
 		//log.Fatalf("failed to serve: %v", err)
     }
-    
+}
+func TrueChainWork(t *TrueHybrid) {
+    t.StandbyWork()
 }
 func SyncWork(t *TrueHybrid) {
     for {
