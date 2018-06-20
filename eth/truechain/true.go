@@ -15,8 +15,7 @@ package truechain
 import (
 	"time"
 	"net"
-   	// "math/big"
-   	// "errors"
+   	"math/big"
     
     "golang.org/x/net/context"
     "google.golang.org/grpc"
@@ -185,13 +184,11 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
             to = tt.Bytes()
         }
         v,r,s := vv.RawSignatureValues()
-	var gaslimit int64 
-	gaslimit = 0
         pbTxs = append(pbTxs,&Transaction{
             Data:       &TxData{
                 AccountNonce:       vv.Nonce(),
                 Price:              vv.GasPrice().Int64(),
-                GasLimit:           gaslimit,
+                GasLimit:           new(big.Int).SetUint64(vv.Gas()).Int64(),
                 Recipient:          to,
                 Amount:             vv.Value().Int64(),
                 Payload:            vv.Data(),
