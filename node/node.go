@@ -34,8 +34,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/prometheus/prometheus/util/flock"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 // Node is a container on which services can be registered.
@@ -73,7 +71,6 @@ type Node struct {
 	lock sync.RWMutex
 
 	log log.Logger
-	tc 	*truechain.TrueHybrid
 }
 
 // New creates a new P2P node, ready for protocol registration.
@@ -227,13 +224,6 @@ func (n *Node) Start() error {
 	n.server = running
 	n.stop = make(chan struct{})
 
-	if err := n.StartTrueChain(); err != nil {
-		for _, service := range services {
-			service.Stop()
-		}
-		running.Stop()
-		return err
-	}
 	return nil
 }
 
@@ -418,7 +408,6 @@ func (n *Node) Stop() error {
 	}
 
 	// Terminate the API, services and the p2p server.
-	n.StopTrueChain()
 	n.stopWS()
 	n.stopHTTP()
 	n.stopIPC()
@@ -617,21 +606,4 @@ func (n *Node) apis() []rpc.API {
 			Public:    true,
 		},
 	}
-}
-func (n *Node) StartTrueChain() error {
-	n.tc = truechain.New()	
-	n.tc.SetP2PServer(n.Server())
-	var ethereum *eth.Ethereum
-	if err := n.Service(&ethereum); err != nil {
-		return err
-	}
-	return n.tc.StartTrueChain(ethereum.BlockChain())
-}
-func (n *Node) StopTrueChain() {
-	if n.tc != nil {
-		n.tc.StopTrueChain()
-	}
-}
-func (n *Node) GetTrueChain() *truechain.TrueHybrid {
-	return n.tc
 }

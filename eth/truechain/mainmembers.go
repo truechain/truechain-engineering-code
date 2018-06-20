@@ -118,7 +118,7 @@ func (t *TrueHybrid) SyncMain(committee []*CommitteeMember,from string) {
 	}
 }
 func (t *TrueHybrid) getNodeID() (string,string,string) {
-	var server *p2p.Server = t.P2PServer()  // tmp
+	server := t.P2PServer()  // tmp
 	ip := server.NodeInfo().IP
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
 	pub := hex.EncodeToString(crypto.FromECDSAPub(

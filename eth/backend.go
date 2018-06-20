@@ -49,6 +49,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 type LesServer interface {
@@ -92,6 +93,8 @@ type Ethereum struct {
 	netRPCService *ethapi.PublicNetAPI
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+
+	tc 	*truechain.TrueHybrid
 }
 
 func (s *Ethereum) AddLesServer(ls LesServer) {
@@ -403,6 +406,9 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
+	if err := s.StartTrueChain(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -418,9 +424,23 @@ func (s *Ethereum) Stop() error {
 	s.txPool.Stop()
 	s.miner.Stop()
 	s.eventMux.Stop()
+	s.StopTrueChain()
 
 	s.chainDb.Close()
 	close(s.shutdownChan)
 
 	return nil
+}
+func (s *Ethereum) StartTrueChain(srvr *p2p.Server) error {
+	s.tc = truechain.New()	
+	s.tc.SetP2PServer(srvr)
+	return s.tc.StartTrueChain(s.BlockChain())
+}
+func (s *Ethereum) StopTrueChain() {
+	if s.tc != nil {
+		s.tc.StopTrueChain()
+	}
+}
+func (s *Ethereum) GetTrueChain() *truechain.TrueHybrid {
+	return s.tc
 }

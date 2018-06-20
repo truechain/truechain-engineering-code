@@ -15,9 +15,8 @@ package truechain
 import (
 	"math/big"
 	"time"
-	"net"
-   	"errors"
-    
+    "net"
+        
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
