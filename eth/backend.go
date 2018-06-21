@@ -134,6 +134,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		etherbase:      config.Etherbase,
 		bloomRequests:  make(chan chan *bloombits.Retrieval),
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+    tc:             truechain.New(),
 	}
 
 	log.Info("Initialising Ethereum protocol", "versions", ProtocolVersions, "network", config.NetworkId)
@@ -431,16 +432,15 @@ func (s *Ethereum) Stop() error {
 
 	return nil
 }
-func (s *Ethereum) StartTrueChain(srvr *p2p.Server) error {
-	s.tc = truechain.New()	
-	s.tc.SetP2PServer(srvr)
-	return s.tc.StartTrueChain(s.BlockChain())
+func (e *Ethereum) StartTrueChain(srvr *p2p.Server) error {
+	e.tc.SetP2PServer(srvr)
+	return e.tc.StartTrueChain(e.BlockChain())
 }
-func (s *Ethereum) StopTrueChain() {
-	if s.tc != nil {
-		s.tc.StopTrueChain()
+func (e *Ethereum) StopTrueChain() {
+	if e.tc != nil {
+		e.tc.StopTrueChain()
 	}
 }
-func (s *Ethereum) GetTrueChain() *truechain.TrueHybrid {
-	return s.tc
+func (e *Ethereum) GetTrueChain() *truechain.TrueHybrid {
+	return e.tc
 }
