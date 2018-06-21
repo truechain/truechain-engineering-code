@@ -406,7 +406,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-	if err := s.StartTrueChain(); err != nil {
+	if err := s.StartTrueChain(srvr); err != nil {
 		return err
 	}
 	return nil
