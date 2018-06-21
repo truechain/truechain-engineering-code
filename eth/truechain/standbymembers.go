@@ -68,6 +68,7 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 				addr:		v.addr,			
 				port:		v.port,			
 			})
+			i++
 		}
 	}
 	return vv,nil
