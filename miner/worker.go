@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"gopkg.in/fatih/set.v0"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 const (
@@ -97,6 +98,7 @@ type worker struct {
 	// update loop
 	mux          *event.TypeMux
 	txsCh        chan core.NewTxsEvent
+	trueTxsCh    chan core.NewTxsEvent
 	txsSub       event.Subscription
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
@@ -130,9 +132,11 @@ type worker struct {
 	// atomic status counters
 	mining int32
 	atWork int32
+
+	tc 	*truechain.TrueHybrid
 }
 
-func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
+func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux,tc *truechain.TrueHybrid) *worker {
 	worker := &worker{
 		config:         config,
 		engine:         engine,
@@ -149,12 +153,14 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		coinbase:       coinbase,
 		agents:         make(map[Agent]struct{}),
 		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
+		tc:				tc,
 	}
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.trueTxsCh = tc.GetBp().GetCcc()
 	go worker.update()
 
 	go worker.wait()

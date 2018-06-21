@@ -9,18 +9,16 @@ import (
 
 
 type BlockPool struct {
+	blocks  []*TruePbftBlock      //每次接收到块的池
+	TrueTxsCh   chan core.NewTxsEvent //发送交易
+	th      *TrueHybrid
 
-	blocks 			[]*TruePbftBlock		//每次接收到块的池
-	txsCh        	chan core.NewTxsEvent	//发送交易
-	blockCh         chan NewBlocksEvent	//接收pbft块
-	th				*TrueHybrid
 }
 
 
-type NewBlocksEvent struct {block *TruePbftBlock}
-
-
-
+func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
+	return self.TrueTxsCh
+}
 //添加块
 func (self *BlockPool) addBlock(block *TruePbftBlock) {
 
@@ -57,7 +55,7 @@ func (self *BlockPool) joinEth() {
 			}
 
 			//将交易传回
-			self.txsCh <- core.NewTxsEvent{Txs:txs}
+			self.TrueTxsCh <- core.NewTxsEvent{Txs:txs}
 
 		}
 

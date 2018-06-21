@@ -13,10 +13,10 @@ limitations under the License.
 package truechain
 
 import (
-	"math/big"
-	"time"
+    "math/big"
+    "time"
     "net"
-        
+
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
@@ -42,7 +42,7 @@ func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*
     return &CommonReply{Message: "success "}, err
 }
 func (s *HybridConsensusHelp) setTrue(t *TrueHybrid) {
-   s.tt = t
+    s.tt = t
 }
 func (s *HybridConsensusHelp) getTrue() *TrueHybrid {
     return s.tt
@@ -67,12 +67,13 @@ type TrueHybrid struct {
     grpcServer  *grpc.Server
     p2pServer   *p2p.Server
     bc          *core.BlockChain
+    Bp          *BlockPool
 }
 
 func New() *TrueHybrid {
-    // init TrueHybrid object 
-    // read cfg 
-    return &TrueHybrid{
+    // init TrueHybrid object
+    // read cfg
+    tc := &TrueHybrid{
         quit:               true,
         address:            "127.0.0.1",
         commCount:          5,
@@ -85,11 +86,19 @@ func New() *TrueHybrid {
         p2pServer:          nil,
         grpcServer:         nil,
     }
+
+    tc.Bp = &BlockPool{
+        blocks: 		make([]*TruePbftBlock,0,0),
+        TrueTxsCh:      make( chan core.NewTxsEvent),
+        th:				nil,
+    }
+
+    return tc
 }
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
-    t.grpcServer = grpc.NewServer() 
+    t.grpcServer = grpc.NewServer()
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
     go TrueChainWork(t)
@@ -106,19 +115,19 @@ func (t *TrueHybrid) GetCommitteeCount() int {
     return t.commCount
 }
 func HybridConsensusHelpInit(t *TrueHybrid) {
-    addr := "127.0.0.1:17546" 
+    addr := "127.0.0.1:17546"
     lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		//log.Fatalf("failed to listen: %v", err)
-	return
+    if err != nil {
+        //log.Fatalf("failed to listen: %v", err)
+        return
     }
     rpcServer := HybridConsensusHelp{}
     rpcServer.setTrue(t)
     RegisterHybridConsensusHelpServer(t.GrpcServer(), &rpcServer)
-	// Register reflection service on gRPC server.
-	// reflection.Register(t.GrpcServer())
-	if err := t.GrpcServer().Serve(lis); err != nil {
-		//log.Fatalf("failed to serve: %v", err)
+    // Register reflection service on gRPC server.
+    // reflection.Register(t.GrpcServer())
+    if err := t.GrpcServer().Serve(lis); err != nil {
+        //log.Fatalf("failed to serve: %v", err)
     }
 }
 func TrueChainWork(t *TrueHybrid) {
@@ -133,7 +142,7 @@ func SyncWork(t *TrueHybrid) {
         t.SyncStandbyMembers()
         for i:=0;i<30;i++ {
             if t.quit {
-                return 
+                return
             }
             time.Sleep(1*time.Second)
         }
@@ -146,7 +155,7 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     if err != nil {
         return err
     }
-    defer conn.Close()   
+    defer conn.Close()
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
@@ -175,7 +184,7 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
     if err != nil {
         return err
     }
-    defer conn.Close()   
+    defer conn.Close()
 
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -206,7 +215,7 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
     if err1 != nil {
         return err1
     }
-    return nil     
+    return nil
 }
 func (t *TrueHybrid) Start() error{
     // Set up a connection to the server.
@@ -214,7 +223,7 @@ func (t *TrueHybrid) Start() error{
     if err != nil {
         return err
     }
-    defer conn.Close()   
+    defer conn.Close()
     c := NewPyHybConsensusClient(conn)
 
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -223,7 +232,7 @@ func (t *TrueHybrid) Start() error{
     if err1 != nil {
         return err1
     }
-    return nil    
+    return nil
 }
 func (t *TrueHybrid) Stop() error{
     // Set up a connection to the server.
@@ -231,7 +240,7 @@ func (t *TrueHybrid) Stop() error{
     if err != nil {
         return err
     }
-    defer conn.Close()   
+    defer conn.Close()
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
@@ -239,7 +248,7 @@ func (t *TrueHybrid) Stop() error{
     _, err1 := c.Stop(ctx, &EmptyParam{})
     if err1 != nil {
         return err1
-    }   
+    }
     return nil
 }
 func (t *TrueHybrid) P2PServer() *p2p.Server {
@@ -250,4 +259,7 @@ func (t *TrueHybrid) SetP2PServer(s *p2p.Server) {
 }
 func (t *TrueHybrid) GrpcServer() *grpc.Server {
     return t.grpcServer
+}
+func (t *TrueHybrid) GetBp() *BlockPool {
+    return t.Bp
 }
