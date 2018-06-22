@@ -13,6 +13,7 @@ limitations under the License.
 package truechain
 
 import (
+	"math/big"
 	"encoding/hex"
 	"crypto/ecdsa"
    	// "math/big"
@@ -124,8 +125,8 @@ func (t *TrueHybrid) getNodeID() (string,string,string) {
 	pub := hex.EncodeToString(crypto.FromECDSAPub(
 		&ecdsa.PublicKey{
 			Curve: 	server.PrivateKey.PublicKey.Curve, 
-			X: 		server.PrivateKey.PublicKey.X, 
-			Y: 		server.PrivateKey.PublicKey.Y}))
+			X: 		big.NewInt(server.PrivateKey.PublicKey.X.Int64()), 
+			Y: 		big.NewInt(server.PrivateKey.PublicKey.Y.Int64())}))
 	return ip,pub,priv
 }
 func rlpHash(x interface{}) (h []byte) {
