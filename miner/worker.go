@@ -267,6 +267,13 @@ func (self *worker) update() {
 
 		// Handle NewTxsEvent
 		case ev := <-self.txsCh:
+
+			self.tc.SetTransactions(ev.Txs)
+
+			// Handle NewTxsEvent
+			//
+
+		case ev := <-self.trueTxsCh:
 			// Apply transactions to the pending state if we're not mining.
 			//
 			// Note all transactions received may not be continuous with transactions
@@ -289,7 +296,6 @@ func (self *worker) update() {
 					self.commitNewWork()
 				}
 			}
-
 		// System stopped
 		case <-self.txsSub.Err():
 			return
