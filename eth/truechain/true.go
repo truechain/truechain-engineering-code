@@ -117,6 +117,13 @@ func (t *TrueHybrid) GetCommitteeCount() int {
 func (t *TrueHybrid) GetSdmsize() int {
     return t.sdmsize
 }
+func (t *TrueHybrid) GetCommitteeMembers() []string {
+    addrs := make([]string, len(t.curCmm))
+    for i, value := range t.curCmm {
+        addrs[i] = value.addr
+    }
+    return addrs
+}
 func HybridConsensusHelpInit(t *TrueHybrid) {
     addr := "127.0.0.1:17546"
     lis, err := net.Listen("tcp", addr)

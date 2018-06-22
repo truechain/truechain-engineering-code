@@ -435,6 +435,10 @@ web3._extend({
 			name: 'getSdmsize',
 			call: 'eth_sdmsize'
 		}),
+		new web3._extend.Method({
+			name: 'getCommitteeMembers',
+			call: 'eth_committeeMembers'
+		}),
 	],
 	properties: [
 		new web3._extend.Property({

@@ -70,6 +70,10 @@ func (api *PublicEthereumAPI) Sdmsize() int {
 	return api.e.tc.GetSdmsize()
 }
 
+func (api *PublicEthereumAPI) CommitteeMembers() []string {
+	return api.e.tc.GetCommitteeMembers()
+}
+
 // PublicMinerAPI provides an API to control the miner.
 // It offers only methods that operate on data that pose no security risk when it is publicly accessible.
 type PublicMinerAPI struct {
