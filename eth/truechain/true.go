@@ -114,6 +114,9 @@ func (t *TrueHybrid) StopTrueChain() {
 func (t *TrueHybrid) GetCommitteeCount() int {
     return t.commCount
 }
+func (t *TrueHybrid) GetSdmsize() int {
+    return t.sdmsize
+}
 func HybridConsensusHelpInit(t *TrueHybrid) {
     addr := "127.0.0.1:17546"
     lis, err := net.Listen("tcp", addr)
