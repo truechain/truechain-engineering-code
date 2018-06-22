@@ -20,7 +20,7 @@ func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 	return self.TrueTxsCh
 }
 //添加块
-func (self *BlockPool) addBlock(block *TruePbftBlock) {
+func (self *BlockPool) AddBlock(block *TruePbftBlock) {
 
 	//判断是否委员
 	if(self.th.CheckBlock(block)==nil){
@@ -33,7 +33,7 @@ func (self *BlockPool) addBlock(block *TruePbftBlock) {
 
 
 //接入到原来以太的pow挖矿流程
-func (self *BlockPool) joinEth() {
+func (self *BlockPool) JoinEth() {
 
 	for{
 
