@@ -9,8 +9,8 @@ import (
 
 
 type BlockPool struct {
-	blocks  []*TruePbftBlock      //每次接收到块的池
-	TrueTxsCh   chan core.NewTxsEvent //发送交易
+	blocks  []*TruePbftBlock      //Every time a pool receives a block
+	TrueTxsCh   chan core.NewTxsEvent //Send a deal
 	th      *TrueHybrid
 
 }
@@ -19,10 +19,10 @@ type BlockPool struct {
 func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 	return self.TrueTxsCh
 }
-//添加块
+//Add a piece of
 func (self *BlockPool) AddBlock(block *TruePbftBlock) {
 
-	//判断是否委员
+	//Judging committee members
 	if(self.th.CheckBlock(block)==nil){
 		self.blocks = append(self.blocks, block)
 	}
@@ -32,7 +32,7 @@ func (self *BlockPool) AddBlock(block *TruePbftBlock) {
 }
 
 
-//接入到原来以太的pow挖矿流程
+//Access to the original aether pow mining process
 func (self *BlockPool) JoinEth() {
 
 	for{
@@ -42,19 +42,19 @@ func (self *BlockPool) JoinEth() {
 			txs := make([]*types.Transaction,0,0)
 
 
-			//转换交易
+			//Convert trading
 			for _,v := range block.Txs.Txs {
 
 				txData := v.GetData()
 				//nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte
 				var to common.Address
 				to.SetBytes(txData.GetRecipient())
-				//创建新的交易
+				//Create a new transaction
 				transaction := types.NewTransaction(txData.GetAccountNonce(),to,big.NewInt(txData.GetAmount()),uint64(txData.GetGasLimit()),nil,txData.GetPayload())
 				txs = append(txs,transaction)
 			}
 
-			//将交易传回
+			//Send the transaction back
 			self.TrueTxsCh <- core.NewTxsEvent{Txs:txs}
 
 		}
