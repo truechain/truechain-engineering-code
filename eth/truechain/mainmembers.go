@@ -18,7 +18,7 @@ import (
 	"crypto/ecdsa"
    	// "math/big"
 	"errors"
-	"bytes"
+	// "bytes"
     
 	//"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -48,7 +48,6 @@ func (t *TrueHybrid) SyncMainMembers() {
 	// 	}
 	// }
 	// send by p2p network
-	// sync old CommitteeMember???
 }
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {

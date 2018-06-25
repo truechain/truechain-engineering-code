@@ -35,7 +35,7 @@ func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
 		return errors.New("Wrong CrytoMsg")
 	}
 	// verfiy and add 
-    if len(t.sdm) >= t.sdmsize {
+    if len(t.sdm) >= t.Sdmsize {
 		t.sdm = append(t.sdm[:0],t.sdm[1:]...)
 	} 	
 	t.sdm = append(t.sdm,node)
