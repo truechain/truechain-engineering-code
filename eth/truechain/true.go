@@ -234,11 +234,12 @@ func (t *TrueHybrid) Start() error{
         return err
     }
     defer conn.Close()
+    _,_,priv := t.getNodeID()
     c := NewPyHybConsensusClient(conn)
-
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    _, err1 := c.Start(ctx, &EmptyParam{})
+
+    _, err1 := c.Start(ctx, &BftPrivateKey{Pkey:priv})
     if err1 != nil {
         return err1
     }
