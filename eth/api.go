@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 // PublicEthereumAPI provides an API to access Ethereum full node-related
@@ -66,12 +67,29 @@ func (api *PublicEthereumAPI) Hashrate() hexutil.Uint64 {
 	return hexutil.Uint64(api.e.Miner().HashRate())
 }
 
-func (api *PublicEthereumAPI) Sdmsize() int {
-	return api.e.tc.GetSdmsize()
+// PublicTrueHybridAPI provides an API to access Truechain Hybrid Consensus
+// information.
+type PublicTrueHybridAPI struct {
+	tc *truechain.TrueHybrid
 }
 
-func (api *PublicEthereumAPI) CommitteeMembers() []string {
-	return api.e.tc.GetCommitteeMembers()
+// NewPublicTrueHybridAPI creates a new Truechain protocol API for full nodes.
+func NewPublicTrueHybridAPI(tc *truechain.TrueHybrid) *PublicTrueHybridAPI {
+	return &PublicTrueHybridAPI{tc}
+}
+
+func (api *PublicTrueHybridAPI) Sdmsize() int {
+	return api.tc.GetSdmsize()
+}
+
+func (api *PublicTrueHybridAPI) CommitteeMembers() []string {
+	return api.tc.GetCommitteeMembers()
+}
+
+// test func, push a faked block info
+func (api *PublicTrueHybridAPI) ATestBlockInfo() bool {
+	api.tc.GetBp().PushAEmptyBlock()
+	return true
 }
 
 // PublicMinerAPI provides an API to control the miner.
