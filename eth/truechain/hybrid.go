@@ -65,6 +65,10 @@ type TrueCryptoMsg struct {
 	use			bool
 }
 
+var (
+	zero = big.NewInt(0)
+)
+
 func (t *TrueCryptoMsg) Use() bool { return t.use }
 func (t *TrueCryptoMsg) SetUse(u bool) { t.use = u }
 func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
