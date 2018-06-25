@@ -106,6 +106,7 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 			return true
 		}
 	}
+	
 	return false
 }
 // receive the sync message 
