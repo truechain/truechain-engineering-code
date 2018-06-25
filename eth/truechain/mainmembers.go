@@ -109,12 +109,22 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 	return false
 }
 // receive the sync message 
-func (t *TrueHybrid) SyncMain(committee *PbftCommittee,from string) {
+func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	// sync all current main committee
+	bstart := false
 	if t.Cmm == nil {
 		t.Cmm = committee
+		bstart = t.InPbftCommittee()
 	} else {
 		// do nothing temporarily
+		// remove the standby members
+		if t.Cmm.No + 1 == committee.No {
+			t.Cmm = committee
+			bstart = t.InPbftCommittee()
+		}
+	}
+	if bstart {
+		t.Start()
 	}
 }
 func (t *TrueHybrid) getNodeID() (string,string,string) {

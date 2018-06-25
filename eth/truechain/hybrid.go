@@ -42,7 +42,7 @@ type CommitteeMember struct {
 	port		int
 }
 type PbftCommittee struct {
-	no			int				// Committee number
+	No			int				// Committee number
 	ct 			time.Time		// current Committee voted time		
 	lastt		time.Time		// last Committee voted time
 	count		int				// current Committee member Count
