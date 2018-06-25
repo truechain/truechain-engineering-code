@@ -49,19 +49,20 @@ func (s *HybridConsensusHelp) getTrue() *TrueHybrid {
 }
 
 
-type PyHybConsensus struct {
+type Config struct {
+    ServerAddress           string          // local GRPC server address,ip:port 
+    ClientAddress           string          // Pbft Node address,ip:port
+    CmmCount                int             // amount of Pbft Committee Members 
+    Sdmsize                 int             // amount of Pbft Standby Members
 }
 
 type TrueHybrid struct {
+    Config
     quit        bool
-    address     string
     commCount   int
 
-    curCmm      []*CommitteeMember
-    oldCmm      []*CommitteeMember
-
-    sdmsize     int
-    sdm         []*StandbyInfo
+    Cmm         *PbftCommittee          // Pbft Committee
+    sdm         []*StandbyInfo          // Pbft Standby Members
     crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
     crptmp      []*TrueCryptoMsg        // unauthenticated msg by block comfirm
     grpcServer  *grpc.Server
@@ -73,13 +74,17 @@ type TrueHybrid struct {
 func New() *TrueHybrid {
     // init TrueHybrid object
     // read cfg
+    cfg := Config {
+        ServerAddress:          ":17546",
+        ClientAddress:          "127.0.0.1:17545",
+        CmmCount:               5,
+        Sdmsize:                1000,
+    }
     tc := &TrueHybrid{
+        Config:             cfg,
         quit:               true,
-        address:            "127.0.0.1",
         commCount:          5,
-        curCmm:             make([]*CommitteeMember,0,0),
-        oldCmm:             make([]*CommitteeMember,0,0),
-        sdmsize:            1000,
+        Cmm:                nil,
         sdm:                make([]*StandbyInfo,0,0),
         crpmsg:             make([]*TrueCryptoMsg,0,0),
         crptmp:             make([]*TrueCryptoMsg,0,0),
@@ -112,21 +117,21 @@ func (t *TrueHybrid) StopTrueChain() {
     time.Sleep(2*time.Second)
 }
 func (t *TrueHybrid) GetCommitteeCount() int {
-    return t.commCount
+    return t.CmmCount
 }
 func (t *TrueHybrid) GetSdmsize() int {
-    return t.sdmsize
+    return t.Sdmsize
 }
 func (t *TrueHybrid) GetCommitteeMembers() []string {
-    addrs := make([]string, len(t.curCmm))
-    for i, value := range t.curCmm {
+    cmm := t.Cmm.GetCmm()
+    addrs := make([]string, len(cmm))
+    for i, value := range cmm {
         addrs[i] = value.addr
     }
     return addrs
 }
 func HybridConsensusHelpInit(t *TrueHybrid) {
-    addr := "127.0.0.1:17546"
-    lis, err := net.Listen("tcp", addr)
+    lis, err := net.Listen("tcp", t.ServerAddress)
     if err != nil {
         //log.Fatalf("failed to listen: %v", err)
         return
@@ -161,7 +166,7 @@ func SyncWork(t *TrueHybrid) {
 
 func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     // Set up a connection to the server.
-    conn, err := grpc.Dial(t.address, grpc.WithInsecure())
+    conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
     if err != nil {
         return err
     }
@@ -190,7 +195,7 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
 }
 func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
     // Set up a connection to the server.
-    conn, err := grpc.Dial(t.address, grpc.WithInsecure())
+    conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
     if err != nil {
         return err
     }
@@ -229,16 +234,17 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
 }
 func (t *TrueHybrid) Start() error{
     // Set up a connection to the server.
-    conn, err := grpc.Dial(t.address, grpc.WithInsecure())
+    conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
     if err != nil {
         return err
     }
     defer conn.Close()
+    _,_,priv := t.getNodeID()
     c := NewPyHybConsensusClient(conn)
-
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    _, err1 := c.Start(ctx, &EmptyParam{})
+
+    _, err1 := c.Start(ctx, &BftPrivateKey{Pkey:priv})
     if err1 != nil {
         return err1
     }
@@ -246,7 +252,7 @@ func (t *TrueHybrid) Start() error{
 }
 func (t *TrueHybrid) Stop() error{
     // Set up a connection to the server.
-    conn, err := grpc.Dial(t.address, grpc.WithInsecure())
+    conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
     if err != nil {
         return err
     }

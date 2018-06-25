@@ -269,6 +269,11 @@ func (s *Ethereum) APIs() []rpc.API {
 			Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
 			Public:    true,
 		}, {
+			Namespace: "tch",
+			Version:   "1.0",
+			Service:   NewPublicTrueHybridAPI(s.GetTrueChain()),
+			Public:    true,
+		}, {
 			Namespace: "miner",
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),

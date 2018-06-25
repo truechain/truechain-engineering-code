@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"math/big"
+	"time"
 
 	//"github.com/ethereum/go-ethereum/core/types"
 	//"github.com/ethereum/go-ethereum/common"
@@ -26,24 +27,6 @@ import (
 	// "github.com/ethereum/go-ethereum/rpc"
 )
 
-
-// type TruePbftNode struct {
-// 	Addr 		string 		// node ip like 127.0.0.1,the port use default
-// 	Pubkey  	string		// 
-// 	Privkey		string  	//
-// }
-// type TruePbftBlockHeader struct {
-// 	Number      *big.Int       // block Height out of pbft 
-// 	GasLimit    *big.Int       // gaslimit in block include bonus tx
-// 	GasUsed     *big.Int       // gasused in block
-// 	Time        *big.Int       // generate time
-// }
-
-// type TruePbftBlock struct {
-// 	header       *TruePbftBlockHeader
-// 	Transactions []*types.Transaction		// raw tx（include bonus tx）
-// 	sig		     []*string					// sign with all members
-// }
 
 type StandbyInfo struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
@@ -58,12 +41,25 @@ type CommitteeMember struct {
 	addr		string 			
 	port		int
 }
+type PbftCommittee struct {
+	No			int				// Committee number
+	ct 			time.Time		// current Committee voted time		
+	lastt		time.Time		// last Committee voted time
+	count		int				// current Committee member Count
+	lcount		int				// last Committee member Count
+	cmm 		[]*CommitteeMember
+	lcmm		[]*CommitteeMember
+}
 type TrueCryptoMsg struct {
 	Height		*big.Int
 	Msg			[]byte
 	Sig 		[]byte
 	use			bool
 }
+
+var (
+	zero = big.NewInt(0)
+)
 
 func (t *TrueCryptoMsg) Use() bool { return t.use }
 func (t *TrueCryptoMsg) SetUse(u bool) { t.use = u }
@@ -142,6 +138,20 @@ func (t *CommitteeMember) FromByte(data []byte) error {
 	t.port = to.port
 	return nil
 }
+
+func (t *PbftCommittee) GetCmm() []*CommitteeMember {
+	return t.cmm
+}
+func (t *PbftCommittee) SetCmm(cmm []*CommitteeMember) {
+	t.cmm = cmm
+}
+func (t *PbftCommittee) GetlCmm() []*CommitteeMember {
+	return t.lcmm
+}
+func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
+	t.lcmm = lcmm
+}
+
 func toByte(e interface{}) ([]byte,error) {
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)

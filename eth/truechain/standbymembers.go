@@ -13,6 +13,7 @@ limitations under the License.
 package truechain
 
 import (
+	"bytes"
 	"time"
 	"strconv"
 	"crypto/ecdsa"
@@ -24,7 +25,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core"
 )
-
+func (t *TrueHybrid) GetCryMsg() []*TrueCryptoMsg {
+	return t.crpmsg
+}
 // all functions of sdm not thread-safe
 func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
 	node := msg.ToStandbyInfo()
@@ -32,7 +35,7 @@ func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
 		return errors.New("Wrong CrytoMsg")
 	}
 	// verfiy and add 
-    if len(t.sdm) >= t.sdmsize {
+    if len(t.sdm) >= t.Sdmsize {
 		t.sdm = append(t.sdm[:0],t.sdm[1:]...)
 	} 	
 	t.sdm = append(t.sdm,node)
@@ -48,6 +51,10 @@ func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
 }
 
 func (t *TrueHybrid) AddMsg(msg *TrueCryptoMsg) {
+	m,_ := minMsg(t.GetCryMsg(),true)
+	if m.Height.Cmp(msg.Height) <= 0 || existMsg(msg,t.crpmsg){
+		return 
+	}
 	// verify the msg when the block is on
 	res := verityMsg(msg,t.bc)
 	if res == 1 {
@@ -79,7 +86,7 @@ func (t *TrueHybrid) checkTmpMsg() {
 		if len(t.crptmp) <= 0 {
 			break
 		}
-		msg,pos := t.minMsg(t.crptmp,true)
+		msg,pos := minMsg(t.crptmp,true)
 		res := verityMsg(msg,t.bc)
 		if res == 1 {
 			t.crpmsg = append(t.crpmsg,msg)
@@ -93,7 +100,7 @@ func (t *TrueHybrid) checkTmpMsg() {
 // crpmsg was be check and insert to the standbyqueue
 // when the blockchain has the block.
 func (t *TrueHybrid) insertToSDM() error {
-	m,_ := t.minMsg(t.crpmsg,false)
+	m,_ := minMsg(t.crpmsg,false)
 	if m == nil {
 		return errors.New("no minMsg,msglen=" + strconv.Itoa(len(t.crpmsg)))
 	}
@@ -128,7 +135,7 @@ func (t *TrueHybrid) removemgs(crpmsg []*TrueCryptoMsg,i int) []*TrueCryptoMsg {
     return append(crpmsg[:i], crpmsg[i+1:]...)
 }
 // use=true include msg which was used 
-func (t *TrueHybrid) minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,int) {
+func minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,int) {
 	if len(crpmsg) <= 0 {
 		return nil,0
 	} 
@@ -160,6 +167,20 @@ func (t *TrueHybrid) minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,in
 			return crpmsg[pos],pos
 		}
 	}
+}
+func existMsg(msg *TrueCryptoMsg,msgs []*TrueCryptoMsg) bool {
+	for _,v := range msgs {
+		if v.Height.Cmp(msg.Height) != 0{
+			continue
+		}
+		if len(msg.Msg) != len(v.Msg) || len(msg.Sig) != len(v.Sig) {
+			continue
+		}
+		if bytes.Compare(msg.Msg,v.Msg) == 0 && bytes.Compare(msg.Sig,v.Sig) == 0{
+			return true
+		}
+	}
+	return false
 }
 func (t *TrueHybrid) StandbyWork() error {
 	for {
@@ -195,6 +216,9 @@ func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMs
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
 func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
+	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0{
+		return -1
+	}
 	// find the coinbase address from the heigth
 	header := bc.GetHeaderByNumber(msg.Height.Uint64())
 	if header == nil {

@@ -18,7 +18,7 @@ import (
 	"crypto/ecdsa"
    	// "math/big"
 	"errors"
-	"bytes"
+	// "bytes"
     
 	//"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,18 +37,17 @@ type checkPair struct {
 // all function was not tread-safe
 func (t *TrueHybrid) SyncMainMembers() {
 	// sync current CommitteeMember 
-	buf := bytes.NewBuffer(nil)
-	for _,v := range t.curCmm {
-		data,err := v.ToByte()
-		if err != nil {
-			// fmt.Println("ToByte error=",err)
-			return 
-		} else {
-			buf.Write(data)
-		}
-	}
+	// buf := bytes.NewBuffer(nil)
+	// for _,v := range t.curCmm {
+	// 	data,err := v.ToByte()
+	// 	if err != nil {
+	// 		// fmt.Println("ToByte error=",err)
+	// 		return 
+	// 	} else {
+	// 		buf.Write(data)
+	// 	}
+	// }
 	// send by p2p network
-	// sync old CommitteeMember???
 }
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
@@ -57,9 +56,9 @@ func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
 	if all == 0 {
 		return errors.New("empty...")
 	}
-	err,useold := checkPbftBlock(t.curCmm,block)
+	err,useold := checkPbftBlock(t.Cmm.GetCmm(),block)
 	if useold {
-		erro,_ := checkPbftBlock(t.oldCmm,block)
+		erro,_ := checkPbftBlock(t.Cmm.GetlCmm(),block)
 		return erro
 	} 
 	return err
@@ -101,8 +100,8 @@ func verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 }
 func (t *TrueHybrid) InPbftCommittee() bool {
 	_,nodeid,_ := t.getNodeID()
-	
-	for _,v := range t.curCmm {
+	cmm := t.Cmm.GetCmm()
+	for _,v := range cmm {
 		if nodeid == v.Nodeid {
 			return true
 		}
@@ -110,12 +109,22 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 	return false
 }
 // receive the sync message 
-func (t *TrueHybrid) SyncMain(committee []*CommitteeMember,from string) {
-	// sync all current main committee 
-	if len(t.curCmm) <= 0 {
-		t.curCmm = committee
+func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
+	// sync all current main committee
+	bstart := false
+	if t.Cmm == nil {
+		t.Cmm = committee
+		bstart = t.InPbftCommittee()
 	} else {
 		// do nothing temporarily
+		// remove the standby members
+		if t.Cmm.No + 1 == committee.No {
+			t.Cmm = committee
+			bstart = t.InPbftCommittee()
+		}
+	}
+	if bstart {
+		t.Start()
 	}
 }
 func (t *TrueHybrid) getNodeID() (string,string,string) {
