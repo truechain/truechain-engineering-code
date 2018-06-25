@@ -57,9 +57,9 @@ func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
 	if all == 0 {
 		return errors.New("empty...")
 	}
-	err,useold := checkPbftBlock(t.curCmm,block)
+	err,useold := checkPbftBlock(t.Cmm.GetCmm(),block)
 	if useold {
-		erro,_ := checkPbftBlock(t.oldCmm,block)
+		erro,_ := checkPbftBlock(t.Cmm.GetlCmm(),block)
 		return erro
 	} 
 	return err
@@ -101,8 +101,8 @@ func verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 }
 func (t *TrueHybrid) InPbftCommittee() bool {
 	_,nodeid,_ := t.getNodeID()
-	
-	for _,v := range t.curCmm {
+	cmm := t.Cmm.GetCmm()
+	for _,v := range cmm {
 		if nodeid == v.Nodeid {
 			return true
 		}
@@ -110,10 +110,10 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 	return false
 }
 // receive the sync message 
-func (t *TrueHybrid) SyncMain(committee []*CommitteeMember,from string) {
-	// sync all current main committee 
-	if len(t.curCmm) <= 0 {
-		t.curCmm = committee
+func (t *TrueHybrid) SyncMain(committee *PbftCommittee,from string) {
+	// sync all current main committee
+	if t.Cmm == nil {
+		t.Cmm = committee
 	} else {
 		// do nothing temporarily
 	}

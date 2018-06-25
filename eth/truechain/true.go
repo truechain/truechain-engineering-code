@@ -57,6 +57,7 @@ type TrueHybrid struct {
     address     string
     commCount   int
 
+    Cmm         *PbftCommittee
     curCmm      []*CommitteeMember
     oldCmm      []*CommitteeMember
 
