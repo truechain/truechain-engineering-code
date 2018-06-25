@@ -8,7 +8,7 @@ service HybridConsensusHelp {
 }
 
 service PyHybConsensus {
-   rpc Start(EmptyParam) returns (CommonReply) {}
+   rpc Start(BftPrivateKey) returns (CommonReply) {}
    rpc Stop(EmptyParam) returns (CommonReply) {}
    rpc MembersNodes(Nodes) returns (CommonReply) {}
    rpc SetTransactions(Transactions) returns (CommonReply) {}
@@ -16,6 +16,9 @@ service PyHybConsensus {
 
 message EmptyParam {
 
+}
+message BftPrivateKey {
+    string pkey  = 1;
 }
 
 message CommonReply {
