@@ -105,6 +105,7 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 			return true
 		}
 	}
+	
 	return false
 }
 // receive the sync message 
@@ -126,6 +127,8 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 		t.Start()
 	}
 }
+
+
 func (t *TrueHybrid) getNodeID() (string,string,string) {
 	server := t.P2PServer()  // tmp
 	ip := server.NodeInfo().IP

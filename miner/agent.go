@@ -23,6 +23,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/eth/truechain"
+	"crypto/ecdsa"
 )
 
 type CpuAgent struct {
@@ -35,16 +37,17 @@ type CpuAgent struct {
 
 	chain  consensus.ChainReader
 	engine consensus.Engine
-
+	tc 	*truechain.TrueHybrid
 	isMining int32 // isMining indicates whether the agent is currently mining
 }
 
-func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent {
+func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine,tc *truechain.TrueHybrid) *CpuAgent {
 	miner := &CpuAgent{
 		chain:  chain,
 		engine: engine,
 		stop:   make(chan struct{}, 1),
 		workCh: make(chan *Work, 1),
+		tc:tc,
 	}
 	return miner
 }
@@ -103,6 +106,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
 		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
 		self.returnCh <- &Result{work, result}
+		self.MakeSigned(work)
 	} else {
 		if err != nil {
 			log.Warn("Block sealing failed", "err", err)
@@ -110,6 +114,26 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 		self.returnCh <- nil
 	}
 }
+
+
+func (self *CpuAgent) MakeSigned(work *Work){
+	//
+	//Nodeid		string			// the pubkey of the node(nodeid)
+	//coinbase	string			// the bonus address of miner
+	//addr		string
+	//port		int
+	//Height		*big.Int		// block Height who pow success
+	//comfire		bool			// the state of the block
+	sdi := &truechain.StandbyInfo{
+		
+	}
+	pk := &ecdsa.PrivateKey{
+
+	}
+	tcm , _ := truechain.MakeSignedStandbyNode(sdi,pk)
+	self.tc.AddMsg(tcm)
+}
+
 
 func (self *CpuAgent) GetHashRate() int64 {
 	if pow, ok := self.engine.(consensus.PoW); ok {

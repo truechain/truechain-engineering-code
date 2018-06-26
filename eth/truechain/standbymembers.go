@@ -45,7 +45,7 @@ func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
 	for _,v := range t.crpmsg {
 		if v.Height.Cmp(h) == 0 {
 			return v
-		}		
+		}
 	}
 	return nil
 }
