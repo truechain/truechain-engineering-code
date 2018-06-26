@@ -32,6 +32,10 @@ func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock
     // do something
     return &CommonReply{Message: "success "}, nil
 }
+func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *SignCommittee) (*CommonReply, error) {
+    // do something
+    return &CommonReply{Message: "success "}, nil
+}
 func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {
     // do something
     m,err := s.getTrue().Vote(s.getTrue().GetCommitteeCount())
@@ -58,9 +62,8 @@ type Config struct {
 
 type TrueHybrid struct {
     Config
-    quit        bool
-    commCount   int
 
+    quit        bool
     Cmm         *PbftCommittee          // Pbft Committee
     sdm         []*StandbyInfo          // Pbft Standby Members
     crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
@@ -83,7 +86,6 @@ func New() *TrueHybrid {
     tc := &TrueHybrid{
         Config:             cfg,
         quit:               true,
-        commCount:          5,
         Cmm:                nil,
         sdm:                make([]*StandbyInfo,0,0),
         crpmsg:             make([]*TrueCryptoMsg,0,0),

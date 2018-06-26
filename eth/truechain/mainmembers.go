@@ -72,7 +72,7 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 	keys := make(map[checkPair]bool)
 	msg := rlpHash(block.Txs)
 	for i,s := range block.Sigs {
-		err,r := verifyMemberInBlock(verifier,msg,common.FromHex(s))
+		err,r := verifyMembersSign(verifier,msg,common.FromHex(s))
 		if err != nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
@@ -85,7 +85,7 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 		return errors.New("not all members sign"),true
 	}
 }
-func verifyMemberInBlock(cc []*CommitteeMember,msg,sig []byte) (error,int) {
+func verifyMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	for i,v := range cc {
 		pub,err := crypto.SigToPub(crypto.Keccak256(msg),sig)
 		if err != nil {
@@ -126,6 +126,34 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	if bstart {
 		t.Start()
 	}
+}
+
+func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
+	tmp := struct {
+		msg1	[]*CommitteeMember
+		msg2	[]*CommitteeMember
+	}{
+		msg1:	cmm.GetCmm(),
+		msg2:	cmm.GetlCmm(),
+	}
+	keys := make(map[checkPair]bool)
+	msg := rlpHash(tmp)
+	oldCmm := t.Cmm
+	sigs := cmm.GetSig()
+
+	for i,s := range sigs {
+		err,r := verifyMembersSign(oldCmm.GetCmm(),msg,common.FromHex(s))
+		if err != nil {
+			keys[checkPair{left:i,right:r}] = true
+		} else {
+			return false
+		}
+	}
+	all := len(oldCmm.GetCmm())
+	if len(keys) >= (all/3)*2{
+		return true
+	} 
+	return false
 }
 
 
