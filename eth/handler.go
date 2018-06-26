@@ -40,6 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 const (
@@ -49,6 +50,7 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
+	NewBftBlockMsg = 0x11
 )
 
 var (
@@ -94,6 +96,9 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
+	//pbft
+	*truechain.TrueHybrid
+	pbftpool PbftPool
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -331,6 +336,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
+	//pbft
+	case msg.Code == NewBftBlockMsg:
+		// Retrieve and decode the propagated block
+		var request newBftBlockData
+		if err := msg.Decode(&request); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		if request.Block == nil {
+			return errResp(ErrDecode,"pbftblock is nil")
+		}
+		pm.pbftpool.AddRemotes(request.Block)
+		//request.Block = msg.Payload.Read(&request)
+		//request.Block.ReceivedFrom = p
+		pm.Bp.AddBlock(request.Block)
 
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
