@@ -10,10 +10,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package truechain
 
 import (
+	"time"
 	"math/big"
 	"encoding/hex"
 	"crypto/ecdsa"
@@ -112,16 +112,28 @@ func (t *TrueHybrid) InPbftCommittee() bool {
 // receive the sync message 
 func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	// sync all current main committee
+	// remove the standby members
 	bstart := false
 	if t.Cmm == nil {
 		t.Cmm = committee
 		bstart = t.InPbftCommittee()
+		t.RemoveFromCommittee(committee)
 	} else {
-		// do nothing temporarily
-		// remove the standby members
 		if t.Cmm.No + 1 == committee.No {
+			// new committee message 
+			if t.verifyCommitteeMsg(committee) {
+				t.Cmm = committee
+				bstart = t.InPbftCommittee()	
+				t.RemoveFromCommittee(committee)
+			}
+		} else if t.Cmm.No == committee.No {
+			
+		} else if committee.No - t.Cmm.No > 1 {
+			// the local was oldest, then can't verify the committee message
+			// simple handle
 			t.Cmm = committee
 			bstart = t.InPbftCommittee()
+			t.RemoveFromCommittee(committee)	
 		}
 	}
 	if bstart {
@@ -155,6 +167,47 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
 		return true
 	} 
 	return false
+}
+func (t *TrueHybrid) sameCommittee(cmm *PbftCommittee) bool {
+	return false
+}
+func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error) {
+	m,err := t.Vote(t.GetCommitteeCount())
+    if err != nil {
+        return nil,err
+	}
+
+	curNo := 1
+	if t.Cmm != nil {
+		curNo = t.Cmm.No + 1
+	}
+	cmm := PbftCommittee{
+		No:				curNo,
+		ct:				time.Now(),
+		lastt:			t.Cmm.ct,
+		count:			len(m),
+		lcount:			t.Cmm.count,
+		cmm:			m,
+		lcmm:			t.Cmm.cmm,
+		sig:			msg.GetSigs(),
+	}
+	tmp := struct {
+		msg1	[]*CommitteeMember
+		msg2	[]*CommitteeMember
+	}{
+		msg1:	cmm.GetCmm(),
+		msg2:	cmm.GetlCmm(),
+	}
+	hash := common.ToHex(rlpHash(tmp))
+	if hash != msg.GetMsg() {
+		return nil,errors.New("hash member was not equal")
+	}
+	return &cmm,nil
+}
+func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee) {
+	t.RemoveFromCommittee(cmm)
+	t.Cmm = cmm
+	t.SyncMainMembers()
 }
 func (t *TrueHybrid) getNodeID() (string,string,string) {
 	server := t.P2PServer()  // tmp
