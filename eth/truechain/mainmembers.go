@@ -115,25 +115,29 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	// remove the standby members
 	bstart := false
 	if t.Cmm == nil {
-		t.Cmm = committee
 		bstart = t.InPbftCommittee()
-		t.RemoveFromCommittee(committee)
+		t.UpdateLocalCommittee(committee,false)	
 	} else {
 		if t.Cmm.No + 1 == committee.No {
 			// new committee message 
 			if t.verifyCommitteeMsg(committee) {
-				t.Cmm = committee
 				bstart = t.InPbftCommittee()	
-				t.RemoveFromCommittee(committee)
+				t.UpdateLocalCommittee(committee,false)	
 			}
 		} else if t.Cmm.No == committee.No {
-			
+			if !t.sameCommittee(committee) {
+				if t.VerifyCommitteeFromSdm(committee) {
+					bstart = t.InPbftCommittee()
+					t.UpdateLocalCommittee(committee,false)				
+				}
+			} 
 		} else if committee.No - t.Cmm.No > 1 {
-			// the local was oldest, then can't verify the committee message
+			// the local was older, then can't verify the committee message
 			// simple handle
-			t.Cmm = committee
-			bstart = t.InPbftCommittee()
-			t.RemoveFromCommittee(committee)	
+			if t.VerifyCommitteeFromSdm(committee) {
+				bstart = t.InPbftCommittee()
+				t.UpdateLocalCommittee(committee,false)		
+			}
 		}
 	}
 	if bstart {
@@ -142,15 +146,8 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 }
 // verify the new committee members message when committee replacement
 func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
-	tmp := struct {
-		msg1	[]*CommitteeMember
-		msg2	[]*CommitteeMember
-	}{
-		msg1:	cmm.GetCmm(),
-		msg2:	cmm.GetlCmm(),
-	}
 	keys := make(map[checkPair]bool)
-	msg := rlpHash(tmp)
+	msg := cmm.GetHash()
 	oldCmm := t.Cmm
 	sigs := cmm.GetSig()
 
@@ -169,6 +166,11 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
 	return false
 }
 func (t *TrueHybrid) sameCommittee(cmm *PbftCommittee) bool {
+	if t.Cmm.No == cmm.No {
+		if common.ToHex(t.Cmm.GetHash()) == common.ToHex(cmm.GetHash()) {
+			return true
+		}
+	}
 	return false
 }
 func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error) {
@@ -191,26 +193,24 @@ func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error)
 		lcmm:			t.Cmm.cmm,
 		sig:			msg.GetSigs(),
 	}
-	tmp := struct {
-		msg1	[]*CommitteeMember
-		msg2	[]*CommitteeMember
-	}{
-		msg1:	cmm.GetCmm(),
-		msg2:	cmm.GetlCmm(),
-	}
-	hash := common.ToHex(rlpHash(tmp))
+	hash := common.ToHex(cmm.GetHash())
 	if hash != msg.GetMsg() {
 		return nil,errors.New("hash member was not equal")
 	}
 	return &cmm,nil
 }
-func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee) {
-	t.RemoveFromCommittee(cmm)
+func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee,sync bool) {
 	t.Cmm = cmm
-	t.SyncMainMembers()
+	t.RemoveFromCommittee(cmm)
+	if sync {
+		t.SyncMainMembers()
+	}
+}
+func (t *TrueHybrid) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
+	return false
 }
 func (t *TrueHybrid) getNodeID() (string,string,string) {
-	server := t.P2PServer()  // tmp
+	server := t.P2PServer() 
 	ip := server.NodeInfo().IP
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
 	pub := hex.EncodeToString(crypto.FromECDSAPub(

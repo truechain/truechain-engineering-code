@@ -37,7 +37,7 @@ func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *Si
     if cmm == nil {
         return &CommonReply{Message: "fail "}, err
     }
-    s.getTrue().UpdateLocalCommittee(cmm) 
+    s.getTrue().UpdateLocalCommittee(cmm,true) 
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {

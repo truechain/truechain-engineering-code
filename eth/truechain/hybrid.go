@@ -155,6 +155,17 @@ func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
 func (t *PbftCommittee) GetSig() []string {
 	return t.sig
 }
+func (t *PbftCommittee) GetHash() []byte {
+	tmp := struct {
+		msg1	[]*CommitteeMember
+		msg2	[]*CommitteeMember
+	}{
+		msg1:	t.GetCmm(),
+		msg2:	t.GetlCmm(),
+	}
+	msg := rlpHash(tmp)
+	return msg
+}
 
 func toByte(e interface{}) ([]byte,error) {
 	buf := bytes.NewBuffer(nil)
