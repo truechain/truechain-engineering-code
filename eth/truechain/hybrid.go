@@ -49,6 +49,7 @@ type PbftCommittee struct {
 	lcount		int				// last Committee member Count
 	cmm 		[]*CommitteeMember
 	lcmm		[]*CommitteeMember
+	sig 		[]string
 }
 type TrueCryptoMsg struct {
 	Height		*big.Int
@@ -150,6 +151,9 @@ func (t *PbftCommittee) GetlCmm() []*CommitteeMember {
 }
 func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
 	t.lcmm = lcmm
+}
+func (t *PbftCommittee) GetSig() []string {
+	return t.sig
 }
 
 func toByte(e interface{}) ([]byte,error) {

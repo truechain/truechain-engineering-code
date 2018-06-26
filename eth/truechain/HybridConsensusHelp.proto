@@ -5,6 +5,7 @@ package truechain;
 service HybridConsensusHelp {
    rpc PutBlock(TruePbftBlock) returns (CommonReply) {}
    rpc ViewChange(EmptyParam) returns (CommonReply) {}
+   rpc PutNewSignedCommittee(SignCommittee) returns (CommonReply) {}
 }
 
 service PyHybConsensus {
@@ -19,6 +20,21 @@ message EmptyParam {
 }
 message BftPrivateKey {
     string pkey  = 1;
+}
+// hash: the list of all committee members data's hash
+// use crypto.sha3.Keccak256 and rlp Encode makes hash
+// and return the hex string.
+// the committee members structure is like CommitteeMember{
+//	struct {
+//		Nodeid	  string // the pubkey of the node(nodeid)
+//		addr	  string 			
+//		port	  int	}
+// )
+// sigs: all members signed
+
+message SignCommittee {
+    string msg   	  = 1;		 
+    repeated string sigs  = 2;		
 }
 
 message CommonReply {
