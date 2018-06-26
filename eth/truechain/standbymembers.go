@@ -17,7 +17,8 @@ import (
 	"time"
 	"strconv"
 	"crypto/ecdsa"
-    "math/big"
+	"math/big"
+	"sort"
     "errors"
     
     //"github.com/ethereum/go-ethereum/core/types"
@@ -116,7 +117,6 @@ func (t *TrueHybrid) insertToSDM() error {
 	}
 	return nil
 }
-
 // remove the msg that has same height and it was used
 func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 	pos := make([]int,0,0)
@@ -245,4 +245,43 @@ func (t *TrueHybrid) SyncStandbyMembers() {
 		}
 	}
 	// sync tmpcrypmsg???
+}
+func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
+	// match the committee number 
+	// simple remove(one by one)....
+	pos := t.matchCommitteeMembers(cmm)
+	if pos != nil {
+		for _,i := range pos {
+			t.sdm = append(t.sdm[:i], t.sdm[i+1:]...)
+		}
+		// update the committee number
+	} else {
+		// the sdm was dirty,must be update
+	}
+}
+func (t *TrueHybrid) matchCommitteeMembers(cmm *PbftCommittee) []int {
+	pos := make([]int,0,0)
+	comm := cmm.GetCmm()
+
+	for _,v := range comm {
+		i := t.posFromSdm(v.Nodeid)
+		if i != -1 {
+			pos = append(pos,i)
+		}
+	}
+	sort.Ints(pos[:])
+	c1 := len(comm)
+	c2 := len(pos)
+	if c1 != c2 || c1 != (pos[c2-1]-pos[0]+1) {
+		return nil
+	}
+	return pos
+}
+func (t *TrueHybrid) posFromSdm(nid string) int {
+	for i,v := range t.sdm {
+		if v.Nodeid == nid {
+			return i
+		}
+	}
+	return -1
 }

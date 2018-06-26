@@ -127,7 +127,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 		t.Start()
 	}
 }
-
+// verify the new committee members message when committee replacement
 func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
 	tmp := struct {
 		msg1	[]*CommitteeMember
@@ -155,8 +155,6 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
 	} 
 	return false
 }
-
-
 func (t *TrueHybrid) getNodeID() (string,string,string) {
 	server := t.P2PServer()  // tmp
 	ip := server.NodeInfo().IP
