@@ -16,7 +16,6 @@ import (
 	"math/big"
 	"encoding/hex"
 	"crypto/ecdsa"
-   	// "math/big"
 	"errors"
 	// "bytes"
     
@@ -73,7 +72,7 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 	keys := make(map[checkPair]bool)
 	msg := rlpHash(block.Txs)
 	for i,s := range block.Sigs {
-		err,r := verifyMember(verifier,msg,common.FromHex(s))
+		err,r := verifyMemberInBlock(verifier,msg,common.FromHex(s))
 		if err != nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
@@ -86,7 +85,7 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 		return errors.New("not all members sign"),true
 	}
 }
-func verifyMember(cc []*CommitteeMember,msg,sig []byte) (error,int) {
+func verifyMemberInBlock(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	for i,v := range cc {
 		pub,err := crypto.SigToPub(crypto.Keccak256(msg),sig)
 		if err != nil {
