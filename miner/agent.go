@@ -125,13 +125,13 @@ func (self *CpuAgent) MakeSigned(work *Work){
 	//Height		*big.Int		// block Height who pow success
 	//comfire		bool			// the state of the block
 	sdi := &truechain.StandbyInfo{
-		
+
 	}
 	pk := &ecdsa.PrivateKey{
 
 	}
 	tcm , _ := truechain.MakeSignedStandbyNode(sdi,pk)
-	self.tc.AddMsg(tcm)
+	self.tc.ReceiveSdmMsg(tcm)
 }
 
 
