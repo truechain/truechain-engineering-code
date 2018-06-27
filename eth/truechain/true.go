@@ -28,7 +28,6 @@ type HybridConsensusHelp struct {
     tt          *TrueHybrid
     *BlockPool
     rw p2p.MsgReadWriter
-    *p2p.Peer
 }
 
 const NewBftBlockMsg  = 0x11
