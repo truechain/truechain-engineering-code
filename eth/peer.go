@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"gopkg.in/fatih/set.v0"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 var (
@@ -56,6 +57,7 @@ const (
 	maxQueuedAnns = 4
 
 	handshakeTimeout = 5 * time.Second
+	maxQueuedPbs = 128
 )
 
 // PeerInfo represents a short summary of the Ethereum sub-protocol metadata known
@@ -91,6 +93,9 @@ type peer struct {
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
 	term        chan struct{}             // Termination channel to stop the broadcaster
+	//pbft
+	knownBftBlocks *set.Set
+	queuedBftProps chan []*truechain.TruePbftBlock
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -101,10 +106,12 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
 		knownTxs:    set.New(),
 		knownBlocks: set.New(),
+		knownBftBlocks:set.New(),
 		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
 		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
 		term:        make(chan struct{}),
+		queuedBftProps:make(chan []*truechain.TruePbftBlock,maxQueuedPbs),
 	}
 }
 
@@ -119,7 +126,12 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
-
+		case pbs := <-p.queuedBftProps:
+			for _,b := range pbs {
+				if err := p.SendNewBftBlock(b); err != nil {
+					return
+				}
+			}
 		case prop := <-p.queuedProps:
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
 				return

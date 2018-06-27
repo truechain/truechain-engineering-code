@@ -99,6 +99,9 @@ type ProtocolManager struct {
 	//pbft
 	*truechain.TrueHybrid
 	pbftpool PbftPool
+	pblocksCh chan []*truechain.TruePbftBlock
+	pbsSub   event.Subscription
+	pblocks []*truechain.TruePbftBlock
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -212,6 +215,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
+	go pm.pbBroadcastloop()
 
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
@@ -346,6 +350,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if request.Block == nil {
 			return errResp(ErrDecode,"pbftblock is nil")
 		}
+		go func() {
+			for  {
+				pm.pblocks=append(pm.pblocks,request.Block)
+				pm.pblocksCh <- pm.pblocks
+			}
+		}()
 		pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
