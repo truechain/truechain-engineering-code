@@ -18,17 +18,10 @@ import (
 	"encoding/gob"
 	"math/big"
 	"time"
-
-
-
-
-
-
-
 )
 
-
-type StandbyInfo struct {
+// candidate Member
+type cdMember struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
 	coinbase	string			// the bonus address of miner
 	addr		string 			
@@ -36,11 +29,16 @@ type StandbyInfo struct {
 	Height		*big.Int		// block Height who pow success 
 	comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
-type TrueCryptoMsg struct {
+type cdEncryptionMsg struct {
 	Height		*big.Int
 	Msg			[]byte
 	Sig 		[]byte
 	use			bool
+}
+type PbftCdCommittee struct {
+	Cm 			[]*cdMember				// confirmed member info 
+	VCdCrypMsg	 	[]*cdEncryptionMsg		// verified	candidate Member message(authenticated msg by block comfirm)
+	NCdCrypMsg		[]*cdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
 }
 
 type CommitteeMember struct {
@@ -63,17 +61,17 @@ var (
 	zero = big.NewInt(0)
 )
 
-func (t *TrueCryptoMsg) Use() bool { return t.use }
-func (t *TrueCryptoMsg) SetUse(u bool) { t.use = u }
-func (t *TrueCryptoMsg) ToStandbyInfo() *StandbyInfo {
-	info := StandbyInfo{Height:big.NewInt(0),}
+func (t *cdEncryptionMsg) Use() bool { return t.use }
+func (t *cdEncryptionMsg) SetUse(u bool) { t.use = u }
+func (t *cdEncryptionMsg) ToStandbyInfo() *cdMember {
+	info := cdMember{Height:big.NewInt(0),}
 	info.FromByte(t.Msg)
 	return &info
 }
-func (t *TrueCryptoMsg) FromByte(data []byte) error {
+func (t *cdEncryptionMsg) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to :=  TrueCryptoMsg{
+	to :=  cdEncryptionMsg{
 		Height:		big.NewInt(0),
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
@@ -86,7 +84,7 @@ func (t *TrueCryptoMsg) FromByte(data []byte) error {
 	t.use = to.use
 	return nil
 } 
-func (t *TrueCryptoMsg) ToByte() ([]byte,error) {
+func (t *cdEncryptionMsg) ToByte() ([]byte,error) {
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
 	err := enc.Encode(t)
@@ -95,10 +93,10 @@ func (t *TrueCryptoMsg) ToByte() ([]byte,error) {
 	}
 	return buf.Bytes(),nil
 }
-func (t *StandbyInfo) FromByte(data []byte) error {
+func (t *cdMember) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to :=  StandbyInfo{
+	to :=  cdMember{
 		Height:		big.NewInt(0),
 		comfire:	false,
 	}
@@ -111,7 +109,7 @@ func (t *StandbyInfo) FromByte(data []byte) error {
 	t.comfire = to.comfire
 	return nil
 }
-func (t *StandbyInfo) ToByte() ([]byte,error) {
+func (t *cdMember) ToByte() ([]byte,error) {
 	// return common.FromHex(t.ToMsg())
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)

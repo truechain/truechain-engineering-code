@@ -74,10 +74,8 @@ type TrueHybrid struct {
     Config
 
     quit        bool
-    Cmm         *PbftCommittee          // Pbft Committee
-    sdm         []*StandbyInfo          // Pbft Standby Members
-    crpmsg      []*TrueCryptoMsg        // authenticated msg by block comfirm
-    crptmp      []*TrueCryptoMsg        // unauthenticated msg by block comfirm
+    Cmm         *PbftCommittee              // Pbft Committee
+    Cdm         *PbftCdCommittee            // Pbft candidate Member
     grpcServer  *grpc.Server
     p2pServer   *p2p.Server
     bc          *core.BlockChain
@@ -97,19 +95,20 @@ func New() *TrueHybrid {
         Config:             cfg,
         quit:               true,
         Cmm:                nil,
-        sdm:                make([]*StandbyInfo,0,0),
-        crpmsg:             make([]*TrueCryptoMsg,0,0),
-        crptmp:             make([]*TrueCryptoMsg,0,0),
+        Cdm:                nil,
         p2pServer:          nil,
         grpcServer:         nil,
     }
-
+    tc.Cdm = &PbftCdCommittee{
+        Cm:            make([]*cdMember,0,0),
+        VCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
+        NCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
+    }
     tc.Bp = &BlockPool{
         blocks: 		make([]*TruePbftBlock,0,0),
         TrueTxsCh:      make( chan core.NewTxsEvent),
         th:				nil,
     }
-
     return tc
 }
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {

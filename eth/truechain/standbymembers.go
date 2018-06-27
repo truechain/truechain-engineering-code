@@ -26,26 +26,26 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core"
 )
-func (t *TrueHybrid) GetCryMsg() []*TrueCryptoMsg {
-	return t.crpmsg
+func (t *TrueHybrid) GetCryMsg() []*cdEncryptionMsg {
+	return t.Cdm.VCdCrypMsg
 }
-// all functions of sdm not thread-safe
-func (t *TrueHybrid) ReceiveSdmMsg(msg *TrueCryptoMsg) {
+// all functions of the file ware not thread-safe
+func (t *TrueHybrid) ReceiveSdmMsg(msg *cdEncryptionMsg) {
 	m,_ := minMsg(t.GetCryMsg(),true)
-	if m.Height.Cmp(msg.Height) <= 0 || existMsg(msg,t.crpmsg){
+	if m.Height.Cmp(msg.Height) <= 0 || existMsg(msg,t.Cdm.VCdCrypMsg){
 		return 
 	}
 	// verify the msg when the block is on
 	res := verityMsg(msg,t.bc)
 	if res == 1 {
-		t.crpmsg = append(t.crpmsg,msg)
+		t.Cdm.VCdCrypMsg = append(t.Cdm.VCdCrypMsg,msg)
 	} else if res == 0 {
-		t.crptmp = append(t.crptmp,msg)
+		t.Cdm.NCdCrypMsg = append(t.Cdm.NCdCrypMsg,msg)
 	}
 }
 func (t *TrueHybrid) SyncStandbyMembers() {
 	// sync crypmsg 
-	for _,v := range t.crpmsg {
+	for _,v := range t.Cdm.VCdCrypMsg {
 		_,err := v.ToByte()
 		if err != nil {
 			// send data 
@@ -69,7 +69,7 @@ func (t *TrueHybrid) StandbyWork() error {
 func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	vv := make([]*CommitteeMember,0,0)
 	i := 0
-	for _,v := range t.sdm {
+	for _,v := range t.Cdm.Cm {
 		if i >= num {
 			break
 		} else {
@@ -84,20 +84,20 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	return vv,nil
 }
 
-func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
+func (t *TrueHybrid) add(msg *cdEncryptionMsg) error {
 	node := msg.ToStandbyInfo()
 	if node == nil {
 		return errors.New("Wrong CrytoMsg")
 	}
 	// verfiy and add 
-    if len(t.sdm) >= t.Sdmsize {
-		t.sdm = append(t.sdm[:0],t.sdm[1:]...)
+    if len(t.Cdm.Cm) >= t.Sdmsize {
+		t.Cdm.Cm = append(t.Cdm.Cm[:0],t.Cdm.Cm[1:]...)
 	} 	
-	t.sdm = append(t.sdm,node)
+	t.Cdm.Cm = append(t.Cdm.Cm,node)
 	return nil
 }
-func (t *TrueHybrid) findMsg(height *big.Int) *TrueCryptoMsg {
-	for _,v := range t.crpmsg {
+func (t *TrueHybrid) findMsg(height *big.Int) *cdEncryptionMsg {
+	for _,v := range t.Cdm.VCdCrypMsg {
 		if v.Height.Cmp(height) == 0 {
 			return v
 		}
@@ -107,14 +107,14 @@ func (t *TrueHybrid) findMsg(height *big.Int) *TrueCryptoMsg {
 // check the crypmsg when blockchain has the block
 func (t *TrueHybrid) checkTmpMsg() {
 	for {
-		if len(t.crptmp) <= 0 {
+		if len(t.Cdm.NCdCrypMsg) <= 0 {
 			break
 		}
-		msg,pos := minMsg(t.crptmp,true)
+		msg,pos := minMsg(t.Cdm.NCdCrypMsg,true)
 		res := verityMsg(msg,t.bc)
 		if res == 1 {
-			t.crpmsg = append(t.crpmsg,msg)
-			t.removemgs(t.crptmp,pos)
+			t.Cdm.VCdCrypMsg = append(t.Cdm.VCdCrypMsg,msg)
+			t.Cdm.NCdCrypMsg = t.removemgs(t.Cdm.NCdCrypMsg,pos)
 		} else {
 			break
 		}	
@@ -124,9 +124,9 @@ func (t *TrueHybrid) checkTmpMsg() {
 // crpmsg was be check and insert to the standbyqueue
 // when the blockchain has the block.
 func (t *TrueHybrid) insertToSDM() error {
-	m,_ := minMsg(t.crpmsg,false)
+	m,_ := minMsg(t.Cdm.VCdCrypMsg,false)
 	if m == nil {
-		return errors.New("no minMsg,msglen=" + strconv.Itoa(len(t.crpmsg)))
+		return errors.New("no minMsg,msglen=" + strconv.Itoa(len(t.Cdm.VCdCrypMsg)))
 	}
 	msgHeight := m.Height
 	cur := big.NewInt(t.bc.CurrentHeader().Number.Int64())	
@@ -143,7 +143,7 @@ func (t *TrueHybrid) insertToSDM() error {
 // remove the msg that has same height and it was used
 func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 	pos := make([]int,0,0)
-	for i,v := range t.crpmsg {
+	for i,v := range t.Cdm.VCdCrypMsg {
 		if v.Height.Cmp(num) == 0 {
 			if !v.Use() {
 				pos = append(pos,i)
@@ -151,11 +151,11 @@ func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 		}
 	}
 	for _,i := range pos {
-		t.removemgs(t.crpmsg,i)
+		t.Cdm.VCdCrypMsg = t.removemgs(t.Cdm.VCdCrypMsg,i)
 	}
 }
-func (t *TrueHybrid) removemgs(crpmsg []*TrueCryptoMsg,i int) []*TrueCryptoMsg {
-    return append(crpmsg[:i], crpmsg[i+1:]...)
+func (t *TrueHybrid) removemgs(msg []*cdEncryptionMsg,i int) []*cdEncryptionMsg {
+    return append(msg[:i], msg[i+1:]...)
 }
 func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
 	// match the committee number 
@@ -163,7 +163,7 @@ func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
 	pos := t.matchCommitteeMembers(cmm.GetCmm())
 	if pos != nil {
 		for _,i := range pos {
-			t.sdm = append(t.sdm[:i], t.sdm[i+1:]...)
+			t.Cdm.Cm = append(t.Cdm.Cm[:i], t.Cdm.Cm[i+1:]...)
 		}
 		// update the committee number
 	} else {
@@ -174,7 +174,7 @@ func (t *TrueHybrid) matchCommitteeMembers(comm []*CommitteeMember) []int {
 	pos := make([]int,0,0)
 
 	for _,v := range comm {
-		i := t.posFromSdm(v.Nodeid)
+		i := t.posFromCm(v.Nodeid)
 		if i != -1 {
 			pos = append(pos,i)
 		}
@@ -187,8 +187,8 @@ func (t *TrueHybrid) matchCommitteeMembers(comm []*CommitteeMember) []int {
 	}
 	return pos
 }
-func (t *TrueHybrid) posFromSdm(nid string) int {
-	for i,v := range t.sdm {
+func (t *TrueHybrid) posFromCm(nid string) int {
+	for i,v := range t.Cdm.Cm {
 		if v.Nodeid == nid {
 			return i
 		}
@@ -197,7 +197,7 @@ func (t *TrueHybrid) posFromSdm(nid string) int {
 }
 ////////////////////////////////////////////////////////////////////////
 // use=true include msg which was used 
-func minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,int) {
+func minMsg(crpmsg []*cdEncryptionMsg,use bool) (*cdEncryptionMsg,int) {
 	if len(crpmsg) <= 0 {
 		return nil,0
 	} 
@@ -230,7 +230,7 @@ func minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,int) {
 		}
 	}
 }
-func existMsg(msg *TrueCryptoMsg,msgs []*TrueCryptoMsg) bool {
+func existMsg(msg *cdEncryptionMsg,msgs []*cdEncryptionMsg) bool {
 	for _,v := range msgs {
 		if v.Height.Cmp(msg.Height) != 0{
 			continue
@@ -245,8 +245,8 @@ func existMsg(msg *TrueCryptoMsg,msgs []*TrueCryptoMsg) bool {
 	return false
 }
 // after success pow,send the node by p2p
-func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMsg,error) {
-	cmsg := TrueCryptoMsg{
+func MakeSignedStandbyNode(n *cdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg,error) {
+	cmsg := cdEncryptionMsg{
 		Height:		n.Height,
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
@@ -264,7 +264,7 @@ func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMs
 	return &cmsg,nil
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
-func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
+func verityMsg(msg *cdEncryptionMsg,bc *core.BlockChain) int {
 	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0{
 		return -1
 	}
