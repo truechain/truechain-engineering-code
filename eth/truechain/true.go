@@ -26,10 +26,17 @@ import (
 
 type HybridConsensusHelp struct {
     tt          *TrueHybrid
+    *BlockPool
+    rw p2p.MsgReadWriter
+    *p2p.Peer
 }
+
+const NewBftBlockMsg  = 0x11
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
+    s.AddBlock(block)
+    p2p.Send(s.rw, NewBftBlockMsg, []interface{}{block})
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *SignCommittee) (*CommonReply, error) {
