@@ -207,6 +207,19 @@ func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee,sync bool) {
 	}
 }
 func (t *TrueHybrid) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
+	// committee members come from sdm
+	// simple verify  
+	oPos := t.matchCommitteeMembers(cmm.GetlCmm())
+	if oPos == nil {
+		return false
+	}
+	nPos := t.matchCommitteeMembers(cmm.GetCmm())
+	if nPos == nil {
+		return false
+	}
+	if nPos[0] > oPos[len(oPos)-1] {
+		return true
+	}
 	return false
 }
 func (t *TrueHybrid) getNodeID() (string,string,string) {

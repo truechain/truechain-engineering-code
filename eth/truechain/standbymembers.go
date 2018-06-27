@@ -249,7 +249,7 @@ func (t *TrueHybrid) SyncStandbyMembers() {
 func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
 	// match the committee number 
 	// simple remove(one by one)....
-	pos := t.matchCommitteeMembers(cmm)
+	pos := t.matchCommitteeMembers(cmm.GetCmm())
 	if pos != nil {
 		for _,i := range pos {
 			t.sdm = append(t.sdm[:i], t.sdm[i+1:]...)
@@ -259,9 +259,8 @@ func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
 		// the sdm was dirty,must be update
 	}
 }
-func (t *TrueHybrid) matchCommitteeMembers(cmm *PbftCommittee) []int {
+func (t *TrueHybrid) matchCommitteeMembers(comm []*CommitteeMember) []int {
 	pos := make([]int,0,0)
-	comm := cmm.GetCmm()
 
 	for _,v := range comm {
 		i := t.posFromSdm(v.Nodeid)
