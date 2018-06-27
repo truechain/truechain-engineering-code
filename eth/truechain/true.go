@@ -100,7 +100,7 @@ func New() *TrueHybrid {
         grpcServer:         nil,
     }
     tc.Cdm = &PbftCdCommittee{
-        Cm:            make([]*cdMember,0,0),
+        Cm:             make([]*CdMember,0,0),
         VCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
         NCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
     }

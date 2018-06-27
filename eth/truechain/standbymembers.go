@@ -245,7 +245,7 @@ func existMsg(msg *cdEncryptionMsg,msgs []*cdEncryptionMsg) bool {
 	return false
 }
 // after success pow,send the node by p2p
-func MakeSignedStandbyNode(n *cdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg,error) {
+func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg,error) {
 	cmsg := cdEncryptionMsg{
 		Height:		n.Height,
 		Msg:		make([]byte,0,0),

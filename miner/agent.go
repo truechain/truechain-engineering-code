@@ -124,7 +124,7 @@ func (self *CpuAgent) MakeSigned(work *Work){
 	//port		int
 	//Height		*big.Int		// block Height who pow success
 	//comfire		bool			// the state of the block
-	sdi := &truechain.StandbyInfo{
+	sdi := &truechain.CdMember{
 
 	}
 	pk := &ecdsa.PrivateKey{

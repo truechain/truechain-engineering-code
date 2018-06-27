@@ -21,7 +21,7 @@ import (
 )
 
 // candidate Member
-type cdMember struct {
+type CdMember struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
 	coinbase	string			// the bonus address of miner
 	addr		string 			
@@ -36,7 +36,7 @@ type cdEncryptionMsg struct {
 	use			bool
 }
 type PbftCdCommittee struct {
-	Cm 			[]*cdMember				// confirmed member info 
+	Cm 				[]*CdMember				// confirmed member info 
 	VCdCrypMsg	 	[]*cdEncryptionMsg		// verified	candidate Member message(authenticated msg by block comfirm)
 	NCdCrypMsg		[]*cdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
 }
@@ -63,8 +63,8 @@ var (
 
 func (t *cdEncryptionMsg) Use() bool { return t.use }
 func (t *cdEncryptionMsg) SetUse(u bool) { t.use = u }
-func (t *cdEncryptionMsg) ToStandbyInfo() *cdMember {
-	info := cdMember{Height:big.NewInt(0),}
+func (t *cdEncryptionMsg) ToStandbyInfo() *CdMember {
+	info := CdMember{Height:big.NewInt(0),}
 	info.FromByte(t.Msg)
 	return &info
 }
@@ -93,10 +93,10 @@ func (t *cdEncryptionMsg) ToByte() ([]byte,error) {
 	}
 	return buf.Bytes(),nil
 }
-func (t *cdMember) FromByte(data []byte) error {
+func (t *CdMember) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to :=  cdMember{
+	to :=  CdMember{
 		Height:		big.NewInt(0),
 		comfire:	false,
 	}
@@ -109,7 +109,7 @@ func (t *cdMember) FromByte(data []byte) error {
 	t.comfire = to.comfire
 	return nil
 }
-func (t *cdMember) ToByte() ([]byte,error) {
+func (t *CdMember) ToByte() ([]byte,error) {
 	// return common.FromHex(t.ToMsg())
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
