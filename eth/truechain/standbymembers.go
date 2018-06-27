@@ -30,28 +30,7 @@ func (t *TrueHybrid) GetCryMsg() []*TrueCryptoMsg {
 	return t.crpmsg
 }
 // all functions of sdm not thread-safe
-func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
-	node := msg.ToStandbyInfo()
-	if node == nil {
-		return errors.New("Wrong CrytoMsg")
-	}
-	// verfiy and add 
-    if len(t.sdm) >= t.Sdmsize {
-		t.sdm = append(t.sdm[:0],t.sdm[1:]...)
-	} 	
-	t.sdm = append(t.sdm,node)
-	return nil
-}
-func (t *TrueHybrid) findMsg(h *big.Int) *TrueCryptoMsg {
-	for _,v := range t.crpmsg {
-		if v.Height.Cmp(h) == 0 {
-			return v
-		}
-	}
-	return nil
-}
-
-func (t *TrueHybrid) AddMsg(msg *TrueCryptoMsg) {
+func (t *TrueHybrid) ReceiveSdmMsg(msg *TrueCryptoMsg) {
 	m,_ := minMsg(t.GetCryMsg(),true)
 	if m.Height.Cmp(msg.Height) <= 0 || existMsg(msg,t.crpmsg){
 		return 
@@ -63,6 +42,29 @@ func (t *TrueHybrid) AddMsg(msg *TrueCryptoMsg) {
 	} else if res == 0 {
 		t.crptmp = append(t.crptmp,msg)
 	}
+}
+func (t *TrueHybrid) SyncStandbyMembers() {
+	// sync crypmsg 
+	for _,v := range t.crpmsg {
+		_,err := v.ToByte()
+		if err != nil {
+			// send data 
+		}
+	}
+	// sync tmpcrypmsg???
+}
+func (t *TrueHybrid) StandbyWork() error {
+	for {
+		if t.quit { break }
+		
+		t.insertToSDM()
+		t.checkTmpMsg()
+		for i:=0;i<5;i++ {
+			if t.quit { return nil }
+			time.Sleep(1 * time.Second)
+		}
+	}
+	return nil
 }
 func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	vv := make([]*CommitteeMember,0,0)
@@ -80,6 +82,27 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 		}
 	}
 	return vv,nil
+}
+
+func (t *TrueHybrid) add(msg *TrueCryptoMsg) error {
+	node := msg.ToStandbyInfo()
+	if node == nil {
+		return errors.New("Wrong CrytoMsg")
+	}
+	// verfiy and add 
+    if len(t.sdm) >= t.Sdmsize {
+		t.sdm = append(t.sdm[:0],t.sdm[1:]...)
+	} 	
+	t.sdm = append(t.sdm,node)
+	return nil
+}
+func (t *TrueHybrid) findMsg(height *big.Int) *TrueCryptoMsg {
+	for _,v := range t.crpmsg {
+		if v.Height.Cmp(height) == 0 {
+			return v
+		}
+	}
+	return nil
 }
 // check the crypmsg when blockchain has the block
 func (t *TrueHybrid) checkTmpMsg() {
@@ -134,6 +157,45 @@ func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 func (t *TrueHybrid) removemgs(crpmsg []*TrueCryptoMsg,i int) []*TrueCryptoMsg {
     return append(crpmsg[:i], crpmsg[i+1:]...)
 }
+func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
+	// match the committee number 
+	// simple remove(one by one)....
+	pos := t.matchCommitteeMembers(cmm.GetCmm())
+	if pos != nil {
+		for _,i := range pos {
+			t.sdm = append(t.sdm[:i], t.sdm[i+1:]...)
+		}
+		// update the committee number
+	} else {
+		// the sdm was dirty,must be update
+	}
+}
+func (t *TrueHybrid) matchCommitteeMembers(comm []*CommitteeMember) []int {
+	pos := make([]int,0,0)
+
+	for _,v := range comm {
+		i := t.posFromSdm(v.Nodeid)
+		if i != -1 {
+			pos = append(pos,i)
+		}
+	}
+	sort.Ints(pos[:])
+	c1 := len(comm)
+	c2 := len(pos)
+	if c1 != c2 || c1 != (pos[c2-1]-pos[0]+1) {
+		return nil
+	}
+	return pos
+}
+func (t *TrueHybrid) posFromSdm(nid string) int {
+	for i,v := range t.sdm {
+		if v.Nodeid == nid {
+			return i
+		}
+	}
+	return -1
+}
+////////////////////////////////////////////////////////////////////////
 // use=true include msg which was used 
 func minMsg(crpmsg []*TrueCryptoMsg,use bool) (*TrueCryptoMsg,int) {
 	if len(crpmsg) <= 0 {
@@ -182,19 +244,6 @@ func existMsg(msg *TrueCryptoMsg,msgs []*TrueCryptoMsg) bool {
 	}
 	return false
 }
-func (t *TrueHybrid) StandbyWork() error {
-	for {
-		if t.quit { break }
-		
-		t.insertToSDM()
-		t.checkTmpMsg()
-		for i:=0;i<5;i++ {
-			if t.quit { return nil }
-			time.Sleep(1 * time.Second)
-		}
-	}
-	return nil
-}
 // after success pow,send the node by p2p
 func MakeSignedStandbyNode(n *StandbyInfo,priv *ecdsa.PrivateKey) (*TrueCryptoMsg,error) {
 	cmsg := TrueCryptoMsg{
@@ -233,54 +282,6 @@ func verityMsg(msg *TrueCryptoMsg,bc *core.BlockChain) int {
 	addr := crypto.PubkeyToAddress(*pub).String()
 	if addr == coinbase {
 		return 1
-	}
-	return -1
-}
-func (t *TrueHybrid) SyncStandbyMembers() {
-	// sync crypmsg 
-	for _,v := range t.crpmsg {
-		_,err := v.ToByte()
-		if err != nil {
-			// send data 
-		}
-	}
-	// sync tmpcrypmsg???
-}
-func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
-	// match the committee number 
-	// simple remove(one by one)....
-	pos := t.matchCommitteeMembers(cmm.GetCmm())
-	if pos != nil {
-		for _,i := range pos {
-			t.sdm = append(t.sdm[:i], t.sdm[i+1:]...)
-		}
-		// update the committee number
-	} else {
-		// the sdm was dirty,must be update
-	}
-}
-func (t *TrueHybrid) matchCommitteeMembers(comm []*CommitteeMember) []int {
-	pos := make([]int,0,0)
-
-	for _,v := range comm {
-		i := t.posFromSdm(v.Nodeid)
-		if i != -1 {
-			pos = append(pos,i)
-		}
-	}
-	sort.Ints(pos[:])
-	c1 := len(comm)
-	c2 := len(pos)
-	if c1 != c2 || c1 != (pos[c2-1]-pos[0]+1) {
-		return nil
-	}
-	return pos
-}
-func (t *TrueHybrid) posFromSdm(nid string) int {
-	for i,v := range t.sdm {
-		if v.Nodeid == nid {
-			return i
-		}
 	}
 	return -1
 }
