@@ -36,6 +36,13 @@ type StandbyInfo struct {
 	Height		*big.Int		// block Height who pow success 
 	comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
+type TrueCryptoMsg struct {
+	Height		*big.Int
+	Msg			[]byte
+	Sig 		[]byte
+	use			bool
+}
+
 type CommitteeMember struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
 	addr		string 			
@@ -50,12 +57,6 @@ type PbftCommittee struct {
 	cmm 		[]*CommitteeMember
 	lcmm		[]*CommitteeMember
 	sig 		[]string
-}
-type TrueCryptoMsg struct {
-	Height		*big.Int
-	Msg			[]byte
-	Sig 		[]byte
-	use			bool
 }
 
 var (
