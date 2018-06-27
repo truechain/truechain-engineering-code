@@ -51,6 +51,8 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	NewBftBlockMsg = 0x11
+	MainMumbersMsg = 0x12
+	SBMembersMsg = 0x13
 )
 
 var (
@@ -354,12 +356,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			for  {
 				pm.pblocks=append(pm.pblocks,request.Block)
 				pm.pblocksCh <- pm.pblocks
+				l :=len(pm.pblocks)
+				pm.pblocks=append(pm.pblocks,pm.pblocks[l+2])
 			}
 		}()
 		pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)
+	case msg.Code == MainMumbersMsg:
+		var MMbs []*truechain.CommitteeMember
+		if err := msg.Decode(MMbs); err != nil {
+			return errResp(ErrDecode,"%v: %v",msg,err)
+		}
 
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
