@@ -1,0 +1,17 @@
+{
+  "name": "ethermint_test",
+  "version": "1.0.0",
+  "description": "web3 test script",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "web3"
+  ],
+  "author": "Felix",
+  "license": "ISC",
+  "dependencies": {
+    "web3": "^1.0.0-beta.34"
+  }
+}
