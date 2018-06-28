@@ -53,7 +53,7 @@ const (
 	NewBftBlockMsg = 0x11
 	MainMumbersMsg = 0x12
 	SBMembersMsg = 0x13
-	CMSMsg =0x14
+	CDSMsg =0x14
 )
 
 var (
@@ -366,6 +366,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)
 	case msg.Code == MainMumbersMsg:
+		var MMbs []*truechain.CommitteeMember
+		if err := msg.Decode(MMbs); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		return p.SendCms(MMbs)
+	case msg.Code == CDSMsg:
 		var MMbs []*truechain.CommitteeMember
 		if err := msg.Decode(MMbs); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
