@@ -152,3 +152,10 @@ func(pm *ProtocolManager) BroadcastPbs(pbs []*truechain.TruePbftBlock) {
 	}
 }
 
+func (p *peer)SendCms(cms []*truechain.CommitteeMember) error {
+	return p2p.Send(p.rw,MainMumbersMsg,cms)
+}
+func (p *peer)SendCds(cms []*truechain.CommitteeMember) error {
+	return p2p.Send(p.rw,CDSMsg,cms)
+}
+

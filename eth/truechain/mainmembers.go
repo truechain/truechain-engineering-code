@@ -48,6 +48,7 @@ func (t *TrueHybrid) SyncMainMembers() {
 	// 	}
 	// }
 	// send by p2p network
+	t.CMSchache=append(t.CMSchache,t.Cmm)
 }
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {

@@ -18,6 +18,7 @@
 
 // This program generates contract/code.go, which contains the chequebook code
 // after deployment.
+
 package main
 
 import (
