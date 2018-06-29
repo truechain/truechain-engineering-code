@@ -41,22 +41,7 @@ func (CMG *CommitteeMemberGroup)GetPbftNodesFromCfg() []string{
         fmt.Println("Error:", err)
     }
 	
-	 
-	//buf := new(bytes.Buffer)
-	//m := make([]CommitteeMember,0)
-
-	// var data []interface{}
-	// for i := 0; i < 5; i++{
-	// 	I_addr := "127.0.0." + strconv.Itoa(i)
-	// 	I_Nodeid := "Nodeid_" + strconv.Itoa(i)
-
-	// 	data = []interface{}{
-	// 		string(I_Nodeid),
-	// 		string(I_addr),
-	// 		int(34567)}
-
-	// }
-
+	
 
 	// for _, v := range data {
 	// 	err := binary.Write(buf, binary.LittleEndian, v)
