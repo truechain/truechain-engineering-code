@@ -101,7 +101,7 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 	//pbft
 	*truechain.TrueHybrid
-	pbftpool PbftPool
+	//pbftpool PbftPool
 	pblocksCh chan []*truechain.TruePbftBlock
 	pbsSub   event.Subscription
 	pblocks []*truechain.TruePbftBlock
@@ -121,6 +121,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		newPeerCh:   make(chan *peer),
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
+		pblocksCh:   make(chan []*truechain.TruePbftBlock),
 		quitSync:    make(chan struct{}),
 	}
 	// Figure out whether to allow fast sync or not
@@ -217,7 +218,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
-	pm.pbsSub = pm.pbftpool.SubscribeNewPbftsEvent(pm.pblocksCh)
 	go pm.txBroadcastLoop()
 	go pm.pbBroadcastloop()
 
@@ -363,7 +363,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				pm.pblocks=append(pm.pblocks[:l-1],pm.pblocks[l:]...)
 			}
 		}()
-		pm.pbftpool.AddRemotes(request.Block)
+		//pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)
