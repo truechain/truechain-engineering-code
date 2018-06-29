@@ -132,8 +132,8 @@ func (pm *ProtocolManager) pbBroadcastloop() {
 		select {
 		case event := <-pm.pblocksCh:
 			pm.BroadcastPbs(event)
-		case <-pm.pbsSub.Err():
-			return
+		//case <-pm.pbsSub.Err():
+		//	return
 		}
 	}
 }
