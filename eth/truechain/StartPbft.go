@@ -43,19 +43,7 @@ func (CMG *CommitteeMemberGroup)GetPbftNodesFromCfg() []string{
 	
 	
 
-	// for _, v := range data {
-	// 	err := binary.Write(buf, binary.LittleEndian, v)
-	// 	if err != nil {
-	// 		fmt.Println("binary.Write failed:", err)
-	// 	}
-	// 	Test  := CommitteeMember{}
-	// 	Test.FromByte(buf.Bytes())
-	// 	//m = append(m, Test)
-	// 	CMG.Cmg =  append(CMG.Cmg, Test)
-	// }
-
-	// fmt.Println(CMG.Cmg)
-
+	
 	return conf.node
 }
 
