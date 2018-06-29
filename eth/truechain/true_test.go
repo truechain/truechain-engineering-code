@@ -10,11 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/core/types"
+	"crypto/ecdsa"
 )
 
 
 var (
-	privateKey,_ = crypto.GenerateKey()
+	privkeys = make([]*ecdsa.PrivateKey,0,0)
+	keysCount = 6
 	tx1 = types.NewTransaction(
 		0,
 		common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"),
@@ -39,6 +41,12 @@ var (
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 )
+func init(){
+	for i:=0;i<keysCount;i++ {
+		k,_ := crypto.GenerateKey()
+		privkeys = append(privkeys,k)
+	}
+}
 
 func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 	txs := make([]*types.Transaction,0,0)
@@ -77,19 +85,23 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 		Txs:			&Transactions{Txs:pbTxs},
 	}
 	msg := rlpHash(block.Txs)
-	cc := cmm.GetCmm()
+	//cc := cmm.GetCmm()
 	sigs := make([]string,0,0)
 	// same priveatekey to sign the message
-	for i,_ := range cc {
-		fmt.Println(i)
-		sig,err := crypto.Sign(msg,privateKey)
+	for i:=0;i<keysCount/2;i++ {
+		sig,err := crypto.Sign(msg,privkeys[i])
 		if err == nil {
 			sigs = append(sigs,common.ToHex(sig))
 		}
 	}
 	return &block
 }
+//func MakeFirstCommittee(num int) {
+//
+//}
+func TestCryptoMsg(t *testing.T) {
 
+}
 func TestMainMembers(t *testing.T) {
 	var (
 		th = New()
@@ -107,5 +119,6 @@ func TestMainMembers(t *testing.T) {
 		return
 	}
 	// test cryptomsg for candidate Member
+
 	th.StopTrueChain()
 }
