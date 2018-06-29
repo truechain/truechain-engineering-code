@@ -1,0 +1,10 @@
+{
+    "enabled": true,
+    "node":[{"Nodeid":"1","addr":"120.0.0.1","port":"12345"},
+                {"Nodeid":"2","addr":"120.0.0.2","port":"12346"},
+                {"Nodeid":"3","addr":"120.0.0.3","port":"12347"},
+                {"Nodeid":"4","addr":"120.0.0.4","port":"12348"},
+                {"Nodeid":"5","addr":"120.0.0.5","port":"12349"}],
+   
+    "path": "/usr/local"
+ }   		
