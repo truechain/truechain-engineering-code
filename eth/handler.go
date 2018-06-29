@@ -217,6 +217,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
+	pm.pbsSub = pm.pbftpool.SubscribeNewPbftsEvent(pm.pblocksCh)
 	go pm.txBroadcastLoop()
 	go pm.pbBroadcastloop()
 
