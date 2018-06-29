@@ -2,12 +2,7 @@
 package truechain
 
 import  (
-    //"strconv"
-    //"log"
-	//p "github.com/ethereum/truechain-engineering-code/eth/truechain"
-	//"bytes"
-	//"encoding/binary"
-	//"fmt"
+    
 
 	"encoding/json"
 	"fmt"
