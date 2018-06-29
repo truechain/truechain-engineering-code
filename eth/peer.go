@@ -96,6 +96,7 @@ type peer struct {
 	//pbft
 	knownBftBlocks *set.Set
 	queuedBftProps chan []*truechain.TruePbftBlock
+	tt *truechain.TrueHybrid
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
