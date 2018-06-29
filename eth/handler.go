@@ -104,7 +104,7 @@ type ProtocolManager struct {
 	*truechain.TrueHybrid
 	//pbftpool PbftPool
 	pblocksCh chan []*truechain.TruePbftBlock
-	pbsSub    event.Subscription
+	//pbsSub    event.Subscription
 	pblocks   []*truechain.TruePbftBlock
 }
 
@@ -235,7 +235,7 @@ func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Ethereum protocol")
 
 	pm.txsSub.Unsubscribe() // quits txBroadcastLoop
-	pm.pbsSub.Unsubscribe()
+	//pm.pbsSub.Unsubscribe()
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 
 	// Quit the sync loop.
