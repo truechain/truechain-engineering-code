@@ -1,7 +1,7 @@
 {
   "name": "ethermint_test",
   "version": "1.0.0",
-  "description": "web3 test script",
+  "description": "Web3 test script",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
