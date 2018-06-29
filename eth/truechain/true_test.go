@@ -10,11 +10,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	//"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/core/types"
+	"crypto/ecdsa"
+	"encoding/hex"
 )
 
 
 var (
-	privateKey,_ = crypto.GenerateKey()
+	th = New()
+	privkeys = make([]*ecdsa.PrivateKey,0,0)
+	keysCount = 6
 	tx1 = types.NewTransaction(
 		0,
 		common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"),
@@ -39,6 +43,12 @@ var (
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 )
+func init(){
+	for i:=0;i<keysCount;i++ {
+		k,_ := crypto.GenerateKey()
+		privkeys = append(privkeys,k)
+	}
+}
 
 func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 	txs := make([]*types.Transaction,0,0)
@@ -77,23 +87,69 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 		Txs:			&Transactions{Txs:pbTxs},
 	}
 	msg := rlpHash(block.Txs)
-	cc := cmm.GetCmm()
+	//cc := cmm.GetCmm()
 	sigs := make([]string,0,0)
 	// same priveatekey to sign the message
-	for i,_ := range cc {
-		fmt.Println(i)
-		sig,err := crypto.Sign(msg,privateKey)
+	for i:=0;i<keysCount/2;i++ {
+		sig,err := crypto.Sign(msg,privkeys[i])
 		if err == nil {
 			sigs = append(sigs,common.ToHex(sig))
 		}
 	}
 	return &block
 }
+func MakeFirstCommittee() *PbftCommittee{
+	curCmm := make([]*CommitteeMember,0,0)
+	curCmmCount := keysCount/2
+	for i:=0;i<curCmmCount;i++ {
+		cc := CommitteeMember{
+			addr:			"127.0.0.1",
+			port:			16745,
+			Nodeid:			hex.EncodeToString(crypto.FromECDSAPub(
+							&ecdsa.PublicKey{
+								Curve: 	privkeys[i].Curve,
+								X: 		big.NewInt(privkeys[i].X.Int64()),
+								Y: 		big.NewInt(privkeys[i].Y.Int64())})),
+		}
+		curCmm = append(curCmm,&cc)
+	}
 
+	cmm := PbftCommittee{
+		No:				1,
+		ct:				time.Now(),
+		lastt:			time.Now(),
+		count:			curCmmCount,
+		lcount:			0,
+		cmm:			curCmm,
+		lcmm:			nil,
+		sig:			make([]string,0,0),
+	}
+	sig := cmm.GetSig()
+	for i:=0;i<keysCount/2;i++ {
+		k,_ := crypto.Sign(cmm.GetHash(),privkeys[i])
+		sig = append(sig,common.ToHex(k))
+	}
+	cmm.SetSig(sig)
+	return &cmm
+}
+func MakeCdCommittee() *PbftCdCommittee{
+	return nil
+}
+func TestCryptoMsg(t *testing.T) {
+	err := th.StartTrueChain(nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	th.StopTrueChain()
+}
+func TestNewCommittee(t *testing.T) {
+	err := th.StartTrueChain(nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	th.StopTrueChain()
+}
 func TestMainMembers(t *testing.T) {
-	var (
-		th = New()
-	)
 	err := th.StartTrueChain(nil)
 	if err != nil {
 		fmt.Println(err)
@@ -107,5 +163,6 @@ func TestMainMembers(t *testing.T) {
 		return
 	}
 	// test cryptomsg for candidate Member
+
 	th.StopTrueChain()
 }

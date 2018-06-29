@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -40,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 const (
@@ -49,11 +49,12 @@ const (
 
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
+	txChanSize     = 4096
+	pbChanSize     = 4096
 	NewBftBlockMsg = 0x11
 	MainMumbersMsg = 0x12
-	SBMembersMsg = 0x13
-	CDSMsg =0x14
+	SBMembersMsg   = 0x13
+	CDSMsg         = 0x14
 )
 
 var (
@@ -101,10 +102,10 @@ type ProtocolManager struct {
 	wg sync.WaitGroup
 	//pbft
 	*truechain.TrueHybrid
-	pbftpool PbftPool
+	//pbftpool PbftPool
 	pblocksCh chan []*truechain.TruePbftBlock
-	pbsSub   event.Subscription
-	pblocks []*truechain.TruePbftBlock
+	pbsSub    event.Subscription
+	pblocks   []*truechain.TruePbftBlock
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -216,8 +217,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
+	pm.pblocksCh =make(chan []*truechain.TruePbftBlock,pbChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
-	pm.pbsSub = pm.pbftpool.SubscribeNewPbftsEvent(pm.pblocksCh)
 	go pm.txBroadcastLoop()
 	go pm.pbBroadcastloop()
 
@@ -353,17 +354,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		if request.Block == nil {
-			return errResp(ErrDecode,"pbftblock is nil")
+			return errResp(ErrDecode, "pbftblock is nil")
 		}
 		go func() {
-			for  {
-				pm.pblocks=append(pm.pblocks,request.Block)
+			for {
+				pm.pblocks = append(pm.pblocks, request.Block)
 				pm.pblocksCh <- pm.pblocks
-				l :=len(pm.pblocks)
-				pm.pblocks=append(pm.pblocks[:l-1],pm.pblocks[l:]...)
+				l := len(pm.pblocks)
+				pm.pblocks = append(pm.pblocks[:l-1], pm.pblocks[l:]...)
 			}
 		}()
-		pm.pbftpool.AddRemotes(request.Block)
+		//pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)

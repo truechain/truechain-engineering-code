@@ -2,19 +2,18 @@ package eth
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/eth/truechain"
-	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p"
 )
 
-type PbftPool interface {
-	AddRemotes(block *truechain.TruePbftBlock) []error
-	Pending()(map[common.Address]truechain.TruePbftBlock,error)
-	SubscribeNewPbftsEvent(chan<- []*truechain.TruePbftBlock) event.Subscription
-}
+//type PbftPool interface {
+//	AddRemotes(block *truechain.TruePbftBlock) []error
+//	Pending()(map[common.Address]truechain.TruePbftBlock,error)
+//	SubscribeNewPbftsEvent(chan<- []*truechain.TruePbftBlock) event.Subscription
+//}
 
-type NewPbftsEvent struct {Pbfts []*truechain.TruePbftBlock }
+type NewPbftsEvent struct{ Pbfts []*truechain.TruePbftBlock }
 
 type newBftBlockData struct {
 	Block *truechain.TruePbftBlock
@@ -31,17 +30,18 @@ type newBftBlockData struct {
 //	return h
 //}
 //
-func (ps *peerSet)PeersWithoutPbftBlock (hash common.Hash) []*peer {
+func (ps *peerSet) PeersWithoutPbftBlock(hash common.Hash) []*peer {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
-	list := make([]*peer,0,len(ps.peers))
-	for _,p := range ps.peers {
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
 		if !p.knownBftBlocks.Has(hash) {
-			list = append(list,p)
+			list = append(list, p)
 		}
 	}
 	return list
 }
+
 //
 //func (h truechain.TruePbftBlockHeader) Hash() common.Hash {
 //	return prlpHash(h)
@@ -60,6 +60,7 @@ func (ps *peerSet)PeersWithoutPbftBlock (hash common.Hash) []*peer {
 type propBftEvent struct {
 	block *truechain.TruePbftBlock
 }
+
 //type propCMSEvnet struct {
 //	cms []*truechain.CommitteeMember
 //}
@@ -74,9 +75,9 @@ func (p *peer) SendNewBftBlock(b *truechain.TruePbftBlock) error {
 }
 
 func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
-	for _,b := range blocks {
-		s := make([]*truechain.TruePbftBlock,1)
-		s=append(s,b)
+	for _, b := range blocks {
+		s := make([]*truechain.TruePbftBlock, 1)
+		s = append(s, b)
 		select {
 		case p.queuedBftProps <- s:
 			p.knownBftBlocks.Add(b.Hash())
@@ -126,36 +127,34 @@ func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
 //	return v
 //}
 
-
-func (pm *ProtocolManager) pbBroadcastloop()  {
+func (pm *ProtocolManager) pbBroadcastloop() {
 	for {
 		select {
 		case event := <-pm.pblocksCh:
 			pm.BroadcastPbs(event)
-		case <- pm.pbsSub.Err():
+		case <-pm.pbsSub.Err():
 			return
 		}
 	}
 }
 
-func(pm *ProtocolManager) BroadcastPbs(pbs []*truechain.TruePbftBlock) {
+func (pm *ProtocolManager) BroadcastPbs(pbs []*truechain.TruePbftBlock) {
 	var pbset = make(map[*peer][]*truechain.TruePbftBlock)
-	for _,pb := range pbs {
+	for _, pb := range pbs {
 		peers := pm.peers.PeersWithoutPbftBlock(pb.Hash())
-		for _,peer := range peers {
-			pbset[peer] = append(pbset[peer],pb)
+		for _, peer := range peers {
+			pbset[peer] = append(pbset[peer], pb)
 		}
-		log.Trace("Broadcast pbftblcok","hash",pb.Hash())
+		log.Trace("Broadcast pbftblcok", "hash", pb.Hash())
 	}
-	for peer,pbs := range pbset {
+	for peer, pbs := range pbset {
 		peer.AsyncSendNewBftBlocks(pbs)
 	}
 }
 
-func (p *peer)SendCms(cms []*truechain.CommitteeMember) error {
-	return p2p.Send(p.rw,MainMumbersMsg,cms)
+func (p *peer) SendCms(cms []*truechain.CommitteeMember) error {
+	return p2p.Send(p.rw, MainMumbersMsg, cms)
 }
-func (p *peer)SendCds(cms []*truechain.CommitteeMember) error {
-	return p2p.Send(p.rw,CDSMsg,cms)
+func (p *peer) SendCds(cms []*truechain.CommitteeMember) error {
+	return p2p.Send(p.rw, CDSMsg, cms)
 }
-
