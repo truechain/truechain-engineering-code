@@ -11,7 +11,7 @@ import (
 type PbftPool interface {
 	AddRemotes(block *truechain.TruePbftBlock) []error
 	Pending()(map[common.Address]truechain.TruePbftBlock,error)
-	SubscribeNewPbftsEvent(chan<- NewPbftsEvent) event.Subscription
+	SubscribeNewPbftsEvent(chan<- []*truechain.TruePbftBlock) event.Subscription
 }
 
 type NewPbftsEvent struct {Pbfts []*truechain.TruePbftBlock }

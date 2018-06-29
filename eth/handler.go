@@ -217,6 +217,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
+	pm.pbsSub = pm.pbftpool.SubscribeNewPbftsEvent(pm.pblocksCh)
 	go pm.txBroadcastLoop()
 	go pm.pbBroadcastloop()
 
@@ -232,7 +233,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Ethereum protocol")
 
-	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
+	pm.txsSub.Unsubscribe() // quits txBroadcastLoop
+	pm.pbsSub.Unsubscribe()
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 
 	// Quit the sync loop.
