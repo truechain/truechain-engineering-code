@@ -21,7 +21,7 @@ message EmptyParam {
 message BftPrivateKey {
     string pkey  = 1;
 }
-// hash: the list of all committee members data's hash
+// msg: the list of all committee members data's hash
 // use crypto.sha3.Keccak256 and rlp Encode makes hash
 // and return the hex string.
 // the committee members structure is like CommitteeMember{
