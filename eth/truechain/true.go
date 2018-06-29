@@ -116,6 +116,11 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer()
+    if GetFirstStart() {
+        ns := GetPbftNodesFromCfg()
+        MembersNodes(ns)
+        Start()
+}
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
     go TrueChainWork(t)
