@@ -11,10 +11,12 @@ import (
 	//"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/core/types"
 	"crypto/ecdsa"
+	"encoding/hex"
 )
 
 
 var (
+	th = New()
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
 	keysCount = 6
 	tx1 = types.NewTransaction(
@@ -96,16 +98,58 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 	}
 	return &block
 }
-//func MakeFirstCommittee(num int) {
-//
-//}
-func TestCryptoMsg(t *testing.T) {
+func MakeFirstCommittee() *PbftCommittee{
+	curCmm := make([]*CommitteeMember,0,0)
+	curCmmCount := keysCount/2
+	for i:=0;i<curCmmCount;i++ {
+		cc := CommitteeMember{
+			addr:			"127.0.0.1",
+			port:			16745,
+			Nodeid:			hex.EncodeToString(crypto.FromECDSAPub(
+							&ecdsa.PublicKey{
+								Curve: 	privkeys[i].Curve,
+								X: 		big.NewInt(privkeys[i].X.Int64()),
+								Y: 		big.NewInt(privkeys[i].Y.Int64())})),
+		}
+		curCmm = append(curCmm,&cc)
+	}
 
+	cmm := PbftCommittee{
+		No:				1,
+		ct:				time.Now(),
+		lastt:			time.Now(),
+		count:			curCmmCount,
+		lcount:			0,
+		cmm:			curCmm,
+		lcmm:			nil,
+		sig:			make([]string,0,0),
+	}
+	sig := cmm.GetSig()
+	for i:=0;i<keysCount/2;i++ {
+		k,_ := crypto.Sign(cmm.GetHash(),privkeys[i])
+		sig = append(sig,common.ToHex(k))
+	}
+	cmm.SetSig(sig)
+	return &cmm
+}
+func MakeCdCommittee() *PbftCdCommittee{
+	return nil
+}
+func TestCryptoMsg(t *testing.T) {
+	err := th.StartTrueChain(nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	th.StopTrueChain()
+}
+func TestNewCommittee(t *testing.T) {
+	err := th.StartTrueChain(nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	th.StopTrueChain()
 }
 func TestMainMembers(t *testing.T) {
-	var (
-		th = New()
-	)
 	err := th.StartTrueChain(nil)
 	if err != nil {
 		fmt.Println(err)
