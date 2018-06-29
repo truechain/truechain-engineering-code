@@ -50,6 +50,7 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize     = 4096
+	pbChanSize     = 4096
 	NewBftBlockMsg = 0x11
 	MainMumbersMsg = 0x12
 	SBMembersMsg   = 0x13
@@ -121,7 +122,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		newPeerCh:   make(chan *peer),
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
-		pblocksCh:   make(chan []*truechain.TruePbftBlock),
 		quitSync:    make(chan struct{}),
 	}
 	// Figure out whether to allow fast sync or not
@@ -217,6 +217,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
+	pm.pblocksCh =make(chan []*truechain.TruePbftBlock,pbChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 	go pm.pbBroadcastloop()
