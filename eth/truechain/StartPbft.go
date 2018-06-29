@@ -22,18 +22,7 @@ type CommitteeMemberGroup struct{
   
 
 }
-//func (CMG *CommitteeMemberGroup)Init(){
-//
-//   for i := 1; i<= 5 ; i++{
-//      i_addr := "127.0.0." + strconv.Itoa(i)
-//      i_Nodeid := "Nodeid_" + strconv.Itoa(i)
-//     Init := CommitteeMember{
-//         Nodeid: i_Nodeid,
-//         addr:   i_addr,
-//         port:   34567}
-//         CMG.Cmg = append(CMG.Cmg, Init)
-//   }
-//}
+
 
 func (CMG *CommitteeMemberGroup)GetPbftNodesFromCfg() []string{
 
