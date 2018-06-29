@@ -1,0 +1,27 @@
+<script type="text/javascript" th:inline="javascript">
+    /*<![CDATA[*/
+    $(function () {
+        $("#updata").click(function () {
+            if ($("#majorBigClassForm").valid()) {
+                $.ajax({
+                    url: "/majorClass/bigClass/addUpdate",
+                    type: "POST",
+                    data: $("#majorBigClassForm").serialize(),
+                    success: function (data) {
+                        if (data) {
+                            layer.confirm('专业大类添加成功!', {
+                                icon: 1,
+                                btn: ['确认']
+                                , btn1: function (index, layero) {
+                                    parent.location.reload();
+                                    parent.layer.closeAll();
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    });
+    /*]]>*/
+</script>
