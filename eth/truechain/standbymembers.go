@@ -265,7 +265,7 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
 func verityMsg(msg *cdEncryptionMsg,bc *core.BlockChain) int {
-	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0{
+	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0 || bc == nil{
 		return -1
 	}
 	// find the coinbase address from the heigth

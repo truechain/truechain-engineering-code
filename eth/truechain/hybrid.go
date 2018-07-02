@@ -154,6 +154,9 @@ func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
 func (t *PbftCommittee) GetSig() []string {
 	return t.sig
 }
+func (t *PbftCommittee) SetSig(sig []string) {
+	t.sig = sig
+}
 func (t *PbftCommittee) GetHash() []byte {
 	tmp := struct {
 		msg1	[]*CommitteeMember
