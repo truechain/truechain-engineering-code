@@ -133,21 +133,62 @@ func MakeFirstCommittee() *PbftCommittee{
 	return &cmm
 }
 func MakeCdCommittee() *PbftCdCommittee{
-	return nil
+	cd := &PbftCdCommittee{
+		Cm:					make([]*CdMember,0,0),
+		VCdCrypMsg:			make([]*cdEncryptionMsg,0,0),
+		NCdCrypMsg:			make([]*cdEncryptionMsg,0,0),
+	}
+	return cd
 }
 func TestCryptoMsg(t *testing.T) {
-	err := th.StartTrueChain(nil)
-	if err != nil {
-		fmt.Println(err)
+	priv := privkeys[0]
+	pub := ecdsa.PublicKey{
+		Curve: 	priv.Curve,
+		X: 		big.NewInt(priv.X.Int64()),
+		Y: 		big.NewInt(priv.Y.Int64()),
 	}
-	th.StopTrueChain()
+	nodeid := hex.EncodeToString(crypto.FromECDSAPub(&pub))
+	addr := crypto.PubkeyToAddress(pub)
+
+	n := CdMember{
+		Nodeid:				nodeid,
+		coinbase:			addr.String(),
+		addr:				"127.0.0.1",
+		port:				16745,
+		Height:				big.NewInt(100),
+		comfire:			false,
+	}
+	cryMsg,err := MakeSignedStandbyNode(&n,priv)
+	if err != nil {
+		fmt.Println("makeCryptoMsg failed,err=",err)
+	}
+	res := verityMsg(cryMsg,nil)
+	fmt.Println(res)
 }
 func TestNewCommittee(t *testing.T) {
-	err := th.StartTrueChain(nil)
-	if err != nil {
-		fmt.Println(err)
+	// new committee msg from py-PBFT for view-change
+	// construct cdm
+	th.Cdm = MakeCdCommittee()
+	// make crypto msg
+	cmsg := SignCommittee{
+
 	}
-	th.StopTrueChain()
+	cmm,err := th.MakeNewCommittee(&cmsg)
+	if err != nil {
+		fmt.Println("makeNewCommittee,err=",err)
+	}
+	th.Cmm = cmm
+}
+func TestPbftBlock(t *testing.T) {
+	th.Cmm = MakeFirstCommittee()
+	// test make pbft block
+	block := MakePbftBlock(th.Cmm)
+	// verify the pbft block
+	err := th.CheckBlock(block)
+	if err != nil {
+		fmt.Println("verify the block failed,err=",err)
+		return
+	}
 }
 func TestMainMembers(t *testing.T) {
 	err := th.StartTrueChain(nil)
