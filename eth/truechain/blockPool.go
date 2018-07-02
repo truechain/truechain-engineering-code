@@ -49,6 +49,7 @@ func (self *BlockPool) JoinEth() {
 	}
 }
 
+
 func (self *BlockPool) PushAEmptyBlock() {
 	txs := make([]*types.Transaction,0,0)
 	self.TrueTxsCh <- core.NewTxsEvent{Txs:txs}
