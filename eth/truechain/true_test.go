@@ -163,6 +163,7 @@ func MakeCdCommittee() *PbftCdCommittee{
 	}
 	return cd
 }
+
 func TestCryptoMsg(t *testing.T) {
 	priv := privkeys[0]
 	pub := GetPub(priv)
@@ -183,6 +184,7 @@ func TestCryptoMsg(t *testing.T) {
 	}
 	res := verityMsg(cryMsg,nil)
 	fmt.Println(res)
+	th.StopTrueChain()
 }
 func TestNewCommittee(t *testing.T) {
 	// new committee msg from py-PBFT for view-change
@@ -216,7 +218,8 @@ func TestNewCommittee(t *testing.T) {
 	if err != nil {
 		fmt.Println("makeNewCommittee,err=",err)
 	}
-	th.Cmm = cmm
+	th.UpdateLocalCommittee(cmm,true)
+	th.StopTrueChain()
 }
 func TestPbftBlock(t *testing.T) {
 	th.Cmm = MakeFirstCommittee(3)
@@ -228,21 +231,34 @@ func TestPbftBlock(t *testing.T) {
 		fmt.Println("verify the block failed,err=",err)
 		return
 	}
+	th.StopTrueChain()
 }
-func TestMainMembers(t *testing.T) {
-	err := th.StartTrueChain(nil)
-	if err != nil {
-		fmt.Println(err)
+func TestCandidateMember(t *testing.T) {
+	th.Cdm = MakeCdCommittee()
+	// test cryptomsg for candidate Member
+	// make cryptomsg for add candidate Member
+	priv := privkeys[keysCount-1]
+	pub := GetPub(priv)
+	nodeid := hex.EncodeToString(crypto.FromECDSAPub(pub))
+	coinPriv := privkeys[keysCount-2]
+	coinAddr := crypto.PubkeyToAddress(*GetPub(coinPriv))
+
+	n := CdMember{
+		Nodeid:				nodeid,
+		coinbase:			coinAddr.String(),
+		addr:				"127.0.0.1",
+		port:				16745,
+		Height:				big.NewInt(123),
+		comfire:			false,
 	}
-	// test make pbft block
-	block := MakePbftBlock(th.Cmm)
-	// verify the pbft block
-	err = th.CheckBlock(block)
+	cmsg,err := MakeSignedStandbyNode(&n,coinPriv)
 	if err != nil {
-		fmt.Println("verify the block failed,err=",err)
+		fmt.Println("MakeSignedStandbyNode failed...err=",err)
 		return
 	}
-	// test cryptomsg for candidate Member
-
+	// if not init the blockchain,it will be add the NCdCrypMsg queue.
+	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
+	th.ReceiveSdmMsg(cmsg)
+	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
 	th.StopTrueChain()
 }
