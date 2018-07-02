@@ -112,6 +112,9 @@ func New() *TrueHybrid {
     }
     return tc
 }
+func (t *TrueHybrid) setCommitteeCount(c int) {
+    t.CmmCount = c
+}
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
@@ -120,7 +123,7 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
         ns := GetPbftNodesFromCfg()
         MembersNodes(ns)
         Start()
-}
+    }
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
     go TrueChainWork(t)
