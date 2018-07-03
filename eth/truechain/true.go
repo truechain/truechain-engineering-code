@@ -28,6 +28,9 @@ import (
 	"encoding/json"
 	//"strconv"
 	//"google.golang.org/genproto/googleapis/devtools/remoteworkers/v1test2"
+    "strconv"
+    "bytes"
+    "encoding/binary"
 )
 
 type HybridConsensusHelp struct {
@@ -97,7 +100,7 @@ type TrueHybrid struct {
     Bp          *BlockPool
     CMSchache   []*PbftCommittee
     CDSchache   []*PbftCdCommittee
-	nd			  []*CommitteeMember
+
 
 }
 
@@ -134,7 +137,7 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
     t.CmmCount = c
 }
 
-func (t *TrueHybrid)GetPbftNodesFromCfg(n []*configuration )  []*CommitteeMember {
+func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
 
     file, _ := os.Open("config.json")
 
@@ -149,31 +152,34 @@ func (t *TrueHybrid)GetPbftNodesFromCfg(n []*configuration )  []*CommitteeMember
         fmt.Println("Error:", err)
     }
 
+    buf := new(bytes.Buffer)
+    	m := make([]CommitteeMember,0)
 
-    //node := make([]*CommitteeMember,0,0)
+    	var data []interface{}
+    	for i := 0; i < 5; i++{
+    		I_addr := "127.0.0." + strconv.Itoa(i)
+    		I_Nodeid := "Nodeid_" + strconv.Itoa(i)
 
-    //for _,v := range node {
-    //	n := CommitteeMember{
-    //		Nodeid:		conf.Nodeid
-    //		addr:		conf.Addr
-    //		port:		conf.Port
-    //	}
-    //	if lnodeid == v.Nodeid {
-    //		n.Privkey = priv
-    //	}
-    //	pbNodes = append(pbNodes,&n)
-    //}
+    		data = []interface{}{
+    			string(I_Nodeid),
+    			string(I_addr),
+    			int(34567)}
 
-    //for i := 0; i < 5; i++ {
-    //	I_addr := "127.0.0." + strconv.Itoa(i)
-    //	I_Nodeid := "Nodeid_" + strconv.Itoa(i)
-    //	I_port := "1234_"
-    //	data = []interface{}{
-    //		string(I_Nodeid),
-    //		string(I_addr),
-    //		int(34567)}
-    //
-    //}
+    	}
+
+
+    	for _, v := range data {
+    		err := binary.Write(buf, binary.LittleEndian, v)
+    		if err != nil {
+    			fmt.Println("binary.Write failed:", err)
+    		}
+    		Test  := CommitteeMember{}
+    		Test.FromByte(buf.Bytes())
+    		m = append(m, Test)
+
+    	}
+
+    	//return nil
 
    return  []*CommitteeMember{}
 }
@@ -208,15 +214,10 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
 	//conf := configuration{}
 
     if t.GetFirstStart() {
-        for i := 0; i < 5; i++ {
-			//ns := t.GetPbftNodesFromCfg
-			//t.nd := conf.node
-                ns := t.nd
+			ns := t.GetPbftNodesFromCfg()
 			t.MembersNodes(ns)
-
-
 			t.Start()
-		}
+
     }
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
