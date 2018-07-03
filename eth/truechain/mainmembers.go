@@ -109,7 +109,7 @@ func (t *TrueHybrid) InPbftCommittee(cmms []*CommitteeMember) bool {
 			}
 		}
 	} else {
-		for _,v := cmms {
+		for _,v :=range cmms {
 			if nodeid == v.Nodeid {
 				return true
 			}
