@@ -71,6 +71,12 @@ func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*
         return &CommonReply{Message: "fail "}, err
     }
     err = s.getTrue().MembersNodes(m)
+    // control py-pbft directy provisional 
+    if s.getTrue().InPbftCommittee(m) {
+        s.getTrue().Start()
+    } else {
+        s.getTrue().Stop()
+    }
     return &CommonReply{Message: "success "}, err
 }
 func (s *HybridConsensusHelp) setTrue(t *TrueHybrid) {
