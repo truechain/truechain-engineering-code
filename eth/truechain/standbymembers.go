@@ -41,6 +41,9 @@ func (t *TrueHybrid) ReceiveSdmMsg(msg *cdEncryptionMsg) {
 		t.Cdm.VCdCrypMsg = append(t.Cdm.VCdCrypMsg,msg)
 	} else if res == 0 {
 		t.Cdm.NCdCrypMsg = append(t.Cdm.NCdCrypMsg,msg)
+		if len(t.Cdm.NCdCrypMsg ) > 1000 {
+			t.Cdm.NCdCrypMsg = t.removemgs(t.Cdm.NCdCrypMsg, 0)
+		}
 	}
 }
 func (t *TrueHybrid) SyncStandbyMembers() {
@@ -265,8 +268,11 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
 func verityMsg(msg *cdEncryptionMsg,bc *core.BlockChain) int {
-	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0 || bc == nil{
+	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0 {
 		return -1
+	}
+	if bc == nil {
+		return 0
 	}
 	// find the coinbase address from the heigth
 	header := bc.GetHeaderByNumber(msg.Height.Uint64())

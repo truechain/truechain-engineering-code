@@ -13,6 +13,8 @@ limitations under the License.
 package truechain
 
 import (
+
+	"fmt"
     "time"
     "net"
     "math/big"
@@ -21,6 +23,11 @@ import (
     "github.com/ethereum/go-ethereum/core/types"
     "github.com/ethereum/go-ethereum/core"
     "github.com/ethereum/go-ethereum/p2p"
+	//"log"
+	"os"
+	"encoding/json"
+	//"strconv"
+	//"google.golang.org/genproto/googleapis/devtools/remoteworkers/v1test2"
 )
 
 type HybridConsensusHelp struct {
@@ -29,6 +36,15 @@ type HybridConsensusHelp struct {
     rw p2p.MsgReadWriter
 }
 
+type configuration struct {
+
+	Enabled bool
+	Nodeid	string	`json:"Nodeid"`
+	Addr 	string	`json:"Addr"`
+	Port 	string	`json:"Port"`
+	//node []string
+
+}
 const NewBftBlockMsg  = 0x11
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
@@ -81,6 +97,8 @@ type TrueHybrid struct {
     Bp          *BlockPool
     CMSchache   []*PbftCommittee
     CDSchache   []*PbftCdCommittee
+	nd			  []*CommitteeMember
+
 }
 
 func New() *TrueHybrid {
@@ -112,15 +130,94 @@ func New() *TrueHybrid {
     }
     return tc
 }
+func (t *TrueHybrid) setCommitteeCount(c int)  {
+    t.CmmCount = c
+}
+
+func (t *TrueHybrid)GetPbftNodesFromCfg(n []*configuration )  []*CommitteeMember {
+
+    file, _ := os.Open("config.json")
+
+    defer file.Close()
+
+    decoder := json.NewDecoder(file)
+
+    conf := configuration{}
+
+    err := decoder.Decode(&conf)
+    if err != nil {
+        fmt.Println("Error:", err)
+    }
+
+
+    //node := make([]*CommitteeMember,0,0)
+
+    //for _,v := range node {
+    //	n := CommitteeMember{
+    //		Nodeid:		conf.Nodeid
+    //		addr:		conf.Addr
+    //		port:		conf.Port
+    //	}
+    //	if lnodeid == v.Nodeid {
+    //		n.Privkey = priv
+    //	}
+    //	pbNodes = append(pbNodes,&n)
+    //}
+
+    //for i := 0; i < 5; i++ {
+    //	I_addr := "127.0.0." + strconv.Itoa(i)
+    //	I_Nodeid := "Nodeid_" + strconv.Itoa(i)
+    //	I_port := "1234_"
+    //	data = []interface{}{
+    //		string(I_Nodeid),
+    //		string(I_addr),
+    //		int(34567)}
+    //
+    //}
+
+   return  []*CommitteeMember{}
+}
+
+
+func (tt  *TrueHybrid )GetFirstStart()bool{
+
+
+	file, _ := os.Open("config.json")
+
+
+
+	defer file.Close()
+
+
+	decoder := json.NewDecoder(file)
+
+
+	conf := configuration{}
+
+	err := decoder.Decode(&conf)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+	return conf.Enabled
+}
+
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer()
+	//conf := configuration{}
+
     if t.GetFirstStart() {
-        ns := GetPbftNodesFromCfg()
-        MembersNodes(ns)
-        Start()
-}
+        for i := 0; i < 5; i++ {
+			//ns := t.GetPbftNodesFromCfg
+			//t.nd := conf.node
+                ns := t.nd
+			t.MembersNodes(ns)
+
+
+			t.Start()
+		}
+    }
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
     go TrueChainWork(t)
@@ -153,6 +250,8 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
         //log.Fatalf("failed to listen: %v", err)
         return
     }
+
+
     rpcServer := HybridConsensusHelp{}
     rpcServer.setTrue(t)
     RegisterHybridConsensusHelpServer(t.GrpcServer(), &rpcServer)
