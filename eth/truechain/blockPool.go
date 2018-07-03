@@ -9,9 +9,9 @@ import (
 
 
 type BlockPool struct {
-	blocks  []*TruePbftBlock      //Every time a pool receives a block
-	TrueTxsCh   chan core.NewTxsEvent //Send a deal
-	th      *TrueHybrid
+	blocks  []*TruePbftBlock      		//Every time a pool receives a block
+	TrueTxsCh   chan core.NewTxsEvent 	//Send a deal
+	th      *TrueHybrid					//Mixed consensus
 
 }
 
@@ -48,6 +48,7 @@ func (self *BlockPool) JoinEth() {
 		}
 	}
 }
+
 
 func (self *BlockPool) PushAEmptyBlock() {
 	txs := make([]*types.Transaction,0,0)
