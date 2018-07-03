@@ -52,7 +52,7 @@ const (
 	txChanSize     = 4096
 	pbChanSize     = 4096
 	NewBftBlockMsg = 0x11
-	MainMumbersMsg = 0x12
+	CMSMsg         = 0x12
 	SBMembersMsg   = 0x13
 	CDSMsg         = 0x14
 )
@@ -368,18 +368,18 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)
-	case msg.Code == MainMumbersMsg:
-		var MMbs []*truechain.CommitteeMember
+	case msg.Code == CMSMsg:
+		var MMbs []*truechain.PbftCommittee
 		if err := msg.Decode(MMbs); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		return p.SendCms(MMbs)
+		return p.SendCMS(MMbs)
 	case msg.Code == CDSMsg:
-		var MMbs []*truechain.CommitteeMember
-		if err := msg.Decode(MMbs); err != nil {
+		var cds []*truechain.PbftCdCommittee
+		if err := msg.Decode(cds); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		return p.SendCms(MMbs)
+		return p.SendCDS(cds)
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
 		// Decode the complex header query
