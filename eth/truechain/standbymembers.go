@@ -199,11 +199,11 @@ func (t *TrueHybrid) posFromCm(nid string) int {
 	return -1
 }
 ////////////////////////////////////////////////////////////////////////
-// use=true include msg which was used 
+// use=true include msg which was used
 func minMsg(crpmsg []*cdEncryptionMsg,use bool) (*cdEncryptionMsg,int) {
 	if len(crpmsg) <= 0 {
 		return nil,0
-	} 
+	}
 	min := crpmsg[0].Height
 	pos := 0
 	for ii,v := range crpmsg {
@@ -255,7 +255,7 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg
 		Sig:		make([]byte,0,0),
 		use:		false,
 	}
-	var err error 
+	var err error
 	cmsg.Msg,err = n.ToByte()
 	if err != nil {
 		return nil,err

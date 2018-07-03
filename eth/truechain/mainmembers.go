@@ -99,15 +99,22 @@ func verifyMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	} 
 	return errors.New("has no one sign..."),0
 }
-func (t *TrueHybrid) InPbftCommittee() bool {
+func (t *TrueHybrid) InPbftCommittee(cmms []*CommitteeMember) bool {
 	_,nodeid,_ := t.getNodeID()
-	cmm := t.Cmm.GetCmm()
-	for _,v := range cmm {
-		if nodeid == v.Nodeid {
-			return true
+	if cmms == nil {
+		cmm := t.Cmm.GetCmm()
+		for _,v := range cmm {
+			if nodeid == v.Nodeid {
+				return true
+			}
+		}
+	} else {
+		for _,v :=range cmms {
+			if nodeid == v.Nodeid {
+				return true
+			}
 		}
 	}
-	
 	return false
 }
 // receive the sync message 

@@ -164,6 +164,35 @@ func MakeCdCommittee() *PbftCdCommittee{
 	return cd
 }
 
+func TestEncryptionMsgInTrueChain(t *testing.T) {
+	tmp := struct {
+		msg1	[]string
+		msg2	[]byte
+		msg3	int
+		msg4 	float64
+	}{
+		msg3:	5,
+		msg4:	4.5,
+	}
+	priv := privkeys[0]
+	pub := hex.EncodeToString(crypto.FromECDSAPub(GetPub(priv)))
+	hash := rlpHash(tmp)
+	// sig message use priv
+	sig,err := crypto.Sign(hash,priv)
+	// verify message
+	if err == nil {
+		pub1,err1 := crypto.SigToPub(hash,sig)
+		if err1 == nil {
+			strPub1 := hex.EncodeToString(crypto.FromECDSAPub(pub1))
+			if pub == strPub1 {
+				fmt.Println("sign test seccess,pub=",pub,"pub1=",strPub1)
+			}
+			//if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(signerKey)) {
+			//	fmt.Println("sign test seccess,pub=",pub,"pub1=",strPub1)
+			//}
+		}
+	}
+}
 func TestCryptoMsg(t *testing.T) {
 	priv := privkeys[0]
 	pub := GetPub(priv)

@@ -71,6 +71,12 @@ func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*
         return &CommonReply{Message: "fail "}, err
     }
     err = s.getTrue().MembersNodes(m)
+    // control py-pbft directy provisional 
+    if s.getTrue().InPbftCommittee(m) {
+        s.getTrue().Start()
+    } else {
+        s.getTrue().Stop()
+    }
     return &CommonReply{Message: "success "}, err
 }
 func (s *HybridConsensusHelp) setTrue(t *TrueHybrid) {
@@ -139,7 +145,7 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
 
 func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
 
-    file, _ := os.Open("config.json")
+    file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
 
     defer file.Close()
 
@@ -188,7 +194,7 @@ func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
 func (tt  *TrueHybrid )GetFirstStart()bool{
 
 
-	file, _ := os.Open("config.json")
+	file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
 
 
 
@@ -217,7 +223,6 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
 			ns := t.GetPbftNodesFromCfg()
 			t.MembersNodes(ns)
 			t.Start()
-
     }
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
