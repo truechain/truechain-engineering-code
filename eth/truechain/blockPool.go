@@ -9,9 +9,9 @@ import (
 
 
 type BlockPool struct {
-	blocks  []*TruePbftBlock      //Every time a pool receives a block
-	TrueTxsCh   chan core.NewTxsEvent //Send a deal
-	th      *TrueHybrid
+	blocks  []*TruePbftBlock      		//Every time a pool receives a block
+	TrueTxsCh   chan core.NewTxsEvent 	//Send a deal
+	th      *TrueHybrid					//Mixed consensus
 
 }
 
