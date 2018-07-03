@@ -139,7 +139,7 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
 
 func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
 
-    file, _ := os.Open("config.json")
+    file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
 
     defer file.Close()
 
@@ -188,7 +188,7 @@ func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
 func (tt  *TrueHybrid )GetFirstStart()bool{
 
 
-	file, _ := os.Open("config.json")
+	file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
 
 
 
@@ -217,7 +217,6 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
 			ns := t.GetPbftNodesFromCfg()
 			t.MembersNodes(ns)
 			t.Start()
-
     }
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
