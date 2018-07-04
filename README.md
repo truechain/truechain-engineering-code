@@ -2,7 +2,7 @@
 
 init
 go
-.
+```
 ├── Makefile
 ├── README.md
 ├── accounts
@@ -3742,5 +3742,4 @@ go
         ├── topic_test.go
         ├── whisper.go
         └── whisper_test.go
-
-707 directories, 3032 files
+```
