@@ -103,8 +103,8 @@ type TrueHybrid struct {
     p2pServer   *p2p.Server
     bc          *core.BlockChain
     Bp          *BlockPool
-    CMSchache   []*PbftCommittee
-    CDSchache   []*PbftCdCommittee
+    CMScache   []*PbftCommittee
+    CDScache   []*PbftCdCommittee
 
 
 }
