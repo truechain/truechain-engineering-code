@@ -17,7 +17,6 @@ import (
 	"fmt"
     "time"
     "net"
-    "math/big"
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
@@ -316,47 +315,48 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     }
     return nil
 }
-func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
+func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) {
     // Set up a connection to the server.
     
     go ConvTransaction(txs)
-    
-    conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
-    if err != nil {
-      return err
-    }
-    defer conn.Close()
 
-    c := NewPyHybConsensusClient(conn)
-    ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-    defer cancel()
-
-    pbTxs := make([]*Transaction,0,0)
-    for _,vv := range txs {
-      to := make([]byte,0,0)
-      if tt := vv.To(); tt != nil {
-          to = tt.Bytes()
-      }
-      v,r,s := vv.RawSignatureValues()
-      pbTxs = append(pbTxs,&Transaction{
-          Data:       &TxData{
-              AccountNonce:       vv.Nonce(),
-              Price:              vv.GasPrice().Int64(),
-              GasLimit:           new(big.Int).SetUint64(vv.Gas()).Int64(),
-              Recipient:          to,
-              Amount:             vv.Value().Int64(),
-              Payload:            vv.Data(),
-              V:                  v.Int64(),
-              R:                  r.Int64(),
-              S:                  s.Int64(),
-          },
-      })
-    }
-    _, err1 := c.SetTransactions(ctx, &Transactions{Txs:pbTxs})
-    if err1 != nil {
-      return err1
-    }
-    return nil
+    //test
+    //conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
+    //if err != nil {
+    //  return err
+    //}
+    //defer conn.Close()
+	//
+    //c := NewPyHybConsensusClient(conn)
+    //ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+    //defer cancel()
+	//
+    //pbTxs := make([]*Transaction,0,0)
+    //for _,vv := range txs {
+    //  to := make([]byte,0,0)
+    //  if tt := vv.To(); tt != nil {
+    //      to = tt.Bytes()
+    //  }
+    //  v,r,s := vv.RawSignatureValues()
+    //  pbTxs = append(pbTxs,&Transaction{
+    //      Data:       &TxData{
+    //          AccountNonce:       vv.Nonce(),
+    //          Price:              vv.GasPrice().Int64(),
+    //          GasLimit:           new(big.Int).SetUint64(vv.Gas()).Int64(),
+    //          Recipient:          to,
+    //          Amount:             vv.Value().Int64(),
+    //          Payload:            vv.Data(),
+    //          V:                  v.Int64(),
+    //          R:                  r.Int64(),
+    //          S:                  s.Int64(),
+    //      },
+    //  })
+    //}
+    //_, err1 := c.SetTransactions(ctx, &Transactions{Txs:pbTxs})
+    //if err1 != nil {
+    //  return err1
+    //}
+    //return nil
 }
 func (t *TrueHybrid) Start() error{
     // Set up a connection to the server.
