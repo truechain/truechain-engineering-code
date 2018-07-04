@@ -143,7 +143,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 			// the local was older, then can't verify the committee message
 			// simple handle
 			if t.VerifyCommitteeFromSdm(committee) {
-				bstart = t.InPbftCommittee()
+				bstart = t.InPbftCommittee(nil)
 				t.UpdateLocalCommittee(committee,false)		
 			}
 		}
