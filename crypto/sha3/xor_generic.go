@@ -5,6 +5,7 @@
 
 package sha3
 
+
 import "encoding/binary"
 
 // xorInGeneric xors the bytes in buf into the state; it
