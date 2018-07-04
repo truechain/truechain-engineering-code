@@ -51,7 +51,7 @@ func (t *TrueHybrid) SyncStandbyMembers() {
 	for _,v := range t.Cdm.VCdCrypMsg {
 		_,err := v.ToByte()
 		if err != nil {
-			t.CDSchache = append(t.CDSchache,t.Cdm)
+			t.CDScache = append(t.CDScache,t.Cdm)
 		}
 	}
 	// sync tmpcrypmsg???
