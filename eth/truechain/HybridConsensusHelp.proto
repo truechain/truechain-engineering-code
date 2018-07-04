@@ -42,9 +42,9 @@ message CommonReply {
 }
 
 message TruePbftNode {
-    string addr	     = 1;
-    string pubkey    = 2;
-    string privkey   = 3;
+    string nodeid	     = 1;
+    string addr		     = 2;
+    int32 port		     = 3;
 }
 
 message Nodes {

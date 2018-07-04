@@ -296,19 +296,20 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
-    _,lnodeid,priv := t.getNodeID()
+    // _,lnodeid,priv := t.getNodeID()
     pbNodes := make([]*TruePbftNode,0,0)
     for _,v := range nodes {
         n := TruePbftNode{
             Addr:       v.addr,
-            Pubkey:     v.Nodeid,
-            Privkey:    "",
+            Nodeid:     v.Nodeid,
+            Port:       int32(v.port),
         }
-        if lnodeid == v.Nodeid {
-            n.Privkey = priv
-        }
+        // if lnodeid == v.Nodeid {
+        //     n.Privkey = priv
+        // }
         pbNodes = append(pbNodes,&n)
     }
+    
     _, err1 := c.MembersNodes(ctx, &Nodes{Nodes:pbNodes})
     if err1 != nil {
         return err1
