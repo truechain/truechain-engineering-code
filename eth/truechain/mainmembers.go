@@ -123,19 +123,19 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	// remove the standby members
 	bstart := false
 	if t.Cmm == nil {
-		bstart = t.InPbftCommittee()
+		bstart = t.InPbftCommittee(nil)
 		t.UpdateLocalCommittee(committee,false)	
 	} else {
 		if t.Cmm.No + 1 == committee.No {
 			// new committee message 
 			if t.verifyCommitteeMsg(committee) {
-				bstart = t.InPbftCommittee()	
+				bstart = t.InPbftCommittee(nil)
 				t.UpdateLocalCommittee(committee,false)	
 			}
 		} else if t.Cmm.No == committee.No {
 			if !t.sameCommittee(committee) {
 				if t.VerifyCommitteeFromSdm(committee) {
-					bstart = t.InPbftCommittee()
+					bstart = t.InPbftCommittee(nil)
 					t.UpdateLocalCommittee(committee,false)				
 				}
 			} 
