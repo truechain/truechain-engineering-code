@@ -27,9 +27,10 @@ import (
 	"encoding/json"
 	//"strconv"
 	//"google.golang.org/genproto/googleapis/devtools/remoteworkers/v1test2"
-    "strconv"
-    "bytes"
-    "encoding/binary"
+
+   // "io/ioutil"
+    //"io/ioutil"
+    "github.com/akkuman/parseConfig"
 )
 
 type HybridConsensusHelp struct {
@@ -39,14 +40,9 @@ type HybridConsensusHelp struct {
 }
 
 type configuration struct {
-
-	Enabled bool
-	Nodeid	string	`json:"Nodeid"`
-	Addr 	string	`json:"Addr"`
-	Port 	string	`json:"Port"`
-	//node []string
-
+    Enabled bool
 }
+
 const NewBftBlockMsg  = 0x11
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
@@ -107,6 +103,7 @@ type TrueHybrid struct {
     CDScache   []*PbftCdCommittee
 
 
+
 }
 
 func New() *TrueHybrid {
@@ -142,58 +139,41 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
     t.CmmCount = c
 }
 
-func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
+func GetPbftNodesFromCfg() []*CommitteeMember {
 
-    file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
+    var config= parseConfig.New("config.json")
+    cm := make([]*CommitteeMember ,0,0)
+    dbs := config.Get("database").([]interface{})
 
-    defer file.Close()
+    for _, v := range dbs {
+        vv := v.(map[string]interface{})
 
-    decoder := json.NewDecoder(file)
+        nid := vv["Nodeid"].(string)
 
-    conf := configuration{}
+        addr := vv["Addr"].(string)
 
-    err := decoder.Decode(&conf)
-    if err != nil {
-        fmt.Println("Error:", err)
+        port := vv["Port"].(float64)
+
+
+        var x float64 = port
+        var y int = int(x)
+
+
+        cm = append(cm,&CommitteeMember{
+            Nodeid:         nid,
+            addr:           addr,
+            port:           y,
+
+        })
     }
 
-    buf := new(bytes.Buffer)
-    	m := make([]CommitteeMember,0)
+    return  cm
 
-    	var data []interface{}
-    	for i := 0; i < 5; i++{
-    		I_addr := "127.0.0." + strconv.Itoa(i)
-    		I_Nodeid := "Nodeid_" + strconv.Itoa(i)
-
-    		data = []interface{}{
-    			string(I_Nodeid),
-    			string(I_addr),
-    			int(34567)}
-
-    	}
-
-
-    	for _, v := range data {
-    		err := binary.Write(buf, binary.LittleEndian, v)
-    		if err != nil {
-    			fmt.Println("binary.Write failed:", err)
-    		}
-    		Test  := CommitteeMember{}
-    		Test.FromByte(buf.Bytes())
-    		m = append(m, Test)
-
-    	}
-
-    	//return nil
-
-   return  []*CommitteeMember{}
 }
-
-
 func (tt  *TrueHybrid )GetFirstStart()bool{
 
 
-	file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
+	file, _ := os.Open("./config.json")
 
 
 
@@ -216,10 +196,9 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer()
-	//conf := configuration{}
 
     if t.GetFirstStart() {
-			ns := t.GetPbftNodesFromCfg()
+			ns := GetPbftNodesFromCfg()
 			t.MembersNodes(ns)
 			t.Start()
     }
