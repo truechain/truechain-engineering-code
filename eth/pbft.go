@@ -63,15 +63,17 @@ func (ps *peerSet) PeersWithoutPbftBlock(hash common.Hash) []*peer {
 //func (h truechain.TruePbftBlockHeader) Hash() common.Hash {
 //	return prlpHash(h)
 //}
-func (h CMS) Hash() common.Hash {
+
+//type CMS truechain.PbftCommittee
+//type CDS truechain.PbftCdCommittee
+func (h *truechain.PbftCommittee) Hash() common.Hash {
 	return prlpHash(h)
 }
-func (h CDS) Hash() common.Hash {
+func (h *truechain.PbftCdCommittee) Hash() common.Hash {
 	return prlpHash(h)
 }
 
-type CMS []*truechain.PbftCommittee
-type CDS []*truechain.PbftCdCommittee
+
 
 //bpft
 type propBftEvent struct {
@@ -106,7 +108,7 @@ func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
 
 //cms
 
-func (p *peer) SendCMS(cms CMS) error {
+func (p *peer) SendCMS(cms *truechain.PbftCommittee) error {
 	p.knownBftCms.Add(cms.Hash())
 	return p2p.Send(p.rw, CMSMsg, []interface{}{cms})
 }
@@ -121,7 +123,7 @@ func (p *peer) SendCMS(cms CMS) error {
 //}
 
 //oms
-func (p *peer) SendCDS(cds CDS) error {
+func (p *peer) SendCDS(cds *truechain.PbftCdCommittee) error {
 	p.knownBftCds.Add(cds.Hash())
 	return p2p.Send(p.rw, CDSMsg, []interface{}{cds})
 }
