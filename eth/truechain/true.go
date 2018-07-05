@@ -365,3 +365,13 @@ func ReadCfg(filename string) (map[string]interface{}, error){
     }
     return result,nil
 }
+func (t *TrueHybrid) AddBlock(block *TruePbftBlock) {
+
+    //Judging committee members
+    if(t.CheckBlock(block)==nil){
+        t.GetBp().blocks = append(t.GetBp().blocks, block)
+    }
+
+    //self.blocks = append(self.blocks, block)
+    t.GetBp().JoinEth()
+}
