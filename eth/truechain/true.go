@@ -13,8 +13,6 @@ limitations under the License.
 package truechain
 
 import (
-
-	"fmt"
     "time"
     "net"
     "golang.org/x/net/context"
@@ -22,24 +20,14 @@ import (
     "github.com/ethereum/go-ethereum/core/types"
     "github.com/ethereum/go-ethereum/core"
     "github.com/ethereum/go-ethereum/p2p"
-	//"log"
-	"os"
-	"encoding/json"
-	//"strconv"
-	//"google.golang.org/genproto/googleapis/devtools/remoteworkers/v1test2"
-
-   // "io/ioutil"
-    //"io/ioutil"
-    "github.com/akkuman/parseConfig"
+    //"log"
+    "encoding/json"
+    "io/ioutil"
 )
 
 type HybridConsensusHelp struct {
     tt          *TrueHybrid
     *BlockPool
-}
-
-type configuration struct {
-    Enabled bool
 }
 
 const NewBftBlockMsg  = 0x11
@@ -57,7 +45,7 @@ func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *Si
     if cmm == nil {
         return &CommonReply{Message: "fail "}, err
     }
-    s.getTrue().UpdateLocalCommittee(cmm,true) 
+    s.getTrue().UpdateLocalCommittee(cmm,true)
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {
@@ -67,7 +55,7 @@ func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*
         return &CommonReply{Message: "fail "}, err
     }
     err = s.getTrue().MembersNodes(m)
-    // control py-pbft directy provisional 
+    // control py-pbft directy provisional
     if s.getTrue().InPbftCommittee(m) {
         s.getTrue().Start()
     } else {
@@ -84,9 +72,9 @@ func (s *HybridConsensusHelp) getTrue() *TrueHybrid {
 
 
 type Config struct {
-    ServerAddress           string          // local GRPC server address,ip:port 
+    ServerAddress           string          // local GRPC server address,ip:port
     ClientAddress           string          // Pbft Node address,ip:port
-    CmmCount                int             // amount of Pbft Committee Members 
+    CmmCount                int             // amount of Pbft Committee Members
     Sdmsize                 int             // amount of Pbft Standby Members
 }
 
@@ -102,9 +90,6 @@ type TrueHybrid struct {
     Bp          *BlockPool
     CMScache   []*PbftCommittee
     CDScache   []*PbftCdCommittee
-
-
-
 }
 
 func New() *TrueHybrid {
@@ -141,34 +126,36 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
 }
 
 func GetPbftNodesFromCfg() []*CommitteeMember {
-    var config= parseConfig.New("config.json")
+    // filename will be change
+    filename := "./config.json"
+    result,err := ReadCfg(filename)
+    if err != nil {
+        return nil
+    }
+    dbs := result["database"].([]interface{})
     cm := make([]*CommitteeMember ,0,0)
-    dbs := config.Get("database").([]interface{})
+
     for _, v := range dbs {
         vv := v.(map[string]interface{})
         nid := vv["Nodeid"].(string)
         addr := vv["Addr"].(string)
         port := vv["Port"].(float64)
-        var y int = int(port)
         cm = append(cm,&CommitteeMember{
             Nodeid:         nid,
             addr:           addr,
-            port:           y,
-
+            port:           int(port),
         })
     }
     return  cm
 }
-func (tt  *TrueHybrid )GetFirstStart()bool{
-	file, _ := os.Open("./config.json")
-	defer file.Close()
-	decoder := json.NewDecoder(file)
-	conf := configuration{}
-	err := decoder.Decode(&conf)
-	if err != nil {
-		fmt.Println("Error:", err)
-	}
-	return conf.Enabled
+func GetFirstStart() bool{
+    filename := "./config.json"
+    result,err := ReadCfg(filename)
+    if err != nil {
+        return false
+    }
+    en := result["enabled"].(bool)
+    return en
 }
 
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
@@ -176,10 +163,12 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.quit = false
     t.grpcServer = grpc.NewServer()
 
-    if t.GetFirstStart() {
-			ns := GetPbftNodesFromCfg()
-			t.MembersNodes(ns)
-			t.Start()
+    if GetFirstStart() {
+        ns := GetPbftNodesFromCfg()
+        if ns != nil {
+            t.MembersNodes(ns)
+            t.Start()
+        }
     }
     go HybridConsensusHelpInit(t)
     go SyncWork(t)
@@ -266,17 +255,17 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
         // }
         pbNodes = append(pbNodes,&n)
     }
-    
+
     _, err1 := c.MembersNodes(ctx, &Nodes{Nodes:pbNodes})
     if err1 != nil {
         return err1
     }
     return nil
 }
-func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) {
+func (t *TrueHybrid) SetTransactions(bp *BlockPool,txs []*types.Transaction) {
     // Set up a connection to the server.
-    
-    go ConvTransaction(txs)
+
+    go ConvTransaction(bp,txs)
 
     //test
     //conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
@@ -284,11 +273,11 @@ func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) {
     //  return err
     //}
     //defer conn.Close()
-	//
+    //
     //c := NewPyHybConsensusClient(conn)
     //ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     //defer cancel()
-	//
+    //
     //pbTxs := make([]*Transaction,0,0)
     //for _,vv := range txs {
     //  to := make([]byte,0,0)
@@ -362,4 +351,16 @@ func (t *TrueHybrid) GrpcServer() *grpc.Server {
 }
 func (t *TrueHybrid) GetBp() *BlockPool {
     return t.Bp
+}
+func ReadCfg(filename string) (map[string]interface{}, error){
+    data, err := ioutil.ReadFile(filename)
+    if err != nil {
+        return nil,err
+    }
+    result := make(map[string]interface{})
+    err = json.Unmarshal(data, &result)
+    if err != nil {
+        return nil,err
+    }
+    return result,nil
 }

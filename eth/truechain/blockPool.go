@@ -23,11 +23,11 @@ func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 func (self *BlockPool) AddBlock(block *TruePbftBlock) {
 
 	//Judging committee members
-	//if(self.th.CheckBlock(block)==nil){
-	//	self.blocks = append(self.blocks, block)
-	//}
+	if(self.th.CheckBlock(block)==nil){
+		self.blocks = append(self.blocks, block)
+	}
 
-	self.blocks = append(self.blocks, block)
+	//self.blocks = append(self.blocks, block)
 	self.JoinEth()
 }
 
@@ -46,6 +46,7 @@ func (self *BlockPool) JoinEth() {
 			transaction := types.NewTransaction(txData.GetAccountNonce(),to,big.NewInt(txData.GetAmount()),uint64(txData.GetGasLimit()),nil,txData.GetPayload())
 			txs = append(txs,transaction)
 		}
+
 
 		//Send the transaction back
 		self.TrueTxsCh <- core.NewTxsEvent{Txs:txs}
