@@ -155,8 +155,8 @@ func GetPbftNodesFromCfg() []*CommitteeMember {
         port := vv["Port"].(float64)
 
 
-        var x float64 = port
-        var y int = int(x)
+
+        var y int = int(port)
 
 
         cm = append(cm,&CommitteeMember{
