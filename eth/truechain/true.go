@@ -36,7 +36,6 @@ import (
 type HybridConsensusHelp struct {
     tt          *TrueHybrid
     *BlockPool
-    rw p2p.MsgReadWriter
 }
 
 type configuration struct {
@@ -49,11 +48,13 @@ type configuration struct {
 
 }
 const NewBftBlockMsg  = 0x11
+var BlockCh chan *TruePbftBlock
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
     s.AddBlock(block)
-    p2p.Send(s.rw, NewBftBlockMsg, []interface{}{block})
+    BlockCh = make(chan *TruePbftBlock)
+    BlockCh <- block
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *SignCommittee) (*CommonReply, error) {
