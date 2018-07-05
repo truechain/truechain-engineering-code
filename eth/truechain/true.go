@@ -165,7 +165,8 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     if GetFirstStart() {
         ns := GetPbftNodesFromCfg()
         if ns != nil {
-            t.MembersNodes(ns)
+            //t.MembersNodes(ns)
+            CreateCommittee(t)
             t.Start()
         }
     }
