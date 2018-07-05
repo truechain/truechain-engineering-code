@@ -1,4 +1,4 @@
-const Web3 = require('Web3')
+const Web3 = require('web3')
 
 const PROVIDER = 'http://39.105.126.32:8545'
 const FROM_ADDRESS = '0x7eFf122b94897EA5b0E2A9abf47B86337FAfebdC'
@@ -7,7 +7,7 @@ const TX_COUNT = 10
 const PASSWORD = '1234'
 
 function sleep(time) {
-  return new Promise(resolve => setTimeout(resolve, time))
+  return new Promise(resolve => setTimeo(resolve, time))
 }
 
 let blockInfo = {}
