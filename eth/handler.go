@@ -33,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -41,6 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 const (
@@ -364,18 +364,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				pm.pblocks = append(pm.pblocks[:l-1], pm.pblocks[l:]...)
 			}
 		}()
+		go func() {
+			for {
+				pm.pblocks = append(pm.pblocks,<-truechain.BlockCh)
+			}
+		}()
 		//pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)
 	case msg.Code == CMSMsg:
-		var MMbs []*truechain.PbftCommittee
-		if err := msg.Decode(MMbs); err != nil {
+		var cms *truechain.PbftCommittee
+		if err := msg.Decode(cms); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		return p.SendCMS(MMbs)
+		p.tt.ReceiveCommittee(cms,"")
+		p.tt.CMScache = append(p.tt.CMScache,cms)
+		return p.SendCMS(cms)
 	case msg.Code == CDSMsg:
-		var cds []*truechain.PbftCdCommittee
+		var cds *truechain.PbftCdCommittee
 		if err := msg.Decode(cds); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
