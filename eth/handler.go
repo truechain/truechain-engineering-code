@@ -106,6 +106,8 @@ type ProtocolManager struct {
 	pblocksCh chan []*truechain.TruePbftBlock
 	//pbsSub    event.Subscription
 	pblocks   []*truechain.TruePbftBlock
+	cmss      []*truechain.PbftCommittee
+	cdss      [][]*truechain.CdEncryptionMsg
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -374,18 +376,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//request.Block.ReceivedFrom = p
 		pm.Bp.AddBlock(request.Block)
 	case msg.Code == CMSMsg:
-		var cms *truechain.PbftCommittee
+		var cms []*truechain.PbftCommittee
 		if err := msg.Decode(cms); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		p.tt.ReceiveCommittee(cms,"")
-		p.tt.CMScache = append(p.tt.CMScache,cms)
+		for _,v := range cms{
+			p.tt.ReceiveCommittee(v,"")
+		}
+		go func() {
+			pm.cmss = append(pm.cmss, <-truechain.CmsCh)
+		}()
 		return p.SendCMS(cms)
 	case msg.Code == CDSMsg:
-		var cds *truechain.PbftCdCommittee
+		var cds []*truechain.PbftCdCommittee
 		if err := msg.Decode(cds); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
+		go func() {
+			pm.cdss = append(pm.cdss,<-truechain.CdsCh)
+		}()
 		return p.SendCDS(cds)
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
