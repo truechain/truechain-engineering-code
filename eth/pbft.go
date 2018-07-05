@@ -65,7 +65,7 @@ func (ps *peerSet) PeersWithoutPbftBlock(hash common.Hash) []*peer {
 //}
 
 type CMS []*truechain.PbftCommittee
-type CDS []*truechain.PbftCdCommittee
+type CDS []*truechain.CdEncryptionMsg
 func (h *CMS) Hash() common.Hash {
 	return prlpHash(h)
 }
