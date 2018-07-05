@@ -4,11 +4,14 @@ import (
 	"math/big"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
+	"time"
+	"github.com/ethereum/go-ethereum/crypto"
+	"encoding/hex"
 )
 
 
 
-func ConvTransaction(bp *BlockPool,txs []*types.Transaction)  {
+func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 
 
 	pbTxs := make([]*Transaction,0,0)
@@ -40,7 +43,33 @@ func ConvTransaction(bp *BlockPool,txs []*types.Transaction)  {
 	block  := &TruePbftBlock{ }
 	Txs := &Transactions{Txs:pbTxs}
 	block.Txs = Txs
-	bp.AddBlock(block)
+	now := time.Now().Unix()
+	head := TruePbftBlockHeader{
+		Number:				10,
+		GasLimit:			100,
+		GasUsed:			80,
+		Time:				now,
+	}
+
+	block.Header = &head
+
+	msg := rlpHash(block.Txs)
+	//cc := cmm.GetCmm()
+	sigs := make([]string,0,0)
+	//hex.DecodeString(crypto.toECDSA())
+	// same priveatekey to sign the message
+	_,_,priv := th.getNodeID()
+	
+	priv_d,_ := hex.DecodeString(priv)
+	privKey,_ :=crypto.ToECDSA(priv_d)
+	sig,err := crypto.Sign(msg,privKey)
+	if err == nil {
+		sigs = append(sigs,common.ToHex(sig))
+	}
+
+	block.Sigs=sigs
+
+	th.GetBp().AddBlock(block)
 	//rw := & p2p.MsgReadWriter{}
 	//p2p.Send(rw, NewBftBlockMsg, []interface{}{block})
 
