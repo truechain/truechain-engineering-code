@@ -272,10 +272,10 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     }
     return nil
 }
-func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) {
+func (t *TrueHybrid) SetTransactions(bp *BlockPool,txs []*types.Transaction) {
     // Set up a connection to the server.
-    
-    go ConvTransaction(txs)
+
+    go ConvTransaction(bp,txs)
 
     //test
     //conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
