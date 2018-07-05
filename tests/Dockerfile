@@ -1,4 +1,4 @@
-pull images
+FROM images
 # Create app directory
 RUN mkdir /home/Service
 WORKDIR -cp /home/Service
