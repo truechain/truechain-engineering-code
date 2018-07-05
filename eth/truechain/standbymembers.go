@@ -262,7 +262,8 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg
 	if err != nil {
 		return nil,err
 	}
-	cmsg.Sig,err = crypto.Sign(cmsg.Msg,priv)
+	hash := rlpHash(cmsg.Msg)
+	cmsg.Sig,err = crypto.Sign(hash[:],priv)
 	if err != nil {
 		return nil,err
 	}

@@ -7,7 +7,7 @@ const TX_COUNT = 10
 const PASSWORD = '1234'
 
 function sleep(time) {
-  return new Promise(resolve => setTimeout(resolve, time))
+  return new Promise(resolve => setTimeo(resolve, time))
 }
 
 let blockInfo = {}
@@ -21,7 +21,7 @@ web3.eth.personal.unlockAccount(FROM_ADDRESS, PASSWORD).then(async success => {
   }
   // const nonceBefore = await web3.eth.getTransactionCount(FROM_ADDRESS, 'pending')
   // console.log(`nonce before test: ${nonceBefore}`)
-  const time = new Date()
+  const time = new Dat()
   for (let i = 0; i < TX_COUNT; i++) {
     await sleep(2)
     web3.eth.sendTransaction({

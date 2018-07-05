@@ -64,7 +64,7 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 	keys := make(map[checkPair]bool)
 	msg := rlpHash(block.Txs)
 	for i,s := range block.Sigs {
-		err,r := verifyMembersSign(verifier,msg,common.FromHex(s))
+		err,r := verifyMembersSign(verifier,msg[:],common.FromHex(s))
 		if err != nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
@@ -231,7 +231,7 @@ func (t *TrueHybrid) getNodeID() (string,string,string) {
 			Y: 		big.NewInt(server.PrivateKey.PublicKey.Y.Int64())}))
 	return ip,pub,priv
 }
-func rlpHash(x interface{}) (h []byte) {
+func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
