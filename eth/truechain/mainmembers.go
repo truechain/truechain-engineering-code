@@ -36,19 +36,8 @@ type checkPair struct {
 
 // all function was not tread-safe
 func (t *TrueHybrid) SyncMainMembers() {
-	// sync current CommitteeMember 
-	// buf := bytes.NewBuffer(nil)
-	// for _,v := range t.curCmm {
-	// 	data,err := v.ToByte()
-	// 	if err != nil {
-	// 		// fmt.Println("ToByte error=",err)
-	// 		return 
-	// 	} else {
-	// 		buf.Write(data)
-	// 	}
-	// }
 	// send by p2p network
-	t.CMSchache=append(t.CMSchache,t.Cmm)
+	t.CMScache = append(t.CMScache,t.Cmm)
 }
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
