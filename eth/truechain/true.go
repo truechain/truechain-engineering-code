@@ -140,25 +140,15 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
 }
 
 func GetPbftNodesFromCfg() []*CommitteeMember {
-
     var config= parseConfig.New("config.json")
     cm := make([]*CommitteeMember ,0,0)
     dbs := config.Get("database").([]interface{})
-
     for _, v := range dbs {
         vv := v.(map[string]interface{})
-
         nid := vv["Nodeid"].(string)
-
         addr := vv["Addr"].(string)
-
         port := vv["Port"].(float64)
-
-
-
         var y int = int(port)
-
-
         cm = append(cm,&CommitteeMember{
             Nodeid:         nid,
             addr:           addr,
@@ -166,25 +156,13 @@ func GetPbftNodesFromCfg() []*CommitteeMember {
 
         })
     }
-
     return  cm
-
 }
 func (tt  *TrueHybrid )GetFirstStart()bool{
-
-
 	file, _ := os.Open("./config.json")
-
-
-
 	defer file.Close()
-
-
 	decoder := json.NewDecoder(file)
-
-
 	conf := configuration{}
-
 	err := decoder.Decode(&conf)
 	if err != nil {
 		fmt.Println("Error:", err)
