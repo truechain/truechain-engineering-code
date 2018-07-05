@@ -143,8 +143,8 @@ func MakeFirstCommittee(cnt int) *PbftCommittee{
 func MakeCdCommittee() *PbftCdCommittee{
 	cd := &PbftCdCommittee{
 		Cm:					make([]*CdMember,0,0),
-		VCdCrypMsg:			make([]*cdEncryptionMsg,0,0),
-		NCdCrypMsg:			make([]*cdEncryptionMsg,0,0),
+		VCdCrypMsg:			make([]*CdEncryptionMsg,0,0),
+		NCdCrypMsg:			make([]*CdEncryptionMsg,0,0),
 	}
 	for i:=0;i<keysCount/2;i++ {
 		priv := privkeys[i]
