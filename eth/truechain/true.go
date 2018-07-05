@@ -162,7 +162,7 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer()
-
+    CreateCommittee(t)
     if GetFirstStart() {
         ns := GetPbftNodesFromCfg()
         if ns != nil {
@@ -364,4 +364,14 @@ func ReadCfg(filename string) (map[string]interface{}, error){
         return nil,err
     }
     return result,nil
+}
+func (t *TrueHybrid) AddBlock(block *TruePbftBlock) {
+
+    //Judging committee members
+    if(t.CheckBlock(block)==nil){
+        t.GetBp().blocks = append(t.GetBp().blocks, block)
+    }
+
+    //self.blocks = append(self.blocks, block)
+    t.GetBp().JoinEth()
 }
