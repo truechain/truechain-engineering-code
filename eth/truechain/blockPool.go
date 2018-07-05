@@ -47,6 +47,7 @@ func (self *BlockPool) JoinEth() {
 			txs = append(txs,transaction)
 		}
 
+
 		//Send the transaction back
 		self.TrueTxsCh <- core.NewTxsEvent{Txs:txs}
 	}
