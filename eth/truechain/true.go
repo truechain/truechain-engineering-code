@@ -17,7 +17,6 @@ import (
 	"fmt"
     "time"
     "net"
-    "math/big"
     "golang.org/x/net/context"
     "google.golang.org/grpc"
     "github.com/ethereum/go-ethereum/core/types"
@@ -28,9 +27,10 @@ import (
 	"encoding/json"
 	//"strconv"
 	//"google.golang.org/genproto/googleapis/devtools/remoteworkers/v1test2"
-    "strconv"
-    "bytes"
-    "encoding/binary"
+
+   // "io/ioutil"
+    //"io/ioutil"
+    "github.com/akkuman/parseConfig"
 )
 
 type HybridConsensusHelp struct {
@@ -39,14 +39,9 @@ type HybridConsensusHelp struct {
 }
 
 type configuration struct {
-
-	Enabled bool
-	Nodeid	string	`json:"Nodeid"`
-	Addr 	string	`json:"Addr"`
-	Port 	string	`json:"Port"`
-	//node []string
-
+    Enabled bool
 }
+
 const NewBftBlockMsg  = 0x11
 var BlockCh chan *TruePbftBlock
 
@@ -109,6 +104,7 @@ type TrueHybrid struct {
     CDScache   []*PbftCdCommittee
 
 
+
 }
 
 func New() *TrueHybrid {
@@ -144,69 +140,30 @@ func (t *TrueHybrid) setCommitteeCount(c int)  {
     t.CmmCount = c
 }
 
-func (t *TrueHybrid)GetPbftNodesFromCfg( )  []*CommitteeMember {
+func GetPbftNodesFromCfg() []*CommitteeMember {
+    var config= parseConfig.New("config.json")
+    cm := make([]*CommitteeMember ,0,0)
+    dbs := config.Get("database").([]interface{})
+    for _, v := range dbs {
+        vv := v.(map[string]interface{})
+        nid := vv["Nodeid"].(string)
+        addr := vv["Addr"].(string)
+        port := vv["Port"].(float64)
+        var y int = int(port)
+        cm = append(cm,&CommitteeMember{
+            Nodeid:         nid,
+            addr:           addr,
+            port:           y,
 
-    file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
-
-    defer file.Close()
-
-    decoder := json.NewDecoder(file)
-
-    conf := configuration{}
-
-    err := decoder.Decode(&conf)
-    if err != nil {
-        fmt.Println("Error:", err)
+        })
     }
-
-    buf := new(bytes.Buffer)
-    	m := make([]CommitteeMember,0)
-
-    	var data []interface{}
-    	for i := 0; i < 5; i++{
-    		I_addr := "127.0.0." + strconv.Itoa(i)
-    		I_Nodeid := "Nodeid_" + strconv.Itoa(i)
-
-    		data = []interface{}{
-    			string(I_Nodeid),
-    			string(I_addr),
-    			int(34567)}
-
-    	}
-
-
-    	for _, v := range data {
-    		err := binary.Write(buf, binary.LittleEndian, v)
-    		if err != nil {
-    			fmt.Println("binary.Write failed:", err)
-    		}
-    		Test  := CommitteeMember{}
-    		Test.FromByte(buf.Bytes())
-    		m = append(m, Test)
-
-    	}
-
-    	//return nil
-
-   return  []*CommitteeMember{}
+    return  cm
 }
-
-
 func (tt  *TrueHybrid )GetFirstStart()bool{
-
-
-	file, _ := os.Open("./github.com/ethereum/truechain-engineering-code/eth/truechainconfig.json")
-
-
-
+	file, _ := os.Open("./config.json")
 	defer file.Close()
-
-
 	decoder := json.NewDecoder(file)
-
-
 	conf := configuration{}
-
 	err := decoder.Decode(&conf)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -218,10 +175,9 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer()
-	//conf := configuration{}
 
     if t.GetFirstStart() {
-			ns := t.GetPbftNodesFromCfg()
+			ns := GetPbftNodesFromCfg()
 			t.MembersNodes(ns)
 			t.Start()
     }
@@ -317,47 +273,48 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     }
     return nil
 }
-func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) error {
+func (t *TrueHybrid) SetTransactions(txs []*types.Transaction) {
     // Set up a connection to the server.
     
     go ConvTransaction(txs)
-    
-    conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
-    if err != nil {
-      return err
-    }
-    defer conn.Close()
 
-    c := NewPyHybConsensusClient(conn)
-    ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-    defer cancel()
-
-    pbTxs := make([]*Transaction,0,0)
-    for _,vv := range txs {
-      to := make([]byte,0,0)
-      if tt := vv.To(); tt != nil {
-          to = tt.Bytes()
-      }
-      v,r,s := vv.RawSignatureValues()
-      pbTxs = append(pbTxs,&Transaction{
-          Data:       &TxData{
-              AccountNonce:       vv.Nonce(),
-              Price:              vv.GasPrice().Int64(),
-              GasLimit:           new(big.Int).SetUint64(vv.Gas()).Int64(),
-              Recipient:          to,
-              Amount:             vv.Value().Int64(),
-              Payload:            vv.Data(),
-              V:                  v.Int64(),
-              R:                  r.Int64(),
-              S:                  s.Int64(),
-          },
-      })
-    }
-    _, err1 := c.SetTransactions(ctx, &Transactions{Txs:pbTxs})
-    if err1 != nil {
-      return err1
-    }
-    return nil
+    //test
+    //conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
+    //if err != nil {
+    //  return err
+    //}
+    //defer conn.Close()
+	//
+    //c := NewPyHybConsensusClient(conn)
+    //ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+    //defer cancel()
+	//
+    //pbTxs := make([]*Transaction,0,0)
+    //for _,vv := range txs {
+    //  to := make([]byte,0,0)
+    //  if tt := vv.To(); tt != nil {
+    //      to = tt.Bytes()
+    //  }
+    //  v,r,s := vv.RawSignatureValues()
+    //  pbTxs = append(pbTxs,&Transaction{
+    //      Data:       &TxData{
+    //          AccountNonce:       vv.Nonce(),
+    //          Price:              vv.GasPrice().Int64(),
+    //          GasLimit:           new(big.Int).SetUint64(vv.Gas()).Int64(),
+    //          Recipient:          to,
+    //          Amount:             vv.Value().Int64(),
+    //          Payload:            vv.Data(),
+    //          V:                  v.Int64(),
+    //          R:                  r.Int64(),
+    //          S:                  s.Int64(),
+    //      },
+    //  })
+    //}
+    //_, err1 := c.SetTransactions(ctx, &Transactions{Txs:pbTxs})
+    //if err1 != nil {
+    //  return err1
+    //}
+    //return nil
 }
 func (t *TrueHybrid) Start() error{
     // Set up a connection to the server.

@@ -4,6 +4,7 @@
 
 // +build !amd64,!386,!ppc64le appengine
 
+
 package sha3
 
 var (

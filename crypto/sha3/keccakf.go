@@ -4,6 +4,7 @@
 
 //  +build !amd64 appengine gccgo
 
+
 package sha3
 
 // rc stores the round constants for use in the ι step.

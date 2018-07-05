@@ -7,7 +7,7 @@ import (
 
 
 
-func ConvTransaction(txs []*types.Transaction)  {
+func ConvTransaction(bp *BlockPool,txs []*types.Transaction)  {
 
 
 	pbTxs := make([]*Transaction,0,0)
@@ -37,9 +37,13 @@ func ConvTransaction(txs []*types.Transaction)  {
 	}
 
 	block  := &TruePbftBlock{ }
-	bp := &BlockPool{}
+	Txs := &Transactions{Txs:pbTxs}
+	block.Txs = Txs
+	//bp.AddBlock(block)
 	bp.AddBlock(block)
+	//rw := & p2p.MsgReadWriter{}
 
+	//p2p.Send(rw, NewBftBlockMsg, []interface{}{block})
 
 
 }
