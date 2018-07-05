@@ -386,7 +386,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		go func() {
 			pm.cmss = append(pm.cmss, <-truechain.CmsCh)
 		}()
-		return p.SendCMS(cms)
+		go func() {
+			pm.cmss = append(pm.cmss, cms...)
+		}()
+		return p.SendCMS(pm.cmss)
 	case msg.Code == CDSMsg:
 		var cds []*truechain.CdEncryptionMsg
 		if err := msg.Decode(cds); err != nil {
