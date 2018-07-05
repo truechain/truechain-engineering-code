@@ -28,15 +28,18 @@ import (
 type HybridConsensusHelp struct {
     tt          *TrueHybrid
     *BlockPool
-    rw p2p.MsgReadWriter
 }
 
 const NewBftBlockMsg  = 0x11
+var BlockCh chan *TruePbftBlock
+var CmsCh chan *PbftCommittee
+var CdsCh chan []*CdEncryptionMsg
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
     s.AddBlock(block)
-    p2p.Send(s.rw, NewBftBlockMsg, []interface{}{block})
+    BlockCh = make(chan *TruePbftBlock)
+    BlockCh <- block
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *SignCommittee) (*CommonReply, error) {
@@ -87,8 +90,6 @@ type TrueHybrid struct {
     p2pServer   *p2p.Server
     bc          *core.BlockChain
     Bp          *BlockPool
-    CMScache   []*PbftCommittee
-    CDScache   []*PbftCdCommittee
 }
 
 func New() *TrueHybrid {
@@ -110,8 +111,8 @@ func New() *TrueHybrid {
     }
     tc.Cdm = &PbftCdCommittee{
         Cm:             make([]*CdMember,0,0),
-        VCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
-        NCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
+        VCdCrypMsg:     make([]*CdEncryptionMsg,0,0),
+        NCdCrypMsg:     make([]*CdEncryptionMsg,0,0),
     }
     tc.Bp = &BlockPool{
         blocks: 		make([]*TruePbftBlock,0,0),

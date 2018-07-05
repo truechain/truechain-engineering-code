@@ -29,7 +29,7 @@ type CdMember struct {
 	Height		*big.Int		// block Height who pow success 
 	comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
-type cdEncryptionMsg struct {
+type CdEncryptionMsg struct {
 	Height		*big.Int
 	Msg			[]byte
 	Sig 		[]byte
@@ -37,8 +37,8 @@ type cdEncryptionMsg struct {
 }
 type PbftCdCommittee struct {
 	Cm 				[]*CdMember				// confirmed member info 
-	VCdCrypMsg	 	[]*cdEncryptionMsg		// verified	candidate Member message(authenticated msg by block comfirm)
-	NCdCrypMsg		[]*cdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
+	VCdCrypMsg	 	[]*CdEncryptionMsg		// verified	candidate Member message(authenticated msg by block comfirm)
+	NCdCrypMsg		[]*CdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
 }
 
 type CommitteeMember struct {
@@ -61,17 +61,17 @@ var (
 	zero = big.NewInt(0)
 )
 
-func (t *cdEncryptionMsg) Use() bool { return t.use }
-func (t *cdEncryptionMsg) SetUse(u bool) { t.use = u }
-func (t *cdEncryptionMsg) ToStandbyInfo() *CdMember {
+func (t *CdEncryptionMsg) Use() bool { return t.use }
+func (t *CdEncryptionMsg) SetUse(u bool) { t.use = u }
+func (t *CdEncryptionMsg) ToStandbyInfo() *CdMember {
 	info := CdMember{Height:big.NewInt(0),}
 	info.FromByte(t.Msg)
 	return &info
 }
-func (t *cdEncryptionMsg) FromByte(data []byte) error {
+func (t *CdEncryptionMsg) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to :=  cdEncryptionMsg{
+	to :=  CdEncryptionMsg{
 		Height:		big.NewInt(0),
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
@@ -84,7 +84,7 @@ func (t *cdEncryptionMsg) FromByte(data []byte) error {
 	t.use = to.use
 	return nil
 } 
-func (t *cdEncryptionMsg) ToByte() ([]byte,error) {
+func (t *CdEncryptionMsg) ToByte() ([]byte,error) {
 	buf := bytes.NewBuffer(nil)
 	enc := gob.NewEncoder(buf)
 	err := enc.Encode(t)
