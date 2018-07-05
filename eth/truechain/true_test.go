@@ -99,7 +99,7 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 	sigs := make([]string,0,0)
 	// same priveatekey to sign the message
 	for i:=0;i<keysCount/2;i++ {
-		sig,err := crypto.Sign(msg[:],privkeys[i])
+		sig,err := crypto.Sign(msg,privkeys[i])
 		if err == nil {
 			sigs = append(sigs,common.ToHex(sig))
 		}
@@ -179,10 +179,10 @@ func TestEncryptionMsgInTrueChain(t *testing.T) {
 	pub := hex.EncodeToString(crypto.FromECDSAPub(GetPub(priv)))
 	hash := rlpHash(tmp)
 	// sig message use priv
-	sig,err := crypto.Sign(hash[:],priv)
+	sig,err := crypto.Sign(hash,priv)
 	// verify message
 	if err == nil {
-		pub1,err1 := crypto.SigToPub(hash[:],sig)
+		pub1,err1 := crypto.SigToPub(hash,sig)
 		if err1 == nil {
 			strPub1 := hex.EncodeToString(crypto.FromECDSAPub(pub1))
 			if pub == strPub1 {
@@ -237,10 +237,10 @@ func TestNewCommittee(t *testing.T) {
 	}
 	msg := rlpHash(tmp)
 	cmsg := SignCommittee{
-		Msg:		common.ToHex(msg[:]),
+		Msg:		common.ToHex(msg),
 	}
 	for i:=0;i<curCnt;i++ {
-		k,_ := crypto.Sign(msg[:],privkeys[i])
+		k,_ := crypto.Sign(msg,privkeys[i])
 		cmsg.Sigs = append(cmsg.Sigs,common.ToHex(k))
 	}
 	// verify the signCommittee from the py-PBFT
