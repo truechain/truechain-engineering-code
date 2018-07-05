@@ -32,6 +32,8 @@ type HybridConsensusHelp struct {
 
 const NewBftBlockMsg  = 0x11
 var BlockCh chan *TruePbftBlock
+var CmsCh chan *PbftCommittee
+var CdsCh chan []*CdEncryptionMsg
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
@@ -88,8 +90,6 @@ type TrueHybrid struct {
     p2pServer   *p2p.Server
     bc          *core.BlockChain
     Bp          *BlockPool
-    CMScache   []*PbftCommittee
-    CDScache   []*PbftCdCommittee
 }
 
 func New() *TrueHybrid {
@@ -111,8 +111,8 @@ func New() *TrueHybrid {
     }
     tc.Cdm = &PbftCdCommittee{
         Cm:             make([]*CdMember,0,0),
-        VCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
-        NCdCrypMsg:     make([]*cdEncryptionMsg,0,0),
+        VCdCrypMsg:     make([]*CdEncryptionMsg,0,0),
+        NCdCrypMsg:     make([]*CdEncryptionMsg,0,0),
     }
     tc.Bp = &BlockPool{
         blocks: 		make([]*TruePbftBlock,0,0),
