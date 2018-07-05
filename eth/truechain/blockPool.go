@@ -23,11 +23,11 @@ func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 func (self *BlockPool) AddBlock(block *TruePbftBlock) {
 
 	//Judging committee members
-	//if(self.th.CheckBlock(block)==nil){
-	//	self.blocks = append(self.blocks, block)
-	//}
+	if(self.th.CheckBlock(block)==nil){
+		self.blocks = append(self.blocks, block)
+	}
 
-	self.blocks = append(self.blocks, block)
+	//self.blocks = append(self.blocks, block)
 	self.JoinEth()
 }
 
