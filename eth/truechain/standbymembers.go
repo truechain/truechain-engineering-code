@@ -26,11 +26,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core"
 )
-func (t *TrueHybrid) GetCryMsg() []*cdEncryptionMsg {
+func (t *TrueHybrid) GetCryMsg() []*CdEncryptionMsg {
 	return t.Cdm.VCdCrypMsg
 }
 // all functions of the file ware not thread-safe
-func (t *TrueHybrid) ReceiveSdmMsg(msg *cdEncryptionMsg) {
+func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
 	m,_ := minMsg(t.GetCryMsg(),true)
 	if m.Height.Cmp(msg.Height) <= 0 || existMsg(msg,t.Cdm.VCdCrypMsg){
 		return 
@@ -47,11 +47,13 @@ func (t *TrueHybrid) ReceiveSdmMsg(msg *cdEncryptionMsg) {
 	}
 }
 func (t *TrueHybrid) SyncStandbyMembers() {
-	// sync crypmsg 
+	// sync crypmsg
+	CdsCh = make(chan []*CdEncryptionMsg)
+	CdsCh <-t.Cdm.VCdCrypMsg
 	for _,v := range t.Cdm.VCdCrypMsg {
 		_,err := v.ToByte()
 		if err != nil {
-			t.CDScache = append(t.CDScache,t.Cdm)
+
 		}
 	}
 	// sync tmpcrypmsg???
@@ -87,7 +89,7 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	return vv,nil
 }
 
-func (t *TrueHybrid) add(msg *cdEncryptionMsg) error {
+func (t *TrueHybrid) add(msg *CdEncryptionMsg) error {
 	node := msg.ToStandbyInfo()
 	if node == nil {
 		return errors.New("Wrong CrytoMsg")
@@ -99,7 +101,7 @@ func (t *TrueHybrid) add(msg *cdEncryptionMsg) error {
 	t.Cdm.Cm = append(t.Cdm.Cm,node)
 	return nil
 }
-func (t *TrueHybrid) findMsg(height *big.Int) *cdEncryptionMsg {
+func (t *TrueHybrid) findMsg(height *big.Int) *CdEncryptionMsg {
 	for _,v := range t.Cdm.VCdCrypMsg {
 		if v.Height.Cmp(height) == 0 {
 			return v
@@ -157,7 +159,7 @@ func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 		t.Cdm.VCdCrypMsg = t.removemgs(t.Cdm.VCdCrypMsg,i)
 	}
 }
-func (t *TrueHybrid) removemgs(msg []*cdEncryptionMsg,i int) []*cdEncryptionMsg {
+func (t *TrueHybrid) removemgs(msg []*CdEncryptionMsg,i int) []*CdEncryptionMsg {
     return append(msg[:i], msg[i+1:]...)
 }
 func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
@@ -200,7 +202,7 @@ func (t *TrueHybrid) posFromCm(nid string) int {
 }
 ////////////////////////////////////////////////////////////////////////
 // use=true include msg which was used
-func minMsg(crpmsg []*cdEncryptionMsg,use bool) (*cdEncryptionMsg,int) {
+func minMsg(crpmsg []*CdEncryptionMsg,use bool) (*CdEncryptionMsg,int) {
 	if len(crpmsg) <= 0 {
 		return nil,0
 	}
@@ -233,7 +235,7 @@ func minMsg(crpmsg []*cdEncryptionMsg,use bool) (*cdEncryptionMsg,int) {
 		}
 	}
 }
-func existMsg(msg *cdEncryptionMsg,msgs []*cdEncryptionMsg) bool {
+func existMsg(msg *CdEncryptionMsg,msgs []*CdEncryptionMsg) bool {
 	for _,v := range msgs {
 		if v.Height.Cmp(msg.Height) != 0{
 			continue
@@ -248,8 +250,8 @@ func existMsg(msg *cdEncryptionMsg,msgs []*cdEncryptionMsg) bool {
 	return false
 }
 // after success pow,send the node by p2p
-func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg,error) {
-	cmsg := cdEncryptionMsg{
+func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg,error) {
+	cmsg := CdEncryptionMsg{
 		Height:		n.Height,
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
@@ -267,7 +269,7 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*cdEncryptionMsg
 	return &cmsg,nil
 }
 // 0 -- not ready; 1 -- success; -1 -- fail
-func verityMsg(msg *cdEncryptionMsg,bc *core.BlockChain) int {
+func verityMsg(msg *CdEncryptionMsg,bc *core.BlockChain) int {
 	if msg.Sig == nil || msg.Msg == nil || msg.Height.Cmp(zero) <= 0 {
 		return -1
 	}
