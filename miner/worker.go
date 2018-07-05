@@ -268,7 +268,7 @@ func (self *worker) update() {
 			// Handle NewTxsEvent
 		case ev := <-self.txsCh:
 
-			self.tc.SetTransactions(self.tc.GetBp(),ev.Txs)
+			self.tc.SetTransactions(self.tc,ev.Txs)
 
 			// Handle NewTxsEvent
 			//
