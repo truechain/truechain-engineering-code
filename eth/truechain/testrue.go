@@ -62,7 +62,7 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 	
 	priv_d,_ := hex.DecodeString(priv)
 	privKey,_ :=crypto.ToECDSA(priv_d)
-	sig,err := crypto.Sign(msg,privKey)
+	sig,err := crypto.Sign(msg[:],privKey)
 	if err == nil {
 		sigs = append(sigs,common.ToHex(sig))
 	}
@@ -92,7 +92,7 @@ func CreateCommittee(t *TrueHybrid) {
 
 	msg := rlpHash(tmp)
 	cmsg := SignCommittee{
-		Msg:		common.ToHex(msg),
+		Msg:		common.ToHex(msg[:]),
 	}
 
 	cm , _ := t.MakeNewCommittee(&cmsg)
