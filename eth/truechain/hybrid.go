@@ -166,7 +166,7 @@ func (t *PbftCommittee) GetHash() []byte {
 		msg2:	t.GetlCmm(),
 	}
 	msg := rlpHash(tmp)
-	return msg
+	return msg[:]
 }
 
 func toByte(e interface{}) ([]byte,error) {
