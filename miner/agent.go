@@ -123,7 +123,7 @@ func (self *CpuAgent) MakeSigned(work *Work){
 		Nodeid:			pub,
 	}
 
-	work.tc.Cmm.SetlCmm(append(work.tc.Cmm.GetlCmm(), cc))
+	//work.tc.Cmm.SetlCmm(append(work.tc.Cmm.GetlCmm(), cc))
 
 
 }
