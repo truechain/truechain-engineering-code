@@ -79,7 +79,7 @@ type Work struct {
 	header   *types.Header
 	txs      []*types.Transaction
 	receipts []*types.Receipt
-
+	tc 	*truechain.TrueHybrid
 	createdAt time.Time
 }
 
@@ -389,6 +389,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 		uncles:    set.New(),
 		header:    header,
 		createdAt: time.Now(),
+		tc:self.tc,
 	}
 
 	// when 08 is processed ancestors contain 07 (quick block)
