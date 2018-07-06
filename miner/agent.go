@@ -115,13 +115,13 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 
 func (self *CpuAgent) MakeSigned(work *Work){
 
-	_,pub,_ := work.tc.GetNodeID()
+	//_,pub,_ := work.tc.GetNodeID()
 
-	cc := truechain.CommitteeMember{
-		Addr:			"127.0.0.1",
-		Port:			16745,
-		Nodeid:			pub,
-	}
+	//cc := truechain.CommitteeMember{
+	//	Addr:			"127.0.0.1",
+	//	Port:			16745,
+	//	Nodeid:			pub,
+	//}
 
 	//work.tc.Cmm.SetlCmm(append(work.tc.Cmm.GetlCmm(), cc))
 
