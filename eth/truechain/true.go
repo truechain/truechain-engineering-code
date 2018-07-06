@@ -313,7 +313,7 @@ func (t *TrueHybrid) Start() error{
         return err
     }
     defer conn.Close()
-    _,_,priv := t.getNodeID()
+    _,_,priv := t.GetNodeID()
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()
