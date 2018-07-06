@@ -81,21 +81,21 @@ func CreateCommittee(t *TrueHybrid) {
 	_,pub,strpriv := t.getNodeID()
 
 	cc := CommitteeMember{
-		addr:			"127.0.0.1",
-		port:			16745,
+		Addr:			"127.0.0.1",
+		Port:			16745,
 		Nodeid:			pub,
 	}
 	curCmm = append(curCmm,&cc)
 
 	cmm := PbftCommittee{
 		No:				1,
-		ct:				time.Now(),
-		lastt:			time.Now(),
-		count:			curCmmCount,
-		lcount:			0,
-		cmm:			curCmm,
-		lcmm:			nil,
-		sig:			make([]string,0,0),
+		Ct:				time.Now(),
+		Lastt:			time.Now(),
+		Count:			curCmmCount,
+		Lcount:			0,
+		Comm:			curCmm,
+		Lcomm:			nil,
+		Sig:			make([]string,0,0),
 	}
 	sig := cmm.GetSig()
 	bp,_ := hex.DecodeString(strpriv)

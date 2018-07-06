@@ -80,8 +80,8 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 		} else {
 			vv = append(vv,&CommitteeMember{
 				Nodeid:		v.Nodeid,
-				addr:		v.addr,			
-				port:		v.port,			
+				Addr:		v.Addr,			
+				Port:		v.Port,			
 			})
 			i++
 		}
@@ -150,7 +150,7 @@ func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 	pos := make([]int,0,0)
 	for i,v := range t.Cdm.VCdCrypMsg {
 		if v.Height.Cmp(num) == 0 {
-			if !v.Use() {
+			if !v.GetUse() {
 				pos = append(pos,i)
 			}
 		}
@@ -215,7 +215,7 @@ func minMsg(crpmsg []*CdEncryptionMsg,use bool) (*CdEncryptionMsg,int) {
 				pos = ii
 			}
 		} else {
-			if crpmsg[pos].Use() == true {
+			if crpmsg[pos].GetUse() == true {
 				min = v.Height
 				pos = ii
 			}
@@ -228,7 +228,7 @@ func minMsg(crpmsg []*CdEncryptionMsg,use bool) (*CdEncryptionMsg,int) {
 	if use {
 		return crpmsg[pos],pos
 	} else {
-		if crpmsg[pos].Use() {
+		if crpmsg[pos].GetUse() {
 			return nil,0
 		} else {
 			return crpmsg[pos],pos
@@ -255,7 +255,7 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg
 		Height:		n.Height,
 		Msg:		make([]byte,0,0),
 		Sig:		make([]byte,0,0),
-		use:		false,
+		Use:		false,
 	}
 	var err error
 	cmsg.Msg,err = n.ToByte()

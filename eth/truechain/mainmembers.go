@@ -183,13 +183,13 @@ func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error)
 	}
 	cmm := PbftCommittee{
 		No:				curNo,
-		ct:				time.Now(),
-		lastt:			t.Cmm.ct,
-		count:			len(m),
-		lcount:			t.Cmm.count,
-		cmm:			m,
-		lcmm:			t.Cmm.cmm,
-		sig:			msg.GetSigs(),
+		Ct:				time.Now(),
+		Lastt:			t.Cmm.Ct,
+		Count:			len(m),
+		Lcount:			t.Cmm.Count,
+		Comm:			m,
+		Lcomm:			t.Cmm.Comm,
+		Sig:			msg.GetSigs(),
 	}
 	hash := common.ToHex(cmm.GetHash())
 	if hash != msg.GetMsg() {
