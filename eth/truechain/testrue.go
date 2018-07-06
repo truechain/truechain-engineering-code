@@ -59,7 +59,7 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 	//hex.DecodeString(crypto.toECDSA())
 	// same priveatekey to sign the message
 	_,_,priv := th.getNodeID()
-	
+
 	priv_d,_ := hex.DecodeString(priv)
 	privKey,_ :=crypto.ToECDSA(priv_d)
 	sig,err := crypto.Sign(msg[:],privKey)
@@ -69,35 +69,41 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 
 	block.Sigs=sigs
 
-	th.GetBp().AddBlock(block)
+	th.AddBlock(block)
 	//rw := & p2p.MsgReadWriter{}
 	//p2p.Send(rw, NewBftBlockMsg, []interface{}{block})
 
 }
 
 func CreateCommittee(t *TrueHybrid) {
+	curCmm := make([]*CommitteeMember,0,0)
+	curCmmCount := 1
+	_,pub,strpriv := t.getNodeID()
 
-	t.setCommitteeCount(1)
-	curCnt := t.GetCommitteeCount()
-	m,_ := t.Vote(curCnt)
-
-	// make signCommittee from py-PBFT
-	tmp := struct {
-		msg1	[]*CommitteeMember
-		msg2	[]*CommitteeMember
-	}{
-		msg1:	m,
-		msg2:	t.Cmm.GetCmm(),
+	cc := CommitteeMember{
+		addr:			"127.0.0.1",
+		port:			16745,
+		Nodeid:			pub,
 	}
+	curCmm = append(curCmm,&cc)
 
-	msg := rlpHash(tmp)
-	cmsg := SignCommittee{
-		Msg:		common.ToHex(msg[:]),
+	cmm := PbftCommittee{
+		No:				1,
+		ct:				time.Now(),
+		lastt:			time.Now(),
+		count:			curCmmCount,
+		lcount:			0,
+		cmm:			curCmm,
+		lcmm:			nil,
+		sig:			make([]string,0,0),
 	}
-
-	cm , _ := t.MakeNewCommittee(&cmsg)
-	t.Cmm = cm
-
+	sig := cmm.GetSig()
+	bp,_ := hex.DecodeString(strpriv)
+	priv,_ := crypto.ToECDSA(bp)
+	k,_ := crypto.Sign(cmm.GetHash(),priv)
+	sig = append(sig,common.ToHex(k))
+	cmm.SetSig(sig)
+	t.Cmm = &cmm
 }
 
 
