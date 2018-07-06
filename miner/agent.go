@@ -14,18 +14,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-
 package miner
 
 import (
 	"sync"
 
 	"sync/atomic"
-
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/eth/truechain"
-	"crypto/ecdsa"
 )
 
 type CpuAgent struct {
@@ -62,7 +59,7 @@ func (self *CpuAgent) Stop() {
 	}
 	self.stop <- struct{}{}
 done:
-	// Empty work channel
+// Empty work channel
 	for {
 		select {
 		case <-self.workCh:
@@ -116,23 +113,19 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	}
 }
 
-
 func (self *CpuAgent) MakeSigned(work *Work){
-	//
-	//Nodeid		string			// the pubkey of the node(nodeid)
-	//coinbase	string			// the bonus address of miner
-	//addr		string
-	//port		int
-	//Height		*big.Int		// block Height who pow success
-	//comfire		bool			// the state of the block
-	sdi := &truechain.CdMember{
 
-	}
-	pk := &ecdsa.PrivateKey{
+	_,pub,_ := work.tc.GetNodeID()
 
+	cc := truechain.CommitteeMember{
+		Addr:			"127.0.0.1",
+		Port:			16745,
+		Nodeid:			pub,
 	}
-	tcm , _ := truechain.MakeSignedStandbyNode(sdi,pk)
-	self.tc.ReceiveSdmMsg(tcm)
+
+	work.tc.Cmm.SetlCmm(append(work.tc.Cmm.GetlCmm(), cc))
+
+
 }
 
 
