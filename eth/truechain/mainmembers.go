@@ -221,7 +221,7 @@ func (t *TrueHybrid) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
 	}
 	return false
 }
-func (t *TrueHybrid) getNodeID() (string,string,string) {
+func (t *TrueHybrid) GetNodeID() (string,string,string) {
 	server := t.P2PServer() 
 	ip := server.NodeInfo().IP
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
