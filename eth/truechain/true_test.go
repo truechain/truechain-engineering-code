@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/core/types"
 	"crypto/ecdsa"
 	"encoding/hex"
@@ -292,4 +291,35 @@ func TestCandidateMember(t *testing.T) {
 	th.ReceiveSdmMsg(cmsg)
 	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
 	th.StopTrueChain()
+}
+func TestDataStruct(t *testing.T) {
+	priv := privkeys[0]
+	pub := GetPub(priv)
+	nodeid := hex.EncodeToString(crypto.FromECDSAPub(pub))
+	addr := crypto.PubkeyToAddress(*pub)
+	n := CdMember{
+		Coinbase:			addr.String(),
+		Addr:				"127.0.0.1",
+		Port:				16745,
+		Comfire:			false,
+		Nodeid:				nodeid,
+		Height:				big.NewInt(1001),
+	}
+	msg,err1 := toByte(n)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	sig,err2 := crypto.Sign(msg[:32],priv)
+	if err2 != nil {
+		fmt.Println(err2)
+	} else {
+		fmt.Println(sig)
+	}
+	n2 := CdMember{}
+	err := fromByte(msg,&n2)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("height:",n2.Height)
+	fmt.Println(n2)
 }
