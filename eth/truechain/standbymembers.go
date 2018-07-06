@@ -167,8 +167,8 @@ func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
 	// simple remove(one by one)....
 	pos := t.matchCommitteeMembers(cmm.GetCmm())
 	if pos != nil {
-		for _,i := range pos {
-			t.Cdm.Cm = append(t.Cdm.Cm[:i], t.Cdm.Cm[i+1:]...)
+		for i := len(pos) -1; i > -1; i-- {
+			t.Cdm.Cm = append(t.Cdm.Cm[:pos[i]], t.Cdm.Cm[pos[i]+1:]...)
 		}
 		// update the committee number
 	} else {
