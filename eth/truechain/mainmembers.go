@@ -64,7 +64,7 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 	keys := make(map[checkPair]bool)
 	msg := rlpHash(block.Txs)
 	for i,s := range block.Sigs {
-		err,r := verifyMembersSign(verifier,msg[:],common.FromHex(s))
+		err,r := verifyBlockMembersSign(verifier,msg[:],common.FromHex(s))
 		if err != nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
@@ -77,9 +77,10 @@ func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,boo
 		return errors.New("not all members sign"),true
 	}
 }
-func verifyMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
+func verifyBlockMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	for i,v := range cc {
-		pub,err := crypto.SigToPub(crypto.Keccak256(msg),sig)
+		// pub,err := crypto.SigToPub(crypto.Keccak256(msg),sig)
+		pub,err := crypto.SigToPub(msg,sig)
 		if err != nil {
 			return err,0
 		}
@@ -90,7 +91,7 @@ func verifyMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	return errors.New("has no one sign..."),0
 }
 func (t *TrueHybrid) InPbftCommittee(cmms []*CommitteeMember) bool {
-	_,nodeid,_ := t.getNodeID()
+	_,nodeid,_ := t.GetNodeID()
 	if cmms == nil {
 		cmm := t.Cmm.GetCmm()
 		for _,v := range cmm {
@@ -150,7 +151,7 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee) bool {
 	sigs := cmm.GetSig()
 
 	for i,s := range sigs {
-		err,r := verifyMembersSign(oldCmm.GetCmm(),msg,common.FromHex(s))
+		err,r := verifyBlockMembersSign(oldCmm.GetCmm(),msg,common.FromHex(s))
 		if err != nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
@@ -183,13 +184,13 @@ func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error)
 	}
 	cmm := PbftCommittee{
 		No:				curNo,
-		ct:				time.Now(),
-		lastt:			t.Cmm.ct,
-		count:			len(m),
-		lcount:			t.Cmm.count,
-		cmm:			m,
-		lcmm:			t.Cmm.cmm,
-		sig:			msg.GetSigs(),
+		Ct:				time.Now(),
+		Lastt:			t.Cmm.Ct,
+		Count:			len(m),
+		Lcount:			t.Cmm.Count,
+		Comm:			m,
+		Lcomm:			t.Cmm.Comm,
+		Sig:			msg.GetSigs(),
 	}
 	hash := common.ToHex(cmm.GetHash())
 	if hash != msg.GetMsg() {
@@ -220,7 +221,7 @@ func (t *TrueHybrid) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
 	}
 	return false
 }
-func (t *TrueHybrid) getNodeID() (string,string,string) {
+func (t *TrueHybrid) GetNodeID() (string,string,string) {
 	server := t.P2PServer() 
 	ip := server.NodeInfo().IP
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))

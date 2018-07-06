@@ -142,8 +142,8 @@ func GetPbftNodesFromCfg() []*CommitteeMember {
         port := vv["Port"].(float64)
         cm = append(cm,&CommitteeMember{
             Nodeid:         nid,
-            addr:           addr,
-            port:           int(port),
+            Addr:           addr,
+            Port:           int(port),
         })
     }
     return  cm
@@ -193,7 +193,7 @@ func (t *TrueHybrid) GetCommitteeMembers() []string {
     cmm := t.Cmm.GetCmm()
     addrs := make([]string, len(cmm))
     for i, value := range cmm {
-        addrs[i] = value.addr
+        addrs[i] = value.Addr
     }
     return addrs
 }
@@ -247,9 +247,9 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     pbNodes := make([]*TruePbftNode,0,0)
     for _,v := range nodes {
         n := TruePbftNode{
-            Addr:       v.addr,
+            Addr:       v.Addr,
             Nodeid:     v.Nodeid,
-            Port:       int32(v.port),
+            Port:       int32(v.Port),
         }
         // if lnodeid == v.Nodeid {
         //     n.Privkey = priv
@@ -313,7 +313,7 @@ func (t *TrueHybrid) Start() error{
         return err
     }
     defer conn.Close()
-    _,_,priv := t.getNodeID()
+    _,_,priv := t.GetNodeID()
     c := NewPyHybConsensusClient(conn)
     ctx, cancel := context.WithTimeout(context.Background(), time.Second)
     defer cancel()

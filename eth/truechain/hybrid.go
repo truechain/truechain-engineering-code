@@ -23,17 +23,17 @@ import (
 // candidate Member
 type CdMember struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
-	coinbase	string			// the bonus address of miner
-	addr		string 			
-	port		int
+	Coinbase	string			// the bonus address of miner
+	Addr		string 			
+	Port		int
 	Height		*big.Int		// block Height who pow success 
-	comfire		bool			// the state of the block comfire,default greater 12 like eth
+	Comfire		bool			// the state of the block comfire,default greater 12 like eth
 }
 type CdEncryptionMsg struct {
 	Height		*big.Int
 	Msg			[]byte
 	Sig 		[]byte
-	use			bool
+	Use			bool
 }
 type PbftCdCommittee struct {
 	Cm 				[]*CdMember				// confirmed member info 
@@ -43,26 +43,26 @@ type PbftCdCommittee struct {
 
 type CommitteeMember struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
-	addr		string 			
-	port		int
+	Addr		string 			
+	Port		int
 }
 type PbftCommittee struct {
 	No			int				// Committee number
-	ct 			time.Time		// current Committee voted time		
-	lastt		time.Time		// last Committee voted time
-	count		int				// current Committee member Count
-	lcount		int				// last Committee member Count
-	cmm 		[]*CommitteeMember
-	lcmm		[]*CommitteeMember
-	sig 		[]string
+	Ct 			time.Time		// current Committee voted time		
+	Lastt		time.Time		// last Committee voted time
+	Count		int				// current Committee member Count
+	Lcount		int				// last Committee member Count
+	Comm 		[]*CommitteeMember
+	Lcomm		[]*CommitteeMember
+	Sig 		[]string
 }
 
 var (
 	zero = big.NewInt(0)
 )
 
-func (t *CdEncryptionMsg) Use() bool { return t.use }
-func (t *CdEncryptionMsg) SetUse(u bool) { t.use = u }
+func (t *CdEncryptionMsg) GetUse() bool { return t.Use }
+func (t *CdEncryptionMsg) SetUse(u bool) { t.Use = u }
 func (t *CdEncryptionMsg) ToStandbyInfo() *CdMember {
 	info := CdMember{Height:big.NewInt(0),}
 	info.FromByte(t.Msg)
@@ -71,17 +71,12 @@ func (t *CdEncryptionMsg) ToStandbyInfo() *CdMember {
 func (t *CdEncryptionMsg) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to :=  CdEncryptionMsg{
-		Height:		big.NewInt(0),
-		Msg:		make([]byte,0,0),
-		Sig:		make([]byte,0,0),
-		use:		false,
-	}
-	dec.Decode(to)
+	to :=  CdEncryptionMsg{}
+	dec.Decode(&to)
 	t.Height = to.Height
 	t.Msg = to.Msg
 	t.Sig = to.Sig
-	t.use = to.use
+	t.Use = to.Use
 	return nil
 } 
 func (t *CdEncryptionMsg) ToByte() ([]byte,error) {
@@ -96,17 +91,14 @@ func (t *CdEncryptionMsg) ToByte() ([]byte,error) {
 func (t *CdMember) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
-	to :=  CdMember{
-		Height:		big.NewInt(0),
-		comfire:	false,
-	}
-	dec.Decode(to)
+	to :=  CdMember{}
+	dec.Decode(&to)
 	t.Nodeid = to.Nodeid
-	t.coinbase = to.coinbase
-	t.addr = to.addr
-	t.port = to.port
+	t.Coinbase = to.Coinbase
+	t.Addr = to.Addr
+	t.Port = to.Port
 	t.Height = to.Height
-	t.comfire = to.comfire
+	t.Comfire = to.Comfire
 	return nil
 }
 func (t *CdMember) ToByte() ([]byte,error) {
@@ -132,30 +124,30 @@ func (t *CommitteeMember) FromByte(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	to := CommitteeMember{}
-	dec.Decode(to)
+	dec.Decode(&to)
 	t.Nodeid = to.Nodeid
-	t.addr = to.addr
-	t.port = to.port
+	t.Addr = to.Addr
+	t.Port = to.Port
 	return nil
 }
 
 func (t *PbftCommittee) GetCmm() []*CommitteeMember {
-	return t.cmm
+	return t.Comm
 }
 func (t *PbftCommittee) SetCmm(cmm []*CommitteeMember) {
-	t.cmm = cmm
+	t.Comm = cmm
 }
 func (t *PbftCommittee) GetlCmm() []*CommitteeMember {
-	return t.lcmm
+	return t.Lcomm
 }
 func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
-	t.lcmm = lcmm
+	t.Lcomm = lcmm
 }
 func (t *PbftCommittee) GetSig() []string {
-	return t.sig
+	return t.Sig
 }
 func (t *PbftCommittee) SetSig(sig []string) {
-	t.sig = sig
+	t.Sig = sig
 }
 func (t *PbftCommittee) GetHash() []byte {
 	tmp := struct {

@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/eth/truechain"
+	"fmt"
 )
 
 type CpuAgent struct {
@@ -103,8 +104,9 @@ out:
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
 		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
-		self.returnCh <- &Result{work, result}
 		self.MakeSigned(work)
+		self.returnCh <- &Result{work, result}
+
 	} else {
 		if err != nil {
 			log.Warn("Block sealing failed", "err", err)
@@ -115,16 +117,39 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 
 func (self *CpuAgent) MakeSigned(work *Work){
 
-	//_,pub,_ := work.tc.GetNodeID()
 
-	//cc := truechain.CommitteeMember{
-	//	Addr:			"127.0.0.1",
-	//	Port:			16745,
-	//	Nodeid:			pub,
-	//}
+	//添加当前节点到预选委员会队列
+	fmt.Print("Add to the candidate committee。。。")
+	//获取节点信息
+	ip,pub,_ := work.tc.GetNodeID()
 
-	//work.tc.Cmm.SetlCmm(append(work.tc.Cmm.GetlCmm(), cc))
+	//构建候选节点的信息
+	cm := truechain.CdMember{}
+	cm.Height=work.Block.Number()
+	cm.Addr = ip
+	cm.Nodeid = pub
+	cm.Coinbase	= string(work.Block.Coinbase().Bytes())				//挖矿奖励地址)
+	cm.Comfire	= false
+	cm.Port	= 16745
 
+
+	//创建候选的消息
+	cem := &truechain.CdEncryptionMsg{}
+
+	//Height		*big.Int
+	//Msg			[]byte		上一个结构体的字节码
+	//Sig 			[]byte		cb 私钥
+	//use			bool		默认值：false
+
+	cem.Height = work.Block.Number()
+	byt ,_ := cm.ToByte()
+	cem.Msg = byt
+	//cem.Height = work.Block.Number()
+	//cem.Height = work.Block.Number()
+	//cem.Msg = cem.ToByte()
+
+	//添加到候选委员会
+	work.tc.Cdm.VCdCrypMsg = append(work.tc.Cdm.VCdCrypMsg,cem)
 
 }
 

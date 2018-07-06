@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/core/types"
 	"crypto/ecdsa"
 	"encoding/hex"
@@ -115,8 +114,8 @@ func MakeFirstCommittee(cnt int) *PbftCommittee{
 	curCmmCount := cnt
 	for i:=0;i<curCmmCount;i++ {
 		cc := CommitteeMember{
-			addr:			"127.0.0.1",
-			port:			16745,
+			Addr:			"127.0.0.1",
+			Port:			16745,
 			Nodeid:			hex.EncodeToString(crypto.FromECDSAPub(GetPub(privkeys[i]))),
 		}
 		curCmm = append(curCmm,&cc)
@@ -124,13 +123,13 @@ func MakeFirstCommittee(cnt int) *PbftCommittee{
 
 	cmm := PbftCommittee{
 		No:				1,
-		ct:				time.Now(),
-		lastt:			time.Now(),
-		count:			curCmmCount,
-		lcount:			0,
-		cmm:			curCmm,
-		lcmm:			nil,
-		sig:			make([]string,0,0),
+		Ct:				time.Now(),
+		Lastt:			time.Now(),
+		Count:			curCmmCount,
+		Lcount:			0,
+		Comm:			curCmm,
+		Lcomm:			nil,
+		Sig:			make([]string,0,0),
 	}
 	sig := cmm.GetSig()
 	for i:=0;i<keysCount/2;i++ {
@@ -154,11 +153,11 @@ func MakeCdCommittee() *PbftCdCommittee{
 
 		n := CdMember{
 			Nodeid:				nodeid,
-			coinbase:			addr.String(),
-			addr:				"127.0.0.1",
-			port:				16745,
+			Coinbase:			addr.String(),
+			Addr:				"127.0.0.1",
+			Port:				16745,
 			Height:				big.NewInt(100+int64(i)),
-			comfire:			false,
+			Comfire:			false,
 		}
 		cd.Cm = append(cd.Cm,&n)
 	}
@@ -203,11 +202,11 @@ func TestCryptoMsg(t *testing.T) {
 
 	n := CdMember{
 		Nodeid:				nodeid,
-		coinbase:			addr.String(),
-		addr:				"127.0.0.1",
-		port:				16745,
+		Coinbase:			addr.String(),
+		Addr:				"127.0.0.1",
+		Port:				16745,
 		Height:				big.NewInt(100),
-		comfire:			false,
+		Comfire:			false,
 	}
 	cmsg,err := MakeSignedStandbyNode(&n,priv)
 	if err != nil {
@@ -276,11 +275,11 @@ func TestCandidateMember(t *testing.T) {
 
 	n := CdMember{
 		Nodeid:				nodeid,
-		coinbase:			coinAddr.String(),
-		addr:				"127.0.0.1",
-		port:				16745,
+		Coinbase:			coinAddr.String(),
+		Addr:				"127.0.0.1",
+		Port:				16745,
 		Height:				big.NewInt(123),
-		comfire:			false,
+		Comfire:			false,
 	}
 	cmsg,err := MakeSignedStandbyNode(&n,coinPriv)
 	if err != nil {
@@ -292,4 +291,35 @@ func TestCandidateMember(t *testing.T) {
 	th.ReceiveSdmMsg(cmsg)
 	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
 	th.StopTrueChain()
+}
+func TestDataStruct(t *testing.T) {
+	priv := privkeys[0]
+	pub := GetPub(priv)
+	nodeid := hex.EncodeToString(crypto.FromECDSAPub(pub))
+	addr := crypto.PubkeyToAddress(*pub)
+	n := CdMember{
+		Coinbase:			addr.String(),
+		Addr:				"127.0.0.1",
+		Port:				16745,
+		Comfire:			false,
+		Nodeid:				nodeid,
+		Height:				big.NewInt(1001),
+	}
+	msg,err1 := toByte(n)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	sig,err2 := crypto.Sign(msg[:32],priv)
+	if err2 != nil {
+		fmt.Println(err2)
+	} else {
+		fmt.Println(sig)
+	}
+	n2 := CdMember{}
+	err := fromByte(msg,&n2)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("height:",n2.Height)
+	fmt.Println(n2)
 }
