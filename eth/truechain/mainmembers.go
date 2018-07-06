@@ -37,7 +37,6 @@ type checkPair struct {
 // all function was not tread-safe
 func (t *TrueHybrid) SyncMainMembers() {
 	// send by p2p network
-	CmsCh = make(chan *PbftCommittee)
 	CmsCh <- t.Cmm
 }
 // verify the block which from pbft Committee
