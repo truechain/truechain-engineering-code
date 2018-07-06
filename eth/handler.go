@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -40,7 +41,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 const (
@@ -105,9 +105,9 @@ type ProtocolManager struct {
 	//pbftpool PbftPool
 	pblocksCh chan []*truechain.TruePbftBlock
 	//pbsSub    event.Subscription
-	pblocks   []*truechain.TruePbftBlock
-	cmss      []*truechain.PbftCommittee
-	cdss      [][]*truechain.CdEncryptionMsg
+	pblocks []*truechain.TruePbftBlock
+	cmss    []*truechain.PbftCommittee
+	cdss    [][]*truechain.CdEncryptionMsg
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
@@ -219,7 +219,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
-	pm.pblocksCh =make(chan []*truechain.TruePbftBlock,pbChanSize)
+	pm.pblocksCh = make(chan []*truechain.TruePbftBlock, pbChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 	go pm.pbBroadcastloop()
@@ -358,19 +358,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if request.Block == nil {
 			return errResp(ErrDecode, "pbftblock is nil")
 		}
+		pm.pblocks = append(pm.pblocks, request.Block)
 		go func() {
 			for {
-				pm.pblocks = append(pm.pblocks, request.Block)
+				pm.pblocks = append(pm.pblocks, <-truechain.BlockCh)
+			}
+		}()
+		go func() {
+			for len(pm.pblocksCh) == 0 {
 				pm.pblocksCh <- pm.pblocks
-				l := len(pm.pblocks)
-				pm.pblocks = append(pm.pblocks[:l-1], pm.pblocks[l:]...)
 			}
 		}()
-		go func() {
-			for {
-				pm.pblocks = append(pm.pblocks,<-truechain.BlockCh)
-			}
-		}()
+		l := len(pm.pblocks)
+		pm.pblocks = append(pm.pblocks[:l-1], pm.pblocks[l:]...)
 		//pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
@@ -380,8 +380,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(cms); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		for _,v := range cms{
-			p.tt.ReceiveCommittee(v,"")
+		for _, v := range cms {
+			p.tt.ReceiveCommittee(v, "")
 		}
 		go func() {
 			pm.cmss = append(pm.cmss, <-truechain.CmsCh)
@@ -395,11 +395,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(cds); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		for _,v := range cds {
+		for _, v := range cds {
 			p.tt.ReceiveSdmMsg(v)
 		}
 		go func() {
-			pm.cdss = append(pm.cdss,<-truechain.CdsCh)
+			pm.cdss = append(pm.cdss, <-truechain.CdsCh)
 		}()
 		return p.SendCDS(cds)
 	// Block header query, collect the requested headers and reply
