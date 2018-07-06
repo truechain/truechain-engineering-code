@@ -49,13 +49,6 @@ func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
 func (t *TrueHybrid) SyncStandbyMembers() {
 	// sync crypmsg
 	CdsCh <-t.Cdm.VCdCrypMsg
-	for _,v := range t.Cdm.VCdCrypMsg {
-		_,err := v.ToByte()
-		if err != nil {
-
-		}
-	}
-	// sync tmpcrypmsg???
 }
 func (t *TrueHybrid) StandbyWork() error {
 	for {
