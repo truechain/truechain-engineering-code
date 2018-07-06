@@ -58,7 +58,7 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 	sigs := make([]string,0,0)
 	//hex.DecodeString(crypto.toECDSA())
 	// same priveatekey to sign the message
-	_,_,priv := th.getNodeID()
+	_,_,priv := th.GetNodeID()
 
 	priv_d,_ := hex.DecodeString(priv)
 	privKey,_ :=crypto.ToECDSA(priv_d)
@@ -78,7 +78,7 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 func CreateCommittee(t *TrueHybrid) {
 	curCmm := make([]*CommitteeMember,0,0)
 	curCmmCount := 1
-	_,pub,strpriv := t.getNodeID()
+	_,pub,strpriv := t.GetNodeID()
 
 	cc := CommitteeMember{
 		Addr:			"127.0.0.1",
