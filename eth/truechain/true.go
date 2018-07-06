@@ -31,14 +31,14 @@ type HybridConsensusHelp struct {
 }
 
 const NewBftBlockMsg  = 0x11
-var BlockCh chan *TruePbftBlock
-var CmsCh chan *PbftCommittee
-var CdsCh chan []*CdEncryptionMsg
+var BlockCh = make(chan *TruePbftBlock)
+var CmsCh = make(chan *PbftCommittee)
+var CdsCh = make(chan []*CdEncryptionMsg)
+
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
     s.AddBlock(block)
-    BlockCh = make(chan *TruePbftBlock)
     BlockCh <- block
     return &CommonReply{Message: "success "}, nil
 }
