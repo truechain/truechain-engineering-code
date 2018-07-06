@@ -262,8 +262,8 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg
 	if err != nil {
 		return nil,err
 	}
-	hash := rlpHash(cmsg.Msg)
-	cmsg.Sig,err = crypto.Sign(hash[:],priv)
+	hash := cmsg.Msg[:32]
+	cmsg.Sig,err = crypto.Sign(hash,priv)
 	if err != nil {
 		return nil,err
 	}
@@ -283,8 +283,8 @@ func verityMsg(msg *CdEncryptionMsg,bc *core.BlockChain) int {
 		return 0
 	}
 	coinbase := header.Coinbase.String()
-
-	pub,err := crypto.SigToPub(msg.Msg,msg.Sig)
+	hash := msg.Msg[:32]
+	pub,err := crypto.SigToPub(hash,msg.Sig)
 	if err != nil {
 		return -1
 	}
