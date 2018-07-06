@@ -91,7 +91,7 @@ func verifyBlockMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 	return errors.New("has no one sign..."),0
 }
 func (t *TrueHybrid) InPbftCommittee(cmms []*CommitteeMember) bool {
-	_,nodeid,_ := t.getNodeID()
+	_,nodeid,_ := t.GetNodeID()
 	if cmms == nil {
 		cmm := t.Cmm.GetCmm()
 		for _,v := range cmm {
