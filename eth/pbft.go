@@ -93,7 +93,7 @@ func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
 			p.knownPbftBlocks.Add(b.Hash())
 		}
 	default:
-		p.Log().Debug("Dropping block propagation", "block", b)
+		p.Log().Debug("Dropping block propagation", "count", len(blocks))
 	}
 }
 
