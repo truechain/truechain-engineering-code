@@ -9,6 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
+const (
+	maxKnownPbftBlocks = 10240
+)
+
 //type PbftPool interface {
 //	AddRemotes(block *truechain.TruePbftBlock) []error
 //	Pending()(map[common.Address]truechain.TruePbftBlock,error)
@@ -30,7 +34,7 @@ func (ps *peerSet) PeersWithoutPbftBlock(hash common.Hash) []*peer {
 	defer ps.lock.RUnlock()
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownBftBlocks.Has(hash) {
+		if !p.knownPbftBlocks.Has(hash) {
 			list = append(list, p)
 		}
 	}
@@ -41,7 +45,7 @@ func (ps *peerSet) PeersWithoutPbftCms(hash common.Hash) []*peer {
 	defer ps.lock.RUnlock()
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownBftCms.Has(hash) {
+		if !p.knownPbftCms.Has(hash) {
 			list = append(list, p)
 		}
 	}
@@ -52,7 +56,7 @@ func (ps *peerSet) PeersWithoutPbftCds(hash common.Hash) []*peer {
 	defer ps.lock.RUnlock()
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownBftCds.Has(hash) {
+		if !p.knownPbftCds.Has(hash) {
 			list = append(list, p)
 		}
 	}
@@ -78,7 +82,7 @@ func (h *CDS) Hash() common.Hash {
 //bpft
 type propBftEvent struct {block *truechain.TruePbftBlock}
 
-func (p *peer) SendNewBftBlock(b *truechain.TruePbftBlock) error {
+func (p *peer) SendNewPbftBlock(b *truechain.TruePbftBlock) error {
 	//p.knownBftBlocks.Add(b.Hash())
 	return p2p.Send(p.rw, NewBftBlockMsg, []interface{}{b})
 }
@@ -88,8 +92,8 @@ func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
 		s := make([]*truechain.TruePbftBlock, 1)
 		s = append(s, b)
 		select {
-		case p.queuedBftProps <- s:
-			p.knownBftBlocks.Add(b.Hash())
+		case p.queuedPbftProps <- s:
+			p.knownPbftBlocks.Add(b.Hash())
 		default:
 			p.Log().Debug("Dropping block propagation", "block", b)
 		}
@@ -99,13 +103,13 @@ func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
 //cms
 
 func (p *peer) SendCMS(cms CMS) error {
-	p.knownBftCms.Add(cms.Hash())
+	p.knownPbftCms.Add(cms.Hash())
 	return p2p.Send(p.rw, CMSMsg, []interface{}{cms})
 }
 
 //oms
 func (p *peer) SendCDS(cds CDS) error {
-	p.knownBftCds.Add(cds.Hash())
+	p.knownPbftCds.Add(cds.Hash())
 	return p2p.Send(p.rw, CDSMsg, []interface{}{cds})
 }
 func (pm *ProtocolManager) pbBroadcastloop() {
@@ -138,4 +142,12 @@ func prlpHash(x interface{}) (h common.Hash) {
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
+}
+
+func (p *peer) MarkPbftBlock(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known block hash
+	for p.knownBlocks.Size() >= maxKnownPbftBlocks {
+		p.knownBlocks.Pop()
+	}
+	p.knownBlocks.Add(hash)
 }
