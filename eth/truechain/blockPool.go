@@ -19,17 +19,7 @@ type BlockPool struct {
 func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 	return self.TrueTxsCh
 }
-//Add a piece of
-func (self *BlockPool) AddBlock(block *TruePbftBlock) {
 
-	//Judging committee members
-	if(self.th.CheckBlock(block)==nil){
-		self.blocks = append(self.blocks, block)
-	}
-
-	//self.blocks = append(self.blocks, block)
-	self.JoinEth()
-}
 
 //Access to the original aether pow mining process
 func (self *BlockPool) JoinEth() {
