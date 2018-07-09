@@ -149,7 +149,8 @@ func (self *CpuAgent) MakeSigned(work *Work){
 	//cem.Msg = cem.ToByte()
 
 	//添加到候选委员会
-	work.tc.Cdm.VCdCrypMsg = append(work.tc.Cdm.VCdCrypMsg,cem)
+	work.tc.ReceiveSdmMsg(cem)
+
 
 }
 
