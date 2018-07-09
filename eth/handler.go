@@ -126,6 +126,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		pblocksCh:   make(chan []*truechain.TruePbftBlock),
+		pblocks:     make([]*truechain.TruePbftBlock,0),
+		cmss:        make([]*truechain.PbftCommittee,0),
+		cdss:        make([][]*truechain.CdEncryptionMsg,0),
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
