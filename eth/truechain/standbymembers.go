@@ -202,7 +202,7 @@ func minMsg(crpmsg []*CdEncryptionMsg,use bool) (*CdEncryptionMsg,int) {
 	pos := 0
 	for ii,v := range crpmsg {
 		if use {
-			if min.Cmp(v.Height) == -1 {
+			if min.Cmp(v.Height) == 1 {
 				min = v.Height
 				pos = ii
 			}
