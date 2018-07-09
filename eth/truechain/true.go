@@ -38,7 +38,7 @@ var CdsCh = make(chan []*CdEncryptionMsg)
 
 func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock) (*CommonReply, error) {
     // do something
-    s.AddBlock(block)
+    s.tt.AddBlock(block)
     BlockCh <- block
     return &CommonReply{Message: "success "}, nil
 }
