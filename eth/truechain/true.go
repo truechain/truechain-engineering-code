@@ -162,6 +162,7 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
     t.quit = false
     t.grpcServer = grpc.NewServer()
+    //shi
     CreateCommittee(t)
     if GetFirstStart() {
         ns := GetPbftNodesFromCfg()
