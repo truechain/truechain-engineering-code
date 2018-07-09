@@ -374,7 +374,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
-		pm.Bp.AddBlock(request.Block)
+		pm.AddBlock(request.Block)
 	case msg.Code == CMSMsg:
 		var cms []*truechain.PbftCommittee
 		if err := msg.Decode(cms); err != nil {
