@@ -94,31 +94,31 @@ type peer struct {
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
 	term        chan struct{}             // Termination channel to stop the broadcaster
 	//pbft
-	knownBftBlocks *set.Set
-	knownBftCms    *set.Set
-	knownBftCds    *set.Set
-	queuedBftProps chan []*truechain.TruePbftBlock
-	queuedCmsProps chan []*truechain.PbftCommittee
-	queuedCDsProps chan []*truechain.PbftCdCommittee
-	tt             *truechain.TrueHybrid
+	knownPbftBlocks *set.Set
+	knownPbftCms    *set.Set
+	knownPbftCds    *set.Set
+	queuedPbftProps chan []*truechain.TruePbftBlock
+	queuedCmsProps  chan []*truechain.PbftCommittee
+	queuedCDsProps  chan []*truechain.PbftCdCommittee
+	tt              *truechain.TrueHybrid
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return &peer{
-		Peer:           p,
-		rw:             rw,
-		version:        version,
-		id:             fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:       set.New(),
-		knownBlocks:    set.New(),
-		knownBftBlocks: set.New(),
-		knownBftCms:    set.New(),
-		knownBftCds:    set.New(),
-		queuedTxs:      make(chan []*types.Transaction, maxQueuedTxs),
-		queuedProps:    make(chan *propEvent, maxQueuedProps),
-		queuedAnns:     make(chan *types.Block, maxQueuedAnns),
-		term:           make(chan struct{}),
-		queuedBftProps: make(chan []*truechain.TruePbftBlock, maxQueuedPbs),
+		Peer:            p,
+		rw:              rw,
+		version:         version,
+		id:              fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:        set.New(),
+		knownBlocks:     set.New(),
+		knownPbftBlocks: set.New(),
+		knownPbftCms:    set.New(),
+		knownPbftCds:    set.New(),
+		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
+		queuedProps:     make(chan *propEvent, maxQueuedProps),
+		queuedAnns:      make(chan *types.Block, maxQueuedAnns),
+		term:            make(chan struct{}),
+		queuedPbftProps: make(chan []*truechain.TruePbftBlock, maxQueuedPbs),
 	}
 }
 
@@ -133,9 +133,9 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
-		case pbs := <-p.queuedBftProps:
+		case pbs := <-p.queuedPbftProps:
 			for _, b := range pbs {
-				if err := p.SendNewBftBlock(b); err != nil {
+				if err := p.SendNewPbftBlock(b); err != nil {
 					return
 				}
 			}
