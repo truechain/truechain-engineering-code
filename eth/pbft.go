@@ -36,28 +36,28 @@ func (ps *peerSet) PeersWithoutPbftBlock(hash common.Hash) []*peer {
 	}
 	return list
 }
-//func (ps *peerSet) PeersWithoutPbftCms(hash common.Hash) []*peer {
-//	ps.lock.RLock()
-//	defer ps.lock.RUnlock()
-//	list := make([]*peer, 0, len(ps.peers))
-//	for _, p := range ps.peers {
-//		if !p.knownBftCms.Has(hash) {
-//			list = append(list, p)
-//		}
-//	}
-//	return list
-//}
-//func (ps *peerSet) PeersWithoutPbftCds(hash common.Hash) []*peer {
-//	ps.lock.RLock()
-//	defer ps.lock.RUnlock()
-//	list := make([]*peer, 0, len(ps.peers))
-//	for _, p := range ps.peers {
-//		if !p.knownBftCds.Has(hash) {
-//			list = append(list, p)
-//		}
-//	}
-//	return list
-//}
+func (ps *peerSet) PeersWithoutPbftCms(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownBftCms.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+func (ps *peerSet) PeersWithoutPbftCds(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownBftCds.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
 
 //
 //func (h truechain.TruePbftBlockHeader) Hash() common.Hash {
