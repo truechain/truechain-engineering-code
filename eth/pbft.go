@@ -3,10 +3,10 @@ package eth
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/eth/truechain"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 const (
@@ -70,6 +70,7 @@ func (ps *peerSet) PeersWithoutPbftCds(hash common.Hash) []*peer {
 
 type CMS []*truechain.PbftCommittee
 type CDS []*truechain.CdEncryptionMsg
+
 func (h *CMS) Hash() common.Hash {
 	return prlpHash(h)
 }
@@ -77,10 +78,8 @@ func (h *CDS) Hash() common.Hash {
 	return prlpHash(h)
 }
 
-
-
 //bpft
-type propBftEvent struct {block *truechain.TruePbftBlock}
+type propBftEvent struct{ block *truechain.TruePbftBlock }
 
 func (p *peer) SendNewPbftBlock(b *truechain.TruePbftBlock) error {
 	//p.knownBftBlocks.Add(b.Hash())
@@ -88,15 +87,13 @@ func (p *peer) SendNewPbftBlock(b *truechain.TruePbftBlock) error {
 }
 
 func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
-	for _, b := range blocks {
-		s := make([]*truechain.TruePbftBlock, 1)
-		s = append(s, b)
-		select {
-		case p.queuedPbftProps <- s:
+	select {
+	case p.queuedPbftProps <- blocks:
+		for _, b := range blocks {
 			p.knownPbftBlocks.Add(b.Hash())
-		default:
-			p.Log().Debug("Dropping block propagation", "block", b)
 		}
+	default:
+		p.Log().Debug("Dropping block propagation", "block", b)
 	}
 }
 
