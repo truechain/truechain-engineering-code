@@ -31,8 +31,16 @@ func (t *TrueHybrid) GetCryMsg() []*CdEncryptionMsg {
 }
 // all functions of the file ware not thread-safe
 func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
+	if msg == nil {
+		return
+	}
 	m,_ := minMsg(t.GetCryMsg(),true)
-	if m.Height.Cmp(msg.Height) <= 0 || existMsg(msg,t.Cdm.VCdCrypMsg){
+	if m != nil {
+		if m.Height.Cmp(msg.Height) <= 0 {
+			return 
+		}
+	}
+	if existMsg(msg,t.Cdm.VCdCrypMsg){
 		return 
 	}
 	// verify the msg when the block is on
