@@ -195,9 +195,7 @@ func (t *TrueHybrid) GetSdmsize() int {
     return t.Sdmsize
 }
 func (t *TrueHybrid) GetCommitteeMembers() []string {
-    t.CmmLock.Lock()
-    defer t.CmmLock.Unlock()
-    cmm := t.Cmm.GetCmm()
+    cmm := t.getCurrentCmm()
     addrs := make([]string, len(cmm))
     for i, value := range cmm {
         addrs[i] = value.Addr
