@@ -44,12 +44,11 @@ func (s *HybridConsensusHelp) PutBlock(ctx context.Context, block *TruePbftBlock
     return &CommonReply{Message: "success "}, nil
 }
 func (s *HybridConsensusHelp) PutNewSignedCommittee(ctx context.Context, msg *SignCommittee) (*CommonReply, error) {
-    cmm,err := s.getTrue().MakeNewCommittee(msg)
-    if cmm == nil {
+    err := s.getTrue().UpdateCommitteeFromPBFTMsg(msg)
+    if err != nil {
         return &CommonReply{Message: "fail "}, err
     }
-    s.getTrue().UpdateLocalCommittee(cmm,true)
-    return &CommonReply{Message: "success "}, nil
+    return &CommonReply{Message: "success "}, err
 }
 func (s *HybridConsensusHelp) ViewChange(ctx context.Context, in *EmptyParam) (*CommonReply, error) {
     // do something
