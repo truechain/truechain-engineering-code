@@ -37,7 +37,14 @@ type checkPair struct {
 // all function was not tread-safe
 func (t *TrueHybrid) SyncMainMembers() {
 	// send by p2p network
+	if t.Cmm == nil {
+		return
+	}
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	// don't consider the channel cost time
 	CmsCh <- t.Cmm
+	return
 }
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
