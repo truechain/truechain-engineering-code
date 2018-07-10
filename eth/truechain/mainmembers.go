@@ -37,7 +37,14 @@ type checkPair struct {
 // all function was not tread-safe
 func (t *TrueHybrid) SyncMainMembers() {
 	// send by p2p network
+	if t.Cmm == nil {
+		return
+	}
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	// don't consider the channel cost time
 	CmsCh <- t.Cmm
+	return
 }
 // verify the block which from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
@@ -231,9 +238,38 @@ func (t *TrueHybrid) GetNodeID() (string,string,string) {
 			Y: 		big.NewInt(server.PrivateKey.PublicKey.Y.Int64())}))
 	return ip,pub,priv
 }
+// 
+func (t *TrueHybrid) getCurrentCmm() []*CommitteeMember {
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	if t.Cmm != nil {
+		return t.Cmm.GetCmm()
+	}
+	return nil
+}
+func (t *TrueHybrid) getLastCmm() []*CommitteeMember {
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	if t.Cmm != nil {
+		return t.Cmm.GetlCmm()
+	}
+	return nil
+}
+func (t *TrueHybrid) setCurrentCmm(cc []*CommitteeMember) {
+	if cc == nil {
+		return
+	}
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	if t.Cmm != nil {
+		t.Cmm.SetlCmm(t.Cmm.GetCmm())
+		t.Cmm.SetCmm(cc)
+	}
+}
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
 }
+

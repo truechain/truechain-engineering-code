@@ -23,6 +23,7 @@ import (
     //"log"
     "encoding/json"
     "io/ioutil"
+    "sync"
 )
 
 type HybridConsensusHelp struct {
@@ -79,13 +80,15 @@ type Config struct {
     CmmCount                int             // amount of Pbft Committee Members
     Sdmsize                 int             // amount of Pbft Standby Members
 }
-
+// the lock will be change to rwlock 
 type TrueHybrid struct {
     Config
 
     quit        bool
     Cmm         *PbftCommittee              // Pbft Committee
+    CmmLock     *sync.Mutex
     Cdm         *PbftCdCommittee            // Pbft candidate Member
+    CdmLock     *sync.Mutex
     grpcServer  *grpc.Server
     p2pServer   *p2p.Server
     bc          *core.BlockChain
@@ -105,7 +108,9 @@ func New() *TrueHybrid {
         Config:             cfg,
         quit:               true,
         Cmm:                nil,
+        CmmLock:            new(sync.Mutex),
         Cdm:                nil,
+        CdmLock:            new(sync.Mutex),
         p2pServer:          nil,
         grpcServer:         nil,
     }
@@ -191,6 +196,8 @@ func (t *TrueHybrid) GetSdmsize() int {
     return t.Sdmsize
 }
 func (t *TrueHybrid) GetCommitteeMembers() []string {
+    t.CmmLock.Lock()
+    defer t.CmmLock.Unlock()
     cmm := t.Cmm.GetCmm()
     addrs := make([]string, len(cmm))
     for i, value := range cmm {
