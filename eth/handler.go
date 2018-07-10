@@ -374,7 +374,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}()
 		l := len(pm.pblocks)
-		pm.pblocks = append(pm.pblocks[:l-1], pm.pblocks[l:]...)
+		pm.pblocks = pm.pblocks[l:]
 		//pm.pbftpool.AddRemotes(request.Block)
 		//request.Block = msg.Payload.Read(&request)
 		//request.Block.ReceivedFrom = p
