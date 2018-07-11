@@ -159,7 +159,7 @@ func (self *CpuAgent) MakeSigned(work *Work){
 	//cem.Height = work.Block.Number()
 	//cem.Height = work.Block.Number()
 	//cem.Msg = cem.ToByte()
-	//添加到候选委员会
+	//Add to the candidate committee
 	work.tc.ReceiveSdmMsg(cem)
 
 
