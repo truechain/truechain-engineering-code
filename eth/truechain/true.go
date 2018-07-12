@@ -79,15 +79,23 @@ type Config struct {
     CmmCount                int             // amount of Pbft Committee Members
     Sdmsize                 int             // amount of Pbft Standby Members
 }
+type TrueChannel struct {
+    quit        chan bool 
+    vote        chan int 
+    voteRes     chan *VoteResult
+    cdRecv      chan *CdEncryptionMsg
+    removeCd    chan *PbftCommittee
+    cdCheck     *time.Ticker
+    cdSync      *time.Ticker
+}
 // the lock will be change to rwlock 
 type TrueHybrid struct {
     Config
+    TrueChannel
 
-    quit        bool
     Cmm         *PbftCommittee              // Pbft Committee
     CmmLock     *sync.Mutex
     Cdm         *PbftCdCommittee            // Pbft candidate Member
-    CdmLock     *sync.Mutex
     grpcServer  *grpc.Server
     p2pServer   *p2p.Server
     bc          *core.BlockChain
@@ -103,13 +111,21 @@ func New() *TrueHybrid {
         CmmCount:               5,
         Sdmsize:                1000,
     }
+    cc := TrueChannel{
+        quit:           make(chan bool),
+        vote:           make(chan int),
+        voteRes:        make(chan *VoteResult),
+        cdRecv:         make(chan *CdEncryptionMsg,5),
+        removeCd:       make(chan *PbftCommittee),
+        cdCheck:        time.NewTicker(30*time.Second),
+        cdSync:         time.NewTicker(10*time.Second),
+    }
     tc := &TrueHybrid{
         Config:             cfg,
-        quit:               true,
+        TrueChannel:        cc,
         Cmm:                nil,
         CmmLock:            new(sync.Mutex),
         Cdm:                nil,
-        CdmLock:            new(sync.Mutex),
         p2pServer:          nil,
         grpcServer:         nil,
     }
@@ -164,7 +180,6 @@ func GetFirstStart() bool{
 
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
     t.bc = b
-    t.quit = false
     t.grpcServer = grpc.NewServer()
     //shi
     CreateCommittee(t)
@@ -177,12 +192,12 @@ func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
         }
     }
     go HybridConsensusHelpInit(t)
-    go SyncWork(t)
+    time.Sleep(1*time.Second)
     go TrueChainWork(t)
     return nil
 }
 func (t *TrueHybrid) StopTrueChain() {
-    t.quit = true
+    t.quit <- true
     if t.grpcServer != nil {
         t.grpcServer.Stop()
     }
@@ -220,24 +235,8 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
     }
 }
 func TrueChainWork(t *TrueHybrid) {
-    t.StandbyWork()
+    t.worker()
 }
-func SyncWork(t *TrueHybrid) {
-    for {
-        if t.quit {
-            break
-        }
-        t.SyncMainMembers()
-        t.SyncStandbyMembers()
-        for i:=0;i<30;i++ {
-            if t.quit {
-                return
-            }
-            time.Sleep(1*time.Second)
-        }
-    }
-}
-
 func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
     // Set up a connection to the server.
     conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())

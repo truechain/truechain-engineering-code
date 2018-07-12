@@ -14,7 +14,6 @@ package truechain
 
 import (
 	"bytes"
-	"time"
 	"strconv"
 	"crypto/ecdsa"
 	"math/big"
@@ -26,69 +25,24 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core"
 )
-func (t *TrueHybrid) GetCryMsg() []*CdEncryptionMsg {
-	return t.Cdm.VCdCrypMsg
-}
-// all functions of the file ware not thread-safe
+
+
 func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
-	if msg == nil {
-		return
-	}
-	m,_ := minMsg(t.GetCryMsg(),true)
-	if m != nil {
-		if m.Height.Cmp(msg.Height) <= 0 {
-			return 
-		}
-	}
-	if existMsg(msg,t.Cdm.VCdCrypMsg){
-		return 
-	}
-	// verify the msg when the block is on
-	res := verityMsg(msg,t.bc)
-	if res == 1 {
-		t.Cdm.VCdCrypMsg = append(t.Cdm.VCdCrypMsg,msg)
-	} else if res == 0 {
-		t.Cdm.NCdCrypMsg = append(t.Cdm.NCdCrypMsg,msg)
-		if len(t.Cdm.NCdCrypMsg ) > 1000 {
-			t.Cdm.NCdCrypMsg = t.removemgs(t.Cdm.NCdCrypMsg, 0)
-		}
-	}
-}
-func (t *TrueHybrid) SyncStandbyMembers() {
-	// sync crypmsg
-	CdsCh <-t.Cdm.VCdCrypMsg
-}
-func (t *TrueHybrid) StandbyWork() error {
-	for {
-		if t.quit { break }
-		
-		t.insertToSDM()
-		t.checkTmpMsg()
-		for i:=0;i<5;i++ {
-			if t.quit { return nil }
-			time.Sleep(1 * time.Second)
-		}
-	}
-	return nil
+	t.cdRecv <- msg
 }
 func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
-	vv := make([]*CommitteeMember,0,0)
-	i := 0
-	for _,v := range t.Cdm.Cm {
-		if i >= num {
-			break
-		} else {
-			vv = append(vv,&CommitteeMember{
-				Nodeid:		v.Nodeid,
-				Addr:		v.Addr,			
-				Port:		v.Port,			
-			})
-			i++
-		}
+	t.vote <- num
+	select {
+	case res := <-t.voteRes:
+		return res.cmm,res.err
+	case <-t.quit:
 	}
-	return vv,nil
+	return nil,errors.New("vote failed")
 }
-
+func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
+	t.removeCd <- cmm
+}
+///////////////////////////////////////////////////////////////
 func (t *TrueHybrid) add(msg *CdEncryptionMsg) error {
 	node := msg.ToStandbyInfo()
 	if node == nil {
@@ -162,19 +116,7 @@ func (t *TrueHybrid) removeUnuseMsg(num *big.Int) {
 func (t *TrueHybrid) removemgs(msg []*CdEncryptionMsg,i int) []*CdEncryptionMsg {
     return append(msg[:i], msg[i+1:]...)
 }
-func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
-	// match the committee number 
-	// simple remove(one by one)....
-	pos := t.matchCommitteeMembers(cmm.GetCmm())
-	if pos != nil {
-		for i := len(pos) -1; i > -1; i-- {
-			t.Cdm.Cm = append(t.Cdm.Cm[:pos[i]], t.Cdm.Cm[pos[i]+1:]...)
-		}
-		// update the committee number
-	} else {
-		// the sdm was dirty,must be update
-	}
-}
+
 func (t *TrueHybrid) matchCommitteeMembers(comm []*CommitteeMember) []int {
 	pos := make([]int,0,0)
 
@@ -200,6 +142,89 @@ func (t *TrueHybrid) posFromCm(nid string) int {
 	}
 	return -1
 }
+func (t *TrueHybrid) worker() {
+	for {
+		select{
+		case <-t.cdCheck.C:
+			t.insertToSDM()
+			t.checkTmpMsg()
+		case <-t.cdSync.C:
+			t.syncStandbyMembers()
+			t.SyncMainMembers()
+		case n:=<-t.vote:
+			res,err := t.voteFromCd(n)
+			t.voteRes<-&VoteResult{
+				err:	err,
+				cmm:	res,
+			}
+		case msg:=<-t.cdRecv:
+			t.handleReceiveSdmMsg(msg)
+		case cmm :=<-t.removeCd:
+			t.handleRemoveFromCommittee(cmm)
+		case <-t.quit:
+			return
+		}
+	}
+}
+func (t *TrueHybrid) voteFromCd(num int) ([]*CommitteeMember,error) {
+	vv := make([]*CommitteeMember,0,0)
+	i := 0
+	for _,v := range t.Cdm.Cm {
+		if i >= num {
+			break
+		} else {
+			vv = append(vv,&CommitteeMember{
+				Nodeid:		v.Nodeid,
+				Addr:		v.Addr,			
+				Port:		v.Port,			
+			})
+			i++
+		}
+	}
+	return vv,nil
+}
+func (t *TrueHybrid) syncStandbyMembers() {
+	// sync crypmsg
+	CdsCh <-t.Cdm.VCdCrypMsg
+}
+func (t *TrueHybrid) handleReceiveSdmMsg(msg *CdEncryptionMsg) {
+	if msg == nil {
+		return
+	}
+	m,_ := minMsg(t.Cdm.VCdCrypMsg,true)
+	if m != nil {
+		if m.Height.Cmp(msg.Height) <= 0 {
+			return 
+		}
+	}
+	if existMsg(msg,t.Cdm.VCdCrypMsg){
+		return 
+	}
+	// verify the msg when the block is on
+	res := verityMsg(msg,t.bc)
+	if res == 1 {
+		t.Cdm.VCdCrypMsg = append(t.Cdm.VCdCrypMsg,msg)
+	} else if res == 0 {
+		t.Cdm.NCdCrypMsg = append(t.Cdm.NCdCrypMsg,msg)
+		if len(t.Cdm.NCdCrypMsg ) > 1000 {
+			t.Cdm.NCdCrypMsg = t.removemgs(t.Cdm.NCdCrypMsg, 0)
+		}
+	}
+}
+func (t *TrueHybrid) handleRemoveFromCommittee(cmm *PbftCommittee){
+	// match the committee number 
+	// simple remove(one by one)....
+	pos := t.matchCommitteeMembers(cmm.GetCmm())
+	if pos != nil {
+		for i := len(pos) -1; i > -1; i-- {
+			t.Cdm.Cm = append(t.Cdm.Cm[:pos[i]], t.Cdm.Cm[pos[i]+1:]...)
+		}
+		// update the committee number
+	} else {
+		// the sdm was dirty,must be update
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////
 // use=true include msg which was used
 func minMsg(crpmsg []*CdEncryptionMsg,use bool) (*CdEncryptionMsg,int) {
