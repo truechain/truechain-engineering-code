@@ -175,8 +175,16 @@ func TestEncryptionMsgInTrueChain(t *testing.T) {
 		msg4:	4.5,
 	}
 	priv := privkeys[0]
-	pub := hex.EncodeToString(crypto.FromECDSAPub(GetPub(priv)))
+
+	pubk := &ecdsa.PublicKey{
+		Curve: 	priv.PublicKey.Curve,
+		X: 		priv.PublicKey.X,
+		Y: 		priv.PublicKey.Y,
+	}
+	pub :=hex.EncodeToString(crypto.FromECDSAPub(pubk))
 	hash := rlpHash(tmp)
+
+
 	// sig message use priv
 	sig,err := crypto.Sign(hash[:],priv)
 	// verify message
@@ -184,6 +192,7 @@ func TestEncryptionMsgInTrueChain(t *testing.T) {
 		verifyPub, err := crypto.SigToPub(hash[:], sig)
 		if err == nil {
 			strverifyPub := hex.EncodeToString(crypto.FromECDSAPub(verifyPub))
+
 			if pub == strverifyPub {
 				fmt.Println("sign test seccess,pub = ", pub, " strverifyPub = ", strverifyPub)
 
