@@ -26,7 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 )
 
-
+var blockNum int64 =12
 func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
 	t.cdRecv <- msg
 }
@@ -89,7 +89,7 @@ func (t *TrueHybrid) insertToSDM() error {
 	}
 	msgHeight := m.Height
 	cur := big.NewInt(t.bc.CurrentHeader().Number.Int64())	
-	if cur.Abs(msgHeight).Cmp(big.NewInt(12)) >= 0 {
+	if cur.Abs(msgHeight).Cmp(big.NewInt(blockNum)) >= 0 {
 		res := verityMsg(m,t.bc)
 		if res == 1 {
 			t.add(m)
