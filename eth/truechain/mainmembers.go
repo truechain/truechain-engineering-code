@@ -285,7 +285,7 @@ func (t *TrueHybrid) GetNodeID() (string,string,string) {
 	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
 	pub := hex.EncodeToString(crypto.FromECDSAPub(
 		&ecdsa.PublicKey{
-			Curve: 	server.PrivateKey.PublicKey.Curve, 
+			Curve: 	server.PrivateKey.Curve,
 			X: 		new(big.Int).Set(server.PrivateKey.X),
 			Y: 		new(big.Int).Set(server.PrivateKey.Y)}))
 	return ip,pub,priv
