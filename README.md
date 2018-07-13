@@ -1,13 +1,14 @@
 # truechain-engineering-code
 
 ###1.Environmental
+
+1.Operating system
 ```
-1.
 Operating system:               CPU memory bandwidth
 Ubuntu Server 16.04.1 LTS 64位	2	4	2
-Ubuntu Server 16.04.1 LTS 64位	2	4	2
-Ubuntu Server 16.04.1 LTS 64位	2	4	2
-2.
+```
+2.make version
+```
 GNU Make 4.1
 ```
 
@@ -16,10 +17,45 @@ GNU Make 4.1
 ```
 git clone https://github.com/truechain/truechain-engineering-code.git
 ```
-2.Switch directory
+2.Generate required content as a precusory
 ```
 cd truechain-engineering-code/
 make geth
+
+Switch directory
+cd build/bin
+
+```
+3.RUN
+```
+Initialization node
+./geth --datadir ./data/node init ./genesis.json
+
+Start node
+./geth --datadir ./data/node --networkid 314580 --ipcdisable --port 9220 --rpcport 8300 --rpcapi "db,eth,net,web3,personal,admin,miner" console
+```
+
+
+genesis.json
+```
+{
+  "config": {
+        "chainId": 666,
+        "homesteadBlock": 0,
+        "eip155Block": 0,
+        "eip158Block": 0
+    },
+  "alloc"      : {},
+  "coinbase"   : "0x0000000000000000000000000000000000000000",
+  "difficulty" : "0x20000",
+  "extraData"  : "",
+  "gasLimit"   : "0x2fefd8",
+  "nonce"      : "0x0000000000000042",
+  "mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "timestamp"  : "0x00"
+}
+
 ```
 
 
