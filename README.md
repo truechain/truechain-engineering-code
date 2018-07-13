@@ -1,5 +1,14 @@
 # truechain-engineering-code
 
+The TRUE main link V0.01 release is scheduled to be integrated based on the latest Ethereum release (V1.8).
+
+Main chain contains a mixture of consensus algorithm, two kinds of consensus PBFT consensus and POW, through
+the global random function node elected committee, by the committee between nodes through PBFT algorithm deals
+in the consensus of entire network, and will deal collection packaged into pieces by the committee members 
+all signed broadcast to the entire network, the entire network to POW consensus will join the main chain block
+of data.
+
+
 ###1.Environmental
 
 1.Operating system
