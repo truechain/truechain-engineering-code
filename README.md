@@ -1,5 +1,30 @@
 # truechain-engineering-code
 
+###1.Environmental
+```
+1.
+Operating system:               CPU memory bandwidth
+Ubuntu Server 16.04.1 LTS 64位	2	4	2
+Ubuntu Server 16.04.1 LTS 64位	2	4	2
+Ubuntu Server 16.04.1 LTS 64位	2	4	2
+2.
+GNU Make 4.1
+```
+
+###2.Compiling method
+1.Cloning project
+```
+git clone https://github.com/truechain/truechain-engineering-code.git
+```
+2.Switch directory
+```
+cd truechain-engineering-code/
+make geth
+```
+
+
+
+
 init
 go
 ```
