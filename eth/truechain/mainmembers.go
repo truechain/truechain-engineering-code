@@ -163,7 +163,7 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee,hash []byte) bool {
 
 	for i,s := range sigs {
 		err,r := verifyBlockMembersSign(oldCmm.GetCmm(),hash,common.FromHex(s))
-		if err != nil {
+		if err == nil {
 			keys[checkPair{left:i,right:r}] = true
 		} else {
 			return false
