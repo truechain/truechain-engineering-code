@@ -1,48 +1,48 @@
 
 package main
 
-import (
-	"log"
-	pb "github.com/pbftServer"
-	"google.golang.org/grpc"
-	//"time"
-	//"golang.org/x/net/context"
-	"encoding/gob"
-	"bytes"
-	"fmt"
-	"net"
-	"google.golang.org/grpc/reflection"
-)
+// import (
+// 	"log"
+// 	pb "github.com/pbftServer"
+// 	"google.golang.org/grpc"
+// 	//"time"
+// 	//"golang.org/x/net/context"
+// 	"encoding/gob"
+// 	"bytes"
+// 	"fmt"
+// 	"net"
+// 	"google.golang.org/grpc/reflection"
+// )
 
-const (
-	address     = "localhost:38535"
-)
+// const (
+// 	address     = "localhost:38535"
+// )
 
-func GenerateData()	 *pb.Transactions{
-	var txArr []*pb.Transaction
-	TD := pb.InitTxDataTest()
-	for _,td := range TD {
-		tx := &pb.Transaction{Data:&td}
-		txArr = append(txArr,tx)
-	}
-	txs := &pb.Transactions{Txs:txArr}
-	fmt.Println("len:",len(txs.Txs))
-	return txs
-}
+// func GenerateData()	 *pb.Transactions{
+// 	var txArr []*pb.Transaction
+// 	TD := pb.InitTxDataTest()
+// 	for _,td := range TD {
+// 		tx := &pb.Transaction{Data:&td}
+// 		txArr = append(txArr,tx)
+// 	}
+// 	txs := &pb.Transactions{Txs:txArr}
+// 	fmt.Println("len:",len(txs.Txs))
+// 	return txs
+// }
 
 
-func DeserializeBlock(d []byte) *pb.TruePbftBlock {
-	if len(d) == 0{
-		return nil
-	}
-	var block pb.TruePbftBlock
-	decoder := gob.NewDecoder(bytes.NewReader(d))
-	err := decoder.Decode(&block)
-	if err != nil {
-		log.Panic(err)
-	}
-	return &block
-}
+// func DeserializeBlock(d []byte) *pb.TruePbftBlock {
+// 	if len(d) == 0{
+// 		return nil
+// 	}
+// 	var block pb.TruePbftBlock
+// 	decoder := gob.NewDecoder(bytes.NewReader(d))
+// 	err := decoder.Decode(&block)
+// 	if err != nil {
+// 		log.Panic(err)
+// 	}
+// 	return &block
+// }
 
 //func runSetTransactions(client pb.PyHybConsensusClient,txs *pb.Transactions){
 //	log.Printf("已启动 ")
@@ -73,17 +73,17 @@ func DeserializeBlock(d []byte) *pb.TruePbftBlock {
 //	}
 //}
 
-func main(){
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
-	s := grpc.NewServer()
-	pb.RegisterHybridConsensusHelpServer(s, &pServer{})
-	// Register reflection service on gRPC server.
-	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+// func main(){
+// 	lis, err := net.Listen("tcp", port)
+// 	if err != nil {
+// 		log.Fatalf("failed to listen: %v", err)
+// 	}
+// 	s := grpc.NewServer()
+// 	pb.RegisterHybridConsensusHelpServer(s, &pServer{})
+// 	// Register reflection service on gRPC server.
+// 	reflection.Register(s)
+// 	if err := s.Serve(lis); err != nil {
+// 		log.Fatalf("failed to serve: %v", err)
+// 	}
 
-}
+// }
