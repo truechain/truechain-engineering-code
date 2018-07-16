@@ -152,7 +152,7 @@ func (self *CpuAgent) MakeSigned(work *Work){
 
 	//wallet
 	cem.Height = work.Block.Number()
-	byt ,_ := cm.ToByte()
+	byt ,_ := truechain.ToByte(cm)
 	cem.Msg = byt
 	cem.Sig = signed
 	//work.Block.Coinbase().

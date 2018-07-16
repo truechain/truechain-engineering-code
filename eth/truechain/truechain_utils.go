@@ -36,3 +36,7 @@ func fromByte(data []byte,to interface{}) error {
 	dec.Decode(to)
 	return nil
 }
+
+func ToByte(e interface{}) ([]byte,error) {
+	return toByte(e)
+}
