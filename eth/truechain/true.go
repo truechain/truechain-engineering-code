@@ -15,6 +15,7 @@ package truechain
 import (
     "net"
     "golang.org/x/net/context"
+    "github.com/ethereum/go-ethereum/common"
 )
 
 const NewBftBlockMsg  = 0x11
@@ -82,5 +83,11 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
     }
 }
 
+func RlpHash(x interface{}) (h common.Hash) {
+    return rlpHash(x)
+}
 
+func (t *TrueHybrid) SetCommitteeCount(c int) {
+	t.setCommitteeCount(c)
+}
 
