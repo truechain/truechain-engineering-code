@@ -14,7 +14,6 @@ package truechain
 
 import (
 	"strconv"
-	"crypto/ecdsa"
 	"math/big"
 	"sort"
     "errors"
@@ -27,6 +26,9 @@ import (
 
 const (
 	NeedVerified_BlockNum int64 =12
+)
+var (
+	zero = big.NewInt(0)
 )
 
 type CdMember struct {
@@ -44,39 +46,21 @@ type PbftCdCommittee struct {
 	NCdCrypMsg		[]*CdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
 }
 
-func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
-	t.cdRecv <- msg
-}
-func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
-	t.vote <- num
-	select {
-	case res := <-t.voteRes:
-		return res.cmm,res.err
-	case <-t.quit:
-	}
-	return nil,errors.New("vote failed")
-}
-
-func (channel *TrueChannel) RemoveFromCommittee(cmm *PbftCommittee) {
-	channel.removeCd <- cmm
-}
-///////////////////////////////////////////////////////////////
 func (pcc *PbftCdCommittee) add(msg *CdEncryptionMsg,pccSize int) error {
 	// CdEncryptionMsg convert into CdMember
-	node := msg.ToStandbyInfo()
-	if node == nil {
+	cdMember := msg.convertMsgToCdMember()
+	if cdMember == nil {
 		return errors.New("Wrong CrytoMsg")
 	}
-	// verfiy and add
 	if len(pcc.Cm)>=pccSize  {
-		//t.Cdm.Cm = append(t.Cdm.Cm[:0],t.Cdm.Cm[1:]...)
-		pcc.Cm = pcc.Cm[pccSize-len(pcc.Cm)+1:]
+		pcc.Cm = pcc.Cm[len(pcc.Cm)-pccSize+1:]
 	}
-	pcc.Cm = append(pcc.Cm,node)
+	pcc.Cm = append(pcc.Cm,cdMember)
 	return nil
 }
 
-//find Specify height of CdEncryptionMsg from VCdCrypMsg(Verified	Candidate CdEncryptionMsg)
+//find Specify height of CdEncryptionMsg from
+// VCdCrypMsg(Verified	Candidate CdEncryptionMsg)
 func (pcc *PbftCdCommittee) findMsg(height *big.Int) *CdEncryptionMsg {
 	for _,v := range pcc.VCdCrypMsg {
 		if v.Height.Cmp(height) == 0 {
@@ -94,18 +78,15 @@ func (pcc *PbftCdCommittee) checkTmpMsg(bc *core.BlockChain) {
 			break
 		}
 		msg,pos := minMsg(pcc.NCdCrypMsg,true)
-		// 1 represent  the miner block of msg has been put into blockchain
 		res := verityMsg(msg,bc)
+		// 1 represent  the miner block of msg has been put into blockchain
 		if res == 1 {
-			//add the msg into t.Cdm.VCdCrypMsg
-			pcc.VCdCrypMsg = append(pcc.VCdCrypMsg,msg)
-			//remove the msg from t.Cdm.NCdCrypMsg
-			pcc.NCdCrypMsg = Removemgs(pcc.NCdCrypMsg,pos)
+			pcc.VCdCrypMsg = append(pcc.VCdCrypMsg,msg)//add the msg into t.Cdm.VCdCrypMsg
+			pcc.NCdCrypMsg = Removemgs(pcc.NCdCrypMsg,pos)//remove the msg from t.Cdm.NCdCrypMsg
 		} else {
 			break
 		}	
 	}
-	return
 }
 
 // crpmsg was be check and insert to the standbyqueue
@@ -119,16 +100,17 @@ func (pcc *PbftCdCommittee) insertToSDM(bc *core.BlockChain,sdmsize int) error {
 	if cur.Abs(m.Height).Cmp(big.NewInt(NeedVerified_BlockNum)) >= 0 {
 		//remove the CdEncryptionMsg from VCdCrypMsg
 		pcc.removeUnuseMsg(m.Height)
+
 		m.SetUse(true)
 		res := verityMsg(m,bc)
 		if res == 1 {
-			// add the CdEncryptionMsg into standbyqueue
-			pcc.add(m,sdmsize)
+			pcc.add(m,sdmsize)// add the CdEncryptionMsg into standbyqueue
 		}
 	}
 	return nil
 }
-// remove the msg that has same height and it was used
+
+// remove the msg from VCdCrypMsg that has same height and it was used
 func (pcc *PbftCdCommittee) removeUnuseMsg(num *big.Int) {
 	pos := make([]int,0,0)
 	for i,v := range pcc.VCdCrypMsg {
@@ -141,10 +123,7 @@ func (pcc *PbftCdCommittee) removeUnuseMsg(num *big.Int) {
 	}
 }
 
-func Removemgs(msg []*CdEncryptionMsg,i int) []*CdEncryptionMsg {
-	return append(msg[:i], msg[i+1:]...)
-}
-
+//find the cmm from the cdm
 func (pcc *PbftCdCommittee) matchCommitteeMembers(comm []*CommitteeMember) []int {
 	pos := make([]int,0,0)
 
@@ -163,6 +142,7 @@ func (pcc *PbftCdCommittee) matchCommitteeMembers(comm []*CommitteeMember) []int
 	}
 	return pos
 }
+
 //find  Nodeid from standbyqueue by Nodeid
 func (pcc *PbftCdCommittee) posFromCm(nid string) int {
 	for i,v := range pcc.Cm {
@@ -172,37 +152,12 @@ func (pcc *PbftCdCommittee) posFromCm(nid string) int {
 	}
 	return -1
 }
-func (t *TrueHybrid) worker() {
-	cdm :=t.Cdm
-	cmm :=t.Cmm
-	for {
-		select{
-		case <-t.cdCheck.C://30*time.Second
-			cdm.insertToSDM(t.bc,t.Sdmsize)
-			cdm.checkTmpMsg(t.bc)
-		case <-t.cdSync.C://10*time.Second
-			cdm.syncStandbyMembers()
-			cmm.SyncMainMembers(t.CmmLock)
-		case n:=<-t.vote://Vote(
-			res,err := cdm.voteFromCd(n)
-			t.voteRes<-&VoteResult{
-				err:	err,
-				cmm:	res,
-			}
-		case msg:=<-t.cdRecv:
-			cdm.handleReceiveSdmMsg(msg,t.bc)
-		case cmm :=<-t.removeCd:
-			cdm.handleRemoveFromCommittee(cmm)
-		case <-t.quit:
-			return
-		}
-	}
-}
+
 //vote PbftCommittee from PbftCdCommittee
-func (pcc *PbftCdCommittee) voteFromCd(num int) ([]*CommitteeMember,error) {
+func (pcd *PbftCdCommittee) voteFromCd(num int) ([]*CommitteeMember,error) {
 	vv := make([]*CommitteeMember,0,0)
 	i := 0
-	for _,v := range pcc.Cm {
+	for _,v := range pcd.Cm {
 		if i >= num {
 			break
 		} else {
@@ -216,9 +171,9 @@ func (pcc *PbftCdCommittee) voteFromCd(num int) ([]*CommitteeMember,error) {
 	}
 	return vv,nil
 }
-func (pcc *PbftCdCommittee) syncStandbyMembers() {
+func (pcd *PbftCdCommittee) syncStandbyMembers() {
 	// sync crypmsg
-	CdsCh <-pcc.VCdCrypMsg
+	CdsCh <-pcd.VCdCrypMsg
 }
 
 //handle the msg of miner  CdEncryptionMsg
@@ -273,30 +228,10 @@ func (pcc *PbftCdCommittee) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
 	if nPos == nil {
 		return false
 	}
-	if nPos[0] > oPos[len(oPos)-1] {
+	if nPos[0] > oPos[len(oPos)-1] {//?
 		return true
 	}
 	return false
-}
-
-// convert CdMember into  CdEncryptionMsg
-func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg,error) {
-	cmsg := CdEncryptionMsg{
-		Height:		n.Height,
-		Msg:		make([]byte,0,0),
-		Sig:		make([]byte,0,0),
-		Use:		false,
-	}
-	var err error
-	cmsg.Msg,err = toByte(n)
-	if err != nil {
-		return nil,err
-	}
-	cmsg.Sig,err = crypto.Sign(cmsg.Msg[:32],priv)
-	if err != nil {
-		return nil,err
-	}
-	return &cmsg,nil
 }
 
 // verify whether  BlockChain include the CdEncryptionMsg

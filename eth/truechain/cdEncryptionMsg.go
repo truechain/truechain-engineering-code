@@ -3,6 +3,10 @@ package truechain
 import (
 	"math/big"
 	"bytes"
+	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"encoding/gob"
 )
 
 type CdEncryptionMsg struct {
@@ -16,10 +20,43 @@ func (t *CdEncryptionMsg) GetUse() bool { return t.Use }
 func (t *CdEncryptionMsg) SetUse(u bool) { t.Use = u }
 
 //convert CdEncryptionMsg into CdMember
-func (t *CdEncryptionMsg) ToStandbyInfo() *CdMember {
+func (t *CdEncryptionMsg) convertMsgToCdMember() *CdMember {
 	info := CdMember{Height:big.NewInt(0),}
-	fromByte(t.Msg,info)
+	info.ConvertToCdMember(t.Msg)
+	//fromByte(t.Msg,info)
 	return &info
+}
+// convert CdMember into  CdEncryptionMsg
+func ConvertCdMemberToMsg(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg,error) {
+	cmsg := CdEncryptionMsg{
+		Height:		n.Height,
+		Msg:		make([]byte,0,0),
+		Sig:		make([]byte,0,0),
+		Use:		false,
+	}
+	var err error
+	cmsg.Msg,err = toByte(n)
+	if err != nil {
+		return nil,err
+	}
+	cmsg.Sig,err = crypto.Sign(cmsg.Msg[:32],priv)
+	if err != nil {
+		return nil,err
+	}
+	return &cmsg,nil
+}
+func (t *CdMember) ConvertToCdMember(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	to :=  CdMember{}
+	dec.Decode(&to)
+	t.Nodeid = to.Nodeid
+	t.Coinbase = to.Coinbase
+	t.Addr = to.Addr
+	t.Port = to.Port
+	t.Height = to.Height
+	t.Comfire = to.Comfire
+	return nil
 }
 
 //See if msg is in the msgs set
@@ -36,6 +73,10 @@ func existMsg(msg *CdEncryptionMsg,msgs []*CdEncryptionMsg) bool {
 		}
 	}
 	return false
+}
+
+func Removemgs(msg []*CdEncryptionMsg,i int) []*CdEncryptionMsg {
+	return append(msg[:i], msg[i+1:]...)
 }
 
 //find the min height of CdEncryptionMsg  from  crpmsg

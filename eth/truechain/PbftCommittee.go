@@ -69,6 +69,7 @@ func GetPbftNodesFromCfg() []*CommitteeMember {
 	return  cm
 }
 
+//put PbftCommittee into channel
 // all function was not tread-safe
 func (cmm *PbftCommittee) SyncMainMembers(mutex *sync.Mutex) {
 	// send by p2p network
@@ -81,22 +82,23 @@ func (cmm *PbftCommittee) SyncMainMembers(mutex *sync.Mutex) {
 	CmsCh <- cmm
 	return
 }
-// verify the block which from pbft Committee
+
+// verify the block which generate from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
 	// check with current committee
-	all := len(block.Sigs)
-	if all == 0 {
+	if len(block.Sigs) == 0 {
 		return errors.New("empty...")
 	}
 	curCmm := t.getCurrentCmm()
-	err,useold := checkPbftBlock(curCmm,block)
-	if useold {
+	err,useold := checkPbftBlock(curCmm,block)//verified pass return nil,false
+	if useold {//??
 		lCmm := t.getLastCmm()
 		erro,_ := checkPbftBlock(lCmm,block)
 		return erro
 	} 
 	return err
 }
+
 // return true means maybe old committee check
 func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,bool) {
 	if verifier == nil {
@@ -134,26 +136,23 @@ func verifyBlockMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 			return nil,i
 		}
 	} 
-	return errors.New("has no one sign..."),0
+	return errors.New("has no one sign"),0
 }
+
+// verify the current TrueHybrid in cmms
 func (t *TrueHybrid) InPbftCommittee(cmms []*CommitteeMember) bool {
 	_,nodeid,_ := t.GetNodeID()
 	if cmms == nil {
-		cmm := t.getCurrentCmm()
-		for _,v := range cmm {
-			if nodeid == v.Nodeid {
-				return true
-			}
-		}
-	} else {
-		for _,v :=range cmms {
-			if nodeid == v.Nodeid {
-				return true
-			}
+		cmms = t.getCurrentCmm()
+	}
+	for _,v := range cmms {
+		if nodeid == v.Nodeid {
+			return true
 		}
 	}
 	return false
 }
+
 // receive the sync message 
 func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	// sync all current main committee
@@ -190,6 +189,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 		t.Start()
 	}
 }
+
 // verify the new committee members message when committee replacement
 func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee,hash []byte) bool {
 	keys := make(map[checkPair]bool)
@@ -211,6 +211,7 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee,hash []byte) bool {
 	} 
 	return false
 }
+
 func (t *TrueHybrid) sameCommittee(cmm *PbftCommittee) bool {
 	curCmm := t.getCmm()
 	if curCmm.No == cmm.No {
@@ -220,8 +221,10 @@ func (t *TrueHybrid) sameCommittee(cmm *PbftCommittee) bool {
 	}
 	return false
 }
+//convert SignCommittee into PbftCommittee
 func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error) {
-	m,err := t.Vote(t.GetCommitteeCount())
+	// elect new []*CommitteeMember
+	ctms,err := t.Vote(t.Config.CmmCount)
     if err != nil {
         return nil,err
 	}
@@ -230,9 +233,9 @@ func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error)
 		No:				1,
 		Ct:				now,
 		Lastt:			now,
-		Count:			len(m),
+		Count:			len(ctms),
 		Lcount:			0,
-		Comm:			m,
+		Comm:			ctms,
 		Lcomm:			nil,
 		Sig:			msg.GetSigs(),
 	}
@@ -259,7 +262,7 @@ func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee,sync bool) {
 func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 	cur := t.getCmm()
 	if cur == nil {
-		cmm,err := t.MakeNewCommittee(msg)
+		cmm,err := t.MakeNewCommittee(msg)//pbftCommittee
 		if err == nil {
 			t.UpdateLocalCommittee(cmm,true)
 		}
@@ -289,6 +292,7 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 			return errors.New("verify the sign from committee members was failed")
 		}
 		t.Cmm.setCurrentCmm(cmm.GetCmm(),t.CmmLock)
+		//?
 		curCmm := t.getCmm()
 		curCmm.No = newNo
 		curCmm.Ct = cmm.Ct
@@ -299,7 +303,6 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 	}
 	return nil
 }
-
 
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
@@ -328,7 +331,7 @@ func (t *TrueHybrid) getCurrentCmm() []*CommitteeMember {
 	t.CmmLock.Lock()
 	defer t.CmmLock.Unlock()
 	if t.Cmm != nil {
-		return t.Cmm.GetCmm()
+		return t.Cmm.Comm
 	}
 	return nil
 }
@@ -336,7 +339,7 @@ func (t *TrueHybrid) getLastCmm() []*CommitteeMember {
 	t.CmmLock.Lock()
 	defer t.CmmLock.Unlock()
 	if t.Cmm != nil {
-		return t.Cmm.GetlCmm()
+		return t.Cmm.Lcomm
 	}
 	return nil
 }

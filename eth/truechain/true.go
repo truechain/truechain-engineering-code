@@ -17,7 +17,10 @@ import (
     "golang.org/x/net/context"
 )
 
-const NewBftBlockMsg  = 0x11
+const (
+    NewBftBlockMsg  = 0x11
+)
+
 var (
     BlockCh = make(chan *TruePbftBlock)
     CdsCh = make(chan []*CdEncryptionMsg)

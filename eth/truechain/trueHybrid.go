@@ -25,15 +25,14 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/core"
 	"time"
+	"errors"
 )
 
 const(
 	fileName="./config.json"
 )
 
-var (
-	zero = big.NewInt(0)
-)
+
 
 // the lock will be change to rwlock
 type TrueHybrid struct {
@@ -69,16 +68,15 @@ type VoteResult struct {
 }
 
 
-func New() *TrueHybrid {
-	// init TrueHybrid object
+func NewTrueHybrid() *TrueHybrid {
 	// read cfg
-	cfg := Config {
+	config := Config {
 		ServerAddress:          ":17546",
 		ClientAddress:          "127.0.0.1:17545",
 		CmmCount:               5,
 		Sdmsize:                1000,
 	}
-	cc := TrueChannel{
+	channel := TrueChannel{
 		quit:           make(chan bool),
 		vote:           make(chan int),
 		voteRes:        make(chan *VoteResult),
@@ -87,42 +85,71 @@ func New() *TrueHybrid {
 		cdCheck:        time.NewTicker(30*time.Second),
 		cdSync:         time.NewTicker(10*time.Second),
 	}
-	tc := &TrueHybrid{
-		Config:             cfg,
-		TrueChannel:        cc,
+	t := &TrueHybrid{
+		Config:             config,
+		TrueChannel:        channel,
 		Cmm:                nil,
 		CmmLock:            new(sync.Mutex),
 		Cdm:                nil,
 		p2pServer:          nil,
 		grpcServer:         nil,
 	}
-	tc.Cdm = &PbftCdCommittee{
+	t.Cdm = &PbftCdCommittee{
 		Cm:             make([]*CdMember,0,0),
 		VCdCrypMsg:     make([]*CdEncryptionMsg,0,0),
 		NCdCrypMsg:     make([]*CdEncryptionMsg,0,0),
 	}
-	tc.Bp = &BlockPool{
+	t.Bp = &BlockPool{
 		blocks: 		make([]*TruePbftBlock,0,0),
 		TrueTxsCh:      make( chan core.NewTxsEvent),
 		th:				nil,
 	}
-	return tc
+	return t
 }
 
-//entrance
+
 func TrueChainWork(t *TrueHybrid) {
 	t.worker()
 }
 
+func (t *TrueHybrid) worker() {
+	cdm :=t.Cdm
+	cmm :=t.Cmm
+	for {
+		select{
+		case <-t.TrueChannel.cdCheck.C://30*time.Second
+			cdm.insertToSDM(t.bc,t.Sdmsize)
+			cdm.checkTmpMsg(t.bc)
+		case <-t.TrueChannel.cdSync.C://10*time.Second
+			//put pcd.VCdCrypMsg and pbftCommittee into channel
+			cdm.syncStandbyMembers()
+			cmm.SyncMainMembers(t.CmmLock)
+		case n	:=	<-t.vote://Vote(
+			res,err := cdm.voteFromCd(n)
+			t.voteRes<-&VoteResult{
+				err:	err,
+				cmm:	res,
+			}
+		case msg:=<-t.TrueChannel.cdRecv:
+			cdm.handleReceiveSdmMsg(msg,t.bc)
+		case cmm :=<-t.TrueChannel.removeCd:
+			cdm.handleRemoveFromCommittee(cmm)
+		case <-t.quit:
+			return
+		}
+	}
+}
+
+//entrance  StartTrueChain
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
 	t.bc = b
 	t.grpcServer = grpc.NewServer()
-	//shi
+	// generate PbftCommittee(t.Cmm)
 	CreateCommittee(t)
 	if GetFirstStart() {
-		ns := GetPbftNodesFromCfg()
-		if ns != nil {
-			t.MembersNodes(ns)
+		ctm := GetPbftNodesFromCfg()
+		if ctm != nil {
+			t.MembersNodes(ctm)
 			//CreateCommittee(t)
 			t.Start()
 		}
@@ -151,6 +178,25 @@ func GetFirstStart() bool{
 	return en
 }
 
+func (t *TrueHybrid) ReceiveSdmMsg(msg *CdEncryptionMsg) {
+	t.TrueChannel.cdRecv <- msg
+}
+
+func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
+	t.vote <- num
+	select {
+	case res := <-t.voteRes:
+		return res.cmm,res.err
+	case <-t.quit:
+	}
+	return nil,errors.New("vote failed")
+}
+
+func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
+	t.TrueChannel.removeCd <- cmm
+}
+
+//implement interface begin
 func (t *TrueHybrid) Start() error{
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
@@ -186,6 +232,7 @@ func (t *TrueHybrid) Stop() error{
 	}
 	return nil
 }
+
 func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())
@@ -198,16 +245,13 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
 	defer cancel()
 	// _,lnodeid,priv := t.getNodeID()
 	pbNodes := make([]*TruePbftNode,0,0)
-	for _,v := range nodes {
-		n := TruePbftNode{
-			Addr:       v.Addr,
-			Nodeid:     v.Nodeid,
-			Port:       int32(v.Port),
+	for _,node := range nodes {
+		pbNode := &TruePbftNode{
+			Addr:       node.Addr,
+			Nodeid:     node.Nodeid,
+			Port:       int32(node.Port),
 		}
-		// if lnodeid == v.Nodeid {
-		//     n.Privkey = priv
-		// }
-		pbNodes = append(pbNodes,&n)
+		pbNodes = append(pbNodes,pbNode)
 	}
 
 	_, err1 := c.MembersNodes(ctx, &Nodes{Nodes:pbNodes})
@@ -259,6 +303,7 @@ func (t *TrueHybrid) SetTransactions(th *TrueHybrid,txs []*types.Transaction) {
 	//}
 	//return nil
 }
+//implement interface end
 
 //add block to BlockPool
 func (t *TrueHybrid) AddBlock(block *TruePbftBlock) {
@@ -270,7 +315,7 @@ func (t *TrueHybrid) AddBlock(block *TruePbftBlock) {
 	t.GetBp().JoinEth()
 }
 
-//get IP and publicKey and privateKey from TrueHybrid
+//get IP 、publicKey and privateKey from P2PServer
 func (t *TrueHybrid) GetNodeID() (string,string,string) {
 	server := t.P2PServer()
 	ip := server.NodeInfo().IP
@@ -282,6 +327,7 @@ func (t *TrueHybrid) GetNodeID() (string,string,string) {
 			Y: 		new(big.Int).Set(server.PrivateKey.Y)}))
 	return ip,pub,priv
 }
+
 
 /////get and set method
 func (t *TrueHybrid) setCommitteeCount(c int)  {
