@@ -24,6 +24,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/eth/truechain"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+
 )
 
 type CpuAgent struct {
@@ -38,15 +41,17 @@ type CpuAgent struct {
 	engine consensus.Engine
 	tc 	*truechain.TrueHybrid
 	isMining int32 // isMining indicates whether the agent is currently mining
+	eth Backend
 }
 
-func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine,tc *truechain.TrueHybrid) *CpuAgent {
+func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine,tc *truechain.TrueHybrid,eth Backend) *CpuAgent {
 	miner := &CpuAgent{
 		chain:  chain,
 		engine: engine,
 		stop:   make(chan struct{}, 1),
 		workCh: make(chan *Work, 1),
 		tc:tc,
+		eth:eth,
 	}
 	return miner
 }
@@ -138,17 +143,23 @@ func (self *CpuAgent) MakeSigned(work *Work){
 
 	//Height		*big.Int
 	//Msg			[]byte		上一个结构体的字节码
-	//Sig 			[]byte		cb 私钥
+	//Sig 			[]byte		Coinbase 私钥签名后
 	//use			bool		默认值：false
+	coninbase :=work.Block.Coinbase().Bytes()
+	account := accounts.Account{Address: common.BytesToAddress(coninbase)}
+	wallet,_ := self.eth.AccountManager().Find(account)
+	signed, _ := wallet.SignHash(account,cem.Msg)
 
+	//wallet
 	cem.Height = work.Block.Number()
 	byt ,_ := cm.ToByte()
 	cem.Msg = byt
+	cem.Sig = signed
+	//work.Block.Coinbase().
 	//cem.Height = work.Block.Number()
 	//cem.Height = work.Block.Number()
 	//cem.Msg = cem.ToByte()
-
-	//添加到候选委员会
+	//Add to the candidate committee
 	work.tc.ReceiveSdmMsg(cem)
 
 

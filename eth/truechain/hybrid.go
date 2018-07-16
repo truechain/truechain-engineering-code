@@ -56,6 +56,10 @@ type PbftCommittee struct {
 	Lcomm		[]*CommitteeMember
 	Sig 		[]string
 }
+type VoteResult struct {
+	err 		error
+	cmm 		[]*CommitteeMember
+}
 
 var (
 	zero = big.NewInt(0)

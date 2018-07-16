@@ -52,8 +52,8 @@ func init(){
 func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 	pub := ecdsa.PublicKey{
 		Curve: 	priv.Curve,
-		X: 		big.NewInt(priv.X.Int64()),
-		Y: 		big.NewInt(priv.Y.Int64()),
+		X: 		new(big.Int).Set(priv.X),
+		Y: 		new(big.Int).Set(priv.Y),
 	}
 	return &pub
 }
@@ -175,8 +175,11 @@ func TestEncryptionMsgInTrueChain(t *testing.T) {
 		msg4:	4.5,
 	}
 	priv := privkeys[0]
-	pub := hex.EncodeToString(crypto.FromECDSAPub(GetPub(priv)))
+
+	pub :=hex.EncodeToString(crypto.FromECDSAPub(GetPub(priv)))
 	hash := rlpHash(tmp)
+
+
 	// sig message use priv
 	sig,err := crypto.Sign(hash[:],priv)
 	// verify message
@@ -184,6 +187,7 @@ func TestEncryptionMsgInTrueChain(t *testing.T) {
 		verifyPub, err := crypto.SigToPub(hash[:], sig)
 		if err == nil {
 			strverifyPub := hex.EncodeToString(crypto.FromECDSAPub(verifyPub))
+
 			if pub == strverifyPub {
 				fmt.Println("sign test seccess,pub = ", pub, " strverifyPub = ", strverifyPub)
 
