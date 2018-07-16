@@ -27,7 +27,63 @@ import (
 	// "github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
+	"sync"
 )
+
+type PbftCommittee struct {
+	No			int				// Committee number
+	Ct 			time.Time		// current Committee voted time
+	Lastt		time.Time		// last Committee voted time
+	Count		int				// current Committee member Count
+	Lcount		int				// last Committee member Count
+	Comm 		[]*CommitteeMember
+	Lcomm		[]*CommitteeMember
+	Sig 		[]string
+}
+
+
+
+
+func (t *PbftCommittee) GetCmm() []*CommitteeMember {
+	return t.Comm
+}
+func (t *PbftCommittee) SetCmm(cmm []*CommitteeMember) {
+	t.Comm = cmm
+}
+func (t *PbftCommittee) GetlCmm() []*CommitteeMember {
+	return t.Lcomm
+}
+func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
+	t.Lcomm = lcmm
+}
+func (t *PbftCommittee) GetSig() []string {
+	return t.Sig
+}
+func (t *PbftCommittee) SetSig(sig []string) {
+	t.Sig = sig
+}
+func (t *PbftCommittee) GetHash() []byte {
+	tmp := struct {
+		msg1	[]*CommitteeMember
+		msg2	[]*CommitteeMember
+	}{
+		msg1:	t.GetCmm(),
+		msg2:	t.GetlCmm(),
+	}
+	msg := rlpHash(tmp)
+	return msg[:]
+}
+
+
+
+
+
+
+
+
+
+
+
 
 type checkPair struct {
 	left	int
@@ -35,9 +91,10 @@ type checkPair struct {
 }
 
 // all function was not tread-safe
-func (t *TrueHybrid) SyncMainMembers() {
+func (cmm *PbftCommittee) SyncMainMembers(mutex *sync.Mutex) {
 	// send by p2p network
-	cmm := t.getCmm()
+	mutex.Lock()
+	defer mutex.Unlock()
 	if cmm == nil {
 		return
 	}
@@ -136,7 +193,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 			}
 		} else if cmm.No == committee.No {
 			if !t.sameCommittee(committee) {
-				if t.VerifyCommitteeFromSdm(committee) {
+				if t.Cdm.VerifyCommitteeFromSdm(committee) {
 					bstart = t.InPbftCommittee(nil)
 					t.UpdateLocalCommittee(committee,false)				
 				}
@@ -144,7 +201,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 		} else if committee.No - cmm.No > 1 {
 			// the local was older, then can't verify the committee message
 			// simple handle
-			if t.VerifyCommitteeFromSdm(committee) {
+			if t.Cdm.VerifyCommitteeFromSdm(committee) {
 				bstart = t.InPbftCommittee(nil)
 				t.UpdateLocalCommittee(committee,false)		
 			}
@@ -217,7 +274,7 @@ func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee,sync bool) {
 	}
 	t.RemoveFromCommittee(cmm)
 	if sync {
-		t.SyncMainMembers()
+		t.Cmm.SyncMainMembers(t.CmmLock)
 	}
 }
 func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
@@ -250,7 +307,7 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 			return errors.New("hash member was not equal")
 		}
 		if !t.verifyCommitteeMsg(&cmm,cmm.GetHash()) {
-			return errors.New("verify the sign from committee members was failed...")
+			return errors.New("verify the sign from committee members was failed")
 		}
 		t.setCurrentCmm(cmm.GetCmm())
 		curCmm := t.getCmm()
@@ -263,14 +320,14 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 	}
 	return nil
 }
-func (t *TrueHybrid) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
+func (pcc *PbftCdCommittee) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
 	// committee members come from sdm
 	// simple verify  
-	oPos := t.matchCommitteeMembers(cmm.GetlCmm())
+	oPos := pcc.matchCommitteeMembers(cmm.GetlCmm())
 	if oPos == nil {
 		return false
 	}
-	nPos := t.matchCommitteeMembers(cmm.GetCmm())
+	nPos := pcc.matchCommitteeMembers(cmm.GetCmm())
 	if nPos == nil {
 		return false
 	}
@@ -296,6 +353,7 @@ func (t *TrueHybrid) getCmm() *PbftCommittee {
 	defer t.CmmLock.Unlock()
 	return t.Cmm
 }
+
 func (t *TrueHybrid) getCurrentCmm() []*CommitteeMember {
 	t.CmmLock.Lock()
 	defer t.CmmLock.Unlock()

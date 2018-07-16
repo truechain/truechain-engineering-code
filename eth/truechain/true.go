@@ -209,6 +209,7 @@ func (t *TrueHybrid) GetCommitteeCount() int {
 func (t *TrueHybrid) GetSdmsize() int {
     return t.Sdmsize
 }
+
 func (t *TrueHybrid) GetCommitteeMembers() []string {
     cmm := t.getCurrentCmm()
     addrs := make([]string, len(cmm))
