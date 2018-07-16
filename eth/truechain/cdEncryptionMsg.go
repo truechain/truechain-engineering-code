@@ -3,7 +3,6 @@ package truechain
 import (
 	"math/big"
 	"bytes"
-	"encoding/gob"
 )
 
 type CdEncryptionMsg struct {
@@ -19,31 +18,8 @@ func (t *CdEncryptionMsg) SetUse(u bool) { t.Use = u }
 //convert CdEncryptionMsg into CdMember
 func (t *CdEncryptionMsg) ToStandbyInfo() *CdMember {
 	info := CdMember{Height:big.NewInt(0),}
-	info.FromByte(t.Msg)
+	fromByte(t.Msg,info)
 	return &info
-}
-// Deserialize []byte to CdEncryptionMsg
-func (t *CdEncryptionMsg) FromByte(data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	to :=  CdEncryptionMsg{}
-	dec.Decode(&to)
-	t.Height = to.Height
-	t.Msg = to.Msg
-	t.Sig = to.Sig
-	t.Use = to.Use
-	return nil
-}
-
-// Deserialize CdEncryptionMsg to []byte
-func (t *CdEncryptionMsg) ToByte() ([]byte,error) {
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(t)
-	if err != nil {
-		return nil,err
-	}
-	return buf.Bytes(),nil
 }
 
 //See if msg is in the msgs set

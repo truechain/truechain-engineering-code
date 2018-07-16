@@ -6,5 +6,15 @@ import (
 )
 
 func Test1(t *testing.T) {
-fmt.Println("hello test")
+	member := &CommitteeMember{
+		"111",
+		"127.4.6.9",
+		8087,
+	}
+	bytes,_ :=toByte(member)
+	m :=&CommitteeMember{
+		Nodeid:"444",
+	}
+	fromByte(bytes,m)
+	fmt.Println(m)
 }

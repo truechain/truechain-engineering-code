@@ -7,14 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-
 type BlockPool struct {
 	blocks  []*TruePbftBlock      //Every time a pool receives a block
 	TrueTxsCh   chan core.NewTxsEvent //Send a deal
 	th      *TrueHybrid
 
 }
-
 
 func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 	return self.TrueTxsCh

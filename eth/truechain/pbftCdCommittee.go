@@ -29,6 +29,15 @@ const (
 	NeedVerified_BlockNum int64 =12
 )
 
+type CdMember struct {
+	Nodeid		string			// the pubkey of the node(nodeid)
+	Coinbase	string			// the bonus address of miner
+	Addr		string
+	Port		int
+	Height		*big.Int		// block Height who pow success
+	Comfire		bool			// the state of the block comfire,default greater 12 like eth
+}
+
 type PbftCdCommittee struct {
 	Cm 				[]*CdMember				// confirmed member info
 	VCdCrypMsg	 	[]*CdEncryptionMsg		// verified	candidate Member message(authenticated msg by block comfirm)
@@ -47,8 +56,9 @@ func (t *TrueHybrid) Vote(num int) ([]*CommitteeMember,error) {
 	}
 	return nil,errors.New("vote failed")
 }
-func (t *TrueHybrid) RemoveFromCommittee(cmm *PbftCommittee) {
-	t.removeCd <- cmm
+
+func (channel *TrueChannel) RemoveFromCommittee(cmm *PbftCommittee) {
+	channel.removeCd <- cmm
 }
 ///////////////////////////////////////////////////////////////
 func (pcc *PbftCdCommittee) add(msg *CdEncryptionMsg,pccSize int) error {
@@ -252,6 +262,23 @@ func (pcc *PbftCdCommittee) handleRemoveFromCommittee(cmm *PbftCommittee){
 	}
 }
 
+func (pcc *PbftCdCommittee) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
+	// committee members come from sdm
+	// simple verify
+	oPos := pcc.matchCommitteeMembers(cmm.GetlCmm())
+	if oPos == nil {
+		return false
+	}
+	nPos := pcc.matchCommitteeMembers(cmm.GetCmm())
+	if nPos == nil {
+		return false
+	}
+	if nPos[0] > oPos[len(oPos)-1] {
+		return true
+	}
+	return false
+}
+
 // convert CdMember into  CdEncryptionMsg
 func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg,error) {
 	cmsg := CdEncryptionMsg{
@@ -261,7 +288,7 @@ func MakeSignedStandbyNode(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg
 		Use:		false,
 	}
 	var err error
-	cmsg.Msg,err = n.ToByte()
+	cmsg.Msg,err = toByte(n)
 	if err != nil {
 		return nil,err
 	}
