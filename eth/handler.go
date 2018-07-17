@@ -104,6 +104,8 @@ type ProtocolManager struct {
 	*truechain.TrueHybrid
 	//pbftpool PbftPool
 	pblocksCh chan []*truechain.TruePbftBlock
+	cmsCh   chan []*truechain.PbftCommittee
+	cdsCh   chan [][]*truechain.CdEncryptionMsg
 	//pbsSub    event.Subscription
 	pblocks []*truechain.TruePbftBlock
 	cmss    []*truechain.PbftCommittee
@@ -126,6 +128,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		pblocksCh:   make(chan []*truechain.TruePbftBlock),
+		cmsCh:       make(chan []*truechain.PbftCommittee),
+		cdsCh:       make(chan [][]*truechain.CdEncryptionMsg),
 		pblocks:     make([]*truechain.TruePbftBlock,0),
 		cmss:        make([]*truechain.PbftCommittee,0),
 		cdss:        make([][]*truechain.CdEncryptionMsg,0),
@@ -363,16 +367,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "pbftblock is nil")
 		}
 		pm.pblocks = append(pm.pblocks, request.Block)
-		go func() {
-			for {
-				pm.pblocks = append(pm.pblocks, <-truechain.BlockCh)
-			}
-		}()
-		go func() {
-			for len(pm.pblocksCh) == 0 {
-				pm.pblocksCh <- pm.pblocks
-			}
-		}()
+		go func() {for {pm.pblocks = append(pm.pblocks, <-truechain.BlockCh)}}()
+		go func() {for len(pm.pblocksCh) == 0 {pm.pblocksCh <- pm.pblocks}}()
 		l := len(pm.pblocks)
 		pm.pblocks = pm.pblocks[l:]
 		//pm.pbftpool.AddRemotes(request.Block)
@@ -387,13 +383,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, v := range cms {
 			p.tt.ReceiveCommittee(v, "")
 		}
-		go func() {
-			pm.cmss = append(pm.cmss, <-truechain.CmsCh)
-		}()
-		go func() {
-			pm.cmss = append(pm.cmss, cms...)
-		}()
-		return p.SendCMS(pm.cmss)
+		go func() {pm.cmss = append(pm.cmss, <-truechain.CmsCh)}()
+		go func() {pm.cmss = append(pm.cmss, cms...)}()
+		//return p.SendCMS(pm.cmss)
 	case msg.Code == CDSMsg:
 		var cds []*truechain.CdEncryptionMsg
 		if err := msg.Decode(cds); err != nil {
@@ -402,10 +394,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, v := range cds {
 			p.tt.ReceiveSdmMsg(v)
 		}
-		go func() {
-			pm.cdss = append(pm.cdss, <-truechain.CdsCh)
-		}()
-		return p.SendCDS(cds)
+		go func() {pm.cdss = append(pm.cdss, <-truechain.CdsCh)}()
+		go func() {pm.cdss = append(pm.cdss,cds)}()
+		//return p.SendCDS(cds)
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
 		// Decode the complex header query
