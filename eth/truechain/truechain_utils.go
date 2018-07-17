@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"bytes"
 	"encoding/gob"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func ReadCfg(filename string) (map[string]interface{}, error){
@@ -37,3 +38,17 @@ func fromByte(data []byte,to interface{}) error {
 	return nil
 }
 
+<<<<<<< HEAD
+=======
+func ToByte(e interface{}) ([]byte,error) {
+	return toByte(e)
+}
+
+func RlpHash(x interface{}) (h common.Hash) {
+	return rlpHash(x)
+}
+
+func (t *TrueHybrid) SetCommitteeCount(c int) {
+	t.setCommitteeCount(c)
+}
+>>>>>>> 1ef13a423ea2654144ba4acc30493313387b167f

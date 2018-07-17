@@ -85,5 +85,3 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
     }
 }
 
-
-
