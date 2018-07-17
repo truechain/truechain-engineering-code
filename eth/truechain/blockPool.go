@@ -14,6 +14,7 @@ type BlockPool struct {
 
 }
 
+//get GetCcc
 func (self *BlockPool) GetCcc() chan core.NewTxsEvent {
 	return self.TrueTxsCh
 }
