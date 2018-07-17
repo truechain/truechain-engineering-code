@@ -7,12 +7,12 @@ import (
 	"time"
 	"github.com/ethereum/go-ethereum/crypto"
 	"encoding/hex"
+	"log"
 )
 
 
 
 func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
-
 
 	pbTxs := make([]*Transaction,0,0)
 	for _,vv := range txs {
@@ -78,12 +78,12 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 func CreateCommittee(t *TrueHybrid) {
 	curCmm := make([]*CommitteeMember,0,0)
 	curCmmCount := 1
-	_,pub,strpriv := t.GetNodeID()
+	_,pubKey,privateKey := t.GetNodeID()
 
 	cc := CommitteeMember{
 		Addr:			"127.0.0.1",
 		Port:			16745,
-		Nodeid:			pub,
+		Nodeid:			pubKey,
 	}
 	curCmm = append(curCmm,&cc)
 
@@ -97,12 +97,16 @@ func CreateCommittee(t *TrueHybrid) {
 		Lcomm:			nil,
 		Sig:			make([]string,0,0),
 	}
-	sig := cmm.GetSig()
-	bp,_ := hex.DecodeString(strpriv)
+	sig := cmm.Sig
+	bp,_ := hex.DecodeString(privateKey)
 	priv,_ := crypto.ToECDSA(bp)
-	k,_ := crypto.Sign(cmm.GetHash(),priv)
+	k,err:= crypto.Sign(cmm.GetHash(),priv)
+	if err != nil{
+		log.Panic(err)
+	}
 	sig = append(sig,common.ToHex(k))
-	cmm.SetSig(sig)
+	cmm.Sig = sig
+
 	t.Cmm = &cmm
 }
 

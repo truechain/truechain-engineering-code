@@ -14,30 +14,67 @@ package truechain
 
 import (
 	"time"
-	"math/big"
 	"encoding/hex"
-	"crypto/ecdsa"
 	"errors"
-	// "bytes"
-    
-	//"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	// "github.com/ethereum/go-ethereum/p2p"
-	// "github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
+	"sync"
 )
+
+type CommitteeMember struct {
+	Nodeid		string			// the pubkey of the node(nodeid)
+	Addr		string
+	Port		int
+}
+
+type PbftCommittee struct {
+	No			int				// Committee number
+	Ct 			time.Time		// current Committee voted time
+	Lastt		time.Time		// last Committee voted time
+	Count		int				// current Committee member Count
+	Lcount		int				// last Committee member Count
+	Comm 		[]*CommitteeMember
+	Lcomm		[]*CommitteeMember
+	Sig 		[]string
+}
 
 type checkPair struct {
 	left	int
 	right 	int
 }
 
+func GetPbftNodesFromCfg() []*CommitteeMember {
+	// filename will be change
+	filename := "./config.json"
+	result,err := ReadCfg(filename)
+	if err != nil {
+		return nil
+	}
+	dbs := result["database"].([]interface{})
+	cm := make([]*CommitteeMember ,0,0)
+
+	for _, v := range dbs {
+		vv := v.(map[string]interface{})
+		nid := vv["Nodeid"].(string)
+		addr := vv["Addr"].(string)
+		port := vv["Port"].(float64)
+		cm = append(cm,&CommitteeMember{
+			Nodeid:         nid,
+			Addr:           addr,
+			Port:           int(port),
+		})
+	}
+	return  cm
+}
+
+//put PbftCommittee into channel
 // all function was not tread-safe
-func (t *TrueHybrid) SyncMainMembers() {
+func (cmm *PbftCommittee) SyncMainMembers(mutex *sync.Mutex) {
 	// send by p2p network
-	cmm := t.getCmm()
+	mutex.Lock()
+	defer mutex.Unlock()
 	if cmm == nil {
 		return
 	}
@@ -45,22 +82,23 @@ func (t *TrueHybrid) SyncMainMembers() {
 	CmsCh <- cmm
 	return
 }
-// verify the block which from pbft Committee
+
+// verify the block which generate from pbft Committee
 func (t *TrueHybrid) CheckBlock(block *TruePbftBlock) error {
 	// check with current committee
-	all := len(block.Sigs)
-	if all == 0 {
+	if len(block.Sigs) == 0 {
 		return errors.New("empty...")
 	}
 	curCmm := t.getCurrentCmm()
-	err,useold := checkPbftBlock(curCmm,block)
-	if useold {
+	err,useold := checkPbftBlock(curCmm,block)//verified pass return nil,false
+	if useold {//??
 		lCmm := t.getLastCmm()
 		erro,_ := checkPbftBlock(lCmm,block)
 		return erro
 	} 
 	return err
 }
+
 // return true means maybe old committee check
 func checkPbftBlock(verifier []*CommitteeMember,block *TruePbftBlock) (error,bool) {
 	if verifier == nil {
@@ -98,26 +136,23 @@ func verifyBlockMembersSign(cc []*CommitteeMember,msg,sig []byte) (error,int) {
 			return nil,i
 		}
 	} 
-	return errors.New("has no one sign..."),0
+	return errors.New("has no one sign"),0
 }
+
+// verify the current TrueHybrid in cmms
 func (t *TrueHybrid) InPbftCommittee(cmms []*CommitteeMember) bool {
 	_,nodeid,_ := t.GetNodeID()
 	if cmms == nil {
-		cmm := t.getCurrentCmm()
-		for _,v := range cmm {
-			if nodeid == v.Nodeid {
-				return true
-			}
-		}
-	} else {
-		for _,v :=range cmms {
-			if nodeid == v.Nodeid {
-				return true
-			}
+		cmms = t.getCurrentCmm()
+	}
+	for _,v := range cmms {
+		if nodeid == v.Nodeid {
+			return true
 		}
 	}
 	return false
 }
+
 // receive the sync message 
 func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 	// sync all current main committee
@@ -136,7 +171,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 			}
 		} else if cmm.No == committee.No {
 			if !t.sameCommittee(committee) {
-				if t.VerifyCommitteeFromSdm(committee) {
+				if t.Cdm.VerifyCommitteeFromSdm(committee) {
 					bstart = t.InPbftCommittee(nil)
 					t.UpdateLocalCommittee(committee,false)				
 				}
@@ -144,7 +179,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 		} else if committee.No - cmm.No > 1 {
 			// the local was older, then can't verify the committee message
 			// simple handle
-			if t.VerifyCommitteeFromSdm(committee) {
+			if t.Cdm.VerifyCommitteeFromSdm(committee) {
 				bstart = t.InPbftCommittee(nil)
 				t.UpdateLocalCommittee(committee,false)		
 			}
@@ -154,6 +189,7 @@ func (t *TrueHybrid) ReceiveCommittee(committee *PbftCommittee,from string) {
 		t.Start()
 	}
 }
+
 // verify the new committee members message when committee replacement
 func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee,hash []byte) bool {
 	keys := make(map[checkPair]bool)
@@ -175,6 +211,7 @@ func (t *TrueHybrid) verifyCommitteeMsg(cmm *PbftCommittee,hash []byte) bool {
 	} 
 	return false
 }
+
 func (t *TrueHybrid) sameCommittee(cmm *PbftCommittee) bool {
 	curCmm := t.getCmm()
 	if curCmm.No == cmm.No {
@@ -184,8 +221,10 @@ func (t *TrueHybrid) sameCommittee(cmm *PbftCommittee) bool {
 	}
 	return false
 }
+//convert SignCommittee into PbftCommittee
 func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error) {
-	m,err := t.Vote(t.GetCommitteeCount())
+	// elect new []*CommitteeMember
+	ctms,err := t.Vote(t.Config.CmmCount)
     if err != nil {
         return nil,err
 	}
@@ -194,9 +233,9 @@ func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error)
 		No:				1,
 		Ct:				now,
 		Lastt:			now,
-		Count:			len(m),
+		Count:			len(ctms),
 		Lcount:			0,
-		Comm:			m,
+		Comm:			ctms,
 		Lcomm:			nil,
 		Sig:			msg.GetSigs(),
 	}
@@ -217,13 +256,13 @@ func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee,sync bool) {
 	}
 	t.RemoveFromCommittee(cmm)
 	if sync {
-		t.SyncMainMembers()
+		t.Cmm.SyncMainMembers(t.CmmLock)
 	}
 }
 func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 	cur := t.getCmm()
 	if cur == nil {
-		cmm,err := t.MakeNewCommittee(msg)
+		cmm,err := t.MakeNewCommittee(msg)//pbftCommittee
 		if err == nil {
 			t.UpdateLocalCommittee(cmm,true)
 		}
@@ -250,9 +289,10 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 			return errors.New("hash member was not equal")
 		}
 		if !t.verifyCommitteeMsg(&cmm,cmm.GetHash()) {
-			return errors.New("verify the sign from committee members was failed...")
+			return errors.New("verify the sign from committee members was failed")
 		}
-		t.setCurrentCmm(cmm.GetCmm())
+		t.Cmm.setCurrentCmm(cmm.GetCmm(),t.CmmLock)
+		//?
 		curCmm := t.getCmm()
 		curCmm.No = newNo
 		curCmm.Ct = cmm.Ct
@@ -263,66 +303,7 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 	}
 	return nil
 }
-func (t *TrueHybrid) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
-	// committee members come from sdm
-	// simple verify  
-	oPos := t.matchCommitteeMembers(cmm.GetlCmm())
-	if oPos == nil {
-		return false
-	}
-	nPos := t.matchCommitteeMembers(cmm.GetCmm())
-	if nPos == nil {
-		return false
-	}
-	if nPos[0] > oPos[len(oPos)-1] {
-		return true
-	}
-	return false
-}
-func (t *TrueHybrid) GetNodeID() (string,string,string) {
-	server := t.P2PServer() 
-	ip := server.NodeInfo().IP
-	priv := hex.EncodeToString(crypto.FromECDSA(server.PrivateKey))
-	pub := hex.EncodeToString(crypto.FromECDSAPub(
-		&ecdsa.PublicKey{
-			Curve: 	server.PrivateKey.Curve,
-			X: 		new(big.Int).Set(server.PrivateKey.X),
-			Y: 		new(big.Int).Set(server.PrivateKey.Y)}))
-	return ip,pub,priv
-}
 
-func (t *TrueHybrid) getCmm() *PbftCommittee {
-	t.CmmLock.Lock()
-	defer t.CmmLock.Unlock()
-	return t.Cmm
-}
-func (t *TrueHybrid) getCurrentCmm() []*CommitteeMember {
-	t.CmmLock.Lock()
-	defer t.CmmLock.Unlock()
-	if t.Cmm != nil {
-		return t.Cmm.GetCmm()
-	}
-	return nil
-}
-func (t *TrueHybrid) getLastCmm() []*CommitteeMember {
-	t.CmmLock.Lock()
-	defer t.CmmLock.Unlock()
-	if t.Cmm != nil {
-		return t.Cmm.GetlCmm()
-	}
-	return nil
-}
-func (t *TrueHybrid) setCurrentCmm(cc []*CommitteeMember) {
-	if cc == nil {
-		return
-	}
-	t.CmmLock.Lock()
-	defer t.CmmLock.Unlock()
-	if t.Cmm != nil {
-		t.Cmm.SetlCmm(t.Cmm.GetCmm())
-		t.Cmm.SetCmm(cc)
-	}
-}
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)
@@ -330,3 +311,76 @@ func rlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
+func (t *TrueHybrid) GetCommitteeMembers() []string {
+	cmm := t.getCurrentCmm()
+	addrs := make([]string, len(cmm))
+	for i, value := range cmm {
+		addrs[i] = value.Addr
+	}
+	return addrs
+}
+
+/////get and set method /////
+func (t *TrueHybrid) getCmm() *PbftCommittee {
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	return t.Cmm
+}
+
+func (t *TrueHybrid) getCurrentCmm() []*CommitteeMember {
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	if t.Cmm != nil {
+		return t.Cmm.Comm
+	}
+	return nil
+}
+func (t *TrueHybrid) getLastCmm() []*CommitteeMember {
+	t.CmmLock.Lock()
+	defer t.CmmLock.Unlock()
+	if t.Cmm != nil {
+		return t.Cmm.Lcomm
+	}
+	return nil
+}
+func (pcm *PbftCommittee) setCurrentCmm(cc []*CommitteeMember,mutex *sync.Mutex) {
+	if cc == nil {
+		return
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+	if pcm != nil {
+		pcm.SetlCmm(pcm.GetCmm())
+		pcm.SetCmm(cc)
+	}
+}
+
+func (t *PbftCommittee) GetCmm() []*CommitteeMember {
+	return t.Comm
+}
+func (t *PbftCommittee) SetCmm(cmm []*CommitteeMember) {
+	t.Comm = cmm
+}
+func (t *PbftCommittee) GetlCmm() []*CommitteeMember {
+	return t.Lcomm
+}
+func (t *PbftCommittee) SetlCmm(lcmm []*CommitteeMember) {
+	t.Lcomm = lcmm
+}
+func (t *PbftCommittee) GetSig() []string {
+	return t.Sig
+}
+func (t *PbftCommittee) SetSig(sig []string) {
+	t.Sig = sig
+}
+func (t *PbftCommittee) GetHash() []byte {
+	tmp := struct {
+		msg1	[]*CommitteeMember
+		msg2	[]*CommitteeMember
+	}{
+		msg1:	t.GetCmm(),
+		msg2:	t.GetlCmm(),
+	}
+	msg := rlpHash(tmp)
+	return msg[:]
+}
