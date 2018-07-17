@@ -46,16 +46,16 @@ type PbftCdCommittee struct {
 	NCdCrypMsg		[]*CdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
 }
 
-func (pcc *PbftCdCommittee) add(msg *CdEncryptionMsg,pccSize int) error {
+func (pcd *PbftCdCommittee) add(msg *CdEncryptionMsg,pccSize int) error {
 	// CdEncryptionMsg convert into CdMember
 	cdMember := msg.convertMsgToCdMember()
 	if cdMember == nil {
 		return errors.New("Wrong CrytoMsg")
 	}
-	if len(pcc.Cm)>=pccSize  {
-		pcc.Cm = pcc.Cm[len(pcc.Cm)-pccSize+1:]
+	if len(pcd.Cm)>=pccSize  {
+		pcd.Cm = pcd.Cm[len(pcd.Cm)-pccSize+1:]
 	}
-	pcc.Cm = append(pcc.Cm,cdMember)
+	pcd.Cm = append(pcd.Cm,cdMember)
 	return nil
 }
 

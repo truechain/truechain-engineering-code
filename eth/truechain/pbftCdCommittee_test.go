@@ -11,6 +11,45 @@ import (
 	"time"
 )
 
+
+
+
+//func Testadd()
+
+
+
+
+func TestCandidateMember(t *testing.T) {
+	th.Cdm = MakeCdCommittee()
+	// test cryptomsg for candidate Member
+	// make cryptomsg for add candidate Member
+	priv := privkeys[keysCount-1]
+	pub := GetPub(priv)
+	nodeid := hex.EncodeToString(crypto.FromECDSAPub(pub))
+	coinPriv := privkeys[keysCount-2]
+	coinAddr := crypto.PubkeyToAddress(*GetPub(coinPriv))
+
+	member := &CdMember{
+		Nodeid:				nodeid,
+		Coinbase:			coinAddr.String(),
+		Addr:				"127.0.0.1",
+		Port:				16745,
+		Height:				big.NewInt(123),
+		Comfire:			false,
+	}
+	msg,err := ConvertCdMemberToMsg(member,coinPriv)
+	if err != nil {
+		fmt.Println("ConvertCdMemberToMsg failed...err=",err)
+		return
+	}
+	// if not init the blockchain,it will be add the NCdCrypMsg queue.
+	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
+	th.ReceiveSdmMsg(msg)
+	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
+	th.StopTrueChain()
+}
+
+
 func GenerateMember(priv *ecdsa.PrivateKey,height int) *CdMember{
 	if height == 0{
 		//设置随机种子
@@ -45,36 +84,6 @@ func MakeCdCommittee() *PbftCdCommittee{
 		cd.Cm = append(cd.Cm,cdMemeber)
 	}
 	return cd
-}
-
-func TestCandidateMember(t *testing.T) {
-	th.Cdm = MakeCdCommittee()
-	// test cryptomsg for candidate Member
-	// make cryptomsg for add candidate Member
-	priv := privkeys[keysCount-1]
-	pub := GetPub(priv)
-	nodeid := hex.EncodeToString(crypto.FromECDSAPub(pub))
-	coinPriv := privkeys[keysCount-2]
-	coinAddr := crypto.PubkeyToAddress(*GetPub(coinPriv))
-
-	member := &CdMember{
-		Nodeid:				nodeid,
-		Coinbase:			coinAddr.String(),
-		Addr:				"127.0.0.1",
-		Port:				16745,
-		Height:				big.NewInt(123),
-		Comfire:			false,
-	}
-	msg,err := ConvertCdMemberToMsg(member,coinPriv)
-	if err != nil {
-		fmt.Println("ConvertCdMemberToMsg failed...err=",err)
-		return
-	}
-	// if not init the blockchain,it will be add the NCdCrypMsg queue.
-	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
-	th.ReceiveSdmMsg(msg)
-	fmt.Println("current crypto msg count1=",len(th.Cdm.VCdCrypMsg)," count2=",len(th.Cdm.NCdCrypMsg))
-	th.StopTrueChain()
 }
 
 //generate new pbftCdCommittee

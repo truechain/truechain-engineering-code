@@ -50,6 +50,7 @@ func init(){
 		privkeys = append(privkeys,privateKey)
 	}
 	th.Config.CmmCount = 3  //amount of Pbft Committee Members
+	fmt.Println("hahahah")
 }
 
 func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {

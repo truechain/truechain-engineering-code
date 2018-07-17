@@ -5,10 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
-	"math/big"
-	"crypto/ecdsa"
-	"math/rand"
-	"time"
 )
 var msg *CdEncryptionMsg
 
@@ -29,6 +25,9 @@ func TestMsgToMember(t *testing.T) {
 	member := msg.convertMsgToCdMember()
 	fmt.Println("member:",member)
 }
+
+
+
 
 //////////////////////////////////////////////
 func TestEncryptionMsgInTrueChain(t *testing.T) {

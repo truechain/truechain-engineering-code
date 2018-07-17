@@ -140,12 +140,12 @@ func (t *TrueHybrid) worker() {
 	}
 }
 
-//entrance  StartTrueChain
+//entrance
 func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
 	t.bc = b
 	t.grpcServer = grpc.NewServer()
 	// generate PbftCommittee(t.Cmm)
-	CreateCommittee(t)
+	CreateCommittee(t)//t.Cmm
 	if GetFirstStart() {
 		ctm := GetPbftNodesFromCfg()
 		if ctm != nil {
