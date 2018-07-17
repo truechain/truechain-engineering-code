@@ -385,7 +385,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		go func() {pm.cmss = append(pm.cmss, <-truechain.CmsCh)}()
 		go func() {pm.cmss = append(pm.cmss, cms...)}()
-		return p.SendCMS(pm.cmss)
+		//return p.SendCMS(pm.cmss)
 	case msg.Code == CDSMsg:
 		var cds []*truechain.CdEncryptionMsg
 		if err := msg.Decode(cds); err != nil {
@@ -394,10 +394,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, v := range cds {
 			p.tt.ReceiveSdmMsg(v)
 		}
-		go func() {
-			pm.cdss = append(pm.cdss, <-truechain.CdsCh)
-		}()
-		return p.SendCDS(cds)
+		go func() {pm.cdss = append(pm.cdss, <-truechain.CdsCh)}()
+		go func() {pm.cdss = append(pm.cdss,cds)}()
+		//return p.SendCDS(cds)
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
 		// Decode the complex header query
