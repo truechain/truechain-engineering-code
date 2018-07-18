@@ -46,7 +46,18 @@ type PbftCdCommittee struct {
 	NCdCrypMsg		[]*CdEncryptionMsg		// new candidate Member message(unauthenticated msg by block comfirm)
 }
 
-func (pcd *PbftCdCommittee) add(msg *CdEncryptionMsg,pccSize int) error {
+func (pcc *PbftCdCommittee) addMsgToNCdCrypMsg(msg *CdEncryptionMsg){
+	if msg == nil {
+		return
+	}
+	pcc.NCdCrypMsg = append(pcc.NCdCrypMsg,msg)
+	if len(pcc.NCdCrypMsg) > 1000 {
+		pcc.NCdCrypMsg = Removemgs(pcc.NCdCrypMsg, 0)
+	}
+}
+
+
+func (pcd *PbftCdCommittee) addMsgToCm(msg *CdEncryptionMsg,pccSize int) error {
 	// CdEncryptionMsg convert into CdMember
 	cdMember := msg.convertMsgToCdMember()
 	if cdMember == nil {
@@ -104,7 +115,7 @@ func (pcc *PbftCdCommittee) insertToSDM(bc *core.BlockChain,sdmsize int) error {
 		m.SetUse(true)
 		res := verityMsg(m,bc)
 		if res == 1 {
-			pcc.add(m,sdmsize)// add the CdEncryptionMsg into standbyqueue
+			pcc.addMsgToCm(m,sdmsize)// add the CdEncryptionMsg into standbyqueue
 		}
 	}
 	return nil
@@ -171,10 +182,13 @@ func (pcd *PbftCdCommittee) voteFromCd(num int) ([]*CommitteeMember,error) {
 	}
 	return vv,nil
 }
+
 func (pcd *PbftCdCommittee) syncStandbyMembers() {
 	// sync crypmsg
 	CdsCh <-pcd.VCdCrypMsg
 }
+
+
 
 //handle the msg of miner  CdEncryptionMsg
 func (pcc *PbftCdCommittee) handleReceiveSdmMsg(msg *CdEncryptionMsg,bc *core.BlockChain) {
@@ -193,7 +207,7 @@ func (pcc *PbftCdCommittee) handleReceiveSdmMsg(msg *CdEncryptionMsg,bc *core.Bl
 	// verify the msg when the block is on
 	res := verityMsg(msg,bc)
 	if res == 1 {
-		pcc.VCdCrypMsg = append(pcc.VCdCrypMsg,msg)//？
+		pcc.VCdCrypMsg = append(pcc.VCdCrypMsg,msg)//?
 	} else if res == 0 {
 		pcc.NCdCrypMsg = append(pcc.NCdCrypMsg,msg)
 		if len(pcc.NCdCrypMsg ) > 1000 {

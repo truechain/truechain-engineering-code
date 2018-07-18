@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"sync"
+	"log"
 )
 
 type CommitteeMember struct {
@@ -43,6 +44,40 @@ type PbftCommittee struct {
 type checkPair struct {
 	left	int
 	right 	int
+}
+
+func CreateCommittee(t *TrueHybrid) {
+	curCmm := make([]*CommitteeMember,0,0)
+	curCmmCount := 1
+	_,pubKey,privateKey := t.GetNodeID()
+	cc := CommitteeMember{
+		Addr:			"127.0.0.1", //"192.168.190.1",
+		Port:			16745,
+		Nodeid:			pubKey,
+	}
+	curCmm = append(curCmm,&cc)
+
+	cmm := &PbftCommittee{
+		No:				1,
+		Ct:				time.Now(),
+		Lastt:			time.Now(),
+		Count:			curCmmCount,
+		Lcount:			0,
+		Comm:			curCmm,
+		Lcomm:			nil,
+		Sig:			make([]string,0,0),
+	}
+	//obtain Sig
+	sig := cmm.Sig
+	bp,_ := hex.DecodeString(privateKey)
+	priv,_ := crypto.ToECDSA(bp)
+	k,err:= crypto.Sign(cmm.GetHash(),priv)
+	if err != nil{
+		log.Panic(err)
+	}
+	sig = append(sig,common.ToHex(k))
+	cmm.Sig = sig
+	t.Cmm = cmm
 }
 
 func GetPbftNodesFromCfg() []*CommitteeMember {

@@ -26,6 +26,7 @@ func (t *CdEncryptionMsg) convertMsgToCdMember() *CdMember {
 	//fromByte(t.Msg,info)
 	return &info
 }
+
 // convert CdMember into  CdEncryptionMsg
 func ConvertCdMemberToMsg(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg,error) {
 	cmsg := CdEncryptionMsg{
@@ -45,6 +46,7 @@ func ConvertCdMemberToMsg(n *CdMember,priv *ecdsa.PrivateKey) (*CdEncryptionMsg,
 	}
 	return &cmsg,nil
 }
+
 func (t *CdMember) ConvertToCdMember(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)

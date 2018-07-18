@@ -9,17 +9,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/core/vm"
+
 	"crypto/ecdsa"
 	"log"
 )
 const(
-	keysCount = 6
+	keysCount = 5
 )
 
 var (
-	th = NewTrueHybrid()
+	th = NewTrueHybrid() //TrueHybrid Object
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
-
+	blockchain  *core.BlockChain
 	tx1 = types.NewTransaction(
 		0,
 		common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"),
@@ -50,7 +55,7 @@ func init(){
 		privkeys = append(privkeys,privateKey)
 	}
 	th.Config.CmmCount = 3  //amount of Pbft Committee Members
-	fmt.Println("hahahah")
+	GenerateBlockchain()
 }
 
 func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
@@ -93,7 +98,7 @@ func ConvertTransaction(oldTxs []*types.Transaction) []*Transaction{
 func GenerateSigs(pbBlock TruePbftBlock) []string{
 	sigs := make([]string,0,0)
 	msg := rlpHash(pbBlock.Txs)
-	for i:=0;i<keysCount/2;i++ {
+	for i:=0;i<keysCount;i++ {
 		// same priveatekey to sign the message
 		sig,err := crypto.Sign(msg[:],privkeys[i])
 		if err != nil {
@@ -122,6 +127,10 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 	}
 	block.Sigs =GenerateSigs(block)
 	return &block
+}
+
+func GenerateBlockchain() {
+	blockchain, _ = core.NewBlockChain(ethdb.NewMemDatabase(), nil, params.AllEthashProtocolChanges, nil, vm.Config{})
 }
 
 func TestNewCommittee(t *testing.T) {
@@ -160,6 +169,7 @@ func TestNewCommittee(t *testing.T) {
 	th.UpdateLocalCommittee(cmm,true)
 	th.StopTrueChain()
 }
+
 
 func TestPbftBlock(t *testing.T) {
 	th.Cmm = MakeFirstCommittee(3)

@@ -27,8 +27,6 @@ func TestMsgToMember(t *testing.T) {
 }
 
 
-
-
 //////////////////////////////////////////////
 func TestEncryptionMsgInTrueChain(t *testing.T) {
 	tmp := struct {

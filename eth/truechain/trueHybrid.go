@@ -67,12 +67,11 @@ type VoteResult struct {
 	cmm 		[]*CommitteeMember
 }
 
-
 func NewTrueHybrid() *TrueHybrid {
 	// read cfg
 	config := Config {
 		ServerAddress:          ":17546",
-		ClientAddress:          "127.0.0.1:17545",
+		ClientAddress:         "129.168.190.1:17545", // "127.0.0.1:17545",
 		CmmCount:               5,
 		Sdmsize:                1000,
 	}
@@ -107,6 +106,25 @@ func NewTrueHybrid() *TrueHybrid {
 	return t
 }
 
+//entrance
+func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
+	t.bc = b
+	t.grpcServer = grpc.NewServer()
+	// generate PbftCommittee(t.Cmm)
+	CreateCommittee(t)//t.Cmm
+	if GetFirstStart() {
+		ctm := GetPbftNodesFromCfg()
+		if ctm != nil {
+			t.MembersNodes(ctm)
+			//CreateCommittee(t)
+			t.Start()
+		}
+	}
+	go HybridConsensusHelpInit(t)
+	time.Sleep(1*time.Second)
+	go TrueChainWork(t)
+	return nil
+}
 
 func TrueChainWork(t *TrueHybrid) {
 	t.worker()
@@ -140,25 +158,6 @@ func (t *TrueHybrid) worker() {
 	}
 }
 
-//entrance
-func (t *TrueHybrid) StartTrueChain(b *core.BlockChain) error {
-	t.bc = b
-	t.grpcServer = grpc.NewServer()
-	// generate PbftCommittee(t.Cmm)
-	CreateCommittee(t)//t.Cmm
-	if GetFirstStart() {
-		ctm := GetPbftNodesFromCfg()
-		if ctm != nil {
-			t.MembersNodes(ctm)
-			//CreateCommittee(t)
-			t.Start()
-		}
-	}
-	go HybridConsensusHelpInit(t)
-	time.Sleep(1*time.Second)
-	go TrueChainWork(t)
-	return nil
-}
 
 func (t *TrueHybrid) StopTrueChain() {
 	t.quit <- true
@@ -309,7 +308,7 @@ func (t *TrueHybrid) SetTransactions(th *TrueHybrid,txs []*types.Transaction) {
 func (t *TrueHybrid) AddBlock(block *TruePbftBlock) {
 	//Judging committee members
 	if(t.CheckBlock(block)==nil){
-		t.GetBp().blocks = append(t.GetBp().blocks, block)
+		t.Bp.blocks = append(t.Bp.blocks, block)
 	}
 	//self.blocks = append(self.blocks, block)
 	t.GetBp().JoinEth()
