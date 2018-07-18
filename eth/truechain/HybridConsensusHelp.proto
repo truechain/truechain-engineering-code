@@ -44,7 +44,7 @@ message CommonReply {
 message TruePbftNode {
     string nodeid	     = 1;
     string addr		     = 2;
-    int32 port		     = 3;
+    uint32 port		     = 3;
 }
 
 message Nodes {
@@ -52,22 +52,22 @@ message Nodes {
 }
 
 message TruePbftBlockHeader {
-    int64  Number 	= 1;
-    int64  GasLimit     = 2;
-    int64  GasUsed	= 3;
-    int64  Time		= 4;
+    uint64  Number 		= 1;
+    uint64  GasLimit     	= 2;
+    uint64  GasUsed		= 3;
+    uint64  Time		= 4;
 }
 message TxData {
     uint64 AccountNonce       	 = 1;
-    int64  Price 	     	 = 2;
-    int64  GasLimit		 = 3;
+    uint64  Price 	     	 = 2;
+    uint64  GasLimit		 = 3;
     bytes  Recipient		 = 4;
-    int64  Amount 		 = 5;
+    uint64  Amount 		 = 5;
     bytes  Payload		 = 6;
     
-    int64  V 			 = 7;
-    int64  R			 = 8;
-    int64  S			 = 9;
+    uint64  V 			 = 7;
+    uint64  R			 = 8;
+    uint64  S			 = 9;
 
     bytes Hash			 = 10;
 }
