@@ -67,7 +67,7 @@ type VoteResult struct {
 	cmm 		[]*CommitteeMember
 }
 
-func NewTrueHybrid() *TrueHybrid {
+func New() *TrueHybrid {
 	// read cfg
 	config := Config {
 		ServerAddress:          ":17546",
