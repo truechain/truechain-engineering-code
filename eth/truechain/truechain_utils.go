@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 )
 
 func ReadCfg(filename string) (map[string]interface{}, error){
@@ -40,6 +42,13 @@ func fromByte(data []byte,to interface{}) error {
 
 func ToByte(e interface{}) ([]byte,error) {
 	return toByte(e)
+}
+
+func rlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
 
 func RlpHash(x interface{}) (h common.Hash) {
