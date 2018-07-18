@@ -50,10 +50,8 @@ func TestEncryptionMsgInTrueChain(t *testing.T) {
 		verifyPub, err := crypto.SigToPub(hash[:], sig)
 		if err == nil {
 			strverifyPub := hex.EncodeToString(crypto.FromECDSAPub(verifyPub))
-
 			if pub == strverifyPub {
 				fmt.Println("sign test seccess,pub = ", pub, " strverifyPub = ", strverifyPub)
-
 			}
 		}
 	}

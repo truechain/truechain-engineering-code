@@ -112,7 +112,7 @@ func Test_addMsgToNCdCrypMsg(t *testing.T) {
 
 func Test_checkTmpMsg(t *testing.T) {
 	simulationCreateCommittee(th)
-	trueBlock :=MakePbftBlock(th.Cmm)
+	//trueBlock :=MakePbftBlock(th.Cmm)
 
 	pcc.checkTmpMsg(blockchain)
 
