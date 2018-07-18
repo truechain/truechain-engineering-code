@@ -25,7 +25,7 @@ import (
 type CommitteeMember struct {
 	Nodeid		string			// the pubkey of the node(nodeid)
 	Addr		string
-	Port		int
+	Port		uint32
 }
 
 type PbftCommittee struct {
@@ -96,7 +96,7 @@ func GetPbftNodesFromCfg() []*CommitteeMember {
 		cm = append(cm,&CommitteeMember{
 			Nodeid:         nid,
 			Addr:           addr,
-			Port:           int(port),
+			Port:           uint32(port),
 		})
 	}
 	return  cm

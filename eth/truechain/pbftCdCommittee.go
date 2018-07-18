@@ -175,7 +175,7 @@ func (pcd *PbftCdCommittee) voteFromCd(num int) ([]*CommitteeMember,error) {
 			vv = append(vv,&CommitteeMember{
 				Nodeid:		v.Nodeid,
 				Addr:		v.Addr,			
-				Port:		v.Port,			
+				Port:		uint32(v.Port),			
 			})
 			i++
 		}

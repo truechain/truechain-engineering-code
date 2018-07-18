@@ -32,7 +32,7 @@ func (self *BlockPool) JoinEth() {
 			var to common.Address
 			to.SetBytes(txData.GetRecipient())
 			//Create a new transaction
-			transaction := types.NewTransaction(txData.GetAccountNonce(),to,big.NewInt(txData.GetAmount()),uint64(txData.GetGasLimit()),nil,txData.GetPayload())
+			transaction := types.NewTransaction(txData.GetAccountNonce(),to,new(big.Int).SetUint64(txData.GetAmount()),uint64(txData.GetGasLimit()),nil,txData.GetPayload())
 			txs = append(txs,transaction)
 		}
 

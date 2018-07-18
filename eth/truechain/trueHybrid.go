@@ -248,7 +248,7 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
 		pbNode := &TruePbftNode{
 			Addr:       node.Addr,
 			Nodeid:     node.Nodeid,
-			Port:       int32(node.Port),
+			Port:       node.Port,
 		}
 		pbNodes = append(pbNodes,pbNode)
 	}
