@@ -22,14 +22,14 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 		pbTxs = append(pbTxs,&Transaction{
 			Data:       &TxData{
 				AccountNonce:         vv.Nonce(),
-				Price:                vv.GasPrice().Int64(),
-				GasLimit:             new(big.Int).SetUint64(vv.Gas()).Int64(),
+				Price:                vv.GasPrice().Uint64(),
+				GasLimit:             new(big.Int).SetUint64(vv.Gas()).Uint64(),
 				Recipient:            to,
-				Amount:               vv.Value().Int64(),
+				Amount:               vv.Value().Uint64(),
 				Payload:              vv.Data(),
-				V:                    v.Int64(),
-				R:                    r.Int64(),
-				S:                    s.Int64(),
+				V:                    v.Uint64(),
+				R:                    r.Uint64(),
+				S:                    s.Uint64(),
 				Hash:                 nil,
 				XXX_NoUnkeyedLiteral: struct{}{},
 				XXX_unrecognized:     nil,
@@ -46,7 +46,7 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 		Number:				10,
 		GasLimit:			100,
 		GasUsed:			80,
-		Time:				now,
+		Time:				uint64(now),
 	}
 
 	block.Header = &head
