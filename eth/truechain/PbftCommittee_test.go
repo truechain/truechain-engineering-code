@@ -92,36 +92,3 @@ func Test_CreateCommittee(t *testing.T) {
 	fmt.Println(th)
 	//th.Cdm =pcc
 }
-
-func MakeFirstCommittee(curCmmCount int) *PbftCommittee{
-	if curCmmCount > keysCount {
-		return nil
-	}
-	curCmm := make([]*CommitteeMember,0,0)
-	for i:=0;i<curCmmCount;i++ {
-		nodeid :=hex.EncodeToString(crypto.FromECDSAPub(GetPub(privkeys[i])))
-		cc := CommitteeMember{
-			Addr:			"127.0.0.1",
-			Port:			16745,
-			Nodeid:			nodeid,
-		}
-		curCmm = append(curCmm,&cc)
-	}
-	cmm := PbftCommittee{
-		No:				1,
-		Ct:				time.Now(),
-		Lastt:			time.Now(),
-		Count:			curCmmCount,
-		Lcount:			0,
-		Comm:			curCmm,
-		Lcomm:			nil,
-		Sig:			make([]string,0,0),
-	}
-	sig := cmm.Sig
-	for i:=0;i<curCmmCount ;i++ {
-		k,_ := crypto.Sign(cmm.GetHash(),privkeys[i])
-		sig = append(sig,common.ToHex(k))
-	}
-	cmm.Sig =sig
-	return &cmm
-}

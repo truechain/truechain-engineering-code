@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	th = truechain.New()
+	th = truechain.NewTrueHybrid()
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
 	keysCount = 6
 	tx1 = types.NewTransaction(
@@ -359,14 +359,14 @@ func MakePbftBlock(cmm *truechain.PbftCommittee) *truechain.TruePbftBlock {
 		pbTxs = append(pbTxs,&truechain.Transaction{
 			Data:       &truechain.TxData{
 				AccountNonce:       vv.Nonce(),
-				Price:              vv.GasPrice().Int64(),
-				GasLimit:           new(big.Int).SetUint64(vv.Gas()).Int64(),
+				Price:              vv.GasPrice().Uint64(),
+				GasLimit:           new(big.Int).SetUint64(vv.Gas()).Uint64(),
 				Recipient:          to,
-				Amount:             vv.Value().Int64(),
+				Amount:             vv.Value().Uint64(),
 				Payload:            vv.Data(),
-				V:                  v.Int64(),
-				R:                  r.Int64(),
-				S:                  s.Int64(),
+				V:                  v.Uint64(),
+				R:                  r.Uint64(),
+				S:                  s.Uint64(),
 			},
 		})
 	}
@@ -376,7 +376,7 @@ func MakePbftBlock(cmm *truechain.PbftCommittee) *truechain.TruePbftBlock {
 		Number:				10,
 		GasLimit:			100,
 		GasUsed:			80,
-		Time:				now,
+		Time:				uint64(now),
 	}
 	block := truechain.TruePbftBlock{
 		Header:			&head,

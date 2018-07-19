@@ -16,13 +16,14 @@ import (
 
 	"crypto/ecdsa"
 	"log"
+	"encoding/hex"
 )
 const(
 	keysCount = 5
 )
 
 var (
-	th = New() //TrueHybrid Object
+	th = NewTrueHybrid() //TrueHybrid Object
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
 	blockchain  *core.BlockChain
 	tx1 = types.NewTransaction(
@@ -79,14 +80,14 @@ func ConvertTransaction(oldTxs []*types.Transaction) []*Transaction{
 		newTx :=&Transaction{
 			Data:       &TxData{
 				AccountNonce:       tx.Nonce(),
-				Price:              tx.GasPrice().Int64(),
-				GasLimit:           new(big.Int).SetUint64(tx.Gas()).Int64(),
+				Price:              tx.GasPrice().Uint64(),
+				GasLimit:           new(big.Int).SetUint64(tx.Gas()).Uint64(),
 				Recipient:          to,
-				Amount:             tx.Value().Int64(),
+				Amount:             tx.Value().Uint64(),
 				Payload:            tx.Data(),
-				V:                  v.Int64(),
-				R:                  r.Int64(),
-				S:                  s.Int64(),
+				V:                  v.Uint64(),
+				R:                  r.Uint64(),
+				S:                  s.Uint64(),
 			},
 		}
 		pbTxs = append(pbTxs,newTx)
@@ -119,7 +120,7 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 		Number:				10,
 		GasLimit:			100,
 		GasUsed:			80,
-		Time:				time.Now().Unix(),
+		Time:				uint64(time.Now().Unix()),
 	}
 	block := TruePbftBlock{
 		Header:			&head,
@@ -204,4 +205,37 @@ func TestDataStruct(t *testing.T) {
 	}
 	fmt.Println("height:",n2.Height)
 	fmt.Println(n2)
+}
+
+func MakeFirstCommittee(curCmmCount int) *PbftCommittee{
+	if curCmmCount > keysCount {
+		return nil
+	}
+	curCmm := make([]*CommitteeMember,0,0)
+	for i:=0;i<curCmmCount;i++ {
+		nodeid :=hex.EncodeToString(crypto.FromECDSAPub(GetPub(privkeys[i])))
+		cc := CommitteeMember{
+			Addr:			"127.0.0.1",
+			Port:			16745,
+			Nodeid:			nodeid,
+		}
+		curCmm = append(curCmm,&cc)
+	}
+	cmm := PbftCommittee{
+		No:				1,
+		Ct:				time.Now(),
+		Lastt:			time.Now(),
+		Count:			curCmmCount,
+		Lcount:			0,
+		Comm:			curCmm,
+		Lcomm:			nil,
+		Sig:			make([]string,0,0),
+	}
+	sig := cmm.Sig
+	for i:=0;i<curCmmCount ;i++ {
+		k,_ := crypto.Sign(cmm.GetHash(),privkeys[i])
+		sig = append(sig,common.ToHex(k))
+	}
+	cmm.Sig =sig
+	return &cmm
 }
