@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	port = ":38535"
-	address   = "localhost:40450"
+	port = ":17546"
+	address   = "45.40.241.133:17546"
 
 )
 
