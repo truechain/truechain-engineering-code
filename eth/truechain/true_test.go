@@ -23,7 +23,7 @@ const(
 )
 
 var (
-	th = New() //TrueHybrid Object
+	th = NewTrueHybrid() //TrueHybrid Object
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
 	blockchain  *core.BlockChain
 	tx1 = types.NewTransaction(

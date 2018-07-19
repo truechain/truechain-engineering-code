@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	th = truechain.New()
+	th = truechain.NewTrueHybrid()
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
 	keysCount = 6
 	tx1 = types.NewTransaction(
