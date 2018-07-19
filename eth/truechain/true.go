@@ -15,6 +15,9 @@ package truechain
 import (
     "net"
     "golang.org/x/net/context"
+    "io"
+    "fmt"
+    "github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -83,5 +86,22 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
     if err := t.GrpcServer().Serve(lis); err != nil {
         //log.Fatalf("failed to serve: %v", err)
     }
+}
+
+// EncodeRLP implements rlp.Encoder
+func (tx *Transaction) EncodeRLP(w io.Writer) error {
+    fmt.Println("Transaction1232222	EncodeRLP")
+    return rlp.Encode(w, []interface{}{
+        tx.Data.AccountNonce,
+        tx.Data.Price,
+        tx.Data.GasLimit,
+        tx.Data.Recipient,
+        tx.Data.Amount,
+        tx.Data.Payload,
+        tx.Data.V,
+        tx.Data.R,
+        tx.Data.S,
+        tx.Data.Hash,
+    })
 }
 
