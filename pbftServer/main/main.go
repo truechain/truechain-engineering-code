@@ -1,7 +1,7 @@
 package main
 
 import (
-	pb "github.com/pbftServer"
+	pb "github.com/truechain/truechain-engineering-code/pbftServer"
 	"fmt"
 	"os"
 	"os/signal"
