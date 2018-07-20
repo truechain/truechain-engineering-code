@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-
 package math
 
 import (
@@ -22,8 +21,8 @@ import (
 	"strconv"
 )
 
+// Integer limit values.
 const (
-	// Integer limit values.
 	MaxInt8   = 1<<7 - 1
 	MinInt8   = -1 << 7
 	MaxInt16  = 1<<15 - 1

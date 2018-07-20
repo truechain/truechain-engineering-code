@@ -32,13 +32,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 // PublicEthereumAPI provides an API to access Ethereum full node-related
@@ -65,31 +65,6 @@ func (api *PublicEthereumAPI) Coinbase() (common.Address, error) {
 // Hashrate returns the POW hashrate
 func (api *PublicEthereumAPI) Hashrate() hexutil.Uint64 {
 	return hexutil.Uint64(api.e.Miner().HashRate())
-}
-
-// PublicTrueHybridAPI provides an API to access Truechain Hybrid Consensus
-// information.
-type PublicTrueHybridAPI struct {
-	tc *truechain.TrueHybrid
-}
-
-// NewPublicTrueHybridAPI creates a new Truechain protocol API for full nodes.
-func NewPublicTrueHybridAPI(tc *truechain.TrueHybrid) *PublicTrueHybridAPI {
-	return &PublicTrueHybridAPI{tc}
-}
-
-func (api *PublicTrueHybridAPI) Sdmsize() int {
-	return api.tc.GetSdmsize()
-}
-
-func (api *PublicTrueHybridAPI) CommitteeMembers() []string {
-	return api.tc.GetCommitteeMembers()
-}
-
-// test func, push a faked block info
-func (api *PublicTrueHybridAPI) ATestBlockInfo() bool {
-	api.tc.GetBp().PushAEmptyBlock()
-	return true
 }
 
 // PublicMinerAPI provides an API to control the miner.
@@ -377,10 +352,34 @@ func (api *PrivateDebugAPI) Preimage(ctx context.Context, hash common.Hash) (hex
 	return nil, errors.New("unknown preimage")
 }
 
-// GetBadBLocks returns a list of the last 'bad blocks' that the client has seen on the network
+// BadBlockArgs represents the entries in the list returned when bad blocks are queried.
+type BadBlockArgs struct {
+	Hash  common.Hash            `json:"hash"`
+	Block map[string]interface{} `json:"block"`
+	RLP   string                 `json:"rlp"`
+}
+
+// GetBadBlocks returns a list of the last 'bad blocks' that the client has seen on the network
 // and returns them as a JSON list of block-hashes
-func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]core.BadBlockArgs, error) {
-	return api.eth.BlockChain().BadBlocks()
+func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]*BadBlockArgs, error) {
+	blocks := api.eth.BlockChain().BadBlocks()
+	results := make([]*BadBlockArgs, len(blocks))
+
+	var err error
+	for i, block := range blocks {
+		results[i] = &BadBlockArgs{
+			Hash: block.Hash(),
+		}
+		if rlpBytes, err := rlp.EncodeToBytes(block); err != nil {
+			results[i].RLP = err.Error() // Hacky, but hey, it works
+		} else {
+			results[i].RLP = fmt.Sprintf("0x%x", rlpBytes)
+		}
+		if results[i].Block, err = ethapi.RPCMarshalBlock(block, true, true); err != nil {
+			results[i].Block = map[string]interface{}{"error": err.Error()}
+		}
+	}
+	return results, nil
 }
 
 // StorageRangeResult is the result of a debug_storageRangeAt API call.
@@ -432,7 +431,7 @@ func storageRangeAt(st state.Trie, start []byte, maxResult int) (StorageRangeRes
 	return result, nil
 }
 
-// GetModifiedAccountsByumber returns all accounts that have changed between the
+// GetModifiedAccountsByNumber returns all accounts that have changed between the
 // two blocks specified. A change is defined as a difference in nonce, balance,
 // code hash, or storage hash.
 //

@@ -16,7 +16,6 @@
 
 package common
 
-
 import "math/big"
 
 // Common big integers often used

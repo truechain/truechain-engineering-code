@@ -5,7 +5,6 @@
 // Package browser provides utilities for interacting with users' browsers.
 package browser
 
-
 import (
 	"os"
 	"os/exec"

@@ -24,6 +24,13 @@ import (
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
+// Neo 20180626 for fruit and record;Abtion 20180715 motify Neo's NewFruitEvent to NewFruitsEvent
+type NewFruitsEvent struct{ Fruits []*types.Block }
+//Abtion 20180715 motify Neo's NewRecordEvent to NewRecordsEvent
+type NewRecordsEvent struct{ Records []*types.PbftRecord }
+
+
+
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
 	Logs []*types.Log
@@ -35,10 +42,21 @@ type PendingStateEvent struct{}
 // NewMinedBlockEvent is posted when a block has been imported.
 type NewMinedBlockEvent struct{ Block *types.Block }
 
+// NewMinedFruitEvent is posted when a block has been imported.
+type NewMinedFruitEvent struct{ Block *types.Block }
+
+
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
 type ChainEvent struct {
+	Block *types.Block
+	Hash  common.Hash
+	Logs  []*types.Log
+}
+
+// neo 20180628 for fruit event
+type FruitEvent struct {
 	Block *types.Block
 	Hash  common.Hash
 	Logs  []*types.Log
@@ -49,3 +67,4 @@ type ChainSideEvent struct {
 }
 
 type ChainHeadEvent struct{ Block *types.Block }
+type FruitFleashEvent struct{ Block *types.Block }

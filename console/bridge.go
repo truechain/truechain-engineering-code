@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-
 package console
 
 import (
@@ -272,7 +271,7 @@ func (b *bridge) SleepBlocks(call otto.FunctionCall) (response otto.Value) {
 }
 
 type jsonrpcCall struct {
-	Id     int64
+	ID     int64
 	Method string
 	Params []interface{}
 }
@@ -305,7 +304,7 @@ func (b *bridge) Send(call otto.FunctionCall) (response otto.Value) {
 	resps, _ := call.Otto.Object("new Array()")
 	for _, req := range reqs {
 		resp, _ := call.Otto.Object(`({"jsonrpc":"2.0"})`)
-		resp.Set("id", req.Id)
+		resp.Set("id", req.ID)
 		var result json.RawMessage
 		err = b.client.Call(&result, req.Method, req.Params...)
 		switch err := err.(type) {

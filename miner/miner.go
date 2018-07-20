@@ -15,7 +15,6 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package miner implements Ethereum block creation and mining.
-
 package miner
 
 import (
@@ -33,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 // Backend wraps all methods required for mining.
@@ -41,6 +39,7 @@ type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
+	HybridPool() *core.HybridPool
 	ChainDb() ethdb.Database
 }
 
@@ -59,15 +58,15 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,tc *truechain.TrueHybrid) *Miner {
+func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:      eth,
 		mux:      mux,
 		engine:   engine,
-		worker:   newWorker(config, engine, common.Address{}, eth, mux,tc),
+		worker:   newWorker(config, engine, common.Address{}, eth, mux),
 		canStart: 1,
 	}
-	miner.Register(NewCpuAgent(eth.BlockChain(), engine,tc))
+	miner.Register(NewCpuAgent(eth.BlockChain(), engine))
 	go miner.update()
 
 	return miner

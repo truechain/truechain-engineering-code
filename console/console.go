@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-
 package console
 
 import (
@@ -61,7 +60,7 @@ type Config struct {
 	Preload  []string     // Absolute paths to JavaScript files to preload
 }
 
-// Console is a JavaScript interpreted runtime environment. It is a fully fleged
+// Console is a JavaScript interpreted runtime environment. It is a fully fledged
 // JavaScript console attached to a running node via an external or in-process RPC
 // client.
 type Console struct {
@@ -74,6 +73,8 @@ type Console struct {
 	printer  io.Writer    // Output writer to serialize any display strings to
 }
 
+// New initializes a JavaScript interpreted runtime environment and sets defaults
+// with the config struct.
 func New(config Config) (*Console, error) {
 	// Handle unset config values gracefully
 	if config.Prompter == nil {

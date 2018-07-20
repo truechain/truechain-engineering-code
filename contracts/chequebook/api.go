@@ -16,7 +16,6 @@
 
 package chequebook
 
-
 import (
 	"errors"
 	"math/big"

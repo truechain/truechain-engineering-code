@@ -16,7 +16,6 @@
 
 package console
 
-
 import (
 	"fmt"
 	"strings"

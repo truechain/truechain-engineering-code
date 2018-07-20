@@ -20,9 +20,10 @@ import (
 	"sync"
 
 	"sync/atomic"
+
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 )
 
 type CpuAgent struct {
@@ -35,17 +36,16 @@ type CpuAgent struct {
 
 	chain  consensus.ChainReader
 	engine consensus.Engine
-	tc 	*truechain.TrueHybrid
+
 	isMining int32 // isMining indicates whether the agent is currently mining
 }
 
-func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine,tc *truechain.TrueHybrid) *CpuAgent {
+func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent {
 	miner := &CpuAgent{
 		chain:  chain,
 		engine: engine,
 		stop:   make(chan struct{}, 1),
 		workCh: make(chan *Work, 1),
-		tc:tc,
 	}
 	return miner
 }
@@ -59,7 +59,7 @@ func (self *CpuAgent) Stop() {
 	}
 	self.stop <- struct{}{}
 done:
-// Empty work channel
+	// Empty work channel
 	for {
 		select {
 		case <-self.workCh:
@@ -101,33 +101,49 @@ out:
 }
 
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
+	//Neo for test
+	log.Info("start to mine and to be consensus", " difficulty ", work.header.Difficulty)
+	// the mine with consensus
+
+	// old ethereum code neo 20180624
+	/*
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
 		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
 		self.returnCh <- &Result{work, result}
-		self.MakeSigned(work)
 	} else {
 		if err != nil {
 			log.Warn("Block sealing failed", "err", err)
 		}
 		self.returnCh <- nil
 	}
+	*/
+
+	// the new flow for fruit and block 20180624
+	send := make(chan *types.Block, 10)
+	abort := make(chan struct{})
+	go self.engine.ConSeal(self.chain, work.Block, abort, send)
+
+	var result *types.Block
+	mineloop:
+	for {
+		select {
+		case <-stop:
+			// Outside abort, stop all miner threads
+			close(abort)
+			break mineloop
+		case result = <-send:
+			// One of the threads found a block or fruit return it
+			self.returnCh <- &Result{work, result}
+			// when get a fruit, to stop or continue
+			if !result.IsFruit() {
+				break mineloop
+			}
+			break
+		}
+	}
+	
+
 }
-
-func (self *CpuAgent) MakeSigned(work *Work){
-
-	//_,pub,_ := work.tc.GetNodeID()
-
-	//cc := truechain.CommitteeMember{
-	//	Addr:			"127.0.0.1",
-	//	Port:			16745,
-	//	Nodeid:			pub,
-	//}
-
-	//work.tc.Cmm.SetlCmm(append(work.tc.Cmm.GetlCmm(), cc))
-
-
-}
-
 
 func (self *CpuAgent) GetHashRate() int64 {
 	if pow, ok := self.engine.(consensus.PoW); ok {
