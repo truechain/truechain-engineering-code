@@ -26,15 +26,16 @@ type newBftBlockData struct {
 //}
 
 func (ps *peerSet) PeersWithoutPbftBlock(hash common.Hash) []*peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-	list := make([]*peer, 0, len(ps.peers))
-	for _, p := range ps.peers {
-		if !p.knownBftBlocks.Has(hash) {
-			list = append(list, p)
-		}
-	}
-	return list
+	// ps.lock.RLock()
+	// defer ps.lock.RUnlock()
+	// list := make([]*peer, 0, len(ps.peers))
+	// for _, p := range ps.peers {
+	// 	if !p.knownBftBlocks.Has(hash) {
+	// 		list = append(list, p)
+	// 	}
+	// }
+	// return list
+	return nil
 }
 //func (ps *peerSet) PeersWithoutPbftCms(hash common.Hash) []*peer {
 //	ps.lock.RLock()
@@ -80,57 +81,60 @@ type propBftEvent struct {block *truechain.TruePbftBlock}
 
 func (p *peer) SendNewBftBlock(b *truechain.TruePbftBlock) error {
 	//p.knownBftBlocks.Add(b.Hash())
-	return p2p.Send(p.rw, NewBftBlockMsg, []interface{}{b})
+	// return p2p.Send(p.rw, NewBftBlockMsg, []interface{}{b})
+	return nil
 }
 
 func (p *peer) AsyncSendNewBftBlocks(blocks []*truechain.TruePbftBlock) {
-	for _, b := range blocks {
-		s := make([]*truechain.TruePbftBlock, 1)
-		s = append(s, b)
-		select {
-		case p.queuedBftProps <- s:
-			p.knownBftBlocks.Add(b.Hash())
-		default:
-			p.Log().Debug("Dropping block propagation", "block", b)
-		}
-	}
+	// for _, b := range blocks {
+	// 	s := make([]*truechain.TruePbftBlock, 1)
+	// 	s = append(s, b)
+	// 	select {
+	// 	case p.queuedBftProps <- s:
+	// 		p.knownBftBlocks.Add(b.Hash())
+	// 	default:
+	// 		p.Log().Debug("Dropping block propagation", "block", b)
+	// 	}
+	// }
 }
 
 //cms
 
 func (p *peer) SendCMS(cms CMS) error {
-	p.knownBftCms.Add(cms.Hash())
-	return p2p.Send(p.rw, CMSMsg, []interface{}{cms})
+	// p.knownBftCms.Add(cms.Hash())
+	// return p2p.Send(p.rw, CMSMsg, []interface{}{cms})
+	return nil
 }
 
 //oms
 func (p *peer) SendCDS(cds CDS) error {
-	p.knownBftCds.Add(cds.Hash())
-	return p2p.Send(p.rw, CDSMsg, []interface{}{cds})
+	// p.knownBftCds.Add(cds.Hash())
+	// return p2p.Send(p.rw, CDSMsg, []interface{}{cds})
+	return nil
 }
 func (pm *ProtocolManager) pbBroadcastloop() {
-	for {
-		select {
-		case event := <-pm.pblocksCh:
-			pm.BroadcastPbs(event)
-			//case <-pm.pbsSub.Err():
-			//	return
-		}
-	}
+	// for {
+	// 	select {
+	// 	case event := <-pm.pblocksCh:
+	// 		pm.BroadcastPbs(event)
+	// 		//case <-pm.pbsSub.Err():
+	// 		//	return
+	// 	}
+	// }
 }
 
 func (pm *ProtocolManager) BroadcastPbs(pbs []*truechain.TruePbftBlock) {
-	var pbset = make(map[*peer][]*truechain.TruePbftBlock)
-	for _, pb := range pbs {
-		peers := pm.peers.PeersWithoutPbftBlock(pb.Hash())
-		for _, peer := range peers {
-			pbset[peer] = append(pbset[peer], pb)
-		}
-		log.Trace("Broadcast pbftblcok", "hash", pb.Hash())
-	}
-	for peer, pbs := range pbset {
-		peer.AsyncSendNewBftBlocks(pbs)
-	}
+	// var pbset = make(map[*peer][]*truechain.TruePbftBlock)
+	// for _, pb := range pbs {
+	// 	peers := pm.peers.PeersWithoutPbftBlock(pb.Hash())
+	// 	for _, peer := range peers {
+	// 		pbset[peer] = append(pbset[peer], pb)
+	// 	}
+	// 	log.Trace("Broadcast pbftblcok", "hash", pb.Hash())
+	// }
+	// for peer, pbs := range pbset {
+	// 	peer.AsyncSendNewBftBlocks(pbs)
+	// }
 }
 
 func prlpHash(x interface{}) (h common.Hash) {
