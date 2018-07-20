@@ -16,7 +16,6 @@ import (
     "net"
     "golang.org/x/net/context"
     "io"
-    "fmt"
     "github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -88,20 +87,111 @@ func HybridConsensusHelpInit(t *TrueHybrid) {
     }
 }
 
+// "external" TxData encoding. used for eth protocol, etc.
+type extTxData struct {
+    AccountNonce         uint64
+    Price                uint64
+    GasLimit             uint64
+    Recipient            []byte
+    Amount               uint64
+    Payload              []byte
+    V                    uint64
+    R                    uint64
+    S                    uint64
+    Hash                 []byte
+}
+
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
-    fmt.Println("Transaction1232222	EncodeRLP")
-    return rlp.Encode(w, []interface{}{
-        tx.Data.AccountNonce,
-        tx.Data.Price,
-        tx.Data.GasLimit,
-        tx.Data.Recipient,
-        tx.Data.Amount,
-        tx.Data.Payload,
-        tx.Data.V,
-        tx.Data.R,
-        tx.Data.S,
-        tx.Data.Hash,
+    return rlp.Encode(w, extTxData{
+        AccountNonce:   tx.Data.AccountNonce,
+        Price:       tx.Data.Price,
+        GasLimit:    tx.Data.GasLimit,
+        Recipient:  tx.Data.Recipient,
+        Amount:     tx.Data.Amount,
+        Payload:    tx.Data.Payload,
+        V:      tx.Data.V,
+        R:      tx.Data.R,
+        S:      tx.Data.S,
+        Hash:   tx.Data.Hash,
     })
 }
 
+func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
+    var eb extTxData
+    if err := s.Decode(&eb); err != nil {
+        return err
+    }
+    tx.Data.AccountNonce, tx.Data.Price, tx.Data.GasLimit = eb.AccountNonce, eb.Price, eb.GasLimit
+    tx.Data.Recipient = eb.Recipient
+    tx.Data.Amount = eb.Amount
+    tx.Data.Payload = eb.Payload
+    tx.Data.V, tx.Data.R, tx.Data.S, tx.Data.Hash = eb.V, eb.R, eb.V, eb.Hash
+    return nil
+}
+
+// EncodeRLP implements rlp.Encoder
+func (txs *Transactions) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, txs.Txs)
+}
+
+func (txs *Transactions) DecodeRLP(s *rlp.Stream) error {
+	err := s.Decode(txs.Txs)
+	return err
+}
+
+// "external" header encoding. used for eth protocol, etc.
+type extheader struct {
+	Number               uint64
+	GasLimit             uint64
+	GasUsed              uint64
+	Time                 uint64
+}
+
+// EncodeRLP implements rlp.Encoder
+func (header *TruePbftBlockHeader) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extheader{
+		Number:   header.Number,
+		GasLimit: header.GasLimit,
+		GasUsed:  header.GasUsed,
+		Time:     header.Time,
+	})
+}
+
+func (header *TruePbftBlockHeader) DecodeRLP(s *rlp.Stream) error {
+	var eh extheader
+	if err := s.Decode(&eh); err != nil {
+		return err
+	}
+	header.Number = eh.Number
+	header.GasLimit = eh.GasLimit
+	header.GasUsed = eh.GasUsed
+	header.Time = eh.Time
+	return nil
+}
+
+// "external" block encoding. used for eth protocol, etc.
+type extblock struct {
+	Header               *TruePbftBlockHeader
+	Txs                  *Transactions
+	Sigs                 []string
+}
+
+func (block *TruePbftBlock) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extblock{
+		Header:   block.Header,
+		Txs: block.Txs,
+		Sigs:  block.Sigs,
+	})
+}
+
+func (block *TruePbftBlock) DecodeRLP(s *rlp.Stream) error {
+	var eb extblock
+	if err := s.Decode(&eb); err != nil {
+		return err
+	}
+	block.Header = eb.Header
+	block.Txs = eb.Txs
+	block.Sigs = eb.Sigs
+	return nil
+}
