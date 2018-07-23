@@ -3,8 +3,8 @@ package pbftServer
 
 import (
 	"net"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"log"
 	"golang.org/x/net/context"
 	"time"
@@ -18,8 +18,8 @@ import (
 	"encoding/gob"
 	"crypto/ecdsa"
 	"math/big"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"encoding/hex"
 )
 

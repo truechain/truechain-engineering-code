@@ -1,12 +1,12 @@
 package eth
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	// "github.com/ethereum/go-ethereum/log"
-	// "github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/eth/truechain"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	// "github.com/truechain/truechain-engineering-code/log"
+	// "github.com/truechain/truechain-engineering-code/p2p"
+	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/eth/truechain"
 )
 
 //type PbftPool interface {

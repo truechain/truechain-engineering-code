@@ -24,13 +24,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	ethash "github.com/ethereum/go-ethereum/consensus/truepow"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/truechain/truechain-engineering-code/common"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var (

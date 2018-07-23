@@ -22,8 +22,8 @@ import (
 	"io"
 	"net"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // Entry is implemented by known node record entry types.

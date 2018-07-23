@@ -27,12 +27,12 @@ import (
 
 	cli "gopkg.in/urfave/cli.v1"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	"github.com/ethereum/go-ethereum/dashboard"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/params"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/truechain/truechain-engineering-code/cmd/utils"
+	"github.com/truechain/truechain-engineering-code/dashboard"
+	"github.com/truechain/truechain-engineering-code/eth"
+	"github.com/truechain/truechain-engineering-code/node"
+	"github.com/truechain/truechain-engineering-code/params"
+	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"github.com/naoina/toml"
 )
 

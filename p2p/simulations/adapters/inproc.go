@@ -23,13 +23,13 @@ import (
 	"net"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/p2p/simulations/pipes"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/node"
+	"github.com/truechain/truechain-engineering-code/p2p"
+	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/p2p/simulations/pipes"
+	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
 // SimAdapter is a NodeAdapter which creates in-memory simulation nodes and

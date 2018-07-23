@@ -5,12 +5,12 @@ package eth
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethash "github.com/ethereum/go-ethereum/consensus/truepow"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/eth/gasprice"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/eth/downloader"
+	"github.com/truechain/truechain-engineering-code/eth/gasprice"
 )
 
 var _ = (*configMarshaling)(nil)

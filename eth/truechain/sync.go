@@ -1,7 +1,7 @@
 package truechain
 
 import (
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 

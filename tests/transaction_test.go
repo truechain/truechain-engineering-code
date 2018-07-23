@@ -20,7 +20,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 func TestTransaction(t *testing.T) {

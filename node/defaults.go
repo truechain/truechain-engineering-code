@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/nat"
+	"github.com/truechain/truechain-engineering-code/p2p"
+	"github.com/truechain/truechain-engineering-code/p2p/nat"
 )
 
 const (

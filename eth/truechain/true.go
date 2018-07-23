@@ -16,7 +16,7 @@ import (
     "net"
     "golang.org/x/net/context"
     "io"
-    "github.com/ethereum/go-ethereum/rlp"
+    "github.com/truechain/truechain-engineering-code/rlp"
 )
 
 const (

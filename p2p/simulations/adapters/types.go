@@ -26,11 +26,11 @@ import (
 	"strconv"
 
 	"github.com/docker/docker/pkg/reexec"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/node"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/p2p/discover"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/node"
+	"github.com/truechain/truechain-engineering-code/p2p"
+	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
 // Node represents a node in a simulation network which is created by a

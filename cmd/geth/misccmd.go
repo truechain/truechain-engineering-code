@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/cmd/utils"
-	ethash "github.com/ethereum/go-ethereum/consensus/truepow"
-	"github.com/ethereum/go-ethereum/eth"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/truechain/truechain-engineering-code/cmd/utils"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	"github.com/truechain/truechain-engineering-code/eth"
+	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/urfave/cli.v1"
 )
 

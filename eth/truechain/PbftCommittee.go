@@ -16,8 +16,8 @@ import (
 	"time"
 	"encoding/hex"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"sync"
 	"log"
 )

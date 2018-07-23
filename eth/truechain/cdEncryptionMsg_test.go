@@ -4,7 +4,7 @@ import (
 	"testing"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 var msg *CdEncryptionMsg
 

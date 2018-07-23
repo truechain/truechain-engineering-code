@@ -1,10 +1,10 @@
 package truechain
 
 import (
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 type BlockPool struct {

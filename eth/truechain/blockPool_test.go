@@ -4,8 +4,8 @@ package truechain
 import (
 	"testing"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 

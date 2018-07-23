@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"encoding/hex"
 	"math/big"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"crypto/ecdsa"
 	"math/rand"
 	"time"

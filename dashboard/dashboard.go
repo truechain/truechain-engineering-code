@@ -33,11 +33,11 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
-	"github.com/ethereum/go-ethereum/p2p"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/p2p"
+	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/rpc"
 	"golang.org/x/net/websocket"
 )
 

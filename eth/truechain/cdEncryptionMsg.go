@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"bytes"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 
 	"encoding/gob"
 )
