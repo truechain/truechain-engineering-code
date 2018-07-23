@@ -17,7 +17,7 @@ import (
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block) (*types.Block, error) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -26,7 +26,7 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if ethash.shared != nil {
-		return ethash.shared.Seal(chain, block, stop)
+		return ethash.shared.Seal(chain, block, stop, nil)
 	}
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
@@ -70,7 +70,7 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop
 		// Thread count was changed on user request, restart
 		close(abort)
 		pend.Wait()
-		return ethash.Seal(chain, block, stop)
+		return ethash.Seal(chain, block, stop, nil)
 	}
 	// Wait for all miners to terminate and return the block
 	pend.Wait()

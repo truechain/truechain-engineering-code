@@ -16,7 +16,6 @@
 
 package node
 
-
 import (
 	"reflect"
 

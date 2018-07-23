@@ -33,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/fetcher"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -49,12 +48,10 @@ const (
 
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize     = 4096
-	pbChanSize     = 4096
-	NewBftBlockMsg = 0x11
-	CMSMsg         = 0x12
-	SBMembersMsg   = 0x13
-	CDSMsg         = 0x14
+	txChanSize = 4096
+	//record
+	recordChanSize = 256
+	fruitChanSize = 256
 )
 
 var (
@@ -70,13 +67,16 @@ func errResp(code errCode, format string, v ...interface{}) error {
 }
 
 type ProtocolManager struct {
-	networkId uint64
+	networkID uint64
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
 
 	txpool      txPool
+	hybridpool  hybridPool
 	blockchain  *core.BlockChain
+	//added by Abition 20180715
+	fruitchain  *core.BlockChain
 	chainconfig *params.ChainConfig
 	maxPeers    int
 
@@ -89,7 +89,16 @@ type ProtocolManager struct {
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
+	//records
+	recordsch      chan core.NewRecordsEvent
+	recordsSub	  event.Subscription
+	//fruit
+	fruitsch       chan core.NewFruitsEvent
+	fruitsSub	  event.Subscription
+
 	minedBlockSub *event.TypeMuxSubscription
+    //fruit
+	minedFruitSub *event.TypeMuxSubscription
 
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
@@ -100,26 +109,17 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
-	//pbft
-	*truechain.TrueHybrid
-	//pbftpool PbftPool
-	pblocksCh chan []*truechain.TruePbftBlock
-	cmsCh   chan []*truechain.PbftCommittee
-	cdsCh   chan [][]*truechain.CdEncryptionMsg
-	//pbsSub    event.Subscription
-	pblocks []*truechain.TruePbftBlock
-	cmss    []*truechain.PbftCommittee
-	cdss    [][]*truechain.CdEncryptionMsg
 }
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, hybridpool hybridPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkId:   networkId,
+		networkID:   networkID,
 		eventMux:    mux,
 		txpool:      txpool,
+		hybridpool:  hybridpool,
 		blockchain:  blockchain,
 		chainconfig: config,
 		peers:       newPeerSet(),
@@ -127,12 +127,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
-		pblocksCh:   make(chan []*truechain.TruePbftBlock),
-		cmsCh:       make(chan []*truechain.PbftCommittee),
-		cdsCh:       make(chan [][]*truechain.CdEncryptionMsg),
-		pblocks:     make([]*truechain.TruePbftBlock,0),
-		cmss:        make([]*truechain.PbftCommittee,0),
-		cdss:        make([][]*truechain.CdEncryptionMsg,0),
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
@@ -227,14 +221,26 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast transactions
 	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
-	pm.pblocksCh = make(chan []*truechain.TruePbftBlock, pbChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
-	go pm.pbBroadcastloop()
+
+	//broadcast records
+	pm.recordsch = make(chan core.NewRecordsEvent, recordChanSize)
+	pm.recordsSub = pm.hybridpool.SubscribeNewRecordEvent(pm.recordsch)
+	go pm.recordBroadcastLoop()
+
+	//broadcast fruits
+	pm.fruitsch = make(chan core.NewFruitsEvent, fruitChanSize)
+	pm.fruitsSub = pm.hybridpool.SubscribeNewFruitEvent(pm.fruitsch)
+	go pm.fruitBroadcastLoop()
 
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
+
+	// broadcast mined fruits
+	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
+	go pm.minedFruitLoop()
 
 	// start sync handlers
 	go pm.syncer()
@@ -244,10 +250,12 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Ethereum protocol")
 
-	pm.txsSub.Unsubscribe() // quits txBroadcastLoop
-	//pm.pbsSub.Unsubscribe()
+	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-
+	//fruit and record and minedfruit
+	pm.recordsSub.Unsubscribe()    //quits recordBroadcastLoop
+	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
+	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
 	pm.noMorePeers <- struct{}{}
@@ -288,7 +296,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		number  = head.Number.Uint64()
 		td      = pm.blockchain.GetTd(hash, number)
 	)
-	if err := p.Handshake(pm.networkId, td, hash, genesis.Hash()); err != nil {
+	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash()); err != nil {
 		p.Log().Debug("Ethereum handshake failed", "err", err)
 		return err
 	}
@@ -356,47 +364,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
-	//pbft
-	case msg.Code == NewBftBlockMsg:
-		// Retrieve and decode the propagated block
-		var request newBftBlockData
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		if request.Block == nil {
-			return errResp(ErrDecode, "pbftblock is nil")
-		}
-		pm.pblocks = append(pm.pblocks, request.Block)
-		go func() {for {pm.pblocks = append(pm.pblocks, <-truechain.BlockCh)}}()
-		go func() {for len(pm.pblocksCh) == 0 {pm.pblocksCh <- pm.pblocks}}()
-		l := len(pm.pblocks)
-		pm.pblocks = pm.pblocks[l:]
-		//pm.pbftpool.AddRemotes(request.Block)
-		//request.Block = msg.Payload.Read(&request)
-		//request.Block.ReceivedFrom = p
-		pm.AddBlock(request.Block)
-	case msg.Code == CMSMsg:
-		var cms []*truechain.PbftCommittee
-		if err := msg.Decode(cms); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		for _, v := range cms {
-			p.tt.ReceiveCommittee(v, "")
-		}
-		go func() {pm.cmss = append(pm.cmss, <-truechain.CmsCh)}()
-		go func() {pm.cmss = append(pm.cmss, cms...)}()
-		//return p.SendCMS(pm.cmss)
-	case msg.Code == CDSMsg:
-		var cds []*truechain.CdEncryptionMsg
-		if err := msg.Decode(cds); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		for _, v := range cds {
-			p.tt.ReceiveSdmMsg(v)
-		}
-		go func() {pm.cdss = append(pm.cdss, <-truechain.CdsCh)}()
-		go func() {pm.cdss = append(pm.cdss,cds)}()
-		//return p.SendCDS(cds)
+
 	// Block header query, collect the requested headers and reply
 	case msg.Code == GetBlockHeadersMsg:
 		// Decode the complex header query
@@ -405,6 +373,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		hashMode := query.Origin.Hash != (common.Hash{})
+		first := true
+		maxNonCanonical := uint64(100)
 
 		// Gather headers until the fetch or network limits is reached
 		var (
@@ -416,31 +386,36 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Retrieve the next header satisfying the query
 			var origin *types.Header
 			if hashMode {
-				origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
+				if first {
+					first = false
+					origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
+					if origin != nil {
+						query.Origin.Number = origin.Number.Uint64()
+					}
+				} else {
+					origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+				}
 			} else {
 				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
 				break
 			}
-			number := origin.Number.Uint64()
 			headers = append(headers, origin)
 			bytes += estHeaderRlpSize
 
 			// Advance to the next header of the query
 			switch {
-			case query.Origin.Hash != (common.Hash{}) && query.Reverse:
+			case hashMode && query.Reverse:
 				// Hash based traversal towards the genesis block
-				for i := 0; i < int(query.Skip)+1; i++ {
-					if header := pm.blockchain.GetHeader(query.Origin.Hash, number); header != nil {
-						query.Origin.Hash = header.ParentHash
-						number--
-					} else {
-						unknown = true
-						break
-					}
+				ancestor := query.Skip + 1
+				if ancestor == 0 {
+					unknown = true
+				} else {
+					query.Origin.Hash, query.Origin.Number = pm.blockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+					unknown = (query.Origin.Hash == common.Hash{})
 				}
-			case query.Origin.Hash != (common.Hash{}) && !query.Reverse:
+			case hashMode && !query.Reverse:
 				// Hash based traversal towards the leaf block
 				var (
 					current = origin.Number.Uint64()
@@ -452,8 +427,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					unknown = true
 				} else {
 					if header := pm.blockchain.GetHeaderByNumber(next); header != nil {
-						if pm.blockchain.GetBlockHashesFromHash(header.Hash(), query.Skip+1)[query.Skip] == query.Origin.Hash {
-							query.Origin.Hash = header.Hash()
+						nextHash := header.Hash()
+						expOldHash, _ := pm.blockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+						if expOldHash == query.Origin.Hash {
+							query.Origin.Hash, query.Origin.Number = nextHash, next
 						} else {
 							unknown = true
 						}
@@ -738,6 +715,48 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		pm.txpool.AddRemotes(txs)
 
+	case msg.Code == RecordMsg:
+		// TODO: record msg handle
+		// Record arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			break
+		}
+		// Transactions can be processed, parse all of them and deliver to the pool
+		var records []*types.PbftRecord
+		if err := msg.Decode(&records); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for i, record := range records {
+			// Validate and mark the remote transaction
+			if record == nil {
+				return errResp(ErrDecode, "transaction %d is nil", i)
+			}
+			// TODO: add markrecord
+			p.MarkRecord(record.Hash())
+		}
+		pm.hybridpool.AddRemoteRecords(records)
+
+	case msg.Code == FruitMsg:
+		// TODO: fruit msg handle
+		// Fruit arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			break
+		}
+		// Transactions can be processed, parse all of them and deliver to the pool
+		var fruits []*types.Block
+		if err := msg.Decode(&fruits); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for i, fruit := range fruits {
+			// Validate and mark the remote transaction
+			if fruit == nil {
+				return errResp(ErrDecode, "fruit %d is nil", i)
+			}
+			// TODO:
+			p.MarkFruit(fruit.Hash())
+		}
+		pm.hybridpool.AddRemoteFruits(fruits)
+
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
@@ -777,6 +796,40 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 	}
 }
 
+// Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
+// will only announce it's availability (depending what's requested).
+func (pm *ProtocolManager) BroadcastFruit(fruit *types.Block, propagate bool) {
+	hash := fruit.Hash()
+	peers := pm.peers.PeersWithoutFruit(hash)
+
+	// If propagation is requested, send to a subset of the peer
+	if propagate {
+		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
+		var td *big.Int
+		/*if parent := pm.fruitchain.GetBlock(fruit.ParentHash(), fruit.NumberU64()-1); parent != nil {
+			td = new(big.Int).Add(fruit.Difficulty(), pm.blockchain.GetTd(fruit.ParentHash(), fruit.NumberU64()-1))
+		} else {
+			log.Error("Propagating dangling fruit", "number", fruit.Number(), "hash", hash)
+			return
+		}*/
+		// Send the fruit to a subset of our peers
+		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+		for _, peer := range transfer {
+			peer.AsyncSendNewFruit(fruit, td)
+		}
+		log.Trace("Propagated fruit", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(fruit.ReceivedAt)))
+		return
+	}
+	//fruit not exist the follow situation
+	/*// Otherwise if the block is indeed in out own chain, announce it
+	if pm.blockchain.HasBlock(hash, fruit.NumberU64()) {
+		for _, peer := range peers {
+			peer.AsyncSendNewBlockHash(block)
+		}
+		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+	}*/
+}
+
 // BroadcastTxs will propagate a batch of transactions to all peers which are not known to
 // already have the given transaction.
 func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
@@ -795,7 +848,40 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		peer.AsyncSendTransactions(txs)
 	}
 }
+//for records
+func (pm *ProtocolManager) BroadcastRecords(records types.PbftRecords) {
+	var recordset = make(map[*peer]types.PbftRecords)
 
+	// Broadcast records to a batch of peers not knowing about it
+	for _, record := range records {
+		peers := pm.peers.PeersWithoutRecord(record.Hash())
+		for _, peer := range peers {
+			recordset[peer] = append(recordset[peer], record)
+		}
+		log.Trace("Broadcast records", "hash", record.Hash(), "recipients", len(peers))
+	}
+	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	for peer, records := range recordset {
+		peer.AsyncSendRecords(records)
+	}
+}
+//for fruits
+func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
+	var fruitset = make(map[*peer]types.Fruits)
+
+	// Broadcast records to a batch of peers not knowing about it
+	for _, fruit := range fruits {
+		peers := pm.peers.PeersWithoutFruit(fruit.Hash())
+		for _, peer := range peers {
+			fruitset[peer] = append(fruitset[peer], fruit)
+		}
+		log.Trace("Broadcast fruits", "hash", fruit.Hash(), "recipients", len(peers))
+	}
+	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	for peer, fruits := range fruitset {
+		peer.AsyncSendFruits(fruits)
+	}
+}
 // Mined broadcast loop
 func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
@@ -807,7 +893,17 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 		}
 	}
 }
-
+// Mined fruit loop
+func (pm *ProtocolManager) minedFruitLoop() {
+	// automatically stops if unsubscribe
+	for obj := range pm.minedFruitSub.Chan() {
+		switch ev := obj.Data.(type) {
+		case core.NewMinedFruitEvent:
+			pm.BroadcastFruit(ev.Block, true)  // First propagate fruit to peers
+			pm.BroadcastFruit(ev.Block, false) // Only then announce to the rest
+		}
+	}
+}
 func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
@@ -821,6 +917,33 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	}
 }
 
+//  record
+func (pm *ProtocolManager) recordBroadcastLoop() {
+	for {
+		select {
+		case event := <-pm.recordsch:
+			pm.BroadcastRecords(event.Records)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-pm.recordsSub.Err():
+			return
+		}
+	}
+}
+
+//  fruits
+func (pm *ProtocolManager) fruitBroadcastLoop() {
+	for {
+		select {
+		case event := <-pm.fruitsch:
+			pm.BroadcastFruits(event.Fruits)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-pm.fruitsSub.Err():
+			return
+		}
+	}
+}
 // NodeInfo represents a short summary of the Ethereum sub-protocol metadata
 // known about the host peer.
 type NodeInfo struct {
@@ -835,7 +958,7 @@ type NodeInfo struct {
 func (pm *ProtocolManager) NodeInfo() *NodeInfo {
 	currentBlock := pm.blockchain.CurrentBlock()
 	return &NodeInfo{
-		Network:    pm.networkId,
+		Network:    pm.networkID,
 		Difficulty: pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64()),
 		Genesis:    pm.blockchain.Genesis().Hash(),
 		Config:     pm.blockchain.Config(),

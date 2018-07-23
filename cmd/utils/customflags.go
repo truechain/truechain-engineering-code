@@ -1,8 +1,6 @@
 
 package utils
 
-
-
 import (
 	"encoding"
 	"errors"

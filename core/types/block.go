@@ -37,6 +37,104 @@ var (
 	EmptyUncleHash = CalcUncleHash(nil)
 )
 
+
+
+type PbftRecordHeader struct {
+	Number   *big.Int
+	Hash     common.Hash
+	TxHash	common.Hash
+	GasLimit *big.Int
+	GasUsed  *big.Int
+	Time     *big.Int
+}
+
+
+type PbftRecord struct {
+	header       *PbftRecordHeader
+	transactions Transactions
+	sig          []*string
+}
+// Abtion 20180715 for handler.go and peer.go
+type PbftRecords []*PbftRecord
+
+func (r *PbftRecord) Hash() common.Hash {
+	return r.header.Hash
+}
+
+func (r *PbftRecord) Number() *big.Int {
+	return r.header.Number
+ }
+
+func (r *PbftRecord) Header() *PbftRecordHeader { return r.header }
+
+func (r *PbftRecord) TxHash() common.Hash {return r.header.TxHash}
+
+func (r *PbftRecord) Transactions() Transactions { return r.transactions }
+
+func (r *PbftRecord) CalcHash() common.Hash {
+	return rlpHash([]interface{}{
+		r.header.Number,
+		r.header.TxHash,
+		r.header.GasLimit,
+		r.header.GasUsed,
+		r.header.Time,
+		r.sig,
+	})
+}
+
+
+func CopyRecord(r *PbftRecord) *PbftRecord {
+	header := *r.header
+	if header.Time = new(big.Int); r.header.Time != nil {
+		header.Time.Set(r.header.Time)
+	}
+	if header.Number = new(big.Int); r.header.Number != nil {
+		header.Number.Set(r.header.Number)
+	}
+	if header.GasLimit = new(big.Int); r.header.GasLimit != nil {
+		header.GasLimit.Set(r.header.GasLimit)
+	}
+	if header.GasUsed = new(big.Int); r.header.GasUsed != nil {
+		header.GasUsed.Set(r.header.GasUsed)
+	}
+
+	record := &PbftRecord{
+		header: &header,
+	}
+
+	if len(r.transactions) != 0 {
+		record.transactions = make(Transactions, len(r.transactions))
+		copy(record.transactions, r.transactions)
+	}
+
+	// TODO: copy sigs
+
+	return record
+}
+
+
+func NewRecord(number *big.Int, txs []*Transaction, sig []*string) *PbftRecord {
+
+	r := &PbftRecord{
+		header: &PbftRecordHeader {
+			Number: number,
+			Time: big.NewInt(time.Now().Unix()),
+		},
+	}
+
+	if len(txs) == 0 {
+		r.header.TxHash = EmptyRootHash
+	} else {
+		r.header.TxHash = DeriveSha(Transactions(txs))
+		r.transactions = make(Transactions, len(txs))
+		copy(r.transactions, txs)
+	}
+
+	r.header.Hash = r.CalcHash()
+
+	return r
+}
+
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
 // out on a block.
@@ -68,7 +166,14 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 
 // Header represents a block header in the Ethereum blockchain.
 type Header struct {
-	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	ParentHash common.Hash `json:"parentHash"       gencodec:"required"`
+
+	PointerHash  common.Hash `json:"pointerHash"      gencodec:"required"`
+	FruitsHash   common.Hash `json:"fruitSetHash"     gencodec:"required"`
+	RecordHash   common.Hash
+	RecordNumber *big.Int
+	Fruit		bool
+
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
@@ -106,6 +211,10 @@ func (h *Header) Hash() common.Hash {
 func (h *Header) HashNoNonce() common.Hash {
 	return rlpHash([]interface{}{
 		h.ParentHash,
+		h.PointerHash,
+		h.FruitsHash,
+		h.RecordHash,
+		h.RecordNumber,
 		h.UncleHash,
 		h.Coinbase,
 		h.Root,
@@ -138,6 +247,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 // a block's data contents (transactions and uncles) together.
 type Body struct {
 	Transactions []*Transaction
+	Fruits		 []*Block
 	Uncles       []*Header
 }
 
@@ -145,6 +255,7 @@ type Body struct {
 type Block struct {
 	header       *Header
 	uncles       []*Header
+	fruits       []*Block // nil for fruit
 	transactions Transactions
 
 	// caches
@@ -190,6 +301,24 @@ type storageblock struct {
 	TD     *big.Int
 }
 
+
+// Fruits is a wrapper around a fruit array to implement DerivableList.
+type Fruits []*Block
+
+// Len returns the number of fruits in this list.
+func (fs Fruits) Len() int { return len(fs) }
+
+// GetRlp returns the RLP encoding of one fruit from the list.
+func (fs Fruits) GetRlp(i int) []byte {
+	bytes, err := rlp.EncodeToBytes(fs[i])
+	if err != nil {
+		panic(err)
+	}
+	return bytes
+}
+
+
+
 // NewBlock creates a new block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
@@ -197,7 +326,7 @@ type storageblock struct {
 // The values of TxHash, UncleHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt) *Block {
+func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt, fruits []*Block) *Block {
 	b := &Block{header: CopyHeader(header), td: new(big.Int)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -214,6 +343,17 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 	} else {
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
 		b.header.Bloom = CreateBloom(receipts)
+	}
+
+	if len(fruits) == 0 {
+		b.header.FruitsHash = EmptyRootHash
+	}else {
+		// TODO: get fruits hash
+		b.header.FruitsHash = DeriveSha(Fruits(fruits))
+		b.fruits = make([]*Block, len(fruits))
+		for i := range fruits {
+			b.fruits[i] = CopyFruit(fruits[i])
+		}
 	}
 
 	if len(uncles) == 0 {
@@ -249,11 +389,25 @@ func CopyHeader(h *Header) *Header {
 	if cpy.Number = new(big.Int); h.Number != nil {
 		cpy.Number.Set(h.Number)
 	}
+	if cpy.RecordNumber = new(big.Int); h.RecordNumber != nil {
+		cpy.RecordNumber.Set(h.RecordNumber)
+	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
 	}
 	return &cpy
+}
+
+
+func CopyFruit(f *Block) *Block {
+	b := &Block{header: CopyHeader(f.header), td: new(big.Int)}
+
+	if len(f.transactions) > 0 {
+		b.transactions = make(Transactions, len(f.transactions))
+		copy(b.transactions, f.transactions)
+	}
+	return b
 }
 
 // DecodeRLP decodes the Ethereum
@@ -301,11 +455,18 @@ func (b *Block) Transaction(hash common.Hash) *Transaction {
 	return nil
 }
 
+func (b *Block) Fruits() []*Block { return b.fruits }
+
 func (b *Block) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
 func (b *Block) GasLimit() uint64     { return b.header.GasLimit }
 func (b *Block) GasUsed() uint64      { return b.header.GasUsed }
 func (b *Block) Difficulty() *big.Int { return new(big.Int).Set(b.header.Difficulty) }
 func (b *Block) Time() *big.Int       { return new(big.Int).Set(b.header.Time) }
+
+func (b *Block) RecordHash() common.Hash {return b.header.RecordHash}
+func (b *Block) RecordNumber() *big.Int {return b.header.RecordNumber}
+func (b *Block) IsFruit() bool           {return b.header.Fruit}
+func (b *Block) PointerHash() common.Hash {return b.header.PointerHash}
 
 func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *Block) MixDigest() common.Hash   { return b.header.MixDigest }
@@ -322,7 +483,7 @@ func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Ext
 func (b *Block) Header() *Header { return CopyHeader(b.header) }
 
 // Body returns the non-header content of the block.
-func (b *Block) Body() *Body { return &Body{b.transactions, b.uncles} }
+func (b *Block) Body() *Body { return &Body{b.transactions, b.fruits, b.uncles} }
 
 func (b *Block) HashNoNonce() common.Hash {
 	return b.header.HashNoNonce()
@@ -356,14 +517,22 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 func (b *Block) WithSeal(header *Header) *Block {
 	cpy := *header
 
-	return &Block{
-		header:       &cpy,
-		transactions: b.transactions,
-		uncles:       b.uncles,
+	if header.Fruit {
+		return &Block{
+			header:       &cpy,
+			transactions: b.transactions,
+		}
+	} else {
+		return &Block{
+			header: &cpy,
+			fruits: b.fruits,
+			uncles: b.uncles,
+		}
 	}
 }
 
 // WithBody returns a new block with the given transaction and uncle contents.
+// TODO: add fruits when downloading new block at eth/download,fetch
 func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),

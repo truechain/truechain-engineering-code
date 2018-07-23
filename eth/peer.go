@@ -25,7 +25,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/truechain"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/rlp"
 	"gopkg.in/fatih/set.v0"
@@ -39,13 +38,20 @@ var (
 
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownRecords    = 1024 // Maximum records hashes to keep in the known list (prevent DOS)
+	maxKnownFruits    = 1024 // Maximum records hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
 	maxQueuedTxs = 128
-
+	// contain a single transaction, or thousands.
+	maxQueuedRecords = 128
+	// contain a single transaction, or thousands.
+	maxQueuedFruits = 128
+	//for fruitEvent
+	maxQueuedFruit = 4
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
@@ -57,7 +63,6 @@ const (
 	maxQueuedAnns = 4
 
 	handshakeTimeout = 5 * time.Second
-	maxQueuedPbs     = 128
 )
 
 // PeerInfo represents a short summary of the Ethereum sub-protocol metadata known
@@ -70,6 +75,12 @@ type PeerInfo struct {
 
 // propEvent is a block propagation, waiting for its turn in the broadcast queue.
 type propEvent struct {
+	block *types.Block
+	td    *big.Int
+}
+
+// propEvent is a fruit propagation, waiting for its turn in the broadcast queue.
+type fruitEvent struct {
 	block *types.Block
 	td    *big.Int
 }
@@ -88,37 +99,40 @@ type peer struct {
 	lock sync.RWMutex
 
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
+	knownRecords    *set.Set              // Set of records hashes known to be known by this peer
+	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
 	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedRecords   chan []*types.PbftRecord // Queue of records to broadcast to the peer
+	queuedFruits   chan []*types.Block // Queue of fruits to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
+
+	queuedFruit chan *fruitEvent           // Queue of newFruits to broadcast to the peer
+
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
 	term        chan struct{}             // Termination channel to stop the broadcaster
-	//pbft
-	knownPbftBlocks *set.Set
-	knownPbftCms    *set.Set
-	knownPbftCds    *set.Set
-	queuedPbftProps chan []*truechain.TruePbftBlock
-	queuedCmsProps  chan []*truechain.PbftCommittee
-	queuedCDsProps  chan []*truechain.PbftCdCommittee
-	tt              *truechain.TrueHybrid
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return &peer{
-		Peer:            p,
-		rw:              rw,
-		version:         version,
-		id:              fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:        set.New(),
-		knownBlocks:     set.New(),
-		knownPbftBlocks: set.New(),
-		knownPbftCms:    set.New(),
-		knownPbftCds:    set.New(),
-		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
-		queuedProps:     make(chan *propEvent, maxQueuedProps),
-		queuedAnns:      make(chan *types.Block, maxQueuedAnns),
-		term:            make(chan struct{}),
-		queuedPbftProps: make(chan []*truechain.TruePbftBlock, maxQueuedPbs),
+		Peer:        p,
+		rw:          rw,
+		version:     version,
+		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:    set.New(),
+		knownBlocks: set.New(),
+
+		knownRecords:    set.New(),
+		knownFruits: set.New(),
+
+		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
+		queuedProps: make(chan *propEvent, maxQueuedProps),
+		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
+
+		queuedRecords:   make(chan []*types.PbftRecord, maxQueuedRecords),
+		queuedFruit: make(chan *fruitEvent, maxQueuedFruit),
+		queuedFruits:  make(chan []*types.Block, maxQueuedFruits),
+		term:        make(chan struct{}),
 	}
 }
 
@@ -133,12 +147,28 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
-		case pbs := <-p.queuedPbftProps:
-			for _, b := range pbs {
-				if err := p.SendNewPbftBlock(b); err != nil {
-					return
-				}
+
+        //add for record
+		case records := <-p.queuedRecords:
+			if err := p.Sendrecords(records); err != nil {
+				return
 			}
+			p.Log().Trace("Broadcast records", "count", len(records))
+
+		//add for fruit
+		case fruits := <-p.queuedFruits:
+			if err := p.Sendfruits(fruits); err != nil {
+				return
+			}
+			p.Log().Trace("Broadcast fruits", "count", len(fruits))
+
+		//add for mined fruit
+		case fruit := <-p.queuedFruit:
+			if err := p.SendNewFruit(fruit.block, fruit.td); err != nil {
+				return
+			}
+			p.Log().Trace("Propagated fruit", "number", fruit.block.Number(), "hash", fruit.block.Hash(), "td", fruit.td)
+
 		case prop := <-p.queuedProps:
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
 				return
@@ -211,7 +241,24 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	}
 	p.knownTxs.Add(hash)
 }
-
+// MarkRecord marks a record as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkRecord(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for p.knownRecords.Size() >= maxKnownRecords {
+		p.knownRecords.Pop()
+	}
+	p.knownRecords.Add(hash)
+}
+// MarkFruit marks a fruit as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkFruit(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for p.knownFruits.Size() >= maxKnownFruits {
+		p.knownFruits.Pop()
+	}
+	p.knownFruits.Add(hash)
+}
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {
@@ -231,6 +278,48 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 		}
 	default:
 		p.Log().Debug("Dropping transaction propagation", "count", len(txs))
+	}
+}
+
+//Abtion added 20180715; Sendrecords sends records to the peer and includes the hashes
+// in its record hash set for future reference.
+func (p *peer) Sendrecords(records types.PbftRecords) error {
+	for _, record := range records {
+		p.knownRecords.Add(record.Hash())
+	}
+	return p2p.Send(p.rw, RecordMsg, records)
+}
+
+//Abtion 20180715 for record;the same as transactions
+func (p *peer) AsyncSendRecords(records []*types.PbftRecord) {
+	select {
+	case p.queuedRecords <- records:
+		for _, record := range records {
+			p.knownRecords.Add(record.Hash())
+		}
+	default:
+		p.Log().Debug("Dropping records propagation", "count", len(records))
+	}
+}
+
+//Abtion added 20180715; Sendfruits sends fruits to the peer and includes the hashes
+// in its fruit hash set for future reference.
+func (p *peer) Sendfruits(fruits types.Fruits) error {
+	for _, fruit := range fruits {
+		p.knownFruits.Add(fruit.Hash())
+	}
+	return p2p.Send(p.rw, FruitMsg, fruits)
+}
+
+//Abtion 20180715 for record;the same as transactions
+func (p *peer) AsyncSendFruits(fruits []*types.Block) {
+	select {
+	case p.queuedFruits <- fruits:
+		for _, fruit := range fruits {
+			p.knownFruits.Add(fruit.Hash())
+		}
+	default:
+		p.Log().Debug("Dropping records propagation", "count", len(fruits))
 	}
 }
 
@@ -274,6 +363,23 @@ func (p *peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
 		p.knownBlocks.Add(block.Hash())
 	default:
 		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
+	}
+}
+
+// SendNewFruit propagates an entire fruit to a remote peer.
+func (p *peer) SendNewFruit(fruit *types.Block, td *big.Int) error {
+	p.knownFruits.Add(fruit.Hash())
+	return p2p.Send(p.rw, FruitMsg, []interface{}{fruit, td})
+}
+
+// AsyncSendNewFruit queues an entire fruit for propagation to a remote peer. If
+// the peer's broadcast queue is full, the event is silently dropped.
+func (p *peer) AsyncSendNewFruit(fruit *types.Block, td *big.Int) {
+	select {
+	case p.queuedFruit <- &fruitEvent{block: fruit, td: td}:
+		p.knownFruits.Add(fruit.Hash())
+	default:
+		p.Log().Debug("Dropping block propagation", "number", fruit.NumberU64(), "hash", fruit.Hash())
 	}
 }
 
@@ -505,6 +611,36 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownTxs.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+// PeersWithoutRecord retrieves a list of peers that do not have a given records
+// in their set of known hashes. added by Abition 20180715
+func (ps *peerSet) PeersWithoutRecord(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownRecords.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+
+// PeersWithoutFruit retrieves a list of peers that do not have a given fruits
+// in their set of known hashes.
+func (ps *peerSet) PeersWithoutFruit(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownFruits.Has(hash) {
 			list = append(list, p)
 		}
 	}
