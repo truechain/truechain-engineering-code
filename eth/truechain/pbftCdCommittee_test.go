@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"math/big"
 	"github.com/ethereum/go-ethereum/crypto"
+	"log"
 	"crypto/ecdsa"
 	"math/rand"
 	"time"
-	"log"
 )
+
+
 
 var (
 	pcc *PbftCdCommittee
@@ -96,6 +98,11 @@ func (pcc *PbftCdCommittee) PrintCdCommitteeInfo(){
 	fmt.Println("pcc.Cm.size := ",len(pcc.Cm))
 }
 
+
+func Test_print1(t *testing.T) {
+	fmt.Println("1111")
+}
+
 func Test_generateCdCommittee(t *testing.T) {
 	pcc.PrintCdCommitteeDetail()
 	pcc.PrintCdCommitteeInfo()
@@ -106,17 +113,30 @@ func Test_addMsgToNCdCrypMsg(t *testing.T) {
 	privateKey,_ := crypto.GenerateKey()
 	m :=GenerateMember(privateKey,height)
 	msg,_ :=ConvertCdMemberToMsg(m,privateKey)
+
+	/*//传入区块到链中
+	blockchain =GenearetEthBlockchain()
+	blocks :=GenerateEthBlocks(privateKey,int64(height))
+	blockchain.InsertChain(blocks)
+	block :=blockchain.CurrentBlock()
+	fmt.Println(block)
+	*/
 	pcc.addMsgToNCdCrypMsg(msg)
 	pcc.PrintCdCommitteeDetail()
 }
 
 func Test_checkTmpMsg(t *testing.T) {
 	simulationCreateCommittee(th)
-	//trueBlock :=MakePbftBlock(th.Cmm)
+	/*trueBlock :=MakePbftBlock(th.Cmm)
+	fmt.Println(trueBlock)*/
 
+	/*Header
+	Txs*/
 	pcc.checkTmpMsg(blockchain)
-
 }
+
+
+
 
 
 func TestCandidateMember(t *testing.T) {
