@@ -1,62 +1,47 @@
 ## TrueChain Engineering Code
 
-The TRUE main link V0.03 release is scheduled to be integrated based on the latest Ethereum release (V1.8).
+prototype for TrueChain fruit chain consensus
 
-Main chain contains a mixture of consensus algorithm, two kinds of consensus PBFT consensus and POW, through
-the global random function node elected committee, by the committee between nodes through PBFT algorithm deals
-in the consensus of entire network, and will deal collection packaged into pieces by the committee members 
-all signed broadcast to the entire network, the entire network to POW consensus will join the main chain block
-of data.
+Refer to:
+https://eprint.iacr.org/2016/916.pdf
 
 
-###1.Environmental
-
-1.Operating system
-```
-Operating system:               CPU memory bandwidth
-Ubuntu Server 16.04.1 LTS 64λ	2	4	2
-```
-2.make version
-```
-GNU Make 4.1
-```
-
-###2.Compiling method
-1.Cloning project
-```
-git clone https://github.com/truechain/truechain-engineering-code.git
-```
-2.Generate required content as a precusory
-```
-cd truechain-engineering-code/
-make geth
-
-Switch directory
-cd build/bin
-
-```
-3.RUN
-```
-Initialization node
-./geth --datadir ./data/node init ./genesis.json
-
-Start node
-./geth --datadir ./data/node --networkid 314580 --ipcdisable --port 9220 --rpcport 8300 --rpcapi "db,eth,net,web3,personal,admin,miner" console
-```
+## Building the source
 
 
-genesis.json
-```
+Building geth requires both a Go (version 1.7 or later) and a C compiler.
+You can install them using your favourite package manager.
+Once the dependencies are installed, run
+
+    make geth
+
+or, to build the full suite of utilities:
+
+    make all
+
+The execuable command geth will be found in the `cmd` directory.
+
+## Running geth
+
+### Defining the private genesis state
+
+First, you'll need to create the genesis state of your networks, which all nodes need to be aware of
+and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`):
+
+```json
 {
   "config": {
-        "chainId": 666,
+        "chainId": 10,
         "homesteadBlock": 0,
         "eip155Block": 0,
         "eip158Block": 0
     },
-  "alloc"      : {},
+  "alloc"      : {
+	  "0x970e8128ab834e8eac17ab8e3812f010678cf791" : { "balance" : "90000000000000000000000"},
+	  "0x68f2517b6c597ede0ae7c0559cdd4a84fd08c928" : { "balance" : "10000000000000000000000"}
+	  },
   "coinbase"   : "0x0000000000000000000000000000000000000000",
-  "difficulty" : "0x20000",
+  "difficulty" : "0x200",
   "extraData"  : "",
   "gasLimit"   : "0x2fefd8",
   "nonce"      : "0x0000000000000042",
@@ -64,8 +49,7 @@ genesis.json
   "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
   "timestamp"  : "0x00"
 }
-
-
+```
 
 With the genesis state defined in the above JSON file, you'll need to initialize **every** Geth node
 with it prior to starting it up to ensure all blockchain parameters are correctly set:

@@ -59,7 +59,7 @@ func (self *CpuAgent) Stop() {
 	}
 	self.stop <- struct{}{}
 done:
-// Empty work channel
+	// Empty work channel
 	for {
 		select {
 		case <-self.workCh:
@@ -144,7 +144,6 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	
 
 }
-
 
 func (self *CpuAgent) GetHashRate() int64 {
 	if pow, ok := self.engine.(consensus.PoW); ok {
