@@ -14,7 +14,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"

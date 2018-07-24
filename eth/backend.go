@@ -30,7 +30,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/clique"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"

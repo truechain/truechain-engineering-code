@@ -15,7 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package ethash implements the ethash proof-of-work consensus engine.
-package truepow
+package minerva
 
 import (
 	"errors"

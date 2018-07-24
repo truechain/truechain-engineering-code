@@ -22,7 +22,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 )

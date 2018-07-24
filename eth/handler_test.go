@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"

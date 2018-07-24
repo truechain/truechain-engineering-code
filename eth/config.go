@@ -26,7 +26,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/truepow"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/eth/downloader"
 	"github.com/truechain/truechain-engineering-code/eth/gasprice"
