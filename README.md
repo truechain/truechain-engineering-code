@@ -9,19 +9,19 @@ https://eprint.iacr.org/2016/916.pdf
 ## Building the source
 
 
-Building geth requires both a Go (version 1.7 or later) and a C compiler.
+Building getrue requires both a Go (version 1.7 or later) and a C compiler.
 You can install them using your favourite package manager.
 Once the dependencies are installed, run
 
-    make geth
+    make getrue
 
 or, to build the full suite of utilities:
 
     make all
 
-The execuable command geth will be found in the `cmd` directory.
+The execuable command getrue will be found in the `cmd` directory.
 
-## Running geth
+## Running getrue
 
 ### Defining the private genesis state
 
@@ -51,20 +51,20 @@ and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`)
 }
 ```
 
-With the genesis state defined in the above JSON file, you'll need to initialize **every** Geth node
+With the genesis state defined in the above JSON file, you'll need to initialize **every** Getrue node
 with it prior to starting it up to ensure all blockchain parameters are correctly set:
 
 ```
-$ geth init path/to/genesis.json
+$ getrue init path/to/genesis.json
 ```
 
 
 ### Running a private miner
 
-To start a Geth instance for fpow, run it with these flags:
+To start a Getrue instance for fpow, run it with these flags:
 
 ```
-$ geth --nodiscover --mine --etherbase=0x8a45d70f096d3581866ed27a5017a4eeec0db2a1
+$ getrue --nodiscover --mine --etherbase=0x8a45d70f096d3581866ed27a5017a4eeec0db2a1
 ```
 
 Which will start sending transactions periodly to this node and mining fruits and blocks.
