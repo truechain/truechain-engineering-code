@@ -28,7 +28,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	eth "github.com/truechain/truechain-engineering-code/etrue"
+	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
 	"github.com/truechain/truechain-engineering-code/light"
 	"github.com/truechain/truechain-engineering-code/p2p"
@@ -102,8 +102,8 @@ func (p *peer) queueSend(f func()) {
 }
 
 // Info gathers and returns a collection of metadata known about a peer.
-func (p *peer) Info() *eth.PeerInfo {
-	return &eth.PeerInfo{
+func (p *peer) Info() *etrue.PeerInfo {
+	return &etrue.PeerInfo{
 		Version:    p.version,
 		Difficulty: p.Td(),
 		Head:       fmt.Sprintf("%x", p.Head()),
