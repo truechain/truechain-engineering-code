@@ -25,7 +25,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/eth"
+	eth "github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/urfave/cli.v1"
 )

@@ -25,8 +25,8 @@ import (
 	"path/filepath"
 
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/eth"
-	"github.com/truechain/truechain-engineering-code/eth/downloader"
+	"github.com/truechain/truechain-engineering-code/etrue"
+	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/ethclient"
 	"github.com/truechain/truechain-engineering-code/ethstats"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
@@ -155,7 +155,7 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 	}
 	// Register the Ethereum protocol if requested
 	if config.EthereumEnabled {
-		ethConf := eth.DefaultConfig
+		ethConf := etrue.DefaultConfig
 		ethConf.Genesis = genesis
 		ethConf.SyncMode = downloader.LightSync
 		ethConf.NetworkId = uint64(config.EthereumNetworkID)

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/eth/downloader"
+	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/light"
 )
 

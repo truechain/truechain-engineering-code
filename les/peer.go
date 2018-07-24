@@ -28,7 +28,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/eth"
+	eth "github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
 	"github.com/truechain/truechain-engineering-code/light"
 	"github.com/truechain/truechain-engineering-code/p2p"

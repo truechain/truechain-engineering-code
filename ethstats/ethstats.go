@@ -35,7 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/eth"
+	eth "github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/les"
 	"github.com/truechain/truechain-engineering-code/log"

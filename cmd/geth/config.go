@@ -29,7 +29,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/dashboard"
-	"github.com/truechain/truechain-engineering-code/eth"
+	eth "github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"

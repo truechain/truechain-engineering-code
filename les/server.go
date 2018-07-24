@@ -27,7 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/eth"
+	eth "github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
 	"github.com/truechain/truechain-engineering-code/light"
