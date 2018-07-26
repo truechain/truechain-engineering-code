@@ -712,7 +712,6 @@ func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
-
 // EncodeRLP serializes b into the Ethereum RLP block format.
 func (b *FastBlock) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extfastblock{
@@ -844,7 +843,12 @@ type SnailBlock struct {
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
 }
-
+// "external" block encoding. used for eth protocol, etc.
+type extsnailblock struct {
+	Header  *SnailHeader
+	Body    *SnailBody
+	Td 	    *big.Int
+}
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *SnailHeader) Hash() common.Hash {
@@ -924,8 +928,27 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	}
 	return &cpy
 }
+// DecodeRLP decodes the Ethereum
+func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
+	var eb extsnailblock
+	_, size, _ := s.Kind()
+	if err := s.Decode(&eb); err != nil {
+		return err
+	}
+	b.header, b.td, b.body = eb.Header, eb.Td, eb.Body
+	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+// EncodeRLP serializes b into the Ethereum RLP block format.
+func (b *SnailBlock) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extsnailblock{
+		Header: 	b.header,
+		Body:    	b.body,
+		Td:			b.td,
+	})
+}
 
-func (b *SnailBlock) Number() *big.Int     				{ return new(big.Int).Set(b.header.Number) }
+func (b *SnailBlock) Number() *big.Int     				  { return new(big.Int).Set(b.header.Number) }
 func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey,error) {
 	byPub,err1 := hex.DecodeString(b.header.Publickey)
 	if err1 != nil {
@@ -933,4 +956,70 @@ func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey,error) {
 	}
 	pub,err2 := crypto.UnmarshalPubkey(byPub)
 	return pub,err2
+}
+func (b *SnailBlock) Difficulty() *big.Int 	   { return new(big.Int).Set(b.header.Difficulty) }
+func (b *SnailBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
+func (b *SnailBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
+func (b *SnailBlock) MixDigest() common.Hash   { return b.header.MixDigest }
+func (b *SnailBlock) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
+func (b *SnailBlock) Bloom() Bloom             { return b.header.Bloom }
+func (b *SnailBlock) Coinbase() common.Address { return b.header.Coinbase }
+func (b *SnailBlock) Root() common.Hash        { return b.header.Root }
+func (b *SnailBlock) ParentHash() common.Hash  { return b.header.ParentHash }
+func (b *SnailBlock) TxHash() common.Hash      { return b.header.TxHash }
+func (b *SnailBlock) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *SnailBlock) UncleHash() common.Hash   { return b.header.UncleHash }
+func (b *SnailBlock) PointerHash() common.Hash { return b.header.PointerHash }
+func (b *SnailBlock) FruitsHash() common.Hash  { return b.header.FruitsHash }
+func (b *SnailBlock) FastHash() common.Hash    { return b.header.FastHash }
+func (b *SnailBlock) FastNumber() *big.Int 	   { return new(big.Int).Set(b.header.FastNumber) }
+func (b *SnailBlock) ToElect() bool            { return b.header.ToElect }
+func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+func (b *SnailBlock) Header() *SnailHeader 	   { return CopySnailHeader(b.header) }
+
+// Body returns the non-header content of the snailblock.
+func (b *SnailBlock) Body() *SnailBody { return b.body }
+func (b *SnailBlock) HashNoNonce() common.Hash {
+	return b.header.HashNoNonce()
+}
+// Size returns the true RLP encoded storage size of the block, either by encoding
+// and returning it, or returning a previsouly cached value.
+func (b *SnailBlock) Size() common.StorageSize {
+	if size := b.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
+}
+// WithSeal returns a new snailblock with the data from b but the header replaced with
+// the sealed one.
+func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
+	cpy := *header
+	return &SnailBlock{
+		header:     &cpy,
+		body: 		b.body,
+	}
+}
+// WithBody returns a new snailblock with the given transaction and uncle contents.
+func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
+	block := &SnailBlock{
+		header:       b.Header(),
+	}
+	block.body.Fruits = make([]*SnailHeader,len(body.Fruits))
+	for i := range body.Fruits {
+		block.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
+	}
+	return block
+}
+// Hash returns the keccak256 hash of b's header.
+// The hash is computed on the first call and cached thereafter.
+func (b *SnailBlock) Hash() common.Hash {
+	if hash := b.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := b.header.Hash()
+	b.hash.Store(v)
+	return v
 }
