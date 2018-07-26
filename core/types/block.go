@@ -26,7 +26,7 @@ import (
 	"time"
 	"unsafe"
 	"crypto/ecdsa"
-	
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
@@ -623,13 +623,71 @@ type FastBlock struct {
 
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
-	td *big.Int
+	// td *big.Int
 
 	// These fields are used by package eth to track
 	// inter-peer block relay.
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
 }
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *FastHeader) Hash() common.Hash {
+	return rlpHash(h)
+}
+// Size returns the approximate memory used by all internal contents. It is used
+// to approximate and limit the memory consumption of various caches.
+func (h *FastHeader) Size() common.StorageSize {
+	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
+	(h.SnailNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
+}
+// NewFastBlock creates a new fastblock. The input data is copied,
+// changes to header and to the field values will not affect the
+// block.
+//
+// The values of TxHash, UncleHash, ReceiptHash and Bloom in header
+// are ignored and set to values derived from the given txs, uncles
+// and receipts.
+func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*string, receipts []*Receipt) *FastBlock {
+	b := &FastBlock{header: CopyFastHeader(header)}
+
+	// TODO: panic if len(txs) != len(receipts)
+	if len(txs) == 0 {
+		b.header.TxHash = EmptyRootHash
+	} else {
+		b.header.TxHash = DeriveSha(Transactions(txs))
+		b.transactions = make(Transactions, len(txs))
+		copy(b.transactions, txs)
+	}
+
+	if len(receipts) == 0 {
+		b.header.ReceiptHash = EmptyRootHash
+	} else {
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
+		b.header.Bloom = CreateBloom(receipts)
+	}
+	b.signs = make([]*string,len(signs))
+	copy(b.signs,signs)
+	return b
+}
+func CopyFastHeader(h *FastHeader) *FastHeader {
+	cpy := *h
+	if cpy.Time = new(big.Int); h.Time != nil {
+		cpy.Time.Set(h.Time)
+	}
+	if cpy.SnailNumber = new(big.Int); h.SnailNumber != nil {
+		cpy.SnailNumber.Set(h.SnailNumber)
+	}
+	if cpy.Number = new(big.Int); h.Number != nil {
+		cpy.Number.Set(h.Number)
+	}
+	if len(h.Extra) > 0 {
+		cpy.Extra = make([]byte, len(h.Extra))
+		copy(cpy.Extra, h.Extra)
+	}
+	return &cpy
+}
+////////////////////////////////////////////////////////////////////////////////
 
 //go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
 
