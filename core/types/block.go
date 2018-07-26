@@ -719,6 +719,48 @@ func (b *FastBlock) EncodeRLP(w io.Writer) error {
 		Signs:  b.signs,
 	})
 }
+
+func (b *FastBlock) Signs() []*string           { return b.signs }
+func (b *FastBlock) Transactions() Transactions { return b.transactions }
+func (b *FastBlock) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header,b.transactions})}
+func (b *FastBlock) Transaction(hash common.Hash) *Transaction {
+	for _, transaction := range b.transactions {
+		if transaction.Hash() == hash {
+			return transaction
+		}
+	}
+	return nil
+}
+func (b *FastBlock) Number() *big.Int      { return new(big.Int).Set(b.header.Number) }
+func (b *FastBlock) GasLimit() uint64      { return b.header.GasLimit }
+func (b *FastBlock) GasUsed() uint64       { return b.header.GasUsed }
+func (b *FastBlock) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
+func (b *FastBlock) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
+
+func (b *FastBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
+func (b *FastBlock) SnailHash() common.Hash   { return b.header.SnailHash }
+func (b *FastBlock) Bloom() Bloom             { return b.header.Bloom }
+func (b *FastBlock) Root() common.Hash        { return b.header.Root }
+func (b *FastBlock) ParentHash() common.Hash  { return b.header.ParentHash }
+func (b *FastBlock) TxHash() common.Hash      { return b.header.TxHash }
+func (b *FastBlock) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *FastBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+
+func (b *FastBlock) Header() *FastHeader { return CopyFastHeader(b.header) }
+
+// Body returns the non-header content of the fastblock.
+func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions, b.signs} }
+// Size returns the true RLP encoded storage size of the fastblock, either by encoding
+// and returning it, or returning a previsouly cached value.
+func (b *FastBlock) Size() common.StorageSize {
+	if size := b.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 //go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
