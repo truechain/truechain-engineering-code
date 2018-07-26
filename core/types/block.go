@@ -645,8 +645,8 @@ func (h *FastHeader) Size() common.StorageSize {
 // changes to header and to the field values will not affect the
 // block.
 //
-// The values of TxHash, UncleHash, ReceiptHash and Bloom in header
-// are ignored and set to values derived from the given txs, uncles
+// The values of TxHash, ReceiptHash and Bloom in header
+// are ignored and set to values derived from the given txs
 // and receipts.
 func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*string, receipts []*Receipt) *FastBlock {
 	b := &FastBlock{header: CopyFastHeader(header)}
@@ -670,6 +670,12 @@ func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*string, recei
 	copy(b.signs,signs)
 	return b
 }
+// NewFastBlockWithHeader creates a block with the given header data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewFastBlockWithHeader(header *FastHeader) *FastBlock {
+	return &FastBlock{header: CopyFastHeader(header)}
+}
 func CopyFastHeader(h *FastHeader) *FastHeader {
 	cpy := *h
 	if cpy.Time = new(big.Int); h.Time != nil {
@@ -686,6 +692,32 @@ func CopyFastHeader(h *FastHeader) *FastHeader {
 		copy(cpy.Extra, h.Extra)
 	}
 	return &cpy
+}
+// "external" block encoding. used for eth protocol, etc.
+type extfastblock struct {
+	Header *FastHeader
+	Txs    []*Transaction
+	Signs  []*string
+}
+// DecodeRLP decodes the Ethereum
+func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
+	var eb extfastblock
+	_, size, _ := s.Kind()
+	if err := s.Decode(&eb); err != nil {
+		return err
+	}
+	b.header, b.signs, b.transactions = eb.Header, eb.Signs, eb.Txs
+	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the Ethereum RLP block format.
+func (b *FastBlock) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extfastblock{
+		Header: b.header,
+		Txs:    b.transactions,
+		Signs:  b.signs,
+	})
 }
 ////////////////////////////////////////////////////////////////////////////////
 
