@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 	"unsafe"
+	"crypto/ecdsa"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -581,3 +582,231 @@ func (self blockSorter) Swap(i, j int) {
 func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
 
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+// fast chain block structure
+//go:generate gencodec -type FastHeader -field-override headerMarshaling -out gen_header_json.go
+
+// Header represents a block header in the true Fastblockchain.
+type FastHeader struct {
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+	SnailHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
+	SnailNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
+	Number      *big.Int       `json:"number"           gencodec:"required"`
+	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
+	Extra       []byte         `json:"extraData"        gencodec:"required"`
+}
+
+// Body is a simple (mutable, non-safe) data container for storing and moving
+// a block's data contents (transactions and uncles) together.
+type FastBody struct {
+	Transactions 	[]*Transaction
+	signs       	[]*string
+}
+
+// FastBlock represents an entire block in the Ethereum blockchain.
+type FastBlock struct {
+	header       	*FastHeader
+	signs       	[]*string
+	transactions 	Transactions
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+
+	// Td is used by package core to store the total difficulty
+	// of the chain up to and including the block.
+	// td *big.Int
+
+	// These fields are used by package eth to track
+	// inter-peer block relay.
+	ReceivedAt   time.Time
+	ReceivedFrom interface{}
+}
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *FastHeader) Hash() common.Hash {
+	return rlpHash(h)
+}
+// Size returns the approximate memory used by all internal contents. It is used
+// to approximate and limit the memory consumption of various caches.
+func (h *FastHeader) Size() common.StorageSize {
+	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
+	(h.SnailNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
+}
+// NewFastBlock creates a new fastblock. The input data is copied,
+// changes to header and to the field values will not affect the
+// block.
+//
+// The values of TxHash, ReceiptHash and Bloom in header
+// are ignored and set to values derived from the given txs
+// and receipts.
+func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*string, receipts []*Receipt) *FastBlock {
+	b := &FastBlock{header: CopyFastHeader(header)}
+
+	// TODO: panic if len(txs) != len(receipts)
+	if len(txs) == 0 {
+		b.header.TxHash = EmptyRootHash
+	} else {
+		b.header.TxHash = DeriveSha(Transactions(txs))
+		b.transactions = make(Transactions, len(txs))
+		copy(b.transactions, txs)
+	}
+
+	if len(receipts) == 0 {
+		b.header.ReceiptHash = EmptyRootHash
+	} else {
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
+		b.header.Bloom = CreateBloom(receipts)
+	}
+	b.signs = make([]*string,len(signs))
+	copy(b.signs,signs)
+	return b
+}
+// NewFastBlockWithHeader creates a block with the given header data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewFastBlockWithHeader(header *FastHeader) *FastBlock {
+	return &FastBlock{header: CopyFastHeader(header)}
+}
+func CopyFastHeader(h *FastHeader) *FastHeader {
+	cpy := *h
+	if cpy.Time = new(big.Int); h.Time != nil {
+		cpy.Time.Set(h.Time)
+	}
+	if cpy.SnailNumber = new(big.Int); h.SnailNumber != nil {
+		cpy.SnailNumber.Set(h.SnailNumber)
+	}
+	if cpy.Number = new(big.Int); h.Number != nil {
+		cpy.Number.Set(h.Number)
+	}
+	if len(h.Extra) > 0 {
+		cpy.Extra = make([]byte, len(h.Extra))
+		copy(cpy.Extra, h.Extra)
+	}
+	return &cpy
+}
+// "external" block encoding. used for eth protocol, etc.
+type extfastblock struct {
+	Header *FastHeader
+	Txs    []*Transaction
+	Signs  []*string
+}
+// DecodeRLP decodes the Ethereum
+func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
+	var eb extfastblock
+	_, size, _ := s.Kind()
+	if err := s.Decode(&eb); err != nil {
+		return err
+	}
+	b.header, b.signs, b.transactions = eb.Header, eb.Signs, eb.Txs
+	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the Ethereum RLP block format.
+func (b *FastBlock) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extfastblock{
+		Header: b.header,
+		Txs:    b.transactions,
+		Signs:  b.signs,
+	})
+}
+
+func (b *FastBlock) Signs() []*string           { return b.signs }
+func (b *FastBlock) Transactions() Transactions { return b.transactions }
+func (b *FastBlock) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header,b.transactions})}
+func (b *FastBlock) Transaction(hash common.Hash) *Transaction {
+	for _, transaction := range b.transactions {
+		if transaction.Hash() == hash {
+			return transaction
+		}
+	}
+	return nil
+}
+func (b *FastBlock) Number() *big.Int      { return new(big.Int).Set(b.header.Number) }
+func (b *FastBlock) GasLimit() uint64      { return b.header.GasLimit }
+func (b *FastBlock) GasUsed() uint64       { return b.header.GasUsed }
+func (b *FastBlock) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
+func (b *FastBlock) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
+
+func (b *FastBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
+func (b *FastBlock) SnailHash() common.Hash   { return b.header.SnailHash }
+func (b *FastBlock) Bloom() Bloom             { return b.header.Bloom }
+func (b *FastBlock) Root() common.Hash        { return b.header.Root }
+func (b *FastBlock) ParentHash() common.Hash  { return b.header.ParentHash }
+func (b *FastBlock) TxHash() common.Hash      { return b.header.TxHash }
+func (b *FastBlock) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *FastBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+
+func (b *FastBlock) Header() *FastHeader { return CopyFastHeader(b.header) }
+
+// Body returns the non-header content of the fastblock.
+func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions, b.signs} }
+// Size returns the true RLP encoded storage size of the fastblock, either by encoding
+// and returning it, or returning a previsouly cached value.
+func (b *FastBlock) Size() common.StorageSize {
+	if size := b.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
+}
+////////////////////////////////////////////////////////////////////////////////
+
+//go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
+
+// Header represents a block header in the Ethereum truechain.
+type SnailHeader struct {
+	ParentHash  common.Hash    		`json:"parentHash"       gencodec:"required"`
+	UncleHash   common.Hash    		`json:"sha3Uncles"       gencodec:"required"`
+	Coinbase    common.Address 		`json:"miner"            gencodec:"required"`
+	Root        common.Hash    		`json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    		`json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    		`json:"receiptsRoot"     gencodec:"required"`
+	PointerHash common.Hash    		`json:"PointerHash"      gencodec:"required"`
+	FruitsHash  common.Hash    		`json:"FruitsHash"       gencodec:"required"`
+	FastHash    common.Hash    		`json:"FastHash "        gencodec:"required"`
+	FastNumber  *big.Int       		`json:"FastNumber"       gencodec:"required"`
+	Bloom       Bloom          		`json:"logsBloom"        gencodec:"required"`
+	Difficulty  *big.Int       		`json:"difficulty"       gencodec:"required"`
+	Number      *big.Int       		`json:"number"           gencodec:"required"`
+	Publickey   *ecdsa.PublicKey    `json:"Publickey"        gencodec:"required"`
+	ToElect     bool         		`json:"ToElect"          gencodec:"required"`
+	Time        *big.Int       		`json:"timestamp"        gencodec:"required"`
+	Extra       []byte         		`json:"extraData"        gencodec:"required"`
+	MixDigest   common.Hash    		`json:"mixHash"          gencodec:"required"`
+	Nonce       BlockNonce     		`json:"nonce"            gencodec:"required"`
+}
+
+type SnailBody struct {
+	Fruits       []*SnailHeader
+}
+
+// Block represents an entire block in the Ethereum blockchain.
+type SnailBlock struct {
+	header       *SnailHeader
+	body       	 *SnailBody
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+
+	// Td is used by package core to store the total difficulty
+	// of the chain up to and including the block.
+	td *big.Int
+
+	// These fields are used by package eth to track
+	// inter-peer block relay.
+	ReceivedAt   time.Time
+	ReceivedFrom interface{}
+}
