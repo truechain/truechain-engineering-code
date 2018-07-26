@@ -69,7 +69,7 @@ type Ethereum struct {
 	// Handlers
 	txPool          *core.TxPool
 
-	hybridPool		*core.HybridPool
+	hybridPool		*core.SnailPool
 
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
@@ -166,7 +166,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	eth.hybridPool = core.NewHybridPool(eth.chainConfig, eth.blockchain)
+	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
 
 	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
@@ -370,7 +370,7 @@ func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager
 func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
 func (s *Ethereum) TxPool() *core.TxPool               { return s.txPool }
 
-func (s *Ethereum) HybridPool() *core.HybridPool		{return s.hybridPool}
+func (s *Ethereum) HybridPool() *core.SnailPool {return s.hybridPool}
 
 func (s *Ethereum) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
