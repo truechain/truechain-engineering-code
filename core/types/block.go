@@ -19,6 +19,7 @@ package types
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"io"
 	"math/big"
 	"sort"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
@@ -812,7 +814,7 @@ type SnailHeader struct {
 	Bloom       Bloom          		`json:"logsBloom"        gencodec:"required"`
 	Difficulty  *big.Int       		`json:"difficulty"       gencodec:"required"`
 	Number      *big.Int       		`json:"number"           gencodec:"required"`
-	Publickey   *ecdsa.PublicKey    `json:"Publickey"        gencodec:"required"`
+	Publickey   string			    `json:"Publickey"        gencodec:"required"`
 	ToElect     bool         		`json:"ToElect"          gencodec:"required"`
 	Time        *big.Int       		`json:"timestamp"        gencodec:"required"`
 	Extra       []byte         		`json:"extraData"        gencodec:"required"`
@@ -841,4 +843,94 @@ type SnailBlock struct {
 	// inter-peer block relay.
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
+}
+
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *SnailHeader) Hash() common.Hash {
+	return rlpHash(h)
+}
+// HashNoNonce returns the hash which is used as input for the proof-of-work search.
+func (h *SnailHeader) HashNoNonce() common.Hash {
+	return rlpHash([]interface{}{
+		h.ParentHash,
+		h.UncleHash,
+		h.Coinbase,
+		h.Root,
+		h.TxHash,
+		h.ReceiptHash,
+		h.PointerHash,
+		h.FruitsHash,
+		h.FastHash,
+		h.FastNumber,
+		h.Bloom,
+		h.Difficulty,
+		h.Number,
+		h.Publickey,
+		h.ToElect,
+		h.Time,
+		h.Extra,
+	})
+}
+// Size returns the approximate memory used by all internal contents. It is used
+// to approximate and limit the memory consumption of various caches.
+func (h *SnailHeader) Size() common.StorageSize {
+	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
+	(h.Difficulty.BitLen()+h.FastNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
+}
+// DeprecatedTd is an old relic for extracting the TD of a block. It is in the
+// code solely to facilitate upgrading the database from the old format to the
+// new, after which it should be deleted. Do not use!
+func (b *SnailBlock) DeprecatedTd() *big.Int {
+	return b.td
+}
+// NewSnailBlock creates a new block. The input data is copied,
+// changes to header and to the field values will not affect the
+// block.
+func NewSnailBlock(header *SnailHeader, body SnailBody) *SnailBlock {
+	b := &SnailBlock{header: CopySnailHeader(header), td: new(big.Int)}
+
+	b.body.Fruits = make([]*SnailHeader,len(body.Fruits))
+	for i := range body.Fruits {
+		b.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
+	}
+	return b
+}
+// NewSnailBlockWithHeader creates a block with the given header data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
+	return &SnailBlock{header: CopySnailHeader(header)}
+}
+// CopyHeader creates a deep copy of a block header to prevent side effects from
+// modifying a header variable.
+func CopySnailHeader(h *SnailHeader) *SnailHeader {
+	cpy := *h
+	if cpy.Time = new(big.Int); h.Time != nil {
+		cpy.Time.Set(h.Time)
+	}
+	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
+		cpy.Difficulty.Set(h.Difficulty)
+	}
+	if cpy.Number = new(big.Int); h.Number != nil {
+		cpy.Number.Set(h.Number)
+	}
+	if cpy.FastNumber = new(big.Int); h.FastNumber != nil {
+		cpy.FastNumber.Set(h.FastNumber)
+	}
+	if len(h.Extra) > 0 {
+		cpy.Extra = make([]byte, len(h.Extra))
+		copy(cpy.Extra, h.Extra)
+	}
+	return &cpy
+}
+
+func (b *SnailBlock) Number() *big.Int     				{ return new(big.Int).Set(b.header.Number) }
+func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey,error) {
+	byPub,err1 := hex.DecodeString(b.header.Publickey)
+	if err1 != nil {
+		return nil,err1
+	}
+	pub,err2 := crypto.UnmarshalPubkey(byPub)
+	return pub,err2
 }
