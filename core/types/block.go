@@ -761,6 +761,38 @@ func (b *FastBlock) Size() common.StorageSize {
 	b.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
 }
+// WithSeal returns a new fastblock with the data from b but the header replaced with
+// the sealed one.
+func (b *FastBlock) WithSeal(header *FastHeader) *FastBlock {
+	cpy := *header
+
+	return &FastBlock{
+		header:       &cpy,
+		transactions: b.transactions,
+		signs:        b.signs,
+	}
+}
+// WithBody returns a new fastblock with the given transaction contents.
+func (b *FastBlock) WithBody(transactions []*Transaction, signs []*string) *FastBlock {
+	block := &FastBlock{
+		header:       CopyFastHeader(b.header),
+		transactions: make([]*Transaction, len(transactions)),
+		signs:        make([]*string, len(signs)),
+	}
+	copy(block.transactions, transactions)
+	copy(block.signs,signs)
+	return block
+}
+// Hash returns the keccak256 hash of b's header.
+// The hash is computed on the first call and cached thereafter.
+func (b *FastBlock) Hash() common.Hash {
+	if hash := b.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := b.header.Hash()
+	b.hash.Store(v)
+	return v
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 //go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
