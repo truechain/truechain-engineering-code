@@ -278,6 +278,11 @@ func (t *TrueHybrid) MakeNewCommittee(msg *SignCommittee) (*PbftCommittee,error)
 	}
 	return &cmm,nil
 }
+
+/**
+receive new pbftCommittee
+remove the old  pbftCommittee from pbftcdCommittee
+ */
 func (t *TrueHybrid) UpdateLocalCommittee(cmm *PbftCommittee,sync bool) {
 	if cmm == nil {
 		return
@@ -301,7 +306,7 @@ func (t *TrueHybrid) UpdateCommitteeFromPBFTMsg(msg *SignCommittee) error {
 		}
 		return err
 	} else {
-		// verify the msg from pbft 
+		// verify the msg from pbft
 		m,err := t.Vote(t.GetCommitteeCount())
 		if err != nil {
 			return err
