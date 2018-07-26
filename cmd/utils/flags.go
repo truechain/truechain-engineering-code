@@ -1160,7 +1160,7 @@ func SetDashboardConfig(ctx *cli.Context, cfg *dashboard.Config) {
 	cfg.Refresh = ctx.GlobalDuration(DashboardRefreshFlag.Name)
 }
 
-// RegisterEthService adds an Ethereum client to the stack.
+// RegisterEthService adds an Truechain client to the stack.
 func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 	var err error
 	if cfg.SyncMode == downloader.LightSync {
@@ -1178,7 +1178,7 @@ func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 		})
 	}
 	if err != nil {
-		Fatalf("Failed to register the Ethereum service: %v", err)
+		Fatalf("Failed to register the Truechain service: %v", err)
 	}
 }
 
@@ -1198,12 +1198,12 @@ func RegisterShhService(stack *node.Node, cfg *whisper.Config) {
 	}
 }
 
-// RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
+// RegisterEthStatsService configures the Truechain Stats daemon and adds it to
 // th egiven node.
 func RegisterEthStatsService(stack *node.Node, url string) {
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		// Retrieve both eth and les services
-		var ethServ *etrue.Ethereum
+		var ethServ *etrue.Truechain
 		ctx.Service(&ethServ)
 
 		var lesServ *les.LightEthereum
@@ -1211,7 +1211,7 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 
 		return ethstats.New(url, ethServ, lesServ)
 	}); err != nil {
-		Fatalf("Failed to register the Ethereum Stats service: %v", err)
+		Fatalf("Failed to register the Truechain Stats service: %v", err)
 	}
 }
 
