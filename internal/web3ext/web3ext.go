@@ -23,7 +23,6 @@ var Modules = map[string]string{
 	"clique":     Clique_JS,
 	"debug":      Debug_JS,
 	"eth":        Eth_JS,
-	"tch":        True_JS,
 	"miner":      Miner_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
@@ -314,8 +313,8 @@ web3._extend({
 			params: 2
 		}),
 		new web3._extend.Method({
-			name: 'setMutexProfileRate',
-			call: 'debug_setMutexProfileRate',
+			name: 'setMutexProfileFraction',
+			call: 'debug_setMutexProfileFraction',
 			params: 1
 		}),
 		new web3._extend.Method({
@@ -432,14 +431,6 @@ web3._extend({
 			params: 2,
 			inputFormatter: [web3._extend.formatters.inputBlockNumberFormatter, web3._extend.utils.toHex]
 		}),
-		new web3._extend.Method({
-			name: 'getSdmsize',
-			call: 'eth_sdmsize'
-		}),
-		new web3._extend.Method({
-			name: 'getCommitteeMembers',
-			call: 'eth_committeeMembers'
-		}),
 	],
 	properties: [
 		new web3._extend.Property({
@@ -454,28 +445,6 @@ web3._extend({
 				return formatted;
 			}
 		}),
-	]
-});
-`
-
-const True_JS = `
-web3._extend({
-	property: 'tch',
-	methods: [
-		new web3._extend.Method({
-			name: 'getCommitteeMembers',
-			call: 'tch_committeeMembers'
-		}),
-		new web3._extend.Method({
-			name: 'createAEmptyBlock',
-			call: 'tch_aTestBlockInfo'
-		}),
-	],
-	properties: [
-		new web3._extend.Property({
-			name: 'getSdmsize',
-			getter: 'tch_sdmsize'
-		})
 	]
 });
 `

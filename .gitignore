@@ -1,2 +1,5 @@
 build/_workspace/*
 build/bin/*
+.vscode
+.idea
+debug

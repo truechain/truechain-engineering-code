@@ -23,11 +23,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 type hashrate struct {
@@ -155,8 +155,15 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	}
 	block := work.Block.WithSeal(result)
 
+	//neo for result struct add fruit result with to change the fun
+	//fruit :=work.Block.WithSeal(result)
+
 	// Solutions seems to be valid, return to the miner and notify acceptance
+	//a.returnCh <- &Result{work, block}
+
+	//Neo 20180624
 	a.returnCh <- &Result{work, block}
+
 	delete(a.work, hash)
 
 	return true

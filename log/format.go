@@ -15,14 +15,14 @@ import (
 
 const (
 	timeFormat     = "2006-01-02T15:04:05-0700"
-	termTimeFormat = "01-02|15:04:05"
+	termTimeFormat = "01-02|15:04:05.000"
 	floatFormat    = 'f'
 	termMsgJust    = 40
 )
 
 // locationTrims are trimmed for display to avoid unwieldy log lines.
 var locationTrims = []string{
-	"github.com/ethereum/go-ethereum/",
+	"github.com/truechain/truechain-engineering-code/",
 }
 
 // PrintOrigins sets or unsets log location (file:line) printing for terminal

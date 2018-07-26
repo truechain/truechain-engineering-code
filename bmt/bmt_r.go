@@ -1,4 +1,5 @@
 
+
 // simple nonconcurrent reference implementation for hashsize segment based
 // Binary Merkle tree hash on arbitrary but fixed maximum chunksize
 //

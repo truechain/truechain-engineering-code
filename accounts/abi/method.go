@@ -1,12 +1,11 @@
 
-
 package abi
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
 // Method represents a callable given a `Name` and whether the method is a constant.

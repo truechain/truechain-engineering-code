@@ -18,11 +18,10 @@
 
 package dashboard
 
-
 import (
 	"syscall"
 
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // getProcessCPUTime retrieves the process' CPU time since program startup.

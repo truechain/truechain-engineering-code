@@ -1,5 +1,4 @@
 
-
 // Package abi implements the Ethereum ABI (Application Binary
 // Interface).
 //
