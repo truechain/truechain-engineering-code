@@ -44,6 +44,16 @@ func powerf(x float64, n int) float64 {
 	return ans
 }
 
+//阶乘函数
+func Factorial(){
+
+}
+
+//求和函数
+func Sigma(j int,k int,wi int,P int64) {
+
+}
+
 //每个矿工本地进行计算抽签函数
 //需要参数seed, w_i, W，P
 
