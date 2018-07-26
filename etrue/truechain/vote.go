@@ -1,5 +1,10 @@
 package truechain
 
+import (
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"math/big"
+)
 
 var z  = 10000
 var k  = 50000
