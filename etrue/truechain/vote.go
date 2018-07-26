@@ -72,3 +72,20 @@ func Sigma(j int,k int,wi int,P int64) {
 //
 //}
 
+//签名验证
+// Verify checks a raw ECDSA signature.
+// Returns true if it's valid and false if not.
+func Verify(data, signature []byte, pubkey *ecdsa.PublicKey) bool {
+	// hash message
+	digest := sha256.Sum256(data)
+
+	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
+
+	r, s := new(big.Int), new(big.Int)
+	r.SetBytes(signature[:curveOrderByteSize])
+	s.SetBytes(signature[curveOrderByteSize:])
+
+	return ecdsa.Verify(pubkey, digest[:], r, s)
+}
+
+
