@@ -581,3 +581,99 @@ func (self blockSorter) Swap(i, j int) {
 func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
 
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+// fast chain block structure
+//go:generate gencodec -type FastHeader -field-override headerMarshaling -out gen_header_json.go
+
+// Header represents a block header in the true Fastblockchain.
+type FastHeader struct {
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+	SnailHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
+	SnailNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
+	Number      *big.Int       `json:"number"           gencodec:"required"`
+	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
+	Extra       []byte         `json:"extraData"        gencodec:"required"`
+}
+
+// Body is a simple (mutable, non-safe) data container for storing and moving
+// a block's data contents (transactions and uncles) together.
+type FastBody struct {
+	Transactions 	[]*Transaction
+	signs       	[]*string
+}
+
+// FastBlock represents an entire block in the Ethereum blockchain.
+type FastBlock struct {
+	header       	*FastHeader
+	signs       	[]*string
+	transactions 	Transactions
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+
+	// Td is used by package core to store the total difficulty
+	// of the chain up to and including the block.
+	td *big.Int
+
+	// These fields are used by package eth to track
+	// inter-peer block relay.
+	ReceivedAt   time.Time
+	ReceivedFrom interface{}
+}
+
+//go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
+
+// Header represents a block header in the Ethereum truechain.
+type SnailHeader struct {
+	ParentHash  common.Hash    		`json:"parentHash"       gencodec:"required"`
+	UncleHash   common.Hash    		`json:"sha3Uncles"       gencodec:"required"`
+	Coinbase    common.Address 		`json:"miner"            gencodec:"required"`
+	Root        common.Hash    		`json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    		`json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    		`json:"receiptsRoot"     gencodec:"required"`
+	PointerHash common.Hash    		`json:"PointerHash"      gencodec:"required"`
+	FruitsHash  common.Hash    		`json:"FruitsHash"       gencodec:"required"`
+	FastHash    common.Hash    		`json:"FastHash "        gencodec:"required"`
+	FastNumber  *big.Int       		`json:"FastNumber"       gencodec:"required"`
+	Bloom       Bloom          		`json:"logsBloom"        gencodec:"required"`
+	Difficulty  *big.Int       		`json:"difficulty"       gencodec:"required"`
+	Number      *big.Int       		`json:"number"           gencodec:"required"`
+	Publickey   *ecdsa.PublicKey    `json:"Publickey"        gencodec:"required"`
+	ToElect     bool         		`json:"ToElect"          gencodec:"required"`
+	Time        *big.Int       		`json:"timestamp"        gencodec:"required"`
+	Extra       []byte         		`json:"extraData"        gencodec:"required"`
+	MixDigest   common.Hash    		`json:"mixHash"          gencodec:"required"`
+	Nonce       BlockNonce     		`json:"nonce"            gencodec:"required"`
+}
+
+type SnailBody struct {
+	Fruits       []*SnailHeader
+}
+
+// Block represents an entire block in the Ethereum blockchain.
+type SnailBlock struct {
+	header       *SnailHeader
+	body       	 *SnailBody
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+
+	// Td is used by package core to store the total difficulty
+	// of the chain up to and including the block.
+	td *big.Int
+
+	// These fields are used by package eth to track
+	// inter-peer block relay.
+	ReceivedAt   time.Time
+	ReceivedFrom interface{}
+}
