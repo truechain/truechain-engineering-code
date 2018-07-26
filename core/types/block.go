@@ -19,7 +19,6 @@ package types
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"io"
 	"math/big"
 	"sort"
@@ -813,7 +812,7 @@ type SnailHeader struct {
 	Bloom       Bloom          		`json:"logsBloom"        gencodec:"required"`
 	Difficulty  *big.Int       		`json:"difficulty"       gencodec:"required"`
 	Number      *big.Int       		`json:"number"           gencodec:"required"`
-	Publickey   string			    `json:"Publickey"        gencodec:"required"`
+	Publickey   []byte			    `json:"Publickey"        gencodec:"required"`
 	ToElect     bool         		`json:"ToElect"          gencodec:"required"`
 	Time        *big.Int       		`json:"timestamp"        gencodec:"required"`
 	Extra       []byte         		`json:"extraData"        gencodec:"required"`
@@ -880,7 +879,8 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 // to approximate and limit the memory consumption of various caches.
 func (h *SnailHeader) Size() common.StorageSize {
 	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
-	(h.Difficulty.BitLen()+h.FastNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
+	len(h.Publickey) + (h.Difficulty.BitLen()+h.FastNumber.BitLen()+
+	h.Number.BitLen()+h.Time.BitLen())/8)
 }
 // DeprecatedTd is an old relic for extracting the TD of a block. It is in the
 // code solely to facilitate upgrading the database from the old format to the
@@ -949,14 +949,7 @@ func (b *SnailBlock) EncodeRLP(w io.Writer) error {
 }
 
 func (b *SnailBlock) Number() *big.Int     				  { return new(big.Int).Set(b.header.Number) }
-func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey,error) {
-	byPub,err1 := hex.DecodeString(b.header.Publickey)
-	if err1 != nil {
-		return nil,err1
-	}
-	pub,err2 := crypto.UnmarshalPubkey(byPub)
-	return pub,err2
-}
+func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey,error) { return crypto.UnmarshalPubkey(b.header.Publickey)}
 func (b *SnailBlock) Difficulty() *big.Int 	   { return new(big.Int).Set(b.header.Difficulty) }
 func (b *SnailBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
 func (b *SnailBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
