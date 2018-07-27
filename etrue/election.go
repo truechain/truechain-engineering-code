@@ -1,4 +1,4 @@
-package truechain
+package etrue
 
 import (
 	"crypto/ecdsa"
@@ -11,15 +11,14 @@ var k  = 50000
 var P  = 100
 
 type VoteuUse struct {
-	wi 	int64  //本地算力值wi
-	fe  int64  //总算力单元数w
+	wi 	int64  //Local value
 	seed string
 	b   bool
 	j 	int
 
 
 }
-//本地计算出自己的算力单元w_i
+//Calculate your own force unit locally
 func (v VoteuUse)LocalForce()int64{
 
 
@@ -30,7 +29,7 @@ func (v VoteuUse)LocalForce()int64{
 }
 
 
-//抽签函数使用的幂函数，
+//The power function used by the draw function
 func powerf(x float64, n int) float64 {
 	ans := 1.0
 
@@ -44,18 +43,18 @@ func powerf(x float64, n int) float64 {
 	return ans
 }
 
-//阶乘函数
+//Factorial function
 func Factorial(){
 
 }
 
-//求和函数
+//The sum function
 func Sigma(j int,k int,wi int,P int64) {
 
 }
 
-//每个矿工本地进行计算抽签函数
-//需要参数seed, w_i, W，P
+// the draw function is calculated locally for each miner
+// the parameters seed, w_i, W, P are required
 
 //func (v VoteuUse)Sortition()int,bool{
 //j := 0;
@@ -72,7 +71,7 @@ func Sigma(j int,k int,wi int,P int64) {
 //
 //}
 
-//签名验证
+
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
 func Verify(data, signature []byte, pubkey *ecdsa.PublicKey) bool {
