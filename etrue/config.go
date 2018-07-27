@@ -33,7 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
-// DefaultConfig contains default settings for use on the Ethereum main net.
+// DefaultConfig contains default settings for use on the Truechain main net.
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
 	Ethash: ethash.Config{
@@ -75,7 +75,7 @@ func init() {
 
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
-	// If nil, the Ethereum main net block is used.
+	// If nil, the Truechain main net block is used.
 	Genesis *core.Genesis `toml:",omitempty"`
 
 	// Protocol options

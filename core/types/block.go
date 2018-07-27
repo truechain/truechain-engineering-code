@@ -29,6 +29,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
@@ -603,18 +604,21 @@ type FastHeader struct {
 	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 }
-
+type SignInfo struct {
+	signs	[]byte 
+	result  byte 
+}
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
 type FastBody struct {
 	Transactions 	[]*Transaction
-	signs       	[]*string
+	signs       	[]*SignInfo
 }
 
 // FastBlock represents an entire block in the Ethereum blockchain.
 type FastBlock struct {
 	header       	*FastHeader
-	signs       	[]*string
+	signs       	[]*SignInfo
 	transactions 	Transactions
 
 	// caches
@@ -648,7 +652,7 @@ func (h *FastHeader) Size() common.StorageSize {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*string, receipts []*Receipt) *FastBlock {
+func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*SignInfo, receipts []*Receipt) *FastBlock {
 	b := &FastBlock{header: CopyFastHeader(header)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -666,7 +670,7 @@ func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*string, recei
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
 		b.header.Bloom = CreateBloom(receipts)
 	}
-	b.signs = make([]*string,len(signs))
+	b.signs = make([]*SignInfo,len(signs))
 	copy(b.signs,signs)
 	return b
 }
@@ -697,7 +701,7 @@ func CopyFastHeader(h *FastHeader) *FastHeader {
 type extfastblock struct {
 	Header *FastHeader
 	Txs    []*Transaction
-	Signs  []*string
+	Signs  []*SignInfo
 }
 // DecodeRLP decodes the Ethereum
 func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
@@ -710,7 +714,6 @@ func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
-
 // EncodeRLP serializes b into the Ethereum RLP block format.
 func (b *FastBlock) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extfastblock{
@@ -720,7 +723,7 @@ func (b *FastBlock) EncodeRLP(w io.Writer) error {
 	})
 }
 
-func (b *FastBlock) Signs() []*string           { return b.signs }
+func (b *FastBlock) Signs() []*SignInfo           { return b.signs }
 func (b *FastBlock) Transactions() Transactions { return b.transactions }
 func (b *FastBlock) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header,b.transactions})}
 func (b *FastBlock) Transaction(hash common.Hash) *Transaction {
@@ -761,6 +764,38 @@ func (b *FastBlock) Size() common.StorageSize {
 	b.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
 }
+// WithSeal returns a new fastblock with the data from b but the header replaced with
+// the sealed one.
+func (b *FastBlock) WithSeal(header *FastHeader) *FastBlock {
+	cpy := *header
+
+	return &FastBlock{
+		header:       &cpy,
+		transactions: b.transactions,
+		signs:        b.signs,
+	}
+}
+// WithBody returns a new fastblock with the given transaction contents.
+func (b *FastBlock) WithBody(transactions []*Transaction, signs []*SignInfo) *FastBlock {
+	block := &FastBlock{
+		header:       CopyFastHeader(b.header),
+		transactions: make([]*Transaction, len(transactions)),
+		signs:        make([]*SignInfo, len(signs)),
+	}
+	copy(block.transactions, transactions)
+	copy(block.signs,signs)
+	return block
+}
+// Hash returns the keccak256 hash of b's header.
+// The hash is computed on the first call and cached thereafter.
+func (b *FastBlock) Hash() common.Hash {
+	if hash := b.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := b.header.Hash()
+	b.hash.Store(v)
+	return v
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 //go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
@@ -780,7 +815,7 @@ type SnailHeader struct {
 	Bloom       Bloom          		`json:"logsBloom"        gencodec:"required"`
 	Difficulty  *big.Int       		`json:"difficulty"       gencodec:"required"`
 	Number      *big.Int       		`json:"number"           gencodec:"required"`
-	Publickey   *ecdsa.PublicKey    `json:"Publickey"        gencodec:"required"`
+	Publickey   []byte			    `json:"Publickey"        gencodec:"required"`
 	ToElect     bool         		`json:"ToElect"          gencodec:"required"`
 	Time        *big.Int       		`json:"timestamp"        gencodec:"required"`
 	Extra       []byte         		`json:"extraData"        gencodec:"required"`
@@ -809,4 +844,178 @@ type SnailBlock struct {
 	// inter-peer block relay.
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
+}
+// "external" block encoding. used for eth protocol, etc.
+type extsnailblock struct {
+	Header  *SnailHeader
+	Body    *SnailBody
+	Td 	    *big.Int
+}
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *SnailHeader) Hash() common.Hash {
+	return rlpHash(h)
+}
+// HashNoNonce returns the hash which is used as input for the proof-of-work search.
+func (h *SnailHeader) HashNoNonce() common.Hash {
+	return rlpHash([]interface{}{
+		h.ParentHash,
+		h.UncleHash,
+		h.Coinbase,
+		h.Root,
+		h.TxHash,
+		h.ReceiptHash,
+		h.PointerHash,
+		h.FruitsHash,
+		h.FastHash,
+		h.FastNumber,
+		h.Bloom,
+		h.Difficulty,
+		h.Number,
+		h.Publickey,
+		h.ToElect,
+		h.Time,
+		h.Extra,
+	})
+}
+// Size returns the approximate memory used by all internal contents. It is used
+// to approximate and limit the memory consumption of various caches.
+func (h *SnailHeader) Size() common.StorageSize {
+	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
+	len(h.Publickey) + (h.Difficulty.BitLen()+h.FastNumber.BitLen()+
+	h.Number.BitLen()+h.Time.BitLen())/8)
+}
+// DeprecatedTd is an old relic for extracting the TD of a block. It is in the
+// code solely to facilitate upgrading the database from the old format to the
+// new, after which it should be deleted. Do not use!
+func (b *SnailBlock) DeprecatedTd() *big.Int {
+	return b.td
+}
+// NewSnailBlock creates a new block. The input data is copied,
+// changes to header and to the field values will not affect the
+// block.
+func NewSnailBlock(header *SnailHeader, body SnailBody) *SnailBlock {
+	b := &SnailBlock{header: CopySnailHeader(header), td: new(big.Int)}
+
+	b.body.Fruits = make([]*SnailHeader,len(body.Fruits))
+	for i := range body.Fruits {
+		b.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
+	}
+	return b
+}
+// NewSnailBlockWithHeader creates a block with the given header data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
+	return &SnailBlock{header: CopySnailHeader(header)}
+}
+// CopyHeader creates a deep copy of a block header to prevent side effects from
+// modifying a header variable.
+func CopySnailHeader(h *SnailHeader) *SnailHeader {
+	cpy := *h
+	if cpy.Time = new(big.Int); h.Time != nil {
+		cpy.Time.Set(h.Time)
+	}
+	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
+		cpy.Difficulty.Set(h.Difficulty)
+	}
+	if cpy.Number = new(big.Int); h.Number != nil {
+		cpy.Number.Set(h.Number)
+	}
+	if cpy.FastNumber = new(big.Int); h.FastNumber != nil {
+		cpy.FastNumber.Set(h.FastNumber)
+	}
+	if len(h.Extra) > 0 {
+		cpy.Extra = make([]byte, len(h.Extra))
+		copy(cpy.Extra, h.Extra)
+	}
+	return &cpy
+}
+// DecodeRLP decodes the Ethereum
+func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
+	var eb extsnailblock
+	_, size, _ := s.Kind()
+	if err := s.Decode(&eb); err != nil {
+		return err
+	}
+	b.header, b.td, b.body = eb.Header, eb.Td, eb.Body
+	b.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+// EncodeRLP serializes b into the Ethereum RLP block format.
+func (b *SnailBlock) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extsnailblock{
+		Header: 	b.header,
+		Body:    	b.body,
+		Td:			b.td,
+	})
+}
+
+func (b *SnailBlock) Number() *big.Int     				  { return new(big.Int).Set(b.header.Number) }
+func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey,error) { return crypto.UnmarshalPubkey(b.header.Publickey)}
+func (b *SnailBlock) Difficulty() *big.Int 	   { return new(big.Int).Set(b.header.Difficulty) }
+func (b *SnailBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
+func (b *SnailBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
+func (b *SnailBlock) MixDigest() common.Hash   { return b.header.MixDigest }
+func (b *SnailBlock) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
+func (b *SnailBlock) Bloom() Bloom             { return b.header.Bloom }
+func (b *SnailBlock) Coinbase() common.Address { return b.header.Coinbase }
+func (b *SnailBlock) Root() common.Hash        { return b.header.Root }
+func (b *SnailBlock) ParentHash() common.Hash  { return b.header.ParentHash }
+func (b *SnailBlock) TxHash() common.Hash      { return b.header.TxHash }
+func (b *SnailBlock) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *SnailBlock) UncleHash() common.Hash   { return b.header.UncleHash }
+func (b *SnailBlock) PointerHash() common.Hash { return b.header.PointerHash }
+func (b *SnailBlock) FruitsHash() common.Hash  { return b.header.FruitsHash }
+func (b *SnailBlock) FastHash() common.Hash    { return b.header.FastHash }
+func (b *SnailBlock) FastNumber() *big.Int 	   { return new(big.Int).Set(b.header.FastNumber) }
+func (b *SnailBlock) ToElect() bool            { return b.header.ToElect }
+func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+func (b *SnailBlock) Header() *SnailHeader 	   { return CopySnailHeader(b.header) }
+
+// Body returns the non-header content of the snailblock.
+func (b *SnailBlock) Body() *SnailBody { return b.body }
+func (b *SnailBlock) HashNoNonce() common.Hash {
+	return b.header.HashNoNonce()
+}
+// Size returns the true RLP encoded storage size of the block, either by encoding
+// and returning it, or returning a previsouly cached value.
+func (b *SnailBlock) Size() common.StorageSize {
+	if size := b.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.size.Store(common.StorageSize(c))
+	return common.StorageSize(c)
+}
+// WithSeal returns a new snailblock with the data from b but the header replaced with
+// the sealed one.
+func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
+	cpy := *header
+	return &SnailBlock{
+		header:     &cpy,
+		body: 		b.body,
+	}
+}
+// WithBody returns a new snailblock with the given transaction and uncle contents.
+func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
+	block := &SnailBlock{
+		header:       b.Header(),
+	}
+	block.body.Fruits = make([]*SnailHeader,len(body.Fruits))
+	for i := range body.Fruits {
+		block.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
+	}
+	return block
+}
+// Hash returns the keccak256 hash of b's header.
+// The hash is computed on the first call and cached thereafter.
+func (b *SnailBlock) Hash() common.Hash {
+	if hash := b.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := b.header.Hash()
+	b.hash.Store(v)
+	return v
 }

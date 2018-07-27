@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package les implements the Light Ethereum Subprotocol.
+// Package les implements the Light Truechain Subprotocol.
 package les
 
 import (
@@ -50,7 +50,7 @@ type LesServer struct {
 	chtIndexer, bloomTrieIndexer *core.ChainIndexer
 }
 
-func NewLesServer(etrue *etrue.Ethereum, config *etrue.Config) (*LesServer, error) {
+func NewLesServer(etrue *etrue.Truechain, config *etrue.Config) (*LesServer, error) {
 	quitSync := make(chan struct{})
 	pm, err := NewProtocolManager(etrue.BlockChain().Config(), false, ServerProtocolVersions, config.NetworkId, etrue.EventMux(), etrue.Engine(), newPeerSet(), etrue.BlockChain(), etrue.TxPool(), etrue.ChainDb(), nil, nil, nil, quitSync, new(sync.WaitGroup))
 	if err != nil {

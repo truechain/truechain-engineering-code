@@ -50,10 +50,10 @@ type NodeConfig struct {
 	// set to zero, then only the configured static and trusted peers can connect.
 	MaxPeers int
 
-	// EthereumEnabled specifies whether the node should run the Ethereum protocol.
+	// EthereumEnabled specifies whether the node should run the Truechain protocol.
 	EthereumEnabled bool
 
-	// EthereumNetworkID is the network identifier used by the Ethereum protocol to
+	// EthereumNetworkID is the network identifier used by the Truechain protocol to
 	// decide if remote peers should be accepted or not.
 	EthereumNetworkID int64 // uint64 in truth, but Java can't handle that...
 
@@ -94,7 +94,7 @@ func NewNodeConfig() *NodeConfig {
 	return &config
 }
 
-// Node represents a Geth Ethereum node instance.
+// Node represents a Geth Truechain node instance.
 type Node struct {
 	node *node.Node
 }
@@ -153,7 +153,7 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 			}
 		}
 	}
-	// Register the Ethereum protocol if requested
+	// Register the Truechain protocol if requested
 	if config.EthereumEnabled {
 		ethConf := etrue.DefaultConfig
 		ethConf.Genesis = genesis
@@ -199,7 +199,7 @@ func (n *Node) Stop() error {
 	return n.node.Stop()
 }
 
-// GetEthereumClient retrieves a client to access the Ethereum subsystem.
+// GetEthereumClient retrieves a client to access the Truechain subsystem.
 func (n *Node) GetEthereumClient() (client *EthereumClient, _ error) {
 	rpc, err := n.node.Attach()
 	if err != nil {

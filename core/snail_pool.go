@@ -119,7 +119,7 @@ func (config *HybridPoolConfig) sanitize() HybridPoolConfig {
 // The pool separates processable transactions (which can be applied to the
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
-type HybridPool struct {
+type SnailPool struct {
 	config      HybridPoolConfig
 	chainconfig *params.ChainConfig
 	chain       *BlockChain
@@ -169,13 +169,13 @@ type HybridPool struct {
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func NewHybridPool(chainconfig *params.ChainConfig, chain *BlockChain) *HybridPool {
+func NewSnailPool(chainconfig *params.ChainConfig, chain *BlockChain) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	//config = (&config).sanitize()
 	config := DefaultHybridPoolConfig
 
 	// Create the transaction pool with its initial settings
-	pool := &HybridPool{
+	pool := &SnailPool{
 		config:      config,
 		chainconfig: chainconfig,
 		chain:       chain,
@@ -221,7 +221,7 @@ func NewHybridPool(chainconfig *params.ChainConfig, chain *BlockChain) *HybridPo
 	return pool
 }
 
-func (pool *HybridPool) getRecord(hash common.Hash, number *big.Int) *types.PbftRecord {
+func (pool *SnailPool) getRecord(hash common.Hash, number *big.Int) *types.PbftRecord {
 	pool.muRecord.Lock()
 	defer pool.muRecord.Unlock()
 
@@ -243,7 +243,7 @@ func (pool *HybridPool) getRecord(hash common.Hash, number *big.Int) *types.Pbft
 }
 
 // move the fruit of execute record to pending list
-func (pool *HybridPool) updateFruit(record *types.PbftRecord, toLock bool) error {
+func (pool *SnailPool) updateFruit(record *types.PbftRecord, toLock bool) error {
 	if toLock {
 		pool.muFruit.Lock()
 		defer pool.muFruit.Unlock()
@@ -266,7 +266,7 @@ func (pool *HybridPool) updateFruit(record *types.PbftRecord, toLock bool) error
 }
 
 // add
-func (pool *HybridPool) addFruit(fruit *types.Block) error {
+func (pool *SnailPool) addFruit(fruit *types.Block) error {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
@@ -303,7 +303,7 @@ func (pool *HybridPool) addFruit(fruit *types.Block) error {
 	return nil
 }
 
-func (pool *HybridPool) commitTransaction(tx *types.Transaction, coinbase common.Address, gp *GasPool, gasUsed *uint64) (error, *types.Receipt) {
+func (pool *SnailPool) commitTransaction(tx *types.Transaction, coinbase common.Address, gp *GasPool, gasUsed *uint64) (error, *types.Receipt) {
 	//snap := pool.currentState.Snapshot()
 
 	// TODO: commit tx
@@ -319,7 +319,7 @@ func (pool *HybridPool) commitTransaction(tx *types.Transaction, coinbase common
 	return nil, receipt
 }
 
-func (pool *HybridPool) commitRecord(record *types.PbftRecord, coinbase common.Address) (error, []*types.Receipt) {
+func (pool *SnailPool) commitRecord(record *types.PbftRecord, coinbase common.Address) (error, []*types.Receipt) {
 	var receipts []*types.Receipt
 
 	if pool.gasPool == nil {
@@ -343,7 +343,7 @@ func (pool *HybridPool) commitRecord(record *types.PbftRecord, coinbase common.A
 
 // re execute records whose number are larger than the give on
 // maybe they can execute now
-func (pool *HybridPool) updateRecordsWithLock(number *big.Int, lockFruits bool) {
+func (pool *SnailPool) updateRecordsWithLock(number *big.Int, lockFruits bool) {
 	// TODO:
 	var remove []*list.Element
 	for lr := pool.recordList.Front(); lr != nil; lr = lr.Next() {
@@ -375,7 +375,7 @@ func (pool *HybridPool) updateRecordsWithLock(number *big.Int, lockFruits bool) 
 	}
 }
 
-func (pool *HybridPool) addRecord(record *types.PbftRecord) error {
+func (pool *SnailPool) addRecord(record *types.PbftRecord) error {
 	pool.muRecord.Lock()
 	defer pool.muRecord.Unlock()
 
@@ -410,7 +410,7 @@ func (pool *HybridPool) addRecord(record *types.PbftRecord) error {
 // loop is the transaction pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and transaction
 // eviction events.
-func (pool *HybridPool) loop() {
+func (pool *SnailPool) loop() {
 	defer pool.wg.Done()
 
 	report := time.NewTicker(statsReportInterval)
@@ -491,7 +491,7 @@ func fruitsDifference(a, b []*types.Block) []*types.Block {
 }
 
 // remove the record from pending list and unexecutable list
-func (pool *HybridPool) removeRecordWithLock(recordList *list.List, hash common.Hash) {
+func (pool *SnailPool) removeRecordWithLock(recordList *list.List, hash common.Hash) {
 	for e := recordList.Front(); e != nil; e = e.Next() {
 		r := e.Value.(*types.PbftRecord)
 		if r.Hash() == hash {
@@ -502,7 +502,7 @@ func (pool *HybridPool) removeRecordWithLock(recordList *list.List, hash common.
 }
 
 // remove all the fruits and records included in the new block
-func (pool *HybridPool) removeWithLock(fruits []*types.Block) {
+func (pool *SnailPool) removeWithLock(fruits []*types.Block) {
 	for _, fruit := range fruits {
 		delete(pool.fruitPending, fruit.RecordHash())
 		delete(pool.allFruits, fruit.RecordHash())
@@ -516,7 +516,7 @@ func (pool *HybridPool) removeWithLock(fruits []*types.Block) {
 }
 
 
-func (pool *HybridPool) resetRecordsWithLock() {
+func (pool *SnailPool) resetRecordsWithLock() {
 	pool.fruitPending = make(map[common.Hash]*types.Block)
 
 	pool.recordList = list.New()
@@ -529,7 +529,7 @@ func (pool *HybridPool) resetRecordsWithLock() {
 
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
-func (pool *HybridPool) reset(oldHead, newHead *types.Block) {
+func (pool *SnailPool) reset(oldHead, newHead *types.Block) {
 	// If we're reorging an old state, reinject all dropped transactions
 	var reinject []*types.Block
 
@@ -615,7 +615,7 @@ func (pool *HybridPool) reset(oldHead, newHead *types.Block) {
 }
 
 // Stop terminates the transaction pool.
-func (pool *HybridPool) Stop() {
+func (pool *SnailPool) Stop() {
 	// Unsubscribe all subscriptions registered from txpool
 	pool.scope.Close()
 
@@ -631,7 +631,7 @@ func (pool *HybridPool) Stop() {
 }
 
 // GasPrice returns the current gas price enforced by the transaction pool.
-func (pool *HybridPool) GasPrice() *big.Int {
+func (pool *SnailPool) GasPrice() *big.Int {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -639,7 +639,7 @@ func (pool *HybridPool) GasPrice() *big.Int {
 }
 
 // State returns the virtual managed state of the transaction pool.
-func (pool *HybridPool) State() *state.ManagedState {
+func (pool *SnailPool) State() *state.ManagedState {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
@@ -649,7 +649,7 @@ func (pool *HybridPool) State() *state.ManagedState {
 // AddLocals enqueues a batch of transactions into the pool if they are valid,
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
-func (pool *HybridPool) AddRemoteFruits(fruits []*types.Block) []error {
+func (pool *SnailPool) AddRemoteFruits(fruits []*types.Block) []error {
 
 	errs := make([]error, len(fruits))
 
@@ -669,7 +669,7 @@ func (pool *HybridPool) AddRemoteFruits(fruits []*types.Block) []error {
 
 // Pending retrieves all currently processable allFruits, sorted by record number.
 // The returned fruit set is a copy and can be freely modified by calling code.
-func (pool *HybridPool) PendingFruits() (map[common.Hash]*types.Block, error) {
+func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.Block, error) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
@@ -683,12 +683,12 @@ func (pool *HybridPool) PendingFruits() (map[common.Hash]*types.Block, error) {
 
 // SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
 // starts sending event to the given channel.
-func (pool *HybridPool) SubscribeNewFruitEvent(ch chan<- NewFruitsEvent) event.Subscription {
+func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- NewFruitsEvent) event.Subscription {
 	return pool.scope.Track(pool.fruitFeed.Subscribe(ch))
 }
 
 // Insert record into list order by record number
-func (pool *HybridPool) insertRecordWithLock(recordList *list.List, record *types.PbftRecord) error {
+func (pool *SnailPool) insertRecordWithLock(recordList *list.List, record *types.PbftRecord) error {
 
 	log.Info("++insert record pending", "number", record.Number(), "hash", record.Hash())
 
@@ -707,7 +707,7 @@ func (pool *HybridPool) insertRecordWithLock(recordList *list.List, record *type
 // AddLocals enqueues a batch of transactions into the pool if they are valid,
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
-func (pool *HybridPool) AddRemoteRecords(records []*types.PbftRecord) []error {
+func (pool *SnailPool) AddRemoteRecords(records []*types.PbftRecord) []error {
 	errs := make([]error, len(records))
 
 	// TODO: check record signatures
@@ -726,7 +726,7 @@ func (pool *HybridPool) AddRemoteRecords(records []*types.PbftRecord) []error {
 
 // Pending retrieves one currently record.
 // The returned record is a copy and can be freely modified by calling code.
-func (pool *HybridPool) PendingRecords() (*types.PbftRecord, error) {
+func (pool *SnailPool) PendingRecords() (*types.PbftRecord, error) {
 	pool.muRecord.Lock()
 	defer pool.muRecord.Unlock()
 
@@ -741,12 +741,12 @@ func (pool *HybridPool) PendingRecords() (*types.PbftRecord, error) {
 
 // SubscribeNewRecordsEvent registers a subscription of NewRecordEvent and
 // starts sending event to the given channel.
-func (pool *HybridPool) SubscribeNewRecordEvent(ch chan<- NewRecordsEvent) event.Subscription {
+func (pool *SnailPool) SubscribeNewRecordEvent(ch chan<- NewRecordsEvent) event.Subscription {
 	return pool.scope.Track(pool.recordFeed.Subscribe(ch))
 }
 
 // validateRecord checks whether a Record is valid.
-func (pool *HybridPool) validateRecord(record *types.PbftRecord) error {
+func (pool *SnailPool) validateRecord(record *types.PbftRecord) error {
 	// TODO: check the record is signed properly
 	//from, err := types.Sender(pool.signer, tx)
 	//if err != nil {
@@ -766,7 +766,7 @@ func (pool *HybridPool) validateRecord(record *types.PbftRecord) error {
 	return nil
 }
 
-func (pool *HybridPool) validateFruit(fruit *types.Block) error {
+func (pool *SnailPool) validateFruit(fruit *types.Block) error {
 	// TODO: checks whether the fruit is valid
 
 	// check freshness
@@ -795,6 +795,6 @@ func (pool *HybridPool) validateFruit(fruit *types.Block) error {
 // PostChainEvents iterates over the events generated by a chain insertion and
 // posts them into the event feed.
 // TODO: Should not expose PostChainEvents. The chain events should be posted in WriteBlock.
-func (pool *HybridPool) PostNewRecordEvents(event interface{}) {
+func (pool *SnailPool) PostNewRecordEvents(event interface{}) {
 	pool.recordFeed.Send(event)
 }
