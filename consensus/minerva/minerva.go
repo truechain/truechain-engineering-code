@@ -391,9 +391,9 @@ type Config struct {
 	PowMode        Mode
 }
 
-// Truepow is a consensus engine based on proot-of-work implementing the truechain fpow
+// Minerva is a consensus engine based on proot-of-work implementing the truechain fpow
 // algorithm.
-type Truepow struct {
+type Minerva struct {
 	config Config
 
 	caches   *lru // In memory caches to avoid regenerating too often
@@ -406,7 +406,7 @@ type Truepow struct {
 	hashrate metrics.Meter // Meter tracking the average hashrate
 
 	// The fields below are hooks for testing
-	shared    *Truepow      // Shared PoW verifier to avoid cache regeneration
+	shared    *Minerva      // Shared PoW verifier to avoid cache regeneration
 	fakeFail  uint64        // Block number which fails PoW check even in fake mode
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
@@ -414,7 +414,7 @@ type Truepow struct {
 }
 
 // New creates a full sized ethash PoW scheme.
-func New(config Config) *Truepow {
+func New(config Config) *Minerva {
 	if config.CachesInMem <= 0 {
 		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
 		config.CachesInMem = 1
@@ -425,7 +425,7 @@ func New(config Config) *Truepow {
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
 		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
-	return &Truepow{
+	return &Minerva{
 		config:   config,
 		caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
@@ -436,15 +436,15 @@ func New(config Config) *Truepow {
 
 // NewTester creates a small sized ethash PoW scheme useful only for testing
 // purposes.
-func NewTester() *Truepow {
+func NewTester() *Minerva {
 	return New(Config{CachesInMem: 1, PowMode: ModeTest})
 }
 
 // NewFaker creates a ethash consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Ethereum
 // consensus rules.
-func NewFaker() *Truepow {
-	return &Truepow{
+func NewFaker() *Minerva {
+	return &Minerva{
 		config: Config{
 			PowMode: ModeFake,
 		},
@@ -454,8 +454,8 @@ func NewFaker() *Truepow {
 // NewFakeFailer creates a ethash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid apart from the single one specified, though they
 // still have to conform to the Ethereum consensus rules.
-func NewFakeFailer(fail uint64) *Truepow {
-	return &Truepow{
+func NewFakeFailer(fail uint64) *Minerva {
+	return &Minerva{
 		config: Config{
 			PowMode: ModeFake,
 		},
@@ -466,8 +466,8 @@ func NewFakeFailer(fail uint64) *Truepow {
 // NewFakeDelayer creates a ethash consensus engine with a fake PoW scheme that
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Ethereum consensus rules.
-func NewFakeDelayer(delay time.Duration) *Truepow {
-	return &Truepow{
+func NewFakeDelayer(delay time.Duration) *Minerva {
+	return &Minerva{
 		config: Config{
 			PowMode: ModeFake,
 		},
@@ -477,8 +477,8 @@ func NewFakeDelayer(delay time.Duration) *Truepow {
 
 // NewFullFaker creates an ethash consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
-func NewFullFaker() *Truepow {
-	return &Truepow{
+func NewFullFaker() *Minerva {
+	return &Minerva{
 		config: Config{
 			PowMode: ModeFullFake,
 		},
@@ -487,14 +487,14 @@ func NewFullFaker() *Truepow {
 
 // NewShared creates a full sized ethash PoW shared between all requesters running
 // in the same process.
-func NewShared() *Truepow {
-	return &Truepow{shared: sharedEthash}
+func NewShared() *Minerva {
+	return &Minerva{shared: sharedEthash}
 }
 
 // cache tries to retrieve a verification cache for the specified block number
 // by first checking against a list of in-memory caches, then against caches
 // stored on disk, and finally generating one if none can be found.
-func (ethash *Truepow) cache(block uint64) *cache {
+func (ethash *Minerva) cache(block uint64) *cache {
 	epoch := block / epochLength
 	currentI, futureI := ethash.caches.get(epoch)
 	current := currentI.(*cache)
@@ -513,7 +513,7 @@ func (ethash *Truepow) cache(block uint64) *cache {
 // dataset tries to retrieve a mining dataset for the specified block number
 // by first checking against a list of in-memory datasets, then against DAGs
 // stored on disk, and finally generating one if none can be found.
-func (ethash *Truepow) dataset(block uint64) *dataset {
+func (ethash *Minerva) dataset(block uint64) *dataset {
 	epoch := block / epochLength
 	currentI, futureI := ethash.datasets.get(epoch)
 	current := currentI.(*dataset)
@@ -532,7 +532,7 @@ func (ethash *Truepow) dataset(block uint64) *dataset {
 
 // Threads returns the number of mining threads currently enabled. This doesn't
 // necessarily mean that mining is running!
-func (ethash *Truepow) Threads() int {
+func (ethash *Minerva) Threads() int {
 	ethash.lock.Lock()
 	defer ethash.lock.Unlock()
 
@@ -544,7 +544,7 @@ func (ethash *Truepow) Threads() int {
 // specified, the miner will use all cores of the machine. Setting a thread
 // count below zero is allowed and will cause the miner to idle, without any
 // work being done.
-func (ethash *Truepow) SetThreads(threads int) {
+func (ethash *Minerva) SetThreads(threads int) {
 	ethash.lock.Lock()
 	defer ethash.lock.Unlock()
 
@@ -563,13 +563,13 @@ func (ethash *Truepow) SetThreads(threads int) {
 
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
-func (ethash *Truepow) Hashrate() float64 {
+func (ethash *Minerva) Hashrate() float64 {
 	return ethash.hashrate.Rate1()
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC APIs. Currently
 // that is empty.
-func (ethash *Truepow) APIs(chain consensus.ChainReader) []rpc.API {
+func (ethash *Minerva) APIs(chain consensus.ChainReader) []rpc.API {
 	return nil
 }
 
