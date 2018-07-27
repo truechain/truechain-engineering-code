@@ -28,12 +28,7 @@ func (v VoteuUse)LocalForce()int64{
 	return w
 
 }
-//Z个区块的总算力单元数W
-func (v VoteuUse)ForceElement()int64{
-	f := v.fe
-	//W=(∑▒〖(D_pf-〖[h]〗_(-k))〗)/u
-	return f
-}
+
 
 //抽签函数使用的幂函数，
 func powerf(x float64, n int) float64 {
