@@ -350,23 +350,23 @@ func DeleteBlock_Fast(db DatabaseDeleter, hash common.Hash, number uint64) {
 // FindCommonAncestor returns the last common ancestor of two block headers
 func FindCommonAncestor_Fast(db DatabaseReader, a, b *types.FastHeader) *types.FastHeader {
 	for bn := b.Number.Uint64(); a.Number.Uint64() > bn; {
-		a = ReadFastHeader(db, a.ParentHash, a.Number.Uint64()-1)
+		a = ReadHeader_Fast(db, a.ParentHash, a.Number.Uint64()-1)
 		if a == nil {
 			return nil
 		}
 	}
 	for an := a.Number.Uint64(); an < b.Number.Uint64(); {
-		b = ReadFastHeader(db, b.ParentHash, b.Number.Uint64()-1)
+		b = ReadHeader_Fast(db, b.ParentHash, b.Number.Uint64()-1)
 		if b == nil {
 			return nil
 		}
 	}
 	for a.Hash() != b.Hash() {
-		a = ReadFastHeader(db, a.ParentHash, a.Number.Uint64()-1)
+		a = ReadHeader_Fast(db, a.ParentHash, a.Number.Uint64()-1)
 		if a == nil {
 			return nil
 		}
-		b = ReadFastHeader(db, b.ParentHash, b.Number.Uint64()-1)
+		b = ReadHeader_Fast(db, b.ParentHash, b.Number.Uint64()-1)
 		if b == nil {
 			return nil
 		}
