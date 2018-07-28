@@ -79,7 +79,7 @@ func TestCacheFileEvict(t *testing.T) {
 	wg.Wait()
 }
 
-func verifyTest(wg *sync.WaitGroup, e *Truepow, workerIndex, epochs int) {
+func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 
 	defer wg.Done()
 	const wiggle = 4 * epochLength
