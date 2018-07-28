@@ -25,8 +25,8 @@ import (
 
 // ReadTxLookupEntry retrieves the positional metadata associated with a transaction
 // hash to allow retrieving the transaction or receipt by hash.
-/*func ReadTxLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
-	data, _ := db.Get(txLookupKey(hash))
+func ReadTxLookupEntry_Fast(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
+	data, _ := db.Get(txLookupKey_Fast(hash))
 	if len(data) == 0 {
 		return common.Hash{}, 0, 0
 	}
@@ -36,7 +36,7 @@ import (
 		return common.Hash{}, 0, 0
 	}
 	return entry.BlockHash, entry.BlockIndex, entry.Index
-}*/
+}
 
 // WriteTxLookupEntries stores a positional metadata for every transaction from
 // a block, enabling hash based transaction and receipt lookups.
@@ -64,7 +64,7 @@ func WriteTxLookupEntries_Fast(db DatabaseWriter, block *types.Block) {
 
 // ReadTransaction retrieves a specific transaction from the database, along with
 // its added positional metadata.
-func ReadTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
+func ReadTransaction_Fast(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
 	blockHash, blockNumber, txIndex := ReadTxLookupEntry(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
@@ -80,7 +80,7 @@ func ReadTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, c
 // ReadReceipt retrieves a specific transaction receipt from the database, along with
 // its added positional metadata.
 func ReadReceipt_Fast(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, receiptIndex := ReadTxLookupEntry(db, hash)
+	blockHash, blockNumber, receiptIndex := ReadTxLookupEntry_Fast(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}
