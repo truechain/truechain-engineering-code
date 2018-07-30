@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -39,7 +40,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -238,6 +238,11 @@ func (c *Clique) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules.
 func (c *Clique) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
 	return c.verifyHeader(chain, header, nil)
+}
+
+// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules.
+func (c *Clique) VerifyFastHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	return nil
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The
@@ -587,7 +592,6 @@ func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {
 	c.signer = signer
 	c.signFn = signFn
 }
-
 
 func (c *Clique) ConSeal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block) {
 

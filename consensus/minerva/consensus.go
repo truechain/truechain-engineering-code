@@ -36,16 +36,16 @@ import (
 
 // Ethash proof-of-work protocol constants.
 var (
-	FrontierBlockReward    *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-	ByzantiumBlockReward   *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
+	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 
-	FruitReward				*big.Int = big.NewInt(3.333e+16)
-	BlockReward				*big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
+	FruitReward *big.Int = big.NewInt(3.333e+16)
+	BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
 
-	maxUncles                       = 2                 // Maximum number of uncles allowed in a single block
-	allowedFutureBlockTime          = 15 * time.Second  // Max time from current time allowed for blocks, before they're considered future blocks
+	maxUncles              = 2                // Maximum number of uncles allowed in a single block
+	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
 
-	FruitBlockRatio *big.Int = big.NewInt(64) 		// difficulty ratio between fruit and block
+	FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -96,6 +96,12 @@ func (ethash *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.H
 
 	// Sanity checks passed, do a proper verification
 	return ethash.verifyHeader(chain, header, parent, false, seal)
+}
+
+// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
+// stock Ethereum ethash engine.
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	return nil
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
