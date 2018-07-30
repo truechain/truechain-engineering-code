@@ -589,6 +589,12 @@ func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, sta
 	return types.NewBlock(header, txs, nil, receipts, nil), nil
 }
 
+// Finalize implements consensus.Engine, ensuring no uncles are set, nor block
+// rewards given, and returns the final block.
+func (c *Clique) FinalizeFast(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+	return nil, nil
+}
+
 // Authorize injects a private key into the consensus engine to mint new blocks
 // with.
 func (c *Clique) Authorize(signer common.Address, signFn SignerFn) {

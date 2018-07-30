@@ -555,6 +555,12 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 	return types.NewBlock(header, txs, uncles, receipts, fruits), nil
 }
 
+// FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
+// setting the final state and assembling the block.
+func (ethash *Minerva) FinalizeFast(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+	return nil, nil
+}
+
 // Some weird constants to avoid constant memory allocs for them.
 var (
 	big8  = big.NewInt(8)
