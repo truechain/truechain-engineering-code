@@ -546,7 +546,8 @@ func (ethash *Minerva) PrepareFast(chain consensus.ChainReader, header *types.He
 
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
-func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
+	uncles []*types.Header,receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles, fruits)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
