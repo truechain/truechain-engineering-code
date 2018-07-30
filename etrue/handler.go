@@ -49,8 +49,6 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
-	//record
-	recordChanSize = 256
 	fruitChanSize = 256
 )
 
@@ -89,9 +87,6 @@ type ProtocolManager struct {
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
-	//records
-	recordsch      chan core.NewRecordsEvent
-	recordsSub	  event.Subscription
 	//fruit
 	fruitsch       chan core.NewFruitsEvent
 	fruitsSub	  event.Subscription
@@ -224,11 +219,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 
-	//broadcast records
-	pm.recordsch = make(chan core.NewRecordsEvent, recordChanSize)
-	pm.recordsSub = pm.hybridpool.SubscribeNewRecordEvent(pm.recordsch)
-	go pm.recordBroadcastLoop()
-
 	//broadcast fruits
 	pm.fruitsch = make(chan core.NewFruitsEvent, fruitChanSize)
 	pm.fruitsSub = pm.hybridpool.SubscribeNewFruitEvent(pm.fruitsch)
@@ -252,8 +242,7 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-	//fruit and record and minedfruit
-	pm.recordsSub.Unsubscribe()    //quits recordBroadcastLoop
+	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
 	// Quit the sync loop.
@@ -715,27 +704,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		pm.txpool.AddRemotes(txs)
 
-	case msg.Code == RecordMsg:
-		// TODO: record msg handle
-		// Record arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
-			break
-		}
-		// Transactions can be processed, parse all of them and deliver to the pool
-		var records []*types.PbftRecord
-		if err := msg.Decode(&records); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-		for i, record := range records {
-			// Validate and mark the remote transaction
-			if record == nil {
-				return errResp(ErrDecode, "transaction %d is nil", i)
-			}
-			// TODO: add markrecord
-			p.MarkRecord(record.Hash())
-		}
-		pm.hybridpool.AddRemoteRecords(records)
-
 	case msg.Code == FruitMsg:
 		// TODO: fruit msg handle
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
@@ -848,23 +816,6 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		peer.AsyncSendTransactions(txs)
 	}
 }
-//for records
-func (pm *ProtocolManager) BroadcastRecords(records types.PbftRecords) {
-	var recordset = make(map[*peer]types.PbftRecords)
-
-	// Broadcast records to a batch of peers not knowing about it
-	for _, record := range records {
-		peers := pm.peers.PeersWithoutRecord(record.Hash())
-		for _, peer := range peers {
-			recordset[peer] = append(recordset[peer], record)
-		}
-		log.Trace("Broadcast records", "hash", record.Hash(), "recipients", len(peers))
-	}
-	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, records := range recordset {
-		peer.AsyncSendRecords(records)
-	}
-}
 //for fruits
 func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 	var fruitset = make(map[*peer]types.Fruits)
@@ -916,21 +867,6 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		}
 	}
 }
-
-//  record
-func (pm *ProtocolManager) recordBroadcastLoop() {
-	for {
-		select {
-		case event := <-pm.recordsch:
-			pm.BroadcastRecords(event.Records)
-
-			// Err() channel will be closed when unsubscribing.
-		case <-pm.recordsSub.Err():
-			return
-		}
-	}
-}
-
 //  fruits
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	for {

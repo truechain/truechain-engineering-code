@@ -38,7 +38,6 @@ var (
 
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownRecords    = 1024 // Maximum records hashes to keep in the known list (prevent DOS)
 	maxKnownFruits    = 1024 // Maximum records hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 
@@ -46,8 +45,6 @@ const (
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
 	maxQueuedTxs = 128
-	// contain a single transaction, or thousands.
-	maxQueuedRecords = 128
 	// contain a single transaction, or thousands.
 	maxQueuedFruits = 128
 	//for fruitEvent
@@ -99,11 +96,9 @@ type peer struct {
 	lock sync.RWMutex
 
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
-	knownRecords    *set.Set              // Set of records hashes known to be known by this peer
 	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
 	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedRecords   chan []*types.PbftRecord // Queue of records to broadcast to the peer
 	queuedFruits   chan []*types.Block // Queue of fruits to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 
@@ -122,14 +117,12 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		knownTxs:    set.New(),
 		knownBlocks: set.New(),
 
-		knownRecords:    set.New(),
 		knownFruits: set.New(),
 
 		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
 		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
 
-		queuedRecords:   make(chan []*types.PbftRecord, maxQueuedRecords),
 		queuedFruit: make(chan *fruitEvent, maxQueuedFruit),
 		queuedFruits:  make(chan []*types.Block, maxQueuedFruits),
 		term:        make(chan struct{}),
@@ -147,13 +140,6 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
-
-        //add for record
-		case records := <-p.queuedRecords:
-			if err := p.Sendrecords(records); err != nil {
-				return
-			}
-			p.Log().Trace("Broadcast records", "count", len(records))
 
 		//add for fruit
 		case fruits := <-p.queuedFruits:
@@ -241,15 +227,6 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	}
 	p.knownTxs.Add(hash)
 }
-// MarkRecord marks a record as known for the peer, ensuring that it
-// will never be propagated to this particular peer.
-func (p *peer) MarkRecord(hash common.Hash) {
-	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownRecords.Size() >= maxKnownRecords {
-		p.knownRecords.Pop()
-	}
-	p.knownRecords.Add(hash)
-}
 // MarkFruit marks a fruit as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
 func (p *peer) MarkFruit(hash common.Hash) {
@@ -278,27 +255,6 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 		}
 	default:
 		p.Log().Debug("Dropping transaction propagation", "count", len(txs))
-	}
-}
-
-//Abtion added 20180715; Sendrecords sends records to the peer and includes the hashes
-// in its record hash set for future reference.
-func (p *peer) Sendrecords(records types.PbftRecords) error {
-	for _, record := range records {
-		p.knownRecords.Add(record.Hash())
-	}
-	return p2p.Send(p.rw, RecordMsg, records)
-}
-
-//Abtion 20180715 for record;the same as transactions
-func (p *peer) AsyncSendRecords(records []*types.PbftRecord) {
-	select {
-	case p.queuedRecords <- records:
-		for _, record := range records {
-			p.knownRecords.Add(record.Hash())
-		}
-	default:
-		p.Log().Debug("Dropping records propagation", "count", len(records))
 	}
 }
 
@@ -611,21 +567,6 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownTxs.Has(hash) {
-			list = append(list, p)
-		}
-	}
-	return list
-}
-
-// PeersWithoutRecord retrieves a list of peers that do not have a given records
-// in their set of known hashes. added by Abition 20180715
-func (ps *peerSet) PeersWithoutRecord(hash common.Hash) []*peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	list := make([]*peer, 0, len(ps.peers))
-	for _, p := range ps.peers {
-		if !p.knownRecords.Has(hash) {
 			list = append(list, p)
 		}
 	}
