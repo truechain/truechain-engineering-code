@@ -84,6 +84,10 @@ type Engine interface {
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
 
+	// Prepare initializes the consensus fields of a fast chain block header according to the
+	// rules of a particular engine. The changes are executed inline.
+	PrepareFast(chain ChainReader, header *types.Header) error
+
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any

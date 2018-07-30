@@ -572,6 +572,12 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 	return nil
 }
 
+// PrepareFast implements consensus.Engine, initializing the difficulty field of a
+// header to conform to the ethash protocol. The changes are done inline.
+func (ethash *Clique) PrepareFast(chain consensus.ChainReader, header *types.Header) error {
+	return nil
+}
+
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
