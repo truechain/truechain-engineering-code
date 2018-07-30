@@ -40,7 +40,7 @@ func ReadTxLookupEntry_Fast(db DatabaseReader, hash common.Hash) (common.Hash, u
 
 // WriteTxLookupEntries stores a positional metadata for every transaction from
 // a block, enabling hash based transaction and receipt lookups.
-func WriteTxLookupEntries_Fast(db DatabaseWriter, block *types.Block) {
+func WriteTxLookupEntries_Fast(db DatabaseWriter, block *types.FastBlock) {
 	for i, tx := range block.Transactions() {
 		entry := TxLookupEntry{
 			BlockHash:  block.Hash(),
@@ -58,18 +58,18 @@ func WriteTxLookupEntries_Fast(db DatabaseWriter, block *types.Block) {
 }
 
 // DeleteTxLookupEntry removes all transaction data associated with a hash.
-/*func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
-	db.Delete(txLookupKey(hash))
-}*/
+func DeleteTxLookupEntry_Fast(db DatabaseDeleter, hash common.Hash) {
+	db.Delete(txLookupKey_Fast(hash))
+}
 
 // ReadTransaction retrieves a specific transaction from the database, along with
 // its added positional metadata.
 func ReadTransaction_Fast(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, txIndex := ReadTxLookupEntry(db, hash)
+	blockHash, blockNumber, txIndex := ReadTxLookupEntry_Fast(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}
-	body := ReadBody(db, blockHash, blockNumber)
+	body := ReadBody_Fast(db, blockHash, blockNumber)
 	if body == nil || len(body.Transactions) <= int(txIndex) {
 		log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
 		return nil, common.Hash{}, 0, 0
