@@ -49,6 +49,28 @@ type ChainReader interface {
 	GetBlock(hash common.Hash, number uint64) *types.Block
 }
 
+// ChainFastReader defines a small collection of methods needed to access the local
+// fast blockChain during header and/or uncle verification.
+type ChainFastReader interface {
+	// Config retrieves the fast blockChain's chain configuration.
+	Config() *params.ChainConfig
+
+	// CurrentHeader retrieves the current fast header from the local chain.
+	CurrentFastHeader() *types.FastHeader
+
+	// GetFastHeader retrieves a fast block header from the database by hash and number.
+	GetFastHeader(hash common.Hash, number uint64) *types.FastHeader
+
+	// GetHeaderByNumber retrieves a fast block header from the database by number.
+	GetFastHeaderByNumber(number uint64) *types.FastHeader
+
+	// GetHeaderByHash retrieves a fast block header from the database by its hash.
+	GetFastHeaderByHash(hash common.Hash) *types.FastHeader
+
+	// GetBlock retrieves a fast block from the database by hash and number.
+	GetBlock(hash common.Hash, number uint64) *types.FastBlock
+}
+
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
 	// Author retrieves the Ethereum address of the account that minted the given
@@ -64,7 +86,7 @@ type Engine interface {
 	// VerifyHeader checks whether a fast chain header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyFastHeader(chain ChainReader, header *types.FastHeader, seal bool) error
+	VerifyFastHeader(chain ChainFastReader, header *types.FastHeader, seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
@@ -86,7 +108,7 @@ type Engine interface {
 
 	// Prepare initializes the consensus fields of a fast chain block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	PrepareFast(chain ChainReader, header *types.FastHeader) error
+	PrepareFast(chain ChainFastReader, header *types.FastHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
@@ -99,7 +121,7 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeFast(chain ChainReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction,
+	FinalizeFast(chain ChainFastReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction,
 		receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new block for the given input block with the local miner's

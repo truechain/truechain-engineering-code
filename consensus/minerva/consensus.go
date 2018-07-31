@@ -100,8 +100,25 @@ func (ethash *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.H
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainReader, header *types.FastHeader, seal bool) error {
-	return nil
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
+	// If we're running a full engine faking, accept any input as valid
+	if ethash.config.PowMode == ModeFullFake {
+		return nil
+	}
+
+	// Short circuit if the header is known, or it's parent not
+	number := header.Number.Uint64()
+
+	parent := chain.GetFastHeader(header.ParentHash, number-1) ///IQQ: change GetFastHeader ?
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+
+	if chain.GetFastHeader(header.Hash(), number) != nil {
+		return nil
+	}
+
+	return ethash.verifyFastHeader(chain, header, parent)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -301,6 +318,51 @@ func (ethash *Minerva) verifyHeader(chain consensus.ChainReader, header, parent 
 	if err := misc.VerifyForkHashes(chain.Config(), header, uncle); err != nil {
 		return err
 	}
+	return nil
+}
+
+// verifyFastHeader checks whether a header conforms to the consensus rules of the
+// stock Ethereum ethash engine.
+// See YP section 4.3.4. "Fast Block Header Validity"
+func (ethash *Minerva) verifyFastHeader(chain consensus.ChainFastReader, header, parent *types.FastHeader) error {
+	// Ensure that the header's extra-data section is of a reasonable size
+	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
+		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
+	}
+	// Verify the header's timestamp
+	if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+		return consensus.ErrFutureBlock
+	}
+
+	if header.Time.Cmp(parent.Time) <= 0 {
+		return errZeroBlockTime
+	}
+
+	// Verify that the gas limit is <= 2^63-1
+	cap := uint64(0x7fffffffffffffff)
+	if header.GasLimit > cap {
+		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
+	}
+	// Verify that the gasUsed is <= gasLimit
+	if header.GasUsed > header.GasLimit {
+		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
+	}
+
+	// Verify that the gas limit remains within allowed bounds
+	diff := int64(parent.GasLimit) - int64(header.GasLimit)
+	if diff < 0 {
+		diff *= -1
+	}
+	limit := parent.GasLimit / params.GasLimitBoundDivisor
+
+	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
+		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
+	}
+	// Verify that the block number is parent's +1
+	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
+		return consensus.ErrInvalidNumber
+	}
+
 	return nil
 }
 
@@ -540,7 +602,7 @@ func (ethash *Minerva) Prepare(chain consensus.ChainReader, header *types.Header
 
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Minerva) PrepareFast(chain consensus.ChainReader, header *types.FastHeader) error {
+func (ethash *Minerva) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
 	return nil
 }
 
@@ -558,7 +620,8 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
-func (ethash *Minerva) FinalizeFast(chain consensus.ChainReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
+func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 	return nil, nil
 }
 
