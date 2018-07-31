@@ -130,7 +130,7 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 
-	bc := &BlockChain{
+	bc := &FastBlockChain{
 		chainConfig:  chainConfig,
 		cacheConfig:  cacheConfig,
 		db:           db,
@@ -186,7 +186,7 @@ func (bc *FastBlockChain) getProcInterrupt() bool {
 // assumes that the chain manager mutex is held.
 func (bc *FastBlockChain) loadLastState() error {
 	// Restore the last known head block
-	head := rawdb.ReadHeadBlockHash(bc.db)
+	head := rawdb.ReadHeadBlockHashFast(bc.db)
 	if head == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		log.Warn("Empty database, resetting chain")
@@ -1445,13 +1445,13 @@ func (bc *FastBlockChain) GetTdByHash(hash common.Hash) *big.Int {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (bc *FastBlockChain) GetHeader(hash common.Hash, number uint64) *types.Header {
-	return bc.hc.GetHeader(hash, number)
+func (bc *FastBlockChain) GetHeader(hash common.Hash, number uint64) *types.FastHeader {
+	return bc.hc.GetHeaderFast(hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (bc *FastBlockChain) GetHeaderByHash(hash common.Hash) *types.Header {
+func (bc *FastBlockChain) GetHeaderByHashFast(hash common.Hash) *types.FastHeader {
 	return bc.hc.GetHeaderByHash(hash)
 }
 
