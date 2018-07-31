@@ -64,7 +64,7 @@ type Engine interface {
 	// VerifyHeader checks whether a fast chain header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyFastHeader(chain ChainReader, header *types.Header, seal bool) error
+	VerifyFastHeader(chain ChainReader, header *types.FastHeader, seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
@@ -86,7 +86,7 @@ type Engine interface {
 
 	// Prepare initializes the consensus fields of a fast chain block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	PrepareFast(chain ChainReader, header *types.Header) error
+	PrepareFast(chain ChainReader, header *types.FastHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
@@ -99,8 +99,8 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeFast(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error)
+	FinalizeFast(chain ChainReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction,
+		receipts []*types.Receipt) (*types.Block, error)
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.

@@ -31,7 +31,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
-	set "gopkg.in/fatih/set.v0"
+	"gopkg.in/fatih/set.v0"
 )
 
 // Ethash proof-of-work protocol constants.
@@ -100,7 +100,7 @@ func (ethash *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.H
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainReader, header *types.FastHeader, seal bool) error {
 	return nil
 }
 
@@ -540,14 +540,14 @@ func (ethash *Minerva) Prepare(chain consensus.ChainReader, header *types.Header
 
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Minerva) PrepareFast(chain consensus.ChainReader, header *types.Header) error {
+func (ethash *Minerva) PrepareFast(chain consensus.ChainReader, header *types.FastHeader) error {
 	return nil
 }
 
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header,receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+	uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles, fruits)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -558,7 +558,7 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
-func (ethash *Minerva) FinalizeFast(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+func (ethash *Minerva) FinalizeFast(chain consensus.ChainReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 	return nil, nil
 }
 
