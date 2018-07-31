@@ -109,12 +109,12 @@ func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header 
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
-	parent := chain.GetFastHeader(header.ParentHash, number-1) ///IQQ: change GetFastHeader ?
+	parent := chain.GetHeader(header.ParentHash, number-1) ///IQQ: change GetFastHeader ?
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
 
-	if chain.GetFastHeader(header.Hash(), number) != nil {
+	if chain.GetHeader(header.Hash(), number) != nil {
 		return nil
 	}
 
@@ -603,7 +603,7 @@ func (ethash *Minerva) Prepare(chain consensus.ChainReader, header *types.Header
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Minerva) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
-	if parent := chain.GetFastHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
+	if parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
 	return nil
@@ -624,8 +624,8 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
-	return nil, nil
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
+	return types.NewFastBlock(header, txs, nil, receipts), nil
 }
 
 // Some weird constants to avoid constant memory allocs for them.

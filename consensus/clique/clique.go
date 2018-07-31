@@ -592,7 +592,7 @@ func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, sta
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Clique) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
 	return nil, nil
 }
 
