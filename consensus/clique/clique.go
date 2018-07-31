@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -241,7 +241,7 @@ func (c *Clique) VerifyHeader(chain consensus.ChainReader, header *types.Header,
 }
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules.
-func (c *Clique) VerifyFastHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (c *Clique) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
 	return nil
 }
 
@@ -574,7 +574,7 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Clique) PrepareFast(chain consensus.ChainReader, header *types.Header) error {
+func (ethash *Clique) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
 	return nil
 }
 
@@ -591,7 +591,8 @@ func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, sta
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
-func (c *Clique) FinalizeFast(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+func (c *Clique) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 	return nil, nil
 }
 
