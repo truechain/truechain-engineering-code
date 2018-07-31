@@ -561,6 +561,8 @@ func (b *Block) Hash() common.Hash {
 
 type Blocks []*Block
 
+type BlocksFast []*FastBlock
+
 type BlockBy func(b1, b2 *Block) bool
 
 func (self BlockBy) Sort(blocks Blocks) {
