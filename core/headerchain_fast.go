@@ -76,7 +76,7 @@ func NewFastHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engi
 		return nil, err
 	}
 
-	hc := &HeaderChain{
+	hc := &FastHeaderChain{
 		config:        config,
 		chainDb:       chainDb,
 		headerCache:   headerCache,
