@@ -68,7 +68,7 @@ type ChainFastReader interface {
 	GetFastHeaderByHash(hash common.Hash) *types.FastHeader
 
 	// GetBlock retrieves a fast block from the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.FastBlock
+	GetFastBlock(hash common.Hash, number uint64) *types.FastBlock
 }
 
 // Engine is an algorithm agnostic consensus engine.
