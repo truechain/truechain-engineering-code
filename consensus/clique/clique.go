@@ -242,7 +242,7 @@ func (c *Clique) VerifyHeader(chain consensus.ChainReader, header *types.Header,
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules.
 func (c *Clique) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
-	return nil
+	return c.VerifyFastHeader(chain, header, seal)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The

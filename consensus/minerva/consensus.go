@@ -603,6 +603,9 @@ func (ethash *Minerva) Prepare(chain consensus.ChainReader, header *types.Header
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Minerva) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
+	if parent := chain.GetFastHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
 	return nil
 }
 
