@@ -29,23 +29,23 @@ import (
 )
 
 // Tests block header storage and retrieval operations.
-func TestHeaderStorage_Fast(t *testing.T) {
+func TestHeaderStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	// Create a test header to move around the database and make sure it's really new
 	header := &types.FastHeader{Number: big.NewInt(42), Extra: []byte("test header")}
-	if entry := ReadHeader_Fast(db, header.Hash(), header.Number.Uint64()); entry != nil {
+	if entry := ReadHeaderFast(db, header.Hash(), header.Number.Uint64()); entry != nil {
 		t.Fatalf("Non existent header returned: %v", entry)
 	}
 
 	// Write and verify the header in the database
-	WriteHeader_Fast(db, header)
-	if entry := ReadHeader_Fast(db, header.Hash(), header.Number.Uint64()); entry == nil {
+	WriteHeaderFast(db, header)
+	if entry := ReadHeaderFast(db, header.Hash(), header.Number.Uint64()); entry == nil {
 		t.Fatalf("Stored header not found")
 	} else if entry.Hash() != header.Hash() {
 		t.Fatalf("Retrieved header mismatch: have %v, want %v", entry, header)
 	}
-	if entry := ReadHeaderRLP_Fast(db, header.Hash(), header.Number.Uint64()); entry == nil {
+	if entry := ReadHeaderRLPFast(db, header.Hash(), header.Number.Uint64()); entry == nil {
 		t.Fatalf("Stored header RLP not found")
 	} else {
 		hasher := sha3.NewKeccak256()
@@ -56,15 +56,15 @@ func TestHeaderStorage_Fast(t *testing.T) {
 		}
 	}
 	// Delete the header and verify the execution
-	DeleteHeader_Fast(db, header.Hash(), header.Number.Uint64())
-	if entry := ReadHeader_Fast(db, header.Hash(), header.Number.Uint64()); entry != nil {
+	DeleteHeaderFast(db, header.Hash(), header.Number.Uint64())
+	if entry := ReadHeaderFast(db, header.Hash(), header.Number.Uint64()); entry != nil {
 		t.Fatalf("Deleted header returned: %v", entry)
 	}
 }
 
 
 // Tests block body storage and retrieval operations.
-func TestBodyStorage_Fast(t *testing.T) {
+func TestBodyStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	// Create a test body to move around the database and make sure it's really new
@@ -75,17 +75,17 @@ func TestBodyStorage_Fast(t *testing.T) {
 	rlp.Encode(hasher, body)
 	hash := common.BytesToHash(hasher.Sum(nil))
 
-	if entry := ReadBody_Fast(db, hash, 0); entry != nil {
+	if entry := ReadBodyFast(db, hash, 0); entry != nil {
 		t.Fatalf("Non existent body returned: %v", entry)
 	}
 	// Write and verify the body in the database
-	WriteBody_Fast(db, hash, 0, body)
-	if entry := ReadBody_Fast(db, hash, 0); entry == nil {
+	WriteBodyFast(db, hash, 0, body)
+	if entry := ReadBodyFast(db, hash, 0); entry == nil {
 		t.Fatalf("Stored body not found")
 	} else if types.DeriveSha(types.Transactions(entry.Transactions)) != types.DeriveSha(types.Transactions(body.Transactions)) /*|| types.CalcUncleHash(entry.Transactions) != types.CalcUncleHash(body.Transactions)*/ {
 		t.Fatalf("Retrieved body mismatch: have %v, want %v", entry, body)
 	}
-	if entry := ReadBodyRLP_Fast(db, hash, 0); entry == nil {
+	if entry := ReadBodyRLPFast(db, hash, 0); entry == nil {
 		t.Fatalf("Stored body RLP not found")
 	} else {
 		hasher := sha3.NewKeccak256()
@@ -96,14 +96,14 @@ func TestBodyStorage_Fast(t *testing.T) {
 		}
 	}
 	// Delete the body and verify the execution
-	DeleteBody_Fast(db, hash, 0)
-	if entry := ReadBody_Fast(db, hash, 0); entry != nil {
+	DeleteBodyFast(db, hash, 0)
+	if entry := ReadBodyFast(db, hash, 0); entry != nil {
 		t.Fatalf("Deleted body returned: %v", entry)
 	}
 }
 
 // Tests block storage and retrieval operations.
-func TestBlockStorage_Fast(t *testing.T) {
+func TestBlockStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	// Create a test block to move around the database and make sure it's really new
@@ -113,47 +113,47 @@ func TestBlockStorage_Fast(t *testing.T) {
 		TxHash:      types.EmptyRootHash,
 		ReceiptHash: types.EmptyRootHash,
 	})
-	if entry := ReadBlock_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	if entry := ReadBlockFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Non existent block returned: %v", entry)
 	}
-	if entry := ReadHeader_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	if entry := ReadHeaderFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Non existent header returned: %v", entry)
 	}
-	if entry := ReadBody_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	if entry := ReadBodyFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Non existent body returned: %v", entry)
 	}
 	// Write and verify the block in the database
-	WriteBlock_Fast(db, block)
-	if entry := ReadBlock_Fast(db, block.Hash(), block.NumberU64()); entry == nil {
+	WriteBlockFast(db, block)
+	if entry := ReadBlockFast(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored block not found")
 	} else if entry.Hash() != block.Hash() {
 		t.Fatalf("Retrieved block mismatch: have %v, want %v", entry, block)
 	}
-	if entry := ReadHeader_Fast(db, block.Hash(), block.NumberU64()); entry == nil {
+	if entry := ReadHeaderFast(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored header not found")
 	} else if entry.Hash() != block.Header().Hash() {
 		t.Fatalf("Retrieved header mismatch: have %v, want %v", entry, block.Header())
 	}
-	if entry := ReadBody_Fast(db, block.Hash(), block.NumberU64()); entry == nil {
+	if entry := ReadBodyFast(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored body not found")
 	} else if types.DeriveSha(types.Transactions(entry.Transactions)) != types.DeriveSha(block.Transactions()) /*|| types.CalcUncleHash(entry.Uncles) != types.CalcUncleHash(block.Uncles())*/ {
 		t.Fatalf("Retrieved body mismatch: have %v, want %v", entry, block.Body())
 	}
 	// Delete the block and verify the execution
-	DeleteBlock_Fast(db, block.Hash(), block.NumberU64())
-	if entry := ReadBlock_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	DeleteBlockFast(db, block.Hash(), block.NumberU64())
+	if entry := ReadBlockFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Deleted block returned: %v", entry)
 	}
-	if entry := ReadHeader_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	if entry := ReadHeaderFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Deleted header returned: %v", entry)
 	}
-	if entry := ReadBody_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	if entry := ReadBodyFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Deleted body returned: %v", entry)
 	}
 }
 
 // Tests that partial block contents don't get reassembled into full blocks.
-func TestPartialBlockStorage_Fast(t *testing.T) {
+func TestPartialBlockStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 	block := types.NewFastBlockWithHeader(&types.FastHeader{
 		Extra:       []byte("test block"),
@@ -162,24 +162,24 @@ func TestPartialBlockStorage_Fast(t *testing.T) {
 		ReceiptHash: types.EmptyRootHash,
 	})
 	// Store a header and check that it's not recognized as a block
-	WriteHeader_Fast(db, block.Header())
-	if entry := ReadBlock_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	WriteHeaderFast(db, block.Header())
+	if entry := ReadBlockFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Non existent block returned: %v", entry)
 	}
-	DeleteHeader_Fast(db, block.Hash(), block.NumberU64())
+	DeleteHeaderFast(db, block.Hash(), block.NumberU64())
 
 	// Store a body and check that it's not recognized as a block
-	WriteBody_Fast(db, block.Hash(), block.NumberU64(), block.Body())
-	if entry := ReadBlock_Fast(db, block.Hash(), block.NumberU64()); entry != nil {
+	WriteBodyFast(db, block.Hash(), block.NumberU64(), block.Body())
+	if entry := ReadBlockFast(db, block.Hash(), block.NumberU64()); entry != nil {
 		t.Fatalf("Non existent block returned: %v", entry)
 	}
-	DeleteBody_Fast(db, block.Hash(), block.NumberU64())
+	DeleteBodyFast(db, block.Hash(), block.NumberU64())
 
 	// Store a header and a body separately and check reassembly
-	WriteHeader_Fast(db, block.Header())
-	WriteBody_Fast(db, block.Hash(), block.NumberU64(), block.Body())
+	WriteHeaderFast(db, block.Header())
+	WriteBodyFast(db, block.Hash(), block.NumberU64(), block.Body())
 
-	if entry := ReadBlock_Fast(db, block.Hash(), block.NumberU64()); entry == nil {
+	if entry := ReadBlockFast(db, block.Hash(), block.NumberU64()); entry == nil {
 		t.Fatalf("Stored block not found")
 	} else if entry.Hash() != block.Hash() {
 		t.Fatalf("Retrieved block mismatch: have %v, want %v", entry, block)
@@ -187,53 +187,53 @@ func TestPartialBlockStorage_Fast(t *testing.T) {
 }
 
 // Tests block total difficulty storage and retrieval operations.
-func TestTdStorage_Fast(t *testing.T) {
+func TestTdStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	// Create a test TD to move around the database and make sure it's really new
 	hash, td := common.Hash{}, big.NewInt(314)
-	if entry := ReadTd_Fast(db, hash, 0); entry != nil {
+	if entry := ReadTdFast(db, hash, 0); entry != nil {
 		t.Fatalf("Non existent TD returned: %v", entry)
 	}
 	// Write and verify the TD in the database
-	WriteTd_Fast(db, hash, 0, td)
-	if entry := ReadTd_Fast(db, hash, 0); entry == nil {
+	WriteTdFast(db, hash, 0, td)
+	if entry := ReadTdFast(db, hash, 0); entry == nil {
 		t.Fatalf("Stored TD not found")
 	} else if entry.Cmp(td) != 0 {
 		t.Fatalf("Retrieved TD mismatch: have %v, want %v", entry, td)
 	}
 	// Delete the TD and verify the execution
-	DeleteTd_Fast(db, hash, 0)
-	if entry := ReadTd_Fast(db, hash, 0); entry != nil {
+	DeleteTdFast(db, hash, 0)
+	if entry := ReadTdFast(db, hash, 0); entry != nil {
 		t.Fatalf("Deleted TD returned: %v", entry)
 	}
 }
 
 // Tests that canonical numbers can be mapped to hashes and retrieved.
-func TestCanonicalMappingStorage_Fast(t *testing.T) {
+func TestCanonicalMappingStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	// Create a test canonical number and assinged hash to move around
 	hash, number := common.Hash{0: 0xff}, uint64(314)
-	if entry := ReadCanonicalHash_Fast(db, number); entry != (common.Hash{}) {
+	if entry := ReadCanonicalHashFast(db, number); entry != (common.Hash{}) {
 		t.Fatalf("Non existent canonical mapping returned: %v", entry)
 	}
 	// Write and verify the TD in the database
-	WriteCanonicalHash_Fast(db, hash, number)
-	if entry := ReadCanonicalHash_Fast(db, number); entry == (common.Hash{}) {
+	WriteCanonicalHashFast(db, hash, number)
+	if entry := ReadCanonicalHashFast(db, number); entry == (common.Hash{}) {
 		t.Fatalf("Stored canonical mapping not found")
 	} else if entry != hash {
 		t.Fatalf("Retrieved canonical mapping mismatch: have %v, want %v", entry, hash)
 	}
 	// Delete the TD and verify the execution
-	DeleteCanonicalHash_Fast(db, number)
-	if entry := ReadCanonicalHash_Fast(db, number); entry != (common.Hash{}) {
+	DeleteCanonicalHashFast(db, number)
+	if entry := ReadCanonicalHashFast(db, number); entry != (common.Hash{}) {
 		t.Fatalf("Deleted canonical mapping returned: %v", entry)
 	}
 }
 
 // Tests that head headers and head blocks can be assigned, individually.
-func TestHeadStorage_Fast(t *testing.T) {
+func TestHeadStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	blockHead := types.NewFastBlockWithHeader(&types.FastHeader{Extra: []byte("test block header")})
@@ -241,34 +241,34 @@ func TestHeadStorage_Fast(t *testing.T) {
 	blockFast := types.NewFastBlockWithHeader(&types.FastHeader{Extra: []byte("test block fast")})
 
 	// Check that no head entries are in a pristine database
-	if entry := ReadHeadHeaderHash_Fast(db); entry != (common.Hash{}) {
+	if entry := ReadHeadHeaderHashFast(db); entry != (common.Hash{}) {
 		t.Fatalf("Non head header entry returned: %v", entry)
 	}
-	if entry := ReadHeadBlockHash_Fast(db); entry != (common.Hash{}) {
+	if entry := ReadHeadBlockHashFast(db); entry != (common.Hash{}) {
 		t.Fatalf("Non head block entry returned: %v", entry)
 	}
-	if entry := ReadHeadFastBlockHash_Fast(db); entry != (common.Hash{}) {
+	if entry := ReadHeadFastBlockHashFast(db); entry != (common.Hash{}) {
 		t.Fatalf("Non fast head block entry returned: %v", entry)
 	}
 	// Assign separate entries for the head header and block
-	WriteHeadHeaderHash_Fast(db, blockHead.Hash())
-	WriteHeadBlockHash_Fast(db, blockFull.Hash())
-	WriteHeadFastBlockHash_Fast(db, blockFast.Hash())
+	WriteHeadHeaderHashFast(db, blockHead.Hash())
+	WriteHeadBlockHashFast(db, blockFull.Hash())
+	WriteHeadFastBlockHashFast(db, blockFast.Hash())
 
 	// Check that both heads are present, and different (i.e. two heads maintained)
-	if entry := ReadHeadHeaderHash_Fast(db); entry != blockHead.Hash() {
+	if entry := ReadHeadHeaderHashFast(db); entry != blockHead.Hash() {
 		t.Fatalf("Head header hash mismatch: have %v, want %v", entry, blockHead.Hash())
 	}
-	if entry := ReadHeadBlockHash_Fast(db); entry != blockFull.Hash() {
+	if entry := ReadHeadBlockHashFast(db); entry != blockFull.Hash() {
 		t.Fatalf("Head block hash mismatch: have %v, want %v", entry, blockFull.Hash())
 	}
-	if entry := ReadHeadFastBlockHash_Fast(db); entry != blockFast.Hash() {
+	if entry := ReadHeadFastBlockHashFast(db); entry != blockFast.Hash() {
 		t.Fatalf("Fast head block hash mismatch: have %v, want %v", entry, blockFast.Hash())
 	}
 }
 
 // Tests that receipts associated with a single block can be stored and retrieved.
-func TestBlockReceiptStorage_Fast(t *testing.T) {
+func TestBlockReceiptStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	receipt1 := &types.Receipt{
@@ -297,12 +297,12 @@ func TestBlockReceiptStorage_Fast(t *testing.T) {
 
 	// Check that no receipt entries are in a pristine database
 	hash := common.BytesToHash([]byte{0x03, 0x14})
-	if rs := ReadReceipts_Fast(db, hash, 0); len(rs) != 0 {
+	if rs := ReadReceiptsFast(db, hash, 0); len(rs) != 0 {
 		t.Fatalf("non existent receipts returned: %v", rs)
 	}
 	// Insert the receipt slice into the database and check presence
-	WriteReceipts_Fast(db, hash, 0, receipts)
-	if rs := ReadReceipts_Fast(db, hash, 0); len(rs) == 0 {
+	WriteReceiptsFast(db, hash, 0, receipts)
+	if rs := ReadReceiptsFast(db, hash, 0); len(rs) == 0 {
 		t.Fatalf("no receipts returned")
 	} else {
 		for i := 0; i < len(receipts); i++ {
@@ -315,8 +315,8 @@ func TestBlockReceiptStorage_Fast(t *testing.T) {
 		}
 	}
 	// Delete the receipt slice and check purge
-	DeleteReceipts_Fast(db, hash, 0)
-	if rs := ReadReceipts_Fast(db, hash, 0); len(rs) != 0 {
+	DeleteReceiptsFast(db, hash, 0)
+	if rs := ReadReceiptsFast(db, hash, 0); len(rs) != 0 {
 		t.Fatalf("deleted receipts returned: %v", rs)
 	}
 }

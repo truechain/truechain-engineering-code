@@ -26,7 +26,7 @@ import (
 )
 
 // Tests that positional lookup metadata can be stored and retrieved.
-func TestLookupStorage_Fast(t *testing.T) {
+func TestLookupStorageFast(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 
 	tx1 := types.NewTransaction(1, common.BytesToAddress([]byte{0x11}), big.NewInt(111), 1111, big.NewInt(11111), []byte{0x11, 0x11, 0x11})
@@ -38,16 +38,16 @@ func TestLookupStorage_Fast(t *testing.T) {
 
 	// Check that no transactions entries are in a pristine database
 	for i, tx := range txs {
-		if txn, _, _, _ := ReadTransaction_Fast(db, tx.Hash()); txn != nil {
+		if txn, _, _, _ := ReadTransactionFast(db, tx.Hash()); txn != nil {
 			t.Fatalf("tx #%d [%x]: non existent transaction returned: %v", i, tx.Hash(), txn)
 		}
 	}
 	// Insert all the transactions into the database, and verify contents
-	WriteBlock_Fast(db, block)
-	WriteTxLookupEntries_Fast(db, block)
+	WriteBlockFast(db, block)
+	WriteTxLookupEntriesFast(db, block)
 
 	for i, tx := range txs {
-		if txn, hash, number, index := ReadTransaction_Fast(db, tx.Hash()); txn == nil {
+		if txn, hash, number, index := ReadTransactionFast(db, tx.Hash()); txn == nil {
 			t.Fatalf("tx #%d [%x]: transaction not found", i, tx.Hash())
 		} else {
 			if hash != block.Hash() || number != block.NumberU64() || index != uint64(i) {
@@ -60,8 +60,8 @@ func TestLookupStorage_Fast(t *testing.T) {
 	}
 	// Delete the transactions and check purge
 	for i, tx := range txs {
-		DeleteTxLookupEntry_Fast(db, tx.Hash())
-		if txn, _, _, _ := ReadTransaction_Fast(db, tx.Hash()); txn != nil {
+		DeleteTxLookupEntryFast(db, tx.Hash())
+		if txn, _, _, _ := ReadTransactionFast(db, tx.Hash()); txn != nil {
 			t.Fatalf("tx #%d [%x]: deleted transaction returned: %v", i, tx.Hash(), txn)
 		}
 	}
