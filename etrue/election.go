@@ -15,9 +15,19 @@ type VoteuUse struct {
 	seed string
 	b   bool
 	j 	int
+	pk string
 
 
 }
+
+//Read creation block information and return public key for signature verification
+func  (v VoteuUse)ReadGenesis()string{
+
+	return v.pk
+}
+
+
+
 //Calculate your own force unit locally
 func (v VoteuUse)LocalForce()int64{
 
@@ -27,7 +37,6 @@ func (v VoteuUse)LocalForce()int64{
 	return w
 
 }
-
 
 //The power function used by the draw function
 func powerf(x float64, n int) float64 {
