@@ -57,6 +57,8 @@ const (
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07
 
+	NewFastBlockHashesMsg  = 0x08
+	NewFastBlockMsg        = 0x09
 	FruitMsg		   = 0x0a
 
 	// Protocol messages belonging to eth/63
@@ -181,6 +183,12 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 // newBlockData is the network packet for the block propagation message.
 type newBlockData struct {
 	Block *types.Block
+	TD    *big.Int
+}
+
+// newFastBlockData is the network packet for the block propagation message.
+type newFastBlockData struct {
+	Block *types.FastBlock
 	TD    *big.Int
 }
 

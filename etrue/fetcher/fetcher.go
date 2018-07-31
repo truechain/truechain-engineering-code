@@ -218,6 +218,20 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 	}
 }
 
+// EnqueueFast tries to fill gaps the the fetcher's future import queue.
+func (f *Fetcher) EnqueueFast(peer string, block *types.FastBlock) error {
+	op := &inject{
+		origin: peer,
+		//block:  block,
+	}
+	select {
+	case f.inject <- op:
+		return nil
+	case <-f.quit:
+		return errTerminated
+	}
+}
+
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
