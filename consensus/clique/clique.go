@@ -242,7 +242,7 @@ func (c *Clique) VerifyHeader(chain consensus.ChainReader, header *types.Header,
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules.
 func (c *Clique) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
-	return nil
+	return c.VerifyFastHeader(chain, header, seal)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers. The
@@ -592,7 +592,7 @@ func (c *Clique) Finalize(chain consensus.ChainReader, header *types.Header, sta
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given, and returns the final block.
 func (c *Clique) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
 	return nil, nil
 }
 

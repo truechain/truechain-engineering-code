@@ -84,7 +84,7 @@ type FastBlockChain struct {
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
 	scope         event.SubscriptionScope
-	genesisBlock  *types.Block
+	genesisBlock  *types.FastBlock
 
 	mu      sync.RWMutex // global mutex for locking chain operations
 	chainmu sync.RWMutex // blockchain insertion lock
@@ -153,7 +153,7 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 	if err != nil {
 		return nil, err
 	}
-	bc.genesisBlock = bc.GetBlockByNumber(0)
+	bc.genesisBlock = bc.GetBlockByNumberFast(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
 	}
@@ -453,7 +453,7 @@ func (bc *FastBlockChain) ExportN(w io.Writer, first uint64, last uint64) error 
 // or if they are on a different side chain.
 //
 // Note, this function assumes that the `mu` mutex is held!
-func (bc *FastBlockChain) insert(block *types.Block) {
+func (bc *FastBlockChain) insertFast(block *types.FastBlock) {
 	// If the block is on a side chain or an unknown one, force other heads onto it too
 	updateHeads := rawdb.ReadCanonicalHash(bc.db, block.NumberU64()) != block.Hash()
 
@@ -849,30 +849,33 @@ func (bc *FastBlockChain) WriteBlockWithoutState(block *types.Block, td *big.Int
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *FastBlockChain) WriteBlockWithState(block *types.Block, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts []*types.Receipt,
+						state *state.StateDB) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
 	// Calculate the total difficulty of the block
-	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
+	/*ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
 		return NonStatTy, consensus.ErrUnknownAncestor
-	}
+	}*/
 	// Make sure no inconsistent state is leaked during insertion
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
 	currentBlock := bc.CurrentBlock()
-	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+
+	/*localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
 	// Irrelevant of the canonical status, write the block itself to the database
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
 		return NonStatTy, err
-	}
+	}*/
+
 	// Write other block data using a batch.
 	batch := bc.db.NewBatch()
-	rawdb.WriteBlock(batch, block)
+	rawdb.WriteBlockFast(batch, block)
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
@@ -900,7 +903,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.Block, receipts []*ty
 				triedb.Cap(limit - ethdb.IdealBatchSize)
 			}
 			// Find the next state trie we need to commit
-			header := bc.GetHeaderByNumber(current - triesInMemory)
+			header := bc.GetHeaderByNumberFast(current - triesInMemory)
 			chosen := header.Number.Uint64()
 
 			// If we exceeded out time allowance, flush an entire trie to disk
@@ -931,7 +934,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.Block, receipts []*ty
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
 	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
-	reorg := externTd.Cmp(localTd) > 0
+	/*reorg := externTd.Cmp(localTd) > 0
 	currentBlock = bc.CurrentBlock()
 	if !reorg && externTd.Cmp(localTd) == 0 {
 		// Split same-difficulty blocks by number, then at random
@@ -951,14 +954,17 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.Block, receipts []*ty
 		status = CanonStatTy
 	} else {
 		status = SideStatTy
-	}
+	}*/
+	rawdb.WriteTxLookupEntriesFast(batch, block)
+	rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
+	status = CanonStatTy
 	if err := batch.Write(); err != nil {
 		return NonStatTy, err
 	}
 
 	// Set new head.
 	if status == CanonStatTy {
-		bc.insert(block)
+		bc.insertFast(block)
 	}
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil
@@ -1181,11 +1187,11 @@ func countTransactionsFast(chain []*types.FastBlock) (c int) {
 // reorgs takes two blocks, an old chain and a new chain and will reconstruct the blocks and inserts them
 // to be part of the new canonical chain and accumulates potential missing transactions and post an
 // event about them
-func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
+/*func (bc *FastBlockChain) reorgFast(oldBlock, newBlock *types.FastBlock) error {
 	var (
-		newChain    types.Blocks
-		oldChain    types.Blocks
-		commonBlock *types.Block
+		newChain    types.FastBlocks
+		oldChain    types.FastBlocks
+		commonBlock *types.FastBlock
 		deletedTxs  types.Transactions
 		deletedLogs []*types.Log
 		// collectLogs collects the logs that were generated during the
@@ -1193,7 +1199,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		// These logs are later announced as deleted.
 		collectLogs = func(hash common.Hash) {
 			// Coalesce logs and set 'Removed'.
-			number := bc.hc.GetBlockNumber(hash)
+			number := bc.hc.GetBlockNumberFast(hash)
 			if number == nil {
 				return
 			}
@@ -1211,7 +1217,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	// first reduce whoever is higher bound
 	if oldBlock.NumberU64() > newBlock.NumberU64() {
 		// reduce old chain
-		for ; oldBlock != nil && oldBlock.NumberU64() != newBlock.NumberU64(); oldBlock = bc.GetBlock(oldBlock.ParentHash(), oldBlock.NumberU64()-1) {
+		for ; oldBlock != nil && oldBlock.NumberU64() != newBlock.NumberU64(); oldBlock = bc.GetBlockFast(oldBlock.ParentHash(), oldBlock.NumberU64()-1) {
 			oldChain = append(oldChain, oldBlock)
 			deletedTxs = append(deletedTxs, oldBlock.Transactions()...)
 
@@ -1219,7 +1225,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		}
 	} else {
 		// reduce new chain and append new chain blocks for inserting later on
-		for ; newBlock != nil && newBlock.NumberU64() != oldBlock.NumberU64(); newBlock = bc.GetBlock(newBlock.ParentHash(), newBlock.NumberU64()-1) {
+		for ; newBlock != nil && newBlock.NumberU64() != oldBlock.NumberU64(); newBlock = bc.GetBlockFast(newBlock.ParentHash(), newBlock.NumberU64()-1) {
 			newChain = append(newChain, newBlock)
 		}
 	}
@@ -1241,7 +1247,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
 		deletedTxs = append(deletedTxs, oldBlock.Transactions()...)
 		collectLogs(oldBlock.Hash())
 
-		oldBlock, newBlock = bc.GetBlock(oldBlock.ParentHash(), oldBlock.NumberU64()-1), bc.GetBlock(newBlock.ParentHash(), newBlock.NumberU64()-1)
+		oldBlock, newBlock = bc.GetBlockFast(oldBlock.ParentHash(), oldBlock.NumberU64()-1), bc.GetBlock(newBlock.ParentHash(), newBlock.NumberU64()-1)
 		if oldBlock == nil {
 			return fmt.Errorf("Invalid old chain")
 		}
@@ -1264,13 +1270,13 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	var addedTxs types.Transactions
 	for i := len(newChain) - 1; i >= 0; i-- {
 		// insert the block in the canonical way, re-writing history
-		bc.insert(newChain[i])
+		bc.insertFast(newChain[i])
 		// write lookup entries for hash based transaction/receipt searches
-		rawdb.WriteTxLookupEntries(bc.db, newChain[i])
+		rawdb.WriteTxLookupEntriesFast(bc.db, newChain[i])
 		addedTxs = append(addedTxs, newChain[i].Transactions()...)
 	}
 	// calculate the difference between deleted and added transactions
-	diff := types.TxDifference(deletedTxs, addedTxs)
+	//diff := types.TxDifference(deletedTxs, addedTxs)
 	// When transactions get deleted from the database that means the
 	// receipts that were created in the fork must also be deleted
 	batch := bc.db.NewBatch()
@@ -1291,7 +1297,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	}
 
 	return nil
-}
+}*/
 
 // PostChainEvents iterates over the events generated by a chain insertion and
 // posts them into the event feed.
@@ -1328,7 +1334,7 @@ func (bc *FastBlockChain) update() {
 	for {
 		select {
 		case <-futureTimer.C:
-			bc.procFutureBlocks()
+			bc.procFutureBlocksFast()
 		case <-bc.quit:
 			return
 		}
@@ -1340,7 +1346,7 @@ func (bc *FastBlockChain) BadBlocksFast() []*types.FastBlock {
 	blocks := make([]*types.FastBlock, 0, bc.badBlocks.Len())
 	for _, hash := range bc.badBlocks.Keys() {
 		if blk, exist := bc.badBlocks.Peek(hash); exist {
-			block := blk.(*types.Block)
+			block := blk.(*types.FastBlock)
 			blocks = append(blocks, block)
 		}
 	}
