@@ -28,13 +28,13 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	//"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/hashicorp/golang-lru"
-	"github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
+	rawdb "github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
 )
 
 
@@ -146,7 +146,7 @@ func (fhc *FastHeaderChain)WriteHeader(header *types.FastHeader) (status WriteSt
 	//	log.Crit("Failed to write header total difficulty", "err", err)
 	//}
 
-	rawfastdb.WriteHeader(fhc.chainDb, header)
+	rawdb.WriteHeader(fhc.chainDb, header)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -385,7 +385,7 @@ func (fhc *FastHeaderChain)GetHeader(hash common.Hash, number uint64) *types.Fas
 	if header, ok := fhc.headerCache.Get(hash); ok {
 		return header.(*types.FastHeader)
 	}
-	header := rawfastdb.ReadHeader(fhc.chainDb, hash, number)
+	header := rawdb.ReadHeader(fhc.chainDb, hash, number)
 	if header == nil {
 		return nil
 	}
@@ -438,7 +438,7 @@ func (fhc *FastHeaderChain)SetCurrentHeader(head *types.FastHeader) {
 
 // DeleteCallback is a callback function that is called by SetHead before
 // each header is deleted.
-type FastDeleteCallback func(rawfastdb.DatabaseDeleter, common.Hash, uint64)
+type FastDeleteCallback func(rawdb.DatabaseDeleter, common.Hash, uint64)
 
 // SetHead rewinds the local chain to a new head. Everything above the new head
 // will be deleted and the new one set.

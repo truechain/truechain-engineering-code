@@ -29,7 +29,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -43,7 +42,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/trie"
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
+	rawdb "github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
 )
 
 var (
@@ -189,7 +188,7 @@ func (bc *FastBlockChain) getProcInterrupt() bool {
 // assumes that the chain manager mutex is held.
 func (bc *FastBlockChain) loadLastState() error {
 	// Restore the last known head block
-	head := rawfastdb.ReadHeadBlockHash(bc.db)
+	head := rawdb.ReadHeadBlockHash(bc.db)
 	if head == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		log.Warn("Empty database, resetting chain")
@@ -255,8 +254,8 @@ func (bc *FastBlockChain) SetHead(head uint64) error {
 	defer bc.mu.Unlock()
 
 	// Rewind the header chain, deleting all block bodies until then
-	delFn := func(db rawfastdb.DatabaseDeleter, hash common.Hash, num uint64) {
-		rawfastdb.DeleteBody(db, hash, num)
+	delFn := func(db rawdb.DatabaseDeleter, hash common.Hash, num uint64) {
+		rawdb.DeleteBody(db, hash, num)
 	}
 	bc.hc.SetHead(head, delFn)
 	currentHeader := bc.hc.CurrentHeader()
@@ -391,7 +390,7 @@ func (bc *FastBlockChain) ResetWithGenesisBlock(genesis *types.FastBlock) error 
 	//if err := bc.hc.WriteTd(genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
 	//	log.Crit("Failed to write genesis block TD", "err", err)
 	//}
-	rawfastdb.WriteBlock(bc.db, genesis)
+	rawdb.WriteBlock(bc.db, genesis)
 
 	bc.genesisBlock = genesis
 	bc.insert(bc.genesisBlock)
@@ -492,7 +491,7 @@ func (bc *FastBlockChain) GetBody(hash common.Hash) *types.FastBody {
 	if number == nil {
 		return nil
 	}
-	body := rawfastdb.ReadBody(bc.db, hash, *number)
+	body := rawdb.ReadBody(bc.db, hash, *number)
 	if body == nil {
 		return nil
 	}
@@ -553,7 +552,7 @@ func (bc *FastBlockChain) GetBlock(hash common.Hash, number uint64) *types.FastB
 	if block, ok := bc.blockCache.Get(hash); ok {
 		return block.(*types.FastBlock)
 	}
-	block := rawfastdb.ReadBlock(bc.db, hash, number)
+	block := rawdb.ReadBlock(bc.db, hash, number)
 	if block == nil {
 		return nil
 	}
@@ -800,9 +799,9 @@ func (bc *FastBlockChain) InsertReceiptChain(blockChain types.FastBlocks, receip
 			return i, fmt.Errorf("failed to set receipts data: %v", err)
 		}
 		// Write all the data out into the database
-		rawfastdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
-		rawfastdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-		rawfastdb.WriteTxLookupEntries(batch, block)
+		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
+		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
+		rawdb.WriteTxLookupEntries(batch, block)
 
 		stats.processed++
 
@@ -854,7 +853,7 @@ func (bc *FastBlockChain) WriteBlockWithoutState(block *types.FastBlock, td *big
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
 		return err
 	}
-	rawfastdb.WriteBlock(bc.db, block)
+	rawdb.WriteBlock(bc.db, block)
 
 	return nil
 }
@@ -883,7 +882,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	//}
 	// Write other block data using a batch.
 	batch := bc.db.NewBatch()
-	rawfastdb.WriteBlock(batch, block)
+	rawdb.WriteBlock(batch, block)
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
@@ -1317,7 +1316,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.FastBlock) error {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])
 		// write lookup entries for hash based transaction/receipt searches
-		rawfastdb.WriteTxLookupEntries(bc.db, newChain[i])
+		rawdb.WriteTxLookupEntries(bc.db, newChain[i])
 		addedTxs = append(addedTxs, newChain[i].Transactions()...)
 	}
 	// calculate the difference between deleted and added transactions
