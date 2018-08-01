@@ -269,7 +269,7 @@ func (c *Clique) VerifyHeaders(chain consensus.ChainReader, headers []*types.Hea
 // VerifyFastHeaders is similar to VerifyFastHeader, but verifies a batch of fast headers. The
 // method returns a quit channel to abort the operations and a results channel to
 // retrieve the async verifications (the order is that of the input slice).
-func (ethash *Clique) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (c *Clique) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error) {
 	return nil, nil
 }
 

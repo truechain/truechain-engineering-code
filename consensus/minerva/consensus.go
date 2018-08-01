@@ -186,7 +186,7 @@ func (ethash *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*typ
 	return abort, errorsOut
 }
 
-func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error) {
 	return nil, nil
 }
 
