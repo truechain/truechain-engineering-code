@@ -4,6 +4,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"math/big"
+	"github.com/ethereum/truechain-engineering-code/core/types"
+
 )
 
 var z  = 10000
@@ -16,13 +18,13 @@ type VoteuUse struct {
 	b   	bool
 	j 		int
 
-
-
 }
 
 type committee struct{
-	ip		string
+	ip		[]string
 	pk 		string
+	data    []byte
+	pubkey  *ecdsa.PublicKey
 
 }
 
@@ -89,15 +91,21 @@ func Sigma(j int,k int,wi int,P int64) {
 
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
-func (c committee)Verify(data, signature []byte,  pubkey *ecdsa.PublicKey) bool {
+//Original demand parameter(data,signature []byte,  pubkey *ecdsa.PublicKey)
+func (c committee)Verify (fb types.FastBlock,)bool {
+
+			data := c.data
+			pubkey := c.pubkey
+			//signature := fb.Signs()
+
 	// hash message
 	digest := sha256.Sum256(data)
 
-	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
+	//curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
 
 	r, s := new(big.Int), new(big.Int)
-	r.SetBytes(signature[:curveOrderByteSize])
-	s.SetBytes(signature[curveOrderByteSize:])
+	//r.SetBytes(signature[:curveOrderByteSize])
+	//s.SetBytes(signature[curveOrderByteSize:])
 
 	return ecdsa.Verify(pubkey, digest[:], r, s)
 }
@@ -111,6 +119,6 @@ func counter()bool{
 }
 
 //Provide committee address enquiries
-func (c committee)AddrQuery()string{
+func (c committee)AddrQuery(fb types.FastBlock)[]string{
 	return c.ip
 }
