@@ -92,6 +92,8 @@ type ProtocolManager struct {
 	fruitsSub	  event.Subscription
 
 	minedBlockSub *event.TypeMuxSubscription
+	//fast block
+	minedFastSub *event.TypeMuxSubscription
     //fruit
 	minedFruitSub *event.TypeMuxSubscription
 
@@ -228,6 +230,10 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
 	go pm.minedBroadcastLoop()
 
+	// broadcast mined fastBlocks
+	pm.minedFastSub = pm.eventMux.Subscribe(core.NewMinedFastBlockEvent{})
+	go pm.minedFastBroadcastLoop()
+
 	// broadcast mined fruits
 	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
 	go pm.minedFruitLoop()
@@ -242,6 +248,7 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
+	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
@@ -653,6 +660,26 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
 		}
 
+	case msg.Code == NewFastBlockHashesMsg:
+		var announces newBlockHashesData
+		if err := msg.Decode(&announces); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		// Mark the hashes as present at the remote node
+		for _, block := range announces {
+			p.MarkFastBlock(block.Hash)
+		}
+		// Schedule all the unknown hashes for retrieval
+		unknown := make(newBlockHashesData, 0, len(announces))
+		for _, block := range announces {
+			if !pm.blockchain.HasFastBlock(block.Hash, block.Number) {
+				unknown = append(unknown, block)
+			}
+		}
+		for _, block := range unknown {
+			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
+		}
+
 	case msg.Code == NewBlockMsg:
 		// Retrieve and decode the propagated block
 		var request newBlockData
@@ -672,6 +699,39 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			trueHead = request.Block.ParentHash()
 			trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
 		)
+		// Update the peers total difficulty if better than the previous
+		if _, td := p.Head(); trueTD.Cmp(td) > 0 {
+			p.SetHead(trueHead, trueTD)
+
+			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+			// a singe block (as the true TD is below the propagated block), however this
+			// scenario should easily be covered by the fetcher.
+			currentBlock := pm.blockchain.CurrentBlock()
+			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+				go pm.synchronise(p)
+			}
+		}
+
+	case msg.Code == NewFastBlockMsg:
+		// Retrieve and decode the propagated block
+		var request newFastBlockData
+		if err := msg.Decode(&request); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		request.Block.ReceivedAt = msg.ReceivedAt
+		request.Block.ReceivedFrom = p
+
+		// Mark the peer as owning the block and schedule it for import
+		p.MarkFastBlock(request.Block.Hash())
+		pm.fetcher.EnqueueFast(p.id, request.Block)
+
+		// Assuming the block is importable by the peer, but possibly not yet done so,
+		// calculate the head hash and TD that the peer truly must have.
+		var (
+			trueHead = request.Block.ParentHash()
+			trueTD   = new(big.Int).Sub(request.TD, /*request.Block.Difficulty()*/big.NewInt(10))
+		)
+		request.Block.Body()
 		// Update the peers total difficulty if better than the previous
 		if _, td := p.Head(); trueTD.Cmp(td) > 0 {
 			p.SetHead(trueHead, trueTD)
@@ -764,6 +824,37 @@ func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
 	}
 }
 
+// BroadcastBlock will either propagate a block to a subset of it's peers, or
+// will only announce it's availability (depending what's requested).
+func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate bool) {
+	hash := block.Hash()
+	peers := pm.peers.PeersWithoutFastBlock(hash)
+
+	// If propagation is requested, send to a subset of the peer
+	if propagate {
+		// Calculate the TD of the block (it's not imported yet, so block.Td is not valid)
+		var td *big.Int
+		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent == nil {
+			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
+			return
+		}
+		// Send the block to a subset of our peers
+		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+		for _, peer := range transfer {
+			peer.AsyncSendNewFastBlock(block, td)
+		}
+		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		return
+	}
+	// Otherwise if the block is indeed in out own chain, announce it
+	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
+		for _, peer := range peers {
+			peer.AsyncSendNewFastBlockHash(block)
+		}
+		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+	}
+}
+
 // Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastFruit(fruit *types.Block, propagate bool) {
@@ -841,6 +932,17 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 		case core.NewMinedBlockEvent:
 			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
+		}
+	}
+}
+// Mined broadcast loop
+func (pm *ProtocolManager) minedFastBroadcastLoop() {
+	// automatically stops if unsubscribe
+	for obj := range pm.minedFastSub.Chan() {
+		switch ev := obj.Data.(type) {
+		case core.NewMinedFastBlockEvent:
+			pm.BroadcastFastBlock(ev.Block, true)  // First propagate fast block to peers
+			pm.BroadcastFastBlock(ev.Block, false) // Only then announce to the rest
 		}
 	}
 }

@@ -383,12 +383,12 @@ func (hc *HeaderChain) WriteTd(hash common.Hash, number uint64, td *big.Int) err
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (hc *HeaderChain) GetHeaderFast(hash common.Hash, number uint64) *types.FastHeader {
+func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header {
 	// Short circuit if the header's already in the cache, retrieve otherwise
 	if header, ok := hc.headerCache.Get(hash); ok {
-		return header.(*types.FastHeader)
+		return header.(*types.Header)
 	}
-	header := rawdb.ReadHeader_Fast(hc.chainDb, hash, number)
+	header := rawdb.ReadHeader(hc.chainDb, hash, number)
 	if header == nil {
 		return nil
 	}

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package rawdb
+package rawfastdb
 
 import (
 	"github.com/truechain/truechain-engineering-code/common"
@@ -25,8 +25,8 @@ import (
 
 // ReadTxLookupEntry retrieves the positional metadata associated with a transaction
 // hash to allow retrieving the transaction or receipt by hash.
-func ReadTxLookupEntryFast(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
-	data, _ := db.Get(txLookupKeyFast(hash))
+func ReadTxLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
+	data, _ := db.Get(txLookupKey(hash))
 	if len(data) == 0 {
 		return common.Hash{}, 0, 0
 	}
@@ -40,7 +40,7 @@ func ReadTxLookupEntryFast(db DatabaseReader, hash common.Hash) (common.Hash, ui
 
 // WriteTxLookupEntries stores a positional metadata for every transaction from
 // a block, enabling hash based transaction and receipt lookups.
-func WriteTxLookupEntriesFast(db DatabaseWriter, block *types.FastBlock) {
+func WriteTxLookupEntries(db DatabaseWriter, block *types.FastBlock) {
 	for i, tx := range block.Transactions() {
 		entry := TxLookupEntry{
 			BlockHash:  block.Hash(),
@@ -51,25 +51,25 @@ func WriteTxLookupEntriesFast(db DatabaseWriter, block *types.FastBlock) {
 		if err != nil {
 			log.Crit("Failed to encode transaction lookup entry", "err", err)
 		}
-		if err := db.Put(txLookupKeyFast(tx.Hash()), data); err != nil {
+		if err := db.Put(txLookupKey(tx.Hash()), data); err != nil {
 			log.Crit("Failed to store transaction lookup entry", "err", err)
 		}
 	}
 }
 
 // DeleteTxLookupEntry removes all transaction data associated with a hash.
-func DeleteTxLookupEntryFast(db DatabaseDeleter, hash common.Hash) {
-	db.Delete(txLookupKeyFast(hash))
+func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
+	db.Delete(txLookupKey(hash))
 }
 
 // ReadTransaction retrieves a specific transaction from the database, along with
 // its added positional metadata.
-func ReadTransactionFast(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, txIndex := ReadTxLookupEntryFast(db, hash)
+func ReadTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
+	blockHash, blockNumber, txIndex := ReadTxLookupEntry(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}
-	body := ReadBodyFast(db, blockHash, blockNumber)
+	body := ReadBody(db, blockHash, blockNumber)
 	if body == nil || len(body.Transactions) <= int(txIndex) {
 		log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
 		return nil, common.Hash{}, 0, 0
@@ -79,12 +79,13 @@ func ReadTransactionFast(db DatabaseReader, hash common.Hash) (*types.Transactio
 
 // ReadReceipt retrieves a specific transaction receipt from the database, along with
 // its added positional metadata.
-func ReadReceiptFast(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, receiptIndex := ReadTxLookupEntryFast(db, hash)
+// TODO ReadReceipt
+func ReadReceipt(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Hash, uint64, uint64) {
+	blockHash, blockNumber, receiptIndex := ReadTxLookupEntry(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}
-	receipts := ReadReceiptsFast(db, blockHash, blockNumber)
+	receipts := ReadReceipts(db, blockHash, blockNumber)
 	if len(receipts) <= int(receiptIndex) {
 		log.Error("Receipt refereced missing", "number", blockNumber, "hash", blockHash, "index", receiptIndex)
 		return nil, common.Hash{}, 0, 0
@@ -94,14 +95,14 @@ func ReadReceiptFast(db DatabaseReader, hash common.Hash) (*types.Receipt, commo
 
 // ReadBloomBits retrieves the compressed bloom bit vector belonging to the given
 // section and bit index from the.
-func ReadBloomBitsFast(db DatabaseReader, bit uint, section uint64, head common.Hash) ([]byte, error) {
-	return db.Get(bloomBitsKeyFast(bit, section, head))
+func ReadBloomBits(db DatabaseReader, bit uint, section uint64, head common.Hash) ([]byte, error) {
+	return db.Get(bloomBitsKey(bit, section, head))
 }
 
 // WriteBloomBits stores the compressed bloom bits vector belonging to the given
 // section and bit index.
-func WriteBloomBitsFast(db DatabaseWriter, bit uint, section uint64, head common.Hash, bits []byte) {
-	if err := db.Put(bloomBitsKeyFast(bit, section, head), bits); err != nil {
+func WriteBloomBits(db DatabaseWriter, bit uint, section uint64, head common.Hash, bits []byte) {
+	if err := db.Put(bloomBitsKey(bit, section, head), bits); err != nil {
 		log.Crit("Failed to store bloom bits", "err", err)
 	}
 }

@@ -29,15 +29,15 @@ import (
 // processed state.
 //
 // BlockValidator implements Validator.
-type BlockValidatorFast struct {
+type FastBlockValidator struct {
 	config *params.ChainConfig // Chain configuration options
 	bc     *FastBlockChain         // Canonical block chain
 	engine consensus.Engine    // Consensus engine used for validating
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
-func NewBlockValidatorFast(config *params.ChainConfig, blockchain *FastBlockChain, engine consensus.Engine) *BlockValidatorFast {
-	validator := &BlockValidatorFast{
+func NewFastBlockValidator(config *params.ChainConfig, blockchain *FastBlockChain, engine consensus.Engine) *FastBlockValidator {
+	validator := &FastBlockValidator{
 		config: config,
 		engine: engine,
 		bc:     blockchain,
@@ -48,25 +48,26 @@ func NewBlockValidatorFast(config *params.ChainConfig, blockchain *FastBlockChai
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (v *BlockValidatorFast) ValidateBodyFast(block *types.FastBlock) error {
+func (fv *FastBlockValidator) ValidateBody(block *types.FastBlock) error {
 	// Check whether the block's known, and if not, that it's linkable
-	if v.bc.HasBlockAndStateFast(block.Hash(), block.NumberU64()) {
+	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
-	if !v.bc.HasBlockAndStateFast(block.ParentHash(), block.NumberU64()-1) {
-		if !v.bc.HasBlockFast(block.ParentHash(), block.NumberU64()-1) {
+	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
+		if !fv.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
 		return consensus.ErrPrunedAncestor
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	/*if err := v.engine.VerifyUncles(v.bc, block); err != nil {
+	if err := fv.engine.VerifyUncles(fv.bc, block); err != nil {
 		return err
 	}
-	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-	}*/
+	//if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
+	//	return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
+	//}
+
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
@@ -77,7 +78,7 @@ func (v *BlockValidatorFast) ValidateBodyFast(block *types.FastBlock) error {
 // transition, such as amount of used gas, the receipt roots and the state root
 // itself. ValidateState returns a database batch if the validation was a success
 // otherwise nil and an error is returned.
-func (v *BlockValidatorFast) ValidateStateFast(block, parent *types.FastBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
+func (fv *FastBlockValidator) ValidateState(block, parent *types.FastBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 	if block.GasUsed() != usedGas {
 		return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
@@ -95,7 +96,7 @@ func (v *BlockValidatorFast) ValidateStateFast(block, parent *types.FastBlock, s
 	}
 	// Validate the state root against the received state root and throw
 	// an error if they don't match.
-	if root := statedb.IntermediateRoot(v.config.IsEIP158(header.Number)); header.Root != root {
+	if root := statedb.IntermediateRoot(fv.config.IsEIP158(header.Number)); header.Root != root {
 		return fmt.Errorf("invalid merkle root (remote: %x local: %x)", header.Root, root)
 	}
 	return nil
@@ -103,7 +104,7 @@ func (v *BlockValidatorFast) ValidateStateFast(block, parent *types.FastBlock, s
 
 // CalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
-func CalcGasLimitFast(parent *types.FastBlock) uint64 {
+func FastCalcGasLimit(parent *types.FastBlock) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
 	contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
 

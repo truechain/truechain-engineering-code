@@ -35,6 +35,16 @@ type Validator interface {
 	ValidateState(block, parent *types.Block, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
 }
 
+
+type FastValidator interface {
+	// ValidateBody validates the given block's content.
+	ValidateBody(block *types.FastBlock) error
+
+	// ValidateState validates the given statedb and optionally the receipts and
+	// gas used.
+	ValidateState(block, parent *types.FastBlock, state *state.StateDB, receipts types.Receipts, usedGas uint64) error
+}
+
 // Processor is an interface for processing blocks using a given initial state.
 //
 // Process takes the block to be processed and the statedb upon which the
@@ -43,4 +53,8 @@ type Validator interface {
 // failed.
 type Processor interface {
 	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
+}
+
+type FastProcessor interface {
+	Process(block *types.FastBlock, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
 }

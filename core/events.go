@@ -42,6 +42,9 @@ type PendingStateEvent struct{}
 // NewMinedBlockEvent is posted when a block has been imported.
 type NewMinedBlockEvent struct{ Block *types.Block }
 
+// NewMinedFastBlockEvent is posted when a block has been imported.
+type NewMinedFastBlockEvent struct{ Block *types.FastBlock }
+
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.Block }
 
@@ -51,6 +54,12 @@ type RemovedLogsEvent struct{ Logs []*types.Log }
 
 type ChainEvent struct {
 	Block *types.Block
+	Hash  common.Hash
+	Logs  []*types.Log
+}
+
+type FastChainEvent struct {
+	Block *types.FastBlock
 	Hash  common.Hash
 	Logs  []*types.Log
 }
@@ -66,5 +75,10 @@ type ChainSideEvent struct {
 	Block *types.Block
 }
 
+type FastChainSideEvent struct {
+	Block *types.FastBlock
+}
+
 type ChainHeadEvent struct{ Block *types.Block }
+type FastChainHeadEvent struct{ Block *types.FastBlock }
 type FruitFleashEvent struct{ Block *types.Block }

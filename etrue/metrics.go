@@ -30,10 +30,18 @@ var (
 	propHashInTrafficMeter    = metrics.NewRegisteredMeter("eth/prop/hashes/in/traffic", nil)
 	propHashOutPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/hashes/out/packets", nil)
 	propHashOutTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/hashes/out/traffic", nil)
+	propFastHashInPacketsMeter    = metrics.NewRegisteredMeter("eth/prop/fasthashes/in/packets", nil)
+	propFastHashInTrafficMeter    = metrics.NewRegisteredMeter("eth/prop/fasthashes/in/traffic", nil)
+	propFastHashOutPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/fasthashes/out/packets", nil)
+	propFastHashOutTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/fasthashes/out/traffic", nil)
 	propBlockInPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/blocks/in/packets", nil)
 	propBlockInTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/blocks/in/traffic", nil)
+	propFastBlockInPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/fastblocks/in/packets", nil)
+	propFastBlockInTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/fastblocks/in/traffic", nil)
 	propBlockOutPacketsMeter  = metrics.NewRegisteredMeter("eth/prop/blocks/out/packets", nil)
 	propBlockOutTrafficMeter  = metrics.NewRegisteredMeter("eth/prop/blocks/out/traffic", nil)
+	propFastBlockOutPacketsMeter  = metrics.NewRegisteredMeter("eth/prop/fastblocks/out/packets", nil)
+	propFastBlockOutTrafficMeter  = metrics.NewRegisteredMeter("eth/prop/fastblocks/out/traffic", nil)
 	reqHeaderInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/packets", nil)
 	reqHeaderInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/traffic", nil)
 	reqHeaderOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/headers/out/packets", nil)
@@ -101,6 +109,10 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 		packets, traffic = propHashInPacketsMeter, propHashInTrafficMeter
 	case msg.Code == NewBlockMsg:
 		packets, traffic = propBlockInPacketsMeter, propBlockInTrafficMeter
+	case msg.Code == NewFastBlockHashesMsg:
+		packets, traffic = propFastHashInPacketsMeter, propFastHashInTrafficMeter
+	case msg.Code == NewFastBlockMsg:
+		packets, traffic = propFastBlockInPacketsMeter, propFastBlockInTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnInPacketsMeter, propTxnInTrafficMeter
 	}
@@ -128,6 +140,10 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 		packets, traffic = propHashOutPacketsMeter, propHashOutTrafficMeter
 	case msg.Code == NewBlockMsg:
 		packets, traffic = propBlockOutPacketsMeter, propBlockOutTrafficMeter
+	case msg.Code == NewFastBlockHashesMsg:
+		packets, traffic = propFastHashOutPacketsMeter, propFastHashOutTrafficMeter
+	case msg.Code == NewFastBlockMsg:
+		packets, traffic = propFastBlockOutPacketsMeter, propFastBlockOutTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnOutPacketsMeter, propTxnOutTrafficMeter
 	}
