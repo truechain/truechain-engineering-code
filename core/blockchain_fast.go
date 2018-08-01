@@ -326,14 +326,14 @@ func (bc *FastBlockChain) GasLimit() uint64 {
 
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
-func (bc *FastBlockChain) CurrentBlock() *types.Block {
-	return bc.currentBlock.Load().(*types.Block)
+func (bc *FastBlockChain) CurrentBlock() *types.FastBlock {
+	return bc.currentBlock.Load().(*types.FastBlock)
 }
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
-func (bc *FastBlockChain) CurrentFastBlock() *types.Block {
-	return bc.currentFastBlock.Load().(*types.Block)
+func (bc *FastBlockChain) CurrentFastBlock() *types.FastBlock {
+	return bc.currentFastBlock.Load().(*types.FastBlock)
 }
 
 // SetProcessor sets the processor required for making state modifications.
@@ -1401,11 +1401,11 @@ func (bc *FastBlockChain) update() {
 }
 
 // BadBlocks returns a list of the last 'bad blocks' that the client has seen on the network
-func (bc *FastBlockChain) BadBlocks() []*types.Block {
-	blocks := make([]*types.Block, 0, bc.badBlocks.Len())
+func (bc *FastBlockChain) BadBlocks() []*types.FastBlock {
+	blocks := make([]*types.FastBlock, 0, bc.badBlocks.Len())
 	for _, hash := range bc.badBlocks.Keys() {
 		if blk, exist := bc.badBlocks.Peek(hash); exist {
-			block := blk.(*types.Block)
+			block := blk.(*types.FastBlock)
 			blocks = append(blocks, block)
 		}
 	}
