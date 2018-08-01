@@ -58,6 +58,12 @@ type ChainEvent struct {
 	Logs  []*types.Log
 }
 
+type FastChainEvent struct {
+	Block *types.FastBlock
+	Hash  common.Hash
+	Logs  []*types.Log
+}
+
 // neo 20180628 for fruit event
 type FruitEvent struct {
 	Block *types.Block
@@ -69,5 +75,10 @@ type ChainSideEvent struct {
 	Block *types.Block
 }
 
+type FastChainSideEvent struct {
+	Block *types.FastBlock
+}
+
 type ChainHeadEvent struct{ Block *types.Block }
+type FastChainHeadEvent struct{ Block *types.FastBlock }
 type FruitFleashEvent struct{ Block *types.Block }
