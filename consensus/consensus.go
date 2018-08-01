@@ -94,6 +94,12 @@ type Engine interface {
 	// the input slice).
 	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
 
+	// VerifyFastHeaders is similar to VerifyFastHeader, but verifies a batch of fast headers
+	// concurrently. The method returns a quit channel to abort the operations and
+	// a results channel to retrieve the async verifications (the order is that of
+	// the input slice).
+	VerifyFastHeaders(chain ChainFastReader, headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error)
+
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
 	VerifyUncles(chain ChainReader, block *types.Block) error
