@@ -225,7 +225,7 @@ func (fhc *FastHeaderChain)ValidateHeaderChain(chain []*types.FastHeader, checkF
 	}
 	seals[len(seals)-1] = true // Last should always be verified to avoid junk
 
-	abort, results := fhc.engine.VerifyHeaders(fhc, chain, seals)
+	abort, results := fhc.engine.VerifyFastHeaders(fhc, chain, seals)
 	defer close(abort)
 
 	// Iterate over the headers and ensure they all check out

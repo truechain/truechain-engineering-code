@@ -1032,7 +1032,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
+	abort, results := bc.engine.VerifyFastHeaders(bc, headers, seals)
 	defer close(abort)
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
