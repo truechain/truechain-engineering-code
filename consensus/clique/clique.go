@@ -167,6 +167,32 @@ func sigHash(header *types.Header) (hash common.Hash) {
 	return hash
 }
 
+// sigHash returns the hash which is used as input for the proof-of-authority
+// signing. It is the hash of the entire header apart from the 65 byte signature
+// contained at the end of the extra data.
+//
+// Note, the method requires the extra data to be at least 65 bytes, otherwise it
+// panics. This is done to avoid accidentally using both forms (signature present
+// or not), which could be abused to produce different hashes for the same header.
+func sigHashFast(header *types.FastHeader) (hash common.Hash) {
+	hasher := sha3.NewKeccak256()
+
+	rlp.Encode(hasher, []interface{}{
+		header.ParentHash,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.Number,
+		header.GasLimit,
+		header.GasUsed,
+		header.Time,
+		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
+	})
+	hasher.Sum(hash[:0])
+	return hash
+}
+
 // ecrecover extracts the Ethereum account address from a signed header.
 func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, error) {
 	// If the signature's already cached, return that
@@ -182,6 +208,31 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 
 	// Recover the public key and the Ethereum address
 	pubkey, err := crypto.Ecrecover(sigHash(header).Bytes(), signature)
+	if err != nil {
+		return common.Address{}, err
+	}
+	var signer common.Address
+	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+
+	sigcache.Add(hash, signer)
+	return signer, nil
+}
+
+// ecrecover extracts the Ethereum account address from a signed header.
+func ecrecoverFast(header *types.FastHeader, sigcache *lru.ARCCache) (common.Address, error) {
+	// If the signature's already cached, return that
+	hash := header.Hash()
+	if address, known := sigcache.Get(hash); known {
+		return address.(common.Address), nil
+	}
+	// Retrieve the signature from the header extra-data
+	if len(header.Extra) < extraSeal {
+		return common.Address{}, errMissingSignature
+	}
+	signature := header.Extra[len(header.Extra)-extraSeal:]
+
+	// Recover the public key and the Ethereum address
+	pubkey, err := crypto.Ecrecover(sigHashFast(header).Bytes(), signature)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -270,7 +321,21 @@ func (c *Clique) VerifyHeaders(chain consensus.ChainReader, headers []*types.Hea
 // method returns a quit channel to abort the operations and a results channel to
 // retrieve the async verifications (the order is that of the input slice).
 func (c *Clique) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error) {
-	return nil, nil
+	abort := make(chan struct{})
+	results := make(chan error, len(headers))
+
+	go func() {
+		for i, header := range headers {
+			err := c.verifyFastHeader(chain, header, headers[:i])
+
+			select {
+			case <-abort:
+				return
+			case results <- err:
+			}
+		}
+	}()
+	return abort, results
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules.The
@@ -336,6 +401,72 @@ func (c *Clique) verifyHeader(chain consensus.ChainReader, header *types.Header,
 	return c.verifyCascadingFields(chain, header, parents)
 }
 
+// verifyHeader checks whether a header conforms to the consensus rules.The
+// caller may optionally pass in a batch of parents (ascending order) to avoid
+// looking those up from the database. This is useful for concurrently verifying
+// a batch of new headers.
+func (c *Clique) verifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, parents []*types.FastHeader) error {
+	if header.Number == nil {
+		return errUnknownBlock
+	}
+	number := header.Number.Uint64()
+
+	// Don't waste time checking blocks from the future
+	if header.Time.Cmp(big.NewInt(time.Now().Unix())) > 0 {
+		return consensus.ErrFutureBlock
+	}
+	// Checkpoint blocks need to enforce zero beneficiary
+	checkpoint := (number % c.config.Epoch) == 0
+	//if checkpoint && header.Coinbase != (common.Address{}) {
+	//	return errInvalidCheckpointBeneficiary
+	//}
+	//// Nonces must be 0x00..0 or 0xff..f, zeroes enforced on checkpoints
+	//if !bytes.Equal(header.Nonce[:], nonceAuthVote) && !bytes.Equal(header.Nonce[:], nonceDropVote) {
+	//	return errInvalidVote
+	//}
+	//if checkpoint && !bytes.Equal(header.Nonce[:], nonceDropVote) {
+	//	return errInvalidCheckpointVote
+	//}
+	// Check that the extra-data contains both the vanity and signature
+	if len(header.Extra) < extraVanity {
+		return errMissingVanity
+	}
+	if len(header.Extra) < extraVanity+extraSeal {
+		return errMissingSignature
+	}
+	// Ensure that the extra-data contains a signer list on checkpoint, but none otherwise
+	signersBytes := len(header.Extra) - extraVanity - extraSeal
+	if !checkpoint && signersBytes != 0 {
+		return errExtraSigners
+	}
+	if checkpoint && signersBytes%common.AddressLength != 0 {
+		return errInvalidCheckpointSigners
+	}
+	//// Ensure that the mix digest is zero as we don't have fork protection currently
+	//if header.MixDigest != (common.Hash{}) {
+	//	return errInvalidMixDigest
+	//}
+	//// Ensure that the block doesn't contain any uncles which are meaningless in PoA
+	//if header.UncleHash != uncleHash {
+	//	return errInvalidUncleHash
+	//}
+	// Ensure that the block's difficulty is meaningful (may not be correct at this point)
+	//if number > 0 {
+	//	if header.Difficulty == nil || (header.Difficulty.Cmp(diffInTurn) != 0 && header.Difficulty.Cmp(diffNoTurn) != 0) {
+	//		return errInvalidDifficulty
+	//	}
+	//}
+
+	//IQQ fix
+	// If all checks passed, validate any special fields for hard forks
+	if err := misc.VerifyFastForkHashes(chain.Config(), header, false); err != nil {
+		return err
+	}
+	// All basic checks passed, verify cascading fields
+	return c.verifyFastCascadingFields(chain, header, parents)
+	return nil
+}
+
 // verifyCascadingFields verifies all the header fields that are not standalone,
 // rather depend on a batch of previous headers. The caller may optionally pass
 // in a batch of parents (ascending order) to avoid looking those up from the
@@ -377,6 +508,50 @@ func (c *Clique) verifyCascadingFields(chain consensus.ChainReader, header *type
 	}
 	// All basic checks passed, verify the seal and return
 	return c.verifySeal(chain, header, parents)
+}
+
+// verifyCascadingFields verifies all the header fields that are not standalone,
+// rather depend on a batch of previous headers. The caller may optionally pass
+// in a batch of parents (ascending order) to avoid looking those up from the
+// database. This is useful for concurrently verifying a batch of new headers.
+func (c *Clique) verifyFastCascadingFields(chain consensus.ChainFastReader, header *types.FastHeader, parents []*types.FastHeader) error {
+	// The genesis block is the always valid dead-end
+	number := header.Number.Uint64()
+	if number == 0 {
+		return nil
+	}
+	// Ensure that the block's timestamp isn't too close to it's parent
+	var parent *types.FastHeader
+	if len(parents) > 0 {
+		parent = parents[len(parents)-1]
+	} else {
+		parent = chain.GetHeader(header.ParentHash, number-1)
+	}
+	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+		return consensus.ErrUnknownAncestor
+	}
+	if parent.Time.Uint64()+c.config.Period > header.Time.Uint64() {
+		return ErrInvalidTimestamp
+	}
+	// Retrieve the snapshot needed to verify this header and cache it
+	snap, err := c.snapshotFast(chain, number-1, header.ParentHash, parents)
+	if err != nil {
+		return err
+	}
+	// If the block is a checkpoint block, verify the signer list
+	if number%c.config.Epoch == 0 {
+		signers := make([]byte, len(snap.Signers)*common.AddressLength)
+		for i, signer := range snap.signers() {
+			copy(signers[i*common.AddressLength:], signer[:])
+		}
+		extraSuffix := len(header.Extra) - extraSeal
+		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], signers) {
+			return errInvalidCheckpointSigners
+		}
+	}
+	// All basic checks passed, verify the seal and return
+	//return c.verifySeal(chain, header, parents)
+	return nil
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
@@ -441,6 +616,83 @@ func (c *Clique) snapshot(chain consensus.ChainReader, number uint64, hash commo
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
 	snap, err := snap.apply(headers)
+	if err != nil {
+		return nil, err
+	}
+	c.recents.Add(snap.Hash, snap)
+
+	// If we've generated a new checkpoint snapshot, save to disk
+	if snap.Number%checkpointInterval == 0 && len(headers) > 0 {
+		if err = snap.store(c.db); err != nil {
+			return nil, err
+		}
+		log.Trace("Stored voting snapshot to disk", "number", snap.Number, "hash", snap.Hash)
+	}
+	return snap, err
+}
+
+// snapshot retrieves the authorization snapshot at a given point in time.
+func (c *Clique) snapshotFast(chain consensus.ChainFastReader, number uint64, hash common.Hash, parents []*types.FastHeader) (*Snapshot, error) {
+	// Search for a snapshot in memory or on disk for checkpoints
+	var (
+		headers []*types.FastHeader
+		snap    *Snapshot
+	)
+	for snap == nil {
+		// If an in-memory snapshot was found, use that
+		if s, ok := c.recents.Get(hash); ok {
+			snap = s.(*Snapshot)
+			break
+		}
+		// If an on-disk checkpoint snapshot can be found, use that
+		if number%checkpointInterval == 0 {
+			if s, err := loadSnapshot(c.config, c.signatures, c.db, hash); err == nil {
+				log.Trace("Loaded voting snapshot from disk", "number", number, "hash", hash)
+				snap = s
+				break
+			}
+		}
+		// If we're at block zero, make a snapshot
+		if number == 0 {
+			genesis := chain.GetHeaderByNumber(0)
+			if err := c.VerifyFastHeader(chain, genesis, false); err != nil {
+				return nil, err
+			}
+			signers := make([]common.Address, (len(genesis.Extra)-extraVanity-extraSeal)/common.AddressLength)
+			for i := 0; i < len(signers); i++ {
+				copy(signers[i][:], genesis.Extra[extraVanity+i*common.AddressLength:])
+			}
+			snap = newSnapshot(c.config, c.signatures, 0, genesis.Hash(), signers)
+			if err := snap.store(c.db); err != nil {
+				return nil, err
+			}
+			log.Trace("Stored genesis voting snapshot to disk")
+			break
+		}
+		// No snapshot for this header, gather the header and move backward
+		var header *types.FastHeader
+		if len(parents) > 0 {
+			// If we have explicit parents, pick from there (enforced)
+			header = parents[len(parents)-1]
+			if header.Hash() != hash || header.Number.Uint64() != number {
+				return nil, consensus.ErrUnknownAncestor
+			}
+			parents = parents[:len(parents)-1]
+		} else {
+			// No explicit parents (or no more left), reach out to the database
+			header = chain.GetHeader(hash, number)
+			if header == nil {
+				return nil, consensus.ErrUnknownAncestor
+			}
+		}
+		headers = append(headers, header)
+		number, hash = number-1, header.ParentHash
+	}
+	// Previous snapshot found, apply any pending headers on top of it
+	for i := 0; i < len(headers)/2; i++ {
+		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
+	}
+	snap, err := snap.applyFast(headers)
 	if err != nil {
 		return nil, err
 	}

@@ -20,11 +20,11 @@ import (
 	"bytes"
 	"encoding/json"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 // Vote represents a single vote that an authorized signer made to modify the
@@ -277,6 +277,120 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 			}
 			delete(snap.Tally, header.Coinbase)
 		}
+	}
+	snap.Number += uint64(len(headers))
+	snap.Hash = headers[len(headers)-1].Hash()
+
+	return snap, nil
+}
+
+// apply creates a new authorization snapshot by applying the given headers to
+// the original one.
+func (s *Snapshot) applyFast(headers []*types.FastHeader) (*Snapshot, error) {
+	// Allow passing in no headers for cleaner code
+	if len(headers) == 0 {
+		return s, nil
+	}
+	// Sanity check that the headers can be applied
+	for i := 0; i < len(headers)-1; i++ {
+		if headers[i+1].Number.Uint64() != headers[i].Number.Uint64()+1 {
+			return nil, errInvalidVotingChain
+		}
+	}
+	if headers[0].Number.Uint64() != s.Number+1 {
+		return nil, errInvalidVotingChain
+	}
+	// Iterate through the headers and create a new snapshot
+	snap := s.copy()
+
+	for _, header := range headers {
+		// Remove any votes on checkpoint blocks
+		number := header.Number.Uint64()
+		if number%s.config.Epoch == 0 {
+			snap.Votes = nil
+			snap.Tally = make(map[common.Address]Tally)
+		}
+		// Delete the oldest signer from the recent list to allow it signing again
+		if limit := uint64(len(snap.Signers)/2 + 1); number >= limit {
+			delete(snap.Recents, number-limit)
+		}
+		// Resolve the authorization key and check against signers
+		signer, err := ecrecoverFast(header, s.sigcache)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := snap.Signers[signer]; !ok {
+			return nil, errUnauthorized
+		}
+		for _, recent := range snap.Recents {
+			if recent == signer {
+				return nil, errUnauthorized
+			}
+		}
+		snap.Recents[number] = signer
+
+		// Header authorized, discard any previous votes from the signer
+		for i, vote := range snap.Votes {
+			if vote.Signer == signer {
+				// Uncast the vote from the cached tally
+				snap.uncast(vote.Address, vote.Authorize)
+
+				// Uncast the vote from the chronological list
+				snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
+				break // only one vote allowed
+			}
+		}
+		//// Tally up the new vote from the signer
+		//var authorize bool
+		//switch {
+		//case bytes.Equal(header.Nonce[:], nonceAuthVote):
+		//	authorize = true
+		//case bytes.Equal(header.Nonce[:], nonceDropVote):
+		//	authorize = false
+		//default:
+		//	return nil, errInvalidVote
+		//}
+		//if snap.cast(header.Coinbase, authorize) {
+		//	snap.Votes = append(snap.Votes, &Vote{
+		//		Signer:    signer,
+		//		Block:     number,
+		//		Address:   header.Coinbase,
+		//		Authorize: authorize,
+		//	})
+		//}
+		//// If the vote passed, update the list of signers
+		//if tally := snap.Tally[header.Coinbase]; tally.Votes > len(snap.Signers)/2 {
+		//	if tally.Authorize {
+		//		snap.Signers[header.Coinbase] = struct{}{}
+		//	} else {
+		//		delete(snap.Signers, header.Coinbase)
+		//
+		//		// Signer list shrunk, delete any leftover recent caches
+		//		if limit := uint64(len(snap.Signers)/2 + 1); number >= limit {
+		//			delete(snap.Recents, number-limit)
+		//		}
+		//		// Discard any previous votes the deauthorized signer cast
+		//		for i := 0; i < len(snap.Votes); i++ {
+		//			if snap.Votes[i].Signer == header.Coinbase {
+		//				// Uncast the vote from the cached tally
+		//				snap.uncast(snap.Votes[i].Address, snap.Votes[i].Authorize)
+		//
+		//				// Uncast the vote from the chronological list
+		//				snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
+		//
+		//				i--
+		//			}
+		//		}
+		//	}
+		//	// Discard any previous votes around the just changed account
+		//	for i := 0; i < len(snap.Votes); i++ {
+		//		if snap.Votes[i].Address == header.Coinbase {
+		//			snap.Votes = append(snap.Votes[:i], snap.Votes[i+1:]...)
+		//			i--
+		//		}
+		//	}
+		//	delete(snap.Tally, header.Coinbase)
+		//}
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
