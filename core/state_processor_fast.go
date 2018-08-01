@@ -31,16 +31,15 @@ import (
 // state from one point to another.
 //
 // StateProcessor implements Processor.
-
-type StateProcessorFast struct {
+type FastStateProcessor struct {
 	config *params.ChainConfig // Chain configuration options
 	bc     *FastBlockChain         // Canonical block chain
-	engine consensus.Engine    // Consensus engine used for block rewards //??
+	engine consensus.Engine    // Consensus engine used for block rewards
 }
 
 // NewStateProcessor initialises a new StateProcessor.
-func NewStateProcessorFast(config *params.ChainConfig, bc *FastBlockChain, engine consensus.Engine) *StateProcessorFast {
-	return &StateProcessorFast{
+func NewFastStateProcessor(config *params.ChainConfig, bc *FastBlockChain, engine consensus.Engine) *FastStateProcessor {
+	return &FastStateProcessor{
 		config: config,
 		bc:     bc,
 		engine: engine,
@@ -54,7 +53,7 @@ func NewStateProcessorFast(config *params.ChainConfig, bc *FastBlockChain, engin
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (p *StateProcessorFast) ProcessFast(block *types.FastBlock, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (fp *FastStateProcessor) Process(block *types.FastBlock, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -63,13 +62,13 @@ func (p *StateProcessorFast) ProcessFast(block *types.FastBlock, statedb *state.
 		gp       = new(GasPool).AddGas(block.GasLimit())
 	)
 	// Mutate the the block and state according to any hard-fork specs
-	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+	if fp.config.DAOForkSupport && fp.config.DAOForkBlock != nil && fp.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		receipt, _, err := ApplyTransactionFast(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
+		receipt, _, err := FastApplyTransaction(fp.config, fp.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -77,9 +76,7 @@ func (p *StateProcessorFast) ProcessFast(block *types.FastBlock, statedb *state.
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	// TODO: add fruits support
-	/*p.engine.Finalize(p.bc, header, statedb, block.Transactions(),
-		block.Uncles(), receipts, nil) //?? */
+	fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), block.Uncles(), receipts, nil)
 
 	return receipts, allLogs, *usedGas, nil
 }
@@ -88,17 +85,13 @@ func (p *StateProcessorFast) ProcessFast(block *types.FastBlock, statedb *state.
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransactionFast(config *params.ChainConfig, bc ChainContext, author *common.Address,
-	gp *GasPool, statedb *state.StateDB, header *types.FastHeader,
-	tx *types.Transaction, usedGas *uint64,
-	cfg vm.Config) (*types.Receipt, uint64, error) {
+func FastApplyTransaction(config *params.ChainConfig, bc FastChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.FastHeader, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
 	}
 	// Create a new context to be used in the EVM environment
-	//context := NewEVMContext(msg, header, bc, author)
-	context := NewEVMContext(msg, nil, bc, author)
+	context := NewFastEVMContext(msg, header, bc, author)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
