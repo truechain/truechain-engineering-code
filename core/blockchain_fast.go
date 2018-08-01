@@ -875,7 +875,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	//currentBlock := bc.CurrentBlock()
+	currentBlock := bc.CurrentBlock()
 	//localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	//externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
@@ -944,28 +944,34 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
 	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
-	/*reorg := externTd.Cmp(localTd) > 0
-	currentBlock = bc.CurrentBlock()
-	if !reorg && externTd.Cmp(localTd) == 0 {
-			Split same-difficulty blocks by number, then at random
-		reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
-	}
-	if reorg {
-		// Reorganise the chain if the parent is not the head block
-		if block.ParentHash() != currentBlock.Hash() {
-			if err := bc.reorg(currentBlock, block); err != nil {
-				return NonStatTy, err
-			}
+	//reorg := externTd.Cmp(localTd) > 0
+	//currentBlock = bc.CurrentBlock()
+	//if !reorg && externTd.Cmp(localTd) == 0 {
+	//		Split same-difficulty blocks by number, then at random
+	//	reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
+	//}
+	//if reorg {
+	//	// Reorganise the chain if the parent is not the head block
+	//	if block.ParentHash() != currentBlock.Hash() {
+	//		if err := bc.reorg(currentBlock, block); err != nil {
+	//			return NonStatTy, err
+	//		}
+	//	}
+	//	// Write the positional metadata for transaction/receipt lookups and preimages
+	//	rawdb.WriteTxLookupEntries(batch, block)
+	//	rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
+	//
+	//	status = CanonStatTy
+	//} else {
+	//	status = SideStatTy
+	//}
+
+	// Reorganise the chain if the parent is not the head block
+	if block.ParentHash() != currentBlock.Hash() {
+		if err := bc.reorg(currentBlock, block); err != nil {
+			return NonStatTy, err
 		}
-		// Write the positional metadata for transaction/receipt lookups and preimages
-		rawdb.WriteTxLookupEntries(batch, block)
-		rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
-
-		status = CanonStatTy
-	} else {
-		status = SideStatTy
-	}*/
-
+	}
 	// Write the positional metadata for transaction/receipt lookups and preimages
 	rawdb.WriteTxLookupEntries(batch, block)
 	rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
