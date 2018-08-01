@@ -26,7 +26,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	rawdb "github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -45,10 +45,10 @@ var (
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *FastBlockChain, error) {
 	var (
 		db      = ethdb.NewMemDatabase()
-		genesis = new(Genesis).MustCommit(db)
+		genesis = new(FastGenesis).MustCommit(db)
 	)
 
 	// Initialize a fresh chain with only a genesis block
@@ -59,18 +59,18 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 	}
 	if full {
 		// Full block-chain requested
-		blocks := makeBlockChain(genesis, n, engine, db, canonicalSeed)
+		blocks := makeFastBlockChain(genesis, n, engine, db, canonicalSeed)
 		_, err := blockchain.InsertChain(blocks)
 		return db, blockchain, err
 	}
 	// Header-only chain requested
-	headers := makeHeaderChain(genesis.Header(), n, engine, db, canonicalSeed)
+	headers := makeFastHeaderChain(genesis.Header(), n, engine, db, canonicalSeed)
 	_, err := blockchain.InsertHeaderChain(headers, 1)
 	return db, blockchain, err
 }
 
 // Test fork of length N starting from block i
-func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int)) {
+func testFork(t *testing.T, blockchain *FastBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int)) {
 	// Copy old chain up to #i into a new db
 	db, blockchain2, err := newCanonical(ethash.NewFaker(), i, full)
 	if err != nil {
@@ -92,16 +92,16 @@ func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, compara
 	}
 	// Extend the newly created chain
 	var (
-		blockChainB  []*types.Block
-		headerChainB []*types.Header
+		blockChainB  []*types.FastBlock
+		headerChainB []*types.FastHeader
 	)
 	if full {
-		blockChainB = makeBlockChain(blockchain2.CurrentBlock(), n, ethash.NewFaker(), db, forkSeed)
+		blockChainB = makeFastBlockChain(blockchain2.CurrentBlock(), n, ethash.NewFaker(), db, forkSeed)
 		if _, err := blockchain2.InsertChain(blockChainB); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
 	} else {
-		headerChainB = makeHeaderChain(blockchain2.CurrentHeader(), n, ethash.NewFaker(), db, forkSeed)
+		headerChainB = makeFastHeaderChain(blockchain2.CurrentHeader(), n, ethash.NewFaker(), db, forkSeed)
 		if _, err := blockchain2.InsertHeaderChain(headerChainB, 1); err != nil {
 			t.Fatalf("failed to insert forking chain: %v", err)
 		}
@@ -110,14 +110,14 @@ func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, compara
 	var tdPre, tdPost *big.Int
 
 	if full {
-		tdPre = blockchain.GetTdByHash(blockchain.CurrentBlock().Hash())
-		if err := testBlockChainImport(blockChainB, blockchain); err != nil {
+		tdPre = blockchain.GetTdByHash(blockchain.CurrentFastBlock().Hash())
+		if err := testFastBlockChainImport(blockChainB, blockchain); err != nil {
 			t.Fatalf("failed to import forked block chain: %v", err)
 		}
 		tdPost = blockchain.GetTdByHash(blockChainB[len(blockChainB)-1].Hash())
 	} else {
 		tdPre = blockchain.GetTdByHash(blockchain.CurrentHeader().Hash())
-		if err := testHeaderChainImport(headerChainB, blockchain); err != nil {
+		if err := testFastHeaderChainImport(headerChainB, blockchain); err != nil {
 			t.Fatalf("failed to import forked header chain: %v", err)
 		}
 		tdPost = blockchain.GetTdByHash(headerChainB[len(headerChainB)-1].Hash())
@@ -126,19 +126,19 @@ func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool, compara
 	comparator(tdPre, tdPost)
 }
 
-func printChain(bc *BlockChain) {
+func printChain(bc *FastBlockChain) {
 	for i := bc.CurrentBlock().Number().Uint64(); i > 0; i-- {
 		b := bc.GetBlockByNumber(uint64(i))
-		fmt.Printf("\t%x %v\n", b.Hash(), b.Difficulty())
+		fmt.Printf("\t%x \n", b.Hash())
 	}
 }
 
 // testBlockChainImport tries to process a chain of blocks, writing them into
 // the database if successful.
-func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
+func testFastBlockChainImport(chain types.FastBlocks, blockchain *FastBlockChain) error {
 	for _, block := range chain {
 		// Try and process the block
-		err := blockchain.engine.VerifyHeader(blockchain, block.Header(), true)
+		err := blockchain.engine.VerifyFastHeader(blockchain, block.Header(), true)
 		if err == nil {
 			err = blockchain.validator.ValidateBody(block)
 		}
@@ -163,7 +163,7 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 			return err
 		}
 		blockchain.mu.Lock()
-		rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
+		//rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
 		rawdb.WriteBlock(blockchain.db, block)
 		statedb.Commit(false)
 		blockchain.mu.Unlock()
@@ -173,22 +173,22 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 
 // testHeaderChainImport tries to process a chain of header, writing them into
 // the database if successful.
-func testHeaderChainImport(chain []*types.Header, blockchain *BlockChain) error {
+func testFastHeaderChainImport(chain []*types.FastHeader, blockchain *FastBlockChain) error {
 	for _, header := range chain {
 		// Try and validate the header
-		if err := blockchain.engine.VerifyHeader(blockchain, header, false); err != nil {
+		if err := blockchain.engine.VerifyFastHeader(blockchain, header, false); err != nil {
 			return err
 		}
 		// Manually insert the header into the database, but don't reorganise (allows subsequent testing)
 		blockchain.mu.Lock()
-		rawdb.WriteTd(blockchain.db, header.Hash(), header.Number.Uint64(), new(big.Int).Add(header.Difficulty, blockchain.GetTdByHash(header.ParentHash)))
+		//rawdb.WriteTd(blockchain.db, header.Hash(), header.Number.Uint64(), new(big.Int).Add(header.Difficulty, blockchain.GetTdByHash(header.ParentHash)))
 		rawdb.WriteHeader(blockchain.db, header)
 		blockchain.mu.Unlock()
 	}
 	return nil
 }
 
-func insertChain(done chan bool, blockchain *BlockChain, chain types.Blocks, t *testing.T) {
+func insertChain(done chan bool, blockchain *FastBlockChain, chain types.FastBlocks, t *testing.T) {
 	_, err := blockchain.InsertChain(chain)
 	if err != nil {
 		fmt.Println(err)
@@ -204,7 +204,7 @@ func TestLastBlock(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	blocks := makeBlockChain(blockchain.CurrentBlock(), 1, ethash.NewFullFaker(), blockchain.db, 0)
+	blocks := makeFastBlockChain(blockchain.CurrentBlock(), 1, ethash.NewFullFaker(), blockchain.db, 0)
 	if _, err := blockchain.InsertChain(blocks); err != nil {
 		t.Fatalf("Failed to insert block: %v", err)
 	}
@@ -345,13 +345,13 @@ func testBrokenChain(t *testing.T, full bool) {
 
 	// Create a forked chain, and try to insert with a missing link
 	if full {
-		chain := makeBlockChain(blockchain.CurrentBlock(), 5, ethash.NewFaker(), db, forkSeed)[1:]
-		if err := testBlockChainImport(chain, blockchain); err == nil {
+		chain := makeFastBlockChain(blockchain.CurrentBlock(), 5, ethash.NewFaker(), db, forkSeed)[1:]
+		if err := testFastBlockChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken block chain not reported")
 		}
 	} else {
-		chain := makeHeaderChain(blockchain.CurrentHeader(), 5, ethash.NewFaker(), db, forkSeed)[1:]
-		if err := testHeaderChainImport(chain, blockchain); err == nil {
+		chain := makeFastHeaderChain(blockchain.CurrentHeader(), 5, ethash.NewFaker(), db, forkSeed)[1:]
+		if err := testFastHeaderChainImport(chain, blockchain); err == nil {
 			t.Errorf("broken header chain not reported")
 		}
 	}
@@ -395,10 +395,10 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 	defer blockchain.Stop()
 
 	// Insert an easy and a difficult chain afterwards
-	easyBlocks, _ := GenerateChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, len(first), func(i int, b *BlockGen) {
+	easyBlocks, _ := GenerateFastChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, len(first), func(i int, b *FastBlockGen) {
 		b.OffsetTime(first[i])
 	})
-	diffBlocks, _ := GenerateChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, len(second), func(i int, b *BlockGen) {
+	diffBlocks, _ := GenerateFastChain(params.TestChainConfig, blockchain.CurrentBlock(), ethash.NewFaker(), db, len(second), func(i int, b *FastBlockGen) {
 		b.OffsetTime(second[i])
 	})
 	if full {
@@ -409,11 +409,11 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 			t.Fatalf("failed to insert difficult chain: %v", err)
 		}
 	} else {
-		easyHeaders := make([]*types.Header, len(easyBlocks))
+		easyHeaders := make([]*types.FastHeader, len(easyBlocks))
 		for i, block := range easyBlocks {
 			easyHeaders[i] = block.Header()
 		}
-		diffHeaders := make([]*types.Header, len(diffBlocks))
+		diffHeaders := make([]*types.FastHeader, len(diffBlocks))
 		for i, block := range diffBlocks {
 			diffHeaders[i] = block.Header()
 		}
@@ -441,16 +441,16 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 		}
 	}
 	// Make sure the chain total difficulty is the correct one
-	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
-	if full {
-		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
-			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
-		}
-	} else {
-		if have := blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()); have.Cmp(want) != 0 {
-			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
-		}
-	}
+	//want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
+	//if full {
+	//	if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
+	//		t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
+	//	}
+	//} else {
+	//	if have := blockchain.GetTdByHash(blockchain.CurrentHeader().Hash()); have.Cmp(want) != 0 {
+	//		t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
+	//	}
+	//}
 }
 
 // Tests that the insertion functions detect banned hashes.
@@ -467,14 +467,14 @@ func testBadHashes(t *testing.T, full bool) {
 
 	// Create a chain, ban a hash and try to import
 	if full {
-		blocks := makeBlockChain(blockchain.CurrentBlock(), 3, ethash.NewFaker(), db, 10)
+		blocks := makeFastBlockChain(blockchain.CurrentBlock(), 3, ethash.NewFaker(), db, 10)
 
 		BadHashes[blocks[2].Header().Hash()] = true
 		defer func() { delete(BadHashes, blocks[2].Header().Hash()) }()
 
 		_, err = blockchain.InsertChain(blocks)
 	} else {
-		headers := makeHeaderChain(blockchain.CurrentHeader(), 3, ethash.NewFaker(), db, 10)
+		headers := makeFastHeaderChain(blockchain.CurrentHeader(), 3, ethash.NewFaker(), db, 10)
 
 		BadHashes[headers[2].Hash()] = true
 		defer func() { delete(BadHashes, headers[2].Hash()) }()
@@ -498,8 +498,8 @@ func testReorgBadHashes(t *testing.T, full bool) {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	// Create a chain, import and ban afterwards
-	headers := makeHeaderChain(blockchain.CurrentHeader(), 4, ethash.NewFaker(), db, 10)
-	blocks := makeBlockChain(blockchain.CurrentBlock(), 4, ethash.NewFaker(), db, 10)
+	headers := makeFastHeaderChain(blockchain.CurrentHeader(), 4, ethash.NewFaker(), db, 10)
+	blocks := makeFastBlockChain(blockchain.CurrentBlock(), 4, ethash.NewFaker(), db, 10)
 
 	if full {
 		if _, err = blockchain.InsertChain(blocks); err != nil {
@@ -523,7 +523,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewBlockChain(blockchain.db, nil, blockchain.chainConfig, ethash.NewFaker(), vm.Config{})
+	ncm, err := NewFastBlockChain(blockchain.db, nil, blockchain.chainConfig, ethash.NewFaker(), vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -562,7 +562,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			failNum uint64
 		)
 		if full {
-			blocks := makeBlockChain(blockchain.CurrentBlock(), i, ethash.NewFaker(), db, 0)
+			blocks := makeFastBlockChain(blockchain.CurrentBlock(), i, ethash.NewFaker(), db, 0)
 
 			failAt = rand.Int() % len(blocks)
 			failNum = blocks[failAt].NumberU64()
@@ -570,7 +570,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			blockchain.engine = ethash.NewFakeFailer(failNum)
 			failRes, err = blockchain.InsertChain(blocks)
 		} else {
-			headers := makeHeaderChain(blockchain.CurrentHeader(), i, ethash.NewFaker(), db, 0)
+			headers := makeFastHeaderChain(blockchain.CurrentHeader(), i, ethash.NewFaker(), db, 0)
 
 			failAt = rand.Int() % len(headers)
 			failNum = headers[failAt].Number.Uint64()
@@ -935,23 +935,23 @@ func TestReorgSideEvent(t *testing.T) {
 		db      = ethdb.NewMemDatabase()
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		gspec   = &Genesis{
+		gspec   = &FastGenesis{
 			Config: params.TestChainConfig,
-			Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}},
+			Alloc:  FastGenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}},
 		}
 		genesis = gspec.MustCommit(db)
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
-	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {})
+	chain, _ := GenerateFastChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *FastBlockGen) {})
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		t.Fatalf("failed to insert chain: %v", err)
 	}
 
-	replacementBlocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, gen *BlockGen) {
+	replacementBlocks, _ := GenerateFastChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, gen *FastBlockGen) {
 		tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), nil), signer, key1)
 		if i == 2 {
 			gen.OffsetTime(-9)
@@ -961,7 +961,7 @@ func TestReorgSideEvent(t *testing.T) {
 		}
 		gen.AddTx(tx)
 	})
-	chainSideCh := make(chan ChainSideEvent, 64)
+	chainSideCh := make(chan FastChainSideEvent, 64)
 	blockchain.SubscribeChainSideEvent(chainSideCh)
 	if _, err := blockchain.InsertChain(replacementBlocks); err != nil {
 		t.Fatalf("failed to insert chain: %v", err)
@@ -1021,13 +1021,13 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	chain, _ := GenerateChain(blockchain.chainConfig, blockchain.genesisBlock, ethash.NewFaker(), blockchain.db, 10, func(i int, gen *BlockGen) {})
+	chain, _ := GenerateFastChain(blockchain.chainConfig, blockchain.genesisBlock, ethash.NewFaker(), blockchain.db, 10, func(i int, gen *FastBlockGen) {})
 
 	var pend sync.WaitGroup
 	pend.Add(len(chain))
 
 	for i := range chain {
-		go func(block *types.Block) {
+		go func(block *types.FastBlock) {
 			defer pend.Done()
 
 			// try to retrieve a block by its canonical hash and see if the block data can be retrieved.
@@ -1050,7 +1050,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 			}
 		}(chain[i])
 
-		if _, err := blockchain.InsertChain(types.Blocks{chain[i]}); err != nil {
+		if _, err := blockchain.InsertChain(types.FastBlocks{chain[i]}); err != nil {
 			t.Fatalf("failed to insert block %d: %v", i, err)
 		}
 	}
@@ -1065,17 +1065,17 @@ func TestEIP155Transition(t *testing.T) {
 		address    = crypto.PubkeyToAddress(key.PublicKey)
 		funds      = big.NewInt(1000000000)
 		deleteAddr = common.Address{1}
-		gspec      = &Genesis{
+		gspec      = &FastGenesis{
 			Config: &params.ChainConfig{ChainID: big.NewInt(1), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)},
-			Alloc:  GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
+			Alloc:  FastGenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
 		genesis = gspec.MustCommit(db)
 	)
 
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
-	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
+	blocks, _ := GenerateFastChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *FastBlockGen) {
 		var (
 			tx      *types.Transaction
 			err     error
@@ -1138,7 +1138,7 @@ func TestEIP155Transition(t *testing.T) {
 
 	// generate an invalid chain id transaction
 	config := &params.ChainConfig{ChainID: big.NewInt(2), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)}
-	blocks, _ = GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
+	blocks, _ = GenerateFastChain(config, blocks[len(blocks)-1], ethash.NewFaker(), db, 4, func(i int, block *FastBlockGen) {
 		var (
 			tx      *types.Transaction
 			err     error

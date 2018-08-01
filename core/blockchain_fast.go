@@ -875,7 +875,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	currentBlock := bc.CurrentBlock()
+	//currentBlock := bc.CurrentBlock()
 	//localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	//externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
@@ -966,12 +966,6 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	//	status = SideStatTy
 	//}
 
-	// Reorganise the chain if the parent is not the head block
-	if block.ParentHash() != currentBlock.Hash() {
-		if err := bc.reorg(currentBlock, block); err != nil {
-			return NonStatTy, err
-		}
-	}
 	// Write the positional metadata for transaction/receipt lookups and preimages
 	rawdb.WriteTxLookupEntries(batch, block)
 	rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
@@ -1158,7 +1152,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, state)
+		status, err := bc.WriteBlockWithState(block, receipts, state) //update
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
@@ -1572,7 +1566,7 @@ func (bc *FastBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) even
 }
 
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (bc *FastBlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
+func (bc *FastBlockChain) SubscribeChainSideEvent(ch chan<- FastChainSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 
