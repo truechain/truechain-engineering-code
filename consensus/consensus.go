@@ -27,6 +27,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
+const (
+	//Snail block rewards initial
+	SnailBlockRewardsInitial = 60
+	//Snail block rewards fruit ratio
+	SnailBlockRewardsFruitRatio = 0.1
+)
+
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
 type ChainReader interface {
