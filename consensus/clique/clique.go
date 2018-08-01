@@ -266,6 +266,13 @@ func (c *Clique) VerifyHeaders(chain consensus.ChainReader, headers []*types.Hea
 	return abort, results
 }
 
+// VerifyFastHeaders is similar to VerifyFastHeader, but verifies a batch of fast headers. The
+// method returns a quit channel to abort the operations and a results channel to
+// retrieve the async verifications (the order is that of the input slice).
+func (ethash *Clique) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+	return nil, nil
+}
+
 // verifyHeader checks whether a header conforms to the consensus rules.The
 // caller may optionally pass in a batch of parents (ascending order) to avoid
 // looking those up from the database. This is useful for concurrently verifying
