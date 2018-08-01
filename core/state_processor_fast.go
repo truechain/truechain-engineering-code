@@ -76,7 +76,7 @@ func (fp *FastStateProcessor) Process(block *types.FastBlock, statedb *state.Sta
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), block.Uncles(), receipts, nil)
+	fp.engine.FinalizeFast(fp.bc, header, statedb, block.Transactions(), receipts)
 
 	return receipts, allLogs, *usedGas, nil
 }
