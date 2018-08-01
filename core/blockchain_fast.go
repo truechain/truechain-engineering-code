@@ -1055,7 +1055,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateBody(block)
+			err = bc.Validator().ValidateBody(block)//update
 		}
 		switch {
 		case err == ErrKnownBlock:
