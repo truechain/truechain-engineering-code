@@ -11,20 +11,26 @@ var k  = 50000
 var P  = 100
 
 type VoteuUse struct {
-	wi 	int64  //Local value
-	seed string
-	b   bool
-	j 	int
-	pk string
+	wi 		int64  //Local value
+	seed 	string
+	b   	bool
+	j 		int
 
+
+
+}
+
+type committee struct{
+	ip		string
+	pk 		string
 
 }
 
 //Read creation block information and return public key for signature verification
-func  (v VoteuUse)ReadGenesis()string{
-
-	return v.pk
-}
+//func  (v VoteuUse)ReadGenesis()string{
+//
+//	return v.pk
+//}
 
 
 
@@ -83,7 +89,7 @@ func Sigma(j int,k int,wi int,P int64) {
 
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
-func Verify(data, signature []byte, pubkey *ecdsa.PublicKey) bool {
+func (c committee)Verify(data, signature []byte,  pubkey *ecdsa.PublicKey) bool {
 	// hash message
 	digest := sha256.Sum256(data)
 
@@ -96,4 +102,15 @@ func Verify(data, signature []byte, pubkey *ecdsa.PublicKey) bool {
 	return ecdsa.Verify(pubkey, digest[:], r, s)
 }
 
+//Gets the number of fast and slow chain transactions
+//Demand parameters（k fastchain, z snialchain）
 
+func counter()bool{
+	//if z = 100 && k = 10000
+	return true
+}
+
+//Provide committee address enquiries
+func (c committee)AddrQuery()string{
+	return c.ip
+}
