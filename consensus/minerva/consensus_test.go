@@ -94,6 +94,7 @@ func TestAccountDiv(t *testing.T) {
 	println(r.Uint64())
 	r.Div(r, big2999999)
 	println(r.Uint64(), FrontierBlockReward.Uint64(), consensus.SnailBlockRewardsInitial.Bytes())
-	fmt.Printf("%v", consensus.SnailBlockRewardsInitial)
+	fmt.Printf("%v", new(big.Int).Exp(new(big.Int).SetInt64(2),
+		new(big.Int).Div(new(big.Int).Add(new(big.Int).SetInt64(5000), new(big.Int).SetInt64(12)), new(big.Int).SetInt64(5000)), nil))
 
 }
