@@ -37,12 +37,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
-//go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
-//go:generate gencodec -type GenesisAccount -field-override genesisAccountMarshaling -out gen_genesis_account.go
+//go:generate gencodec -type FastGenesis -field-override fastGenesisSpecMarshaling -out gen_genesis_fast.go
+//go:generate gencodec -type FastGenesisAccount -field-override fastGenesisAccountMarshaling -out gen_genesis_account_fast.go
 
-var errFastGenesisNoConfig = errors.New("genesis has no chain configuration")
 
-// Genesis specifies the header fields, state of a genesis block. It also defines hard
+var errFastGenesisNoConfig = errors.New("genesis.json has no chain configuration")
+
+// Genesis specifies the header fields, state of a genesis.json block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type FastGenesis struct {
 	Config     *params.ChainConfig `json:"config"`
@@ -56,13 +57,13 @@ type FastGenesis struct {
 	Alloc      FastGenesisAlloc        `json:"alloc"      gencodec:"required"`
 
 	// These fields are used for consensus tests. Please don't use them
-	// in actual genesis blocks.
+	// in actual genesis.json blocks.
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 }
 
-// GenesisAlloc specifies the initial state that is part of the genesis block.
+// GenesisAlloc specifies the initial state that is part of the genesis.json block.
 type FastGenesisAlloc map[common.Address]FastGenesisAccount
 
 func (ga *FastGenesisAlloc) UnmarshalJSON(data []byte) error {
@@ -77,7 +78,7 @@ func (ga *FastGenesisAlloc) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GenesisAccount is an account in the state of the genesis block.
+// GenesisAccount is an account in the state of the genesis.json block.
 type FastGenesisAccount struct {
 	Code       []byte                      `json:"code,omitempty"`
 	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
@@ -94,7 +95,6 @@ type fastGenesisSpecMarshaling struct {
 	GasLimit   math.HexOrDecimal64
 	GasUsed    math.HexOrDecimal64
 	Number     math.HexOrDecimal64
-	Difficulty *math.HexOrDecimal256
 	Alloc      map[common.UnprefixedAddress]GenesisAccount
 }
 
@@ -128,22 +128,22 @@ func (h fastStorageJSON) MarshalText() ([]byte, error) {
 }
 
 // GenesisMismatchError is raised when trying to overwrite an existing
-// genesis block with an incompatible one.
+// genesis.json block with an incompatible one.
 type FastGenesisMismatchError struct {
 	Stored, New common.Hash
 }
 
 func (e *FastGenesisMismatchError) Error() string {
-	return fmt.Sprintf("database already contains an incompatible genesis block (have %x, new %x)", e.Stored[:8], e.New[:8])
+	return fmt.Sprintf("database already contains an incompatible genesis.json block (have %x, new %x)", e.Stored[:8], e.New[:8])
 }
 
-// SetupGenesisBlock writes or updates the genesis block in db.
+// SetupGenesisBlock writes or updates the genesis.json block in db.
 // The block that will be used is:
 //
-//                          genesis == nil       genesis != nil
+//                          genesis.json == nil       genesis.json != nil
 //                       +------------------------------------------
-//     db has no genesis |  main-net default  |  genesis
-//     db has genesis    |  from DB           |  genesis (if compatible)
+//     db has no genesis.json |  main-net default  |  genesis.json
+//     db has genesis.json    |  from DB           |  genesis.json (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
@@ -155,20 +155,20 @@ func SetupFastGenesisBlock(db ethdb.Database, genesis *FastGenesis) (*params.Cha
 		return params.AllEthashProtocolChanges, common.Hash{}, errFastGenesisNoConfig
 	}
 
-	// Just commit the new block if there is no stored genesis block.
+	// Just commit the new block if there is no stored genesis.json block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default main-net genesis block")
+			log.Info("Writing default main-net genesis.json block")
 			genesis = DefaultFastGenesisBlock()
 		} else {
-			log.Info("Writing custom genesis block")
+			log.Info("Writing custom genesis.json block")
 		}
 		block, err := genesis.Commit(db)
 		return genesis.Config, block.Hash(), err
 	}
 
-	// Check whether the genesis block is already written.
+	// Check whether the genesis.json block is already written.
 	if genesis != nil {
 		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
@@ -180,7 +180,7 @@ func SetupFastGenesisBlock(db ethdb.Database, genesis *FastGenesis) (*params.Cha
 	newcfg := genesis.configOrDefault(stored)
 	storedcfg := rawdb.ReadChainConfig(db, stored)
 	if storedcfg == nil {
-		log.Warn("Found genesis block without chain config")
+		log.Warn("Found genesis.json block without chain config")
 		rawdb.WriteChainConfig(db, stored, newcfg)
 		return newcfg, stored, nil
 	}
@@ -218,7 +218,7 @@ func (g *FastGenesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	}
 }
 
-// ToBlock creates the genesis block and writes state of a genesis specification
+// ToBlock creates the genesis.json block and writes state of a genesis.json specification
 // to the given database (or discards it if nil).
 func (g *FastGenesis) ToBlock(db ethdb.Database) *types.FastBlock {
 	if db == nil {
@@ -253,12 +253,12 @@ func (g *FastGenesis) ToBlock(db ethdb.Database) *types.FastBlock {
 	return types.NewFastBlock(head, nil, nil, nil)
 }
 
-// Commit writes the block and state of a genesis specification to the database.
+// Commit writes the block and state of a genesis.json specification to the database.
 // The block is committed as the canonical head block.
 func (g *FastGenesis) Commit(db ethdb.Database) (*types.FastBlock, error) {
 	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
-		return nil, fmt.Errorf("can't commit genesis block with number > 0")
+		return nil, fmt.Errorf("can't commit genesis.json block with number > 0")
 	}
 	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
 	rawdb.WriteBlock(db, block)
@@ -275,7 +275,7 @@ func (g *FastGenesis) Commit(db ethdb.Database) (*types.FastBlock, error) {
 	return block, nil
 }
 
-// MustCommit writes the genesis block and state to db, panicking on error.
+// MustCommit writes the genesis.json block and state to db, panicking on error.
 // The block is committed as the canonical head block.
 func (g *FastGenesis) MustCommit(db ethdb.Database) *types.FastBlock {
 	block, err := g.Commit(db)
@@ -291,7 +291,7 @@ func FastGenesisBlockForTesting(db ethdb.Database, addr common.Address, balance 
 	return g.MustCommit(db)
 }
 
-// DefaultGenesisBlock returns the Ethereum main net genesis block.
+// DefaultGenesisBlock returns the Ethereum main net genesis.json block.
 func DefaultFastGenesisBlock() *FastGenesis {
 	return &FastGenesis{
 		Config:     params.MainnetChainConfig,
@@ -303,19 +303,19 @@ func DefaultFastGenesisBlock() *FastGenesis {
 	}
 }
 
-// DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
+// DefaultTestnetGenesisBlock returns the Ropsten network genesis.json block.
 func DefaultTestnetFastGenesisBlock() *FastGenesis {
 	return &FastGenesis{
 		Config:     params.TestnetChainConfig,
 		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
+		ExtraData:  hexutil.MustDecode("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
 		GasLimit:   16777216,
 		Difficulty: big.NewInt(1048576),
 		Alloc:      fastDecodePrealloc(testnetAllocData),
 	}
 }
 
-// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
+// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis.json block.
 func DefaultRinkebyFastGenesisBlock() *FastGenesis {
 	return &FastGenesis{
 		Config:     params.RinkebyChainConfig,
@@ -327,14 +327,14 @@ func DefaultRinkebyFastGenesisBlock() *FastGenesis {
 	}
 }
 
-// DeveloperGenesisBlock returns the 'geth --dev' genesis block. Note, this must
+// DeveloperGenesisBlock returns the 'geth --dev' genesis.json block. Note, this must
 // be seeded with the
 func DeveloperFastGenesisBlock(period uint64, faucet common.Address) *FastGenesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
 
-	// Assemble and return the genesis with the precompiles and faucet pre-funded
+	// Assemble and return the genesis.json with the precompiles and faucet pre-funded
 	return &FastGenesis{
 		Config:     &config,
 		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, 65)...),
