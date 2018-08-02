@@ -770,7 +770,7 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 		state.AddBalance(comm.Coinbase, committeeCoin)
 	}
 
-	//fruit 10%?
-	// todo IQQ
+	//miners add all fruit 10%
+	state.AddBalance(block.Coinbase(), new(big.Int).Mul(new(big.Int).SetInt64(int64(len(block.Body().Fruits))), consensus.SnailBlockBodyFruitInitial))
 
 }
