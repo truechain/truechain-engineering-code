@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"math/big"
-	"github.com/ethereum/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core/types"
 
 )
 
