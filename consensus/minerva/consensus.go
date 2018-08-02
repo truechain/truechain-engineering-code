@@ -748,3 +748,29 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	}
 	state.AddBalance(header.Coinbase, reward)
 }
+
+// AccumulateRewardsFast credits the coinbase of the given block with the mining
+// reward. The total reward consists of the static block reward and rewards for
+// included uncles. The coinbase of each uncle block is also rewarded.
+func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header, block types.SnailBlock) {
+	//Calculate the revenue of the current block
+	currentBlockCoin := new(big.Int).Div(consensus.SnailBlockRewardsInitial,
+		new(big.Int).Exp(new(big.Int).SetInt64(2),
+			new(big.Int).Div(new(big.Int).Add(header.SnailNumber, new(big.Int).SetInt64(-12)), new(big.Int).SetInt64(5000)),
+			nil))
+
+	//Committee miners distribution method  Committee a/a+n  miners  n/a+n
+	//But there is no fragmentation so 50-50
+	minerCoin := new(big.Int).Div(currentBlockCoin, big2)
+	state.AddBalance(block.Coinbase(), minerCoin)
+
+	committeeCoin := new(big.Int).Div(currentBlockCoin, new(big.Int).Mul(big2, new(big.Int).SetInt64(int64(len(committee)))))
+
+	for _, comm := range committee {
+		state.AddBalance(comm.Coinbase, committeeCoin)
+	}
+
+	//miners add all fruit 10%
+	state.AddBalance(block.Coinbase(), new(big.Int).Mul(new(big.Int).SetInt64(int64(len(block.Body().Fruits))), consensus.SnailBlockBodyFruitInitial))
+
+}
