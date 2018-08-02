@@ -18,10 +18,10 @@
 
 /*
 
-   The mkalloc tool creates the genesis allocation constants in genesis_alloc.go
+   The mkalloc tool creates the genesis.json allocation constants in genesis_alloc.go
    It outputs a const declaration that contains an RLP-encoded list of (address, balance) tuples.
 
-       go run mkalloc.go genesis.json
+       go run mkalloc.go genesis_fast.json
 
 */
 package main
@@ -69,7 +69,7 @@ func makealloc(g *core.Genesis) string {
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "Usage: mkalloc genesis.json")
+		fmt.Fprintln(os.Stderr, "Usage: mkalloc genesis_fast.json")
 		os.Exit(1)
 	}
 
