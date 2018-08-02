@@ -23,7 +23,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -85,12 +87,13 @@ func TestCalcDifficulty(t *testing.T) {
 	}
 }
 
-func TestDiv(t *testing.T) {
+func TestAccountDiv(t *testing.T) {
 	r := new(big.Int)
 	println(r.Uint64())
 	r = big.NewInt(600077777777777)
 	println(r.Uint64())
 	r.Div(r, big2999999)
-	println(r.Uint64())
+	println(r.Uint64(), FrontierBlockReward.Uint64(), consensus.SnailBlockRewardsInitial.Bytes())
+	fmt.Printf("%v", consensus.SnailBlockRewardsInitial)
 
 }

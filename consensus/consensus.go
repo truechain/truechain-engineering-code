@@ -27,9 +27,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
-const (
+var (
 	//Snail block rewards initial
-	SnailBlockRewardsInitial = 60
+	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
 	//Snail block rewards fruit ratio
 	SnailBlockRewardsFruitRatio = 0.1
 )
@@ -65,7 +65,7 @@ type ChainFastReader interface {
 	// CurrentHeader retrieves the current fast header from the local chain.
 	CurrentHeader() *types.FastHeader
 
-	// GetFastHeader retrieves a fast block header from the database by hash and number.
+	// GetHeader retrieves a fast block header from the database by hash and number.
 	GetHeader(hash common.Hash, number uint64) *types.FastHeader
 
 	// GetHeaderByNumber retrieves a fast block header from the database by number.
@@ -90,9 +90,8 @@ type Engine interface {
 	// via the VerifySeal method.
 	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
 
-	// VerifyHeader checks whether a fast chain header conforms to the consensus rules of a
+	// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
-	// via the VerifySeal method.
 	VerifyFastHeader(chain ChainFastReader, header *types.FastHeader, seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -119,7 +118,7 @@ type Engine interface {
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
 
-	// Prepare initializes the consensus fields of a fast chain block header according to the
+	// PrepareFast initializes the consensus fields of a fast chain block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	PrepareFast(chain ChainFastReader, header *types.FastHeader) error
 
