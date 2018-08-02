@@ -40,6 +40,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/etrue/fetcher/fetcherfast"
 )
 
 const (
@@ -80,6 +81,7 @@ type ProtocolManager struct {
 
 	downloader *downloader.Downloader
 	fetcher    *fetcher.Fetcher
+	fetcherFast    *fetcherfast.Fetcher
 	peers      *peerSet
 
 	SubProtocols []p2p.Protocol
@@ -190,6 +192,23 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return manager.blockchain.InsertChain(blocks)
 	}
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
+	fastValidator := func(header *types.FastHeader) error {
+		//mecMark how to get ChainFastReader
+		return engine.VerifyFastHeader(nil, header, true)
+	}
+	fastHeighter := func() uint64 {
+		return blockchain.CurrentFastBlock().NumberU64()
+	}
+	fastInserter := func(blocks types.FastBlocks) (int, error) {
+		// If fast sync is running, deny importing weird blocks
+		if atomic.LoadUint32(&manager.fastSync) == 1 {
+			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
+			return 0, nil
+		}
+		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+		return manager.blockchain.InsertFastChain(blocks)
+	}
+	manager.fetcherFast = fetcherfast.New(blockchain.GetFastBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer)
 
 	return manager, nil
 }
@@ -449,6 +468,94 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		return p.SendBlockHeaders(headers)
 
+		// Block header query, collect the requested headers and reply
+	case msg.Code == GetFastBlockHeadersMsg:
+		// Decode the complex header query
+		var query getBlockHeadersData
+		if err := msg.Decode(&query); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		hashMode := query.Origin.Hash != (common.Hash{})
+		first := true
+		maxNonCanonical := uint64(100)
+
+		// Gather headers until the fetch or network limits is reached
+		var (
+			bytes   common.StorageSize
+			headers []*types.FastHeader
+			unknown bool
+		)
+		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
+			// Retrieve the next header satisfying the query
+			var origin *types.FastHeader
+			if hashMode {
+				if first {
+					first = false
+					origin = pm.blockchain.GetFastHeaderByHash(query.Origin.Hash)
+					if origin != nil {
+						query.Origin.Number = origin.Number.Uint64()
+					}
+				} else {
+					origin = pm.blockchain.GetFastHeader(query.Origin.Hash, query.Origin.Number)
+				}
+			} else {
+				origin = pm.blockchain.GetFastHeaderByNumber(query.Origin.Number)
+			}
+			if origin == nil {
+				break
+			}
+			headers = append(headers, origin)
+			bytes += estHeaderRlpSize
+
+			// Advance to the next header of the query
+			switch {
+			case hashMode && query.Reverse:
+				// Hash based traversal towards the genesis.json block
+				ancestor := query.Skip + 1
+				if ancestor == 0 {
+					unknown = true
+				} else {
+					query.Origin.Hash, query.Origin.Number = pm.blockchain.GetFastAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+					unknown = (query.Origin.Hash == common.Hash{})
+				}
+			case hashMode && !query.Reverse:
+				// Hash based traversal towards the leaf block
+				var (
+					current = origin.Number.Uint64()
+					next    = current + query.Skip + 1
+				)
+				if next <= current {
+					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
+					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
+					unknown = true
+				} else {
+					if header := pm.blockchain.GetFastHeaderByNumber(next); header != nil {
+						nextHash := header.Hash()
+						expOldHash, _ := pm.blockchain.GetFastAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+						if expOldHash == query.Origin.Hash {
+							query.Origin.Hash, query.Origin.Number = nextHash, next
+						} else {
+							unknown = true
+						}
+					} else {
+						unknown = true
+					}
+				}
+			case query.Reverse:
+				// Number based traversal towards the genesis.json block
+				if query.Origin.Number >= query.Skip+1 {
+					query.Origin.Number -= query.Skip + 1
+				} else {
+					unknown = true
+				}
+
+			case !query.Reverse:
+				// Number based traversal towards the leaf block
+				query.Origin.Number += query.Skip + 1
+			}
+		}
+		return p.SendFastBlockHeaders(headers)
+
 	case msg.Code == BlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.Header
@@ -502,6 +609,27 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
+	case msg.Code == FastBlockHeadersMsg:
+		// A batch of headers arrived to one of our previous requests
+		var headers []*types.FastHeader
+		if err := msg.Decode(&headers); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+
+		// Filter out any explicitly requested headers, deliver the rest to the downloader
+		filter := len(headers) == 1
+		if filter {
+			// Irrelevant of the fork checks, send the header to the fetcher just in case
+			headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
+		}
+		// mecMark
+		//if len(headers) > 0 || !filter {
+		//	err := pm.downloader.DeliverHeaders(p.id, headers)
+		//	if err != nil {
+		//		log.Debug("Failed to deliver headers", "err", err)
+		//	}
+		//}
+
 	case msg.Code == GetBlockBodiesMsg:
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
@@ -529,6 +657,33 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		return p.SendBlockBodiesRLP(bodies)
 
+	case msg.Code == GetFastBlockBodiesMsg:
+		// Decode the retrieval message
+		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
+		if _, err := msgStream.List(); err != nil {
+			return err
+		}
+		// Gather blocks until the fetch or network limits is reached
+		var (
+			hash   common.Hash
+			bytes  int
+			bodies []rlp.RawValue
+		)
+		for bytes < softResponseLimit && len(bodies) < downloader.MaxBlockFetch {
+			// Retrieve the hash of the next block
+			if err := msgStream.Decode(&hash); err == rlp.EOL {
+				break
+			} else if err != nil {
+				return errResp(ErrDecode, "msg %v: %v", msg, err)
+			}
+			// Retrieve the requested block body, stopping if enough was found
+			if data := pm.blockchain.GetFastBodyRLP(hash); len(data) != 0 {
+				bodies = append(bodies, data)
+				bytes += len(data)
+			}
+		}
+		return p.SendFastBlockBodiesRLP(bodies)
+
 	case msg.Code == BlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
@@ -554,6 +709,31 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
 		}
+
+	case msg.Code == FastBlockBodiesMsg:
+		// A batch of block bodies arrived to one of our previous requests
+		var request blockBodiesData
+		if err := msg.Decode(&request); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// Deliver them all to the downloader for queuing
+		transactions := make([][]*types.Transaction, len(request))
+
+		for i, body := range request {
+			transactions[i] = body.Transactions
+		}
+		// Filter out any explicitly requested bodies, deliver the rest to the downloader
+		filter := len(transactions) > 0
+		if filter {
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
+		}
+		// mecMark
+		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
+		//	err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
+		//	if err != nil {
+		//		log.Debug("Failed to deliver bodies", "err", err)
+		//	}
+		//}
 
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
 		// Decode the retrieval message
@@ -677,7 +857,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		for _, block := range unknown {
-			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
+			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneFastHeader, p.RequestFastBodies)
 		}
 
 	case msg.Code == NewBlockMsg:
@@ -723,7 +903,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// Mark the peer as owning the block and schedule it for import
 		p.MarkFastBlock(request.Block.Hash())
-		pm.fetcher.EnqueueFast(p.id, request.Block)
+		pm.fetcherFast.Enqueue(p.id, request.Block)
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
