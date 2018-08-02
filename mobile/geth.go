@@ -57,8 +57,8 @@ type NodeConfig struct {
 	// decide if remote peers should be accepted or not.
 	EthereumNetworkID int64 // uint64 in truth, but Java can't handle that...
 
-	// EthereumGenesis is the genesis JSON to use to seed the blockchain with. An
-	// empty genesis state is equivalent to using the mainnet's state.
+	// EthereumGenesis is the genesis.json JSON to use to seed the blockchain with. An
+	// empty genesis.json state is equivalent to using the mainnet's state.
 	EthereumGenesis string
 
 	// EthereumDatabaseCache is the system memory in MB to allocate for database caching.
@@ -140,10 +140,10 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 
 	var genesis *core.Genesis
 	if config.EthereumGenesis != "" {
-		// Parse the user supplied genesis spec if not mainnet
+		// Parse the user supplied genesis.json spec if not mainnet
 		genesis = new(core.Genesis)
 		if err := json.Unmarshal([]byte(config.EthereumGenesis), genesis); err != nil {
-			return nil, fmt.Errorf("invalid genesis spec: %v", err)
+			return nil, fmt.Errorf("invalid genesis.json spec: %v", err)
 		}
 		// If we have the testnet, hard code the chain configs too
 		if config.EthereumGenesis == TestnetGenesis() {
