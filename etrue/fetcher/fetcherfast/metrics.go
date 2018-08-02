@@ -16,7 +16,7 @@
 
 // Contains the metrics collected by the fetcher.
 
-package fastfetcher
+package fetcherfast
 
 import (
 	"github.com/truechain/truechain-engineering-code/metrics"
