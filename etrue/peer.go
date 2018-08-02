@@ -496,7 +496,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash) error {
 }
 
 // Handshake executes the eth protocol handshake, negotiating version number,
-// network IDs, difficulties, head and genesis blocks.
+// network IDs, difficulties, head and genesis.json blocks.
 func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
