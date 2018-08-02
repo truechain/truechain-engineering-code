@@ -84,3 +84,13 @@ func TestCalcDifficulty(t *testing.T) {
 		}
 	}
 }
+
+func TestDiv(t *testing.T) {
+	r := new(big.Int)
+	println(r.Uint64())
+	r = big.NewInt(600077777777777)
+	println(r.Uint64())
+	r.Div(r, big2999999)
+	println(r.Uint64())
+
+}
