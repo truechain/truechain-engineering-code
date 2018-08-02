@@ -51,7 +51,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *F
 		genesis = new(FastGenesis).MustCommit(db)
 	)
 
-	// Initialize a fresh chain with only a genesis block
+	// Initialize a fresh chain with only a genesis.json block
 	blockchain, _ := NewFastBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
@@ -221,7 +221,7 @@ func TestExtendCanonicalBlocks(t *testing.T)  { testExtendCanonical(t, true) }
 func testExtendCanonical(t *testing.T, full bool) {
 	length := 5
 
-	// Make first chain starting from genesis
+	// Make first chain starting from genesis.json
 	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
@@ -249,7 +249,7 @@ func TestShorterForkBlocks(t *testing.T)  { testShorterFork(t, true) }
 func testShorterFork(t *testing.T, full bool) {
 	length := 10
 
-	// Make first chain starting from genesis
+	// Make first chain starting from genesis.json
 	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
@@ -279,7 +279,7 @@ func TestLongerForkBlocks(t *testing.T)  { testLongerFork(t, true) }
 func testLongerFork(t *testing.T, full bool) {
 	length := 10
 
-	// Make first chain starting from genesis
+	// Make first chain starting from genesis.json
 	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
@@ -309,7 +309,7 @@ func TestEqualForkBlocks(t *testing.T)  { testEqualFork(t, true) }
 func testEqualFork(t *testing.T, full bool) {
 	length := 10
 
-	// Make first chain starting from genesis
+	// Make first chain starting from genesis.json
 	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
@@ -336,7 +336,7 @@ func TestBrokenHeaderChain(t *testing.T) { testBrokenChain(t, false) }
 func TestBrokenBlockChain(t *testing.T)  { testBrokenChain(t, true) }
 
 func testBrokenChain(t *testing.T, full bool) {
-	// Make chain starting from genesis
+	// Make chain starting from genesis.json
 	db, blockchain, err := newCanonical(ethash.NewFaker(), 10, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)
