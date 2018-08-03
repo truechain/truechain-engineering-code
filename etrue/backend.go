@@ -70,7 +70,7 @@ type Truechain struct {
 	txPool          *core.TxPool
 
 	hybridPool		*core.SnailPool
-
+	fastblockchain	*core.FastBlockChain
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -150,6 +150,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.fastblockchain, err = core.NewFastBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -305,6 +306,10 @@ func (s *Truechain) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
+func (s *Truechain) ResetWithFastGenesisBlock(gb *types.FastBlock) {
+	s.fastblockchain.ResetWithGenesisBlock(gb)
+}
+
 func (s *Truechain) Etherbase() (eb common.Address, err error) {
 	s.lock.RLock()
 	etherbase := s.etherbase
@@ -368,6 +373,7 @@ func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
 func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
+func (s *Truechain) FastBlockChain() *core.FastBlockChain      { return s.fastblockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
 func (s *Truechain) HybridPool() *core.SnailPool {return s.hybridPool}
@@ -419,6 +425,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 func (s *Truechain) Stop() error {
 	s.bloomIndexer.Close()
 	s.blockchain.Stop()
+	s.fastblockchain.Stop()
 	s.protocolManager.Stop()
 	if s.lesServer != nil {
 		s.lesServer.Stop()

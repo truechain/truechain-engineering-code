@@ -92,33 +92,45 @@ func Sigma(j int,k int,wi int,P int64) {
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
 //Original demand parameter(data,signature []byte,  pubkey *ecdsa.PublicKey)
-func (c committee)Verify (fb types.FastBlock,)bool {
+func Verify (fb types.FastBlock,)bool {
 
-			data := c.data
-			pubkey := c.pubkey
-			//signature := fb.Signs()
-
+	//		data := c.data
+	//		pubkey := c.pubkey
+	//		signature := fb.Signs()
+	//
 	// hash message
-	digest := sha256.Sum256(data)
+	//digest := sha256.Sum256(data)
+	//
+	////curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
+	//
+	//r, s := new(big.Int), new(big.Int)
+	////r.SetBytes(signature[:curveOrderByteSize])
+	////s.SetBytes(signature[curveOrderByteSize:])
+	//
+	//return ecdsa.Verify(pubkey, digest[:], r, s)
 
-	//curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
+	return true
+}
 
-	r, s := new(big.Int), new(big.Int)
-	//r.SetBytes(signature[:curveOrderByteSize])
-	//s.SetBytes(signature[curveOrderByteSize:])
-
-	return ecdsa.Verify(pubkey, digest[:], r, s)
+//Provide committee address enquiries
+func AddrQuery(fb types.FastBlock)[]string{
+	//
+	//	c := committee{}
+	//
+	//if fb.Signs() = c.pk{
+	//		return c.ip
+	//	}
+	//	else {
+	//			Sortition()
+	//			if
+	//}
+	return nil
 }
 
 //Gets the number of fast and slow chain transactions
 //Demand parameters（k fastchain, z snialchain）
-
 func counter()bool{
 	//if z = 100 && k = 10000
 	return true
 }
 
-//Provide committee address enquiries
-func (c committee)AddrQuery(fb types.FastBlock)[]string{
-	return c.ip
-}

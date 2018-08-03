@@ -431,6 +431,11 @@ func (p *peer) SendBlockHeaders(headers []*types.Header) error {
 	return p2p.Send(p.rw, BlockHeadersMsg, headers)
 }
 
+// SendFastBlockHeaders sends a batch of block headers to the remote peer.
+func (p *peer) SendFastBlockHeaders(headers []*types.FastHeader) error {
+	return p2p.Send(p.rw, FastBlockHeadersMsg, headers)
+}
+
 // SendBlockBodies sends a batch of block contents to the remote peer.
 func (p *peer) SendBlockBodies(bodies []*blockBody) error {
 	return p2p.Send(p.rw, BlockBodiesMsg, blockBodiesData(bodies))
@@ -440,6 +445,12 @@ func (p *peer) SendBlockBodies(bodies []*blockBody) error {
 // an already RLP encoded format.
 func (p *peer) SendBlockBodiesRLP(bodies []rlp.RawValue) error {
 	return p2p.Send(p.rw, BlockBodiesMsg, bodies)
+}
+
+// SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
+// an already RLP encoded format.
+func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {
+	return p2p.Send(p.rw, FastBlockBodiesMsg, bodies)
 }
 
 // SendNodeDataRLP sends a batch of arbitrary internal data, corresponding to the
@@ -459,6 +470,13 @@ func (p *peer) SendReceiptsRLP(receipts []rlp.RawValue) error {
 func (p *peer) RequestOneHeader(hash common.Hash) error {
 	p.Log().Debug("Fetching single header", "hash", hash)
 	return p2p.Send(p.rw, GetBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
+}
+
+// RequestOneFastHeader is a wrapper around the header query functions to fetch a
+// single fast header. It is used solely by the fetcher fast.
+func (p *peer) RequestOneFastHeader(hash common.Hash) error {
+	p.Log().Debug("Fetching single header", "hash", hash)
+	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
@@ -482,6 +500,13 @@ func (p *peer) RequestBodies(hashes []common.Hash) error {
 	return p2p.Send(p.rw, GetBlockBodiesMsg, hashes)
 }
 
+// RequestFastBodies fetches a batch of fast blocks' bodies corresponding to the hashes
+// specified.
+func (p *peer) RequestFastBodies(hashes []common.Hash) error {
+	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	return p2p.Send(p.rw, GetFastBlockBodiesMsg, hashes)
+}
+
 // RequestNodeData fetches a batch of arbitrary data from a node's known state
 // data, corresponding to the specified hashes.
 func (p *peer) RequestNodeData(hashes []common.Hash) error {
@@ -496,7 +521,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash) error {
 }
 
 // Handshake executes the eth protocol handshake, negotiating version number,
-// network IDs, difficulties, head and genesis blocks.
+// network IDs, difficulties, head and genesis.json blocks.
 func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
