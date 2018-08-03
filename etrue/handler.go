@@ -497,15 +497,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if hashMode {
 				if first {
 					first = false
-					origin = pm.blockchain.GetFastHeaderByHash(query.Origin.Hash)
+					origin = pm.fastBlockchain.GetHeaderByHash(query.Origin.Hash)
 					if origin != nil {
 						query.Origin.Number = origin.Number.Uint64()
 					}
 				} else {
-					origin = pm.blockchain.GetFastHeader(query.Origin.Hash, query.Origin.Number)
+					origin = pm.fastBlockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
 				}
 			} else {
-				origin = pm.blockchain.GetFastHeaderByNumber(query.Origin.Number)
+				origin = pm.fastBlockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
 				break
@@ -521,7 +521,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if ancestor == 0 {
 					unknown = true
 				} else {
-					query.Origin.Hash, query.Origin.Number = pm.blockchain.GetFastAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+					query.Origin.Hash, query.Origin.Number = pm.fastBlockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
 					unknown = (query.Origin.Hash == common.Hash{})
 				}
 			case hashMode && !query.Reverse:
@@ -535,9 +535,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
 					unknown = true
 				} else {
-					if header := pm.blockchain.GetFastHeaderByNumber(next); header != nil {
+					if header := pm.fastBlockchain.GetHeaderByNumber(next); header != nil {
 						nextHash := header.Hash()
-						expOldHash, _ := pm.blockchain.GetFastAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+						expOldHash, _ := pm.fastBlockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
 						if expOldHash == query.Origin.Hash {
 							query.Origin.Hash, query.Origin.Number = nextHash, next
 						} else {
@@ -683,7 +683,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "msg %v: %v", msg, err)
 			}
 			// Retrieve the requested block body, stopping if enough was found
-			if data := pm.blockchain.GetFastBodyRLP(hash); len(data) != 0 {
+			if data := pm.fastBlockchain.GetBodyRLP(hash); len(data) != 0 {
 				bodies = append(bodies, data)
 				bytes += len(data)
 			}
@@ -858,7 +858,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasFastBlock(block.Hash, block.Number) {
+			if !pm.fastBlockchain.HasBlock(block.Hash, block.Number) {
 				unknown = append(unknown, block)
 			}
 		}
