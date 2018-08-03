@@ -185,6 +185,87 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	return eth, nil
 }
 
+func FastNew(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
+	if config.SyncMode == downloader.LightSync {
+		return nil, errors.New("can't run eth.Truechain in light sync mode, use les.LightEthereum")
+	}
+	if !config.SyncMode.IsValid() {
+		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
+	}
+	chainDb, err := CreateDB(ctx, config, "chaindata")
+	if err != nil {
+		return nil, err
+	}
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
+		return nil, genesisErr
+	}
+	log.Info("Initialised chain configuration", "config", chainConfig)
+
+	eth := &Truechain{
+		config:         config,
+		chainDb:        chainDb,
+		chainConfig:    chainConfig,
+		eventMux:       ctx.EventMux,
+		accountManager: ctx.AccountManager,
+		engine:         CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
+		shutdownChan:   make(chan bool),
+		networkID:      config.NetworkId,
+		gasPrice:       config.GasPrice,
+		etherbase:      config.Etherbase,
+		bloomRequests:  make(chan chan *bloombits.Retrieval),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+	}
+
+	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+
+	if !config.SkipBcVersionCheck {
+		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
+		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
+			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
+		}
+		rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
+	}
+	var (
+		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+	)
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.fastBlockchain, err = core.NewFastBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	if err != nil {
+		return nil, err
+	}
+	// Rewind the chain in case of an incompatible config upgrade.
+	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		eth.blockchain.SetHead(compat.RewindTo)
+		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+	}
+	eth.bloomIndexer.Start(eth.blockchain)
+
+	if config.TxPool.Journal != "" {
+		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
+	}
+	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
+
+	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
+
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain,eth.fastBlockchain, chainDb); err != nil {
+		return nil, err
+	}
+	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.miner.SetExtra(makeExtraData(config.ExtraData))
+
+	eth.APIBackend = &EthAPIBackend{eth, nil}
+	gpoParams := config.GPO
+	if gpoParams.Default == nil {
+		gpoParams.Default = config.GasPrice
+	}
+	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
+
+	return eth, nil
+}
+
 func makeExtraData(extra []byte) []byte {
 	if len(extra) == 0 {
 		// create default extradata
