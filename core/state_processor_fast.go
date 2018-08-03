@@ -17,8 +17,7 @@
 package core
 
 import (
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/consensus"
+		"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -68,7 +67,7 @@ func (fp *FastStateProcessor) Process(block *types.FastBlock, statedb *state.Sta
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		receipt, _, err := FastApplyTransaction(fp.config, fp.bc, nil, gp, statedb, header, tx, usedGas, cfg)
+		receipt, _, err := FastApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -85,13 +84,13 @@ func (fp *FastStateProcessor) Process(block *types.FastBlock, statedb *state.Sta
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func FastApplyTransaction(config *params.ChainConfig, bc FastChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.FastHeader, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+func FastApplyTransaction(config *params.ChainConfig, bc FastChainContext, gp *GasPool, statedb *state.StateDB, header *types.FastHeader, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
 	}
 	// Create a new context to be used in the EVM environment
-	context := NewFastEVMContext(msg, header, bc, author)
+	context := NewFastEVMContext(msg, header, bc)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
