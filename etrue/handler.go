@@ -74,6 +74,7 @@ type ProtocolManager struct {
 	txpool      txPool
 	hybridpool  hybridPool
 	blockchain  *core.BlockChain
+	fastBlockchain  *core.FastBlockChain
 	//added by Abition 20180715
 	fruitchain  *core.BlockChain
 	chainconfig *params.ChainConfig
@@ -112,7 +113,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, hybridpool hybridPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, hybridpool hybridPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *core.FastBlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -120,6 +121,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txpool:      txpool,
 		hybridpool:  hybridpool,
 		blockchain:  blockchain,
+		fastBlockchain:	 fastBlockchain,
 		chainconfig: config,
 		peers:       newPeerSet(),
 		newPeerCh:   make(chan *peer),
@@ -129,6 +131,10 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
+		log.Warn("Blockchain not empty, fast sync disabled")
+		mode = downloader.FullSync
+	}
+	if mode == downloader.FastSync && fastBlockchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")
 		mode = downloader.FullSync
 	}
@@ -197,7 +203,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return engine.VerifyFastHeader(nil, header, true)
 	}
 	fastHeighter := func() uint64 {
-		return blockchain.CurrentFastBlock().NumberU64()
+		return fastBlockchain.CurrentFastBlock().NumberU64()
 	}
 	fastInserter := func(blocks types.FastBlocks) (int, error) {
 		// If fast sync is running, deny importing weird blocks
@@ -206,9 +212,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			return 0, nil
 		}
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertFastChain(blocks)
+		return manager.fastBlockchain.InsertChain(blocks)
 	}
-	manager.fetcherFast = fetcherfast.New(blockchain.GetFastBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer)
+	manager.fetcherFast = fetcherfast.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer)
 
 	return manager, nil
 }
