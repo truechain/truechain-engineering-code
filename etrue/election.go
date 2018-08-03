@@ -3,29 +3,26 @@ package etrue
 import (
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"math/big"
 	"github.com/truechain/truechain-engineering-code/core/types"
-
+	"math/big"
 )
 
-var z  = 10000
-var k  = 50000
-var P  = 100
+var z = 10000
+var k = 50000
+var P = 100
 
 type VoteuUse struct {
-	wi 		int64  //Local value
-	seed 	string
-	b   	bool
-	j 		int
-
+	wi   int64 //Local value
+	seed string
+	b    bool
+	j    int
 }
 
-type committee struct{
-	ip		[]string
-	pk 		string
-	data    []byte
-	pubkey  *ecdsa.PublicKey
-
+type committee struct {
+	ip     []string
+	pk     string
+	data   []byte
+	pubkey *ecdsa.PublicKey
 }
 
 //Read creation block information and return public key for signature verification
@@ -34,11 +31,8 @@ type committee struct{
 //	return v.pk
 //}
 
-
-
 //Calculate your own force unit locally
-func (v VoteuUse)LocalForce()int64{
-
+func (v VoteuUse) LocalForce() int64 {
 
 	w := v.wi
 	//w_i=(D_pf-〖[h]〗_(-k))/u
@@ -61,12 +55,12 @@ func powerf(x float64, n int) float64 {
 }
 
 //Factorial function
-func Factorial(){
+func Factorial() {
 
 }
 
 //The sum function
-func Sigma(j int,k int,wi int,P int64) {
+func Sigma(j int, k int, wi int, P int64) {
 
 }
 
@@ -88,11 +82,10 @@ func Sigma(j int,k int,wi int,P int64) {
 //
 //}
 
-
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
 //Original demand parameter(data,signature []byte,  pubkey *ecdsa.PublicKey)
-func Verify (fb types.FastBlock,)bool {
+func Verify(fb types.FastBlock) bool {
 
 	//		data := c.data
 	//		pubkey := c.pubkey
@@ -113,7 +106,7 @@ func Verify (fb types.FastBlock,)bool {
 }
 
 //Provide committee address enquiries
-func AddrQuery(fb types.FastBlock)[]string{
+func AddrQuery(fb types.FastBlock) []string {
 	//
 	//	c := committee{}
 	//
@@ -129,8 +122,7 @@ func AddrQuery(fb types.FastBlock)[]string{
 
 //Gets the number of fast and slow chain transactions
 //Demand parameters（k fastchain, z snialchain）
-func counter()bool{
+func counter() bool {
 	//if z = 100 && k = 10000
 	return true
 }
-

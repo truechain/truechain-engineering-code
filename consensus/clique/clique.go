@@ -833,7 +833,48 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (ethash *Clique) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
+func (c *Clique) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
+	number := header.Number.Uint64()
+	// Assemble the voting snapshot to check which votes make sense
+	snap, err := c.snapshotFast(chain, number-1, header.ParentHash, nil)
+	if err != nil {
+		return err
+	}
+	if number%c.config.Epoch != 0 {
+		c.lock.RLock()
+
+		// Gather all the proposals that make sense voting on
+		addresses := make([]common.Address, 0, len(c.proposals))
+		for address, authorize := range c.proposals {
+			if snap.validVote(address, authorize) {
+				addresses = append(addresses, address)
+			}
+		}
+		c.lock.RUnlock()
+	}
+
+	// Ensure the extra data has all it's components
+	if len(header.Extra) < extraVanity {
+		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-len(header.Extra))...)
+	}
+	header.Extra = header.Extra[:extraVanity]
+
+	if number%c.config.Epoch == 0 {
+		for _, signer := range snap.signers() {
+			header.Extra = append(header.Extra, signer[:]...)
+		}
+	}
+	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
+
+	// Ensure the timestamp has the correct delay
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(c.config.Period))
+	if header.Time.Int64() < time.Now().Unix() {
+		header.Time = big.NewInt(time.Now().Unix())
+	}
 	return nil
 }
 
