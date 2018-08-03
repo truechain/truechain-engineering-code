@@ -104,7 +104,7 @@ type peer struct {
 	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedRecords   chan []*types.PbftRecord // Queue of records to broadcast to the peer
-	queuedFruits   chan []*types.Block // Queue of fruits to broadcast to the peer
+	queuedFruits   chan []*types.SnailBlock // Queue of fruits to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 
 	queuedFruit chan *fruitEvent           // Queue of newFruits to broadcast to the peer
@@ -131,7 +131,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 
 		queuedRecords:   make(chan []*types.PbftRecord, maxQueuedRecords),
 		queuedFruit: make(chan *fruitEvent, maxQueuedFruit),
-		queuedFruits:  make(chan []*types.Block, maxQueuedFruits),
+		queuedFruits:  make(chan []*types.SnailBlock, maxQueuedFruits),
 		term:        make(chan struct{}),
 	}
 }
@@ -312,7 +312,7 @@ func (p *peer) Sendfruits(fruits types.Fruits) error {
 }
 
 //Abtion 20180715 for record;the same as transactions
-func (p *peer) AsyncSendFruits(fruits []*types.Block) {
+func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {
 	case p.queuedFruits <- fruits:
 		for _, fruit := range fruits {

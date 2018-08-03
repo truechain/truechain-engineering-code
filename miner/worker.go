@@ -332,12 +332,13 @@ func (self *worker) update() {
 					self.commitNewWork()
 				}
 			}
-
-		//Neo 20180626 for fruit and record pool
+			//TODO　fruit event
+			/*
 		case ev := <-self.fruitCh:
 
-			self.updateofFruitTx(ev.Fruits)
+			//self.updateofFruitTx(ev.Fruits)
 			//return
+			*/ 
 
 		case ev := <-self.recordCh:
 			self.updateofRecordTx(ev.Records)

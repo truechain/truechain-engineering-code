@@ -29,10 +29,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
-
+ 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (ethash *Truepow) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+func (ethash *Minerva) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
+	return nil,nil
+}
+func (ethash *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -41,12 +44,12 @@ func (ethash *Truepow) Seal(chain consensus.ChainReader, block *types.Block, sto
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if ethash.shared != nil {
-		return ethash.shared.Seal(chain, block, stop)
+		return ethash.shared.SealSnail(chain, block, stop)
 	}
 	// Create a runner and the multiple search threads it directs
-	abort := make(chan struct{})
-	found := make(chan *types.Block)
-
+	abort := make(chan struct{}) 
+	found := make(chan *types.SnailBlock) 
+ 
 	ethash.lock.Lock()
 	threads := ethash.threads
 	if ethash.rand == nil {
@@ -69,23 +72,26 @@ func (ethash *Truepow) Seal(chain consensus.ChainReader, block *types.Block, sto
 		pend.Add(1)
 		go func(id int, nonce uint64) {
 			defer pend.Done()
-			ethash.mine(block, id, nonce, abort, found)
+			ethash.mineSnail(block, id, nonce, abort, found)
 		}(i, uint64(ethash.rand.Int63()))
 	}
 	// Wait until sealing is terminated or a nonce is found
-	var result *types.Block
+	var result *types.SnailBlock
 	select {
 	case <-stop:
 		// Outside abort, stop all miner threads
 		close(abort)
+		//TODO found function
+		/*
 	case result = <-found:
 		// One of the threads found a block, abort all others
 		close(abort)
+		*/
 	case <-ethash.update:
 		// Thread count was changed on user request, restart
 		close(abort)
 		pend.Wait()
-		return ethash.Seal(chain, block, stop)
+		return ethash.SealSnail(chain, block, stop)
 	}
 	// Wait for all miners to terminate and return the block
 	pend.Wait()
@@ -94,7 +100,10 @@ func (ethash *Truepow) Seal(chain consensus.ChainReader, block *types.Block, sto
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (ethash *Truepow) ConSeal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block) {
+func (ethash *Minerva) ConSeal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block) {
+	//return nil,nil
+}
+func (ethash *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -104,11 +113,11 @@ func (ethash *Truepow) ConSeal(chain consensus.ChainReader, block *types.Block, 
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if ethash.shared != nil {
-		ethash.shared.ConSeal(chain, block, stop, send)
+		ethash.shared.ConSnailSeal(chain, block, stop, send)
 	}
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
-	found := make(chan *types.Block)
+	found := make(chan *types.SnailBlock)
 
 	ethash.lock.Lock()
 	threads := ethash.threads
@@ -133,11 +142,11 @@ func (ethash *Truepow) ConSeal(chain consensus.ChainReader, block *types.Block, 
 		pend.Add(1)
 		go func(id int, nonce uint64) {
 			defer pend.Done()
-			ethash.mine(block, id, nonce, abort, found)
+			ethash.mineSnail(block, id, nonce, abort, found)
 		}(i, uint64(ethash.rand.Int63()))
 	}
 	// Wait until sealing is terminated or a nonce is found
-	var result *types.Block
+	var result *types.SnailBlock
 
 mineloop:
 	for {
@@ -150,18 +159,21 @@ mineloop:
 		case result = <-found:
 			// One of the threads found a block or fruit return it
 			send <- result
+			// TODO snail need a flag to distinguish furit and block
+			/*
 			if !result.IsFruit() {
 				// stop threads when get a block, wait for outside abort when result is fruit
 				//close(abort)
 				pend.Wait()
 				break mineloop
 			}
+			*/
 			break
 		case <-ethash.update:
 			// Thread count was changed on user request, restart
 			close(abort)
 			pend.Wait()
-			ethash.ConSeal(chain, block, stop, send)
+			ethash.ConSnailSeal(chain, block, stop, send)
 			break mineloop
 		}
 	}
@@ -173,7 +185,9 @@ mineloop:
 
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
-func (ethash *Truepow) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
+func (ethash *Minerva) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
+	// backup
+	/*
 	// Extract some data from the header
 	var (
 		header          = block.Header()
@@ -232,6 +246,85 @@ search:
 					header.Nonce = types.EncodeNonce(nonce)
 					header.MixDigest = common.BytesToHash(digest)
 					header.Fruit = true
+
+					// Seal and return a block (if still needed)
+					select {
+					case found <- block.WithSeal(header):
+						logger.Trace("IsFruit nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+					case <-abort:
+						logger.Trace("IsFruit nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+					}
+				}
+			}
+			nonce++
+		}
+	}
+	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
+	// during sealing so it's not unmapped while being read.
+	runtime.KeepAlive(dataset)
+	*/
+}
+func (ethash *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort chan struct{}, found chan *types.SnailBlock) {
+	// Extract some data from the header
+	var (
+		header          = block.Header()
+		hash            = header.HashNoNonce().Bytes()
+		target          = new(big.Int).Div(maxUint256, header.Difficulty)
+		fruitDifficulty = new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+		fruitTarget     = new(big.Int).Div(maxUint128, fruitDifficulty)
+		number          = header.Number.Uint64()
+		dataset         = ethash.dataset(number)
+	)
+	// Start generating random nonces until we abort or find a good one
+	var (
+		attempts = int64(0)
+		nonce    = seed
+	)
+	logger := log.New("miner", id)
+	logger.Trace("Started ethash search for new nonces", "seed", seed)
+search:
+	for {
+		select {
+		case <-abort:
+			// Mining terminated, update stats and abort
+			logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
+			ethash.hashrate.Mark(attempts)
+			break search
+
+		default:
+			// We don't have to update hash rate on every nonce, so update after after 2^X nonces
+			attempts++
+			if (attempts % (1 << 15)) == 0 {
+				ethash.hashrate.Mark(attempts)
+				attempts = 0
+			}
+			// Compute the PoW value of this nonce
+			digest, result := hashimotoFull(dataset.dataset, hash, nonce)
+			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
+				// Correct nonce found, create a new header with it
+				header = types.CopySnailHeader(header)
+				header.Nonce = types.EncodeNonce(nonce)
+				header.MixDigest = common.BytesToHash(digest)
+				//TODO need add fruit flow 
+				//header.Fruit = false
+
+				// Seal and return a block (if still needed)
+				select {
+				case found <- block.WithSeal(header):
+					logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+				case <-abort:
+					logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+				}
+				break search
+			} else {
+				lastResult := result[16:]
+				if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
+					// last 128 bit < Dpf, get a fruit
+					header = types.CopySnailHeader(header)
+					header.Nonce = types.EncodeNonce(nonce)
+					header.MixDigest = common.BytesToHash(digest)
+					//TODO need add fruit flow
+					//header.Fruit = true
 
 					// Seal and return a block (if still needed)
 					select {

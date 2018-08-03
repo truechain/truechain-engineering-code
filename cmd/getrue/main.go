@@ -227,7 +227,7 @@ func main() {
 		os.Exit(1)
 	}
 }
-
+ 
 // geth is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
@@ -236,7 +236,7 @@ func geth(ctx *cli.Context) error {
 	startNode(ctx, node)
 	node.Wait()
 	return nil
-}
+}             
 
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the

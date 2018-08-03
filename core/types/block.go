@@ -305,7 +305,7 @@ type storageblock struct {
 
 
 // Fruits is a wrapper around a fruit array to implement DerivableList.
-type Fruits []*Block
+type Fruits []*SnailBlock
 
 // Len returns the number of fruits in this list.
 func (fs Fruits) Len() int { return len(fs) }
@@ -347,6 +347,8 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 		b.header.Bloom = CreateBloom(receipts)
 	}
 
+	//TODO block not fruit
+	/*
 	if len(fruits) == 0 {
 		b.header.FruitsHash = EmptyRootHash
 	}else {
@@ -357,6 +359,7 @@ func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*
 			b.fruits[i] = CopyFruit(fruits[i])
 		}
 	}
+	*/
 
 	if len(uncles) == 0 {
 		b.header.UncleHash = EmptyUncleHash
