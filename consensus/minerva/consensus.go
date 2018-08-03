@@ -759,7 +759,7 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 	snailBlockHash := hc.GetHeaderByNumber(hc.CurrentHeader().Number.Uint64() - 12)
 	snailBlock := hc.GetBlock(snailBlockHash.Hash(), snailBlockHash.Number.Uint64())
 	//Calculate the revenue of the current block
-	currentBlockCoin := new(big.Int).Div(consensus.SnailBlockRewardsInitial,
+	currentBlockCoin := new(big.Int).Div(SnailBlockRewardsInitial,
 		new(big.Int).Exp(new(big.Int).SetInt64(2),
 			new(big.Int).Div(new(big.Int).Add(header.SnailNumber, new(big.Int).SetInt64(-12)), new(big.Int).SetInt64(5000)),
 			nil))
@@ -777,7 +777,7 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 
 	//miners add all fruit 10%
 	state.AddBalance(snailBlock.Coinbase(),
-		new(big.Int).Mul(new(big.Int).SetInt64(int64(len(snailBlock.Body().Fruits))),
-			consensus.SnailBlockBodyFruitInitial))
+		new(big.Int).Div(new(big.Int).SetInt64(int64(len(snailBlock.Body().Fruits))),
+			big10))
 
 }

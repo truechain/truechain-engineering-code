@@ -33,11 +33,11 @@ import (
 	"unsafe"
 
 	mmap "github.com/edsrzf/mmap-go"
+	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	"github.com/hashicorp/golang-lru/simplelru"
 )
 
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
@@ -56,6 +56,15 @@ var (
 
 	// dumpMagic is a dataset dump header to sanity check a data dump.
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
+
+	//Snail block rewards initial 60*10^18
+	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
+
+	//Snail block body fruit initial 30*10^15
+	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
+
+	//Snail block rewards fruit ratio  10%
+	SnailBlockRewardsFruitRatio = 0.1
 )
 
 // isLittleEndian returns whether the local system is running in little or big
