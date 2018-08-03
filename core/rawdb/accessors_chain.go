@@ -373,3 +373,17 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 	}
 	return a
 }
+
+// WriteCommittee stores the Committee of a block into the database.
+func WriteCommittee(db DatabaseWriter, hash common.Hash, number uint64, committee []common.Committee) {
+	data, err := rlp.EncodeToBytes(committee)
+	if err != nil {
+		log.Crit("Failed to RLP encode block committee", "err", err)
+	}
+
+	key := append(append(append(headerCommitteeSuffix, encodeBlockNumber(number)...), hash.Bytes()...), headerCommitteeSuffix...)
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store block committee", "err", err)
+	}
+	log.Info("success to store block committee")
+}
