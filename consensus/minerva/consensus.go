@@ -28,6 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/misc"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -752,7 +753,11 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header, block types.SnailBlock) {
+func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header) {
+	//Get snailBlock current -12
+	var hc *core.HeaderChain
+	snailBlockHash := hc.GetHeaderByNumber(hc.CurrentHeader().Number.Uint64() - 12)
+	snailBlock := hc.GetBlock(snailBlockHash.Hash(), snailBlockHash.Number.Uint64())
 	//Calculate the revenue of the current block
 	currentBlockCoin := new(big.Int).Div(consensus.SnailBlockRewardsInitial,
 		new(big.Int).Exp(new(big.Int).SetInt64(2),
@@ -762,7 +767,7 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 	//Committee miners distribution method  Committee a/a+n  miners  n/a+n
 	//But there is no fragmentation so 50-50
 	minerCoin := new(big.Int).Div(currentBlockCoin, big2)
-	state.AddBalance(block.Coinbase(), minerCoin)
+	state.AddBalance(snailBlock.Coinbase(), minerCoin)
 
 	committeeCoin := new(big.Int).Div(currentBlockCoin, new(big.Int).Mul(big2, new(big.Int).SetInt64(int64(len(committee)))))
 
@@ -771,6 +776,8 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 	}
 
 	//miners add all fruit 10%
-	state.AddBalance(block.Coinbase(), new(big.Int).Mul(new(big.Int).SetInt64(int64(len(block.Body().Fruits))), consensus.SnailBlockBodyFruitInitial))
+	state.AddBalance(snailBlock.Coinbase(),
+		new(big.Int).Mul(new(big.Int).SetInt64(int64(len(snailBlock.Body().Fruits))),
+			consensus.SnailBlockBodyFruitInitial))
 
 }
