@@ -535,6 +535,26 @@ func (bc *BlockChain) GetBodyRLP(hash common.Hash) rlp.RawValue {
 	return body
 }
 
+// GetFastBodyRLP retrieves a block body in RLP encoding from the database by hash,
+// caching it if found.
+func (bc *BlockChain) GetFastBodyRLP(hash common.Hash) rlp.RawValue {
+	// Short circuit if the body's already in the cache, retrieve otherwise
+	if cached, ok := bc.bodyRLPCache.Get(hash); ok {
+		return cached.(rlp.RawValue)
+	}
+	number := bc.hc.GetBlockNumber(hash)
+	if number == nil {
+		return nil
+	}
+	body := rawdb.ReadBodyRLP(bc.db, hash, *number)
+	if len(body) == 0 {
+		return nil
+	}
+	// Cache the found body for next time and return
+	bc.bodyRLPCache.Add(hash, body)
+	return body
+}
+
 // HasBlock checks if a block is fully present in the database or not.
 func (bc *BlockChain) HasBlock(hash common.Hash, number uint64) bool {
 	if bc.blockCache.Contains(hash) {
@@ -591,6 +611,16 @@ func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
 		return nil
 	}
 	return bc.GetBlock(hash, *number)
+}
+
+// GetBlockByHash retrieves a block from the database by hash, caching it if found.
+func (bc *BlockChain) GetFastBlockByHash(hash common.Hash) *types.FastBlock {
+	//number := bc.hc.GetBlockNumber(hash)
+	//if number == nil {
+	//	return nil
+	//}
+	//return bc.GetBlock(hash, *number)
+	return nil
 }
 
 // GetBlockByNumber retrieves a block from the database by number, caching it
@@ -1007,6 +1037,18 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	n, events, logs, err := bc.insertChain(chain)
 	bc.PostChainEvents(events, logs)
 	return n, err
+}
+
+// InsertChain attempts to insert the given batch of blocks in to the canonical
+// chain or, otherwise, create a fork. If an error is returned it will return
+// the index number of the failing block as well an error describing what went
+// wrong.
+//
+// After insertion is done, all accumulated events will be fired.
+func (bc *BlockChain) InsertFastChain(chain types.FastBlocks) (int, error) {
+	//n, events, logs, err := bc.insertChain(chain)
+	//bc.PostChainEvents(events, logs)
+	return 0, nil
 }
 
 // insertChain will execute the actual chain insertion and event aggregation. The
@@ -1524,10 +1566,22 @@ func (bc *BlockChain) GetHeader(hash common.Hash, number uint64) *types.Header {
 	return bc.hc.GetHeader(hash, number)
 }
 
+// GetFastHeader retrieves a block header from the database by hash and number,
+// caching it if found.
+func (bc *BlockChain) GetFastHeader(hash common.Hash, number uint64) *types.FastHeader {
+	return nil/*bc.hc.GetHeader(hash, number)*/
+}
+
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
 func (bc *BlockChain) GetHeaderByHash(hash common.Hash) *types.Header {
 	return bc.hc.GetHeaderByHash(hash)
+}
+
+// GetHeaderByHash retrieves a block header from the database by hash, caching it if
+// found.
+func (bc *BlockChain) GetFastHeaderByHash(hash common.Hash) *types.FastHeader {
+	return nil/*bc.hc.GetHeaderByHash(hash)*/
 }
 
 // HasHeader checks if a block header is present in the database or not, caching
@@ -1554,10 +1608,28 @@ func (bc *BlockChain) GetAncestor(hash common.Hash, number, ancestor uint64, max
 	return bc.hc.GetAncestor(hash, number, ancestor, maxNonCanonical)
 }
 
+// GetFastAncestor retrieves the Nth ancestor of a given block. It assumes that either the given block or
+// a close ancestor of it is canonical. maxNonCanonical points to a downwards counter limiting the
+// number of blocks to be individually checked before we reach the canonical chain.
+//
+// Note: ancestor == 0 returns the same block, 1 returns its parent and so on.
+func (bc *BlockChain) GetFastAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
+
+	return bc.hc.GetAncestor(hash, number, ancestor, maxNonCanonical)
+}
+
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
 func (bc *BlockChain) GetHeaderByNumber(number uint64) *types.Header {
 	return bc.hc.GetHeaderByNumber(number)
+}
+
+// GetFastHeaderByNumber retrieves a block header from the database by number,
+// caching it (associated with its hash) if found.
+func (bc *BlockChain) GetFastHeaderByNumber(number uint64) *types.FastHeader {
+	return nil/*bc.hc.GetHeaderByNumber(number)*/
 }
 
 // Config retrieves the blockchain's chain configuration.

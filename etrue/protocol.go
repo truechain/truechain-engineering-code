@@ -57,8 +57,6 @@ const (
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07
 
-	NewFastBlockHashesMsg  = 0x08
-	NewFastBlockMsg        = 0x09
 	FruitMsg		   = 0x0a
 
 	// Protocol messages belonging to eth/63
@@ -66,6 +64,13 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
+
+	NewFastBlockHashesMsg  = 0x11
+	GetFastBlockHeadersMsg = 0x12
+	FastBlockHeadersMsg    = 0x13
+	GetFastBlockBodiesMsg  = 0x14
+	FastBlockBodiesMsg     = 0x15
+	NewFastBlockMsg        = 0x16
 )
 
 type errCode int
