@@ -200,7 +200,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 	fastValidator := func(header *types.FastHeader) error {
 		//mecMark how to get ChainFastReader
-		return engine.VerifyFastHeader(nil, header, true)
+		return engine.VerifyFastHeader(fastBlockchain, header, true)
 	}
 	fastHeighter := func() uint64 {
 		return fastBlockchain.CurrentFastBlock().NumberU64()
