@@ -134,10 +134,10 @@ func (fhc *FastHeaderChain)WriteHeader(header *types.FastHeader) (status WriteSt
 		number = header.Number.Uint64()
 	)
 	// Calculate the total difficulty of the header
-	ptd := fhc.GetTd(header.ParentHash, number-1)
-	if ptd == nil {
-		return NonStatTy, consensus.ErrUnknownAncestor
-	}
+	//ptd := fhc.GetTd(header.ParentHash, number-1)
+	//if ptd == nil {
+	//	return NonStatTy, consensus.ErrUnknownAncestor
+	//}
 	//localTd := fhc.GetTd(fhc.currentHeaderHash, fhc.CurrentHeader().Number.Uint64())
 	//externTd := new(big.Int).Add(header.Difficulty, ptd)
 
