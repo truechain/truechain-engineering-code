@@ -375,15 +375,45 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 }
 
 // WriteCommittee stores the Committee of a block into the database.
-func WriteCommittee(db DatabaseWriter, hash common.Hash, number uint64, committee []common.Committee) {
+func WriteCommittee(db DatabaseWriter, number uint64, committee []common.Committee) {
 	data, err := rlp.EncodeToBytes(committee)
 	if err != nil {
 		log.Crit("Failed to RLP encode block committee", "err", err)
 	}
 
-	key := append(append(append(headerCommitteeSuffix, encodeBlockNumber(number)...), hash.Bytes()...), headerCommitteeSuffix...)
+	key := headerCommitteeKey(number)
 	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store block committee", "err", err)
 	}
 	log.Info("success to store block committee")
+}
+
+// ReadCommittee read committee
+//
+func ReadCommittee(db DatabaseReader, number uint64) []common.Committee {
+	key := headerCommitteeKey(number)
+	data, _ := db.Get(key)
+	if len(data) == 0 {
+		return nil
+	}
+	committee := new([]common.Committee)
+	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
+		log.Error("Invalid block  committee RLP", "err", err)
+		return nil
+	}
+	return *committee
+}
+
+// ReadCommittee read the Genesis committee
+func ReadGenesisCommittee(db DatabaseReader) []common.Committee {
+	data, _ := db.Get(headerCommitteeKey(0))
+	if len(data) == 0 {
+		return nil
+	}
+	committee := new([]common.Committee)
+	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
+		log.Error("Invalid block  committee RLP", "err", err)
+		return nil
+	}
+	return *committee
 }

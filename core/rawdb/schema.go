@@ -42,11 +42,11 @@ var (
 	fastTrieProgressKey = []byte("TrieSync")
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	headerPrefix       = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
-	headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerPrefix          = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerTDSuffix        = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
 	headerCommitteeSuffix = []byte("C") // headerPrefix + num (uint64 big endian) + hash + headerCommitteeSuffix -> committee
-	headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-	headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	headerHashSuffix      = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix    = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
 
 	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
@@ -87,6 +87,11 @@ func headerKey(number uint64, hash common.Hash) []byte {
 // headerTDKey = headerPrefix + num (uint64 big endian) + hash + headerTDSuffix
 func headerTDKey(number uint64, hash common.Hash) []byte {
 	return append(headerKey(number, hash), headerTDSuffix...)
+}
+
+// headerCommitteeKey = headerPrefix + num (uint64 big endian) + headerCommitteeSuffix
+func headerCommitteeKey(number uint64) []byte {
+	return append(encodeBlockNumber(number), headerCommitteeSuffix...)
 }
 
 // headerHashKey = headerPrefix + num (uint64 big endian) + headerHashSuffix
