@@ -142,12 +142,12 @@ func HasHeader(db DatabaseReader, hash common.Hash, number uint64) bool {
 }
 
 // ReadHeader retrieves the block header corresponding to the hash.
-func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Header {
+func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.SnailHeader {
 	data := ReadHeaderRLP(db, hash, number)
 	if len(data) == 0 {
 		return nil
 	}
-	header := new(types.Header)
+	header := new(types.SnailHeader)
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
 		log.Error("Invalid block header RLP", "hash", hash, "err", err)
 		return nil
@@ -211,12 +211,12 @@ func HasBody(db DatabaseReader, hash common.Hash, number uint64) bool {
 }
 
 // ReadBody retrieves the block body corresponding to the hash.
-func ReadBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
+func ReadBody(db DatabaseReader, hash common.Hash, number uint64) *types.SnailBody {
 	data := ReadBodyRLP(db, hash, number)
 	if len(data) == 0 {
 		return nil
 	}
-	body := new(types.Body)
+	body := new(types.SnailBody)
 	if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
 		log.Error("Invalid block body RLP", "hash", hash, "err", err)
 		return nil
@@ -322,7 +322,7 @@ func DeleteReceipts(db DatabaseDeleter, hash common.Hash, number uint64) {
 //
 // Note, due to concurrent download of header and block body the header and thus
 // canonical hash can be stored in the database but the body data not (yet).
-func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block {
+func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.SnailBlock {
 	header := ReadHeader(db, hash, number)
 	if header == nil {
 		return nil
@@ -331,7 +331,7 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block 
 	if body == nil {
 		return nil
 	}
-	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)
+	return types.NewSnailBlockWithHeader(header).WithBody(body)
 }
 
 // WriteBlock serializes a block into the database, header and body separately.
@@ -349,7 +349,7 @@ func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 }
 
 // FindCommonAncestor returns the last common ancestor of two block headers
-func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
+func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.SnailHeader {
 	for bn := b.Number.Uint64(); a.Number.Uint64() > bn; {
 		a = ReadHeader(db, a.ParentHash, a.Number.Uint64()-1)
 		if a == nil {

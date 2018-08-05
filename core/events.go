@@ -25,7 +25,7 @@ import (
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
 // Neo 20180626 for fruit and record;Abtion 20180715 motify Neo's NewFruitEvent to NewFruitsEvent
-type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
+type NewFruitsEvent struct{ Fruits []*types.Block }
 //Abtion 20180715 motify Neo's NewRecordEvent to NewRecordsEvent
 type NewRecordsEvent struct{ Records []*types.PbftRecord }
 
@@ -41,6 +41,8 @@ type PendingStateEvent struct{}
 
 // NewMinedBlockEvent is posted when a block has been imported.
 type NewMinedBlockEvent struct{ Block *types.Block }
+//type NewMinedBlockEvent struct{ Block *types.Block }
+
 
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.Block }

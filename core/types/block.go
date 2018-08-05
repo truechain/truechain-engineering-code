@@ -824,10 +824,13 @@ type SnailHeader struct {
 	Extra       []byte         		`json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    		`json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     		`json:"nonce"            gencodec:"required"`
+	// for fruit  20180804
+	Fruit		bool
 }
 
 type SnailBody struct {
-	Fruits       []*SnailHeader
+	// for fruit 20180804
+	Fruits       []*SnailBlock
 }
 
 // Block represents an entire block in the Ethereum blockchain.
@@ -854,6 +857,13 @@ type extsnailblock struct {
 	Body    *SnailBody
 	Td 	    *big.Int
 }
+
+// 20180804 for snail chain
+type SnailBlocks []*SnailBlock
+
+type SnailBlockBy func(b1, b2 *SnailBlock) bool
+
+
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *SnailHeader) Hash() common.Hash {
@@ -898,12 +908,18 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 // changes to header and to the field values will not affect the
 // block.
 func NewSnailBlock(header *SnailHeader, body SnailBody) *SnailBlock {
-	b := &SnailBlock{header: CopySnailHeader(header), td: new(big.Int)}
+	b := &SnailBlock{
+		header: CopySnailHeader(header), 
+		body : &body,
+		td: new(big.Int)}
 
-	b.body.Fruits = make([]*SnailHeader,len(body.Fruits))
+	// the fruits struct is same of snailblock not header 20180804
+	/*
+	b.body.Fruits = make([]*SnailBlock,len(body.Fruits))
 	for i := range body.Fruits {
-		b.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
+		b.body.Fruits[i] = append(b.body.Fruits[i], body.Fruits[i])
 	}
+	*/
 	return b
 }
 // NewSnailBlockWithHeader creates a block with the given header data. The
@@ -934,6 +950,8 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	}
 	return &cpy
 }
+
+
 // DecodeRLP decodes the Ethereum
 func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
 	var eb extsnailblock
@@ -975,7 +993,7 @@ func (b *SnailBlock) FastNumber() *big.Int 	   { return new(big.Int).Set(b.heade
 func (b *SnailBlock) ToElect() bool            { return b.header.ToElect }
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader 	   { return CopySnailHeader(b.header) }
-
+func (b *SnailBlock) IsFruit() bool           {return b.header.Fruit}
 // Body returns the non-header content of the snailblock.
 func (b *SnailBlock) Body() *SnailBody { return b.body }
 func (b *SnailBlock) HashNoNonce() common.Hash {
@@ -1005,11 +1023,15 @@ func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
 	block := &SnailBlock{
 		header:       b.Header(),
+		body : body,
 	}
+	// for fruit ,the fruit struit same of snial block 20180804
+	/*
 	block.body.Fruits = make([]*SnailHeader,len(body.Fruits))
 	for i := range body.Fruits {
 		block.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
 	}
+	*/
 	return block
 }
 // Hash returns the keccak256 hash of b's header.

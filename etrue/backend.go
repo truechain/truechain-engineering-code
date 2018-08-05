@@ -36,6 +36,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
@@ -72,6 +73,7 @@ type Truechain struct {
 	hybridPool		*core.SnailPool
 
 	blockchain      *core.BlockChain
+	snailblockchain *chain.SnailBlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
 
@@ -104,7 +106,9 @@ func (s *Truechain) AddLesServer(ls LesServer) {
 
 // New creates a new Truechain object (including the
 // initialisation of the common Truechain object)
+
 func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
+	/*
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Truechain in light sync mode, use les.LightEthereum")
 	}
@@ -147,9 +151,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	var (
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		//cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		cacheCofigSnail = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	//eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.snailblockchain, err = chain.NewSnailBlockChain(chainDb, cacheCofigSnail, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -168,10 +174,14 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, chainDb); err != nil {
-		return nil, err
-	}
-	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	//TODO should add newprotocolManager 20180804
+	
+	//if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	//	return nil, err
+	//}
+	
+	//TODO should add 20180805
+	//eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
@@ -182,7 +192,98 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
 	return eth, nil
+	*/
+
+
+
+	if config.SyncMode == downloader.LightSync {
+		return nil, errors.New("can't run eth.Truechain in light sync mode, use les.LightEthereum")
+	}
+	if !config.SyncMode.IsValid() {
+		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
+	}
+	chainDb, err := CreateDB(ctx, config, "chaindata")
+	if err != nil {
+		return nil, err
+	}
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
+		return nil, genesisErr
+	}
+	log.Info("Initialised chain configuration", "config", chainConfig)
+
+	eth := &Truechain{
+		config:         config,
+		chainDb:        chainDb,
+		chainConfig:    chainConfig,
+		eventMux:       ctx.EventMux,
+		accountManager: ctx.AccountManager,
+		engine:         CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
+		shutdownChan:   make(chan bool),
+		networkID:      config.NetworkId,
+		gasPrice:       config.GasPrice,
+		etherbase:      config.Etherbase,
+		bloomRequests:  make(chan chan *bloombits.Retrieval),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+	}
+
+	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
+
+	if !config.SkipBcVersionCheck {
+		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
+		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
+			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
+		}
+		rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
+	}
+	var (
+		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+		//cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		cacheCofigSnail = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+	)
+	//eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.snailblockchain, err = chain.NewSnailBlockChain(chainDb, cacheCofigSnail, eth.chainConfig, eth.engine, vmConfig)
+	if err != nil {
+		return nil, err
+	}
+	// Rewind the chain in case of an incompatible config upgrade.
+	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		eth.blockchain.SetHead(compat.RewindTo)
+		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+	}
+	eth.bloomIndexer.Start(eth.blockchain)
+
+	if config.TxPool.Journal != "" {
+		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
+	}
+	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
+
+	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
+
+	//TODO should add newprotocolManager 20180804
+	
+	//if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, chainDb); err != nil {
+	//	return nil, err
+	//}
+	
+	//TODO should add 20180805
+	//eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.miner.SetExtra(makeExtraData(config.ExtraData))
+
+	eth.APIBackend = &EthAPIBackend{eth, nil}
+	gpoParams := config.GPO
+	if gpoParams.Default == nil {
+		gpoParams.Default = config.GasPrice
+	}
+	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
+
+	return eth, nil
+
+
+
 }
+
 
 func makeExtraData(extra []byte) []byte {
 	if len(extra) == 0 {
@@ -374,6 +475,7 @@ func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
 func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
+func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain      { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
 func (s *Truechain) HybridPool() *core.SnailPool {return s.hybridPool}

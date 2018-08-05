@@ -32,16 +32,29 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // Backend wraps all methods required for mining.
 type Backend interface {
 	AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
+	//BlockChain() *chain.BlockChain
 	TxPool() *core.TxPool
 	HybridPool() *core.SnailPool
 	ChainDb() ethdb.Database
 }
+
+type SnailBackend interface {
+	AccountManager() *accounts.Manager
+	BlockChain() *chain.SnailBlockChain
+	//TODO need add snailchain tx pool
+	TxPool() *core.TxPool
+	HybridPool() *core.SnailPool
+	//TODO need add snailchain DB
+	ChainDb() ethdb.Database
+}
+
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
@@ -51,14 +64,14 @@ type Miner struct {
 
 	coinbase common.Address
 	mining   int32
-	eth      Backend
+	eth      SnailBackend
 	engine   consensus.Engine
-
+ 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
+func New(eth SnailBackend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:      eth,
 		mux:      mux,
@@ -168,6 +181,10 @@ func (self *Miner) Pending() (*types.Block, *state.StateDB) {
 	return self.worker.pending()
 }
 
+func (self *Miner) PendingSnail() (*types.SnailBlock, *state.StateDB) {
+	return self.worker.pendingSnail()
+}
+
 // PendingBlock returns the currently pending block.
 //
 // Note, to access both the pending block and the pending state
@@ -175,6 +192,9 @@ func (self *Miner) Pending() (*types.Block, *state.StateDB) {
 // change between multiple method calls
 func (self *Miner) PendingBlock() *types.Block {
 	return self.worker.pendingBlock()
+}
+func (self *Miner) PendingSnailBlock() *types.SnailBlock {
+	return self.worker.pendingSnailBlock()
 }
 
 func (self *Miner) SetEtherbase(addr common.Address) {

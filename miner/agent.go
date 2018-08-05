@@ -34,13 +34,13 @@ type CpuAgent struct {
 	quitCurrentOp chan struct{}
 	returnCh      chan<- *Result
 
-	chain  consensus.ChainReader
+	chain  consensus.SnailChainReader
 	engine consensus.Engine
 
 	isMining int32 // isMining indicates whether the agent is currently mining
 }
 
-func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent {
+func NewCpuAgent(chain consensus.SnailChainReader, engine consensus.Engine) *CpuAgent {
 	miner := &CpuAgent{
 		chain:  chain,
 		engine: engine,
@@ -119,11 +119,11 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	*/
 
 	// the new flow for fruit and block 20180624
-	send := make(chan *types.Block, 10)
+	send := make(chan *types.SnailBlock, 10)
 	abort := make(chan struct{})
-	go self.engine.ConSeal(self.chain, work.Block, abort, send)
+	go self.engine.ConSnailSeal(self.chain, work.Block, abort, send)
 
-	var result *types.Block
+	var result *types.SnailBlock
 	mineloop:
 	for {
 		select {
@@ -141,7 +141,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 			break
 		}
 	}
-	
+	 
 
 }
 
