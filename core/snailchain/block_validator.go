@@ -17,7 +17,7 @@
 package snailchain 
 
 import (
-	//"fmt"
+	"fmt"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -61,15 +61,17 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	//header := block.Header()
-	if err := v.engine.VerifyUncles(v.bc, block); err != nil {
+	if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
 		return err
 	}
+	// TODO need add uncles or transaction at snail block 20180804
+	/*
 	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
 	}
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
-	}
+	}*/
 	return nil
 }
 
@@ -80,11 +82,13 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
-	header := block.SnailHeader()
-	//TODO 
+	header := block.Header()
+	//TODO need add gas for snail block 20180804
+	/*
 	if block.GasUsed() != usedGas {
 		return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
 	}
+	*/
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
 	rbloom := types.CreateBloom(receipts)
@@ -107,14 +111,19 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 // CalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
 
-
+// TODO need add gas limit 20180804
 func CalcGasLimit(parent *types.SnailBlock) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
+
+	// TODO add function 
+	fmt.Printf("Block_Validator calcGasLimit not function")
+	return 0
+	/*
 	contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
 
 	// decay = parentGasLimit / 1024 -1
 	decay := parent.GasLimit()/params.GasLimitBoundDivisor - 1
-	
+	*/
 	/*
 		strategy: gasLimit of block-to-mine is set based on parent's
 		gasUsed value.  if parentGasUsed > parentGasLimit * (2/3) then we
@@ -122,7 +131,7 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 		at that usage) the amount increased/decreased depends on how far away
 		from parentGasLimit * (2/3) parentGasUsed is.
 	*/
-	
+	/*
 	limit := parent.GasLimit() - decay + contrib
 	if limit < params.MinGasLimit {
 		limit = params.MinGasLimit
@@ -136,5 +145,6 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 		}
 	}
 	return limit
+	*/
 }
 

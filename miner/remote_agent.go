@@ -42,7 +42,7 @@ type RemoteAgent struct {
 	workCh   chan *Work
 	returnCh chan<- *Result
 
-	chain       consensus.ChainReader
+	chain       consensus.SnailChainReader
 	engine      consensus.Engine
 	currentWork *Work
 	work        map[common.Hash]*Work
@@ -54,6 +54,18 @@ type RemoteAgent struct {
 }
 
 func NewRemoteAgent(chain consensus.ChainReader, engine consensus.Engine) *RemoteAgent {
+	/*
+	return &RemoteAgent{
+		chain:    chain,
+		engine:   engine,
+		work:     make(map[common.Hash]*Work),
+		hashrate: make(map[common.Hash]hashrate),
+	}
+	*/
+	return nil
+}
+
+func NewRemoteSnailAgent(chain consensus.SnailChainReader, engine consensus.Engine) *RemoteAgent {
 	return &RemoteAgent{
 		chain:    chain,
 		engine:   engine,
@@ -149,7 +161,7 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
 
-	if err := a.engine.VerifySeal(a.chain, result); err != nil {
+	if err := a.engine.VerifySnailSeal(a.chain, result); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
 	}

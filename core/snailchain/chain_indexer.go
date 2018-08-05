@@ -41,7 +41,7 @@ type ChainIndexerBackend interface {
 
 	// Process crunches through the next header in the chain segment. The caller
 	// will ensure a sequential order of headers.
-	Process(header *types.Header)
+	Process(header *types.SnailHeader)
 
 	// Commit finalizes the section metadata and stores it into the database.
 	Commit() error
@@ -220,7 +220,7 @@ func (c *ChainIndexer) eventLoop(currentHeader *types.SnailHeader, events chan S
 
 				// TODO(karalabe): This operation is expensive and might block, causing the event system to
 				// potentially also lock up. We need to do with on a different thread somehow.
-				if h := rawdb.FindSnailCommonAncestor(c.chainDb, prevHeader, header); h != nil {
+				if h := rawdb.FindCommonAncestor(c.chainDb, prevHeader, header); h != nil {
 					c.newHead(h.Number.Uint64(), true)
 				}
 			}
@@ -367,7 +367,7 @@ func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (com
 		if hash == (common.Hash{}) {
 			return common.Hash{}, fmt.Errorf("canonical block #%d unknown", number)
 		}
-		header := rawdb.ReadSnailHeader(c.chainDb, hash, number)
+		header := rawdb.ReadHeader(c.chainDb, hash, number)
 		if header == nil {
 			return common.Hash{}, fmt.Errorf("block #%d [%x…] not found", number, hash[:4])
 		} else if header.ParentHash != lastHead {

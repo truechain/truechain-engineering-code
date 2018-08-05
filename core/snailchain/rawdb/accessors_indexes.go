@@ -40,7 +40,10 @@ func ReadTxLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64
 
 // WriteTxLookupEntries stores a positional metadata for every transaction from
 // a block, enabling hash based transaction and receipt lookups.
-func WriteTxLookupEntries(db DatabaseWriter, block *types.Block) {
+func WriteTxLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
+	
+	//TODO should snail transaction 
+	/*
 	for i, tx := range block.Transactions() {
 		entry := TxLookupEntry{
 			BlockHash:  block.Hash(),
@@ -54,7 +57,7 @@ func WriteTxLookupEntries(db DatabaseWriter, block *types.Block) {
 		if err := db.Put(txLookupKey(tx.Hash()), data); err != nil {
 			log.Crit("Failed to store transaction lookup entry", "err", err)
 		}
-	}
+	}*/
 }
 
 // DeleteTxLookupEntry removes all transaction data associated with a hash.
@@ -65,16 +68,21 @@ func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
 // ReadTransaction retrieves a specific transaction from the database, along with
 // its added positional metadata.
 func ReadTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, txIndex := ReadTxLookupEntry(db, hash)
+	//blockHash, blockNumber, txIndex := ReadTxLookupEntry(db, hash)
+	blockHash, _, _ := ReadTxLookupEntry(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}
-	body := ReadBody(db, blockHash, blockNumber)
+	//body := ReadBody(db, blockHash, blockNumber)
+	// TODO should add transaction 20180804
+	/*
 	if body == nil || len(body.Transactions) <= int(txIndex) {
 		log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
 		return nil, common.Hash{}, 0, 0
 	}
 	return body.Transactions[txIndex], blockHash, blockNumber, txIndex
+	*/
+	return nil, common.Hash{}, 0, 0
 }
 
 // ReadReceipt retrieves a specific transaction receipt from the database, along with

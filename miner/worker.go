@@ -31,11 +31,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core/vm"
+	//"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -79,21 +80,21 @@ type Work struct {
 	tcount    int            // tx count in cycle
 	gasPool   *core.GasPool  // available gas used to pack transactions
 
-	Block *types.Block // the new block
+	Block *types.SnailBlock // the new block
 
-	FruitSet []*types.Block //the for fruitset
+	FruitSet []*types.SnailBlock //the for fruitset
 
-	header   *types.Header
+	header   *types.SnailHeader
 	txs      []*types.Transaction
 	receipts []*types.Receipt
-	fruits   []*types.Block // for the fresh neo20180627
-
+	fruits   []*types.SnailBlock // for the fresh neo20180627
+ 
 	createdAt time.Time
 }
 
 type Result struct {
 	Work  *Work
-	Block *types.Block
+	Block *types.SnailBlock
 }
 
 /*
@@ -117,23 +118,24 @@ type worker struct {
 	// neo add to event record and fruit
 	fruitSub  event.Subscription // for fruit
 	recordSub event.Subscription //for record
-	fruitCh   chan core.NewFruitsEvent
-	recordCh  chan core.NewRecordsEvent
+	fruitCh   chan chain.NewFruitsEvent
+	recordCh  chan chain.NewRecordsEvent
 
-	txsCh        chan core.NewTxsEvent
+	txsCh        chan chain.NewTxsEvent
 	txsSub       event.Subscription
-	chainHeadCh  chan core.ChainHeadEvent
+	chainHeadCh  chan chain.ChainHeadEvent
 	chainHeadSub event.Subscription
-	chainSideCh  chan core.ChainSideEvent
+	chainSideCh  chan chain.ChainSideEvent
 	chainSideSub event.Subscription
 	wg           sync.WaitGroup
 
 	agents map[Agent]struct{}
 	recv   chan *Result
 
-	eth     Backend
-	chain   *core.BlockChain
-	proc    core.Validator
+	eth     SnailBackend
+	chain   *chain.SnailBlockChain
+	snailchain  *chain.SnailBlockChain
+	proc    chain.Validator
 	chainDb ethdb.Database
 
 	coinbase common.Address
@@ -143,49 +145,52 @@ type worker struct {
 	current   *Work
 
 	snapshotMu    sync.RWMutex
-	snapshotBlock *types.Block
+	snapshotBlock *types.SnailBlock
 	snapshotState *state.StateDB
 
 	uncleMu        sync.Mutex
-	possibleUncles map[common.Hash]*types.Block
+	possibleUncles map[common.Hash]*types.SnailBlock
 
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
 
-	fruitPoolSet []*types.Block //the for  fruitset  pool neo  20180627
+	fruitPoolSet []*types.SnailBlock //the for  fruitset  pool neo  20180627
 	// atomic status counters
 	mining int32
 	atWork int32
-}
-
-func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
+} 
+ 
+func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth SnailBackend, mux *event.TypeMux) *worker {
 	worker := &worker{
 		config:         config,
 		engine:         engine,
 		eth:            eth,
 		mux:            mux,
-		txsCh:          make(chan core.NewTxsEvent, txChanSize),
-		fruitCh:        make(chan core.NewFruitsEvent, txChanSize),  //neo 20180626 for fruit
-		recordCh:       make(chan core.NewRecordsEvent, txChanSize), //neo 20180626 for record
-		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
+		txsCh:          make(chan chain.NewTxsEvent, txChanSize),
+		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),  //neo 20180626 for fruit
+		recordCh:       make(chan chain.NewRecordsEvent, txChanSize), //neo 20180626 for record
+		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
+		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
 		chainDb:        eth.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
+		//TODO need konw how to 
 		chain:          eth.BlockChain(),
 		proc:           eth.BlockChain().Validator(),
-		possibleUncles: make(map[common.Hash]*types.Block),
+		possibleUncles: make(map[common.Hash]*types.SnailBlock),
 		coinbase:       coinbase,
 		agents:         make(map[Agent]struct{}),
 		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 	}
 	// Subscribe NewTxsEvent for tx pool
-	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
+	//TODO need add snailTxPool 20180804
+	//worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
-	// Neo subscribe event for fruit and record
-	worker.fruitSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh) // Neo 20180628 we need change the txsCh for fruit and record
-	worker.recordSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
+	//  subscribe event for fruit and record
+	//TODO need add snail txpool
+	//worker.fruitSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh) // Neo 20180628 we need change the txsCh for fruit and record
+	//worker.recordSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 
 	go worker.update()
 
@@ -212,6 +217,21 @@ func (self *worker) pending() (*types.Block, *state.StateDB) {
 		// return a snapshot to avoid contention on currentMu mutex
 		self.snapshotMu.RLock()
 		defer self.snapshotMu.RUnlock()
+		//return self.snapshotBlock, self.snapshotState.Copy()
+		return nil,nil
+	}
+
+	self.currentMu.Lock()
+	defer self.currentMu.Unlock()
+	return nil,nil
+	//return self.current.Block, self.current.state.Copy()
+}
+
+func (self *worker) pendingSnail() (*types.SnailBlock, *state.StateDB) {
+	if atomic.LoadInt32(&self.mining) == 0 {
+		// return a snapshot to avoid contention on currentMu mutex
+		self.snapshotMu.RLock()
+		defer self.snapshotMu.RUnlock()
 		return self.snapshotBlock, self.snapshotState.Copy()
 	}
 
@@ -225,6 +245,23 @@ func (self *worker) pendingBlock() *types.Block {
 		// return a snapshot to avoid contention on currentMu mutex
 		self.snapshotMu.RLock()
 		defer self.snapshotMu.RUnlock()
+		//TODO 20180805
+		//return snapshot
+		return nil
+	}
+
+	self.currentMu.Lock()
+	defer self.currentMu.Unlock()
+	//return self.current.Block
+	return nil
+}
+
+
+func (self *worker) pendingSnailBlock() *types.SnailBlock {
+	if atomic.LoadInt32(&self.mining) == 0 {
+		// return a snapshot to avoid contention on currentMu mutex
+		self.snapshotMu.RLock()
+		defer self.snapshotMu.RUnlock()
 		return self.snapshotBlock
 	}
 
@@ -232,6 +269,7 @@ func (self *worker) pendingBlock() *types.Block {
 	defer self.currentMu.Unlock()
 	return self.current.Block
 }
+
 
 func (self *worker) start() {
 	self.mu.Lock()
@@ -321,7 +359,7 @@ func (self *worker) update() {
 					acc, _ := types.Sender(self.current.signer, tx)
 					txs[acc] = append(txs[acc], tx)
 				}
-
+ 
 				//txset := types.NewTransactionsByPriceAndNonce(self.current.signer, txs)
 				//self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase)
 				self.updateSnapshot()
@@ -368,8 +406,10 @@ func (self *worker) wait() {
 			block := result.Block
 			work := result.Work
 
-			//neo 20180624 that for fruit
+			// 20180624 that for fruit
 			if block.IsFruit() {
+				//TODO need add fruit flow
+				/*
 				if block.RecordNumber() == nil {
 					// if it does't include a record, it's not a fruit
 					continue
@@ -377,13 +417,14 @@ func (self *worker) wait() {
 				if block.RecordNumber().Cmp(common.Big0) == 0 {
 					continue
 				}
+				*/
 				//log.Info("mined fruit", "record number", block.RecordNumber(), "hash", block.Hash())
 				//neo 20180628
 				// put it into pool first
 				// Broadcast the new fruit event
-				self.mux.Post(core.NewMinedFruitEvent{Block: block})
-
-				var newFruits []*types.Block
+				self.mux.Post(chain.NewMinedFruitEvent{Block: block})
+ 
+				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
 				self.eth.HybridPool().AddRemoteFruits(newFruits)
 
@@ -405,16 +446,16 @@ func (self *worker) wait() {
 					log.Error("Failed writing block to chain", "err", err)
 					continue
 				}
-
+ 
 				// Broadcast the block and announce chain insertion event
-				self.mux.Post(core.NewMinedBlockEvent{Block: block})
+				self.mux.Post(chain.NewMinedBlockEvent{Block: block})
 				var (
 					events []interface{}
 					logs   = work.state.Logs()
 				)
-				events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
-				if stat == core.CanonStatTy {
-					events = append(events, core.ChainHeadEvent{Block: block})
+				events = append(events, chain.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
+				if stat == chain.CanonStatTy {
+					events = append(events, chain.ChainHeadEvent{Block: block})
 				}
 				self.chain.PostChainEvents(events, logs)
 
@@ -440,7 +481,7 @@ func (self *worker) push(work *Work) {
 }
 
 // makeCurrent creates a new environment for the current cycle.
-func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error {
+func (self *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHeader) error {
 	state, err := self.chain.StateAt(parent.Root())
 	if err != nil {
 		return err
@@ -458,9 +499,12 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 
 	// when 08 is processed ancestors contain 07 (quick block)
 	for _, ancestor := range self.chain.GetBlocksFromHash(parent.Hash(), 7) {
+		//TODO need add snail uncles 20180804
+		/*
 		for _, uncle := range ancestor.Uncles() {
 			work.family.Add(uncle.Hash())
 		}
+		*/
 		work.family.Add(ancestor.Hash())
 		work.ancestors.Add(ancestor.Hash())
 	}
@@ -495,11 +539,13 @@ func (self *worker) commitNewWork() {
 	}
 
 	num := parent.Number()
-	header := &types.Header{
+	//TODO need add more struct member
+	header := &types.SnailHeader{
 		ParentHash:  parent.Hash(),
 		PointerHash: parent.Hash(),
 		Number:      num.Add(num, common.Big1),
-		GasLimit:    core.CalcGasLimit(parent),
+		// TODO should add GasLimit 20180804
+		//GasLimit:    core.CalcGasLimit(parent),
 		Extra:       self.extra,
 		Time:        big.NewInt(tstamp),
 	}
@@ -507,7 +553,7 @@ func (self *worker) commitNewWork() {
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
 	}
-	if err := self.engine.Prepare(self.chain, header); err != nil {
+	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
 	}
@@ -543,22 +589,27 @@ func (self *worker) commitNewWork() {
 		for _, tx := range PendingRecord.Transactions() {
 			work.txs = append(work.txs, tx)
 		}
-		work.header.RecordHash = PendingRecord.Hash()
-		work.header.RecordNumber = PendingRecord.Number()
+		//TODO new snail need add fruit for fast block heard
+		//work.header.RecordHash = PendingRecord.Hash()
+		//work.header.RecordNumber = PendingRecord.Number()
 
 		log.Info("commit record", "number", PendingRecord.Number())
 	}
 
+	//TODO should add fruit flow 20180804
+	/*
 	PendingFruits, err := self.eth.HybridPool().PendingFruits()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return
 	}
 	fruits := FruitsByNumber(PendingFruits)
-	work.commitFruits(fruits, self.chain, self.coinbase)
+	
+	work.commitFruits(fruits, self.snailchain, self.coinbase)
+	*/
 	// compute uncles for the new block.
 	var (
-		uncles    []*types.Header
+		uncles    []*types.SnailHeader
 		badUncles []common.Hash
 	)
 	for hash, uncle := range self.possibleUncles {
@@ -580,7 +631,7 @@ func (self *worker) commitNewWork() {
 	}
 	// TODO: get fruits from tx pool
 	// Create the new block to seal with the consensus engine
-	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, uncles, work.receipts, work.fruits); err != nil {
+	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, work.state, work.txs, uncles, work.receipts, work.fruits); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
 	}
@@ -593,7 +644,7 @@ func (self *worker) commitNewWork() {
 	self.updateSnapshot()
 }
 
-func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
+func (self *worker) commitUncle(work *Work, uncle *types.SnailHeader) error {
 	hash := uncle.Hash()
 	if work.uncles.Has(hash) {
 		return fmt.Errorf("uncle not unique")
@@ -622,20 +673,19 @@ func (self *worker) updateSnapshot() {
 
 	//NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt, fruits []*Block)
 
-	self.snapshotBlock = types.NewBlock(
+	//TODO need add this process
+	self.snapshotBlock = types.NewSnailBlock(
 		self.current.header,
-		self.current.txs,
-		nil,
-		self.current.receipts,
-		self.current.fruits,
+		*self.current.fruits[1].Body(),
 	)
 
 	self.snapshotState = self.current.state.Copy()
 }
-
+ 
 func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, *types.Receipt) {
 	//snap := env.state.Snapshot()
-
+	//TODO snail chain not need transaction
+	/*
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
 		//env.state.RevertToSnapshot(snap)
@@ -645,9 +695,11 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	//env.receipts = append(env.receipts, receipt)
 	return nil, receipt
+	*/
+	return nil,nil
 }
 
-func (env *Work) commitFruit(fruit *types.Block, bc *core.BlockChain, coinbase common.Address) (error, []*types.Receipt) {
+func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) (error, []*types.Receipt) {
 	var receipts []*types.Receipt
 
 	pointer := bc.GetBlockByHash(fruit.PointerHash())
@@ -661,8 +713,10 @@ func (env *Work) commitFruit(fruit *types.Block, bc *core.BlockChain, coinbase c
 		return core.ErrFreshness, nil
 	}
 
-	snap := env.state.Snapshot()
+	//snap := env.state.Snapshot()
 
+	//TODO snai chain not trnsactions 20180805
+	/*
 	for _, tx := range fruit.Transactions() {
 		err, receipt := env.commitTransaction(tx, bc, coinbase, env.gasPool)
 		if err == nil {
@@ -672,18 +726,21 @@ func (env *Work) commitFruit(fruit *types.Block, bc *core.BlockChain, coinbase c
 			return err, nil
 		}
 	}
+	*/
 
 	return nil, receipts
 }
 
-func FruitsByNumber(fruits map[common.Hash]*types.Block) []*types.Block {
-	var fruitset []*types.Block
+func FruitsByNumber(fruits map[common.Hash]*types.SnailBlock) []*types.SnailBlock {
+	var fruitset []*types.SnailBlock
 	// TODO: order by record number
 	for _, fruit := range fruits {
 
 		fruitset = append(fruitset, fruit)
 	}
 	
+	//TODO need change this all 20180804
+	/*
 	lenfruits := len(fruitset)
 	for i :=0; i<lenfruits; i++{
 		mixRecordNumberIdx := i
@@ -696,14 +753,15 @@ func FruitsByNumber(fruits map[common.Hash]*types.Block) []*types.Block {
 		fruitset[i] =fruitset[mixRecordNumberIdx]
 		fruitset[mixRecordNumberIdx] = tempfruit
 	}
-
+	*/
 
 	return fruitset
 }
 
-func (env *Work) commitFruits(fruits []*types.Block, bc *core.BlockChain, coinbase common.Address) {
+func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) {
 	if env.gasPool == nil {
-		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
+		//TODO should add gaslimit 20180804
+		//env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 
 	for _, fruit := range fruits {

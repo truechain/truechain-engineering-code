@@ -34,7 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	//"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -162,18 +162,23 @@ func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 	}
-	bc.SetValidator(NewSnailBlockValidator(chainConfig, bc, engine))
-	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
+	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	//TODO snail not need state at this stage 20180804
+	//bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
 	}
+	//TODO 20180805
+	
+	
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
 	}
+	
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
@@ -243,7 +248,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 		if block := bc.GetBlockByHash(head); block != nil {
 			bc.currentFastBlock.Store(block)
 		}
-	}
+	} 
 
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
@@ -480,8 +485,8 @@ func (bc *SnailBlockChain) insert(block *types.SnailBlock) {
 	updateHeads := rawdb.ReadCanonicalHash(bc.db, block.NumberU64()) != block.Hash()
 
 	// Add the block to the canonical chain number scheme and mark as the head
-	rawdb.WriteCanonicalSnailHash(bc.db, block.Hash(), block.NumberU64())
-	rawdb.WriteSnailHeadBlockHash(bc.db, block.Hash())
+	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
+	rawdb.WriteHeadBlockHash(bc.db, block.Hash())
 
 	bc.currentBlock.Store(block)
 
@@ -512,7 +517,7 @@ func (bc *SnailBlockChain) GetBody(hash common.Hash) *types.SnailBody {
 	if number == nil {
 		return nil
 	}
-	body := rawdb.ReadSnailBody(bc.db, hash, *number)
+	body := rawdb.ReadBody(bc.db, hash, *number)
 	if body == nil {
 		return nil
 	}
@@ -532,7 +537,7 @@ func (bc *SnailBlockChain) GetBodyRLP(hash common.Hash) rlp.RawValue {
 	if number == nil {
 		return nil
 	}
-	body := rawdb.ReadSnailBodyRLP(bc.db, hash, *number)
+	body := rawdb.ReadBodyRLP(bc.db, hash, *number)
 	if len(body) == 0 {
 		return nil
 	}
@@ -546,7 +551,7 @@ func (bc *SnailBlockChain) HasBlock(hash common.Hash, number uint64) bool {
 	if bc.blockCache.Contains(hash) {
 		return true
 	}
-	return rawdb.HasSnailBody(bc.db, hash, number)
+	return rawdb.HasBody(bc.db, hash, number)
 }
 
 // HasState checks if state trie is fully present in the database or not.
@@ -573,7 +578,7 @@ func (bc *SnailBlockChain) GetBlock(hash common.Hash, number uint64) *types.Snai
 	if block, ok := bc.blockCache.Get(hash); ok {
 		return block.(*types.SnailBlock)
 	}
-	block := rawdb.ReadSnailBlock(bc.db, hash, number)
+	block := rawdb.ReadBlock(bc.db, hash, number)
 	if block == nil {
 		return nil
 	}
@@ -603,7 +608,7 @@ func (bc *SnailBlockChain) GetBlockByNumber(number uint64) *types.SnailBlock {
 
 // GetReceiptsByHash retrieves the receipts for all transactions in a given block.
 func (bc *SnailBlockChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
-	number := rawdb.ReadSnailHeaderNumber(bc.db, hash)
+	number := rawdb.ReadHeaderNumber(bc.db, hash)
 	if number == nil {
 		return nil
 	}
@@ -668,7 +673,7 @@ func (bc *SnailBlockChain) Stop() {
 	if !bc.cacheConfig.Disabled {
 		triedb := bc.stateCache.TrieDB()
 
-		for _, offset := range []uint64{0, 1, snailTriesInMemory - 1} {
+		for _, offset := range []uint64{0, 1, triesInMemory - 1} {
 			if number := bc.CurrentBlock().NumberU64(); number > offset {
 				recent := bc.GetBlockByNumber(number - offset)
 
@@ -706,12 +711,12 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 }
 
 // WriteStatus status of write
-type WriteSnailStatus byte
+type WriteStatus byte
 
 const (
-	NonSnailStatTy WriteSnailStatus = iota
-	CanonSnailStatTy
-	SideSnailStatTy
+	NonStatTy WriteStatus = iota
+	CanonStatTy
+	SideStatTy
 )
 
 // Rollback is designed to remove a chain of links from the database that aren't
@@ -736,17 +741,20 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 		if currentBlock := bc.CurrentBlock(); currentBlock.Hash() == hash {
 			newBlock := bc.GetBlock(currentBlock.ParentHash(), currentBlock.NumberU64()-1)
 			bc.currentBlock.Store(newBlock)
-			rawdb.WriteSnailHeadBlockHash(bc.db, newBlock.Hash())
+			rawdb.WriteHeadBlockHash(bc.db, newBlock.Hash())
 		}
 	}
 }
 
 // SetSnailReceiptsData computes all the non-consensus fields of the receipts
-func SetSnailReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
+func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
 	
-	signer := types.MakeSigner(config, block.Number())
+	//signer := types.MakeSigner(config, block.Number())
 
-	transactions, logIndex := block.Transactions(), uint(0)
+	//TODO should add transaction for snail chain 20180804
+	//transactions, logIndex := block.Transactions(), uint(0)
+
+	/*
 	if len(transactions) != len(receipts) {
 		return errors.New("transaction and receipt count mismatch")
 	}
@@ -777,6 +785,7 @@ func SetSnailReceiptsData(config *params.ChainConfig, block *types.SnailBlock, r
 			logIndex++
 		}
 	}
+	*/
 	return nil
 	
 }
@@ -785,10 +794,10 @@ func SetSnailReceiptsData(config *params.ChainConfig, block *types.SnailBlock, r
 // InsertReceiptChain attempts to complete an already existing header chain with
 // transaction and receipt data.
 
-func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlock, receiptChain []types.Receipts) (int, error) {
+func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, receiptChain []types.Receipts) (int, error) {
 	
 	bc.wg.Add(1)
-	defer bc.wg.Done()
+	defer bc.wg.Done() 
 
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(blockChain); i++ {
@@ -822,7 +831,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlock, recei
 			continue
 		}
 		// Compute all the non-consensus fields of the receipts
-		if err := SetSnailReceiptsData(bc.chainConfig, block, receipts); err != nil {
+		if err := SetReceiptsData(bc.chainConfig, block, receipts); err != nil {
 			return i, fmt.Errorf("failed to set receipts data: %v", err)
 		}
 		// Write all the data out into the database
@@ -831,7 +840,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlock, recei
 		rawdb.WriteTxLookupEntries(batch, block)
 
 		stats.processed++
-
+ 
 		if batch.ValueSize() >= ethdb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return 0, err
@@ -880,20 +889,20 @@ func (bc *SnailBlockChain) WriteBlockWithoutState(block *types.SnailBlock, td *b
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
 		return err
 	}
-	rawdb.WriteSnailBlock(bc.db, block)
+	rawdb.WriteBlock(bc.db, block)
 
 	return nil
 }
 
 // WriteBlockWithState writes the block and all associated state to the database.
-func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts []*types.Receipt, state *state.StateDB) (status WriteSnailStatus, err error) {
+func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
-		return NonSnailStatTy, consensus.ErrUnknownAncestor
+		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	// Make sure no inconsistent state is leaked during insertion
 	bc.mu.Lock()
@@ -905,29 +914,29 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 
 	// Irrelevant of the canonical status, write the block itself to the database
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
-		return NonSnailStatTy, err
+		return NonStatTy, err
 	}
 	// Write other block data using a batch.
 	batch := bc.db.NewBatch()
-	rawdb.WriteSnailBlock(batch, block)
+	rawdb.WriteBlock(batch, block)
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
-		return NonSnailStatTy, err
+		return NonStatTy, err
 	}
 	triedb := bc.stateCache.TrieDB()
 
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
 		if err := triedb.Commit(root, false); err != nil {
-			return NonSnailStatTy, err
+			return NonStatTy, err
 		}
 	} else {
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
 
-		if current := block.NumberU64(); current > snailTriesInMemory {
+		if current := block.NumberU64(); current > triesInMemory {
 			// If we exceeded our memory allowance, flush matured singleton nodes to disk
 			var (
 				nodes, imgs = triedb.Size()
@@ -937,15 +946,15 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 				triedb.Cap(limit - ethdb.IdealBatchSize)
 			}
 			// Find the next state trie we need to commit
-			header := bc.GetHeaderByNumber(current - snailTriesInMemory)
+			header := bc.GetHeaderByNumber(current - triesInMemory)
 			chosen := header.Number.Uint64()
 
 			// If we exceeded out time allowance, flush an entire trie to disk
 			if bc.gcproc > bc.cacheConfig.TrieTimeLimit {
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
-				if chosen < lastSnailWrite+snailTriesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastSnailWrite)/snailTriesInMemory)
+				if chosen < lastSnailWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastSnailWrite)/triesInMemory)
 				}
 				// Flush an entire trie and restart the counters
 				triedb.Commit(header.Root, true)
@@ -978,7 +987,7 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 		// Reorganise the chain if the parent is not the head block
 		if block.ParentHash() != currentBlock.Hash() {
 			if err := bc.reorg(currentBlock, block); err != nil {
-				return NonSnailStatTy, err
+				return NonStatTy, err
 			}
 		}
 		// Write the positional metadata for transaction/receipt lookups and preimages
@@ -986,16 +995,16 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 		///rawdb.WriteTxLookupEntries(batch, block)
 		//rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
 
-		status = CanonSnailStatTy
+		status = CanonStatTy
 	} else {
-		status = SideSnailStatTy
+		status = SideStatTy
 	}
 	if err := batch.Write(); err != nil {
-		return NonSnailStatTy, err
+		return NonStatTy, err
 	}
 
 	// Set new head.
-	if status == CanonSnailStatTy {
+	if status == CanonStatTy {
 		bc.insert(block)
 	}
 	bc.futureBlocks.Remove(block.Hash())
@@ -1081,7 +1090,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateSnailBody(block)
+			err = bc.Validator().ValidateBody(block)
 		}
 		switch {
 		case err == ErrKnownBlock:
@@ -1095,7 +1104,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		case err == consensus.ErrFutureBlock:
 			// Allow up to MaxFuture second in the future blocks. If this limit is exceeded
 			// the chain is discarded and processed at a later time if given.
-			max := big.NewInt(time.Now().Unix() + snailMaxTimeFutureBlocks)
+			max := big.NewInt(time.Now().Unix() + maxTimeFutureBlocks)
 			if block.Time().Cmp(max) > 0 {
 				return i, events, coalescedLogs, fmt.Errorf("future block: %v > %v", block.Time(), max)
 			}
@@ -1158,13 +1167,13 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			return i, events, coalescedLogs, err
 		}
 		// Process block using the parent state as reference point.
-		receipts, logs, usedGas, err := bc.processor.ProcessSnail(block, state, bc.vmConfig)
+		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
 		// Validate the state using the default validator
-		err = bc.Validator().ValidateSnailState(block, parent, state, receipts, usedGas)
+		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
@@ -1177,27 +1186,27 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			return i, events, coalescedLogs, err
 		}
 		switch status {
-		case CanonSnailStatTy:
+		case CanonStatTy:
 			/*
 			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
 			coalescedLogs = append(coalescedLogs, logs...)
 			*/
-			BlockInsertTimer.UpdateSince(bstart)
+			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, SnailChainEvent{block, block.Hash(), logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 
-		case SideSnailStatTy:
+		case SideStatTy:
 			/*
 			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
 			*/
-			BlockInsertTimer.UpdateSince(bstart)
-			events = append(events, SnailChainSideEvent{block})
+			blockInsertTimer.UpdateSince(bstart)
+			events = append(events, ChainSideEvent{block})
 		}
 		stats.processed++
 		stats.usedGas += usedGas
@@ -1207,7 +1216,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 	}
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, SnailChainHeadEvent{lastCanon})
+		events = append(events, ChainHeadEvent{lastCanon})
 	}
 	return 0, events, coalescedLogs, nil
 }
@@ -1350,22 +1359,30 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}
 	// Insert the new chain, taking care of the proper incremental order
-	var addedTxs types.Transactions
+	//TODO add transaction
+	//var addedTxs types.Transactions
 	for i := len(newChain) - 1; i >= 0; i-- {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])
 		// write lookup entries for hash based transaction/receipt searches
 		rawdb.WriteTxLookupEntries(bc.db, newChain[i])
-		addedTxs = append(addedTxs, newChain[i].Transactions()...)
-	}
+		//TODO need add transaction for snail 20180804
+		//addedTxs = append(addedTxs, newChain[i].Transactions()...)
+	} 
 	// calculate the difference between deleted and added transactions
-	diff := types.TxDifference(deletedTxs, addedTxs)
+
+	//TODO need add transaction for snail 20180804
+	//diff := types.TxDifference(deletedTxs, addedTxs)
+
 	// When transactions get deleted from the database that means the
 	// receipts that were created in the fork must also be deleted
 	batch := bc.db.NewBatch()
+	//TODO need add transaction for snail 20180804
+	/*
 	for _, tx := range diff {
 		rawdb.DeleteTxLookupEntry(batch, tx.Hash())
 	}
+	*/
 	batch.Write()
 	
 	if len(deletedLogs) > 0 {
@@ -1374,7 +1391,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(SnailChainSideEvent{Block: block})
+				bc.chainSideFeed.Send(ChainSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1578,7 +1595,7 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 
 // Engine retrieves the blockchain's consensus engine.
-func (bc *SnailBlockChain) Engine() consensus.EngineSnail { return bc.engine }
+func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
 

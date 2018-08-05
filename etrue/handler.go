@@ -935,8 +935,10 @@ func (pm *ProtocolManager) recordBroadcastLoop() {
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.fruitsch:
-			pm.BroadcastFruits(event.Fruits)
+			//TODO have to add fruit 20180805
+		//case event := <-pm.fruitsch:
+			
+			//pm.BroadcastFruits(event.Fruits)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():

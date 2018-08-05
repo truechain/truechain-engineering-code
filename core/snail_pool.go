@@ -649,7 +649,7 @@ func (pool *SnailPool) State() *state.ManagedState {
 // AddLocals enqueues a batch of transactions into the pool if they are valid,
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
-func (pool *SnailPool) AddRemoteFruits(fruits []*types.Block) []error {
+func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 	errs := make([]error, len(fruits))
 
@@ -660,7 +660,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.Block) []error {
 			continue
 		}
 
-		f := types.CopyFruit(fruit)
+		//TODO need add snail fruit 20180804
+		f := types.CopyFruit(nil)
+		//f := types.CopyFruit(fruit)
 		pool.newFruitCh <- f
 	}
 
@@ -766,7 +768,7 @@ func (pool *SnailPool) validateRecord(record *types.PbftRecord) error {
 	return nil
 }
 
-func (pool *SnailPool) validateFruit(fruit *types.Block) error {
+func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	// TODO: checks whether the fruit is valid
 
 	// check freshness
@@ -780,14 +782,17 @@ func (pool *SnailPool) validateFruit(fruit *types.Block) error {
 		return ErrFreshness
 	}
 
-	header := fruit.Header()
+	//header := fruit.Header()
 	//if err := pool.engine.VerifyHeader(pool.chain, header, true); err != nil {
 	//	return err
 	//}
 
+	//TODO snail chain not need use transactions 20180804
+	/*
 	if hash := types.DeriveSha(fruit.Transactions()); hash != header.TxHash {
 		return ErrInvalidHash
 	}
+	*/
 
 	return nil
 }
