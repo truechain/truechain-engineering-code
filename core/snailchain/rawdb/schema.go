@@ -42,10 +42,11 @@ var (
 	fastTrieProgressKey = []byte("TrieSync")
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`, used for indexes).
-	headerPrefix       = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
-	headerTDSuffix     = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
-	headerHashSuffix   = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
-	headerNumberPrefix = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	headerPrefix          = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
+	headerTDSuffix        = []byte("t") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
+	headerHashSuffix      = []byte("n") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
+	headerNumberPrefix    = []byte("H") // headerNumberPrefix + hash -> num (uint64 big endian)
+	headerCommitteeSuffix = []byte("C") // headerPrefix + num (uint64 big endian) + hash + headerCommitteeSuffix -> committee
 
 	blockBodyPrefix     = []byte("b") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
@@ -131,4 +132,9 @@ func preimageKey(hash common.Hash) []byte {
 // configKey = configPrefix + hash
 func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
+}
+
+// headerCommitteeKey = headerPrefix + num (uint64 big endian) + headerCommitteeSuffix
+func headerCommitteeKey(number uint64) []byte {
+	return append(encodeBlockNumber(number), headerCommitteeSuffix...)
 }

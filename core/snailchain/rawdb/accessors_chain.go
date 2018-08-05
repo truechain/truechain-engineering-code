@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -156,7 +157,7 @@ func ReadHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Heade
 
 // WriteHeader stores a block header into the database and also stores the hash-
 // to-number mapping.
-func WriteHeader(db DatabaseWriter, header *types.Header) {
+func WriteHeader(db DatabaseWriter, header *types.SnailHeader) {
 	// Write the hash -> number mapping
 	var (
 		hash    = header.Hash()
@@ -224,7 +225,7 @@ func ReadBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
 }
 
 // WriteBody storea a block body into the database.
-func WriteBody(db DatabaseWriter, hash common.Hash, number uint64, body *types.Body) {
+func WriteBody(db DatabaseWriter, hash common.Hash, number uint64, body *types.SnailBody) {
 	data, err := rlp.EncodeToBytes(body)
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
@@ -334,7 +335,7 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block 
 }
 
 // WriteBlock serializes a block into the database, header and body separately.
-func WriteBlock(db DatabaseWriter, block *types.Block) {
+func WriteBlock(db DatabaseWriter, block *types.SnailBlock) {
 	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
 }
@@ -372,4 +373,48 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 		}
 	}
 	return a
+}
+
+// WriteCommittee stores the Committee of a block into the database.
+func WriteCommittee(db DatabaseWriter, number uint64, committee []snailchain.Committee) {
+	data, err := rlp.EncodeToBytes(committee)
+	if err != nil {
+		log.Crit("Failed to RLP encode block committee", "err", err)
+	}
+
+	key := headerCommitteeKey(number)
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store block committee", "err", err)
+	}
+	log.Info("success to store block committee")
+}
+
+// ReadCommittee read committee
+//
+func ReadCommittee(db DatabaseReader, number uint64) []snailchain.Committee {
+	key := headerCommitteeKey(number)
+	data, _ := db.Get(key)
+	if len(data) == 0 {
+		return nil
+	}
+	committee := new([]snailchain.Committee)
+	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
+		log.Error("Invalid block  committee RLP", "err", err)
+		return nil
+	}
+	return *committee
+}
+
+// ReadCommittee read the Genesis committee
+func ReadGenesisCommittee(db DatabaseReader) []snailchain.Committee {
+	data, _ := db.Get(headerCommitteeKey(0))
+	if len(data) == 0 {
+		return nil
+	}
+	committee := new([]snailchain.Committee)
+	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
+		log.Error("Invalid block  committee RLP", "err", err)
+		return nil
+	}
+	return *committee
 }
