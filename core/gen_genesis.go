@@ -29,7 +29,6 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 		Number     math.HexOrDecimal64                         `json:"number"`
 		GasUsed    math.HexOrDecimal64                         `json:"gasUsed"`
 		ParentHash common.Hash                                 `json:"parentHash"`
-		Committee  []common.Committee        `json:"committee"      gencodec:"required"`
 	}
 	var enc Genesis
 	enc.Config = g.Config
@@ -40,7 +39,6 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 	enc.Difficulty = (*math.HexOrDecimal256)(g.Difficulty)
 	enc.Mixhash = g.Mixhash
 	enc.Coinbase = g.Coinbase
-	enc.Committee = g.Committee
 	if g.Alloc != nil {
 		enc.Alloc = make(map[common.UnprefixedAddress]GenesisAccount, len(g.Alloc))
 		for k, v := range g.Alloc {
@@ -67,7 +65,6 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		Number     *math.HexOrDecimal64                        `json:"number"`
 		GasUsed    *math.HexOrDecimal64                        `json:"gasUsed"`
 		ParentHash *common.Hash                                `json:"parentHash"`
-		Committee  []common.Committee        `json:"committee"      gencodec:"required"`
 	}
 	var dec Genesis
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -106,9 +103,7 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	for k, v := range dec.Alloc {
 		g.Alloc[common.Address(k)] = v
 	}
-	if dec.Committee != nil {
-		g.Committee = dec.Committee
-	}
+
 	if dec.Number != nil {
 		g.Number = uint64(*dec.Number)
 	}

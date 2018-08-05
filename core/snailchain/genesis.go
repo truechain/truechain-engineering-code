@@ -28,7 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -55,7 +55,7 @@ type Genesis struct {
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 	//committee info
-	Committee []Committee `json:"committee"      gencodec:"required"`
+	Committee []types.Committee `json:"committee"      gencodec:"required"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.
@@ -258,7 +258,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.SnailBlock {
 	statedb.Database().TrieDB().Commit(root, true)
 
 	//TODO get body 20180804
-	body:=types.SnailBody{}
+	body := types.SnailBody{}
 
 	return types.NewSnailBlock(head, body)
 }
@@ -343,7 +343,7 @@ func DefaultRinkebyGenesisBlock() *Genesis {
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
-	config.Clique.Period = period
+	//config.Clique.Period = period
 
 	// Assemble and return the genesis with the precompiles and faucet pre-funded
 	return &Genesis{

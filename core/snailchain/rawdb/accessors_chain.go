@@ -22,7 +22,6 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -376,7 +375,7 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 }
 
 // WriteCommittee stores the Committee of a block into the database.
-func WriteCommittee(db DatabaseWriter, number uint64, committee []snailchain.Committee) {
+func WriteCommittee(db DatabaseWriter, number uint64, committee []types.Committee) {
 	data, err := rlp.EncodeToBytes(committee)
 	if err != nil {
 		log.Crit("Failed to RLP encode block committee", "err", err)
@@ -391,13 +390,13 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []snailchain.Com
 
 // ReadCommittee read committee
 //
-func ReadCommittee(db DatabaseReader, number uint64) []snailchain.Committee {
+func ReadCommittee(db DatabaseReader, number uint64) []types.Committee {
 	key := headerCommitteeKey(number)
 	data, _ := db.Get(key)
 	if len(data) == 0 {
 		return nil
 	}
-	committee := new([]snailchain.Committee)
+	committee := new([]types.Committee)
 	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
 		log.Error("Invalid block  committee RLP", "err", err)
 		return nil
@@ -406,12 +405,12 @@ func ReadCommittee(db DatabaseReader, number uint64) []snailchain.Committee {
 }
 
 // ReadCommittee read the Genesis committee
-func ReadGenesisCommittee(db DatabaseReader) []snailchain.Committee {
+func ReadGenesisCommittee(db DatabaseReader) []types.Committee {
 	data, _ := db.Get(headerCommitteeKey(0))
 	if len(data) == 0 {
 		return nil
 	}
-	committee := new([]snailchain.Committee)
+	committee := new([]types.Committee)
 	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
 		log.Error("Invalid block  committee RLP", "err", err)
 		return nil
