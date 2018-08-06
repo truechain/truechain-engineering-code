@@ -39,7 +39,8 @@ var (
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownRecords    = 1024 // Maximum records hashes to keep in the known list (prevent DOS)
-	maxKnownFruits    = 1024 // Maximum records hashes to keep in the known list (prevent DOS)
+	maxKnownFruits    = 1024 // Maximum fruits hashes to keep in the known list (prevent DOS)
+	maxKnownSnailBlocks    = 1024 // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
@@ -81,7 +82,13 @@ type propEvent struct {
 
 // propEvent is a fruit propagation, waiting for its turn in the broadcast queue.
 type fruitEvent struct {
-	block *types.Block
+	block *types.SnailBlock
+	td    *big.Int
+}
+
+// propEvent is a snailBlock propagation, waiting for its turn in the broadcast queue.
+type snailBlockEvent struct {
+	block *types.SnailBlock
 	td    *big.Int
 }
 
@@ -101,13 +108,16 @@ type peer struct {
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
 	knownRecords    *set.Set              // Set of records hashes known to be known by this peer
 	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
+	knownSnailBlocks    *set.Set              // Set of snailBlocks hashes known to be known by this peer
 	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedRecords   chan []*types.PbftRecord // Queue of records to broadcast to the peer
 	queuedFruits   chan []*types.SnailBlock // Queue of fruits to broadcast to the peer
+	queuedSnailBlcoks   chan []*types.SnailBlock // Queue of snailBlocks to broadcast to the peer
 	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 
 	queuedFruit chan *fruitEvent           // Queue of newFruits to broadcast to the peer
+	queuedSnailBlock chan *snailBlockEvent           // Queue of newSnailBlock to broadcast to the peer
 
 	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
 	term        chan struct{}             // Termination channel to stop the broadcaster
@@ -168,6 +178,20 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Propagated fruit", "number", fruit.block.Number(), "hash", fruit.block.Hash(), "td", fruit.td)
+
+			//add for snailBlock
+		case snailBlocks := <-p.queuedSnailBlcoks:
+			if err := p.SendsnailBlocks(snailBlocks); err != nil {
+				return
+			}
+			p.Log().Trace("Broadcast snailBlocks", "count", len(snailBlocks))
+
+			//add for mined snailBlock
+		case snailBlock := <-p.queuedSnailBlock:
+			if err := p.SendNewSnailBlock(snailBlock.block, snailBlock.td); err != nil {
+				return
+			}
+			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 
 		case prop := <-p.queuedProps:
 			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
@@ -259,6 +283,15 @@ func (p *peer) MarkFruit(hash common.Hash) {
 	}
 	p.knownFruits.Add(hash)
 }
+// MarkSnailBlock marks a snailBlock as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkSnailBlock(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for p.knownSnailBlocks.Size() >= maxKnownSnailBlocks {
+		p.knownSnailBlocks.Pop()
+	}
+	p.knownSnailBlocks.Add(hash)
+}
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {
@@ -281,7 +314,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-//Abtion added 20180715; Sendrecords sends records to the peer and includes the hashes
+//Sendrecords sends records to the peer and includes the hashes
 // in its record hash set for future reference.
 func (p *peer) Sendrecords(records types.PbftRecords) error {
 	for _, record := range records {
@@ -290,7 +323,7 @@ func (p *peer) Sendrecords(records types.PbftRecords) error {
 	return p2p.Send(p.rw, RecordMsg, records)
 }
 
-//Abtion 20180715 for record;the same as transactions
+//for record;the same as transactions
 func (p *peer) AsyncSendRecords(records []*types.PbftRecord) {
 	select {
 	case p.queuedRecords <- records:
@@ -302,7 +335,7 @@ func (p *peer) AsyncSendRecords(records []*types.PbftRecord) {
 	}
 }
 
-//Abtion added 20180715; Sendfruits sends fruits to the peer and includes the hashes
+//Sendfruits sends fruits to the peer and includes the hashes
 // in its fruit hash set for future reference.
 func (p *peer) Sendfruits(fruits types.Fruits) error {
 	for _, fruit := range fruits {
@@ -311,7 +344,13 @@ func (p *peer) Sendfruits(fruits types.Fruits) error {
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
-//Abtion 20180715 for record;the same as transactions
+func (p *peer) SendsnailBlocks(snailBlocks types.SnailBlocks) error {
+	for _, snailBlock := range snailBlocks {
+		p.knownSnailBlocks.Add(snailBlock.Hash())
+	}
+	return p2p.Send(p.rw, SnailBlockMsg, snailBlocks)
+}
+//for record;the same as transactions
 func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {
 	case p.queuedFruits <- fruits:
@@ -319,10 +358,20 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 			p.knownFruits.Add(fruit.Hash())
 		}
 	default:
-		p.Log().Debug("Dropping records propagation", "count", len(fruits))
+		p.Log().Debug("Dropping fruits propagation", "count", len(fruits))
 	}
 }
 
+func (p *peer) AsyncSendSnailBlocks(snailBlocks []*types.SnailBlock) {
+	select {
+	case p.queuedSnailBlcoks <- snailBlocks:
+		for _, snailBlock := range snailBlocks {
+			p.knownSnailBlocks.Add(snailBlock.Hash())
+		}
+	default:
+		p.Log().Debug("Dropping snailBlocks propagation", "count", len(snailBlocks))
+	}
+}
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
 func (p *peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
@@ -367,19 +416,35 @@ func (p *peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
 }
 
 // SendNewFruit propagates an entire fruit to a remote peer.
-func (p *peer) SendNewFruit(fruit *types.Block, td *big.Int) error {
+func (p *peer) SendNewFruit(fruit *types.SnailBlock, td *big.Int) error {
 	p.knownFruits.Add(fruit.Hash())
 	return p2p.Send(p.rw, FruitMsg, []interface{}{fruit, td})
 }
 
+func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
+	p.knownSnailBlocks.Add(snailBlock.Hash())
+	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock, td})
+}
+
 // AsyncSendNewFruit queues an entire fruit for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendNewFruit(fruit *types.Block, td *big.Int) {
+func (p *peer) AsyncSendNewFruit(fruit *types.SnailBlock, td *big.Int) {
 	select {
 	case p.queuedFruit <- &fruitEvent{block: fruit, td: td}:
 		p.knownFruits.Add(fruit.Hash())
 	default:
-		p.Log().Debug("Dropping block propagation", "number", fruit.NumberU64(), "hash", fruit.Hash())
+		p.Log().Debug("Dropping fruit propagation", "number", fruit.NumberU64(), "hash", fruit.Hash())
+	}
+}
+
+// AsyncSendNewSnailBlock queues an entire snailBlock for propagation to a remote peer. If
+// the peer's broadcast queue is full, the event is silently dropped.
+func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) {
+	select {
+	case p.queuedSnailBlock <- &snailBlockEvent{block: snailBlock, td: td}:
+		p.knownSnailBlocks.Add(snailBlock.Hash())
+	default:
+		p.Log().Debug("Dropping snailBlock propagation", "number", snailBlock.NumberU64(), "hash", snailBlock.Hash())
 	}
 }
 
@@ -647,6 +712,18 @@ func (ps *peerSet) PeersWithoutFruit(hash common.Hash) []*peer {
 	return list
 }
 
+func (ps *peerSet) PeersWithoutSnailBlock(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownSnailBlocks.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
 // BestPeer retrieves the known peer with the currently highest total difficulty.
 func (ps *peerSet) BestPeer() *peer {
 	ps.lock.RLock()

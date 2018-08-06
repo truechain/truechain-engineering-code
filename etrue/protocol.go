@@ -59,7 +59,7 @@ const (
 
 	RecordMsg		   = 0x09
 	FruitMsg		   = 0x0a
-
+	SnailBlockMsg		   = 0x0b
 	// Protocol messages belonging to eth/63
 	GetNodeDataMsg = 0x0d
 	NodeDataMsg    = 0x0e
@@ -109,17 +109,27 @@ type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
-	// Abtion 20180715 for fruits and records
+	// for fruits and records
 	//SubscribeNewRecordsEvent(chan<- core.NewRecordsEvent) event.Subscription
 	//SubscribeNewFruitsEvent(chan<- core.NewFruitsEvent) event.Subscription
 }
 
 
-type hybridPool interface {
-	AddRemoteFruits([]*types.Block) []error
-	PendingFruits() (map[common.Hash]*types.Block, error)
+/*type hybridPool interface {
+	AddRemoteFruits([]*types.SnailBlock) []error
+	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
 	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
 
+	AddRemoteRecords([]*types.PbftRecord) []error
+	PendingRecords() (*types.PbftRecord, error)
+	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
+}*/
+type SnailPool interface {
+	AddRemoteFruits([]*types.SnailBlock) []error
+	AddRemoteSnailBlocks([]*types.SnailBlock) []error
+	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
+	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
+	SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	AddRemoteRecords([]*types.PbftRecord) []error
 	PendingRecords() (*types.PbftRecord, error)
 	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription

@@ -24,12 +24,12 @@ import (
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
-// Neo 20180626 for fruit and record;Abtion 20180715 motify Neo's NewFruitEvent to NewFruitsEvent
-type NewFruitsEvent struct{ Fruits []*types.Block }
-//Abtion 20180715 motify Neo's NewRecordEvent to NewRecordsEvent
+//for fruit and record
+type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
+
 type NewRecordsEvent struct{ Records []*types.PbftRecord }
-
-
+//for snailblock
+type NewSnailBlocksEvent struct{ SnailBlocks []*types.SnailBlock }
 
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
@@ -41,11 +41,10 @@ type PendingStateEvent struct{}
 
 // NewMinedBlockEvent is posted when a block has been imported.
 type NewMinedBlockEvent struct{ Block *types.Block }
-//type NewMinedBlockEvent struct{ Block *types.Block }
-
+type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
 
 // NewMinedFruitEvent is posted when a block has been imported.
-type NewMinedFruitEvent struct{ Block *types.Block }
+type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 
 
 // RemovedLogsEvent is posted when a reorg happens
@@ -57,16 +56,15 @@ type ChainEvent struct {
 	Logs  []*types.Log
 }
 
-// fruit event
-type FruitEvent struct {
-	Block *types.Block
+type SnailChainEvent struct {
+	Block *types.SnailBlock
 	Hash  common.Hash
 	Logs  []*types.Log
 }
 
-//For snailChian event
-type SnailChainEvent struct {
-	Block *types.SnailBlock
+// for fruit event
+type FruitEvent struct {
+	Block *types.Block
 	Hash  common.Hash
 	Logs  []*types.Log
 }
@@ -75,5 +73,13 @@ type ChainSideEvent struct {
 	Block *types.Block
 }
 
+ 
+type SnailChainSideEvent struct {
+	Block *types.SnailBlock
+}
+
 type ChainHeadEvent struct{ Block *types.Block }
-type FruitFleashEvent struct{ Block *types.Block }
+
+type SnailChainHeadEvent struct{ Block *types.SnailBlock }
+
+type FruitFleashEvent struct{ Block *types.SnailBlock }
