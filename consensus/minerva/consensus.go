@@ -783,3 +783,18 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 
 	//sBlock.Body().Fruits[0].body  wait
 }
+
+//Get current revenue value for miner or committee
+//parameter num:  snail chain header number
+func getCurrentBlockCoin(num *big.Int) (miner, committee *big.Int) {
+	currentBlockCoinCount := new(big.Int).Div(SnailBlockRewardsInitial,
+		new(big.Int).Exp(new(big.Int).SetInt64(2),
+			new(big.Int).Div(new(big.Int).Add(num, new(big.Int).SetInt64(-12)), new(big.Int).SetInt64(5000)),
+			nil))
+
+	currentBlockCoinMean := new(big.Int).Div(currentBlockCoinCount, new(big.Int).Add(MinerCount, CommitteesCount))
+
+	miner = new(big.Int).Mul(currentBlockCoinMean, MinerCount)
+	committee = new(big.Int).Mul(currentBlockCoinMean, CommitteesCount)
+	return
+}
