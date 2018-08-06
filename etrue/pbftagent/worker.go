@@ -444,16 +444,6 @@ func  GenerateFastBlock() (*types.FastBlock,error){
 	//types.NewEIP155Signer(self.config.ChainId)
 	singer := types.NewEIP155Signer(big.NewInt(1))
 
-	/*chainDb, err := CreateDB(ctx, config, "chaindata")
-	if err != nil {
-		return nil, err
-	}
-	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
-	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
-		return nil, genesisErr
-	}
-	log.Info("Initialised chain configuration", "config", chainConfig)*/
-
 	self := &FastWorker{
 		//config:         config,
 		engine:         engine,
