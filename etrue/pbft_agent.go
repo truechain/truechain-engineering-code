@@ -14,6 +14,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"sync"
 )
 
@@ -21,7 +22,7 @@ var self *PbftAgent
 
 type PbftAgent struct {
 	config *params.ChainConfig
-	chain   *core.FastBlockChain
+	chain   *fastchain.FastBlockChain
 
 	engine consensus.Engine
 	eth     Backend
@@ -42,7 +43,7 @@ type AgentWork struct {
 
 	state     *state.StateDB // apply state changes here
 	tcount    int            // tx count in cycle
-	gasPool   *core.GasPool  // available gas used to pack transactions
+	gasPool   *fastchain.GasPool  // available gas used to pack transactions
 
 	Block *types.FastBlock // the new block
 
@@ -55,7 +56,7 @@ type AgentWork struct {
 
 type Backend interface {
 	AccountManager() *accounts.Manager
-	FastBlockChain() *core.FastBlockChain
+	FastBlockChain() *fastchain.FastBlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
 }
@@ -95,7 +96,7 @@ func  FetchBlock() (*types.FastBlock,error){
 	header := &types.FastHeader{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.FastCalcGasLimit(parent),
+		GasLimit:   fastchain.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
 	// 3 调用Engine.Prepare()函数，完成Header对象的准备。
@@ -147,9 +148,9 @@ func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHe
 }
 
 func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,
-						bc *core.FastBlockChain) {
+						bc *fastchain.FastBlockChain) {
 	if env.gasPool == nil {
-		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
+		env.gasPool = new(fastchain.GasPool).AddGas(env.header.GasLimit)
 	}
 
 	var coalescedLogs []*types.Log
@@ -232,10 +233,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.FastBlockChain,  gp *core.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.FastBlockChain,  gp *fastchain.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 
-	receipt, _, err := core.FastApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
+	receipt, _, err := fastchain.FastApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
