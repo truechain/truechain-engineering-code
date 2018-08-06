@@ -84,13 +84,13 @@ func (fp *StateProcessor) Process(block *types.FastBlock, statedb *state.StateDB
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func FastApplyTransaction(config *params.ChainConfig, bc FastChainContext, gp *GasPool, statedb *state.StateDB, header *types.FastHeader, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
+func FastApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, statedb *state.StateDB, header *types.FastHeader, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, uint64, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
 	}
 	// Create a new context to be used in the EVM environment
-	context := NewFastEVMContext(msg, header, bc)
+	context := NewEVMContext(msg, header, bc)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
