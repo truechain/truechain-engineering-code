@@ -19,6 +19,7 @@ package core
 import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -78,6 +79,13 @@ type ChainSideEvent struct {
 type FastChainSideEvent struct {
 	Block *types.FastBlock
 }
+
+type ElectionEvent struct {
+	option 	uint
+	fastnumber	*big.Int
+	snailnumber *big.Int
+}
+
 
 type ChainHeadEvent struct{ Block *types.Block }
 type FastChainHeadEvent struct{ Block *types.FastBlock }
