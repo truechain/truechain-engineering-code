@@ -163,6 +163,11 @@ func (st *StateTransition) buyGas() error {
 	st.state.SubBalance(st.msg.From(), mgval)
 	return nil
 }
+var(
+	// ErrNonceTooLow is returned if the nonce of a transaction is lower than the
+	// one present in the local chain.
+	ErrNonceTooLow = errors.New("nonce too low")
+)
 
 func (st *StateTransition) preCheck() error {
 	// Make sure this transaction's nonce is correct.

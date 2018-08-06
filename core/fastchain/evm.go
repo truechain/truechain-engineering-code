@@ -27,7 +27,7 @@ import (
 
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
-type FastChainContext interface {
+type ChainContext interface {
 	// Engine retrieves the chain's consensus engine.
 	Engine() consensus.Engine
 
@@ -36,7 +36,7 @@ type FastChainContext interface {
 }
 
 // NewEVMContext creates a new context for use in the EVM.
-func NewFastEVMContext(msg Message, header *types.FastHeader, chain FastChainContext) vm.Context {
+func NewEVMContext(msg Message, header *types.FastHeader, chain ChainContext) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	//var beneficiary common.Address
 	//if author == nil {
@@ -47,7 +47,7 @@ func NewFastEVMContext(msg Message, header *types.FastHeader, chain FastChainCon
 	return vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    Transfer,
-		GetHash:     GetFastHashFn(header, chain),
+		GetHash:     GetHashFn(header, chain),
 		Origin:      msg.From(),
 		BlockNumber: new(big.Int).Set(header.Number),
 		Time:        new(big.Int).Set(header.Time),
@@ -58,7 +58,7 @@ func NewFastEVMContext(msg Message, header *types.FastHeader, chain FastChainCon
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
-func GetFastHashFn(ref *types.FastHeader, chain FastChainContext) func(n uint64) common.Hash {
+func GetHashFn(ref *types.FastHeader, chain ChainContext) func(n uint64) common.Hash {
 	var cache map[uint64]common.Hash
 
 	return func(n uint64) common.Hash {
@@ -85,12 +85,12 @@ func GetFastHashFn(ref *types.FastHeader, chain FastChainContext) func(n uint64)
 
 // CanTransfer checks wether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
-func CanFastTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
+func CanTransfer(db vm.StateDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
-func FastTransfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
+func Transfer(db vm.StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.SubBalance(sender, amount)
 	db.AddBalance(recipient, amount)
 }

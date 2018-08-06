@@ -30,15 +30,15 @@ import (
 // state from one point to another.
 //
 // StateProcessor implements Processor.
-type FastStateProcessor struct {
+type StateProcessor struct {
 	config *params.ChainConfig // Chain configuration options
 	bc     *FastBlockChain         // Canonical block chain
 	engine consensus.Engine    // Consensus engine used for block rewards
 }
 
 // NewStateProcessor initialises a new StateProcessor.
-func NewStateProcessor(config *params.ChainConfig, bc *FastBlockChain, engine consensus.Engine) *FastStateProcessor {
-	return &FastStateProcessor{
+func NewStateProcessor(config *params.ChainConfig, bc *FastBlockChain, engine consensus.Engine) *StateProcessor {
+	return &StateProcessor{
 		config: config,
 		bc:     bc,
 		engine: engine,
@@ -52,7 +52,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *FastBlockChain, engine co
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
-func (fp *FastStateProcessor) Process(block *types.FastBlock, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+func (fp *StateProcessor) Process(block *types.FastBlock, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
