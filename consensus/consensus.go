@@ -27,15 +27,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
-var (
-	//Snail block rewards initial
-	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(60), big.NewInt(1e18))
-	//Snail block body fruit initial
-	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
-	//Snail block rewards fruit ratio
-	SnailBlockRewardsFruitRatio = 0.1
-)
-
 // ChainReader defines a small collection of methods needed to access the local
 // blockchain during header and/or uncle verification.
 type ChainReader interface {
