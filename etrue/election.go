@@ -246,6 +246,9 @@ func (e *Election) loop() {
 			}
 
 		case ev := <-e.fastChainHeadCh:
+			if ev.Block != nil{
+
+			}
 
 
 		}
@@ -255,7 +258,7 @@ func (e *Election) loop() {
 
 
 
-func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *core.FastBlockChain,snailchain *core.BlockChain)*Election {
+func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
 	e := &Election{
 		fastHead:		fastHead,
 		snailHead: 		snailHead,
