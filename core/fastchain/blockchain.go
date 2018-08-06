@@ -15,7 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package core implements the Ethereum consensus protocol.
-package core
+package fastchain
 
 import (
 	"errors"
@@ -42,16 +42,23 @@ import (
 	"github.com/truechain/truechain-engineering-code/trie"
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	rawdb "github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
+	"github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
 )
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
 
-	ErrNoFastGenesis = errors.New("Fast Genesis not found in chain")
+	ErrNoGenesis = errors.New("Fast Genesis not found in chain")
 )
 
 const (
+	bodyCacheLimit      = 256
+	blockCacheLimit     = 256
+	maxFutureBlocks     = 256
+	maxTimeFutureBlocks = 30
+	badBlockLimit       = 10
+	triesInMemory       = 128
+
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	FastBlockChainVersion = 3
 )
@@ -59,7 +66,11 @@ const (
 
 // BlockChain represents the canonical chain given a database with a genesis.json
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
-//
+type CacheConfig struct {
+	Disabled      bool          // Whether to disable trie write caching (archive node)
+	TrieNodeLimit int           // Memory limit (MB) at which to flush the current in-memory trie to disk
+	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
+}
 // Importing blocks in to the block chain happens according to the set of rules
 // defined by the two stage Validator. Processing of blocks is done using the
 // Processor which processes the included transaction. The validation of the state
@@ -109,8 +120,8 @@ type FastBlockChain struct {
 	wg            sync.WaitGroup // chain processing wait group for shutting down
 
 	engine    consensus.Engine
-	processor FastProcessor // block processor interface
-	validator FastValidator // block and state validator interface
+	processor Processor // block processor interface
+	validator Validator // block and state validator interface
 	vmConfig  vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
@@ -120,12 +131,15 @@ type FastBlockChain struct {
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
 func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*FastBlockChain, error) {
+
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
 			TrieNodeLimit: 256 * 1024 * 1024,
 			TrieTimeLimit: 5 * time.Minute,
 		}
 	}
+
+	//初始化 缓存
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
@@ -147,34 +161,48 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 	}
-	bc.SetValidator(NewFastBlockValidator(chainConfig, bc, engine))
-	bc.SetProcessor(NewFastStateProcessor(chainConfig, bc, engine))
+	// NewBlockValidator()初始化区块和状态验证器，
+	// NewStateProcessor()初始化区块状态处理器
+	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
+	// 初始化区块头部链
 	var err error
-	bc.hc, err = NewFastHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
-	if err != nil {
-		return nil, err
+		bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
+		if err != nil {
+			return nil, err
 	}
+
+	// 获取创始块
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
 	}
+
+	// 加载最新的状态数据
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
+
+	// 检查当前的状态,确认我们的区块链上面没有非法的区块.
+	// BadHashes是一些手工配置的区块hash值, 用来硬分叉使用的.
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
-	for hash := range BadHashes {
-		if header := bc.GetHeaderByHash(hash); header != nil {
-			// get the canonical block corresponding to the offending header's number
-			headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
-			// make sure the headerByNumber (if present) is in our current canonical chain
-			if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
-				log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
-				bc.SetHead(header.Number.Uint64() - 1)
-				log.Error("Chain rewind was successful, resuming normal operation")
-			}
-		}
-	}
+	//for hash := range BadHashes {
+	//	//获取header用hash
+	//	if header := bc.GetHeaderByHash(hash); header != nil {
+	//
+	//		// get the canonical block corresponding to the offending header's number
+	//		headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
+	//
+	//		// make sure the headerByNumber (if present) is in our current canonical chain
+	//		if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
+	//			log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
+	//			bc.SetHead(header.Number.Uint64() - 1)
+	//			log.Error("Chain rewind was successful, resuming normal operation")
+	//		}
+	//	}
+	//}
+
 	// Take ownership of this particular state
 	go bc.update()
 	return bc, nil
@@ -184,16 +212,21 @@ func (bc *FastBlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
 }
 
+
+// 加载数据库里面的最新的我们知道的区块链状态. 这个方法假设已经获取到锁了.
 // loadLastState loads the last known chain state from the database. This method
 // assumes that the chain manager mutex is held.
 func (bc *FastBlockChain) loadLastState() error {
 	// Restore the last known head block
+	// 返回我们知道的最新的区块的hash
 	head := rawdb.ReadHeadBlockHash(bc.db)
+	// 如果获取到了空.那么认为数据库已经被破坏.那么设置区块链为创世区块.
 	if head == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		log.Warn("Empty database, resetting chain")
 		return bc.Reset()
 	}
+
 	// Make sure the entire head block is available
 	currentBlock := bc.GetBlockByHash(head)
 	if currentBlock == nil {
@@ -202,6 +235,7 @@ func (bc *FastBlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Make sure the state associated with the block is available
+	// 确认和这个区块的world state是否正确.
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
@@ -250,6 +284,7 @@ func (bc *FastBlockChain) loadLastState() error {
 // above the new head will be deleted and the new one set. In the case of blocks
 // though, the head may be further rewound if block bodies are missing (non-archive
 // nodes after a fast sync).
+// 回溯到之前的块
 func (bc *FastBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
 
@@ -279,22 +314,14 @@ func (bc *FastBlockChain) SetHead(head uint64) error {
 			bc.currentBlock.Store(bc.genesisBlock)
 		}
 	}
-	// Rewind the fast block in a simpleton way to the target head
-	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock != nil && currentHeader.Number.Uint64() < currentFastBlock.NumberU64() {
-		bc.currentFastBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
-	}
-	// If either blocks reached nil, reset to the genesis.json state
+
+	// If either blocks reached nil, reset to the genesis state
 	if currentBlock := bc.CurrentBlock(); currentBlock == nil {
 		bc.currentBlock.Store(bc.genesisBlock)
 	}
-	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
-		bc.currentFastBlock.Store(bc.genesisBlock)
-	}
-	currentBlock := bc.CurrentBlock()
-	currentFastBlock := bc.CurrentFastBlock()
 
+	currentBlock := bc.CurrentBlock()
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
-	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
 
 	return bc.loadLastState()
 }
@@ -337,28 +364,28 @@ func (bc *FastBlockChain) CurrentFastBlock() *types.FastBlock {
 }
 
 // SetProcessor sets the processor required for making state modifications.
-func (bc *FastBlockChain) SetProcessor(processor FastProcessor) {
+func (bc *FastBlockChain) SetProcessor(processor Processor) {
 	bc.procmu.Lock()
 	defer bc.procmu.Unlock()
 	bc.processor = processor
 }
 
 // SetValidator sets the validator which is used to validate incoming blocks.
-func (bc *FastBlockChain) SetValidator(validator FastValidator) {
+func (bc *FastBlockChain) SetValidator(validator Validator) {
 	bc.procmu.Lock()
 	defer bc.procmu.Unlock()
 	bc.validator = validator
 }
 
 // Validator returns the current validator.
-func (bc *FastBlockChain) Validator() FastValidator {
+func (bc *FastBlockChain) Validator() Validator {
 	bc.procmu.RLock()
 	defer bc.procmu.RUnlock()
 	return bc.validator
 }
 
 // Processor returns the current processor.
-func (bc *FastBlockChain) Processor() FastProcessor {
+func (bc *FastBlockChain) Processor() Processor {
 	bc.procmu.RLock()
 	defer bc.procmu.RUnlock()
 	return bc.processor
@@ -688,13 +715,14 @@ func (bc *FastBlockChain) procFutureBlocks() {
 }
 
 // WriteStatus status of write
-type WriteFastStatus byte
+type WriteStatus byte
 
 const (
-	FastNonStatTy WriteStatus = iota
-	FastCanonStatTy
-	FastSideStatTy
+	NonStatTy WriteStatus = iota
+	CanonStatTy
+	SideStatTy
 )
+
 
 // Rollback is designed to remove a chain of links from the database that aren't
 // certain enough to be valid.
@@ -846,6 +874,8 @@ func (bc *FastBlockChain) InsertReceiptChain(blockChain types.FastBlocks, receip
 }
 
 
+var lastWrite uint64
+
 // WriteBlockWithoutState writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
@@ -886,6 +916,18 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	// Write other block data using a batch.
 	batch := bc.db.NewBatch()
 	rawdb.WriteBlock(batch, block)
+
+	//create BlockReward
+	br := &types.BlockReward{
+		FastHash:block.Hash(),
+		FastNumber:block.Number(),
+		SnailHash:block.SnailHash(),
+		SnailNumber:block.SnailNumber(),
+	}
+
+	//insert BlockReward to db
+	rawdb.WriteBlockReward(batch,br)
+
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
@@ -1057,10 +1099,11 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 			break
 		}
 		// If the header is a banned one, straight out abort
-		if BadHashes[block.Hash()] {
-			bc.reportBlock(block, nil, ErrBlacklistedHash)
-			return i, events, coalescedLogs, ErrBlacklistedHash
-		}
+		//if BadHashes[block.Hash()] {
+		//	bc.reportBlock(block, nil, ErrBlacklistedHash)
+		//	return i, events, coalescedLogs, ErrBlacklistedHash
+		//}
+
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
@@ -1130,6 +1173,10 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 			bc.reportBlock(block, nil, err)
 			return i, events, coalescedLogs, err
 		}
+
+
+		//根据ValidateBody验证结果，如果是还没有插入本地的区块，但是其父区块在bc.futureBlocks就加入bc.futureBlocks。
+		// 如果父区块是本地区块，但是没有状态，就递归调用bc.insertChain(winner)，直到有状态才插入。
 		// Create a new statedb using the parent block and report an
 		// error if it fails.
 		var parent *types.FastBlock
@@ -1138,17 +1185,21 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 		} else {
 			parent = chain[i-1]
 		}
+
 		state, err := state.New(parent.Root(), bc.stateCache)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
 		// Process block using the parent state as reference point.
+		//执行交易
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)//update
+
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
 		// Validate the state using the default validator
+		// 验证状态
 		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1168,7 +1219,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 
 			coalescedLogs = append(coalescedLogs, logs...)
 			FastBlockInsertTimer.UpdateSince(bstart)
-			events = append(events, FastChainEvent{block, block.Hash(), logs})
+			events = append(events, ChainEvent{block, block.Hash(), logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1179,7 +1230,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", 0)
 
 			FastBlockInsertTimer.UpdateSince(bstart)
-			events = append(events, FastChainSideEvent{block})
+			events = append(events, ChainSideEvent{block})
 		}
 		stats.processed++
 		stats.usedGas += usedGas
@@ -1189,7 +1240,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 	}
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, FastChainHeadEvent{lastCanon})
+		events = append(events, ChainHeadEvent{lastCanon})
 	}
 	return 0, events, coalescedLogs, nil
 }
@@ -1204,6 +1255,9 @@ type fastInsertStats struct {
 
 // statsReportLimit is the time limit during import after which we always print
 // out progress. This avoids the user wondering what's going on.
+
+const statsReportLimit = 8 * time.Second
+
 // report prints statistics if some number of blocks have been processed
 // or more than a few seconds have passed since the last message.
 func (st *fastInsertStats) report(chain []*types.FastBlock, index int, cache common.StorageSize) {
@@ -1349,7 +1403,7 @@ func (bc *FastBlockChain) reorg(oldBlock, newBlock *types.FastBlock) error {
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(FastChainSideEvent{Block: block})
+				bc.chainSideFeed.Send(ChainSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1571,7 +1625,7 @@ func (bc *FastBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) even
 }
 
 // SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (bc *FastBlockChain) SubscribeChainSideEvent(ch chan<- FastChainSideEvent) event.Subscription {
+func (bc *FastBlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 

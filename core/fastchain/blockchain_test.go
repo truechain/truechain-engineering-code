@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package fastchain
 
 import (
 	"fmt"
 	"math/big"
-	"math/rand"
-	"sync"
+		"sync"
 	"testing"
 	"time"
 
@@ -221,123 +220,17 @@ func TestLastBlock(t *testing.T) {
 	t.Log("this block number:",rawdb.ReadHeaderNumber(blockchain.db,thast))
 }
 
-// Tests that given a starting canonical chain of a given size, it can be extended
-// with various length chains.
-func TestExtendCanonicalHeaders(t *testing.T) { testExtendCanonical(t, false) }
-func TestExtendCanonicalBlocks(t *testing.T)  { testExtendCanonical(t, true) }
 
-func testExtendCanonical(t *testing.T, full bool) {
-	length := 5
 
-	// Make first chain starting from genesis.json
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
-	if err != nil {
-		t.Fatalf("failed to make new canonical chain: %v", err)
-	}
-	defer processor.Stop()
 
-	// Define the difficulty comparator
-	//better := func(td1, td2 *big.Int) {
-	//	if td2.Cmp(td1) <= 0 {
-	//		t.Errorf("total difficulty mismatch: have %v, expected more than %v", td2, td1)
-	//	}
-	//}
-	// Start fork from current height
-	testFork(t, processor, length, 1, full)
-	testFork(t, processor, length, 2, full)
-	testFork(t, processor, length, 5, full)
-	testFork(t, processor, length, 10, full)
-}
 
-// Tests that given a starting canonical chain of a given size, creating shorter
-// forks do not take canonical ownership.
-func TestShorterForkHeaders(t *testing.T) { testShorterFork(t, false) }
-func TestShorterForkBlocks(t *testing.T)  { testShorterFork(t, true) }
 
-func testShorterFork(t *testing.T, full bool) {
-	length := 10
 
-	// Make first chain starting from genesis.json
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
-	if err != nil {
-		t.Fatalf("failed to make new canonical chain: %v", err)
-	}
-	defer processor.Stop()
 
-	// Define the difficulty comparator
-	//worse := func(td1, td2 *big.Int) {
-	//	if td2.Cmp(td1) >= 0 {
-	//		t.Errorf("total difficulty mismatch: have %v, expected less than %v", td2, td1)
-	//	}
-	//}
-	// Sum of numbers must be less than `length` for this to be a shorter fork
-	testFork(t, processor, 0, 3, full)
-	testFork(t, processor, 0, 7, full)
-	testFork(t, processor, 1, 1, full)
-	testFork(t, processor, 1, 7, full)
-	testFork(t, processor, 5, 3, full)
-	testFork(t, processor, 5, 4, full)
-}
 
-// Tests that given a starting canonical chain of a given size, creating longer
-// forks do take canonical ownership.
-func TestLongerForkHeaders(t *testing.T) { testLongerFork(t, false) }
-func TestLongerForkBlocks(t *testing.T)  { testLongerFork(t, true) }
 
-func testLongerFork(t *testing.T, full bool) {
-	length := 10
 
-	// Make first chain starting from genesis.json
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
-	if err != nil {
-		t.Fatalf("failed to make new canonical chain: %v", err)
-	}
-	defer processor.Stop()
 
-	// Define the difficulty comparator
-	//better := func(td1, td2 *big.Int) {
-	//	if td2.Cmp(td1) <= 0 {
-	//		t.Errorf("total difficulty mismatch: have %v, expected more than %v", td2, td1)
-	//	}
-	//}
-	// Sum of numbers must be greater than `length` for this to be a longer fork
-	testFork(t, processor, 0, 11, full)
-	testFork(t, processor, 0, 15, full)
-	testFork(t, processor, 1, 10, full)
-	testFork(t, processor, 1, 12, full)
-	testFork(t, processor, 5, 6, full)
-	testFork(t, processor, 5, 8, full)
-}
-
-// Tests that given a starting canonical chain of a given size, creating equal
-// forks do take canonical ownership.
-func TestEqualForkHeaders(t *testing.T) { testEqualFork(t, false) }
-func TestEqualForkBlocks(t *testing.T)  { testEqualFork(t, true) }
-
-func testEqualFork(t *testing.T, full bool) {
-	length := 10
-
-	// Make first chain starting from genesis.json
-	_, processor, err := newCanonical(ethash.NewFaker(), length, full)
-	if err != nil {
-		t.Fatalf("failed to make new canonical chain: %v", err)
-	}
-	defer processor.Stop()
-
-	// Define the difficulty comparator
-	//equal := func(td1, td2 *big.Int) {
-	//	if td2.Cmp(td1) != 0 {
-	//		t.Errorf("total difficulty mismatch: have %v, want %v", td2, td1)
-	//	}
-	//}
-	// Sum of numbers must be equal to `length` for this to be an equal fork
-	testFork(t, processor, 0, 10, full)
-	testFork(t, processor, 1, 9, full)
-	testFork(t, processor, 2, 8, full)
-	testFork(t, processor, 5, 5, full)
-	testFork(t, processor, 6, 4, full)
-	testFork(t, processor, 9, 1, full)
-}
 
 // Tests that chains missing links do not get accepted by the processor.
 func TestBrokenHeaderChain(t *testing.T) { testBrokenChain(t, false) }
@@ -550,61 +443,8 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	ncm.Stop()
 }
 
-// Tests chain insertions in the face of one entity containing an invalid nonce.
-func TestHeadersInsertNonceError(t *testing.T) { testInsertNonceError(t, false) }
-func TestBlocksInsertNonceError(t *testing.T)  { testInsertNonceError(t, true) }
 
-func testInsertNonceError(t *testing.T, full bool) {
-	for i := 1; i < 25 && !t.Failed(); i++ {
-		// Create a pristine chain and database
-		db, blockchain, err := newCanonical(ethash.NewFaker(), 0, full)
-		if err != nil {
-			t.Fatalf("failed to create pristine chain: %v", err)
-		}
-		defer blockchain.Stop()
 
-		// Create and insert a chain with a failing nonce
-		var (
-			failAt  int
-			failRes int
-			failNum uint64
-		)
-		if full {
-			blocks := makeFastBlockChain(blockchain.CurrentBlock(), i, ethash.NewFaker(), db, 0)
-
-			failAt = rand.Int() % len(blocks)
-			failNum = blocks[failAt].NumberU64()
-
-			blockchain.engine = ethash.NewFakeFailer(failNum)
-			failRes, err = blockchain.InsertChain(blocks)
-		} else {
-			headers := makeFastHeaderChain(blockchain.CurrentHeader(), i, ethash.NewFaker(), db, 0)
-
-			failAt = rand.Int() % len(headers)
-			failNum = headers[failAt].Number.Uint64()
-
-			blockchain.engine = ethash.NewFakeFailer(failNum)
-			blockchain.hc.engine = blockchain.engine
-			failRes, err = blockchain.InsertHeaderChain(headers, 1)
-		}
-		// Check that the returned error indicates the failure.
-		if failRes != failAt {
-			t.Errorf("test %d: failure index mismatch: have %d, want %d", i, failRes, failAt)
-		}
-		// Check that all no blocks after the failing block have been inserted.
-		for j := 0; j < i-failAt; j++ {
-			if full {
-				if block := blockchain.GetBlockByNumber(failNum + uint64(j)); block != nil {
-					t.Errorf("test %d: invalid block in chain: %v", i, block)
-				}
-			} else {
-				if header := blockchain.GetHeaderByNumber(failNum + uint64(j)); header != nil {
-					t.Errorf("test %d: invalid header in chain: %v", i, header)
-				}
-			}
-		}
-	}
-}
 
 // Tests that fast importing a block chain produces the same chain data as the
 // classical full block processing.
@@ -615,14 +455,14 @@ func TestFastVsFullChains(t *testing.T) {
 		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = crypto.PubkeyToAddress(key.PublicKey)
 		funds   = big.NewInt(1000000000)
-		gspec   = &Genesis{
+		gspec   = &FastGenesis{
 			Config: params.TestChainConfig,
-			Alloc:  GenesisAlloc{address: {Balance: funds}},
+			Alloc:  FastGenesisAlloc{address: {Balance: funds}},
 		}
 		genesis = gspec.MustCommit(gendb)
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, 1024, func(i int, block *BlockGen) {
+	blocks, receipts := GenerateFastChain(gspec.Config, genesis, ethash.NewFaker(), gendb, 1024, func(i int, block *FastBlockGen) {
 		block.SetCoinbase(common.Address{0x00})
 
 		// If the block number is multiple of 3, send a few bonus transactions to the miner
@@ -636,14 +476,14 @@ func TestFastVsFullChains(t *testing.T) {
 			}
 		}
 		// If the block number is a multiple of 5, add a few bonus uncles to the block
-		if i%5 == 5 {
-			block.AddUncle(&types.Header{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
-		}
+		//if i%5 == 5 {
+		//	block.AddUncle(&types.Header{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
+		//}
 	})
 	// Import the chain as an archive node for the comparison baseline
 	archiveDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(archiveDb)
-	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	archive, _ := NewFastBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer archive.Stop()
 
 	if n, err := archive.InsertChain(blocks); err != nil {
@@ -652,10 +492,10 @@ func TestFastVsFullChains(t *testing.T) {
 	// Fast import the chain as a non-archive node to test
 	fastDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(fastDb)
-	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	fast, _ := NewFastBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer fast.Stop()
 
-	headers := make([]*types.Header, len(blocks))
+	headers := make([]*types.FastHeader, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -679,8 +519,8 @@ func TestFastVsFullChains(t *testing.T) {
 			t.Errorf("block #%d [%x]: block mismatch: have %v, want %v", num, hash, fblock, ablock)
 		} else if types.DeriveSha(fblock.Transactions()) != types.DeriveSha(ablock.Transactions()) {
 			t.Errorf("block #%d [%x]: transactions mismatch: have %v, want %v", num, hash, fblock.Transactions(), ablock.Transactions())
-		} else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(ablock.Uncles()) {
-			t.Errorf("block #%d [%x]: uncles mismatch: have %v, want %v", num, hash, fblock.Uncles(), ablock.Uncles())
+		//} else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(ablock.Uncles()) {
+		//	t.Errorf("block #%d [%x]: uncles mismatch: have %v, want %v", num, hash, fblock.Uncles(), ablock.Uncles())
 		}
 		if freceipts, areceipts := rawdb.ReadReceipts(fastDb, hash, *rawdb.ReadHeaderNumber(fastDb, hash)), rawdb.ReadReceipts(archiveDb, hash, *rawdb.ReadHeaderNumber(archiveDb, hash)); types.DeriveSha(freceipts) != types.DeriveSha(areceipts) {
 			t.Errorf("block #%d [%x]: receipts mismatch: have %v, want %v", num, hash, freceipts, areceipts)
