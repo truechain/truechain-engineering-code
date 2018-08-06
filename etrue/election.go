@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"log"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"crypto/sha256"
 )
 var ( 	z  = 100
  		k  = 10000
@@ -182,8 +183,20 @@ func (qu queue) gettail() int {
 
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
-//Original demand parameter(data,signature []byte,  pubkey *ecdsa.PublicKey)
-func (e *Election)Verify(sign *Signature)bool {
+func (e *Election)Verify(data,signature []byte,pubkey *ecdsa.PublicKey)bool {
+	// hash message
+
+
+	digest := sha256.Sum256(data)
+
+	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
+
+	r, s := new(big.Int), new(big.Int)
+	r.SetBytes(signature[:curveOrderByteSize])
+	s.SetBytes(signature[curveOrderByteSize:])
+
+	return ecdsa.Verify(pubkey, digest[:], r, s)
+
 
 	return true
 }
@@ -258,6 +271,17 @@ func (e *Election) loop() {
 
 
 
+func (e *Election)start(){
+	//e.fastChainHeadCh = make(chan fastchain.FastBlockChain, fastChainSize )
+	//e.fastChainHeadSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
+	//
+	//
+	//e.chainHeadCh = make(chan core.BlockChain, txChanSize)
+	//e.chainHeadSub= pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
+	//go pm.txBroadcastLoop()
+
+}
+
 func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
 	e := &Election{
 		fastHead:		fastHead,
@@ -266,6 +290,8 @@ func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBl
 		snailchain:		snailchain,
 
 	}
+
+
 
 	return e
 }
