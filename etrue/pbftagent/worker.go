@@ -32,6 +32,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	//"github.com/truechain/truechain-engineering-code/consensus/ethash"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+
 )
 
 //const (
@@ -84,6 +87,37 @@ type Work struct {
 //	Work  *Work
 //	Block *types.FastBlock
 //}
+
+
+type FastWorker struct {
+	config *params.ChainConfig
+	engine consensus.Engine
+
+	mu sync.Mutex
+
+	// update loop
+	mux          *event.TypeMux
+	txsCh        chan core.NewTxsEvent
+
+	wg           sync.WaitGroup
+
+	eth     Backend
+	chain   *core.FastBlockChain
+	proc    core.FastValidator
+	chainDb ethdb.Database
+
+	extra    []byte
+
+	currentMu sync.Mutex
+	current   *Work
+
+	snapshotMu    sync.RWMutex
+	snapshotBlock *types.FastBlock
+	snapshotState *state.StateDB
+
+	mining int32
+	atWork int32
+}
 
 // worker is the main object which takes care of applying messages to the new state
 type worker struct {
@@ -394,11 +428,87 @@ func (self *worker) makeCurrent(parent *types.FastBlock, header *types.FastHeade
 	return nil
 }
 
+func  GenerateFastBlock() (*types.FastBlock,error){
+	var fastBlock  *types.FastBlock
+
+	config :=&ethash.Config{}//etrue.DefaultConfig,
+	engine := ethash.New(ethash.Config{
+		CacheDir:       nil,
+		CachesInMem:    config.CachesInMem,
+		CachesOnDisk:   config.CachesOnDisk,
+		DatasetDir:     config.DatasetDir,
+		DatasetsInMem:  config.DatasetsInMem,
+		DatasetsOnDisk: config.DatasetsOnDisk,
+	})
+
+	//types.NewEIP155Signer(self.config.ChainId)
+	singer := types.NewEIP155Signer(big.NewInt(1))
+
+	self := &FastWorker{
+		//config:         config,
+		engine:         engine,
+		//eth:            eth,
+		//mux:            mux,
+		//chain:          eth.BlockChain(),
+		//proc:           eth.BlockChain().Validator(),
+	}
+
+	//1 准备新区块的时间属性Header.Time
+	tstart := time.Now()
+	parent := self.chain.CurrentBlock()
+
+	tstamp := tstart.Unix()
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
+		tstamp = parent.Time().Int64() + 1
+	}
+	// this will ensure we're not going off too far in the future
+	if now := time.Now().Unix(); tstamp > now+1 {
+		wait := time.Duration(tstamp-now) * time.Second
+		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
+		time.Sleep(wait)
+	}
+
+	//2 创建新区块的Header对象，
+	num := parent.Number()
+	header := &types.FastHeader{
+		ParentHash: parent.Hash(),
+		Number:     num.Add(num, common.Big1),
+		GasLimit:   core.FastCalcGasLimit(parent),
+		//Extra:      self.extra,
+		Time:       big.NewInt(tstamp),
+	}
+	// 3 调用Engine.Prepare()函数，完成Header对象的准备。
+	if err := self.engine.PrepareFast(self.chain, header); err != nil {
+		log.Error("Failed to prepare header for mining", "err", err)
+		return	fastBlock,err
+	}
+	// 4 根据已有的Header对象，创建一个新的Work对象，并用其更新worker.current成员变量。
+	// Create the current work task and check any fork transitions needed
+	work := self.current
+
+	//5 准备新区块的交易列表，来源是TxPool中那些最近加入的tx，并执行这些交易。
+	pending, err := self.eth.TxPool().Pending()
+	if err != nil {
+		log.Error("Failed to fetch pending transactions", "err", err)
+		return	fastBlock,err
+	}
+	txs := types.NewTransactionsByPriceAndNonce(singer, pending)
+	work.commitTransactions(self.mux, txs, self.chain)
+
+	// 6 对新区块“定型”，填充上Header.Root, TxHash, ReceiptHash等几个属性。
+	// Create the new block to seal with the consensus engine
+	if work.Block, err = self.engine.FinalizeFast(self.chain, header, work.state, work.txs, work.receipts); err != nil {
+		log.Error("Failed to finalize block for sealing", "err", err)
+		return	fastBlock,err
+	}
+	self.updateSnapshot()
+	return	fastBlock,nil
+}
+
 func (self *worker) commitNewWork() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	//self.uncleMu.Lock()
-	//defer self.uncleMu.Unlock()
+
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
 
@@ -424,28 +534,12 @@ func (self *worker) commitNewWork() {
 		Extra:      self.extra,
 		Time:       big.NewInt(tstamp),
 	}
-	// Only set the coinbase if we are mining (avoid spurious block rewards)
-	/*if atomic.LoadInt32(&self.mining) == 1 {
-		header.Coinbase = self.coinbase
-	}*/
+
 	if err := self.engine.PrepareFast(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
 	}
-	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
-	//if daoBlock := self.config.DAOForkBlock; daoBlock != nil {
-	//	//	// Check whether the block is among the fork extra-override range
-	//	//	limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
-	//	//	if header.Number.Cmp(daoBlock) >= 0 && header.Number.Cmp(limit) < 0 {
-	//	//		// Depending whether we support or oppose the fork, override differently
-	//	//		if self.config.DAOForkSupport {
-	//	//			header.Extra = common.CopyBytes(params.DAOForkBlockExtra)
-	//	//		} else if bytes.Equal(header.Extra, params.DAOForkBlockExtra) {
-	//	//			header.Extra = []byte{} // If miner opposes, don't let it use the reserved extra-data
-	//	//		}
-	//	//	}
-	//	//}
-	// Could potentially happen if starting to mine in an odd state.
+
 	err := self.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
@@ -453,9 +547,7 @@ func (self *worker) commitNewWork() {
 	}
 	// Create the current work task and check any fork transitions needed
 	work := self.current
-	/*if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
-		misc.ApplyDAOHardFork(work.state)
-	}*/
+
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
@@ -464,39 +556,12 @@ func (self *worker) commitNewWork() {
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.chain)
 
-	// compute uncles for the new block.
-	//var (
-	//	uncles    []*types.Header
-	//	badUncles []common.Hash
-	//)
-	//for hash, uncle := range self.possibleUncles {
-	//	if len(uncles) == 2 {
-	//		break
-	//	}
-	//	if err := self.commitUncle(work, uncle.Header()); err != nil {
-	//		log.Trace("Bad uncle found and will be removed", "hash", hash)
-	//		log.Trace(fmt.Sprint(uncle))
-	//
-	//		badUncles = append(badUncles, hash)
-	//	} else {
-	//		log.Debug("Committing new uncle to block", "hash", hash)
-	//		uncles = append(uncles, uncle.Header())
-	//	}
-	//}
-	//for _, hash := range badUncles {
-	//	delete(self.possibleUncles, hash)
-	//}
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.FinalizeFast(self.chain, header, work.state, work.txs, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
 	}
-	// We only care about logging if we're actually mining.
-	//if atomic.LoadInt32(&self.mining) == 1 {
-	//	log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
-	//	self.unconfirmed.Shift(work.Block.NumberU64() - 1)
-	//}
-	//self.push(work)
+
 	self.updateSnapshot()
 }
 
@@ -514,6 +579,19 @@ func (self *worker) commitNewWork() {
 //	work.uncles.Add(uncle.Hash())
 //	return nil
 //}
+
+func (self *FastWorker) updateSnapshot() {
+	self.snapshotMu.Lock()
+	defer self.snapshotMu.Unlock()
+
+	self.snapshotBlock = types.NewFastBlock(
+		self.current.header,
+		self.current.txs,
+		nil,
+		self.current.receipts,
+	)
+	self.snapshotState = self.current.state.Copy()
+}
 
 func (self *worker) updateSnapshot() {
 	self.snapshotMu.Lock()
