@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package fastchain
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	rawdb "github.com/truechain/truechain-engineering-code/core/rawdb/rawfastdb"
+	"github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -37,8 +37,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
-//go:generate gencodec -type FastGenesis -field-override fastGenesisSpecMarshaling -out gen_genesis_fast.go
-//go:generate gencodec -type FastGenesisAccount -field-override fastGenesisAccountMarshaling -out gen_genesis_account_fast.go
+//go:generate gencodec -type FastGenesis -field-override fastGenesisSpecMarshaling -out gen_genesis.go
+//go:generate gencodec -type FastGenesisAccount -field-override fastGenesisAccountMarshaling -out gen_genesis_account.go
 
 
 var errFastGenesisNoConfig = errors.New("genesis.json has no chain configuration")

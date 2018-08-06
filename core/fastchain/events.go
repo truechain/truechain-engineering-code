@@ -14,12 +14,11 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package fastchain
 
 import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -53,13 +52,8 @@ type NewMinedFruitEvent struct{ Block *types.Block }
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
-type ChainEvent struct {
-	Block *types.Block
-	Hash  common.Hash
-	Logs  []*types.Log
-}
 
-type FastChainEvent struct {
+type ChainEvent struct {
 	Block *types.FastBlock
 	Hash  common.Hash
 	Logs  []*types.Log
@@ -73,20 +67,8 @@ type FruitEvent struct {
 }
 
 type ChainSideEvent struct {
-	Block *types.Block
-}
-
-type FastChainSideEvent struct {
 	Block *types.FastBlock
 }
 
-type ElectionEvent struct {
-	option 	uint
-	fastnumber	*big.Int
-	snailnumber *big.Int
-}
-
-
-type ChainHeadEvent struct{ Block *types.Block }
-type FastChainHeadEvent struct{ Block *types.FastBlock }
+type ChainHeadEvent struct{ Block *types.FastBlock }
 type FruitFleashEvent struct{ Block *types.Block }

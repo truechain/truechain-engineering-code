@@ -641,6 +641,14 @@ type FastBody struct {
 	signs       	[]*SignInfo
 }
 
+// Block Reward
+type BlockReward struct {
+	FastHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
+	FastNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
+	SnailHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
+	SnailNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
+}
+
 // FastBlock represents an entire block in the Ethereum blockchain.
 type FastBlock struct {
 	header       	*FastHeader

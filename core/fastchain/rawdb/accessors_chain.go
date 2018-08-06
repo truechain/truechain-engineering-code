@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package rawfastdb
+package rawdb
 
 import (
 	"bytes"
@@ -133,6 +133,8 @@ func ReadHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawVa
 	return data
 }
 
+
+
 // HasHeader verifies the existence of a block header corresponding to the hash.
 func HasHeader(db DatabaseReader, hash common.Hash, number uint64) bool {
 	if has, err := db.Has(headerKey(number, hash)); !has || err != nil {
@@ -178,6 +180,9 @@ func WriteHeader(db DatabaseWriter, header *types.FastHeader) {
 		log.Crit("Failed to store header", "err", err)
 	}
 }
+
+
+
 
 // DeleteHeader removes all block header data associated with a hash.
 func DeleteHeader(db DatabaseDeleter, hash common.Hash, number uint64) {
@@ -342,6 +347,7 @@ func WriteBlock(db DatabaseWriter, block *types.FastBlock) {
 	WriteHeader(db, block.Header())
 }
 
+
 // DeleteBlock removes all block data associated with a hash.
 func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 	DeleteReceipts(db, hash, number)
@@ -349,6 +355,55 @@ func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 	DeleteBody(db, hash, number)
 	DeleteTd(db, hash, number)
 }
+
+
+// ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
+func ReadBlockRewardRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
+	data, _ := db.Get(blockRewardKey(number, hash))
+	return data
+}
+
+
+func ReadBlockReward(db DatabaseReader, hash common.Hash, number uint64) *types.BlockReward {
+
+	data := ReadBlockRewardRLP(db, hash, number)
+	if len(data) == 0 {
+		return nil
+	}
+	header := new(types.BlockReward)
+	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
+		log.Error("Invalid block BlockReward RLP", "hash", hash, "err", err)
+		return nil
+	}
+	return header
+}
+
+
+
+// WriteReward serializes a blockReward into the database.
+func WriteBlockReward(db DatabaseWriter, block *types.BlockReward) {
+
+
+	key := blockRewardKey(block.FastNumber.Uint64(),block.FastHash)
+	// Write the encoded BlockReward
+	data, err := rlp.EncodeToBytes(block)
+	if err != nil {
+		log.Crit("Failed to RLP encode BlockReward", "err", err)
+	}
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store BlockReward", "err", err)
+	}
+
+}
+
+// DeleteReceipts removes all receipt data associated with a block hash.
+func DeleteBlockReward(db DatabaseDeleter, hash common.Hash, number uint64) {
+	if err := db.Delete(blockRewardKey(number, hash)); err != nil {
+		log.Crit("Failed to delete block BlockReward", "err", err)
+	}
+}
+
+
 
 // FindCommonAncestor returns the last common ancestor of two block headers
 func FindCommonAncestor(db DatabaseReader, a, b *types.FastHeader) *types.FastHeader {
