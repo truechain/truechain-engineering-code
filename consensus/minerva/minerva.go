@@ -65,6 +65,12 @@ var (
 
 	//Snail block rewards fruit ratio  10%
 	SnailBlockRewardsFruitRatio = 0.1
+
+	//Number of committees
+	CommitteesCount = new(big.Int).SetInt64(1)
+
+	//Miner quantity
+	MinerCount = new(big.Int).SetInt64(1)
 )
 
 // isLittleEndian returns whether the local system is running in little or big

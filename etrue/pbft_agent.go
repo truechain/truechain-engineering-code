@@ -14,14 +14,15 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"sync"
 )
 
- var self *PbftAgent
+var self *PbftAgent
 
 type PbftAgent struct {
 	config *params.ChainConfig
-	chain   *core.FastBlockChain
+	chain   *fastchain.FastBlockChain
 
 	engine consensus.Engine
 	eth     Backend
@@ -42,7 +43,7 @@ type AgentWork struct {
 
 	state     *state.StateDB // apply state changes here
 	tcount    int            // tx count in cycle
-	gasPool   *core.GasPool  // available gas used to pack transactions
+	gasPool   *fastchain.GasPool  // available gas used to pack transactions
 
 	Block *types.FastBlock // the new block
 
@@ -55,26 +56,24 @@ type AgentWork struct {
 
 type Backend interface {
 	AccountManager() *accounts.Manager
-	FastBlockChain() *core.FastBlockChain
+	FastBlockChain() *fastchain.FastBlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
 }
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig,
 			mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
-	self := &PbftAgent{
+	self = &PbftAgent{
 		config:         config,
 		engine:         engine,
 		eth:            eth,
 		mux:            mux,
 		chain:          eth.FastBlockChain(),
-		//proc:           eth.BlockChain().Validator(),
 	}
 	return self
 }
 
-
-func  GenerateFastBlock() (*types.FastBlock,error){
+func  FetchBlock() (*types.FastBlock,error){
 	var fastBlock  *types.FastBlock
 
 	//1 准备新区块的时间属性Header.Time
@@ -97,8 +96,7 @@ func  GenerateFastBlock() (*types.FastBlock,error){
 	header := &types.FastHeader{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.FastCalcGasLimit(parent),
-		//Extra:      self.extra,
+		GasLimit:   fastchain.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
 	// 3 调用Engine.Prepare()函数，完成Header对象的准备。
@@ -109,10 +107,6 @@ func  GenerateFastBlock() (*types.FastBlock,error){
 	// 4 根据已有的Header对象，创建一个新的Work对象，并用其更新worker.current成员变量。
 	// Create the current work task and check any fork transitions needed
 	err := self.makeCurrent(parent, header)
-	if err != nil {
-		log.Error("Failed to create generateFastBlock context", "err", err)
-		return fastBlock,err
-	}
 	work := self.current
 
 	//5 准备新区块的交易列表，来源是TxPool中那些最近加入的tx，并执行这些交易。
@@ -130,7 +124,7 @@ func  GenerateFastBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	self.updateSnapshot()
+	//self.updateSnapshot()
 	return	fastBlock,nil
 }
 
@@ -147,16 +141,16 @@ func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHe
 		header:    header,
 		createdAt: time.Now(),
 	}
-
 	// Keep track of transactions which return errors so they can be removed
 	work.tcount = 0
 	self.current = work
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.FastBlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,
+						bc *fastchain.FastBlockChain) {
 	if env.gasPool == nil {
-		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
+		env.gasPool = new(fastchain.GasPool).AddGas(env.header.GasLimit)
 	}
 
 	var coalescedLogs []*types.Log
@@ -239,10 +233,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.FastBlockChain,  gp *core.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.FastBlockChain,  gp *fastchain.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 
-	receipt, _, err := core.FastApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
+	receipt, _, err := fastchain.FastApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
@@ -253,27 +247,6 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.FastBloc
 	return nil, receipt.Logs
 }
 
-func (self *PbftAgent) pending() (*types.FastBlock, *state.StateDB) {
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
-	return self.current.Block, self.current.state.Copy()
-}
-
-func (self *PbftAgent) pendingBlock() *types.FastBlock {
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
-	return self.current.Block
-}
-
-func (self *PbftAgent) updateSnapshot() {
-	self.snapshotMu.Lock()
-	defer self.snapshotMu.Unlock()
-
-	self.snapshotBlock = types.NewFastBlock(
-		self.current.header,
-		self.current.txs,
-		nil,
-		self.current.receipts,
-	)
-	self.snapshotState = self.current.state.Copy()
-}
+/*func VerifyBlock(fb *types.FastBlock) error{
+	txs :=fb.Transactions()
+}*/
