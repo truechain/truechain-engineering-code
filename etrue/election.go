@@ -8,10 +8,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
 	"log"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 var ( 	z  = 100
- 		k  = 50000
- 		P  = 10000)
+ 		k  = 10000
+ 		)
 
 const (
 	fastChainSize = 256
@@ -70,7 +71,7 @@ type Election struct {
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 
-	fastchain *core.FastBlockChain
+	fastchain *fastchain.FastBlockChain
 	snailchain *core.BlockChain
 }
 
