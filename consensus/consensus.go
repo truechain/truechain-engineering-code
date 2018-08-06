@@ -179,7 +179,7 @@ type EngineTemp interface {
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainSnailReader, header *types.SnailHeader, seal bool) error
 
 	// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
@@ -189,7 +189,7 @@ type EngineTemp interface {
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
-	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+	VerifyHeaders(chain ChainSnailReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyFastHeaders is similar to VerifyFastHeader, but verifies a batch of fast headers
 	// concurrently. The method returns a quit channel to abort the operations and
@@ -199,15 +199,15 @@ type EngineTemp interface {
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
-	VerifyUncles(chain ChainReader, block *types.Block) error
+	VerifyUncles(chain ChainSnailReader, block *types.SnailBlock) error
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySeal(chain ChainReader, header *types.Header) error
+	VerifySeal(chain ChainSnailReader, header *types.SnailHeader) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
-	Prepare(chain ChainReader, header *types.Header) error
+	Prepare(chain ChainSnailReader, header *types.SnailHeader) error
 
 	// PrepareFast initializes the consensus fields of a fast chain block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -217,8 +217,8 @@ type EngineTemp interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error)
+	Finalize(chain ChainSnailReader, header *types.SnailHeader, state *state.StateDB, txs []*types.Transaction,
+		uncles []*types.SnailHeader, receipts []*types.Receipt, fruits []*types.SnailBlock) (*types.Block, error)
 
 	// FinalizeFast runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
@@ -229,18 +229,18 @@ type EngineTemp interface {
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	Seal(chain ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error)
+	Seal(chain ChainSnailReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
 
 	// ConSeal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	ConSeal(chain ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block)
+	ConSeal(chain ChainSnailReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
 
 	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 	// that a new block should have.
-	CalcDifficulty(chain ChainReader, time uint64, parent *types.Header) *big.Int
+	CalcDifficulty(chain ChainSnailReader, time uint64, parent *types.SnailHeader) *big.Int
 
 	// APIs returns the RPC APIs this consensus engine provides.
-	APIs(chain ChainReader) []rpc.API
+	APIs(chain ChainSnailReader) []rpc.API
 }
 
 // PoW is a consensus engine based on proof-of-work.
