@@ -28,8 +28,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/etrue"
-	"github.com/truechain/truechain-engineering-code/node"
 )
 
 // Backend wraps all methods required for mining.
@@ -74,11 +72,11 @@ func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine con
 	newWorker(config, engine, eth, mux)
 }
 
-func GenerateFastBlock()  {
+/*func GenerateFastBlock()  {
 	ctx :=&node.ServiceContext{}
 	config :=etrue.DefaultConfig
-	etrue.New(ctx, &config)
-}
+	etrue.FastNew(ctx, &config)
+}*/
 
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
