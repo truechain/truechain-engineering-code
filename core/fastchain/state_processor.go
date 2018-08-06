@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package fastchain
 
 import (
 		"github.com/truechain/truechain-engineering-code/consensus"
@@ -37,7 +37,7 @@ type FastStateProcessor struct {
 }
 
 // NewStateProcessor initialises a new StateProcessor.
-func NewFastStateProcessor(config *params.ChainConfig, bc *FastBlockChain, engine consensus.Engine) *FastStateProcessor {
+func NewStateProcessor(config *params.ChainConfig, bc *FastBlockChain, engine consensus.Engine) *FastStateProcessor {
 	return &FastStateProcessor{
 		config: config,
 		bc:     bc,

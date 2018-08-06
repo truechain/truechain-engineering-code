@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package fastchain
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ type FastBlockValidator struct {
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
-func NewFastBlockValidator(config *params.ChainConfig, blockchain *FastBlockChain, engine consensus.Engine) *FastBlockValidator {
+func NewBlockValidator(config *params.ChainConfig, blockchain *FastBlockChain, engine consensus.Engine) *FastBlockValidator {
 	validator := &FastBlockValidator{
 		config: config,
 		engine: engine,
