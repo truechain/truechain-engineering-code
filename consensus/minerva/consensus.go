@@ -695,7 +695,6 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles, fruits)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-
 	// Header seems complete, assemble into a block and return
 	return types.NewBlock(header, txs, uncles, receipts, fruits), nil
 }
@@ -704,6 +703,8 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 // setting the final state and assembling the block.
 func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
+	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	//todo sign IQQ  private key ?
 	return types.NewFastBlock(header, txs, nil, receipts), nil
 }
 
@@ -753,7 +754,7 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header) {
+func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header, sBlock *types.SnailBlock) {
 	//Get snailBlock current -12
 	var hc *core.HeaderChain
 	snailBlockHash := hc.GetHeaderByNumber(hc.CurrentHeader().Number.Uint64() - 12)
@@ -780,4 +781,5 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 		new(big.Int).Div(new(big.Int).SetInt64(int64(len(snailBlock.Body().Fruits))),
 			big10))
 
+	//sBlock.Body().Fruits[0].body  wait
 }
