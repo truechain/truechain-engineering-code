@@ -28,7 +28,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/misc"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -756,37 +755,33 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header, sBlock *types.SnailBlock) {
 	//Get snailBlock current -12
-	var hc *core.HeaderChain
-	snailBlockHash := hc.GetHeaderByNumber(hc.CurrentHeader().Number.Uint64() - 12)
-	snailBlock := hc.GetBlock(snailBlockHash.Hash(), snailBlockHash.Number.Uint64())
-	//Calculate the revenue of the current block
-	currentBlockCoin := new(big.Int).Div(SnailBlockRewardsInitial,
-		new(big.Int).Exp(new(big.Int).SetInt64(2),
-			new(big.Int).Div(new(big.Int).Add(header.SnailNumber, new(big.Int).SetInt64(-12)), new(big.Int).SetInt64(5000)),
-			nil))
+	minerCoin, committeeCoin := getCurrentBlockCoin(sBlock.Number())
 
-	//Committee miners distribution method  Committee a/a+n  miners  n/a+n
-	//But there is no fragmentation so 50-50
-	minerCoin := new(big.Int).Div(currentBlockCoin, big2)
-	state.AddBalance(snailBlock.Coinbase(), minerCoin)
+	//miner's award
+	state.AddBalance(sBlock.Coinbase(), minerCoin)
 
-	committeeCoin := new(big.Int).Div(currentBlockCoin, new(big.Int).Mul(big2, new(big.Int).SetInt64(int64(len(committee)))))
+	//miners add all fruit 10%
+	state.AddBalance(sBlock.Coinbase(),
+		new(big.Int).Div(new(big.Int).SetInt64(int64(len(sBlock.Body().Fruits))),
+			big10))
 
+	//sBlock.Body().Fruits[0].body  wait snail block
+	committeeCoin = new(big.Int).Div(committeeCoin, new(big.Int).SetInt64(int64(len(committee))))
 	for _, comm := range committee {
 		state.AddBalance(comm.Coinbase, committeeCoin)
 	}
-
-	//miners add all fruit 10%
-	state.AddBalance(snailBlock.Coinbase(),
-		new(big.Int).Div(new(big.Int).SetInt64(int64(len(snailBlock.Body().Fruits))),
-			big10))
-
-	//sBlock.Body().Fruits[0].body  wait
+	// todo IQQ
+	//Get a list of committees
+	//Get the snail block signature list
+	//Verification signature
+	//Eliminate members of the evil committee
+	//Get Wallet Address Distribution Rewards
 }
 
 //Get current revenue value for miner or committee
+//Committee miners distribution method  Committee a/a+n  miners  n/a+n
 //parameter num:  snail chain header number
-func getCurrentBlockCoin(num *big.Int) (miner, committee *big.Int) {
+func getCurrentBlockCoin(num *big.Int) (minerCoin, committeeCoin *big.Int) {
 	currentBlockCoinCount := new(big.Int).Div(SnailBlockRewardsInitial,
 		new(big.Int).Exp(new(big.Int).SetInt64(2),
 			new(big.Int).Div(new(big.Int).Add(num, new(big.Int).SetInt64(-12)), new(big.Int).SetInt64(5000)),
@@ -794,7 +789,7 @@ func getCurrentBlockCoin(num *big.Int) (miner, committee *big.Int) {
 
 	currentBlockCoinMean := new(big.Int).Div(currentBlockCoinCount, new(big.Int).Add(MinerCount, CommitteesCount))
 
-	miner = new(big.Int).Mul(currentBlockCoinMean, MinerCount)
-	committee = new(big.Int).Mul(currentBlockCoinMean, CommitteesCount)
+	minerCoin = new(big.Int).Mul(currentBlockCoinMean, MinerCount)
+	committeeCoin = new(big.Int).Mul(currentBlockCoinMean, CommitteesCount)
 	return
 }
