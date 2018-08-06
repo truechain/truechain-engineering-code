@@ -95,7 +95,7 @@ func (g *FastGenesis) UnmarshalJSON(input []byte) error {
 	if dec.Alloc == nil {
 		return errors.New("missing required field 'alloc' for Genesis")
 	}
-	g.Alloc = make(FastGenesisAlloc, len(dec.Alloc))
+	g.Alloc = make(GenesisAlloc, len(dec.Alloc))
 	for k, v := range dec.Alloc {
 		g.Alloc[common.Address(k)] = v
 	}
