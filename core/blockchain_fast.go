@@ -875,7 +875,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	//currentBlock := bc.CurrentBlock()
+	currentBlock := bc.CurrentBlock()
 	//localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	//externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
@@ -966,6 +966,11 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	//	status = SideStatTy
 	//}
 
+	if block.ParentHash() != currentBlock.Hash() {
+		if err := bc.reorg(currentBlock, block); err != nil {
+			return NonStatTy, err
+		}
+	}
 	// Write the positional metadata for transaction/receipt lookups and preimages
 	rawdb.WriteTxLookupEntries(batch, block)
 	rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
