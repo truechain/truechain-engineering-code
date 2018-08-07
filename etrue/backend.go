@@ -32,8 +32,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/clique"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	fastrawdb "github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
@@ -70,7 +71,8 @@ type Truechain struct {
 	txPool          *core.TxPool
 
 	hybridPool      *core.SnailPool
-	fastBlockchain  *core.FastBlockChain
+
+	fastBlockchain  *fastchain.FastBlockChain
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
@@ -139,18 +141,20 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
-		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
+		bcVersion := fastrawdb.ReadDatabaseVersion(chainDb)
 		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
 			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
 		}
-		rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
+		fastrawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 	}
 	var (
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
-	)
+		fastCacheConfig = &fastchain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		)
+
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
-	eth.fastBlockchain, err = core.NewFastBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.fastBlockchain, err = fastchain.NewFastBlockChain(chainDb, fastCacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +162,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
 		eth.blockchain.SetHead(compat.RewindTo)
-		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+		fastrawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 	eth.bloomIndexer.Start(eth.blockchain)
 
@@ -374,7 +378,7 @@ func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
 func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
-func (s *Truechain) FastBlockChain() *core.FastBlockChain      { return s.fastBlockchain }
+func (s *Truechain) FastBlockChain() *fastchain.FastBlockChain      { return s.fastBlockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
 func (s *Truechain) HybridPool() *core.SnailPool {return s.hybridPool}

@@ -30,6 +30,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
@@ -74,7 +75,7 @@ type ProtocolManager struct {
 	txpool      txPool
 	hybridpool  hybridPool
 	blockchain  *core.BlockChain
-	fastBlockchain  *core.FastBlockChain
+	fastBlockchain  *fastchain.FastBlockChain
 	//added by Abition 20180715
 	fruitchain  *core.BlockChain
 	chainconfig *params.ChainConfig
@@ -113,7 +114,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, hybridpool hybridPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *core.FastBlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, hybridpool hybridPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
