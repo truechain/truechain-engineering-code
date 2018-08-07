@@ -638,7 +638,6 @@ type SignInfo struct {
 // a block's data contents (transactions and uncles) together.
 type FastBody struct {
 	Transactions 	[]*Transaction
-	signs       	[]*SignInfo
 }
 
 // Block Reward
@@ -652,7 +651,6 @@ type BlockReward struct {
 // FastBlock represents an entire block in the Ethereum blockchain.
 type FastBlock struct {
 	header       	*FastHeader
-	signs       	[]*SignInfo
 	transactions 	Transactions
 
 	// caches
@@ -686,7 +684,7 @@ func (h *FastHeader) Size() common.StorageSize {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*SignInfo, receipts []*Receipt) *FastBlock {
+func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt) *FastBlock {
 	b := &FastBlock{header: CopyFastHeader(header)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -704,8 +702,6 @@ func NewFastBlock(header *FastHeader, txs []*Transaction, signs []*SignInfo, rec
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
 		b.header.Bloom = CreateBloom(receipts)
 	}
-	b.signs = make([]*SignInfo,len(signs))
-	copy(b.signs,signs)
 	return b
 }
 // NewFastBlockWithHeader creates a block with the given header data. The
@@ -735,7 +731,6 @@ func CopyFastHeader(h *FastHeader) *FastHeader {
 type extfastblock struct {
 	Header *FastHeader
 	Txs    []*Transaction
-	Signs  []*SignInfo
 }
 // DecodeRLP decodes the Ethereum
 func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
@@ -744,7 +739,7 @@ func (b *FastBlock) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&eb); err != nil {
 		return err
 	}
-	b.header, b.signs, b.transactions = eb.Header, eb.Signs, eb.Txs
+	b.header, b.transactions = eb.Header, eb.Txs
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
@@ -753,11 +748,9 @@ func (b *FastBlock) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extfastblock{
 		Header: b.header,
 		Txs:    b.transactions,
-		Signs:  b.signs,
 	})
 }
 
-func (b *FastBlock) Signs() []*SignInfo           { return b.signs }
 func (b *FastBlock) Transactions() Transactions { return b.transactions }
 func (b *FastBlock) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header,b.transactions})}
 func (b *FastBlock) Transaction(hash common.Hash) *Transaction {
@@ -786,7 +779,7 @@ func (b *FastBlock) Extra() []byte            { return common.CopyBytes(b.header
 func (b *FastBlock) Header() *FastHeader { return CopyFastHeader(b.header) }
 
 // Body returns the non-header content of the fastblock.
-func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions, b.signs} }
+func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions} }
 // Size returns the true RLP encoded storage size of the fastblock, either by encoding
 // and returning it, or returning a previsouly cached value.
 func (b *FastBlock) Size() common.StorageSize {
@@ -806,18 +799,15 @@ func (b *FastBlock) WithSeal(header *FastHeader) *FastBlock {
 	return &FastBlock{
 		header:       &cpy,
 		transactions: b.transactions,
-		signs:        b.signs,
 	}
 }
 // WithBody returns a new fastblock with the given transaction contents.
-func (b *FastBlock) WithBody(transactions []*Transaction, signs []*SignInfo) *FastBlock {
+func (b *FastBlock) WithBody(transactions []*Transaction) *FastBlock {
 	block := &FastBlock{
 		header:       CopyFastHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),
-		signs:        make([]*SignInfo, len(signs)),
 	}
 	copy(block.transactions, transactions)
-	copy(block.signs,signs)
 	return block
 }
 // Hash returns the keccak256 hash of b's header.
