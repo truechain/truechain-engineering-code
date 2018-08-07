@@ -15,9 +15,130 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/etrue/truechain"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/crypto/ecies"
+	"crypto/ecdsa"
 	"sync"
+	"crypto/rand"
+	"bytes"
 )
-var self *PbftAgent
+
+const (
+	PbftActionStart = iota  // start pbft consensus
+	PbftActionStop          // stop pbft consensus
+	PbftActionSwitch       //switch pbft committee
+)
+
+type Pbftagent interface {
+	FetchBlock() (*types.FastBlock,error)
+	VerifyFastBlock() error
+	//ComplateSign (sign []*PbftSign) error
+}
+
+type PbftServer interface {
+	MembersNodes(nodes []*PbftNode) error
+	Actions(ac *PbftAction) error
+	//ComplateSign (sign []*PbftSign) error
+}
+
+type PbftSign struct {
+	FastHeight *big.Int
+	FastHash common.Hash	// fastblock hash
+	ReceiptHash common.Hash	// fastblock receiptHash
+	Sign []byte	// sign for fastblock hash
+}
+
+type PbftNode struct {
+	NodeIP string
+	NodePort uint
+	CoinBase common.Address
+	PublicKey *ecdsa.PublicKey
+	//InfoByte	[]byte
+}
+
+type PbftAction struct {
+	Id *big.Int		//committee times
+	action int
+}
+
+type CryNodeInfo struct {
+
+}
+
+func (agent PbftAgent) Register(){
+	agent.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
+	agent.fastChainHeadSub = agent.fcEvent.SubscribeNewFastEvent(agent.fastChainHeadCh)
+}
+
+var privateKey *ecdsa.PrivateKey
+func (node PbftNode)	SendPbftNode(pks []*ecdsa.PublicKey) []byte {
+	var cryNodeInfo [][]byte
+	nodeByte,_ :=truechain.ToByte(node)
+	for _,pk := range pks{
+		encryptMsg,err :=ecies.Encrypt(rand.Reader,ecies.ImportECDSAPublic(pk),
+						nodeByte, nil, nil)
+		if err != nil{
+			return nil
+		}
+		cryNodeInfo =append(cryNodeInfo,encryptMsg)
+	}
+	infoByte,_ := truechain.ToByte(cryNodeInfo)
+
+	sigInfo,err :=crypto.Sign(infoByte, privateKey)
+	if err != nil{
+		log.Info("sign error")
+		return nil
+	}
+	return sigInfo
+}
+
+
+
+var pks []*ecdsa.PublicKey	//接口得到的
+//var priKey *ecies.PrivateKey
+
+func (node PbftNode)  ReceivePbftNode(hash,sig []byte) [][]byte {
+	pubKey,err :=crypto.SigToPub(hash,sig)
+	if err != nil{
+		log.Info("SigToPub error.")
+		return nil
+	}
+
+	verifyFlag := false
+	for _,pk := range pks{
+		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
+			continue
+		}else{
+			verifyFlag = true
+		}
+	}
+	if !verifyFlag{
+		log.Info("publicKey is not exist.")
+		return nil
+	}
+	var cryNodeInfo [][]byte
+	truechain.FromByte(hash,cryNodeInfo)
+	for _,info := range cryNodeInfo{
+		priKey :=ecies.ImportECDSA(privateKey)//ecdsa-->ecies
+		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
+		if err != nil{
+			return nil
+		}
+		cryNodeInfo =append(cryNodeInfo,encryptMsg)
+	}
+
+	return cryNodeInfo
+}
+
+/*type PbftVoteSign struct {
+	 Result          uint                       // 0--agree,1--against
+	FastHeight      *big.Int                    // fastblock height
+	    Msg             common.Hash             // hash(fasthash+ecdsa.PublicKey+Result)
+	    Sig             []byte                  // sign for SigHash
+}*/
+
+//var self *PbftAgent
 
 type PbftAgent struct {
 	config *params.ChainConfig
@@ -33,6 +154,10 @@ type PbftAgent struct {
 	snapshotMu    sync.RWMutex
 	snapshotState *state.StateDB
 	snapshotBlock *types.FastBlock
+
+	fastChainHeadCh  chan core.FastChainHeadEvent
+	fastChainHeadSub event.Subscription
+	fcEvent		fcEvent
 }
 
 
@@ -61,7 +186,7 @@ type Backend interface {
 }
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
-	self = &PbftAgent{
+	self := &PbftAgent{
 		config:         config,
 		engine:         engine,
 		eth:            eth,
@@ -280,3 +405,5 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	return nil
 
 }
+
+

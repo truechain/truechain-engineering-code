@@ -33,7 +33,7 @@ func toByte(e interface{}) ([]byte,error) {
 	return buf.Bytes(),nil
 }
 
-func fromByte(data []byte,to interface{}) error {
+func FromByte(data []byte,to interface{}) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	dec.Decode(to)
