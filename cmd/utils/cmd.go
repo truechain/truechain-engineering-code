@@ -1,4 +1,4 @@
-// Copyright 2014 The truechain-engineering-code Authors
+// Copyright 2014 The go-ethereum Authors
 // This file is part of truechain-engineering-code.
 //
 // truechain-engineering-code is free software: you can redistribute it and/or modify
