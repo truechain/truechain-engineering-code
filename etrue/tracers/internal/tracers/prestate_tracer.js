@@ -1,5 +1,5 @@
 // Copyright 2017 The truechain-engineering-code Authors
-// This file is part of the truechain-engineering-code library.
+// This file is part of the go-ethereum library.
 //
 // The truechain-engineering-code library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
@@ -12,7 +12,7 @@
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // prestateTracer outputs sufficient information to create a local execution of
 // the transaction from a custom assembled genesis block.

@@ -25,6 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -32,7 +33,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // Backend wraps all methods required for mining.
@@ -51,22 +51,22 @@ type Miner struct {
 
 	worker *worker
 
-	coinbase common.Address
-	mining   int32
-	truechain     Backend
-	engine   consensus.Engine
- 
+	coinbase  common.Address
+	mining    int32
+	truechain Backend
+	engine    consensus.Engine
+
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
-		truechain:     truechain,
-		mux:      mux,
-		engine:   engine,
-		worker:   newWorker(config, engine, common.Address{}, truechain, mux),
-		canStart: 1,
+		truechain: truechain,
+		mux:       mux,
+		engine:    engine,
+		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
+		canStart:  1,
 	}
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
 	go miner.update()
