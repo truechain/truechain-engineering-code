@@ -132,7 +132,7 @@ type worker struct {
 	agents map[Agent]struct{}
 	recv   chan *Result
 
-	eth     SnailBackend
+	eth     Backend
 	chain   *chain.SnailBlockChain
 	snailchain  *chain.SnailBlockChain
 	proc    chain.Validator
@@ -159,7 +159,7 @@ type worker struct {
 	atWork int32
 } 
  
-func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth SnailBackend, mux *event.TypeMux) *worker {
+func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
 	worker := &worker{
 		config:         config,
 		engine:         engine,
@@ -173,19 +173,19 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		chainDb:        eth.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
-		chain:          eth.BlockChain(),
-		proc:           eth.BlockChain().Validator(),
+		chain:          eth.SnailBlockChain(),
+		proc:           eth.SnailBlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.SnailBlock),
 		coinbase:       coinbase,
 		agents:         make(map[Agent]struct{}),
-		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
+		unconfirmed:    newUnconfirmedBlocks(eth.SnailBlockChain(), miningLogAtDepth),
 	}
 	// Subscribe NewTxsEvent for tx pool
 	//TODO need add snailTxPool 20180804
 	//worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
-	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
-	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.chainHeadSub = eth.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
+	worker.chainSideSub = eth.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
 	//  subscribe event for fruit and record
 	//TODO need add snail txpool

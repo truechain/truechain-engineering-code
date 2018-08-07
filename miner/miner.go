@@ -32,29 +32,18 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // Backend wraps all methods required for mining.
 type Backend interface {
 	AccountManager() *accounts.Manager
-	BlockChain() *core.BlockChain
+	SnailBlockChain() *snailchain.SnailBlockChain
 	//BlockChain() *chain.BlockChain
 	TxPool() *core.TxPool
 	HybridPool() *core.SnailPool
 	ChainDb() ethdb.Database
 }
-
-type SnailBackend interface {
-	AccountManager() *accounts.Manager
-	BlockChain() *chain.SnailBlockChain
-	//TODO need add snailchain tx pool
-	TxPool() *core.TxPool
-	HybridPool() *core.SnailPool
-	//TODO need add snailchain DB
-	ChainDb() ethdb.Database
-}
-
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
@@ -64,14 +53,14 @@ type Miner struct {
 
 	coinbase common.Address
 	mining   int32
-	eth      SnailBackend
+	eth      Backend
 	engine   consensus.Engine
  
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(eth SnailBackend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
+func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:      eth,
 		mux:      mux,
@@ -79,7 +68,7 @@ func New(eth SnailBackend, config *params.ChainConfig, mux *event.TypeMux, engin
 		worker:   newWorker(config, engine, common.Address{}, eth, mux),
 		canStart: 1,
 	}
-	miner.Register(NewCpuAgent(eth.BlockChain(), engine))
+	miner.Register(NewCpuAgent(eth.SnailBlockChain(), engine))
 	go miner.update()
 
 	return miner
