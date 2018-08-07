@@ -1,5 +1,5 @@
 // Copyright 2016 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// This file is part of the truechain-engineering-code library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
@@ -12,7 +12,7 @@
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
 package debug
 
@@ -24,12 +24,12 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/fjl/memsize/memsizeui"
+	colorable "github.com/mattn/go-colorable"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/log/term"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/metrics/exp"
-	"github.com/fjl/memsize/memsizeui"
-	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
 )
 
