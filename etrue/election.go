@@ -16,7 +16,8 @@ var ( 	z  = 100
  		)
 
 const (
-	fastChainSize = 256
+	fastChainHeadSize = 256
+	chainHeadSize  = 4096
 
 )
 type VoteuUse struct {
@@ -61,6 +62,9 @@ type Election struct {
 
 	committee []*CommitteeMember
 
+	fcEvent		fcEvent
+	scEvent		scEvent
+
 	fastHead *big.Int
 	snailHead *big.Int
 
@@ -87,6 +91,17 @@ func (e *Election) Events() *event.Feed {
 	return &e.switchFeed
 }
 
+type fcEvent interface {
+	AddRemoteFruits([]*types.Block) []error
+	PendingFruits() (map[common.Hash]*types.Block, error)
+	SubscribeNewFastEvent(chan<- core.FastChainHeadEvent) event.Subscription
+}
+
+type scEvent interface {
+	AddRemoteFruits([]*types.Block) []error
+	PendingFruits() (map[common.Hash]*types.Block, error)
+	SubscribeNewChainHeadEvent(chan<- core.ChainHeadEvent) event.Subscription
+}
 //Calculate your own force unit locally
 func (v VoteuUse)LocalForce()int64{
 
@@ -272,13 +287,14 @@ func (e *Election) loop() {
 
 
 func (e *Election)start(){
-	//e.fastChainHeadCh = make(chan fastchain.FastBlockChain, fastChainSize )
-	//e.fastChainHeadSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
-	//
-	//
-	//e.chainHeadCh = make(chan core.BlockChain, txChanSize)
-	//e.chainHeadSub= pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
-	//go pm.txBroadcastLoop()
+
+	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
+	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
+
+
+	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
+	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
+
 
 }
 
