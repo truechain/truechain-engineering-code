@@ -29,6 +29,10 @@ type VoteuUse struct {
 
 }
 
+type CmmitteeStartEvent struct { start  bool}
+type CmmitteeStopEvent struct { stop   bool }
+type ElectionStartEvent struct {election bool}
+
 
 type Signature struct{
 	blockHash common.Hash
@@ -116,7 +120,7 @@ func (e *Election)start(){
 }
 
 //Calculate your own force unit locally
-func (v VoteuUse)LocalForce()int64{
+func (v VoteuUse)localForce()int64{
 
 
 	w := v.wi
@@ -140,12 +144,12 @@ func powerf(x float64, n int) float64 {
 }
 
 //Factorial function
-func Factorial(){
+func factorial(){
 
 }
 
 //The sum function
-func Sigma(j int,k int,wi int,P int64) {
+func sigma(j int,k int,wi int,P int64) {
 
 }
 
@@ -162,6 +166,7 @@ func sortition()bool{
 	//return j,true;
 	//	}
 	//}
+
 	return false;
 
 }
@@ -205,22 +210,20 @@ func (qu queue) gettail() int {
 
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
-func (e *Election)Verify(data,signature []byte,pubkey *ecdsa.PublicKey)bool {
+func (cm CommitteeMember)Verify(signature []byte)bool {
 	// hash message
-
-
-	digest := sha256.Sum256(data)
-
+	digest := sha256.Sum256(signature)
+	pubkey := cm.pubkey
 	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
 
 	r, s := new(big.Int), new(big.Int)
 	r.SetBytes(signature[:curveOrderByteSize])
 	s.SetBytes(signature[curveOrderByteSize:])
 
-	return ecdsa.Verify(pubkey, digest[:], r, s)
+	return ecdsa.Verify(pubkey,digest[:], r, s)
 
 
-	return true
+
 }
 
 
@@ -230,16 +233,16 @@ func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMe
 }
 
 func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*CommitteeMember){
-	//
-	//if block, ok := bc.blockCache.Get(hash); ok {
-	//	return block.(*types.FastBlock)
+
+	//if block, ok := e.blockCache.Get(hash); ok {
+	//	return nil,block.(*types.FastBlock)
 	//}
-	//block := rawdb.ReadBlock(bc.db, hash, number)
+	//block := rawdb.ReadBlock(e.db, hash, number)
 	//if block == nil {
-	//	return nil
+	//	return nil,nil
 	//}
 	//
-	//bc.blockCache.Add(block.Hash(), block)
+	//e.blockCache.Add(block.Hash(), block)
 
 	return nil, nil
 }
@@ -317,6 +320,7 @@ func (e *Election) chainHeadLoop() {
 
 
 func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
+
 	e := &Election{
 		fastHead:		fastHead,
 		snailHead: 		snailHead,
