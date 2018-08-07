@@ -111,7 +111,7 @@ type Engine interface {
 
 	// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
-	VerifyFastHeader(chain ChainFastReader, header *types.FastHeader, seal bool) error
+	VerifyFastHeader(chain ChainFastReader, header *types.FastHeader,seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and

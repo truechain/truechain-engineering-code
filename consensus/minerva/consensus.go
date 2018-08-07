@@ -110,12 +110,7 @@ func (ethash *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, heade
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
-	// If we're running a full engine faking, accept any input as valid
-	if ethash.config.PowMode == ModeFullFake {
-		return nil
-	}
-
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader,seal bool) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -282,7 +277,8 @@ func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, header
 	return abort, errorsOut
 }
 
-func (ethash *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader, headers []*types.FastHeader, seals []bool, index int) error {
+func (ethash *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
+			headers []*types.FastHeader, seals []bool, index int) error {
 	var parent *types.FastHeader
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
@@ -441,7 +437,8 @@ func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, heade
 // verifyFastHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Fast Block Header Validity"
-func (ethash *Minerva) verifyFastHeader(chain consensus.ChainFastReader, header, parent *types.FastHeader) error {
+func (ethash *Minerva) verifyFastHeader(chain consensus.ChainFastReader,
+	header, parent *types.FastHeader) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)

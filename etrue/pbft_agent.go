@@ -17,7 +17,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"sync"
 )
-
 var self *PbftAgent
 
 type PbftAgent struct {
@@ -61,8 +60,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 }
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig,
-			mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
 	self = &PbftAgent{
 		config:         config,
 		engine:         engine,
@@ -73,7 +71,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,
 	return self
 }
 
-func  FetchBlock() (*types.FastBlock,error){
+func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 	var fastBlock  *types.FastBlock
 
 	//1 准备新区块的时间属性Header.Time
@@ -127,7 +125,6 @@ func  FetchBlock() (*types.FastBlock,error){
 	//self.updateSnapshot()
 	return	fastBlock,nil
 }
-
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
 	state, err := self.chain.StateAt(parent.Root())
@@ -247,6 +244,39 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 	return nil, receipt.Logs
 }
 
-/*func VerifyBlock(fb *types.FastBlock) error{
-	txs :=fb.Transactions()
-}*/
+
+func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
+	bc := self.chain
+	err :=bc.Engine().VerifyFastHeader(bc, fb.Header(),true)
+	if err == nil{
+		err = bc.Validator().ValidateBody(fb)
+	}
+	if err != nil{
+		return err
+	}
+	var parent *types.FastBlock
+	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
+
+	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
+
+	state, err := bc.State()
+	if err != nil{
+		return err
+	}
+	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
+	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
+	if err != nil{
+		return err
+	}
+	// Write the block to the chain and get the status.
+	status, err := bc.WriteBlockWithState(fb, receipts, state) //update
+	if err != nil{
+		return err
+	}
+	if status  == fastchain.CanonStatTy{
+		log.Debug("Inserted new block", "number", fb.Number(), "hash", fb.Hash(), "uncles", 0,
+			"txs", len(fb.Transactions()), "gas", fb.GasUsed(), "elapsed", "")
+	}
+	return nil
+
+}
