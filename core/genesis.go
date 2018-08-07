@@ -40,9 +40,9 @@ import (
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
 //go:generate gencodec -type GenesisAccount -field-override genesisAccountMarshaling -out gen_genesis_account.go
 
-var errGenesisNoConfig = errors.New("genesis.json has no chain configuration")
+var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 
-// Genesis specifies the header fields, state of a genesis.json block. It also defines hard
+// Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
 	Config     *params.ChainConfig `json:"config"`
@@ -56,13 +56,13 @@ type Genesis struct {
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 
 	// These fields are used for consensus tests. Please don't use them
-	// in actual genesis.json blocks.
+	// in actual genesis blocks.
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 }
 
-// GenesisAlloc specifies the initial state that is part of the genesis.json block.
+// GenesisAlloc specifies the initial state that is part of the genesis block.
 type GenesisAlloc map[common.Address]GenesisAccount
 
 func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
@@ -77,7 +77,7 @@ func (ga *GenesisAlloc) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GenesisAccount is an account in the state of the genesis.json block.
+// GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
 	Code       []byte                      `json:"code,omitempty"`
 	Storage    map[common.Hash]common.Hash `json:"storage,omitempty"`
@@ -128,22 +128,22 @@ func (h storageJSON) MarshalText() ([]byte, error) {
 }
 
 // GenesisMismatchError is raised when trying to overwrite an existing
-// genesis.json block with an incompatible one.
+// genesis block with an incompatible one.
 type GenesisMismatchError struct {
 	Stored, New common.Hash
 }
 
 func (e *GenesisMismatchError) Error() string {
-	return fmt.Sprintf("database already contains an incompatible genesis.json block (have %x, new %x)", e.Stored[:8], e.New[:8])
+	return fmt.Sprintf("database already contains an incompatible genesis block (have %x, new %x)", e.Stored[:8], e.New[:8])
 }
 
-// SetupGenesisBlock writes or updates the genesis.json block in db.
+// SetupGenesisBlock writes or updates the genesis block in db.
 // The block that will be used is:
 //
-//                          genesis.json == nil       genesis.json != nil
+//                          genesis == nil       genesis != nil
 //                       +------------------------------------------
-//     db has no genesis.json |  main-net default  |  genesis.json
-//     db has genesis.json    |  from DB           |  genesis.json (if compatible)
+//     db has no genesis |  main-net default  |  genesis
+//     db has genesis    |  from DB           |  genesis (if compatible)
 //
 // The stored chain configuration will be updated if it is compatible (i.e. does not
 // specify a fork block below the local head block). In case of a conflict, the
@@ -154,20 +154,21 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if genesis != nil && genesis.Config == nil {
 		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
-	// Just commit the new block if there is no stored genesis.json block.
+
+	// Just commit the new block if there is no stored genesis block.
 	stored := rawdb.ReadCanonicalHash(db, 0)
 	if (stored == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default main-net genesis.json block")
+			log.Info("Writing default main-net genesis block")
 			genesis = DefaultGenesisBlock()
 		} else {
-			log.Info("Writing custom genesis.json block")
+			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
 		return genesis.Config, block.Hash(), err
 	}
 
-	// Check whether the genesis.json block is already written.
+	// Check whether the genesis block is already written.
 	if genesis != nil {
 		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
@@ -179,7 +180,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	newcfg := genesis.configOrDefault(stored)
 	storedcfg := rawdb.ReadChainConfig(db, stored)
 	if storedcfg == nil {
-		log.Warn("Found genesis.json block without chain config")
+		log.Warn("Found genesis block without chain config")
 		rawdb.WriteChainConfig(db, stored, newcfg)
 		return newcfg, stored, nil
 	}
@@ -217,7 +218,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	}
 }
 
-// ToBlock creates the genesis.json block and writes state of a genesis.json specification
+// ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if db == nil {
@@ -258,12 +259,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	return types.NewBlock(head, nil, nil, nil, nil)
 }
 
-// Commit writes the block and state of a genesis.json specification to the database.
+// Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
-		return nil, fmt.Errorf("can't commit genesis.json block with number > 0")
+		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
 	rawdb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
 	rawdb.WriteBlock(db, block)
@@ -280,7 +281,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-// MustCommit writes the genesis.json block and state to db, panicking on error.
+// MustCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
 func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 	block, err := g.Commit(db)
@@ -296,7 +297,7 @@ func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big
 	return g.MustCommit(db)
 }
 
-// DefaultGenesisBlock returns the Ethereum main net genesis.json block.
+// DefaultGenesisBlock returns the Ethereum main net genesis block.
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.MainnetChainConfig,
@@ -308,7 +309,7 @@ func DefaultGenesisBlock() *Genesis {
 	}
 }
 
-// DefaultTestnetGenesisBlock returns the Ropsten network genesis.json block.
+// DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
@@ -320,7 +321,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	}
 }
 
-// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis.json block.
+// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
 func DefaultRinkebyGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.RinkebyChainConfig,
@@ -332,14 +333,14 @@ func DefaultRinkebyGenesisBlock() *Genesis {
 	}
 }
 
-// DeveloperGenesisBlock returns the 'geth --dev' genesis.json block. Note, this must
+// DeveloperGenesisBlock returns the 'geth --dev' genesis block. Note, this must
 // be seeded with the
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
 
-	// Assemble and return the genesis.json with the precompiles and faucet pre-funded
+	// Assemble and return the genesis with the precompiles and faucet pre-funded
 	return &Genesis{
 		Config:     &config,
 		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, 65)...),

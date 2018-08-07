@@ -98,17 +98,17 @@ func (t *BlockTest) Run() error {
 		return UnsupportedForkError{t.json.Network}
 	}
 
-	// import pre accounts & construct test genesis.json block & state root
+	// import pre accounts & construct test genesis block & state root
 	db := ethdb.NewMemDatabase()
 	gblock, err := t.genesis(config).Commit(db)
 	if err != nil {
 		return err
 	}
 	if gblock.Hash() != t.json.Genesis.Hash {
-		return fmt.Errorf("genesis.json block hash doesn't match test: computed=%x, test=%x", gblock.Hash().Bytes()[:6], t.json.Genesis.Hash[:6])
+		return fmt.Errorf("genesis block hash doesn't match test: computed=%x, test=%x", gblock.Hash().Bytes()[:6], t.json.Genesis.Hash[:6])
 	}
 	if gblock.Root() != t.json.Genesis.StateRoot {
-		return fmt.Errorf("genesis.json block state root does not match test: computed=%x, test=%x", gblock.Root().Bytes()[:6], t.json.Genesis.StateRoot[:6])
+		return fmt.Errorf("genesis block state root does not match test: computed=%x, test=%x", gblock.Root().Bytes()[:6], t.json.Genesis.StateRoot[:6])
 	}
 
 	chain, err := core.NewBlockChain(db, nil, config, ethash.NewShared(), vm.Config{})

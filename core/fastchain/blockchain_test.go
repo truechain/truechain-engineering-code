@@ -50,7 +50,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *F
 		genesis = new(Genesis).MustCommit(db)
 	)
 
-	// Initialize a fresh chain with only a genesis.json block
+	// Initialize a fresh chain with only a genesis block
 	//初始化一个新链
 	blockchain, _ := NewFastBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
@@ -231,7 +231,7 @@ func TestBrokenHeaderChain(t *testing.T) { testBrokenChain(t, false) }
 func TestBrokenBlockChain(t *testing.T)  { testBrokenChain(t, true) }
 
 func testBrokenChain(t *testing.T, full bool) {
-	// Make chain starting from genesis.json
+	// Make chain starting from genesis
 	db, blockchain, err := newCanonical(ethash.NewFaker(), 10, full)
 	if err != nil {
 		t.Fatalf("failed to make new canonical chain: %v", err)

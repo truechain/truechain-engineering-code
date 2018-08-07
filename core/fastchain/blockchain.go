@@ -64,7 +64,7 @@ const (
 )
 
 
-// BlockChain represents the canonical chain given a database with a genesis.json
+// BlockChain represents the canonical chain given a database with a genesis
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
 type CacheConfig struct {
 	Disabled      bool          // Whether to disable trie write caching (archive node)
@@ -310,7 +310,7 @@ func (bc *FastBlockChain) SetHead(head uint64) error {
 	}
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
-			// Rewound state missing, rolled back to before pivot, reset to genesis.json
+			// Rewound state missing, rolled back to before pivot, reset to genesis
 			bc.currentBlock.Store(bc.genesisBlock)
 		}
 	}
@@ -401,13 +401,13 @@ func (bc *FastBlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
 	return state.New(root, bc.stateCache)
 }
 
-// Reset purges the entire blockchain, restoring it to its genesis.json state.
+// Reset purges the entire blockchain, restoring it to its genesis state.
 func (bc *FastBlockChain) Reset() error {
 	return bc.ResetWithGenesisBlock(bc.genesisBlock)
 }
 
 // ResetWithGenesisBlock purges the entire blockchain, restoring it to the
-// specified genesis.json state.
+// specified genesis state.
 func (bc *FastBlockChain) ResetWithGenesisBlock(genesis *types.FastBlock) error {
 	// Dump the entire block chain and purge the caches
 	if err := bc.SetHead(0); err != nil {
@@ -416,9 +416,9 @@ func (bc *FastBlockChain) ResetWithGenesisBlock(genesis *types.FastBlock) error 
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	// Prepare the genesis.json block and reinitialise the chain
-	//if err := bc.hc.WriteTd(genesis.json.Hash(), genesis.json.NumberU64(), genesis.json.Difficulty()); err != nil {
-	//	log.Crit("Failed to write genesis.json block TD", "err", err)
+	// Prepare the genesis block and reinitialise the chain
+	//if err := bc.hc.WriteTd(genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
+	//	log.Crit("Failed to write genesis block TD", "err", err)
 	//}
 	rawdb.WriteBlock(bc.db, genesis)
 
@@ -504,7 +504,7 @@ func (bc *FastBlockChain) insert(block *types.FastBlock) {
 	}
 }
 
-// Genesis retrieves the chain's genesis.json block.
+// Genesis retrieves the chain's genesis block.
 func (bc *FastBlockChain) Genesis() *types.FastBlock {
 	return bc.genesisBlock
 }
@@ -1580,7 +1580,7 @@ func (bc *FastBlockChain) HasHeader(hash common.Hash, number uint64) bool {
 }
 
 // GetBlockHashesFromHash retrieves a number of block hashes starting at a given
-// hash, fetching towards the genesis.json block.
+// hash, fetching towards the genesis block.
 func (bc *FastBlockChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
 	return bc.hc.GetBlockHashesFromHash(hash, max)
 }

@@ -455,7 +455,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Advance to the next header of the query
 			switch {
 			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis.json block
+				// Hash based traversal towards the genesis block
 				ancestor := query.Skip + 1
 				if ancestor == 0 {
 					unknown = true
@@ -487,7 +487,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					}
 				}
 			case query.Reverse:
-				// Number based traversal towards the genesis.json block
+				// Number based traversal towards the genesis block
 				if query.Origin.Number >= query.Skip+1 {
 					query.Origin.Number -= query.Skip + 1
 				} else {
@@ -543,7 +543,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Advance to the next header of the query
 			switch {
 			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis.json block
+				// Hash based traversal towards the genesis block
 				ancestor := query.Skip + 1
 				if ancestor == 0 {
 					unknown = true
@@ -575,7 +575,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					}
 				}
 			case query.Reverse:
-				// Number based traversal towards the genesis.json block
+				// Number based traversal towards the genesis block
 				if query.Origin.Number >= query.Skip+1 {
 					query.Origin.Number -= query.Skip + 1
 				} else {
@@ -1296,7 +1296,7 @@ func (pm *ProtocolManager) snailBlockBroadcastLoop() {
 type NodeInfo struct {
 	Network    uint64              `json:"network"`    // Truechain network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
 	Difficulty *big.Int            `json:"difficulty"` // Total difficulty of the host's blockchain
-	Genesis    common.Hash         `json:"genesis.json"`    // SHA3 hash of the host's genesis.json block
+	Genesis    common.Hash         `json:"genesis"`    // SHA3 hash of the host's genesis block
 	Config     *params.ChainConfig `json:"config"`     // Chain configuration for the fork rules
 	Head       common.Hash         `json:"head"`       // SHA3 hash of the host's best owned block
 }
