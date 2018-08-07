@@ -53,22 +53,22 @@ type Miner struct {
 
 	coinbase common.Address
 	mining   int32
-	true     Backend
+	truechain     Backend
 	engine   consensus.Engine
  
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(true Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
-		true:     true,
+		truechain:     truechain,
 		mux:      mux,
 		engine:   engine,
-		worker:   newWorker(config, engine, common.Address{}, true, mux),
+		worker:   newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart: 1,
 	}
-	miner.Register(NewCpuAgent(eth.SnailBlockChain(), engine))
+	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
 	go miner.update()
 
 	return miner
