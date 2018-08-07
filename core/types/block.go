@@ -643,8 +643,8 @@ type FastBody struct {
 
 // Block Reward
 type BlockReward struct {
-	FastHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
-	FastNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
+	FastHash   common.Hash    `json:"FastHash"        gencodec:"required"`
+	FastNumber *big.Int       `json:"FastNumber"      gencodec:"required"`
 	SnailHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
 	SnailNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
 }
@@ -862,6 +862,7 @@ type SnailHeader struct {
 type SnailBody struct {
 	// for fruit 20180804
 	Fruits       []*SnailBlock
+	Signs		 []*PbftVoteSign
 }
 
 // Block represents an entire block in the Ethereum blockchain.
@@ -1025,6 +1026,7 @@ func (b *SnailBlock) ToElect() bool            { return b.header.ToElect }
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader 	   { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool           {return b.header.Fruit}
+func (b *SnailBlock) GetSigns() []*PbftVoteSign {return b.body.Signs}
 // Body returns the non-header content of the snailblock.
 func (b *SnailBlock) Body() *SnailBody { return b.body }
 func (b *SnailBlock) HashNoNonce() common.Hash {
@@ -1053,8 +1055,8 @@ func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 // WithBody returns a new snailblock with the given transaction and uncle contents.
 func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
 	block := &SnailBlock{
-		header:       b.Header(),
-		body : body,
+		header:     b.Header(),
+		body : 		body,
 	}
 	// for fruit ,the fruit struit same of snial block 20180804
 	/*
