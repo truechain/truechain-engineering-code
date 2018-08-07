@@ -926,7 +926,7 @@ var SolidityParam = require('./param');
  * @returns {SolidityParam}
  */
 var formatInputInt = function (value) {
-    BigNumber.config(c.ETH_BIGNUMBER_ROUNDING_MODE);
+    BigNumber.config(c.TRUE_BIGNUMBER_ROUNDING_MODE);
     var result = utils.padLeft(utils.toTwosComplement(value).toString(16), 64);
     return new SolidityParam(result);
 };
