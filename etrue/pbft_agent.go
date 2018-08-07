@@ -264,12 +264,19 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 
 	state, err := bc.State()
+	if err != nil{
+		return err
+	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
-
+	if err != nil{
+		return err
+	}
 	// Write the block to the chain and get the status.
 	status, err := bc.WriteBlockWithState(fb, receipts, state) //update
-
+	if err != nil{
+		return err
+	}
 	if status  == fastchain.CanonStatTy{
 		log.Debug("Inserted new block", "number", fb.Number(), "hash", fb.Hash(), "uncles", 0,
 			"txs", len(fb.Transactions()), "gas", fb.GasUsed(), "elapsed", "")
