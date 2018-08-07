@@ -27,7 +27,7 @@ var bugCommand = cli.Command{
 
 const issueURL = "https://github.com/truechain/truechain-engineering-code/issues/new"
 
-// reportBug reports a bug by opening a new URL to the truechain-engineering-code GH issue
+// reportBug reports a bug by opening a new URL to the go-ethereum GH issue
 // tracker and setting default values as the issue body.
 func reportBug(ctx *cli.Context) error {
 	// execute template and write contents to buff
