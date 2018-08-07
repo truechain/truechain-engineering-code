@@ -26,7 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/internal/ethapi"
+	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/signer/core"
 	"github.com/truechain/truechain-engineering-code/signer/storage"
 )
@@ -109,7 +109,7 @@ func (alwaysDenyUI) ShowInfo(message string) {
 	panic("implement me")
 }
 
-func (alwaysDenyUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (alwaysDenyUI) OnApprovedTx(tx trueapi.SignTransactionResult) {
 	panic("implement me")
 }
 
@@ -238,7 +238,7 @@ func (d *dummyUI) ShowInfo(message string) {
 	d.calls = append(d.calls, "ShowInfo")
 }
 
-func (d *dummyUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (d *dummyUI) OnApprovedTx(tx trueapi.SignTransactionResult) {
 	d.calls = append(d.calls, "OnApprovedTx")
 }
 func (d *dummyUI) OnSignerStartup(info core.StartupInfo) {
@@ -268,7 +268,7 @@ func TestForwarding(t *testing.T) {
 	r.ShowInfo("test")
 
 	//This one is not forwarded
-	r.OnApprovedTx(ethapi.SignTransactionResult{})
+	r.OnApprovedTx(trueapi.SignTransactionResult{})
 
 	expCalls := 8
 	if len(ui.calls) != expCalls {
@@ -490,7 +490,7 @@ func TestLimitWindow(t *testing.T) {
 		}
 		// Create a dummy signed transaction
 
-		response := ethapi.SignTransactionResult{
+		response := trueapi.SignTransactionResult{
 			Tx:  dummySigned(v),
 			Raw: common.Hex2Bytes("deadbeef"),
 		}
@@ -550,7 +550,7 @@ func (d *dontCallMe) ShowInfo(message string) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 
-func (d *dontCallMe) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (d *dontCallMe) OnApprovedTx(tx trueapi.SignTransactionResult) {
 	d.t.Fatalf("Did not expect next-handler to be called")
 }
 

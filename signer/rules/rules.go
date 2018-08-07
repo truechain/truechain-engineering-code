@@ -22,13 +22,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/robertkrimen/otto"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/internal/ethapi"
+	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/signer/core"
 	"github.com/truechain/truechain-engineering-code/signer/rules/deps"
 	"github.com/truechain/truechain-engineering-code/signer/storage"
-	"github.com/robertkrimen/otto"
 )
 
 var (
@@ -235,7 +235,7 @@ func (r *rulesetUI) OnSignerStartup(info core.StartupInfo) {
 	}
 }
 
-func (r *rulesetUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (r *rulesetUI) OnApprovedTx(tx trueapi.SignTransactionResult) {
 	jsonTx, err := json.Marshal(tx)
 	if err != nil {
 		log.Warn("failed marshalling transaction", "tx", tx)

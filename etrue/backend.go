@@ -32,18 +32,18 @@ import (
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	fastrawdb "github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/ethdb"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/internal/ethapi"
+	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/miner"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -69,9 +69,9 @@ type Truechain struct {
 	shutdownChan chan bool // Channel for shutting down the Truechain
 
 	// Handlers
-	txPool          *core.TxPool
+	txPool *core.TxPool
 
-	hybridPool      *core.SnailPool
+	hybridPool *core.SnailPool
 
 	fastBlockchain  *fastchain.FastBlockChain
 	blockchain      *core.BlockChain
@@ -96,7 +96,7 @@ type Truechain struct {
 	etherbase common.Address
 
 	networkID     uint64
-	netRPCService *ethapi.PublicNetAPI
+	netRPCService *trueapi.PublicNetAPI
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
@@ -151,8 +151,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		fastrawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 	}
 	var (
-		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		vmConfig        = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+		cacheConfig     = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		fastCacheConfig = &fastchain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		)
@@ -188,7 +188,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	//TODO should add 20180805
 	//eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
-	NewPbftAgent(eth,eth.chainConfig, eth.EventMux(), eth.engine)
+	NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
@@ -265,7 +265,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 // APIs return the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Truechain) APIs() []rpc.API {
-	apis := ethapi.GetAPIs(s.APIBackend)
+	apis := trueapi.GetAPIs(s.APIBackend)
 
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
@@ -398,7 +398,7 @@ func (s *Truechain) FastBlockChain() *fastchain.FastBlockChain      { return s.f
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain      { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
-func (s *Truechain) HybridPool() *core.SnailPool {return s.hybridPool}
+func (s *Truechain) HybridPool() *core.SnailPool { return s.hybridPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }
@@ -424,7 +424,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.startBloomHandlers()
 
 	// Start the RPC service
-	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.NetVersion())
+	s.netRPCService = trueapi.NewPublicNetAPI(srvr, s.NetVersion())
 
 	// Figure out a max peers count based on the server limits
 	maxPeers := srvr.MaxPeers

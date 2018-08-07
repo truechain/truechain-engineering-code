@@ -110,11 +110,11 @@ func (ethash *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, heade
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader,seal bool) error {
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
-	parent := chain.GetHeader(header.ParentHash, number-1) ///IQQ: change GetFastHeader ?
+	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
@@ -278,7 +278,7 @@ func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, header
 }
 
 func (ethash *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
-			headers []*types.FastHeader, seals []bool, index int) error {
+	headers []*types.FastHeader, seals []bool, index int) error {
 	var parent *types.FastHeader
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
