@@ -11,9 +11,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"crypto/sha256"
 )
+
 var ( 	z  = 100
  		k  = 10000
- 		)
+)
 
 const (
 	fastChainHeadSize = 256
@@ -37,15 +38,15 @@ type Signature struct{
 }
 
 type queue struct{
-	queuesize int   //数组的大小
-	head int  //队列的头下标
-	tail int	//尾下标
-	q []int    //数组
+	queuesize int   //Array size
+	head int  		//The header and subscript of the queue
+	tail int		//Tail subscript of the queue
+	q []int   		//Array
 }
 
 type CommitteeMember struct{
-	ip		string
-	port  uint
+	ip		[]string
+	port  	uint
 	coinbase common.Hash
 	pubkey  *ecdsa.PublicKey
 }
@@ -81,10 +82,10 @@ type Election struct {
 }
 
 //Read creation block information and return public key for signature verification
-//func  (v VoteuUse)ReadGenesis()string{
-//
-//	return v.pk
-//}
+func  (v VoteuUse)ReadGenesis()[]string{
+
+	return nil
+}
 
 
 func (e *Election) Events() *event.Feed {
@@ -102,6 +103,18 @@ type scEvent interface {
 	PendingFruits() (map[common.Hash]*types.Block, error)
 	SubscribeNewChainHeadEvent(chan<- core.ChainHeadEvent) event.Subscription
 }
+
+func (e *Election)start(){
+
+	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
+	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
+	go e.fastChainHeadLoop()
+
+	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
+	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
+	go e.chainHeadLoop()
+}
+
 //Calculate your own force unit locally
 func (v VoteuUse)LocalForce()int64{
 
@@ -153,7 +166,7 @@ func sortition()bool{
 
 }
 
-
+//Used for election counting
 func(qu queue) InitQueue(){
 
 	qu.queuesize = z;
@@ -165,7 +178,6 @@ func(qu queue) InitQueue(){
 	qu.head = 0;
 
 }
-
 
 func (qu queue) EnQueue(key int){
 
@@ -191,11 +203,6 @@ func (qu queue) gettail() int {
 
 }
 
-
-
-
-
-
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
 func (e *Election)Verify(data,signature []byte,pubkey *ecdsa.PublicKey)bool {
@@ -216,28 +223,6 @@ func (e *Election)Verify(data,signature []byte,pubkey *ecdsa.PublicKey)bool {
 	return true
 }
 
-//Provide committee address enquiries
-func AddrQuery(fb types.FastBlock)[]string{
-	//
-	//	c := committee{}
-	//
-	//if fb.Signs() = c.pk{
-	//		return c.ip
-	//	}
-	//	else {
-	//			Sortition()
-	//			if
-	//}
-	return nil
-}
-
-//Gets the number of fast and slow chain transactions
-//Demand parameters（k fastchain, z snialchain）
-func counter()bool{
-	//if z = 100 && k = 10000
-	return true
-}
-
 
 func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMember {
 
@@ -245,14 +230,37 @@ func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMe
 }
 
 func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*CommitteeMember){
+	//
+	//if block, ok := bc.blockCache.Get(hash); ok {
+	//	return block.(*types.FastBlock)
+	//}
+	//block := rawdb.ReadBlock(bc.db, hash, number)
+	//if block == nil {
+	//	return nil
+	//}
+	//
+	//bc.blockCache.Add(block.Hash(), block)
 
 	return nil, nil
 }
 
-//Monitor both chains and trigger elections at the same time
-func (e *Election) loop() {
 
-	// Keep waiting for and reacting to the various events
+func (e *Election) fastChainHeadLoop() {
+	for {
+		select {
+			case ev := <-e.fastChainHeadCh:
+				if ev.Block != nil	{
+
+				}
+
+			// Err() channel will be closed when unsubscribing.
+		case <-e.fastChainHeadSub.Err():
+			return
+		}
+	}
+}
+
+func (e *Election) chainHeadLoop() {
 	Qu := queue{}
 	Qu.InitQueue()
 	for {
@@ -268,35 +276,45 @@ func (e *Election) loop() {
 					//fb.GetBlock()
 					//fb. GetBlockByNumber()
 
-
-
 				}
 			}
-
-		case ev := <-e.fastChainHeadCh:
-			if ev.Block != nil{
-
-			}
-
-
+			// Err() channel will be closed when unsubscribing.
+		case <-e.chainHeadSub.Err():
+			return
 		}
 	}
 }
 
+//Monitor both chains and trigger elections at the same time
+//func (e *Election) loop() {
+//
+//	// Keep waiting for and reacting to the various events
+//	Qu := queue{}
+//	Qu.InitQueue()
+//	for {
+//		select {
+//		// Handle ChainHeadEvent
+//		case fb := <-e.chainHeadCh:
+//			if fb.Block != nil {
+//				//Record Numbers to open elections
+//				Qu.EnQueue(0)
+//				if Qu.gettail() == z-1{
+//
+//					sortition()
+//					//fb.GetBlock()
+//					//fb. GetBlockByNumber()
+//
+//				}
+//			}
+//
+//		case ev := <-e.fastChainHeadCh:
+//			if ev.Block != nil{
+//
+//			}
+//		}
+//	}
+//}
 
-
-
-func (e *Election)start(){
-
-	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
-	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
-
-
-	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
-	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
-
-
-}
 
 func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
 	e := &Election{
@@ -306,8 +324,6 @@ func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBl
 		snailchain:		snailchain,
 
 	}
-
-
 
 	return e
 }
