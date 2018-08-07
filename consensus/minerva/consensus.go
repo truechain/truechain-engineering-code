@@ -100,7 +100,7 @@ func (ethash *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.H
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader) error {
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader,seal bool) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
