@@ -2610,7 +2610,7 @@ var properties = function () {
         }),
         new Property({
             name: 'version.ethereum',
-            getter: 'eth_protocolVersion',
+            getter: 'true_protocolVersion',
             inputFormatter: utils.toDecimal
         }),
         new Property({
