@@ -17,8 +17,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"sync"
 )
-
-
 var self *PbftAgent
 
 type PbftAgent struct {
@@ -62,8 +60,7 @@ type Backend interface {
 	ChainDb() ethdb.Database
 }
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig,
-			mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
 	self = &PbftAgent{
 		config:         config,
 		engine:         engine,
@@ -128,7 +125,6 @@ func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 	//self.updateSnapshot()
 	return	fastBlock,nil
 }
-
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
 	state, err := self.chain.StateAt(parent.Root())
@@ -251,7 +247,7 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	bc := self.chain
-	err :=bc.Engine().VerifyFastHeader(bc, fb.Header())
+	err :=bc.Engine().VerifyFastHeader(bc, fb.Header(),true)
 	if err == nil{
 		err = bc.Validator().ValidateBody(fb)
 	}

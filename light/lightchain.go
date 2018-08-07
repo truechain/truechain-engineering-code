@@ -175,13 +175,13 @@ func (self *LightChain) GasLimit() uint64 {
 	return self.hc.CurrentHeader().GasLimit
 }
 
-// Reset purges the entire blockchain, restoring it to its genesis.json state.
+// Reset purges the entire blockchain, restoring it to its genesis state.
 func (bc *LightChain) Reset() {
 	bc.ResetWithGenesisBlock(bc.genesisBlock)
 }
 
 // ResetWithGenesisBlock purges the entire blockchain, restoring it to the
-// specified genesis.json state.
+// specified genesis state.
 func (bc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	// Dump the entire block chain and purge the caches
 	bc.SetHead(0)
@@ -189,7 +189,7 @@ func (bc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	// Prepare the genesis.json block and reinitialise the chain
+	// Prepare the genesis block and reinitialise the chain
 	rawdb.WriteTd(bc.chainDb, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty())
 	rawdb.WriteBlock(bc.chainDb, genesis)
 
@@ -203,7 +203,7 @@ func (bc *LightChain) ResetWithGenesisBlock(genesis *types.Block) {
 // Engine retrieves the light chain's consensus engine.
 func (bc *LightChain) Engine() consensus.Engine { return bc.engine }
 
-// Genesis returns the genesis.json block
+// Genesis returns the genesis block
 func (bc *LightChain) Genesis() *types.Block {
 	return bc.genesisBlock
 }
@@ -428,7 +428,7 @@ func (bc *LightChain) HasHeader(hash common.Hash, number uint64) bool {
 }
 
 // GetBlockHashesFromHash retrieves a number of block hashes starting at a given
-// hash, fetching towards the genesis.json block.
+// hash, fetching towards the genesis block.
 func (self *LightChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
 	return self.hc.GetBlockHashesFromHash(hash, max)
 }

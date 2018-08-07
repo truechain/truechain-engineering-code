@@ -58,7 +58,7 @@ const (
 	NewBlockMsg        = 0x07
 
 	FruitMsg		   = 0x0a
-
+	SnailBlockMsg		   = 0x0b
 	// Protocol messages belonging to eth/63
 	GetNodeDataMsg = 0x0d
 	NodeDataMsg    = 0x0e
@@ -115,15 +115,25 @@ type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
-	// Abtion 20180715 for fruits and records
+	// for fruits and records
 	//SubscribeNewFruitsEvent(chan<- core.NewFruitsEvent) event.Subscription
 }
 
 
-type hybridPool interface {
-	AddRemoteFruits([]*types.Block) []error
-	PendingFruits() (map[common.Hash]*types.Block, error)
+/*type hybridPool interface {
+	AddRemoteFruits([]*types.SnailBlock) []error
+	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
 	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
+}*/
+type SnailPool interface {
+	AddRemoteFruits([]*types.SnailBlock) []error
+	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
+	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
+	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
+	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
+	AddRemoteRecords([]*types.PbftRecord) []error
+	PendingRecords() (*types.PbftRecord, error)
+	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 }
 
 // statusData is the network packet for the status message.
@@ -146,7 +156,7 @@ type getBlockHeadersData struct {
 	Origin  hashOrNumber // Block from which to retrieve headers
 	Amount  uint64       // Maximum number of headers to retrieve
 	Skip    uint64       // Blocks to skip between consecutive headers
-	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis.json)
+	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
 }
 
 // hashOrNumber is a combined field for specifying an origin block.

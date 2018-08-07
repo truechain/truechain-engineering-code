@@ -288,14 +288,14 @@ func (fhc *FastHeaderChain)InsertHeaderChain(chain []*types.FastHeader, writeHea
 }
 
 // GetBlockHashesFromHash retrieves a number of block hashes starting at a given
-// hash, fetching towards the genesis.json block.
+// hash, fetching towards the genesis block.
 func (fhc *FastHeaderChain)GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
 	// Get the origin header from which to fetch
 	header := fhc.GetHeaderByHash(hash)
 	if header == nil {
 		return nil
 	}
-	// Iterate the headers until enough is collected or the genesis.json reached
+	// Iterate the headers until enough is collected or the genesis reached
 	chain := make([]common.Hash, 0, max)
 	for i := uint64(0); i < max; i++ {
 		next := header.ParentHash
@@ -482,7 +482,7 @@ func (fhc *FastHeaderChain)SetHead(head uint64, delFn FastDeleteCallback) {
 	rawdb.WriteHeadHeaderHash(fhc.chainDb, fhc.currentHeaderHash)
 }
 
-// SetGenesis sets a new genesis.json block header for the chain
+// SetGenesis sets a new genesis block header for the chain
 func (fhc *FastHeaderChain)SetGenesis(head *types.FastHeader) {
 	fhc.genesisHeader = head
 }

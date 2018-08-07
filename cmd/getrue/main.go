@@ -1,5 +1,3 @@
-
-
 // geth is the official command-line client for Truechain.
 package main
 
@@ -19,8 +17,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/console"
-	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/ethclient"
+	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"

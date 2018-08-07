@@ -69,10 +69,17 @@ var (
 func (ethash *Minerva) Author(header *types.Header) (common.Address, error) {
 	return header.Coinbase, nil
 }
+func (ethash *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error) {
+	return header.Coinbase, nil
+}
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 func (ethash *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	return nil
+}
+
+func (ethash *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *types.SnailHeader, seal bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake {
 		return nil
@@ -86,25 +93,28 @@ func (ethash *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.H
 		return consensus.ErrUnknownAncestor
 	}
 
+	//TODO for fruit
+	/*
 	if header.Fruit {
 		return ethash.verifyHeader(chain, header, parent, false, seal)
 	}
+	*/
 
 	if chain.GetHeader(header.Hash(), number) != nil {
 		return nil
 	}
 
 	// Sanity checks passed, do a proper verification
-	return ethash.verifyHeader(chain, header, parent, false, seal)
+	return ethash.verifySnailHeader(chain, header, parent, false, seal)
 }
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader) error {
+func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
-	parent := chain.GetHeader(header.ParentHash, number-1) ///IQQ: change GetFastHeader ?
+	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
@@ -120,6 +130,9 @@ func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header 
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
 func (ethash *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
+	return nil,nil
+}
+func (ethash *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -145,7 +158,7 @@ func (ethash *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*typ
 	for i := 0; i < workers; i++ {
 		go func() {
 			for index := range inputs {
-				errors[index] = ethash.verifyHeaderWorker(chain, headers, seals, index)
+				errors[index] = ethash.verifySnailHeaderWorker(chain, headers, seals, index)
 				done <- index
 			}
 		}()
@@ -181,8 +194,28 @@ func (ethash *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*typ
 	return abort, errorsOut
 }
 
-func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader,
-				headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error) {
+func (ethash *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
+	return nil
+}
+func (ethash *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers []*types.SnailHeader, seals []bool, index int) error {
+	var parent *types.SnailHeader
+
+	if index == 0 {
+		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
+	} else if headers[index-1].Hash() == headers[index].ParentHash {
+		parent = headers[index-1]
+	}
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
+		return nil // known block
+	}
+
+	return ethash.verifySnailHeader(chain, headers[index], parent, false, seals[index])
+}
+
+func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -244,24 +277,8 @@ func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader,
 	return abort, errorsOut
 }
 
-func (ethash *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
-	var parent *types.Header
-	if index == 0 {
-		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
-	} else if headers[index-1].Hash() == headers[index].ParentHash {
-		parent = headers[index-1]
-	}
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
-		return nil // known block
-	}
-	return ethash.verifyHeader(chain, headers[index], parent, false, seals[index])
-}
-
 func (ethash *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
-			headers []*types.FastHeader, seals []bool, index int) error {
+	headers []*types.FastHeader, seals []bool, index int) error {
 	var parent *types.FastHeader
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
@@ -280,16 +297,23 @@ func (ethash *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum ethash engine.
 func (ethash *Minerva) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
+	return nil
+}
+func (ethash *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *types.SnailBlock) error {
+
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake {
 		return nil
 	}
 	// Verify that there are at most 2 uncles included in this block
+	//TODO snail chain not uncles 
+	/*
 	if len(block.Uncles()) > maxUncles {
 		return errTooManyUncles
 	}
+	*/
 	// Gather the set of past uncles and ancestors
-	uncles, ancestors := set.New(), make(map[common.Hash]*types.Header)
+	uncles, ancestors := set.New(), make(map[common.Hash]*types.SnailHeader)
 
 	number, parent := block.NumberU64()-1, block.ParentHash()
 	for i := 0; i < 7; i++ {
@@ -298,15 +322,20 @@ func (ethash *Minerva) VerifyUncles(chain consensus.ChainReader, block *types.Bl
 			break
 		}
 		ancestors[ancestor.Hash()] = ancestor.Header()
+		//TODO Snail chain not uncles
+		/*
 		for _, uncle := range ancestor.Uncles() {
 			uncles.Add(uncle.Hash())
 		}
+		*/
 		parent, number = ancestor.ParentHash(), number-1
 	}
 	ancestors[block.Hash()] = block.Header()
 	uncles.Add(block.Hash())
 
 	// Verify each of the uncles that it's recent, but not an ancestor
+	//TODO Snail chain not uncles
+	/*
 	for _, uncle := range block.Uncles() {
 		// Make sure every uncle is rewarded only once
 		hash := uncle.Hash()
@@ -326,6 +355,7 @@ func (ethash *Minerva) VerifyUncles(chain consensus.ChainReader, block *types.Bl
 			return err
 		}
 	}
+	*/
 	return nil
 }
 
@@ -333,6 +363,9 @@ func (ethash *Minerva) VerifyUncles(chain consensus.ChainReader, block *types.Bl
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
 func (ethash *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool) error {
+	return nil
+}
+func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader, uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -351,12 +384,15 @@ func (ethash *Minerva) verifyHeader(chain consensus.ChainReader, header, parent 
 		return errZeroBlockTime
 	}
 	// Verify the block's difficulty based in it's timestamp and parent's difficulty
-	expected := ethash.CalcDifficulty(chain, header.Time.Uint64(), parent)
+	expected := ethash.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
 
 	if expected.Cmp(header.Difficulty) != 0 {
 		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 	}
 	// Verify that the gas limit is <= 2^63-1
+
+	//TODO snail chian gaslimit
+	/*
 	cap := uint64(0x7fffffffffffffff)
 	if header.GasLimit > cap {
 		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
@@ -380,17 +416,19 @@ func (ethash *Minerva) verifyHeader(chain consensus.ChainReader, header, parent 
 	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
 		return consensus.ErrInvalidNumber
 	}
+	*/
+
 	// Verify the engine specific seal securing the block
 	if seal {
-		if err := ethash.VerifySeal(chain, header); err != nil {
+		if err := ethash.VerifySnailSeal(chain, header); err != nil {
 			return err
 		}
 	}
 	// If all checks passed, validate any special fields for hard forks
-	if err := misc.VerifyDAOHeaderExtraData(chain.Config(), header); err != nil {
+	if err := misc.VerifyDAOSnailHeaderExtraData(chain.Config(), header); err != nil {
 		return err
 	}
-	if err := misc.VerifyForkHashes(chain.Config(), header, uncle); err != nil {
+	if err := misc.VerifySnailForkHashes(chain.Config(), header, uncle); err != nil {
 		return err
 	}
 	return nil
@@ -446,13 +484,16 @@ func (ethash *Minerva) verifyFastHeader(chain consensus.ChainFastReader,
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 func (ethash *Minerva) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	return nil
+}
+func (ethash *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int {
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
+func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.SnailHeader) *big.Int {
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
 	case config.IsByzantium(next):
@@ -478,7 +519,7 @@ var (
 // calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Byzantium rules.
-func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyByzantium(time uint64, parent *types.SnailHeader) *big.Int {
 	// https://github.com/ethereum/EIPs/issues/100.
 	// algorithm:
 	// diff = (parent_diff +
@@ -537,7 +578,7 @@ func calcDifficultyByzantium(time uint64, parent *types.Header) *big.Int {
 // calcDifficultyHomestead is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Homestead rules.
-func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyHomestead(time uint64, parent *types.SnailHeader) *big.Int {
 	// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
 	// algorithm:
 	// diff = (parent_diff +
@@ -586,7 +627,7 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 // calcDifficultyFrontier is the difficulty adjustment algorithm. It returns the
 // difficulty that a new block should have when created at time given the parent
 // block's time and difficulty. The calculation uses the Frontier rules.
-func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
+func calcDifficultyFrontier(time uint64, parent *types.SnailHeader) *big.Int {
 	diff := new(big.Int)
 	adjust := new(big.Int).Div(parent.Difficulty, params.DifficultyBoundDivisor)
 	bigTime := new(big.Int)
@@ -619,6 +660,9 @@ func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
 func (ethash *Minerva) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
+	return nil
+}
+func (ethash *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
 	// If we're running a fake PoW, accept any seal as valid
 	if ethash.config.PowMode == ModeFake || ethash.config.PowMode == ModeFullFake {
 		time.Sleep(ethash.fakeDelay)
@@ -629,7 +673,7 @@ func (ethash *Minerva) VerifySeal(chain consensus.ChainReader, header *types.Hea
 	}
 	// If we're running a shared PoW, delegate verification to it
 	if ethash.shared != nil {
-		return ethash.shared.VerifySeal(chain, header)
+		return ethash.shared.VerifySnailSeal(chain, header)
 	}
 	// Ensure that we have a valid difficulty for the block
 	if header.Difficulty.Sign() <= 0 {
@@ -651,10 +695,18 @@ func (ethash *Minerva) VerifySeal(chain consensus.ChainReader, header *types.Hea
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest
 	}
+
+	//TODO for fruit
+	
 	target := new(big.Int).Div(maxUint256, header.Difficulty)
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
-	if header.Fruit {
+	 
+	
+	
+	//if header.Fruit {
+	// TODO need know how to get fruits
+	if header.Number.Uint64()>0{
 		last := result[16:]
 		if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
 			return errInvalidPoW
@@ -662,17 +714,21 @@ func (ethash *Minerva) VerifySeal(chain consensus.ChainReader, header *types.Hea
 	} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
 		return errInvalidPoW
 	}
+	
 	return nil
 }
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	return nil
+}
+func (ethash *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.SnailHeader) error {
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = ethash.CalcDifficulty(chain, header.Time.Uint64(), parent)
+	header.Difficulty = ethash.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
 	return nil
 }
 
@@ -687,13 +743,16 @@ func (ethash *Minerva) PrepareFast(chain consensus.ChainFastReader, header *type
 
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
-func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-	uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+	return nil, nil
+}
+func (ethash *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader, state *state.StateDB, txs []*types.Transaction, uncles []*types.SnailHeader, receipts []*types.Receipt, fruits []*types.SnailBlock) (*types.SnailBlock, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(chain.Config(), state, header, uncles, fruits)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
-	return types.NewBlock(header, txs, uncles, receipts, fruits), nil
+	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
+	return types.NewSnailBlock(header, fruits[1].Body()), nil
 }
 
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
@@ -714,7 +773,7 @@ var (
 // AccumulateRewards credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header, fruits []*types.Block) {
+func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.SnailHeader, uncles []*types.SnailHeader, fruits []*types.SnailBlock) {
 	// Select the correct block reward based on chain progression
 
 	blockReward := BlockReward

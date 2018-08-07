@@ -21,7 +21,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/internal/ethapi"
+	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
@@ -98,7 +98,7 @@ func (ui *StdIOUI) ShowInfo(message string) {
 		log.Info("Error calling 'ShowInfo'", "exc", err.Error(), "msg", message)
 	}
 }
-func (ui *StdIOUI) OnApprovedTx(tx ethapi.SignTransactionResult) {
+func (ui *StdIOUI) OnApprovedTx(tx trueapi.SignTransactionResult) {
 	err := ui.dispatch("OnApprovedTx", tx, nil)
 	if err != nil {
 		log.Info("Error calling 'OnApprovedTx'", "exc", err.Error(), "tx", tx)

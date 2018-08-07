@@ -34,18 +34,18 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/clique"
+	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
+	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/ethstats"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/ethstats"
 	"github.com/truechain/truechain-engineering-code/les"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -1283,7 +1283,8 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 	}
 	var engine consensus.Engine
 	if config.Clique != nil {
-		engine = clique.New(config.Clique, chainDb)
+		//TODO not need clique
+		//engine = clique.New(config.Clique, chainDb)
 	} else {
 		engine = ethash.NewFaker()
 		if !ctx.GlobalBool(FakePoWFlag.Name) {

@@ -130,7 +130,7 @@ type BlockChain struct {
 
 	badBlocks *lru.Cache // Bad block cache
 }
-
+//core.NewBlockChain
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.

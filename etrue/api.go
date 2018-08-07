@@ -32,7 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/internal/ethapi"
+	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/miner"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -375,7 +375,7 @@ func (api *PrivateDebugAPI) GetBadBlocks(ctx context.Context) ([]*BadBlockArgs, 
 		} else {
 			results[i].RLP = fmt.Sprintf("0x%x", rlpBytes)
 		}
-		if results[i].Block, err = ethapi.RPCMarshalBlock(block, true, true); err != nil {
+		if results[i].Block, err = trueapi.RPCMarshalBlock(block, true, true); err != nil {
 			results[i].Block = map[string]interface{}{"error": err.Error()}
 		}
 	}

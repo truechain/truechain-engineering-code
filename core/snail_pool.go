@@ -152,10 +152,10 @@ type SnailPool struct {
 	recordPending *list.List
 	newRecordCh   chan *types.PbftRecord
 
-	allFruits    map[common.Hash]*types.Block
-	fruitPending map[common.Hash]*types.Block
+	allFruits    map[common.Hash]*types.SnailBlock
+	fruitPending map[common.Hash]*types.SnailBlock
 
-	newFruitCh chan *types.Block
+	newFruitCh chan *types.SnailBlock
 
 	header *types.Block
 
@@ -189,9 +189,9 @@ func NewSnailPool(chainconfig *params.ChainConfig, chain *BlockChain) *SnailPool
 		recordList:    list.New(),
 		recordPending: list.New(),
 
-		newFruitCh: make(chan *types.Block, fruitChanSize),
-		allFruits:  make(map[common.Hash]*types.Block),
-		fruitPending:make(map[common.Hash]*types.Block),
+		newFruitCh: make(chan *types.SnailBlock, fruitChanSize),
+		allFruits:  make(map[common.Hash]*types.SnailBlock),
+		fruitPending:make(map[common.Hash]*types.SnailBlock),
 	}
 	pool.reset(nil, chain.CurrentBlock())
 
@@ -266,20 +266,20 @@ func (pool *SnailPool) updateFruit(record *types.PbftRecord, toLock bool) error 
 }
 
 // add
-func (pool *SnailPool) addFruit(fruit *types.Block) error {
+func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
 	//check
-	r := pool.getRecord(fruit.RecordHash(), fruit.RecordNumber())
-	f := pool.allFruits[fruit.RecordHash()]
+	r := pool.getRecord(fruit.FastHash(), fruit.FastNumber())
+	f := pool.allFruits[fruit.FastHash()]
 	if f == nil {
-		pool.allFruits[fruit.RecordHash()] = fruit
+		pool.allFruits[fruit.FastHash()] = fruit
 		if r != nil {
 			pool.muRecord.Lock()
-			pool.removeRecordWithLock(pool.recordPending, fruit.RecordHash())
+			pool.removeRecordWithLock(pool.recordPending, fruit.FastHash())
 			pool.muRecord.Unlock()
-			pool.fruitPending[fruit.RecordHash()] = fruit
+			pool.fruitPending[fruit.FastHash()] = fruit
 		}
 
 		return nil
@@ -288,14 +288,14 @@ func (pool *SnailPool) addFruit(fruit *types.Block) error {
 			// new fruit hash is greater than old one
 			return nil
 		} else {
-			pool.allFruits[fruit.RecordHash()] = fruit
+			pool.allFruits[fruit.FastHash()] = fruit
 			if r != nil {
 				pool.muRecord.Lock()
-				pool.removeRecordWithLock(pool.recordPending, fruit.RecordHash())
+				pool.removeRecordWithLock(pool.recordPending, fruit.FastHash())
 				pool.muRecord.Unlock()
-				pool.fruitPending[fruit.RecordHash()] = fruit
-			} else if _,ok := pool.fruitPending[fruit.RecordHash()]; ok {
-				pool.fruitPending[fruit.RecordHash()] = fruit
+				pool.fruitPending[fruit.FastHash()] = fruit
+			} else if _,ok := pool.fruitPending[fruit.FastHash()]; ok {
+				pool.fruitPending[fruit.FastHash()] = fruit
 			}
 		}
 	}
@@ -517,7 +517,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.Block) {
 
 
 func (pool *SnailPool) resetRecordsWithLock() {
-	pool.fruitPending = make(map[common.Hash]*types.Block)
+	pool.fruitPending = make(map[common.Hash]*types.SnailBlock)
 
 	pool.recordList = list.New()
 	pool.recordPending = list.New()
@@ -649,7 +649,7 @@ func (pool *SnailPool) State() *state.ManagedState {
 // AddLocals enqueues a batch of transactions into the pool if they are valid,
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
-func (pool *SnailPool) AddRemoteFruits(fruits []*types.Block) []error {
+func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 	errs := make([]error, len(fruits))
 
@@ -669,13 +669,13 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.Block) []error {
 
 // Pending retrieves all currently processable allFruits, sorted by record number.
 // The returned fruit set is a copy and can be freely modified by calling code.
-func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.Block, error) {
+func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.SnailBlock, error) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	pending := make(map[common.Hash]*types.Block)
+	pending := make(map[common.Hash]*types.SnailBlock)
 	for addr, fruit := range pool.fruitPending {
-		pending[addr] = types.CopyFruit(fruit)
+		pending[addr] = types.NewSnailBlock(fruit.Header(), fruit.Body())
 	}
 
 	return pending, nil
@@ -766,7 +766,7 @@ func (pool *SnailPool) validateRecord(record *types.PbftRecord) error {
 	return nil
 }
 
-func (pool *SnailPool) validateFruit(fruit *types.Block) error {
+func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	// TODO: checks whether the fruit is valid
 
 	// check freshness
@@ -780,14 +780,17 @@ func (pool *SnailPool) validateFruit(fruit *types.Block) error {
 		return ErrFreshness
 	}
 
-	header := fruit.Header()
+	//header := fruit.Header()
 	//if err := pool.engine.VerifyHeader(pool.chain, header, true); err != nil {
 	//	return err
 	//}
 
+	//TODO snail chain not need use transactions 20180804
+	/*
 	if hash := types.DeriveSha(fruit.Transactions()); hash != header.TxHash {
 		return ErrInvalidHash
 	}
+	*/
 
 	return nil
 }

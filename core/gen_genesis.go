@@ -103,6 +103,7 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	for k, v := range dec.Alloc {
 		g.Alloc[common.Address(k)] = v
 	}
+
 	if dec.Number != nil {
 		g.Number = uint64(*dec.Number)
 	}

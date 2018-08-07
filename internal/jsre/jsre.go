@@ -26,9 +26,9 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/robertkrimen/otto"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/internal/jsre/deps"
-	"github.com/robertkrimen/otto"
 )
 
 var (

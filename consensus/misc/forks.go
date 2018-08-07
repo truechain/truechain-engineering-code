@@ -28,6 +28,10 @@ import (
 // the correct hashes, to avoid clients going off on different chains. This is an
 // optional feature.
 func VerifyForkHashes(config *params.ChainConfig, header *types.Header, uncle bool) error {
+	return nil
+}
+// ADD Snail flow
+func VerifySnailForkHashes(config *params.ChainConfig, header *types.SnailHeader, uncle bool) error {
 	// We don't care about uncles
 	if uncle {
 		return nil

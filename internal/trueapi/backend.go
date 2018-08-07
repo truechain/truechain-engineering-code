@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package ethapi implements the general Ethereum API functions.
-package ethapi
+// Package ethapi implements the general True API functions.
+package trueapi
 
 import (
 	"context"
@@ -27,8 +27,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -37,7 +37,7 @@ import (
 // Backend interface provides the common API services (that are provided by
 // both full and light clients) with access to necessary functions.
 type Backend interface {
-	// General Ethereum API
+	// General True API
 	Downloader() *downloader.Downloader
 	ProtocolVersion() int
 	SuggestPrice(ctx context.Context) (*big.Int, error)
@@ -75,17 +75,17 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
-			Namespace: "eth",
+			Namespace: "true",
 			Version:   "1.0",
-			Service:   NewPublicEthereumAPI(apiBackend),
+			Service:   NewPublicTrueAPI(apiBackend),
 			Public:    true,
 		}, {
-			Namespace: "eth",
+			Namespace: "true",
 			Version:   "1.0",
 			Service:   NewPublicBlockChainAPI(apiBackend),
 			Public:    true,
 		}, {
-			Namespace: "eth",
+			Namespace: "true",
 			Version:   "1.0",
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
@@ -104,7 +104,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateDebugAPI(apiBackend),
 		}, {
-			Namespace: "eth",
+			Namespace: "true",
 			Version:   "1.0",
 			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
 			Public:    true,

@@ -29,7 +29,7 @@ import (
 // mined block is part of the canonical chain or not.
 type headerRetriever interface {
 	// GetHeaderByNumber retrieves the canonical header associated with a block number.
-	GetHeaderByNumber(number uint64) *types.Header
+	GetHeaderByNumber(number uint64) *types.SnailHeader
 }
 
 // unconfirmedBlock is a small collection of metadata about a locally mined block

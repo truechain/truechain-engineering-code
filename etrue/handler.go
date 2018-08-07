@@ -42,6 +42,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher/fetcherfast"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 const (
@@ -52,6 +53,7 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	fruitChanSize = 256
+	snailBlockChanSize = 256
 )
 
 var (
@@ -71,13 +73,14 @@ type ProtocolManager struct {
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
-
+	acceptFruits uint32
+	acceptSnailBlocks uint32
 	txpool      txPool
-	hybridpool  hybridPool
+	//hybridpool  hybridPool
+	SnailPool     SnailPool
 	blockchain  *core.BlockChain
 	fastBlockchain  *fastchain.FastBlockChain
-	//added by Abition 20180715
-	fruitchain  *core.BlockChain
+	snailchain *snailchain.SnailBlockChain
 	chainconfig *params.ChainConfig
 	maxPeers    int
 
@@ -91,16 +94,23 @@ type ProtocolManager struct {
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
+	//records
+	recordsch      chan core.NewRecordsEvent
+	recordsSub	   event.Subscription
 	//fruit
 	fruitsch       chan core.NewFruitsEvent
-	fruitsSub	  event.Subscription
+	fruitsSub	   event.Subscription
+    //snailblock
+	snailBlocksch  chan core.NewSnailBlocksEvent
+	snailBlocksSub	   event.Subscription
 
 	minedBlockSub *event.TypeMuxSubscription
 	//fast block
 	minedFastSub *event.TypeMuxSubscription
     //fruit
 	minedFruitSub *event.TypeMuxSubscription
-
+	//minedsnailBlock
+	minedSnailBlockSub *event.TypeMuxSubscription
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
 	txsyncCh    chan *txsync
@@ -114,13 +124,14 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, hybridpool hybridPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
 		eventMux:    mux,
 		txpool:      txpool,
-		hybridpool:  hybridpool,
+		//hybridpool:  hybridpool,
+		SnailPool:  SnailPool,
 		blockchain:  blockchain,
 		fastBlockchain:	 fastBlockchain,
 		chainconfig: config,
@@ -249,8 +260,15 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	//broadcast fruits
 	pm.fruitsch = make(chan core.NewFruitsEvent, fruitChanSize)
-	pm.fruitsSub = pm.hybridpool.SubscribeNewFruitEvent(pm.fruitsch)
+	//pm.fruitsSub = pm.hybridpool.SubscribeNewFruitEvent(pm.fruitsch)
+	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
+
+	//broadcast snailblock
+	pm.snailBlocksch = make(chan core.NewSnailBlocksEvent, snailBlockChanSize)
+	// TODO: modify snailblock broadcast
+	//pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
+	go pm.snailBlockBroadcastLoop()
 
 	// broadcast mined blocks
 	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
@@ -263,6 +281,10 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// broadcast mined fruits
 	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
 	go pm.minedFruitLoop()
+
+	//broadcast mined snailblock
+	pm.minedSnailBlockSub = pm.eventMux.Subscribe(core.NewMinedSnailBlockEvent{})
+	go pm.minedSnailBlockLoop()
 
 	// start sync handlers
 	go pm.syncer()
@@ -278,6 +300,10 @@ func (pm *ProtocolManager) Stop() {
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
+	//snailblock and minedSnailBlock
+	pm.snailBlocksSub.Unsubscribe() // quits snailBlockBroadcastLoop
+	pm.minedSnailBlockSub.Unsubscribe() // quits minedSnailBlockBroadcastLoop
+
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
 	pm.noMorePeers <- struct{}{}
@@ -429,7 +455,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Advance to the next header of the query
 			switch {
 			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis.json block
+				// Hash based traversal towards the genesis block
 				ancestor := query.Skip + 1
 				if ancestor == 0 {
 					unknown = true
@@ -461,7 +487,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					}
 				}
 			case query.Reverse:
-				// Number based traversal towards the genesis.json block
+				// Number based traversal towards the genesis block
 				if query.Origin.Number >= query.Skip+1 {
 					query.Origin.Number -= query.Skip + 1
 				} else {
@@ -517,7 +543,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Advance to the next header of the query
 			switch {
 			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis.json block
+				// Hash based traversal towards the genesis block
 				ancestor := query.Skip + 1
 				if ancestor == 0 {
 					unknown = true
@@ -549,7 +575,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					}
 				}
 			case query.Reverse:
-				// Number based traversal towards the genesis.json block
+				// Number based traversal towards the genesis block
 				if query.Origin.Number >= query.Skip+1 {
 					query.Origin.Number -= query.Skip + 1
 				} else {
@@ -951,27 +977,48 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		pm.txpool.AddRemotes(txs)
 
+	//fruit structure
 	case msg.Code == FruitMsg:
-		// TODO: fruit msg handle
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
-		var fruits []*types.Block
+		var fruits []*types.SnailBlock
 		if err := msg.Decode(&fruits); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		for i, fruit := range fruits {
-			// Validate and mark the remote transaction
+			// Validate and mark the remote fruit
 			if fruit == nil {
 				return errResp(ErrDecode, "fruit %d is nil", i)
 			}
-			// TODO:
 			p.MarkFruit(fruit.Hash())
 		}
-		pm.hybridpool.AddRemoteFruits(fruits)
+		//pm.hybridpool.AddRemoteFruits(fruits)
+		pm.SnailPool.AddRemoteFruits(fruits)
 
+	//snailBlock structure
+	case msg.Code == SnailBlockMsg:
+		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptSnailBlocks) == 0 {
+			break
+		}
+		// Transactions can be processed, parse all of them and deliver to the pool
+		var snailBlocks []*types.SnailBlock
+		if err := msg.Decode(&snailBlocks); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for i, snailBlock := range snailBlocks {
+			// Validate and mark the remote snailBlock
+			if snailBlock == nil {
+				return errResp(ErrDecode, "snailBlock %d is nil", i)
+			}
+			p.MarkSnailBlock(snailBlock.Hash())
+		}
+
+		// TODO: send snail block to snail blockchain
+		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
@@ -1044,7 +1091,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate 
 
 // Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastFruit(fruit *types.Block, propagate bool) {
+func (pm *ProtocolManager) BroadcastFruit(fruit *types.SnailBlock, propagate bool) {
 	hash := fruit.Hash()
 	peers := pm.peers.PeersWithoutFruit(hash)
 
@@ -1064,6 +1111,40 @@ func (pm *ProtocolManager) BroadcastFruit(fruit *types.Block, propagate bool) {
 			peer.AsyncSendNewFruit(fruit, td)
 		}
 		log.Trace("Propagated fruit", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(fruit.ReceivedAt)))
+		return
+	}
+	//fruit not exist the follow situation
+	/*// Otherwise if the block is indeed in out own chain, announce it
+	if pm.blockchain.HasBlock(hash, fruit.NumberU64()) {
+		for _, peer := range peers {
+			peer.AsyncSendNewBlockHash(block)
+		}
+		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+	}*/
+}
+
+// BroadcastSnailBlock will either propagate a snailBlock to a subset of it's peers, or
+// will only announce it's availability (depending what's requested).
+func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, propagate bool) {
+	hash := snailBlock.Hash()
+	peers := pm.peers.PeersWithoutSnailBlock(hash)
+
+	// If propagation is requested, send to a subset of the peer
+	if propagate {
+		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
+		var td *big.Int
+		/*if parent := pm.fruitchain.GetBlock(fruit.ParentHash(), fruit.NumberU64()-1); parent != nil {
+			td = new(big.Int).Add(fruit.Difficulty(), pm.blockchain.GetTd(fruit.ParentHash(), fruit.NumberU64()-1))
+		} else {
+			log.Error("Propagating dangling fruit", "number", fruit.Number(), "hash", hash)
+			return
+		}*/
+		// Send the fruit to a subset of our peers
+		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+		for _, peer := range transfer {
+			peer.AsyncSendNewSnailBlock(snailBlock, td)
+		}
+		log.Trace("Propagated snailBlock", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 		return
 	}
 	//fruit not exist the follow situation
@@ -1111,6 +1192,23 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 		peer.AsyncSendFruits(fruits)
 	}
 }
+//for snailBlocks
+func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks types.SnailBlocks) {
+	var snailBlcokset = make(map[*peer]types.SnailBlocks)
+
+	// Broadcast records to a batch of peers not knowing about it
+	for _, snailBlcok := range snailBlocks {
+		peers := pm.peers.PeersWithoutSnailBlock(snailBlcok.Hash())
+		for _, peer := range peers {
+			snailBlcokset[peer] = append(snailBlcokset[peer], snailBlcok)
+		}
+		log.Trace("Broadcast snailBlcoks", "hash", snailBlcok.Hash(), "recipients", len(peers))
+	}
+	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	for peer, snailBlocks := range snailBlcokset {
+		peer.AsyncSendSnailBlocks(snailBlocks)
+	}
+}
 // Mined broadcast loop
 func (pm *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
@@ -1144,6 +1242,17 @@ func (pm *ProtocolManager) minedFruitLoop() {
 		}
 	}
 }
+// Mined snailBlock loop
+func (pm *ProtocolManager) minedSnailBlockLoop() {
+	// automatically stops if unsubscribe
+	for obj := range pm.minedSnailBlockSub.Chan() {
+		switch ev := obj.Data.(type) {
+		case core.NewMinedSnailBlockEvent:
+			pm.BroadcastSnailBlock(ev.Block, true)  // First propagate fruit to peers
+			pm.BroadcastSnailBlock(ev.Block, false) // Only then announce to the rest
+		}
+	}
+}
 func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
@@ -1169,12 +1278,25 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 		}
 	}
 }
+//  snailBlocks
+func (pm *ProtocolManager) snailBlockBroadcastLoop() {
+	for {
+		select {
+		case event := <-pm.snailBlocksch:
+			pm.BroadcastSnailBlocks(event.SnailBlocks)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-pm.snailBlocksSub.Err():
+			return
+		}
+	}
+}
 // NodeInfo represents a short summary of the Truechain sub-protocol metadata
 // known about the host peer.
 type NodeInfo struct {
 	Network    uint64              `json:"network"`    // Truechain network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
 	Difficulty *big.Int            `json:"difficulty"` // Total difficulty of the host's blockchain
-	Genesis    common.Hash         `json:"genesis.json"`    // SHA3 hash of the host's genesis.json block
+	Genesis    common.Hash         `json:"genesis"`    // SHA3 hash of the host's genesis block
 	Config     *params.ChainConfig `json:"config"`     // Chain configuration for the fork rules
 	Head       common.Hash         `json:"head"`       // SHA3 hash of the host's best owned block
 }

@@ -24,12 +24,12 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/fjl/memsize/memsizeui"
+	colorable "github.com/mattn/go-colorable"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/log/term"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/metrics/exp"
-	"github.com/fjl/memsize/memsizeui"
-	colorable "github.com/mattn/go-colorable"
 	"gopkg.in/urfave/cli.v1"
 )
 

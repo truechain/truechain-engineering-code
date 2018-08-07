@@ -182,7 +182,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// Fast sync was explicitly requested, and explicitly granted
 		mode = downloader.FastSync
 	} else if currentBlock.NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
-		// The database seems empty as the current block is the genesis.json. Yet the fast
+		// The database seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
 		// bad block) rolled back a fast sync node below the sync point. In this case

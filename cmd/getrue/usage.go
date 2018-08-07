@@ -1,5 +1,3 @@
-
-
 // Contains the geth command usage template and generator.
 
 package main

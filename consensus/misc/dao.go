@@ -44,7 +44,13 @@ var (
 //      with the fork specific extra-data set
 //   b) if the node is pro-fork, require blocks in the specific range to have the
 //      unique extra-data set.
+
+
 func VerifyDAOHeaderExtraData(config *params.ChainConfig, header *types.Header) error {
+	return nil
+}
+// ADD snail 
+func VerifyDAOSnailHeaderExtraData(config *params.ChainConfig, header *types.SnailHeader) error {
 	// Short circuit validation if the node doesn't care about the DAO fork
 	if config.DAOForkBlock == nil {
 		return nil

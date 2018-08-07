@@ -34,7 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etrue/tracers"
-	"github.com/truechain/truechain-engineering-code/internal/ethapi"
+	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -600,11 +600,11 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 	// Depending on the tracer type, format and return the output
 	switch tracer := tracer.(type) {
 	case *vm.StructLogger:
-		return &ethapi.ExecutionResult{
+		return &trueapi.ExecutionResult{
 			Gas:         gas,
 			Failed:      failed,
 			ReturnValue: fmt.Sprintf("%x", ret),
-			StructLogs:  ethapi.FormatLogs(tracer.StructLogs()),
+			StructLogs:  trueapi.FormatLogs(tracer.StructLogs()),
 		}, nil
 
 	case *tracers.Tracer:
