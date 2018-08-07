@@ -1,20 +1,10 @@
 package truechain
 
-import (
-	"math/big"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/common"
-	"time"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"encoding/hex"
-)
-
-
-
-func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
+/*func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 	pbTxs := make([]*Transaction,0,0)
 	for _,vv := range txs {
 		to := make([]byte,0,0)
+
 		if tt := vv.To(); tt != nil {
 			to = tt.Bytes()
 		}
@@ -71,7 +61,7 @@ func ConvTransaction(th *TrueHybrid,txs []*types.Transaction)  {
 	//rw := & p2p.MsgReadWriter{}
 	//p2p.Send(rw, NewBftBlockMsg, []interface{}{block})
 
-}
+}*/
 
 
 

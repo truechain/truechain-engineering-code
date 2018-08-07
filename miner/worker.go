@@ -676,7 +676,7 @@ func (self *worker) updateSnapshot() {
 	//TODO need add this process
 	self.snapshotBlock = types.NewSnailBlock(
 		self.current.header,
-		*self.current.fruits[1].Body(),
+		self.current.fruits[1].Body(),
 	)
 
 	self.snapshotState = self.current.state.Copy()

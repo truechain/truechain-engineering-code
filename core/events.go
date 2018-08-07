@@ -19,6 +19,7 @@ package core
 import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -43,6 +44,9 @@ type PendingStateEvent struct{}
 type NewMinedBlockEvent struct{ Block *types.Block }
 type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
 
+// NewMinedFastBlockEvent is posted when a block has been imported.
+type NewMinedFastBlockEvent struct{ Block *types.FastBlock }
+
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 
@@ -52,6 +56,12 @@ type RemovedLogsEvent struct{ Logs []*types.Log }
 
 type ChainEvent struct {
 	Block *types.Block
+	Hash  common.Hash
+	Logs  []*types.Log
+}
+
+type FastChainEvent struct {
+	Block *types.FastBlock
 	Hash  common.Hash
 	Logs  []*types.Log
 }
@@ -73,12 +83,23 @@ type ChainSideEvent struct {
 	Block *types.Block
 }
 
- 
+type FastChainSideEvent struct {
+	Block *types.FastBlock
+}
+
 type SnailChainSideEvent struct {
 	Block *types.SnailBlock
 }
 
+type ElectionEvent struct {
+	option 	uint
+	fastnumber	*big.Int
+	snailnumber *big.Int
+}
+
+
 type ChainHeadEvent struct{ Block *types.Block }
+type FastChainHeadEvent struct{ Block *types.FastBlock }
 
 type SnailChainHeadEvent struct{ Block *types.SnailBlock }
 

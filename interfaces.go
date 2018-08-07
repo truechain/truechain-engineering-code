@@ -131,7 +131,7 @@ type ContractCaller interface {
 
 // FilterQuery contains options for contract log filtering.
 type FilterQuery struct {
-	FromBlock *big.Int         // beginning of the queried range, nil means genesis block
+	FromBlock *big.Int         // beginning of the queried range, nil means genesis.json block
 	ToBlock   *big.Int         // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts
 

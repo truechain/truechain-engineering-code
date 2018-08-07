@@ -57,7 +57,6 @@ const (
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07
 
-	RecordMsg		   = 0x09
 	FruitMsg		   = 0x0a
 	SnailBlockMsg		   = 0x0b
 	// Protocol messages belonging to eth/63
@@ -65,6 +64,13 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
+
+	NewFastBlockHashesMsg  = 0x11
+	GetFastBlockHeadersMsg = 0x12
+	FastBlockHeadersMsg    = 0x13
+	GetFastBlockBodiesMsg  = 0x14
+	FastBlockBodiesMsg     = 0x15
+	NewFastBlockMsg        = 0x16
 )
 
 type errCode int
@@ -110,7 +116,6 @@ type txPool interface {
 	// NewTxsEvent and send events to the given channel.
 	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
 	// for fruits and records
-	//SubscribeNewRecordsEvent(chan<- core.NewRecordsEvent) event.Subscription
 	//SubscribeNewFruitsEvent(chan<- core.NewFruitsEvent) event.Subscription
 }
 
@@ -119,17 +124,13 @@ type txPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
 	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
-
-	AddRemoteRecords([]*types.PbftRecord) []error
-	PendingRecords() (*types.PbftRecord, error)
-	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 }*/
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
-	AddRemoteSnailBlocks([]*types.SnailBlock) []error
+	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
 	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
 	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
-	SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
+	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	AddRemoteRecords([]*types.PbftRecord) []error
 	PendingRecords() (*types.PbftRecord, error)
 	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
@@ -155,7 +156,7 @@ type getBlockHeadersData struct {
 	Origin  hashOrNumber // Block from which to retrieve headers
 	Amount  uint64       // Maximum number of headers to retrieve
 	Skip    uint64       // Blocks to skip between consecutive headers
-	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
+	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis.json)
 }
 
 // hashOrNumber is a combined field for specifying an origin block.
@@ -197,6 +198,12 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 // newBlockData is the network packet for the block propagation message.
 type newBlockData struct {
 	Block *types.Block
+	TD    *big.Int
+}
+
+// newFastBlockData is the network packet for the block propagation message.
+type newFastBlockData struct {
+	Block *types.FastBlock
 	TD    *big.Int
 }
 

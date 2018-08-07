@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"math/big"
 	"time"
-
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/vm"
-
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"crypto/ecdsa"
 	"log"
 	"encoding/hex"
@@ -23,8 +22,10 @@ const(
 )
 
 var (
+	blocks []*types.Block
 	th = NewTrueHybrid() //TrueHybrid Object
 	privkeys = make([]*ecdsa.PrivateKey,0,0)
+	private_produceBlock *ecdsa.PrivateKey
 	blockchain  *core.BlockChain
 	tx1 = types.NewTransaction(
 		0,
@@ -55,8 +56,9 @@ func init(){
 		privateKey,_ := crypto.GenerateKey()
 		privkeys = append(privkeys,privateKey)
 	}
+	private_produceBlock,_ = crypto.GenerateKey()
 	th.Config.CmmCount = 3  //amount of Pbft Committee Members
-	GenerateBlockchain()
+	//GenearetEthBlockchain()
 }
 
 func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
@@ -67,6 +69,7 @@ func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 	}
 	return &pub
 }
+
 
 //convert types.Transaction(ethereum)  into Transaction
 func ConvertTransaction(oldTxs []*types.Transaction) []*Transaction{
@@ -94,6 +97,53 @@ func ConvertTransaction(oldTxs []*types.Transaction) []*Transaction{
 	}
 	return pbTxs
 }
+/*
+AccountNonce         uint64
+Price                uint64
+GasLimit             uint64
+Recipient            []byte
+Amount               uint64
+Payload              []byte
+V                    uint64
+R                    uint64
+S                    uint64
+Hash
+*/
+
+/*AccountNonce uint64
+Price        *big.Int
+GasLimit     uint64
+Recipient    *common.Address
+Amount       *big.Int
+Payload      []byte
+
+// Signature values
+V *big.Int
+R *big.Int
+S *big.Int
+Hash *common.Hash*/
+
+/*
+func ConvertTrueBlockToTransaction(oldTxs []*Transaction) []*types.Transaction{
+	pbTxs :=make([]*Transaction,0,0)
+	for _,tx := range oldTxs {
+		newTx :=&types.Transaction{
+			data:  types.txdata{
+				AccountNonce:       tx.Data.AccountNonce,
+				Price:              tx.Data.Price,
+				GasLimit:           new(big.Int).SetUint64(tx.Gas()).Uint64(),
+				Recipient:          to,
+				Amount:             tx.Value().Uint64(),
+				Payload:            tx.Data(),
+				V:                  v.Uint64(),
+				R:                  r.Uint64(),
+				S:                  s.Uint64(),
+			},
+		}
+		pbTxs = append(pbTxs,newTx)
+	}
+	return pbTxs
+}*/
 
 //generate sigs
 func GenerateSigs(pbBlock TruePbftBlock) []string{
@@ -130,9 +180,42 @@ func MakePbftBlock(cmm *PbftCommittee) *TruePbftBlock {
 	return &block
 }
 
-func GenerateBlockchain() {
-	blockchain, _ = core.NewBlockChain(ethdb.NewMemDatabase(), nil, params.AllEthashProtocolChanges, nil, vm.Config{})
+func GenerateEthBlocks(private_produceBlock *ecdsa.PrivateKey,height int64) []*types.Block{
+	txs :=[]*types.Transaction{}
+	txs = append(txs,tx1,tx2)
+	pub := GetPub(private_produceBlock)
+	//nodeid := hex.EncodeToString(crypto.FromECDSAPub(pub))
+	addr := crypto.PubkeyToAddress(*pub)
+	header :=&types.Header{
+		Coinbase:addr,
+		Number:big.NewInt(height),
+	}
+	block:= types.GenerateEthereumBlock(header,txs)
+	blocks :=[]*types.Block{block}
+	return blocks
 }
+
+
+
+func GenearetEthBlockchain() *core.BlockChain{
+	engine := ethash.NewFaker()
+	diskdb := ethdb.NewMemDatabase()
+	blockchain, err:= core.NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
+
+	if blockchain == nil{
+		fmt.Println("bc is null")
+	}
+
+   	if err != nil{
+		log.Panic(err)
+	}
+
+	privateKey,_ := crypto.GenerateKey()
+	blocks :=GenerateEthBlocks(privateKey,int64(0))
+	blockchain.ResetWithGenesisBlock(blocks[0])
+	return blockchain
+}
+
 
 func TestNewCommittee(t *testing.T) {
 	// new committee msg from py-PBFT for view-change

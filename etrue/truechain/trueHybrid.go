@@ -262,7 +262,7 @@ func (t *TrueHybrid) MembersNodes(nodes []*CommitteeMember) error{
 func (t *TrueHybrid) SetTransactions(th *TrueHybrid,txs []*types.Transaction) {
 	// Set up a connection to the server.
 
-	go ConvTransaction(th,txs)
+	//go ConvTransaction(th,txs)
 
 	//test
 	//conn, err := grpc.Dial(t.ClientAddress, grpc.WithInsecure())

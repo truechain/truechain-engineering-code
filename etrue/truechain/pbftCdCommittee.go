@@ -96,7 +96,7 @@ func (pcc *PbftCdCommittee) checkTmpMsg(bc *core.BlockChain) {
 			pcc.NCdCrypMsg = Removemgs(pcc.NCdCrypMsg,pos)//remove the msg from t.Cdm.NCdCrypMsg
 		} else {
 			break
-		}	
+		}
 	}
 }
 
@@ -188,8 +188,6 @@ func (pcd *PbftCdCommittee) syncStandbyMembers() {
 	CdsCh <-pcd.VCdCrypMsg
 }
 
-
-
 //handle the msg of miner  CdEncryptionMsg
 func (pcc *PbftCdCommittee) handleReceiveSdmMsg(msg *CdEncryptionMsg,bc *core.BlockChain) {
 	if msg == nil {
@@ -242,7 +240,7 @@ func (pcc *PbftCdCommittee) VerifyCommitteeFromSdm(cmm *PbftCommittee) bool {
 	if nPos == nil {
 		return false
 	}
-	if nPos[0] > oPos[len(oPos)-1] {//?
+	if nPos[0] > oPos[len(oPos)-1] {
 		return true
 	}
 	return false

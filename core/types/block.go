@@ -404,14 +404,11 @@ func CopyHeader(h *Header) *Header {
 	return &cpy
 }
 
+// TODO: implement copy function
+func CopyFruit(f *SnailBlock) *SnailBlock {
 
-func CopyFruit(f *Block) *Block {
-	b := &Block{header: CopyHeader(f.header), td: new(big.Int)}
+	b := NewSnailBlock(f.Header(), f.Body())
 
-	if len(f.transactions) > 0 {
-		b.transactions = make(Transactions, len(f.transactions))
-		copy(b.transactions, f.transactions)
-	}
 	return b
 }
 
@@ -564,10 +561,22 @@ func (b *Block) Hash() common.Hash {
 
 type Blocks []*Block
 
+type FastBlocks []*FastBlock
+
 type BlockBy func(b1, b2 *Block) bool
+
+type FastBlockBy func(b1, b2 *FastBlock) bool
 
 func (self BlockBy) Sort(blocks Blocks) {
 	bs := blockSorter{
+		blocks: blocks,
+		by:     self,
+	}
+	sort.Sort(bs)
+}
+
+func (self FastBlockBy) FastSort(blocks FastBlocks) {
+	bs := fastBlockSorter{
 		blocks: blocks,
 		by:     self,
 	}
@@ -579,14 +588,28 @@ type blockSorter struct {
 	by     func(b1, b2 *Block) bool
 }
 
+type fastBlockSorter struct {
+	blocks FastBlocks
+	by     func(b1, b2 *FastBlock) bool
+}
+
 func (self blockSorter) Len() int { return len(self.blocks) }
 func (self blockSorter) Swap(i, j int) {
 	self.blocks[i], self.blocks[j] = self.blocks[j], self.blocks[i]
 }
 func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
 
+
+func (self fastBlockSorter) Len() int { return len(self.blocks) }
+func (self fastBlockSorter) Swap(i, j int) {
+	self.blocks[i], self.blocks[j] = self.blocks[j], self.blocks[i]
+}
+func (self fastBlockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
+
+
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
 
+func FastNumber(b1, b2 *FastBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
 ////////////////////////////////////////////////////////////////////////////////
 
 // fast chain block structure
@@ -616,6 +639,14 @@ type SignInfo struct {
 type FastBody struct {
 	Transactions 	[]*Transaction
 	signs       	[]*SignInfo
+}
+
+// Block Reward
+type BlockReward struct {
+	FastHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
+	FastNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
+	SnailHash   common.Hash    `json:"SnailHash"        gencodec:"required"`
+	SnailNumber *big.Int       `json:"SnailNumber"      gencodec:"required"`
 }
 
 // FastBlock represents an entire block in the Ethereum blockchain.
@@ -907,10 +938,10 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 // NewSnailBlock creates a new block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
-func NewSnailBlock(header *SnailHeader, body SnailBody) *SnailBlock {
+func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header), 
-		body : &body,
+		body : body,
 		td: new(big.Int)}
 
 	// the fruits struct is same of snailblock not header 20180804

@@ -260,7 +260,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.SnailBlock {
 	//TODO get body 20180804
 	body := types.SnailBody{}
 
-	return types.NewSnailBlock(head, body)
+	return types.NewSnailBlock(head, &body)
 }
 
 // Commit writes the block and state of a genesis specification to the database.
