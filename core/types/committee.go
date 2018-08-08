@@ -20,7 +20,7 @@ type PbftVoteSign struct {
 }
 
 //Commission verification fast black result
-type CommitteeFastVerification struct {
+type CommitteeFastSignResult struct {
 	Address common.Address `json:"address,omitempty"`
 	Result  bool           `json:"result,omitempty"` //sign is true
 }
