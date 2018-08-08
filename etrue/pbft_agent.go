@@ -30,8 +30,8 @@ const (
 	PbftActionStop          // stop pbft consensus
 	PbftActionSwitch       //switch pbft committee
 
-	VoteAgree = iota
-	VoteAgreeAgainst
+	VoteAgree = iota		//vote agree
+	VoteAgreeAgainst  		//vote against
 )
 
 type Pbftagent interface {
@@ -174,7 +174,7 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode 
 }
 
 var voteResult map[*big.Int]int	= make(map[*big.Int]int)
-func  (self *PbftAgent)  ComplateSign(voteSigns []PbftVoteSign){
+func  (self *PbftAgent)  ComplateSign(voteSigns []*PbftVoteSign){
 	var FastHeight *big.Int
 	for _,voteSign := range voteSigns{
 		FastHeight =voteSign.FastHeight
@@ -199,16 +199,15 @@ func  (self *PbftAgent)  ComplateSign(voteSigns []PbftVoteSign){
 		}
 	}
 	if voteResult[FastHeight] > 2*len(pks)/3{
-		//将当前区块放入快链，广播签名
+		//将当前区块放入快链，
 		var fastBlocks []*types.FastBlock
 		_,err :=self.chain.InsertChain(fastBlocks)
 		if err != nil{
 			panic(err)
 		}
-
-		//core.PbftVoteSignEvent<- voteSigns
+		//广播签名
+		self.agentFeed.Send(core.PbftVoteSignEvent{voteSigns})
 	}
-
 }
 
 type PbftAgent struct {
@@ -219,6 +218,7 @@ type PbftAgent struct {
 	eth     Backend
 	signer types.Signer
 	current *AgentWork
+
 	currentMu sync.Mutex
 	mux          *event.TypeMux
 	agentFeed       event.Feed
@@ -335,6 +335,8 @@ func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 		return	fastBlock,err
 	}
 	//self.updateSnapshot()
+	//广播fastblock
+	self.mux.Post(core.NewMinedFastBlockEvent{fastBlock})
 	return	fastBlock,nil
 }
 
@@ -475,6 +477,9 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 		return err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
+	if err != nil{
+		return err
+	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil{
 		return err
@@ -491,6 +496,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	return nil
 
 }
+
 
 // SubscribeNewPbftVoteSignEvent registers a subscription of PbftVoteSignEvent and
 // starts sending event to the given channel.
