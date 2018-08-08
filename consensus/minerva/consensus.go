@@ -775,6 +775,11 @@ func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *typ
 	return types.NewFastBlock(header, txs, receipts), nil
 }
 
+//gas allocation
+func (ethash *Minerva) FinalizeFastGas(fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
+	return nil
+}
+
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
