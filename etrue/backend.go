@@ -182,13 +182,14 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb); err != nil {
+	agent := NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, agent); err != nil {
 		return nil, err
 	}
 	//TODO should add 20180805
-	//eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
-	NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO

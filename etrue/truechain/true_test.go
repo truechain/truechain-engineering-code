@@ -282,7 +282,7 @@ func TestDataStruct(t *testing.T) {
 	fmt.Println(sig)
 
 	n2 := CdMember{}
-	err := fromByte(msg,&n2)
+	err := FromByte(msg,&n2)
 	if err != nil {
 		fmt.Println(err)
 	}
