@@ -51,10 +51,10 @@ const (
 	StatusMsg          = 0x00
 	NewFastBlockHashesMsg  = 0x01
 	TxMsg              = 0x02
-	GetBlockHeadersMsg = 0x03
-	BlockHeadersMsg    = 0x04
-	GetBlockBodiesMsg  = 0x05
-	BlockBodiesMsg     = 0x06
+	GetFastBlockHeadersMsg = 0x03
+	FastBlockHeadersMsg    = 0x04
+	GetFastBlockBodiesMsg  = 0x05
+	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
 
 	FruitMsg		   = 0x0a
@@ -64,11 +64,6 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
-
-	GetFastBlockHeadersMsg = 0x12
-	FastBlockHeadersMsg    = 0x13
-	GetFastBlockBodiesMsg  = 0x14
-	FastBlockBodiesMsg     = 0x15
 )
 
 type errCode int
