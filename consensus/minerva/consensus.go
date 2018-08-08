@@ -776,7 +776,13 @@ func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *typ
 }
 
 //gas allocation
-func (ethash *Minerva) FinalizeFastGas(fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
+func (ethash *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
+	var ce consensus.CommitteeElection
+	_, committee := ce.GetCommittee(fastNumber, fastHash)
+	committeeGas := new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+	for _, v := range committee {
+		state.AddBalance(v.Coinbase, committeeGas)
+	}
 	return nil
 }
 
@@ -804,11 +810,10 @@ func accumulateRewardsFast(state *state.StateDB, header *types.FastHeader) error
 
 	//all fail committee coinBase
 	failAddr := make(map[common.Address]bool)
+	var ce consensus.CommitteeElection
 
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
-
-		var ce consensus.CommitteeElection
 
 		addr := ce.VerifyFastBlockSigns(signs)
 
