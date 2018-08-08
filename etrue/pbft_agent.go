@@ -69,8 +69,8 @@ type PbftNode struct {
 }
 
 type  CryNodeInfo struct {
-	InfoByte	[]byte	//签名前
-	Sign 		[]byte	//签名后
+	InfoByte	[]byte	//before sign msg
+	Sign 		[]byte	//sign msg
 }
 
 type PbftAction struct {
