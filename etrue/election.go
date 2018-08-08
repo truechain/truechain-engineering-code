@@ -231,8 +231,10 @@ func (cm CommitteeMember)Verify(signature []byte)bool {
 func (cm CommitteeMember)ReVerify(FastHeight *big.Int,FastHash common.Hash, ReceiptHash common.Hash, Sign []byte)bool {
 	return true
 }
-
-
+//Verify the fast chain committee signatures in batches
+func (cm CommitteeMember) VerifyFastBlockSigns(pvs *[]types.PbftVoteSign) (cfvf *[]types.CommitteeFastSignResult) {
+	return cfvf
+}
 
 func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMember {
 
