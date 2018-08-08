@@ -245,7 +245,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	//broadcast fruits
 	pm.fruitsch = make(chan core.NewFruitsEvent, fruitChanSize)
-	//pm.fruitsSub = pm.hybridpool.SubscribeNewFruitEvent(pm.fruitsch)
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
 

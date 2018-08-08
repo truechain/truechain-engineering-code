@@ -182,6 +182,8 @@ type PbftAgent struct {
 	current *AgentWork
 	currentMu sync.Mutex
 	mux          *event.TypeMux
+	agentFeed       event.Feed
+	scope        event.SubscriptionScope
 
 	snapshotMu    sync.RWMutex
 	snapshotState *state.StateDB
@@ -451,4 +453,14 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 
 }
 
+// SubscribeNewPbftVoteSignEvent registers a subscription of PbftVoteSignEvent and
+// starts sending event to the given channel.
+func (self * PbftAgent) SubscribeNewPbftVoteSignEvent(ch chan<- core.PbftVoteSignEvent) event.Subscription {
+	return self.scope.Track(self.agentFeed.Subscribe(ch))
+}
 
+// Stop terminates the PbftAgent.
+func (self * PbftAgent) Stop() {
+	// Unsubscribe all subscriptions registered from agent
+	self.scope.Close()
+}
