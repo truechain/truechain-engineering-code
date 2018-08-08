@@ -13,13 +13,12 @@ import (
 
 )
 
-var ( 	z  = 100
-	k  = 10000
-)
-
 const (
 	fastChainHeadSize = 256
 	chainHeadSize  = 4096
+	z = 99
+	k = 10000
+	sc = 87
 
 )
 type VoteuUse struct {
@@ -45,8 +44,6 @@ type queue struct{
 }
 
 type CommitteeMember struct{
-	ip		[]string
-	port  	uint
 	coinbase common.Hash
 	pubkey  *ecdsa.PublicKey
 }
@@ -114,6 +111,7 @@ func (e *Election)start(){
 
 	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
 	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
+
 	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
 	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
 
@@ -166,7 +164,6 @@ func sortition()bool{
 	//}
 
 	return false;
-
 }
 
 //Used for election counting
@@ -178,7 +175,8 @@ func(qu queue) InitQueue(){
 }
 
 func (qu queue) EnQueue(key int){
-	tail := (qu.tail+1) % qu.queuesize //going to take the remainder guarantee, and when we hit queuesize minus 1, we're going to go back to 0
+	//going to take the remainder guarantee, and when we hit queuesize minus 1, we're going to go back to 0
+	tail := (qu.tail+1) % qu.queuesize
 	if tail == qu.head{
 		log.Print("the queue has been filled full!")
 	} else {
@@ -204,15 +202,18 @@ func (cm CommitteeMember)Verify(signature []byte)bool {
 
 	return ecdsa.Verify(pubkey,digest[:], r, s)
 }
+
 //Another method for validation
 func (cm CommitteeMember)ReVerify(FastHeight *big.Int,FastHash common.Hash, ReceiptHash common.Hash, Sign []byte)bool {
 	return true
 }
+
 //Verify the fast chain committee signatures in batches
 func (cm CommitteeMember) VerifyFastBlockSigns(pvs *[]types.PbftVoteSign) (cfvf *[]types.CommitteeFastSignResult) {
 	return cfvf
 }
 
+//Keep a list of elected committees
 func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMember {
 
 	return nil
@@ -239,11 +240,9 @@ func (e *Election)GetXh()uint{
 
 //Monitor both chains and trigger elections at the same time
 func (e *Election) loop() {
-
-	// Keep waiting for and reacting to the various events
-
 	Qu := queue{}
 	Qu.InitQueue()
+	// Keep waiting for and reacting to the various events
 	for {
 		select {
 		// Handle ChainHeadEvent
@@ -251,28 +250,31 @@ func (e *Election) loop() {
 			if fb.Block != nil {
 				//Record Numbers to open elections
 				Qu.EnQueue(0)
-				if Qu.gettail() == z-1{
-					zl := uint64(z-13)
+				if Qu.gettail() == z{
+					zl := uint64(sc)
 					go sortition()
 					bn := e.snailchain.GetBlockByNumber(zl)
-					e.flag = true
 					fruit := bn.Fruits()
 					e.number = fruit[len(fruit)-1].Number()
+					e.flag = true
+					go e.EStartFeed.Send(ElectionStartEvent{true})
 					e.pn++
 				}
 			}
-
+			// Make logical decisions based on the Number provided by the ChainheadEvent
 		case ev := <-e.fastChainHeadCh:
 			if ev.Block != nil{
 
 			}
 			if e.flag {
 
+				go e.CStopFeed.Send(CmmitteeStopEvent{true})
+				go e.CStartFeed.Send(CmmitteeStartEvent{true})
+
 			}
 		}
 	}
 }
-
 
 func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
 
@@ -287,7 +289,6 @@ func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBl
 	return e
 }
 
-
 //Interface for some subscribed events
 type CmmitteeStartEvent struct { start  bool}
 type CmmitteeStopEvent struct { stop   bool }
@@ -295,7 +296,7 @@ type ElectionStartEvent struct {election bool}
 type PbftCommitteeActionEvent struct{ pbftAction *PbftAction}
 
 func (e *Election) SubscribeCmmitteeStartEvent(ch chan<- CmmitteeStartEvent) event.Subscription {
-	return e.scope.Track(e.CStopFeed.Subscribe(ch))
+	return e.scope.Track(e.CStartFeed.Subscribe(ch))
 }
 
 func (e *Election) SubscribeCmmitteeStopEvent(ch chan<- CmmitteeStopEvent) event.Subscription {
