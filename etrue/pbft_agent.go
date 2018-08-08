@@ -22,6 +22,7 @@ import (
 	"sync"
 	"crypto/rand"
 	"bytes"
+	"fmt"
 )
 
 const (
@@ -39,7 +40,7 @@ type Pbftagent interface {
 type PbftServer interface {
 	MembersNodes(nodes []*PbftNode) error
 	Actions(ac *PbftAction) error
-	//ComplateSign (sign []*PbftSign) error
+	ComplateSign (sign []*PbftSign) error
 }
 
 type PbftSign struct {
@@ -54,7 +55,6 @@ type PbftNode struct {
 	NodePort uint
 	CoinBase common.Address
 	PublicKey *ecdsa.PublicKey
-	//InfoByte	[]byte
 }
 
 type PbftAction struct {
@@ -66,13 +66,10 @@ type CryNodeInfo struct {
 
 }
 
-func (agent PbftAgent) Register(){
-	agent.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
-	agent.fastChainHeadSub = agent.fcEvent.SubscribeNewFastEvent(agent.fastChainHeadCh)
-}
-
 var privateKey *ecdsa.PrivateKey
-func (node PbftNode)	SendPbftNode(pks []*ecdsa.PublicKey) []byte {
+var pks []*ecdsa.PublicKey	//接口得到的
+
+func (node PbftNode)  SendPbftNode() []byte {
 	var cryNodeInfo [][]byte
 	nodeByte,_ :=truechain.ToByte(node)
 	for _,pk := range pks{
@@ -90,13 +87,9 @@ func (node PbftNode)	SendPbftNode(pks []*ecdsa.PublicKey) []byte {
 		log.Info("sign error")
 		return nil
 	}
+	//self.mux.Post(core.NewMinedBlockEvent{Block: block})
 	return sigInfo
 }
-
-
-
-var pks []*ecdsa.PublicKey	//接口得到的
-//var priKey *ecies.PrivateKey
 
 func (node PbftNode)  ReceivePbftNode(hash,sig []byte) [][]byte {
 	pubKey,err :=crypto.SigToPub(hash,sig)
@@ -127,16 +120,33 @@ func (node PbftNode)  ReceivePbftNode(hash,sig []byte) [][]byte {
 		}
 		cryNodeInfo =append(cryNodeInfo,encryptMsg)
 	}
-
 	return cryNodeInfo
 }
 
-/*type PbftVoteSign struct {
-	 Result          uint                       // 0--agree,1--against
-	FastHeight      *big.Int                    // fastblock height
-	    Msg             common.Hash             // hash(fasthash+ecdsa.PublicKey+Result)
-	    Sig             []byte                  // sign for SigHash
-}*/
+
+type PbftVoteSign struct {
+	Result uint	// 0--agree,1--against
+	FastHeight *big.Int	// fastblock height
+	Msg common.Hash		// hash(fasthash+ecdsa.PublicKey+Result)
+	Sig []byte		// sign for SigHash
+}
+
+func (self *PbftAgent) loop(){
+	fmt.Println("loop...")
+	for {
+		select {
+		// Handle ChainHeadEvent
+		case committeeAction := <-self.committeeActionCh:
+			if committeeAction.action ==PbftActionStart{
+				//Actions(committeeAction)  //实现了该接口的对象
+			}else if committeeAction.action ==PbftActionStop{
+
+			}else if committeeAction.action ==PbftActionSwitch{
+
+			}
+		}
+	}
+}
 
 //var self *PbftAgent
 
@@ -155,9 +165,8 @@ type PbftAgent struct {
 	snapshotState *state.StateDB
 	snapshotBlock *types.FastBlock
 
-	fastChainHeadCh  chan core.FastChainHeadEvent
-	fastChainHeadSub event.Subscription
-	fcEvent		fcEvent
+	committeeActionCh  chan PbftAction
+	committeeSub event.Subscription
 }
 
 
@@ -187,12 +196,16 @@ type Backend interface {
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
 	self := &PbftAgent{
-		config:         config,
-		engine:         engine,
-		eth:            eth,
-		mux:            mux,
-		chain:          eth.FastBlockChain(),
+		config:         	config,
+		engine:         	engine,
+		eth:            	eth,
+		mux:            	mux,
+		chain:          	eth.FastBlockChain(),
+		committeeActionCh:	make(chan PbftAction, 3),
 	}
+	// Subscribe events from blockchain
+	//self.committeeSub = self.chain.SubscribeChainHeadEvent(self.committeeActionCh)
+	go self.loop()
 	return self
 }
 
@@ -393,7 +406,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	if err != nil{
 		return err
 	}
-	// Write the block to the chain and get the status.
+	/*// Write the block to the chain and get the status.
 	status, err := bc.WriteBlockWithState(fb, receipts, state) //update
 	if err != nil{
 		return err
@@ -401,7 +414,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	if status  == fastchain.CanonStatTy{
 		log.Debug("Inserted new block", "number", fb.Number(), "hash", fb.Hash(), "uncles", 0,
 			"txs", len(fb.Transactions()), "gas", fb.GasUsed(), "elapsed", "")
-	}
+	}*/
 	return nil
 
 }
