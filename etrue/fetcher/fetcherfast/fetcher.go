@@ -543,7 +543,7 @@ func (f *Fetcher) loop() {
 
 							if f.getBlock(hash) == nil {
 								// mecMark
-								block := types.NewFastBlockWithHeader(announce.header).WithBody(task.transactions[i],nil)
+								block := types.NewFastBlockWithHeader(announce.header).WithBody(task.transactions[i])
 								block.ReceivedAt = task.time
 
 								blocks = append(blocks, block)

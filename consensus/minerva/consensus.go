@@ -761,7 +761,7 @@ func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *typ
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	//todo sign IQQ  private key ?
-	return types.NewFastBlock(header, txs, nil, receipts), nil
+	return types.NewFastBlock(header, txs, receipts), nil
 }
 
 // Some weird constants to avoid constant memory allocs for them.
