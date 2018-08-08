@@ -73,6 +73,7 @@ type Election struct {
 	CStartFeed		event.Feed
 	CStopFeed		event.Feed
 	EStartFeed		event.Feed
+	CommitteeFeed	event.Feed
 	scope         event.SubscriptionScope
 
 	fastChainHeadCh  chan core.FastChainHeadEvent
@@ -315,6 +316,7 @@ func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBl
 type CmmitteeStartEvent struct { start  bool}
 type CmmitteeStopEvent struct { stop   bool }
 type ElectionStartEvent struct {election bool}
+type PbftCommitteeActionEvent struct{ pbftAction *PbftAction}
 
 func (e *Election) SubscribeCmmitteeStartEvent(ch chan<- CmmitteeStartEvent) event.Subscription {
 	return e.scope.Track(e.CStopFeed.Subscribe(ch))
@@ -328,3 +330,6 @@ func (e *Election) SubscribeElectionStartEvent(ch chan<- ElectionStartEvent) eve
 	return e.scope.Track(e.EStartFeed.Subscribe(ch))
 }
 
+func (e *Election) SubscribeCommitteeActionEvent(ch chan<- PbftCommitteeActionEvent) event.Subscription {
+	return e.scope.Track(e.CommitteeFeed.Subscribe(ch))
+}
