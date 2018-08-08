@@ -222,7 +222,7 @@ func (cm CommitteeMember) ReVerify(FastHeight *big.Int, FastHash common.Hash, Re
 }
 
 //Verify the fast chain committee signatures in batches
-func VerifyFastBlockSigns(pvs *[]types.PbftVoteSign) (cfvf *[]types.CommitteeFastSignResult) {
+func VerifyFastBlockSigns(pvs []*types.PbftVoteSign) (cfvf []types.CommitteeFastSignResult) {
 	return cfvf
 }
 
