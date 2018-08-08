@@ -27,10 +27,10 @@ type CommitteeFastSignResult struct {
 }
 
 type CommitteeMember struct {
-	ip       []string
-	port     uint
-	coinbase common.Hash
-	pubkey   *ecdsa.PublicKey
+	Ip       []string
+	Port     uint
+	Coinbase common.Address
+	Pubkey   *ecdsa.PublicKey
 }
 
 func (g *Committee) UnmarshalJSON(input []byte) error {

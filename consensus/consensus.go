@@ -161,7 +161,7 @@ type Engine interface {
 		txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error)
 
 	//Call allocation gas before FinalizeFast
-	FinalizeFastGas(fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
+	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
