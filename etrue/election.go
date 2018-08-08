@@ -14,7 +14,7 @@ import (
 )
 
 var ( 	z  = 100
-	k  = 10000
+ 		k  = 10000
 )
 
 const (
@@ -62,10 +62,10 @@ type Election struct {
 	genesisCommittee []*CommitteeMember
 
 	committee []*CommitteeMember
-	pn 			uint	//Number of sessions
+	xh 			uint	//委员会届数
 	fcEvent		fcEvent
 	scEvent		scEvent
-	flag		bool  //Flag bit for handling event switching
+	flag		bool  //用于处理事件切换的标志位
 	number		*big.Int
 	fastHead *big.Int
 	snailHead *big.Int
@@ -73,7 +73,6 @@ type Election struct {
 	CStartFeed		event.Feed
 	CStopFeed		event.Feed
 	EStartFeed		event.Feed
-	CommitteeFeed	event.Feed
 	scope         event.SubscriptionScope
 
 	fastChainHeadCh  chan core.FastChainHeadEvent
@@ -189,7 +188,7 @@ func(qu queue) InitQueue(){
 
 func (qu queue) EnQueue(key int){
 
-	tail := (qu.tail+1) % qu.queuesize //going to take the remainder guarantee, and when we hit queuesize minus 1, we're going to go back to 0
+	tail := (qu.tail+1) % qu.queuesize //取余保证，当quil=queuesize-1时，再转回0
 
 	if tail == qu.head{
 
@@ -197,9 +196,9 @@ func (qu queue) EnQueue(key int){
 
 	} else {
 
-		qu.q[qu.tail] = key
+	qu.q[qu.tail] = key
 
-		qu.tail = tail
+	qu.tail = tail
 
 	}
 
@@ -258,14 +257,14 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 }
 
 func (e *Election)GetXh()uint{
-	return e.pn
+	return e.xh
 }
 
 //Monitor both chains and trigger elections at the same time
 func (e *Election) loop() {
 
 	// Keep waiting for and reacting to the various events
-
+	//fc := core.BlockChain{}
 	Qu := queue{}
 	Qu.InitQueue()
 	for {
@@ -276,16 +275,15 @@ func (e *Election) loop() {
 				//Record Numbers to open elections
 				Qu.EnQueue(0)
 				if Qu.gettail() == z-1{
-					zl := uint64(z-13)
-					go sortition()
+						//zl := z-13
+						go sortition()
 
-					bn := e.snailchain.GetBlockByNumber(zl)
+					//bn := fc.GetBlockByNumber(zl)
 
 					e.flag = true
-					fruit := bn.Fruits()
-					e.number = fruit[len(fruit)-1].Number()
+					//e.number = [len(bn)-1].Number()
 
-					e.pn++
+					e.xh++
 				}
 			}
 
@@ -319,7 +317,6 @@ func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBl
 type CmmitteeStartEvent struct { start  bool}
 type CmmitteeStopEvent struct { stop   bool }
 type ElectionStartEvent struct {election bool}
-type PbftCommitteeActionEvent struct{ pbftAction *PbftAction}
 
 func (e *Election) SubscribeCmmitteeStartEvent(ch chan<- CmmitteeStartEvent) event.Subscription {
 	return e.scope.Track(e.CStopFeed.Subscribe(ch))
@@ -333,6 +330,3 @@ func (e *Election) SubscribeElectionStartEvent(ch chan<- ElectionStartEvent) eve
 	return e.scope.Track(e.EStartFeed.Subscribe(ch))
 }
 
-func (e *Election) SubscribeCommitteeActionEvent(ch chan<- PbftCommitteeActionEvent) event.Subscription {
-	return e.scope.Track(e.CommitteeFeed.Subscribe(ch))
-}
