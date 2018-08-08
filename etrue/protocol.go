@@ -49,13 +49,13 @@ const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a prot
 const (
 	// Protocol messages belonging to eth/62
 	StatusMsg          = 0x00
-	NewBlockHashesMsg  = 0x01
+	NewFastBlockHashesMsg  = 0x01
 	TxMsg              = 0x02
 	GetBlockHeadersMsg = 0x03
 	BlockHeadersMsg    = 0x04
 	GetBlockBodiesMsg  = 0x05
 	BlockBodiesMsg     = 0x06
-	NewBlockMsg        = 0x07
+	NewFastBlockMsg        = 0x07
 
 	FruitMsg		   = 0x0a
 	SnailBlockMsg		   = 0x0b
@@ -65,12 +65,10 @@ const (
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
 
-	NewFastBlockHashesMsg  = 0x11
 	GetFastBlockHeadersMsg = 0x12
 	FastBlockHeadersMsg    = 0x13
 	GetFastBlockBodiesMsg  = 0x14
 	FastBlockBodiesMsg     = 0x15
-	NewFastBlockMsg        = 0x16
 )
 
 type errCode int
@@ -120,20 +118,16 @@ type txPool interface {
 }
 
 
-/*type hybridPool interface {
-	AddRemoteFruits([]*types.SnailBlock) []error
-	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
-	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
-}*/
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
 	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
 	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
-	AddRemoteRecords([]*types.PbftRecord) []error
-	PendingRecords() (*types.PbftRecord, error)
-	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
+}
+
+type PbftAgentInteractNetwork interface {
+	SubscribeNewPbftVoteSignEvent(chan<- core.PbftVoteSignEvent) event.Subscription
 }
 
 // statusData is the network packet for the status message.
@@ -193,12 +187,6 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 		}
 	}
 	return err
-}
-
-// newBlockData is the network packet for the block propagation message.
-type newBlockData struct {
-	Block *types.Block
-	TD    *big.Int
 }
 
 // newFastBlockData is the network packet for the block propagation message.

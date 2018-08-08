@@ -104,7 +104,6 @@ type ProtocolManager struct {
 	snailBlocksch  chan core.NewSnailBlocksEvent
 	snailBlocksSub	   event.Subscription
 
-	minedBlockSub *event.TypeMuxSubscription
 	//fast block
 	minedFastSub *event.TypeMuxSubscription
     //fruit
@@ -196,22 +195,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Construct the different synchronisation mechanisms
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 
-	validator := func(header *types.Header) error {
-		return engine.VerifyHeader(blockchain, header, true)
-	}
-	heighter := func() uint64 {
-		return blockchain.CurrentBlock().NumberU64()
-	}
-	inserter := func(blocks types.Blocks) (int, error) {
-		// If fast sync is running, deny importing weird blocks
-		if atomic.LoadUint32(&manager.fastSync) == 1 {
-			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
-			return 0, nil
-		}
-		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertChain(blocks)
-	}
-	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 	fastValidator := func(header *types.FastHeader) error {
 		//mecMark how to get ChainFastReader
 		return engine.VerifyFastHeader(fastBlockchain, header, true)
@@ -272,10 +255,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	//pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
 	go pm.snailBlockBroadcastLoop()
 
-	// broadcast mined blocks
-	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
-	go pm.minedBroadcastLoop()
-
 	// broadcast mined fastBlocks
 	pm.minedFastSub = pm.eventMux.Subscribe(core.NewMinedFastBlockEvent{})
 	go pm.minedFastBroadcastLoop()
@@ -297,7 +276,6 @@ func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Truechain protocol")
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
-	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
@@ -855,26 +833,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
 
-	case msg.Code == NewBlockHashesMsg:
-		var announces newBlockHashesData
-		if err := msg.Decode(&announces); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		// Mark the hashes as present at the remote node
-		for _, block := range announces {
-			p.MarkBlock(block.Hash)
-		}
-		// Schedule all the unknown hashes for retrieval
-		unknown := make(newBlockHashesData, 0, len(announces))
-		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) {
-				unknown = append(unknown, block)
-			}
-		}
-		for _, block := range unknown {
-			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
-		}
-
 	case msg.Code == NewFastBlockHashesMsg:
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
@@ -893,38 +851,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		for _, block := range unknown {
 			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneFastHeader, p.RequestFastBodies)
-		}
-
-	case msg.Code == NewBlockMsg:
-		// Retrieve and decode the propagated block
-		var request newBlockData
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		request.Block.ReceivedAt = msg.ReceivedAt
-		request.Block.ReceivedFrom = p
-
-		// Mark the peer as owning the block and schedule it for import
-		p.MarkBlock(request.Block.Hash())
-		pm.fetcher.Enqueue(p.id, request.Block)
-
-		// Assuming the block is importable by the peer, but possibly not yet done so,
-		// calculate the head hash and TD that the peer truly must have.
-		var (
-			trueHead = request.Block.ParentHash()
-			trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
-		)
-		// Update the peers total difficulty if better than the previous
-		if _, td := p.Head(); trueTD.Cmp(td) > 0 {
-			p.SetHead(trueHead, trueTD)
-
-			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-			// a singe block (as the true TD is below the propagated block), however this
-			// scenario should easily be covered by the fetcher.
-			currentBlock := pm.blockchain.CurrentBlock()
-			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-				go pm.synchronise(p)
-			}
 		}
 
 	case msg.Code == NewFastBlockMsg:
@@ -1025,39 +951,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
 	return nil
-}
-
-// BroadcastBlock will either propagate a block to a subset of it's peers, or
-// will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
-	hash := block.Hash()
-	peers := pm.peers.PeersWithoutBlock(hash)
-
-	// If propagation is requested, send to a subset of the peer
-	if propagate {
-		// Calculate the TD of the block (it's not imported yet, so block.Td is not valid)
-		var td *big.Int
-		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
-		} else {
-			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
-			return
-		}
-		// Send the block to a subset of our peers
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
-		for _, peer := range transfer {
-			peer.AsyncSendNewBlock(block, td)
-		}
-		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
-		return
-	}
-	// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
-		for _, peer := range peers {
-			peer.AsyncSendNewBlockHash(block)
-		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
-	}
 }
 
 // BroadcastBlock will either propagate a block to a subset of it's peers, or
@@ -1209,17 +1102,6 @@ func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks types.SnailBlocks) {
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, snailBlocks := range snailBlcokset {
 		peer.AsyncSendSnailBlocks(snailBlocks)
-	}
-}
-// Mined broadcast loop
-func (pm *ProtocolManager) minedBroadcastLoop() {
-	// automatically stops if unsubscribe
-	for obj := range pm.minedBlockSub.Chan() {
-		switch ev := obj.Data.(type) {
-		case core.NewMinedBlockEvent:
-			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
-			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
-		}
 	}
 }
 // Mined broadcast loop
