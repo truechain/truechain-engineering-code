@@ -20,9 +20,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"crypto/ecdsa"
 	"sync"
-	"crypto/rand"
 	"bytes"
 	"fmt"
+	"crypto/rand"
 )
 
 const (
@@ -34,13 +34,12 @@ const (
 type Pbftagent interface {
 	FetchBlock() (*types.FastBlock,error)
 	VerifyFastBlock() error
-	//ComplateSign (sign []*PbftSign) error
+	ComplateSign (sign []*PbftSign) error
 }
 
 type PbftServer interface {
 	MembersNodes(nodes []*PbftNode) error
 	Actions(ac *PbftAction) error
-	ComplateSign (sign []*PbftSign) error
 }
 
 type PbftSign struct {
@@ -55,6 +54,14 @@ type PbftNode struct {
 	NodePort uint
 	CoinBase common.Address
 	PublicKey *ecdsa.PublicKey
+
+	eventMux      *event.TypeMux
+	PbftNodeSub *event.TypeMuxSubscription
+}
+
+type  CryNodeInfo struct {
+	InfoByte	[]byte	//签名前
+	Sign 		[]byte	//签名后
 }
 
 type PbftAction struct {
@@ -62,36 +69,71 @@ type PbftAction struct {
 	action int
 }
 
-type CryNodeInfo struct {
-
-}
+type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
 var privateKey *ecdsa.PrivateKey
 var pks []*ecdsa.PublicKey	//接口得到的
+var node PbftNode
 
-func (node PbftNode)  SendPbftNode() []byte {
-	var cryNodeInfo [][]byte
+func (self *PbftAgent) loop(){
+	fmt.Println("loop...")
+	for {
+		select {
+		// Handle ChainHeadEvent
+		case committeeAction := <-self.committeeActionCh:
+			if committeeAction.action ==PbftActionStart{
+				//Actions(committeeAction)  //实现了该接口的对象
+			}else if committeeAction.action ==PbftActionStop{
+
+			}else if committeeAction.action ==PbftActionSwitch{
+				self.SendPbftNode()//广播本节点信息
+				self.Start()//接收其他本节点信息
+			}
+		}
+	}
+}
+
+func (pbftAgent *PbftAgent) Start() {
+	// broadcast mined blocks
+	pbftAgent.PbftNodeSub = pbftAgent.eventMux.Subscribe(NewPbftNodeEvent{})
+	go pbftAgent.handle()
+}
+
+func  (pbftAgent *PbftAgent) handle(){
+	for obj := range pbftAgent.PbftNodeSub.Chan() {
+		switch cryNodeInfo := obj.Data.(type) {
+		case CryNodeInfo:
+			pbftAgent.ReceivePbftNode(cryNodeInfo)
+		}
+	}
+}
+
+func (pbftAgent *PbftAgent)  SendPbftNode() []byte {
+	var nodeInfos [][]byte
 	nodeByte,_ :=truechain.ToByte(node)
 	for _,pk := range pks{
 		encryptMsg,err :=ecies.Encrypt(rand.Reader,ecies.ImportECDSAPublic(pk),
-						nodeByte, nil, nil)
+			nodeByte, nil, nil)
 		if err != nil{
 			return nil
 		}
-		cryNodeInfo =append(cryNodeInfo,encryptMsg)
+		nodeInfos =append(nodeInfos,encryptMsg)
 	}
-	infoByte,_ := truechain.ToByte(cryNodeInfo)
+	infoByte,_ := truechain.ToByte(nodeInfos)
 
 	sigInfo,err :=crypto.Sign(infoByte, privateKey)
 	if err != nil{
 		log.Info("sign error")
 		return nil
 	}
-	//self.mux.Post(core.NewMinedBlockEvent{Block: block})
+	cryNodeInfo :=&CryNodeInfo{infoByte,sigInfo}
+	node.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
 	return sigInfo
 }
+func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) [][]byte {
+	hash:= cryNodeInfo.InfoByte
+	sig := cryNodeInfo.Sign
 
-func (node PbftNode)  ReceivePbftNode(hash,sig []byte) [][]byte {
 	pubKey,err :=crypto.SigToPub(hash,sig)
 	if err != nil{
 		log.Info("SigToPub error.")
@@ -110,19 +152,18 @@ func (node PbftNode)  ReceivePbftNode(hash,sig []byte) [][]byte {
 		log.Info("publicKey is not exist.")
 		return nil
 	}
-	var cryNodeInfo [][]byte
-	truechain.FromByte(hash,cryNodeInfo)
-	for _,info := range cryNodeInfo{
+	var nodeInfos [][]byte
+	truechain.FromByte(hash,nodeInfos)
+	for _,info := range nodeInfos{
 		priKey :=ecies.ImportECDSA(privateKey)//ecdsa-->ecies
 		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
 		if err != nil{
 			return nil
 		}
-		cryNodeInfo =append(cryNodeInfo,encryptMsg)
+		nodeInfos =append(nodeInfos,encryptMsg)
 	}
-	return cryNodeInfo
+	return nodeInfos
 }
-
 
 type PbftVoteSign struct {
 	Result uint	// 0--agree,1--against
@@ -131,24 +172,7 @@ type PbftVoteSign struct {
 	Sig []byte		// sign for SigHash
 }
 
-func (self *PbftAgent) loop(){
-	fmt.Println("loop...")
-	for {
-		select {
-		// Handle ChainHeadEvent
-		case committeeAction := <-self.committeeActionCh:
-			if committeeAction.action ==PbftActionStart{
-				//Actions(committeeAction)  //实现了该接口的对象
-			}else if committeeAction.action ==PbftActionStop{
 
-			}else if committeeAction.action ==PbftActionSwitch{
-
-			}
-		}
-	}
-}
-
-//var self *PbftAgent
 
 type PbftAgent struct {
 	config *params.ChainConfig
@@ -167,6 +191,9 @@ type PbftAgent struct {
 
 	committeeActionCh  chan PbftAction
 	committeeSub event.Subscription
+
+	eventMux      *event.TypeMux
+	PbftNodeSub *event.TypeMuxSubscription
 }
 
 
@@ -205,6 +232,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 	}
 	// Subscribe events from blockchain
 	//self.committeeSub = self.chain.SubscribeChainHeadEvent(self.committeeActionCh)
+	self.committeeSub = self.chain.SubscribeCommitteeActionEvent(self.committeeActionCh)
 	go self.loop()
 	return self
 }
@@ -381,7 +409,6 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 
 	return nil, receipt.Logs
 }
-
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 	bc := self.chain
