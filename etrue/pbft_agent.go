@@ -75,14 +75,17 @@ type PbftServer interface {
 
 type PbftSign struct {
 	FastHeight *big.Int
-	FastHash common.Hash	// fastblock hash
-	ReceiptHash common.Hash	// fastblock receiptHash
 	Sign []byte	// sign for fastblock hash
 }
+
+// PbftVoteSigns is a PbftVoteSign slice type for basic sorting.
+type PbftVoteSigns []*PbftVoteSign
 
 type PbftVoteSign struct {
 	Result uint	// 0--agree,1--against
 	FastHeight *big.Int	// fastblock height
+	FastHash common.Hash	// fastblock hash
+	ReceiptHash common.Hash	// fastblock receiptHash
 	Msg common.Hash		// hash(fasthash+ecdsa.PublicKey+Result)
 	Sig []byte		// sign for SigHash
 }
