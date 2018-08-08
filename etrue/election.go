@@ -10,6 +10,7 @@ import (
 	"log"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"crypto/sha256"
+
 )
 
 var ( 	z  = 100
@@ -28,11 +29,6 @@ type VoteuUse struct {
 	j 		int
 
 }
-
-type CmmitteeStartEvent struct { start  bool}
-type CmmitteeStopEvent struct { stop   bool }
-type ElectionStartEvent struct {election bool}
-
 
 type Signature struct{
 	blockHash common.Hash
@@ -66,14 +62,18 @@ type Election struct {
 	genesisCommittee []*CommitteeMember
 
 	committee []*CommitteeMember
-
+	xh 			uint	//委员会届数
 	fcEvent		fcEvent
 	scEvent		scEvent
-
+	flag		bool  //用于处理事件切换的标志位
+	number		*big.Int
 	fastHead *big.Int
 	snailHead *big.Int
 
-	switchFeed  event.Feed
+	CStartFeed		event.Feed
+	CStopFeed		event.Feed
+	EStartFeed		event.Feed
+	scope         event.SubscriptionScope
 
 	fastChainHeadCh  chan core.FastChainHeadEvent
 	fastChainHeadSub event.Subscription
@@ -85,6 +85,7 @@ type Election struct {
 	snailchain *core.BlockChain
 }
 
+
 //Read creation block information and return public key for signature verification
 func  (v VoteuUse)ReadGenesis()[]string{
 
@@ -92,9 +93,9 @@ func  (v VoteuUse)ReadGenesis()[]string{
 }
 
 
-func (e *Election) Events() *event.Feed {
-	return &e.switchFeed
-}
+//func (e *Election) Events() *event.Feed {
+//	return &e.switchFeed
+//}
 
 type fcEvent interface {
 	AddRemoteFruits([]*types.Block) []error
@@ -112,12 +113,13 @@ func (e *Election)start(){
 
 	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
 	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
-	go e.fastChainHeadLoop()
+
 
 	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
 	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
-	go e.chainHeadLoop()
+
 }
+
 
 //Calculate your own force unit locally
 func (v VoteuUse)localForce()int64{
@@ -225,6 +227,11 @@ func (cm CommitteeMember)Verify(signature []byte)bool {
 
 
 }
+//Another method for validation
+func (cm CommitteeMember)ReVerify(FastHeight *big.Int,FastHash common.Hash, ReceiptHash common.Hash, Sign []byte)bool {
+	return true
+}
+
 
 
 func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMember {
@@ -247,23 +254,15 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 	return nil, nil
 }
 
-
-func (e *Election) fastChainHeadLoop() {
-	for {
-		select {
-			case ev := <-e.fastChainHeadCh:
-				if ev.Block != nil	{
-
-				}
-
-			// Err() channel will be closed when unsubscribing.
-		case <-e.fastChainHeadSub.Err():
-			return
-		}
-	}
+func (e *Election)GetXh()uint{
+	return e.xh
 }
 
-func (e *Election) chainHeadLoop() {
+//Monitor both chains and trigger elections at the same time
+func (e *Election) loop() {
+
+	// Keep waiting for and reacting to the various events
+	//fc := core.BlockChain{}
 	Qu := queue{}
 	Qu.InitQueue()
 	for {
@@ -274,49 +273,28 @@ func (e *Election) chainHeadLoop() {
 				//Record Numbers to open elections
 				Qu.EnQueue(0)
 				if Qu.gettail() == z-1{
+						//zl := z-13
+						go sortition()
 
-					sortition()
-					//fb.GetBlock()
-					//fb. GetBlockByNumber()
+					//bn := fc.GetBlockByNumber(zl)
 
+					e.flag = true
+					//e.number = [len(bn)-1].Number()
+
+					e.xh++
 				}
 			}
-			// Err() channel will be closed when unsubscribing.
-		case <-e.chainHeadSub.Err():
-			return
+
+		case ev := <-e.fastChainHeadCh:
+			if ev.Block != nil{
+
+			}
+			if e.flag {
+
+			}
 		}
 	}
 }
-
-//Monitor both chains and trigger elections at the same time
-//func (e *Election) loop() {
-//
-//	// Keep waiting for and reacting to the various events
-//	Qu := queue{}
-//	Qu.InitQueue()
-//	for {
-//		select {
-//		// Handle ChainHeadEvent
-//		case fb := <-e.chainHeadCh:
-//			if fb.Block != nil {
-//				//Record Numbers to open elections
-//				Qu.EnQueue(0)
-//				if Qu.gettail() == z-1{
-//
-//					sortition()
-//					//fb.GetBlock()
-//					//fb. GetBlockByNumber()
-//
-//				}
-//			}
-//
-//		case ev := <-e.fastChainHeadCh:
-//			if ev.Block != nil{
-//
-//			}
-//		}
-//	}
-//}
 
 
 func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
@@ -331,3 +309,22 @@ func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBl
 
 	return e
 }
+
+
+//Interface for some subscribed events
+type CmmitteeStartEvent struct { start  bool}
+type CmmitteeStopEvent struct { stop   bool }
+type ElectionStartEvent struct {election bool}
+
+func (e *Election) SubscribeCmmitteeStartEvent(ch chan<- CmmitteeStartEvent) event.Subscription {
+	return e.scope.Track(e.CStopFeed.Subscribe(ch))
+}
+
+func (e *Election) SubscribeCmmitteeStopEvent(ch chan<- CmmitteeStopEvent) event.Subscription {
+	return e.scope.Track(e.CStopFeed.Subscribe(ch))
+}
+
+func (e *Election) SubscribeElectionStartEvent(ch chan<- ElectionStartEvent) event.Subscription {
+	return e.scope.Track(e.EStartFeed.Subscribe(ch))
+}
+
