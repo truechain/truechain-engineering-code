@@ -129,6 +129,10 @@ type Backend interface {
 
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
+type  BlockAndSign struct{
+	Block *types.FastBlock
+	Sign  *types.PbftSign
+}
 var
 (	privateKey *ecdsa.PrivateKey
 	pbftNode PbftNode
@@ -334,24 +338,26 @@ func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	/* voteSign := &PbftVoteSign{
+	 voteSign := &types.PbftSign{
 	 	 Result: VoteAgree,
 		 FastHeight:fastBlock.Header().Number,
 		 FastHash:fastBlock.Hash(),
-		 Msg: common.Hash,		// hash(FastHeight+fasthash+ecdsa.PublicKey+Result)
 	}
-	msgByte :=voteSign.prepareData(pbftNode.PublicKey)[:]
-	voteSign.Msg =msgByte*/
-
-
+	msgByte :=voteSign.PrepareData()
+	hash :=truechain.RlpHash(msgByte)
+	voteSign.Sign,err =crypto.Sign(hash[:], privateKey)
+	if err != nil{
+		log.Info("sign error")
+	}
+	blockAndSign := &BlockAndSign{
+		fastBlock,
+		voteSign,
+	}
 	//self.updateSnapshot()
-	//广播fastblock
-	self.mux.Post(core.NewMinedFastBlockEvent{fastBlock})
+	//broadcast blockAndSign
+	self.mux.Post(core.NewMinedFastBlockEvent{blockAndSign})
 	return	fastBlock,nil
 }
-
-
-
 
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {

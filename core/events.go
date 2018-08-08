@@ -44,7 +44,7 @@ type PendingStateEvent struct{}
 type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
 
 // NewMinedFastBlockEvent is posted when a block has been imported.
-type NewMinedFastBlockEvent struct{ Block *types.FastBlock }
+type NewMinedFastBlockEvent struct{ blockAndSign *etrue.BlockAndSign }
 
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.SnailBlock }
