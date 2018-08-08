@@ -26,6 +26,10 @@ import (
 )
 
 const (
+	PbftActionStart = iota  // start pbft consensus
+	PbftActionStop          // stop pbft consensus
+	PbftActionSwitch       //switch pbft committee
+
 	VoteAgree = iota		//vote agree
 	VoteAgreeAgainst  		//vote against
 )
@@ -58,33 +62,30 @@ type PbftAgent struct {
 	CommitteeMembers	[]*CommitteeMember
 }
 
-/*type Pbftagent interface {
+type Pbftagent interface {
 	FetchBlock() (*types.FastBlock,error)
 	VerifyFastBlock() error
 	ComplateSign(voteSign []*PbftVoteSign) error
-}*/
+}
 
-/*type PbftServer interface {
+type PbftServer interface {
 	MembersNodes(nodes []*PbftNode) error
 	Actions(ac *PbftAction) error
-}*/
+}
 
-/*type PbftSign struct {
+type PbftSign struct {
 	FastHeight *big.Int
-	Sign []byte	// sign for fastblock hash
-}*/
-
-// PbftVoteSigns is a PbftVoteSign slice type for basic sorting.
-type PbftVoteSigns []*types.PbftSign
-
-/*type PbftVoteSign struct {
-	Result uint	// 0--agree,1--against
-	FastHeight *big.Int	// fastblock height
 	FastHash common.Hash	// fastblock hash
 	ReceiptHash common.Hash	// fastblock receiptHash
-	Msg common.Hash		// hash(FastHeight+fasthash+ecdsa.PublicKey+Result)
+	Sign []byte	// sign for fastblock hash
+}
+
+type PbftVoteSign struct {
+	Result uint	// 0--agree,1--against
+	FastHeight *big.Int	// fastblock height
+	Msg common.Hash		// hash(fasthash+ecdsa.PublicKey+Result)
 	Sig []byte		// sign for SigHash
-}*/
+}
 
 type PbftNode struct {
 	NodeIP string
@@ -129,10 +130,6 @@ type Backend interface {
 
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
-type  BlockAndSign struct{
-	Block *types.FastBlock
-	Sign  *types.PbftSign
-}
 var
 (	privateKey *ecdsa.PrivateKey
 	pbftNode PbftNode
@@ -166,11 +163,11 @@ func (self *PbftAgent) loop(){
 		select {
 		// Handle ChainHeadEvent
 		case ch := <-self.committeeActionCh:
-			if ch.pbftAction.action ==types.CommitteeStart{
-				//Actions(committeeAction)
-			}else if ch.pbftAction.action ==types.CommitteeStop{
+			if ch.pbftAction.action ==PbftActionStart{
+				//Actions(committeeAction)  //实现了该接口的对象
+			}else if ch.pbftAction.action ==PbftActionStop{
 
-			}else if ch.pbftAction.action ==types.CommitteeSwitchover{
+			}else if ch.pbftAction.action ==PbftActionSwitch{
 				self.SendPbftNode()//广播本节点信息
 				self.Start()//接收其他本节点信息
 			}
@@ -251,15 +248,14 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode 
 	return nil
 }
 
-func  (self *PbftAgent)  ComplateSign(voteSigns []*types.PbftSign){
+func  (self *PbftAgent)  ComplateSign(voteSigns []*PbftVoteSign){
 	var FastHeight *big.Int
 	for _,voteSign := range voteSigns{
 		FastHeight =voteSign.FastHeight
 		if voteSign.Result == VoteAgreeAgainst{
 			continue
 		}
-		msg :=voteSign.PrepareData()
-		pubKey,err :=crypto.SigToPub(msg,voteSign.Sign)
+		pubKey,err :=crypto.SigToPub(voteSign.Msg[:],voteSign.Sig)
 		if err != nil{
 			log.Info("SigToPub error.")
 			panic(err)
@@ -305,6 +301,7 @@ func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 		log.Info("generateFastBlock too far in the future", "wait", common.PrettyDuration(wait))
 		time.Sleep(wait)
 	}
+
 	//2 创建新区块的Header对象，
 	num := parent.Number()
 	header := &types.FastHeader{
@@ -334,31 +331,15 @@ func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 
 	// 6 对新区块“定型”，填充上Header.Root, TxHash, ReceiptHash等几个属性。
 	// Create the new block to seal with the consensus engine
-	if fastBlock, err = self.engine.FinalizeFast(self.chain, header, work.state, work.txs, work.receipts); err != nil {
+	if work.Block, err = self.engine.FinalizeFast(self.chain, header, work.state, work.txs, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	 voteSign := &types.PbftSign{
-	 	 Result: VoteAgree,
-		 FastHeight:fastBlock.Header().Number,
-		 FastHash:fastBlock.Hash(),
-	}
-	msgByte :=voteSign.PrepareData()
-	hash :=truechain.RlpHash(msgByte)
-	voteSign.Sign,err =crypto.Sign(hash[:], privateKey)
-	if err != nil{
-		log.Info("sign error")
-	}
-	blockAndSign := &BlockAndSign{
-		fastBlock,
-		voteSign,
-	}
 	//self.updateSnapshot()
-	//broadcast blockAndSign
-	self.mux.Post(core.NewMinedFastBlockEvent{blockAndSign})
+	//广播fastblock
+	self.mux.Post(core.NewMinedFastBlockEvent{fastBlock})
 	return	fastBlock,nil
 }
-
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
 	state, err := self.chain.StateAt(parent.Root())

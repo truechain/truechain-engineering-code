@@ -630,10 +630,7 @@ type FastHeader struct {
 	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 }
-type SignInfo struct {
-	signs	[]byte 
-	result  byte 
-}
+
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
 type FastBody struct {
