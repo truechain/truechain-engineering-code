@@ -157,8 +157,8 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeFast(chain ChainFastReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction,
-		receipts []*types.Receipt) (*types.FastBlock, error)
+	FinalizeFast(chain ChainFastReader, header *types.FastHeader, state *state.StateDB,
+		txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error)
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
