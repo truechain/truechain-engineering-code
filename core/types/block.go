@@ -932,16 +932,21 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header), 
-		body : body,
+		//body : body,
 		td: new(big.Int)}
 
 	// the fruits struct is same of snailblock not header 20180804
-	/*
 	b.body.Fruits = make([]*SnailBlock,len(body.Fruits))
 	for i := range body.Fruits {
-		b.body.Fruits[i] = append(b.body.Fruits[i], body.Fruits[i])
+		//b.body.Fruits[i] = append(b.body.Fruits[i], body.Fruits[i])
+		b.body.Fruits[i]=body.Fruits[i]
 	}
-	*/
+
+	b.body.Signs = make([]*PbftVoteSign,len(body.Signs))
+	for i := range body.Signs {
+		b.body.Signs[i]=body.Signs[i]
+	}
+	
 	return b
 }
 // NewSnailBlockWithHeader creates a block with the given header data. The
