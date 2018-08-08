@@ -34,7 +34,7 @@ const (
 type Pbftagent interface {
 	FetchBlock() (*types.FastBlock,error)
 	VerifyFastBlock() error
-	ComplateSign (sign []*PbftSign) error
+	ComplateSign(sign []*PbftSign) error
 }
 
 type PbftServer interface {
@@ -80,12 +80,12 @@ func (self *PbftAgent) loop(){
 	for {
 		select {
 		// Handle ChainHeadEvent
-		case committeeAction := <-self.committeeActionCh:
-			if committeeAction.action ==PbftActionStart{
+		case ch := <-self.committeeActionCh:
+			if ch.pbftAction.action ==PbftActionStart{
 				//Actions(committeeAction)  //实现了该接口的对象
-			}else if committeeAction.action ==PbftActionStop{
+			}else if ch.pbftAction.action ==PbftActionStop{
 
-			}else if committeeAction.action ==PbftActionSwitch{
+			}else if ch.pbftAction.action ==PbftActionSwitch{
 				self.SendPbftNode()//广播本节点信息
 				self.Start()//接收其他本节点信息
 			}
@@ -189,11 +189,12 @@ type PbftAgent struct {
 	snapshotState *state.StateDB
 	snapshotBlock *types.FastBlock
 
-	committeeActionCh  chan PbftAction
+	committeeActionCh  chan PbftCommitteeActionEvent
 	committeeSub event.Subscription
 
 	eventMux      *event.TypeMux
 	PbftNodeSub *event.TypeMuxSubscription
+	election	*Election
 }
 
 
@@ -228,11 +229,12 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		eth:            	eth,
 		mux:            	mux,
 		chain:          	eth.FastBlockChain(),
-		committeeActionCh:	make(chan PbftAction, 3),
+		committeeActionCh:	make(chan PbftCommitteeActionEvent, 3),
+		election:nil,
 	}
 	// Subscribe events from blockchain
 	//self.committeeSub = self.chain.SubscribeChainHeadEvent(self.committeeActionCh)
-	self.committeeSub = self.chain.SubscribeCommitteeActionEvent(self.committeeActionCh)
+	self.committeeSub = self.election.SubscribeCommitteeActionEvent(self.committeeActionCh)
 	go self.loop()
 	return self
 }
