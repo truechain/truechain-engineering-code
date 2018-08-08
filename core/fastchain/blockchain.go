@@ -917,16 +917,19 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	batch := bc.db.NewBatch()
 	rawdb.WriteBlock(batch, block)
 
-	//create BlockReward
-	br := &types.BlockReward{
-		FastHash:block.Hash(),
-		FastNumber:block.Number(),
-		SnailHash:block.SnailHash(),
-		SnailNumber:block.SnailNumber(),
+	if(block.SnailNumber().Int64() != 0){
+		//create BlockReward
+		br := &types.BlockReward{
+			FastHash:block.Hash(),
+			FastNumber:block.Number(),
+			SnailHash:block.SnailHash(),
+			SnailNumber:block.SnailNumber(),
+		}
+
+		//insert BlockReward to db
+		rawdb.WriteBlockReward(batch,br)
 	}
 
-	//insert BlockReward to db
-	rawdb.WriteBlockReward(batch,br)
 
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
@@ -1088,6 +1091,9 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 	abort, results := bc.engine.VerifyFastHeaders(bc, headers, seals)
 	defer close(abort)
 
+
+
+
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	senderCacher.recoverFromFastBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
@@ -1193,6 +1199,8 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 		// Process block using the parent state as reference point.
 		//执行交易
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)//update
+
+
 
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
