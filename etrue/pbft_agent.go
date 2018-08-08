@@ -29,15 +29,12 @@ const (
 	PbftActionStart = iota  // start pbft consensus
 	PbftActionStop          // stop pbft consensus
 	PbftActionSwitch       //switch pbft committee
-
-	VoteAgree = iota
-	VoteAgreeAgainst
 )
 
 type Pbftagent interface {
 	FetchBlock() (*types.FastBlock,error)
 	VerifyFastBlock() error
-	ComplateSign(voteSign []*PbftVoteSign) error
+	ComplateSign(sign []*PbftSign) error
 }
 
 type PbftServer interface {
@@ -50,13 +47,6 @@ type PbftSign struct {
 	FastHash common.Hash	// fastblock hash
 	ReceiptHash common.Hash	// fastblock receiptHash
 	Sign []byte	// sign for fastblock hash
-}
-
-type PbftVoteSign struct {
-	Result uint	// 0--agree,1--against
-	FastHeight *big.Int	// fastblock height
-	Msg common.Hash		// hash(fasthash+ecdsa.PublicKey+Result)
-	Sig []byte		// sign for SigHash
 }
 
 type PbftNode struct {
@@ -79,9 +69,7 @@ type PbftAction struct {
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
 var privateKey *ecdsa.PrivateKey
-var pbftNode PbftNode
-
-var pks []*ecdsa.PublicKey
+var node PbftNode
 
 func (self *PbftAgent) loop(){
 	fmt.Println("loop...")
@@ -118,7 +106,7 @@ func  (pbftAgent *PbftAgent) handle(){
 
 func (pbftAgent *PbftAgent)  SendPbftNode()	*CryNodeInfo{
 	var nodeInfos [][]byte
-	nodeByte,_ :=truechain.ToByte(pbftNode)
+	nodeByte,_ :=truechain.ToByte(node)
 
 	for _,committeeMember := range pbftAgent.CommitteeMembers{
 		encryptMsg,err :=ecies.Encrypt(rand.Reader,ecies.ImportECDSAPublic(committeeMember.pubkey),nodeByte, nil, nil)
@@ -140,7 +128,7 @@ func (pbftAgent *PbftAgent)  SendPbftNode()	*CryNodeInfo{
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode {
 	hash:= cryNodeInfo.InfoByte
 	sig := cryNodeInfo.Sign
-	var pbftNode *PbftNode
+	var node *PbftNode
 
 	pubKey,err :=crypto.SigToPub(hash,sig)
 	if err != nil{
@@ -166,49 +154,21 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode 
 	for _,info := range nodeInfos{
 		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
 		if err != nil{
-			truechain.FromByte(encryptMsg,pbftNode)
-			return pbftNode
+			truechain.FromByte(encryptMsg,node)
+			return node
 		}
 	}
 	return nil
 }
 
-var voteResult map[*big.Int]int	= make(map[*big.Int]int)
+type PbftVoteSign struct {
+	Result uint	// 0--agree,1--against
+	FastHeight *big.Int	// fastblock height
+	Msg common.Hash		// hash(fasthash+ecdsa.PublicKey+Result)
+	Sig []byte		// sign for SigHash
+}
 
-func  (self *PbftAgent)  ComplateSign(voteSigns []PbftVoteSign){
-	var FastHeight *big.Int
-	for _,voteSign := range voteSigns{
-		FastHeight =voteSign.FastHeight
-		if voteSign.Result == VoteAgreeAgainst{
-			continue
-		}
-		pubKey,err :=crypto.SigToPub(voteSign.Msg[:],voteSign.Sig)
-		if err != nil{
-			log.Info("SigToPub error.")
-			panic(err)
-		}
-		for _,pk := range pks {
-			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
-				val,ok:=voteResult[voteSign.FastHeight]
-				if ok{
-					voteResult[voteSign.FastHeight]=val+1
-				}else{
-					voteResult[voteSign.FastHeight]=1
-				}
-				break;
-			}
-		}
-	}
-	if voteResult[FastHeight] > 2*len(pks)/3{
-		//将当前区块放入快链，广播签名
-		var fastBlocks []*types.FastBlock
-		_,err :=self.chain.InsertChain(fastBlocks)
-		if err != nil{
-			panic(err)
-		}
-
-		//core.PbftVoteSignEvent<- voteSigns
-	}
+func  (self *PbftAgent)  ComplateSign(){
 
 }
 

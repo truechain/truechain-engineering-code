@@ -1,6 +1,7 @@
 package types
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
@@ -23,6 +24,13 @@ type PbftVoteSign struct {
 type CommitteeFastSignResult struct {
 	Address common.Address `json:"address,omitempty"`
 	Result  bool           `json:"result,omitempty"` //sign is true
+}
+
+type CommitteeMember struct {
+	ip       []string
+	port     uint
+	coinbase common.Hash
+	pubkey   *ecdsa.PublicKey
 }
 
 func (g *Committee) UnmarshalJSON(input []byte) error {

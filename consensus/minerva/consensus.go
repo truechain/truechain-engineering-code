@@ -95,9 +95,9 @@ func (ethash *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, heade
 
 	//TODO for fruit
 	/*
-	if header.Fruit {
-		return ethash.verifyHeader(chain, header, parent, false, seal)
-	}
+		if header.Fruit {
+			return ethash.verifyHeader(chain, header, parent, false, seal)
+		}
 	*/
 
 	if chain.GetHeader(header.Hash(), number) != nil {
@@ -129,10 +129,12 @@ func (ethash *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
-func (ethash *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error) {
-	return nil,nil
+func (ethash *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header,
+	seals []bool) (chan<- struct{}, <-chan error) {
+	return nil, nil
 }
-func (ethash *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error) {
+func (ethash *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader,
+	seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -194,10 +196,12 @@ func (ethash *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, head
 	return abort, errorsOut
 }
 
-func (ethash *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
+func (ethash *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header,
+	seals []bool, index int) error {
 	return nil
 }
-func (ethash *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers []*types.SnailHeader, seals []bool, index int) error {
+func (ethash *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers []*types.SnailHeader,
+	seals []bool, index int) error {
 	var parent *types.SnailHeader
 
 	if index == 0 {
@@ -215,7 +219,8 @@ func (ethash *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader,
 	return ethash.verifySnailHeader(chain, headers[index], parent, false, seals[index])
 }
 
-func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader, seals []bool) (chan<- struct{}, <-chan error) {
+func (ethash *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader,
+	seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake || len(headers) == 0 {
 		abort, results := make(chan struct{}), make(chan error, len(headers))
@@ -306,11 +311,11 @@ func (ethash *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block
 		return nil
 	}
 	// Verify that there are at most 2 uncles included in this block
-	//TODO snail chain not uncles 
+	//TODO snail chain not uncles
 	/*
-	if len(block.Uncles()) > maxUncles {
-		return errTooManyUncles
-	}
+		if len(block.Uncles()) > maxUncles {
+			return errTooManyUncles
+		}
 	*/
 	// Gather the set of past uncles and ancestors
 	uncles, ancestors := set.New(), make(map[common.Hash]*types.SnailHeader)
@@ -324,9 +329,9 @@ func (ethash *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block
 		ancestors[ancestor.Hash()] = ancestor.Header()
 		//TODO Snail chain not uncles
 		/*
-		for _, uncle := range ancestor.Uncles() {
-			uncles.Add(uncle.Hash())
-		}
+			for _, uncle := range ancestor.Uncles() {
+				uncles.Add(uncle.Hash())
+			}
 		*/
 		parent, number = ancestor.ParentHash(), number-1
 	}
@@ -336,25 +341,25 @@ func (ethash *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block
 	// Verify each of the uncles that it's recent, but not an ancestor
 	//TODO Snail chain not uncles
 	/*
-	for _, uncle := range block.Uncles() {
-		// Make sure every uncle is rewarded only once
-		hash := uncle.Hash()
-		if uncles.Has(hash) {
-			return errDuplicateUncle
-		}
-		uncles.Add(hash)
+		for _, uncle := range block.Uncles() {
+			// Make sure every uncle is rewarded only once
+			hash := uncle.Hash()
+			if uncles.Has(hash) {
+				return errDuplicateUncle
+			}
+			uncles.Add(hash)
 
-		// Make sure the uncle has a valid ancestry
-		if ancestors[hash] != nil {
-			return errUncleIsAncestor
+			// Make sure the uncle has a valid ancestry
+			if ancestors[hash] != nil {
+				return errUncleIsAncestor
+			}
+			if ancestors[uncle.ParentHash] == nil || uncle.ParentHash == block.ParentHash() {
+				return errDanglingUncle
+			}
+			if err := ethash.verifyHeader(chain, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
+				return err
+			}
 		}
-		if ancestors[uncle.ParentHash] == nil || uncle.ParentHash == block.ParentHash() {
-			return errDanglingUncle
-		}
-		if err := ethash.verifyHeader(chain, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
-			return err
-		}
-	}
 	*/
 	return nil
 }
@@ -362,10 +367,12 @@ func (ethash *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block
 // verifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
-func (ethash *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header, uncle bool, seal bool) error {
+func (ethash *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header,
+	uncle bool, seal bool) error {
 	return nil
 }
-func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader, uncle bool, seal bool) error {
+func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader,
+	uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -393,29 +400,29 @@ func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, heade
 
 	//TODO snail chian gaslimit
 	/*
-	cap := uint64(0x7fffffffffffffff)
-	if header.GasLimit > cap {
-		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
-	}
-	// Verify that the gasUsed is <= gasLimit
-	if header.GasUsed > header.GasLimit {
-		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
-	}
+		cap := uint64(0x7fffffffffffffff)
+		if header.GasLimit > cap {
+			return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
+		}
+		// Verify that the gasUsed is <= gasLimit
+		if header.GasUsed > header.GasLimit {
+			return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
+		}
 
-	// Verify that the gas limit remains within allowed bounds
-	diff := int64(parent.GasLimit) - int64(header.GasLimit)
-	if diff < 0 {
-		diff *= -1
-	}
-	limit := parent.GasLimit / params.GasLimitBoundDivisor
+		// Verify that the gas limit remains within allowed bounds
+		diff := int64(parent.GasLimit) - int64(header.GasLimit)
+		if diff < 0 {
+			diff *= -1
+		}
+		limit := parent.GasLimit / params.GasLimitBoundDivisor
 
-	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
-	}
-	// Verify that the block number is parent's +1
-	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
-		return consensus.ErrInvalidNumber
-	}
+		if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
+			return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
+		}
+		// Verify that the block number is parent's +1
+		if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
+			return consensus.ErrInvalidNumber
+		}
 	*/
 
 	// Verify the engine specific seal securing the block
@@ -510,8 +517,10 @@ var (
 	expDiffPeriod = big.NewInt(100000)
 	big1          = big.NewInt(1)
 	big2          = big.NewInt(2)
+	big8          = big.NewInt(8)
 	big9          = big.NewInt(9)
 	big10         = big.NewInt(10)
+	big32         = big.NewInt(32)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 )
@@ -697,16 +706,14 @@ func (ethash *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header 
 	}
 
 	//TODO for fruit
-	
+
 	target := new(big.Int).Div(maxUint256, header.Difficulty)
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
-	 
-	
-	
+
 	//if header.Fruit {
 	// TODO need know how to get fruits
-	if header.Number.Uint64()>0{
+	if header.Number.Uint64() > 0 {
 		last := result[16:]
 		if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
 			return errInvalidPoW
@@ -714,7 +721,7 @@ func (ethash *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header 
 	} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
 		return errInvalidPoW
 	}
-	
+
 	return nil
 }
 
@@ -743,12 +750,13 @@ func (ethash *Minerva) PrepareFast(chain consensus.ChainFastReader, header *type
 
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
-func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
+	txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
 	return nil, nil
 }
-func (ethash *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader, state *state.StateDB, txs []*types.Transaction, uncles []*types.SnailHeader, receipts []*types.Receipt, fruits []*types.SnailBlock) (*types.SnailBlock, error) {
-	// Accumulate any block and uncle rewards and commit the final state root
-	accumulateRewards(chain.Config(), state, header, uncles, fruits)
+func (ethash *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader, state *state.StateDB,
+	txs []*types.Transaction, uncles []*types.SnailHeader, receipts []*types.Receipt, fruits []*types.SnailBlock) (*types.SnailBlock, error) {
+
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
 	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
@@ -757,82 +765,72 @@ func (ethash *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *t
 
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
+// Please pass in the parameter block when reward distribution is required.
 func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
+	if header.SnailHash.String() != "" {
+		accumulateRewardsFast(state, header)
+	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	//todo sign IQQ  private key ?
 	return types.NewFastBlock(header, txs, receipts), nil
-}
-
-// Some weird constants to avoid constant memory allocs for them.
-var (
-	big8  = big.NewInt(8)
-	big32 = big.NewInt(32)
-)
-
-// AccumulateRewards credits the coinbase of the given block with the mining
-// reward. The total reward consists of the static block reward and rewards for
-// included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.SnailHeader, uncles []*types.SnailHeader, fruits []*types.SnailBlock) {
-	// Select the correct block reward based on chain progression
-
-	blockReward := BlockReward
-	// TODO: calculate block reward every 30,000 blocks is halved
-
-	// accumulate the rewards for the miner
-	reward := new(big.Int).Set(blockReward)
-
-	fruitsReward := new(big.Int)
-	r := new(big.Int)
-	for _, fruit := range fruits {
-		r = FruitReward
-		// TODO: calculate fruit reward
-		state.AddBalance(fruit.Coinbase(), r)
-		fruitsReward.Add(fruitsReward, r)
-	}
-
-	fruitsReward.Div(fruitsReward, big10)
-	blockReward.Add(blockReward, fruitsReward)
-
-	for _, uncle := range uncles {
-		r.Add(uncle.Number, big8)
-		r.Sub(r, header.Number)
-		r.Mul(r, blockReward)
-		r.Div(r, big8)
-		state.AddBalance(uncle.Coinbase, r)
-
-		r.Div(blockReward, big32)
-		reward.Add(reward, r)
-	}
-	state.AddBalance(header.Coinbase, reward)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, header *types.FastHeader, committee []*types.Header, sBlock *types.SnailBlock) {
+func accumulateRewardsFast(state *state.StateDB, header *types.FastHeader) error {
+	//get snail block
+	var sc consensus.SnailChainReader
+	sBlock := sc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
+	if sBlock == nil {
+		return consensus.ErrInvalidNumber
+	}
+
 	//Get snailBlock current -12
 	minerCoin, committeeCoin := getCurrentBlockCoin(sBlock.Number())
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
 
+	//committee's award
+	blockFruits := sBlock.Body().Fruits
+	blockFruitsLen := big.NewInt(int64(len(blockFruits)))
+	committeeCoinFruit := new(big.Int).Div(committeeCoin, blockFruitsLen)
+
+	//all fail committee coinBase
+	failAddr := make(map[common.Address]bool)
+
+	for _, fruit := range blockFruits {
+		signs := fruit.Body().Signs
+
+		var ce consensus.CommitteeElection
+
+		addr := ce.VerifyFastBlockSigns(signs)
+
+		//Effective and not evil
+		var fruitOkAddr []common.Address
+		for _, v := range addr {
+			if v.Result {
+				if _, ok := failAddr[v.Address]; !ok {
+					fruitOkAddr = append(fruitOkAddr, v.Address)
+				}
+			} else {
+				failAddr[v.Address] = false
+			}
+		}
+
+		// Equal by fruit
+		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
+		for _, v := range fruitOkAddr {
+			state.AddBalance(v, committeeCoinFruitMember)
+		}
+	}
+
 	//miners add all fruit 10%
 	state.AddBalance(sBlock.Coinbase(),
 		new(big.Int).Div(new(big.Int).SetInt64(int64(len(sBlock.Body().Fruits))),
 			big10))
-
-	//sBlock.Body().Fruits[0].body  wait snail block
-	committeeCoin = new(big.Int).Div(committeeCoin, new(big.Int).SetInt64(int64(len(committee))))
-	for _, comm := range committee {
-		state.AddBalance(comm.Coinbase, committeeCoin)
-	}
-	// todo IQQ
-	//Get a list of committees
-	//Get the snail block signature list
-	//Verification signature
-	//Eliminate members of the evil committee
-	//Get Wallet Address Distribution Rewards
+	return nil
 }
 
 //Get current revenue value for miner or committee
@@ -841,7 +839,7 @@ func accumulateRewardsFast(config *params.ChainConfig, state *state.StateDB, hea
 func getCurrentBlockCoin(num *big.Int) (minerCoin, committeeCoin *big.Int) {
 	currentBlockCoinCount := new(big.Int).Div(SnailBlockRewardsInitial,
 		new(big.Int).Exp(new(big.Int).SetInt64(2),
-			new(big.Int).Div(new(big.Int).Add(num, new(big.Int).SetInt64(-12)), new(big.Int).SetInt64(5000)),
+			new(big.Int).Div(num, new(big.Int).SetInt64(5000)),
 			nil))
 
 	currentBlockCoinMean := new(big.Int).Div(currentBlockCoinCount, new(big.Int).Add(MinerCount, CommitteesCount))

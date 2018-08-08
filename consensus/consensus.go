@@ -157,8 +157,8 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeFast(chain ChainFastReader, header *types.FastHeader, state *state.StateDB, txs []*types.Transaction,
-		receipts []*types.Receipt) (*types.FastBlock, error)
+	FinalizeFast(chain ChainFastReader, header *types.FastHeader, state *state.StateDB,
+		txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error)
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
@@ -177,6 +177,15 @@ type Engine interface {
 
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
+}
+
+//Election module implementation committee interface
+type CommitteeElection interface {
+	//Verify the fast chain committee signatures in batches
+	VerifyFastBlockSigns(pvs []*types.PbftVoteSign) (cfvf []types.CommitteeFastSignResult)
+
+	//Get a list of committee members
+	GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
 }
 
 // PoW is a consensus engine based on proof-of-work.
