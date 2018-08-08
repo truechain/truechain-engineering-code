@@ -40,7 +40,6 @@ const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownFruits    = 1024 // Maximum fruits hashes to keep in the known list (prevent DOS)
 	maxKnownSnailBlocks    = 1024 // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
-	maxKnownBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 	maxKnownFastBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
@@ -51,20 +50,11 @@ const (
 	maxQueuedFruits = 128
 	//for fruitEvent
 	maxQueuedFruit = 4
-	// maxQueuedProps is the maximum number of block propagations to queue up before
-	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
-	// that might cover uncles should be enough.
-	maxQueuedProps = 4
 
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
 	maxQueuedFastProps = 4
-
-	// maxQueuedAnns is the maximum number of block announcements to queue up before
-	// dropping broadcasts. Similarly to block propagations, there's no point to queue
-	// above some healthy uncle limit, so use that.
-	maxQueuedAnns = 4
 
 	// maxQueuedAnns is the maximum number of block announcements to queue up before
 	// dropping broadcasts. Similarly to block propagations, there's no point to queue
@@ -80,12 +70,6 @@ type PeerInfo struct {
 	Version    int      `json:"version"`    // Truechain protocol version negotiated
 	Difficulty *big.Int `json:"difficulty"` // Total difficulty of the peer's blockchain
 	Head       string   `json:"head"`       // SHA3 hash of the peer's best owned block
-}
-
-// propEvent is a block propagation, waiting for its turn in the broadcast queue.
-type propEvent struct {
-	block *types.Block
-	td    *big.Int
 }
 
 // propEvent is a fast block propagation, waiting for its turn in the broadcast queue.
@@ -122,18 +106,15 @@ type peer struct {
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
 	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
 	knownSnailBlocks    *set.Set              // Set of snailBlocks hashes known to be known by this peer
-	knownBlocks *set.Set                  // Set of block hashes known to be known by this peer
 	knownFastBlocks *set.Set              // Set of fast block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedFruits   chan []*types.SnailBlock // Queue of fruits to broadcast to the peer
 	queuedSnailBlcoks   chan []*types.SnailBlock // Queue of snailBlocks to broadcast to the peer
-	queuedProps chan *propEvent           // Queue of blocks to broadcast to the peer
 	queuedFastProps chan *propFastEvent           // Queue of fast blocks to broadcast to the peer
 
 	queuedFruit chan *fruitEvent           // Queue of newFruits to broadcast to the peer
 	queuedSnailBlock chan *snailBlockEvent           // Queue of newSnailBlock to broadcast to the peer
 
-	queuedAnns  chan *types.Block         // Queue of blocks to announce to the peer
 	queuedFastAnns  chan *types.FastBlock   // Queue of fastBlocks to announce to the peer
 	term        chan struct{}             // Termination channel to stop the broadcaster
 }
@@ -145,14 +126,11 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		version:     version,
 		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
 		knownTxs:    set.New(),
-		knownBlocks: set.New(),
 		knownFastBlocks: set.New(),
 		knownFruits: set.New(),
 
 		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
-		queuedProps: make(chan *propEvent, maxQueuedProps),
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
-		queuedAnns:  make(chan *types.Block, maxQueuedAnns),
 		queuedFastAnns:  make(chan *types.FastBlock, maxQueuedFastAnns),
 
 		queuedFruit: make(chan *fruitEvent, maxQueuedFruit),
@@ -201,23 +179,11 @@ func (p *peer) broadcast() {
 			}
 			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 
-		case prop := <-p.queuedProps:
-			if err := p.SendNewBlock(prop.block, prop.td); err != nil {
-				return
-			}
-			p.Log().Trace("Propagated block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
-
 		case prop := <-p.queuedFastProps:
 			if err := p.SendNewFastBlock(prop.block, prop.td); err != nil {
 				return
 			}
 			p.Log().Trace("Propagated fast block", "number", prop.block.Number(), "hash", prop.block.Hash(), "td", prop.td)
-
-		case block := <-p.queuedAnns:
-			if err := p.SendNewBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
-				return
-			}
-			p.Log().Trace("Announced block", "number", block.Number(), "hash", block.Hash())
 
 		case block := <-p.queuedFastAnns:
 			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
@@ -264,16 +230,6 @@ func (p *peer) SetHead(hash common.Hash, td *big.Int) {
 
 	copy(p.head[:], hash[:])
 	p.td.Set(td)
-}
-
-// MarkBlock marks a block as known for the peer, ensuring that the block will
-// never be propagated to this particular peer.
-func (p *peer) MarkBlock(hash common.Hash) {
-	// If we reached the memory allowance, drop a previously known block hash
-	for p.knownBlocks.Size() >= maxKnownBlocks {
-		p.knownBlocks.Pop()
-	}
-	p.knownBlocks.Add(hash)
 }
 
 // MarkFastBlock marks a block as known for the peer, ensuring that the block will
@@ -373,19 +329,6 @@ func (p *peer) AsyncSendSnailBlocks(snailBlocks []*types.SnailBlock) {
 		p.Log().Debug("Dropping snailBlocks propagation", "count", len(snailBlocks))
 	}
 }
-// SendNewBlockHashes announces the availability of a number of blocks through
-// a hash notification.
-func (p *peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
-	for _, hash := range hashes {
-		p.knownBlocks.Add(hash)
-	}
-	request := make(newBlockHashesData, len(hashes))
-	for i := 0; i < len(hashes); i++ {
-		request[i].Hash = hashes[i]
-		request[i].Number = numbers[i]
-	}
-	return p2p.Send(p.rw, NewBlockHashesMsg, request)
-}
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
@@ -401,18 +344,6 @@ func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64) er
 	return p2p.Send(p.rw, NewFastBlockHashesMsg, request)
 }
 
-// AsyncSendNewBlockHash queues the availability of a block for propagation to a
-// remote peer. If the peer's broadcast queue is full, the event is silently
-// dropped.
-func (p *peer) AsyncSendNewBlockHash(block *types.Block) {
-	select {
-	case p.queuedAnns <- block:
-		p.knownBlocks.Add(block.Hash())
-	default:
-		p.Log().Debug("Dropping block announcement", "number", block.NumberU64(), "hash", block.Hash())
-	}
-}
-
 // AsyncSendNewBlockHash queues the availability of a fast block for propagation to a
 // remote peer. If the peer's broadcast queue is full, the event is silently
 // dropped.
@@ -425,27 +356,10 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.FastBlock) {
 	}
 }
 
-// SendNewBlock propagates an entire block to a remote peer.
-func (p *peer) SendNewBlock(block *types.Block, td *big.Int) error {
-	p.knownBlocks.Add(block.Hash())
-	return p2p.Send(p.rw, NewBlockMsg, []interface{}{block, td})
-}
-
 // SendNewFastBlock propagates an entire fast block to a remote peer.
 func (p *peer) SendNewFastBlock(block *types.FastBlock, td *big.Int) error {
 	p.knownFastBlocks.Add(block.Hash())
 	return p2p.Send(p.rw, NewFastBlockMsg, []interface{}{block, td})
-}
-
-// AsyncSendNewBlock queues an entire block for propagation to a remote peer. If
-// the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendNewBlock(block *types.Block, td *big.Int) {
-	select {
-	case p.queuedProps <- &propEvent{block: block, td: td}:
-		p.knownBlocks.Add(block.Hash())
-	default:
-		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
-	}
 }
 
 // AsyncSendNewFastBlock queues an entire block for propagation to a remote peer. If
@@ -719,21 +633,6 @@ func (ps *peerSet) Len() int {
 	defer ps.lock.RUnlock()
 
 	return len(ps.peers)
-}
-
-// PeersWithoutBlock retrieves a list of peers that do not have a given block in
-// their set of known hashes.
-func (ps *peerSet) PeersWithoutBlock(hash common.Hash) []*peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
-
-	list := make([]*peer, 0, len(ps.peers))
-	for _, p := range ps.peers {
-		if !p.knownBlocks.Has(hash) {
-			list = append(list, p)
-		}
-	}
-	return list
 }
 
 // PeersWithoutBlock retrieves a list of peers that do not have a given block in
