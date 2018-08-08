@@ -34,6 +34,34 @@ const (
 	VoteAgreeAgainst  		//vote against
 )
 
+type PbftAgent struct {
+	config *params.ChainConfig
+	chain   *fastchain.FastBlockChain
+
+	engine consensus.Engine
+	eth     Backend
+	signer types.Signer
+	current *AgentWork
+
+	currentMu sync.Mutex
+	mux          *event.TypeMux
+	agentFeed       event.Feed
+	scope        event.SubscriptionScope
+
+	snapshotMu    sync.RWMutex
+	snapshotState *state.StateDB
+	snapshotBlock *types.FastBlock
+
+	committeeActionCh  chan PbftCommitteeActionEvent
+	committeeSub event.Subscription
+
+	eventMux      *event.TypeMux
+	PbftNodeSub *event.TypeMuxSubscription
+	election	*Election
+
+	CommitteeMembers	[]*CommitteeMember
+}
+
 type Pbftagent interface {
 	FetchBlock() (*types.FastBlock,error)
 	VerifyFastBlock() error
@@ -76,12 +104,58 @@ type PbftAction struct {
 	action int
 }
 
+type AgentWork struct {
+	config *params.ChainConfig
+	signer types.Signer
+
+	state     *state.StateDB // apply state changes here
+	tcount    int            // tx count in cycle
+	gasPool   *fastchain.GasPool  // available gas used to pack transactions
+
+	Block *types.FastBlock // the new block
+
+	header   *types.FastHeader
+	txs      []*types.Transaction
+	receipts []*types.Receipt
+
+	createdAt time.Time
+}
+
+type Backend interface {
+	AccountManager() *accounts.Manager
+	FastBlockChain() *fastchain.FastBlockChain
+	TxPool() *core.TxPool
+	ChainDb() ethdb.Database
+}
+
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
-var privateKey *ecdsa.PrivateKey
-var pbftNode PbftNode
+var
+(	privateKey *ecdsa.PrivateKey
+	pbftNode PbftNode
+	pks []*ecdsa.PublicKey
+	voteResult map[*big.Int]int	= make(map[*big.Int]int)
+)
 
-var pks []*ecdsa.PublicKey
+func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
+	self := &PbftAgent{
+		config:         	config,
+		engine:         	engine,
+		eth:            	eth,
+		mux:            	mux,
+		chain:          	eth.FastBlockChain(),
+		committeeActionCh:	make(chan PbftCommitteeActionEvent, 3),
+		election:nil,
+	}
+	fastBlock :=self.chain.CurrentFastBlock()
+	_,self.CommitteeMembers =self.election.GetCommittee(fastBlock.Header().Number,fastBlock.Header().Hash())
+
+	// Subscribe events from blockchain
+	//self.committeeSub = self.chain.SubscribeChainHeadEvent(self.committeeActionCh)
+	self.committeeSub = self.election.SubscribeCommitteeActionEvent(self.committeeActionCh)
+	go self.loop()
+	return self
+}
 
 func (self *PbftAgent) loop(){
 	fmt.Println("loop...")
@@ -97,21 +171,6 @@ func (self *PbftAgent) loop(){
 				self.SendPbftNode()//广播本节点信息
 				self.Start()//接收其他本节点信息
 			}
-		}
-	}
-}
-
-func (pbftAgent *PbftAgent) Start() {
-	// broadcast mined blocks
-	pbftAgent.PbftNodeSub = pbftAgent.eventMux.Subscribe(NewPbftNodeEvent{})
-	go pbftAgent.handle()
-}
-
-func  (pbftAgent *PbftAgent) handle(){
-	for obj := range pbftAgent.PbftNodeSub.Chan() {
-		switch cryNodeInfo := obj.Data.(type) {
-		case CryNodeInfo:
-			pbftAgent.ReceivePbftNode(cryNodeInfo)
 		}
 	}
 }
@@ -137,6 +196,22 @@ func (pbftAgent *PbftAgent)  SendPbftNode()	*CryNodeInfo{
 
 	return cryNodeInfo
 }
+
+func (pbftAgent *PbftAgent) Start() {
+	// broadcast mined blocks
+	pbftAgent.PbftNodeSub = pbftAgent.eventMux.Subscribe(NewPbftNodeEvent{})
+	go pbftAgent.handle()
+}
+
+func  (pbftAgent *PbftAgent) handle(){
+	for obj := range pbftAgent.PbftNodeSub.Chan() {
+		switch cryNodeInfo := obj.Data.(type) {
+		case CryNodeInfo:
+			pbftAgent.ReceivePbftNode(cryNodeInfo)
+		}
+	}
+}
+
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode {
 	hash:= cryNodeInfo.InfoByte
 	sig := cryNodeInfo.Sign
@@ -173,7 +248,6 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode 
 	return nil
 }
 
-var voteResult map[*big.Int]int	= make(map[*big.Int]int)
 func  (self *PbftAgent)  ComplateSign(voteSigns []*PbftVoteSign){
 	var FastHeight *big.Int
 	for _,voteSign := range voteSigns{
@@ -208,79 +282,6 @@ func  (self *PbftAgent)  ComplateSign(voteSigns []*PbftVoteSign){
 		//广播签名
 		self.agentFeed.Send(core.PbftVoteSignEvent{voteSigns})
 	}
-}
-
-type PbftAgent struct {
-	config *params.ChainConfig
-	chain   *fastchain.FastBlockChain
-
-	engine consensus.Engine
-	eth     Backend
-	signer types.Signer
-	current *AgentWork
-
-	currentMu sync.Mutex
-	mux          *event.TypeMux
-	agentFeed       event.Feed
-	scope        event.SubscriptionScope
-
-	snapshotMu    sync.RWMutex
-	snapshotState *state.StateDB
-	snapshotBlock *types.FastBlock
-
-	committeeActionCh  chan PbftCommitteeActionEvent
-	committeeSub event.Subscription
-
-	eventMux      *event.TypeMux
-	PbftNodeSub *event.TypeMuxSubscription
-	election	*Election
-
-	CommitteeMembers	[]*CommitteeMember
-}
-
-
-type AgentWork struct {
-	config *params.ChainConfig
-	signer types.Signer
-
-	state     *state.StateDB // apply state changes here
-	tcount    int            // tx count in cycle
-	gasPool   *fastchain.GasPool  // available gas used to pack transactions
-
-	Block *types.FastBlock // the new block
-
-	header   *types.FastHeader
-	txs      []*types.Transaction
-	receipts []*types.Receipt
-
-	createdAt time.Time
-}
-
-type Backend interface {
-	AccountManager() *accounts.Manager
-	FastBlockChain() *fastchain.FastBlockChain
-	TxPool() *core.TxPool
-	ChainDb() ethdb.Database
-}
-
-func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
-	self := &PbftAgent{
-		config:         	config,
-		engine:         	engine,
-		eth:            	eth,
-		mux:            	mux,
-		chain:          	eth.FastBlockChain(),
-		committeeActionCh:	make(chan PbftCommitteeActionEvent, 3),
-		election:nil,
-	}
-	fastBlock :=self.chain.CurrentFastBlock()
-	_,self.CommitteeMembers =self.election.GetCommittee(fastBlock.Header().Number,fastBlock.Header().Hash())
-
-	// Subscribe events from blockchain
-	//self.committeeSub = self.chain.SubscribeChainHeadEvent(self.committeeActionCh)
-	self.committeeSub = self.election.SubscribeCommitteeActionEvent(self.committeeActionCh)
-	go self.loop()
-	return self
 }
 
 func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
