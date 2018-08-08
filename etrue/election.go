@@ -14,7 +14,7 @@ import (
 )
 
 var ( 	z  = 100
- 		k  = 10000
+	k  = 10000
 )
 
 const (
@@ -62,10 +62,10 @@ type Election struct {
 	genesisCommittee []*CommitteeMember
 
 	committee []*CommitteeMember
-	xh 			uint	//委员会届数
+	pn 			uint	//Number of sessions
 	fcEvent		fcEvent
 	scEvent		scEvent
-	flag		bool  //用于处理事件切换的标志位
+	flag		bool  //Flag bit for handling event switching
 	number		*big.Int
 	fastHead *big.Int
 	snailHead *big.Int
@@ -114,8 +114,6 @@ func (e *Election)start(){
 
 	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
 	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
-
-
 	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
 	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
 
@@ -124,12 +122,9 @@ func (e *Election)start(){
 
 //Calculate your own force unit locally
 func (v VoteuUse)localForce()int64{
-
-
 	w := v.wi
 	//w_i=(D_pf-〖[h]〗_(-k))/u
 	return w
-
 }
 
 //The power function used by the draw function
@@ -176,39 +171,24 @@ func sortition()bool{
 
 //Used for election counting
 func(qu queue) InitQueue(){
-
 	qu.queuesize = z;
-
 	//qu.q = make(int,qu.queuesize)
-
 	qu.tail = 0;
-
 	qu.head = 0;
-
 }
 
 func (qu queue) EnQueue(key int){
-
-	tail := (qu.tail+1) % qu.queuesize //取余保证，当quil=queuesize-1时，再转回0
-
+	tail := (qu.tail+1) % qu.queuesize //going to take the remainder guarantee, and when we hit queuesize minus 1, we're going to go back to 0
 	if tail == qu.head{
-
 		log.Print("the queue has been filled full!")
-
 	} else {
-
-	qu.q[qu.tail] = key
-
-	qu.tail = tail
-
+		qu.q[qu.tail] = key
+		qu.tail = tail
 	}
-
 }
 
 func (qu queue) gettail() int {
-
 	return qu.tail
-
 }
 
 // Verify checks a raw ECDSA signature.
@@ -218,15 +198,11 @@ func (cm CommitteeMember)Verify(signature []byte)bool {
 	digest := sha256.Sum256(signature)
 	pubkey := cm.pubkey
 	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
-
 	r, s := new(big.Int), new(big.Int)
 	r.SetBytes(signature[:curveOrderByteSize])
 	s.SetBytes(signature[curveOrderByteSize:])
 
 	return ecdsa.Verify(pubkey,digest[:], r, s)
-
-
-
 }
 //Another method for validation
 func (cm CommitteeMember)ReVerify(FastHeight *big.Int,FastHash common.Hash, ReceiptHash common.Hash, Sign []byte)bool {
@@ -258,14 +234,14 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 }
 
 func (e *Election)GetXh()uint{
-	return e.xh
+	return e.pn
 }
 
 //Monitor both chains and trigger elections at the same time
 func (e *Election) loop() {
 
 	// Keep waiting for and reacting to the various events
-	//fc := core.BlockChain{}
+
 	Qu := queue{}
 	Qu.InitQueue()
 	for {
@@ -276,15 +252,13 @@ func (e *Election) loop() {
 				//Record Numbers to open elections
 				Qu.EnQueue(0)
 				if Qu.gettail() == z-1{
-						//zl := z-13
-						go sortition()
-
-					//bn := fc.GetBlockByNumber(zl)
-
+					zl := uint64(z-13)
+					go sortition()
+					bn := e.snailchain.GetBlockByNumber(zl)
 					e.flag = true
-					//e.number = [len(bn)-1].Number()
-
-					e.xh++
+					fruit := bn.Fruits()
+					e.number = fruit[len(fruit)-1].Number()
+					e.pn++
 				}
 			}
 
