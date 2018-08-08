@@ -179,6 +179,15 @@ type Engine interface {
 	APIs(chain ChainReader) []rpc.API
 }
 
+//Election module implementation committee interface
+type CommitteeElection interface {
+	//Verify the fast chain committee signatures in batches
+	VerifyFastBlockSigns(pvs []*types.PbftVoteSign) (cfvf []types.CommitteeFastSignResult)
+
+	//Get a list of committee members
+	GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
+}
+
 // PoW is a consensus engine based on proof-of-work.
 type PoW interface {
 	Engine

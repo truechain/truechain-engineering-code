@@ -30,7 +30,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/fatih/set.v0"
 )
@@ -803,7 +802,10 @@ func accumulateRewardsFast(state *state.StateDB, header *types.FastHeader) error
 
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
-		addr := etrue.VerifyFastBlockSigns(signs)
+
+		var ce consensus.CommitteeElection
+
+		addr := ce.VerifyFastBlockSigns(signs)
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
