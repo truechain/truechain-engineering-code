@@ -161,6 +161,9 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo CryNodeInfo) *PbftNode 
 	return nil
 }
 
+// PbftVoteSigns is a PbftVoteSign slice type for basic sorting.
+type PbftVoteSigns []*PbftVoteSign
+
 type PbftVoteSign struct {
 	Result uint	// 0--agree,1--against
 	FastHeight *big.Int	// fastblock height
