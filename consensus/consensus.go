@@ -160,6 +160,9 @@ type Engine interface {
 	FinalizeFast(chain ChainFastReader, header *types.FastHeader, state *state.StateDB,
 		txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error)
 
+	//Call allocation gas before FinalizeFast
+	FinalizeFastGas(fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
+
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
 	Seal(chain ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error)
