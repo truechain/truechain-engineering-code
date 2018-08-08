@@ -2,7 +2,7 @@ package network
 
 import (
 	"fmt"
-	"github.com/consensusPBFT/pbft/consensus"
+	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 )
 
 func LogMsg(msg interface{}) {
