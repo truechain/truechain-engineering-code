@@ -20,7 +20,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
-	"github.com/truechain/truechain-engineering-code/etrue"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -43,8 +42,7 @@ type PendingStateEvent struct{}
 
 type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
 
-// NewMinedFastBlockEvent is posted when a block has been imported.
-type NewMinedFastBlockEvent struct{ blockAndSign *etrue.BlockAndSign }
+
 
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.SnailBlock }
