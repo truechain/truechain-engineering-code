@@ -125,6 +125,10 @@ type PbftAgentInteractNetwork interface {
 	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
 }
 
+type ElectionInteractNetwork interface {
+	VerifyLeaderBlock(height int, sign []byte) bool
+}
+
 // statusData is the network packet for the status message.
 type statusData struct {
 	ProtocolVersion uint32

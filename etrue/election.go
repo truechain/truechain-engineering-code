@@ -296,3 +296,7 @@ func (e *Election) SubscribeElectionStartEvent(ch chan<- ElectionStartEvent) eve
 func (e *Election) SubscribeCommitteeActionEvent(ch chan<- PbftCommitteeActionEvent) event.Subscription {
 	return e.scope.Track(e.CommitteeFeed.Subscribe(ch))
 }
+
+func (e *Election) VerifyLeaderBlock(height int, sign []byte) bool  {
+	return true
+}
