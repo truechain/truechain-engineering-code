@@ -402,11 +402,10 @@ func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, heade
 		//	return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.Difficulty, lastResult)
 		//}
 		expected := ethash.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-		fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-		fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
+		fruitExpected := new(big.Int).Div(expected, FruitBlockRatio)
 
-		if expected.Cmp(fruitTarget) <= 0 {
-			return fmt.Errorf("invalid fruit difficulty: have %v, want %v", fruitDifficulty, expected)
+		if fruitExpected.Cmp(header.Difficulty) > 0 {
+			return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.Difficulty, fruitExpected)
 		}
 
 	} else {
