@@ -34,6 +34,8 @@ type CommitteeNode struct {
 	CM   *CommitteeMember
 }
 
+type PbftSigns []*PbftSign
+
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
