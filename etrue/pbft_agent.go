@@ -58,9 +58,6 @@ type PbftAgent struct {
 	CommitteeMembers	[]*CommitteeMember
 }
 
-// PbftVoteSigns is a PbftVoteSign slice type for basic sorting.
-type PbftVoteSigns []*types.PbftSign
-
 type PbftNode struct {
 	NodeIP string
 	NodePort uint
@@ -103,11 +100,14 @@ type Backend interface {
 }
 
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
+// NewMinedFastBlockEvent is posted when a block has been imported.
+type NewMinedFastBlockEvent struct{ blockAndSign *BlockAndSign}
 
 type  BlockAndSign struct{
 	Block *types.FastBlock
 	Sign  *types.PbftSign
 }
+
 var
 (	privateKey *ecdsa.PrivateKey
 	pbftNode PbftNode
@@ -123,9 +123,9 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		mux:            	mux,
 		chain:          	eth.FastBlockChain(),
 		committeeActionCh:	make(chan PbftCommitteeActionEvent, 3),
-		election:nil,
+		election:	nil,//dd
 	}
-	fastBlock :=self.chain.CurrentFastBlock()
+	fastBlock :=self.chain.CurrentFastBlock()//dd
 	_,self.CommitteeMembers =self.election.GetCommittee(fastBlock.Header().Number,fastBlock.Header().Hash())
 
 	// Subscribe events from blockchain
@@ -144,7 +144,7 @@ func (self *PbftAgent) loop(){
 			if ch.pbftAction.action ==types.CommitteeStart{
 				//Actions(committeeAction)
 			}else if ch.pbftAction.action ==types.CommitteeStop{
-
+				//Actions(committeeAction)
 			}else if ch.pbftAction.action ==types.CommitteeSwitchover{
 				self.SendPbftNode()//broad nodeInfo of self
 				self.Start()//receive nodeInfo from other member
@@ -290,7 +290,7 @@ func  (self * PbftAgent)  FetchBlock() (*types.FastBlock,error){
 		voteSign,
 	}
 	//broadcast blockAndSign
-	self.mux.Post(core.NewMinedFastBlockEvent{blockAndSign})
+	self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
 	return	fastBlock,nil
 }
 
