@@ -15,7 +15,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	"github.com/truechain/truechain-engineering-code/etrue/truechain"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
@@ -23,9 +22,9 @@ import (
 	"crypto/ecdsa"
 	"sync"
 	"bytes"
-	"fmt"
 	"crypto/rand"
 	"encoding/gob"
+	"fmt"
 )
 
 const (
@@ -35,7 +34,7 @@ const (
 
 var
 (	privateKey *ecdsa.PrivateKey
-	pbftNode PbftNode
+	committeeNode *types.CommitteeNode
 	voteResult map[*big.Int]int	= make(map[*big.Int]int)
 )
 
@@ -65,19 +64,6 @@ type PbftAgent struct {
 	election	*Election
 
 	//CommitteeMembers	[]*CommitteeMember
-}
-
-type PbftNode struct {
-	NodeIP string
-	NodePort uint
-	CoinBase common.Address
-	PublicKey *ecdsa.PublicKey
-}
-
-type  CryNodeInfo struct {
-	InfoByte	[]byte	//before sign msg hash
-	Sign 		[]byte	//sign msg
-	FastHeight *big.Int
 }
 
 type PbftAction struct {
@@ -115,6 +101,12 @@ type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 // NewMinedFastBlockEvent is posted when a block has been imported.
 type NewMinedFastBlockEvent struct{ blockAndSign *BlockAndSign}
 
+type  CryNodeInfo struct {
+	InfoByte	[]byte	//before sign msg hash
+	Sign 		[]byte	//sign msg
+	FastHeight *big.Int
+}
+
 type  BlockAndSign struct{
 	Block *types.FastBlock
 	Sign  *types.PbftSign
@@ -140,15 +132,15 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 }
 
 func (self *PbftAgent) loop(){
-	fmt.Println("loop...")
+	//fmt.Println("loop...")
 	for {
 		select {
 		// Handle ChainHeadEvent
 		case ch := <-self.committeeActionCh:
 			if ch.pbftAction.action ==types.CommitteeStart{
-				//Actions(committeeAction)
+				//types.Notify(ch.pbftAction.Id,ch.pbftAction.action)
 			}else if ch.pbftAction.action ==types.CommitteeStop{
-				//Actions(committeeAction)
+				//types.Notify(ch.pbftAction.Id,ch.pbftAction.action)
 			}else if ch.pbftAction.action ==types.CommitteeSwitchover{
 				self.Start()//receive nodeInfo from other member
 				self.SendPbftNode()//broad nodeInfo of self
@@ -156,12 +148,12 @@ func (self *PbftAgent) loop(){
 		}
 	}
 }
-//FastHeight *big.Int	FastHash   common.Hash // fastblock hash
+
 func (pbftAgent *PbftAgent)  SendPbftNode()	*CryNodeInfo{
 	var nodeInfos [][]byte
-	nodeByte,_ :=ToByte(pbftNode)
+	nodeByte,_ :=ToByte(committeeNode)
 	currentBlock := pbftAgent.chain.CurrentBlock()
-	pks :=pbftAgent.election.GetCommitteeByHeight(currentBlock.Header().Number)
+	_,pks :=pbftAgent.election.GetCommitteeByHeight(currentBlock.Header().Number)
 	for _,pk := range pks{
 		encryptMsg,err :=ecies.Encrypt(rand.Reader,ecies.ImportECDSAPublic(pk),nodeByte, nil, nil)
 		if err != nil{
@@ -195,10 +187,10 @@ func  (pbftAgent *PbftAgent) handle(){
 	}
 }
 
-func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *PbftNode {
+func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.CommitteeNode {
 	hash:= cryNodeInfo.InfoByte
 	sig := cryNodeInfo.Sign
-	var node *PbftNode
+	var node *types.CommitteeNode
 
 	pubKey,err :=crypto.SigToPub(hash,sig)
 	if err != nil{
@@ -206,7 +198,7 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *PbftNode
 		return nil
 	}
 	verifyFlag := false
-	pks :=pbftAgent.election.GetCommitteeByHeight(cryNodeInfo.FastHeight)
+	committeePeriod,pks :=pbftAgent.election.GetCommitteeByHeight(cryNodeInfo.FastHeight)
 	for _, pk:= range pks{
 		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
 			continue
@@ -219,15 +211,17 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *PbftNode
 		return nil
 	}
 	var nodeInfos [][]byte
-	truechain.FromByte(hash,nodeInfos)
+	FromByte(hash,nodeInfos)
 	priKey :=ecies.ImportECDSA(privateKey)//ecdsa-->ecies
 	for _,info := range nodeInfos{
 		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
 		if err != nil{
-			truechain.FromByte(encryptMsg,node)
+			FromByte(encryptMsg,node)
 			return node
 		}
 	}
+	fmt.Println(committeePeriod)
+	//PutNodes(committeePeriod,  []*types.CommitteeNode{node})
 	return nil
 }
 
