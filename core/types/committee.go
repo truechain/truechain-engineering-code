@@ -6,31 +6,83 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"math/big"
+	"bytes"
+	"encoding/binary"
+	"log"
 )
+
 
 // Committee is an committee info in the state of the genesis block.
 type Committee struct {
 	Address common.Address `json:"address,omitempty"`
 	PubKey  []byte         `json:"pubKey,omitempty"`
 }
-type PbftVoteSign struct {
-	Result     uint        // 0--agree,1--against
-	FastHeight *big.Int    // fastblock height
-	Msg        common.Hash // hash(FastHeight+fasthash+ecdsa.PublicKey+Result)
-	Sig        []byte      // sign for SigHash
-}
 
-//Commission verification fast black result
-type CommitteeFastSignResult struct {
-	Address common.Address `json:"address,omitempty"`
-	Result  bool           `json:"result,omitempty"` //sign is true
-}
+
+const (
+	CommitteeStart = iota  // start pbft consensus
+	CommitteeStop          // stop pbft consensus
+	CommitteeSwitchover       //switch pbft committee
+)
+
+
 
 type CommitteeMember struct {
-	Ip       []string
-	Port     uint
 	Coinbase common.Address
-	Pubkey   *ecdsa.PublicKey
+	Publickey   *ecdsa.PublicKey
+}
+
+
+
+type CommitteeNode struct {
+	IP       string
+	Port     uint
+	CM     *CommitteeMember
+}
+
+
+
+type PbftSign struct {
+	FastHeight *big.Int
+	FastHash common.Hash	// fastblock hash
+	//ReceiptHash common.Hash	// fastblock receiptHash
+	Result    uint			// 0--agree,1--against
+	Sign []byte	// sign for fastblock height + hash + result
+}
+
+
+type PbftAgent interface {
+	FetchFastBlock() (*FastBlock,error)
+	VerifyFastBlock(*FastBlock) error
+	BroadcastFastBlock(*FastBlock) error
+	BroadcastSign(sign []*PbftSign) error
+}
+
+type PbftServer interface {
+	PutNodes(id *big.Int, nodes []*CommitteeNode) error
+	Notify(id *big.Int, action int) error
+}
+
+func (voteSign *PbftSign) PrepareData() []byte {
+	data := bytes.Join(
+		[][]byte{
+			voteSign.FastHash[:],
+			IntToHex(voteSign.Result),
+			IntToHex(voteSign.FastHeight),
+		},
+		[]byte{},
+	)
+	return data
+}
+
+// IntToHex converts an int64 to a byte array
+func IntToHex(num interface{}) []byte {
+	buff := new(bytes.Buffer)
+	err := binary.Write(buff, binary.BigEndian, num)
+	if err != nil {
+		log.Panic(err)
+	}
+	return buff.Bytes()
 }
 
 func (g *Committee) UnmarshalJSON(input []byte) error {

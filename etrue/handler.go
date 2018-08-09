@@ -28,7 +28,6 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -41,7 +40,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/etrue/fetcher/fetcherfast"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
@@ -85,8 +83,7 @@ type ProtocolManager struct {
 	maxPeers    int
 
 	downloader *downloader.Downloader
-	fetcher    *fetcher.Fetcher
-	fetcherFast    *fetcherfast.Fetcher
+	fetcherFast    *fetcher.Fetcher
 	peers      *peerSet
 
 	SubProtocols []p2p.Protocol
@@ -106,6 +103,8 @@ type ProtocolManager struct {
 
 	//fast block
 	minedFastSub *event.TypeMuxSubscription
+	pbVotesCh         chan core.PbftVoteSignEvent
+	pbVotesSub        event.Subscription
     //fruit
 	minedFruitSub *event.TypeMuxSubscription
 	//minedsnailBlock
@@ -211,7 +210,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		return manager.fastBlockchain.InsertChain(blocks)
 	}
-	manager.fetcherFast = fetcherfast.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer)
+	manager.fetcherFast = fetcher.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer)
 
 	return manager, nil
 }
@@ -258,6 +257,11 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedFastSub = pm.eventMux.Subscribe(core.NewMinedFastBlockEvent{})
 	go pm.minedFastBroadcastLoop()
 
+	// broadcast transactions
+	pm.pbVotesCh = make(chan core.PbftVoteSignEvent, txChanSize)
+	pm.pbVotesSub = pm.agent.SubscribeNewPbftVoteSignEvent(pm.pbVotesCh)
+	go pm.pbVoteBroadcastLoop()
+
 	// broadcast mined fruits
 	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
 	go pm.minedFruitLoop()
@@ -276,6 +280,7 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
+	pm.pbVotesSub.Unsubscribe()
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
@@ -393,94 +398,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	// Block header query, collect the requested headers and reply
-	case msg.Code == GetBlockHeadersMsg:
-		// Decode the complex header query
-		var query getBlockHeadersData
-		if err := msg.Decode(&query); err != nil {
-			return errResp(ErrDecode, "%v: %v", msg, err)
-		}
-		hashMode := query.Origin.Hash != (common.Hash{})
-		first := true
-		maxNonCanonical := uint64(100)
-
-		// Gather headers until the fetch or network limits is reached
-		var (
-			bytes   common.StorageSize
-			headers []*types.Header
-			unknown bool
-		)
-		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
-			// Retrieve the next header satisfying the query
-			var origin *types.Header
-			if hashMode {
-				if first {
-					first = false
-					origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
-					if origin != nil {
-						query.Origin.Number = origin.Number.Uint64()
-					}
-				} else {
-					origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
-				}
-			} else {
-				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
-			}
-			if origin == nil {
-				break
-			}
-			headers = append(headers, origin)
-			bytes += estHeaderRlpSize
-
-			// Advance to the next header of the query
-			switch {
-			case hashMode && query.Reverse:
-				// Hash based traversal towards the genesis block
-				ancestor := query.Skip + 1
-				if ancestor == 0 {
-					unknown = true
-				} else {
-					query.Origin.Hash, query.Origin.Number = pm.blockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
-					unknown = (query.Origin.Hash == common.Hash{})
-				}
-			case hashMode && !query.Reverse:
-				// Hash based traversal towards the leaf block
-				var (
-					current = origin.Number.Uint64()
-					next    = current + query.Skip + 1
-				)
-				if next <= current {
-					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
-					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
-					unknown = true
-				} else {
-					if header := pm.blockchain.GetHeaderByNumber(next); header != nil {
-						nextHash := header.Hash()
-						expOldHash, _ := pm.blockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
-						if expOldHash == query.Origin.Hash {
-							query.Origin.Hash, query.Origin.Number = nextHash, next
-						} else {
-							unknown = true
-						}
-					} else {
-						unknown = true
-					}
-				}
-			case query.Reverse:
-				// Number based traversal towards the genesis block
-				if query.Origin.Number >= query.Skip+1 {
-					query.Origin.Number -= query.Skip + 1
-				} else {
-					unknown = true
-				}
-
-			case !query.Reverse:
-				// Number based traversal towards the leaf block
-				query.Origin.Number += query.Skip + 1
-			}
-		}
-		return p.SendBlockHeaders(headers)
-
-		// Block header query, collect the requested headers and reply
 	case msg.Code == GetFastBlockHeadersMsg:
 		// Decode the complex header query
 		var query getBlockHeadersData
@@ -568,59 +485,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		return p.SendFastBlockHeaders(headers)
 
-	case msg.Code == BlockHeadersMsg:
-		// A batch of headers arrived to one of our previous requests
-		var headers []*types.Header
-		if err := msg.Decode(&headers); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-		// If no headers were received, but we're expending a DAO fork check, maybe it's that
-		if len(headers) == 0 && p.forkDrop != nil {
-			// Possibly an empty reply to the fork header checks, sanity check TDs
-			verifyDAO := true
-
-			// If we already have a DAO header, we can check the peer's TD against it. If
-			// the peer's ahead of this, it too must have a reply to the DAO check
-			if daoHeader := pm.blockchain.GetHeaderByNumber(pm.chainconfig.DAOForkBlock.Uint64()); daoHeader != nil {
-				if _, td := p.Head(); td.Cmp(pm.blockchain.GetTd(daoHeader.Hash(), daoHeader.Number.Uint64())) >= 0 {
-					verifyDAO = false
-				}
-			}
-			// If we're seemingly on the same chain, disable the drop timer
-			if verifyDAO {
-				p.Log().Debug("Seems to be on the same side of the DAO fork")
-				p.forkDrop.Stop()
-				p.forkDrop = nil
-				return nil
-			}
-		}
-		// Filter out any explicitly requested headers, deliver the rest to the downloader
-		filter := len(headers) == 1
-		if filter {
-			// If it's a potential DAO fork check, validate against the rules
-			if p.forkDrop != nil && pm.chainconfig.DAOForkBlock.Cmp(headers[0].Number) == 0 {
-				// Disable the fork drop timer
-				p.forkDrop.Stop()
-				p.forkDrop = nil
-
-				// Validate the header and either drop the peer or continue
-				if err := misc.VerifyDAOHeaderExtraData(pm.chainconfig, headers[0]); err != nil {
-					p.Log().Debug("Verified to be on the other side of the DAO fork, dropping")
-					return err
-				}
-				p.Log().Debug("Verified to be on the same side of the DAO fork")
-				return nil
-			}
-			// Irrelevant of the fork checks, send the header to the fetcher just in case
-			headers = pm.fetcher.FilterHeaders(p.id, headers, time.Now())
-		}
-		if len(headers) > 0 || !filter {
-			err := pm.downloader.DeliverHeaders(p.id, headers)
-			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
-			}
-		}
-
 	case msg.Code == FastBlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.FastHeader
@@ -641,33 +505,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//		log.Debug("Failed to deliver headers", "err", err)
 		//	}
 		//}
-
-	case msg.Code == GetBlockBodiesMsg:
-		// Decode the retrieval message
-		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
-		if _, err := msgStream.List(); err != nil {
-			return err
-		}
-		// Gather blocks until the fetch or network limits is reached
-		var (
-			hash   common.Hash
-			bytes  int
-			bodies []rlp.RawValue
-		)
-		for bytes < softResponseLimit && len(bodies) < downloader.MaxBlockFetch {
-			// Retrieve the hash of the next block
-			if err := msgStream.Decode(&hash); err == rlp.EOL {
-				break
-			} else if err != nil {
-				return errResp(ErrDecode, "msg %v: %v", msg, err)
-			}
-			// Retrieve the requested block body, stopping if enough was found
-			if data := pm.blockchain.GetBodyRLP(hash); len(data) != 0 {
-				bodies = append(bodies, data)
-				bytes += len(data)
-			}
-		}
-		return p.SendBlockBodiesRLP(bodies)
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		// Decode the retrieval message
@@ -695,32 +532,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		return p.SendFastBlockBodiesRLP(bodies)
-
-	case msg.Code == BlockBodiesMsg:
-		// A batch of block bodies arrived to one of our previous requests
-		var request blockBodiesData
-		if err := msg.Decode(&request); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-		// Deliver them all to the downloader for queuing
-		transactions := make([][]*types.Transaction, len(request))
-		uncles := make([][]*types.Header, len(request))
-
-		for i, body := range request {
-			transactions[i] = body.Transactions
-			uncles[i] = body.Uncles
-		}
-		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0 || len(uncles) > 0
-		if filter {
-			transactions, uncles = pm.fetcher.FilterBodies(p.id, transactions, uncles, time.Now())
-		}
-		if len(transactions) > 0 || len(uncles) > 0 || !filter {
-			err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
-			if err != nil {
-				log.Debug("Failed to deliver bodies", "err", err)
-			}
-		}
 
 	case msg.Code == FastBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
@@ -849,7 +660,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		for _, block := range unknown {
-			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneFastHeader, p.RequestFastBodies)
+			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
 		}
 
 	case msg.Code == NewFastBlockMsg:
@@ -983,6 +794,25 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate 
 	}
 }
 
+// BroadcastPbVotes will propagate a batch of PbftVoteSigns to all peers which are not known to
+// already have the given PbftVoteSign.
+func (pm *ProtocolManager) BroadcastPbVotes(pbVotes PbftVoteSigns) {
+	var pbVoteSet = make(map[*peer]PbftVoteSigns)
+
+	// Broadcast transactions to a batch of peers not knowing about it
+	for _, pbVote := range pbVotes {
+		peers := pm.peers.PeersWithoutTx(pbVote.Msg)
+		for _, peer := range peers {
+			pbVoteSet[peer] = append(pbVoteSet[peer], pbVote)
+		}
+		log.Trace("Broadcast PbftVoteSign", "hash", pbVote.Msg, "recipients", len(peers))
+	}
+	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
+	//for peer, txs := range pbVoteSet {
+	//	peer.AsyncSendTransactions(txs)
+	//}
+}
+
 // Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastFruit(fruit *types.SnailBlock, propagate bool) {
@@ -1111,6 +941,19 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 		case core.NewMinedFastBlockEvent:
 			pm.BroadcastFastBlock(ev.Block, true)  // First propagate fast block to peers
 			pm.BroadcastFastBlock(ev.Block, false) // Only then announce to the rest
+		}
+	}
+}
+
+func (pm *ProtocolManager) pbVoteBroadcastLoop() {
+	for {
+		select {
+		case event := <-pm.pbVotesCh:
+			pm.BroadcastPbVotes(event.PbftVoteSign)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-pm.pbVotesSub.Err():
+			return
 		}
 	}
 }
