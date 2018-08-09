@@ -931,16 +931,21 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header), 
-		body : body,
+		//body : body,
 		td: new(big.Int)}
 
 	// the fruits struct is same of snailblock not header 20180804
-	/*
 	b.body.Fruits = make([]*SnailBlock,len(body.Fruits))
 	for i := range body.Fruits {
-		b.body.Fruits[i] = append(b.body.Fruits[i], body.Fruits[i])
+		//b.body.Fruits[i] = append(b.body.Fruits[i], body.Fruits[i])
+		b.body.Fruits[i]=CopyFruit(body.Fruits[i])   
 	}
-	*/
+
+	b.body.Signs = make([]*PbftVoteSign,len(body.Signs))
+	for i := range body.Signs {
+		b.body.Signs[i]=CopySnailPbftVoteSigns(body.Signs[i])
+	}
+	
 	return b
 }
 // NewSnailBlockWithHeader creates a block with the given header data. The
@@ -972,7 +977,13 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	return &cpy
 }
 
-
+func CopySnailPbftVoteSigns(s *PbftVoteSign) *PbftVoteSign {
+	cpy := *s
+	if cpy.FastHeight = new(big.Int); s.FastHeight != nil {
+		cpy.FastHeight.Set(s.FastHeight)
+	}	
+	return &cpy
+}
 // DecodeRLP decodes the Ethereum
 func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
 	var eb extsnailblock
@@ -1045,15 +1056,20 @@ func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
 	block := &SnailBlock{
 		header:     b.Header(),
-		body : 		body,
+		//body : 		body,
 	}
 	// for fruit ,the fruit struit same of snial block 20180804
-	/*
-	block.body.Fruits = make([]*SnailHeader,len(body.Fruits))
+	
+	block.body.Fruits = make([]*SnailBlock,len(body.Fruits))
 	for i := range body.Fruits {
-		block.body.Fruits[i] = CopySnailHeader(body.Fruits[i])
+		block.body.Fruits[i] = CopyFruit(body.Fruits[i])
 	}
-	*/
+	
+	
+	block.body.Signs = make([]*PbftVoteSign,len(body.Signs))
+	for i := range body.Signs {
+		b.body.Signs[i]=CopySnailPbftVoteSigns(body.Signs[i])
+	}
 	return block
 }
 // Hash returns the keccak256 hash of b's header.

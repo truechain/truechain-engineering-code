@@ -87,7 +87,8 @@ type Work struct {
 	header   *types.SnailHeader
 	txs      []*types.Transaction
 	receipts []*types.Receipt
-	fruits   []*types.SnailBlock // for the fresh neo20180627
+	fruits   []*types.SnailBlock // for the fresh
+	body   *types.SnailBody
  
 	createdAt time.Time
 }
@@ -377,7 +378,7 @@ func (self *worker) update() {
 			//self.updateofFruitTx(ev.Fruits)
 			//return
 			*/ 
-
+			
 		case ev := <-self.recordCh:
 			self.updateofRecordTx(ev.Records)
 
@@ -629,6 +630,12 @@ func (self *worker) commitNewWork() {
 	for _, hash := range badUncles {
 		delete(self.possibleUncles, hash)
 	}
+
+	//body := &types.SnailBody{
+	//	Fruits : 
+		
+	//}
+
 	// TODO: get fruits from tx pool
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, work.state, work.txs, uncles, work.receipts, work.fruits); err != nil {
