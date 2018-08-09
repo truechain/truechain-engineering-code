@@ -100,4 +100,4 @@ type FastChainHeadEvent struct{ Block *types.FastBlock }
 
 type SnailChainHeadEvent struct{ Block *types.SnailBlock }
 
-type PbftVoteSignEvent struct{ PbftVoteSign []*etrue.PbftVoteSign }
+type PbftSignEvent struct{ PbftVoteSign []*types.PbftSign }
