@@ -45,12 +45,13 @@ type PbftAgent interface {
 	FetchFastBlock() (*FastBlock, error)
 	VerifyFastBlock(*FastBlock) error
 	BroadcastFastBlock(*FastBlock) error
-	BroadcastSign(sign []*PbftSign) error
+	BroadcastSign(sign []*PbftSign,block *FastBlock) error
 }
 
 type PbftServer interface {
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
+
 }
 
 func (voteSign *PbftSign) PrepareData() []byte {
