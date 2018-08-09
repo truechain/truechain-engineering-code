@@ -1,16 +1,15 @@
 package types
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"math/big"
-	"bytes"
-	"encoding/binary"
 	"log"
+	"math/big"
 )
-
 
 // Committee is an committee info in the state of the genesis block.
 type Committee struct {
@@ -18,41 +17,32 @@ type Committee struct {
 	PubKey  []byte         `json:"pubKey,omitempty"`
 }
 
-
 const (
-	CommitteeStart = iota  // start pbft consensus
-	CommitteeStop          // stop pbft consensus
-	CommitteeSwitchover       //switch pbft committee
+	CommitteeStart      = iota // start pbft consensus
+	CommitteeStop              // stop pbft consensus
+	CommitteeSwitchover        //switch pbft committee
 )
 
-
-
 type CommitteeMember struct {
-	Coinbase common.Address
-	Publickey   *ecdsa.PublicKey
+	Coinbase  common.Address
+	Publickey *ecdsa.PublicKey
 }
-
-
 
 type CommitteeNode struct {
-	IP       string
-	Port     uint
-	CM     *CommitteeMember
+	IP   string
+	Port uint
+	CM   *CommitteeMember
 }
-
-
 
 type PbftSign struct {
 	FastHeight *big.Int
-	FastHash common.Hash	// fastblock hash
-	//ReceiptHash common.Hash	// fastblock receiptHash
-	Result    uint			// 0--agree,1--against
-	Sign []byte	// sign for fastblock height + hash + result
+	FastHash   common.Hash // fastblock hash
+	Result     uint        // 0--agree,1--against
+	Sign       []byte      // sign for fastblock height + hash + result
 }
 
-
 type PbftAgent interface {
-	FetchFastBlock() (*FastBlock,error)
+	FetchFastBlock() (*FastBlock, error)
 	VerifyFastBlock(*FastBlock) error
 	BroadcastFastBlock(*FastBlock) error
 	BroadcastSign(sign []*PbftSign) error
