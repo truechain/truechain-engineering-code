@@ -15,7 +15,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	"github.com/truechain/truechain-engineering-code/etrue/truechain"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
@@ -67,19 +66,6 @@ type PbftAgent struct {
 	//CommitteeMembers	[]*CommitteeMember
 }
 
-/*type PbftNode struct {
-	NodeIP string
-	NodePort uint
-	CoinBase common.Address
-	PublicKey *ecdsa.PublicKey
-}*/
-
-type  CryNodeInfo struct {
-	InfoByte	[]byte	//before sign msg hash
-	Sign 		[]byte	//sign msg
-	FastHeight *big.Int
-}
-
 type PbftAction struct {
 	Id *big.Int		//committee times
 	action int
@@ -114,6 +100,12 @@ type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
 // NewMinedFastBlockEvent is posted when a block has been imported.
 type NewMinedFastBlockEvent struct{ blockAndSign *BlockAndSign}
+
+type  CryNodeInfo struct {
+	InfoByte	[]byte	//before sign msg hash
+	Sign 		[]byte	//sign msg
+	FastHeight *big.Int
+}
 
 type  BlockAndSign struct{
 	Block *types.FastBlock
@@ -156,7 +148,7 @@ func (self *PbftAgent) loop(){
 		}
 	}
 }
-//FastHeight *big.Int	FastHash   common.Hash // fastblock hash
+
 func (pbftAgent *PbftAgent)  SendPbftNode()	*CryNodeInfo{
 	var nodeInfos [][]byte
 	nodeByte,_ :=ToByte(committeeNode)
@@ -219,12 +211,12 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		return nil
 	}
 	var nodeInfos [][]byte
-	truechain.FromByte(hash,nodeInfos)
+	FromByte(hash,nodeInfos)
 	priKey :=ecies.ImportECDSA(privateKey)//ecdsa-->ecies
 	for _,info := range nodeInfos{
 		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
 		if err != nil{
-			truechain.FromByte(encryptMsg,node)
+			FromByte(encryptMsg,node)
 			return node
 		}
 	}
