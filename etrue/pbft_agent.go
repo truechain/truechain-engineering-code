@@ -120,7 +120,7 @@ type  BlockAndSign struct{
 	Sign  *types.PbftSign
 }
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
 		config:         	config,
 		engine:         	engine,
@@ -128,7 +128,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		mux:            	mux,
 		chain:          	eth.FastBlockChain(),
 		committeeActionCh:	make(chan PbftCommitteeActionEvent, 3),
-		election: NewElction(),
+		election: election,
 	}
 	/*fastBlock :=self.chain.CurrentFastBlock()//dd
 	_,self.CommitteeMembers =self.election.GetCommittee(fastBlock.Header().Number,fastBlock.Header().Hash())*/

@@ -71,7 +71,7 @@ type Truechain struct {
 	// Handlers
 	txPool *core.TxPool
 
-	hybridPool *core.SnailPool
+	snailPool *core.SnailPool
 
 	fastBlockchain  *fastchain.FastBlockChain
 	blockchain      *core.BlockChain
@@ -99,6 +99,8 @@ type Truechain struct {
 	netRPCService *trueapi.PublicNetAPI
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+
+	election *Election
 }
 
 func (s *Truechain) AddLesServer(ls LesServer) {
@@ -180,11 +182,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
+	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
 
-	agent := NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.election = NewElction()
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, agent); err != nil {
+	agent := NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine, eth.election)
+
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.snailPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, agent, eth.election); err != nil {
 		return nil, err
 	}
 	//TODO should add 20180805
@@ -399,7 +403,7 @@ func (s *Truechain) FastBlockChain() *fastchain.FastBlockChain      { return s.f
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain      { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
-func (s *Truechain) HybridPool() *core.SnailPool { return s.hybridPool }
+func (s *Truechain) HybridPool() *core.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }
@@ -437,6 +441,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	}
 	// Start the networking layer and the light server if requested
 	s.protocolManager.Start(maxPeers)
+	s.election.start()
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
