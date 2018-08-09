@@ -126,7 +126,7 @@ type PbftAgentInteractNetwork interface {
 }
 
 type ElectionInteractNetwork interface {
-	VerifyLeaderBlock(height int, sign []byte) bool
+	VerifyLeaderBlock(height *big.Int, sign []byte) bool
 }
 
 // statusData is the network packet for the status message.
@@ -190,8 +190,7 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 
 // newFastBlockData is the network packet for the block propagation message.
 type newFastBlockData struct {
-	Block *types.FastBlock
-	TD    *big.Int
+	BlockAndSign *BlockAndSign
 }
 
 // blockBody represents the data content of a single block.

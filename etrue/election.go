@@ -297,6 +297,6 @@ func (e *Election) SubscribeCommitteeActionEvent(ch chan<- PbftCommitteeActionEv
 	return e.scope.Track(e.CommitteeFeed.Subscribe(ch))
 }
 
-func (e *Election) VerifyLeaderBlock(height int, sign []byte) bool  {
+func (e *Election) VerifyLeaderBlock(height *big.Int, sign []byte) bool  {
 	return true
 }
