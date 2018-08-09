@@ -65,6 +65,9 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
+
+	PbftInfoMsg = 0x18
+	PbftSignMsg = 0x19
 )
 
 type errCode int
