@@ -369,7 +369,7 @@ func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.Fas
 		if err != nil{
 			panic(err)
 		}
-		self.agentFeed.Send(core.PbftVoteSignEvent{voteSigns})
+		self.agentFeed.Send(core.PbftSignEvent{voteSigns})
 	}
 }
 
@@ -492,9 +492,9 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 }
 
 
-// SubscribeNewPbftVoteSignEvent registers a subscription of PbftVoteSignEvent and
+// SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
 // starts sending event to the given channel.
-func (self * PbftAgent) SubscribeNewPbftVoteSignEvent(ch chan<- core.PbftVoteSignEvent) event.Subscription {
+func (self * PbftAgent) SubscribeNewPbftSignEvent(ch chan<- core.PbftSignEvent) event.Subscription {
 	return self.scope.Track(self.agentFeed.Subscribe(ch))
 }
 
