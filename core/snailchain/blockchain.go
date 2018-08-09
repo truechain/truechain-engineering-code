@@ -44,7 +44,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/trie"
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/truechain/truechain-engineering-code/etrue"
 )
 
 var (
@@ -1024,31 +1023,6 @@ func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
 	return n, err
 }
 
-func (bc *SnailBlockChain) VerifySnailBlock(pm *etrue.ProtocolManager,chain []*types.SnailBlock) {
-	//TODO modify snailblock broadcast
-	for _, snailBlock := range chain {
-		//VerifySnailHeader(chain SnailChainReader, header *types.SnailHeader, seal bool) error
-		var snailheader *types.SnailHeader
-		snailheader=snailBlock.Header();
-		switch err :=consensus.Engine.VerifySnailHeader(nil,nil,snailheader,true); err {
-		case nil:
-			// All ok, quickly propagate to our peers
-			go pm.BroadcastSnailBlock(snailBlock, true)
-		case consensus.ErrFutureBlock:
-			// Weird future block, don't fail, but neither propagate
-		default:
-			// Something went very wrong, drop the peer
-			log.Debug("Propagated block verification failed", "err", err)
-			return
-		}
-	}
-	n, events, logs, err := bc.insertChain(chain)
-	if  err != nil {
-		log.Debug("Propagated block import failed", "n", n, "events", events, "logs", logs, "err", err)
-		return
-	}
-	return
-}
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.

@@ -941,7 +941,7 @@ func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
 		b.body.Fruits[i]=CopyFruit(body.Fruits[i])   
 	}
 
-	b.body.Signs = make([]*PbftVoteSign,len(body.Signs))
+	b.body.Signs = make([]*PbftSign,len(body.Signs))
 	for i := range body.Signs {
 		b.body.Signs[i]=CopySnailPbftVoteSigns(body.Signs[i])
 	}
@@ -977,7 +977,7 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	return &cpy
 }
 
-func CopySnailPbftVoteSigns(s *PbftVoteSign) *PbftVoteSign {
+func CopySnailPbftVoteSigns(s *PbftSign) *PbftSign {
 	cpy := *s
 	if cpy.FastHeight = new(big.Int); s.FastHeight != nil {
 		cpy.FastHeight.Set(s.FastHeight)
@@ -1066,7 +1066,7 @@ func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
 	}
 	
 	
-	block.body.Signs = make([]*PbftVoteSign,len(body.Signs))
+	block.body.Signs = make([]*PbftSign,len(body.Signs))
 	for i := range body.Signs {
 		b.body.Signs[i]=CopySnailPbftVoteSigns(body.Signs[i])
 	}

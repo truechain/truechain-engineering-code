@@ -1022,7 +1022,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// TODO: send snail block to snail blockchain
 		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
-		pm.snailchain.VerifySnailBlock(pm,snailBlocks)
+		// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
