@@ -122,7 +122,7 @@ type SnailPool interface {
 }
 
 type PbftAgentInteractNetwork interface {
-	SubscribeNewPbftVoteSignEvent(chan<- core.PbftVoteSignEvent) event.Subscription
+	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
 }
 
 // statusData is the network packet for the status message.

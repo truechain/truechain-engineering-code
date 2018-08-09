@@ -819,13 +819,14 @@ func accumulateRewardsFast(state *state.StateDB, header *types.FastHeader) error
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
-		for _, v := range addr {
-			if v.Result {
-				if _, ok := failAddr[v.Address]; !ok {
-					fruitOkAddr = append(fruitOkAddr, v.Address)
+		for i := 0; i < len(addr); i++ {
+			v := addr[i]
+			if signs[i].Result == 0 {
+				if _, ok := failAddr[v.Coinbase]; !ok {
+					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
 				}
 			} else {
-				failAddr[v.Address] = false
+				failAddr[v.Coinbase] = false
 			}
 		}
 

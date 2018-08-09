@@ -2,78 +2,71 @@ package etrue
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/common"
-	"math/big"
 	"log"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	"crypto/sha256"
+	"math/big"
 )
 
 const (
 	fastChainHeadSize = 256
-	chainHeadSize  = 4096
-	z = 99
-	k  =  10000
-	sc = 87
+	chainHeadSize     = 4096
+	z                 = 99
+	k                 = 10000
+	sc                = 87
 )
 
 type VoteuUse struct {
-
-	wi 		int64  //Local value
-	seed 	string
-	b   	bool
-	j 		int
+	wi   int64 //Local value
+	seed string
+	b    bool
+	j    int
 }
 
-type Signature struct{
-
-	blockHash common.Hash
+type Signature struct {
+	blockHash   common.Hash
 	blockNumber *big.Int
-	hash common.Hash
-	sign []byte
-
+	hash        common.Hash
+	sign        []byte
 }
 
-type queue struct{
-
+type queue struct {
 	queuesize int   //Array size
-	head int  		//The header and subscript of the queue
-	tail int		//Tail subscript of the queue
-	q []int   		//Array
+	head      int   //The header and subscript of the queue
+	tail      int   //Tail subscript of the queue
+	q         []int //Array
 
 }
 
-type CommitteeMember struct{
-
+type CommitteeMember struct {
 	coinbase common.Hash
-	pubkey  *ecdsa.PublicKey
-
+	pubkey   *ecdsa.PublicKey
 }
 
 type Committee struct {
-	Id 	*big.Int
+	Id            *big.Int
 	CommitteeList []*Committee
 }
 
 type Election struct {
-
 	genesisCommittee []*CommitteeMember
-	committee []*CommitteeMember
-	pn 			uint	//Number of sessions
-	fcEvent		fcEvent
-	scEvent		scEvent
-	flag		bool  //Flag bit for handling event switching
-	number		*big.Int
-	fastHead *big.Int
-	snailHead *big.Int
+	committee        []*CommitteeMember
+	pn               uint //Number of sessions
+	fcEvent          fcEvent
+	scEvent          scEvent
+	flag             bool //Flag bit for handling event switching
+	number           *big.Int
+	fastHead         *big.Int
+	snailHead        *big.Int
 
-	CStartFeed		event.Feed
-	CStopFeed		event.Feed
-	EStartFeed		event.Feed
-	CommitteeFeed	event.Feed
+	CStartFeed    event.Feed
+	CStopFeed     event.Feed
+	EStartFeed    event.Feed
+	CommitteeFeed event.Feed
 	scope         event.SubscriptionScope
 
 	fastChainHeadCh  chan core.FastChainHeadEvent
@@ -82,12 +75,12 @@ type Election struct {
 	chainHeadCh  chan core.ChainHeadEvent
 	chainHeadSub event.Subscription
 
-	fastchain *fastchain.FastBlockChain
+	fastchain  *fastchain.FastBlockChain
 	snailchain *core.BlockChain
 }
 
 //Read creation block information and return public key for signature verification
-func  (v VoteuUse)ReadGenesis()[]string{
+func (v VoteuUse) ReadGenesis() []string {
 	return nil
 }
 
@@ -108,18 +101,18 @@ type scEvent interface {
 }
 
 //Event subscription
-func (e *Election)start(){
+func (e *Election) start() {
 
-	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
+	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize)
 	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
 
 	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
-	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
+	e.chainHeadSub = e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
 
 }
 
 //Calculate your own force unit locally
-func (v VoteuUse)localForce()int64{
+func (v VoteuUse) localForce() int64 {
 	w := v.wi
 	//w_i=(D_pf-〖[h]〗_(-k))/u
 	return w
@@ -140,17 +133,17 @@ func powerf(x float64, n int) float64 {
 }
 
 //Factorial function
-func factorial(){
+func factorial() {
 }
 
 //The sum function
-func sigma(j int,k int,wi int,P int64) {
+func sigma(j int, k int, wi int, P int64) {
 
 }
 
 // the draw function is calculated locally for each miner
 // the parameters seed, w_i, W, P are required
-func sortition()bool{
+func sortition() bool {
 	//j := 0;
 	//for (seed / powerf(2,seedlen)) ^ [Sigma(j,0,wi,P) , Sigma(j+1,0,wi,P)]{
 	//j++;
@@ -158,21 +151,21 @@ func sortition()bool{
 	//return j,true;
 	//	}
 	//}
-	return false;
+	return false
 }
 
 //Used for election counting
-func(qu queue) initQueue(){
-	qu.queuesize = z;
+func (qu queue) initQueue() {
+	qu.queuesize = z
 	//qu.q = make(int,qu.queuesize)
-	qu.tail = 0;
-	qu.head = 0;
+	qu.tail = 0
+	qu.head = 0
 }
 
-func (qu queue) enQueue(key int){
+func (qu queue) enQueue(key int) {
 	//going to take the remainder guarantee, and when we hit queuesize minus 1, we're going to go back to 0
-	tail := (qu.tail+1) % qu.queuesize
-	if tail == qu.head{
+	tail := (qu.tail + 1) % qu.queuesize
+	if tail == qu.head {
 		log.Print("the queue has been filled full!")
 	} else {
 		qu.q[qu.tail] = key
@@ -187,7 +180,7 @@ func (qu queue) gettail() int {
 
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
-func (cm CommitteeMember)Verify(signature []byte)bool {
+func (cm CommitteeMember) Verify(signature []byte) bool {
 	// hash message
 	digest := sha256.Sum256(signature)
 	pubkey := cm.pubkey
@@ -195,26 +188,26 @@ func (cm CommitteeMember)Verify(signature []byte)bool {
 	r, s := new(big.Int), new(big.Int)
 	r.SetBytes(signature[:curveOrderByteSize])
 	s.SetBytes(signature[curveOrderByteSize:])
-	return ecdsa.Verify(pubkey,digest[:], r, s)
+	return ecdsa.Verify(pubkey, digest[:], r, s)
 
 }
 
 //Another method for validation
-func (cm CommitteeMember)ReVerify(FastHeight *big.Int,FastHash common.Hash, ReceiptHash common.Hash, Sign []byte)bool {
+func (cm CommitteeMember) ReVerify(FastHeight *big.Int, FastHash common.Hash, ReceiptHash common.Hash, Sign []byte) bool {
 	return true
 }
 
 //Verify the fast chain committee signatures in batches
-func (cm CommitteeMember) VerifyFastBlockSigns(pvs *[]types.PbftVoteSign) (cfvf *[]types.CommitteeFastSignResult) {
+func (cm CommitteeMember) VerifyFastBlockSigns(pvs *[]types.PbftSign) (cfvf *[]types.CommitteeMember) {
 	return cfvf
 }
 
 //Keep a list of elected committees
-func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMember {
+func (e *Election) elect(FastNumber *big.Int, FastHash common.Hash) []*CommitteeMember {
 	return nil
 }
 
-func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*CommitteeMember){
+func (e *Election) GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*CommitteeMember) {
 
 	//if block, ok := e.blockCache.Get(hash); ok {
 	//	return nil,block.(*types.FastBlock)
@@ -228,7 +221,7 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 }
 
 //Number of external query committee cycles
-func (e *Election)GetXh()uint{
+func (e *Election) GetXh() uint {
 	return e.pn
 }
 
@@ -245,7 +238,7 @@ func (e *Election) loop() {
 			if fb.Block != nil {
 				//Record Numbers to open elections
 				Qu.enQueue(0)
-				if Qu.gettail() == z{
+				if Qu.gettail() == z {
 					zl := uint64(sc)
 					go sortition()
 					bn := e.snailchain.GetBlockByNumber(zl)
@@ -259,7 +252,7 @@ func (e *Election) loop() {
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent
 		case ev := <-e.fastChainHeadCh:
-			if ev.Block != nil{
+			if ev.Block != nil {
 				if e.flag {
 					if e.number.Add(e.number, big) == ev.Block.Number() {
 
@@ -273,17 +266,16 @@ func (e *Election) loop() {
 	}
 }
 
-func NewElction()*Election {
-
+func NewElction() *Election {
 
 	return nil
 }
 
 //Interface for some subscribed events
-type CmmitteeStartEvent struct { start  bool}
-type CmmitteeStopEvent struct { stop   bool }
-type ElectionStartEvent struct {election bool}
-type PbftCommitteeActionEvent struct{ pbftAction *PbftAction}
+type CmmitteeStartEvent struct{ start bool }
+type CmmitteeStopEvent struct{ stop bool }
+type ElectionStartEvent struct{ election bool }
+type PbftCommitteeActionEvent struct{ pbftAction *PbftAction }
 
 func (e *Election) SubscribeCmmitteeStartEvent(ch chan<- CmmitteeStartEvent) event.Subscription {
 	return e.scope.Track(e.CStartFeed.Subscribe(ch))
