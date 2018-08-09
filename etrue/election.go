@@ -220,6 +220,10 @@ func (e *Election) GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big
 	return nil, nil
 }
 
+func (e *Election) GetCommitteeByHeight(FastNumber *big.Int)  []*ecdsa.PublicKey {
+	return nil
+}
+
 //Number of external query committee cycles
 func (e *Election) GetXh() uint {
 	return e.pn
