@@ -101,7 +101,8 @@ type ProtocolManager struct {
 	fruitsch       chan core.NewFruitsEvent
 	fruitsSub	   event.Subscription
     //snailblock
-	snailBlocksch  chan core.NewSnailBlocksEvent
+	//snailBlocksch  chan core.NewSnailBlocksEvent
+	snailBlocksch  chan snailchain.SnailChainEvent
 	snailBlocksSub	   event.Subscription
 
 	minedBlockSub *event.TypeMuxSubscription
@@ -267,9 +268,9 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.fruitBroadcastLoop()
 
 	//broadcast snailblock
-	pm.snailBlocksch = make(chan core.NewSnailBlocksEvent, snailBlockChanSize)
+	pm.snailBlocksch = make(chan snailchain.SnailChainEvent, snailBlockChanSize)
 	// TODO: modify snailblock broadcast
-	//pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
+	pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
 	go pm.snailBlockBroadcastLoop()
 
 	// broadcast mined blocks
@@ -1021,6 +1022,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		// TODO: send snail block to snail blockchain
 		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
+		pm.snailchain.VerifySnailBlock(pm,snailBlocks)
+
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
@@ -1195,16 +1198,16 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 	}
 }
 //for snailBlocks
-func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks types.SnailBlocks) {
+func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks *types.SnailBlock) {
 	var snailBlcokset = make(map[*peer]types.SnailBlocks)
 
 	// Broadcast records to a batch of peers not knowing about it
-	for _, snailBlcok := range snailBlocks {
-		peers := pm.peers.PeersWithoutSnailBlock(snailBlcok.Hash())
-		for _, peer := range peers {
-			snailBlcokset[peer] = append(snailBlcokset[peer], snailBlcok)
-		}
-		log.Trace("Broadcast snailBlcoks", "hash", snailBlcok.Hash(), "recipients", len(peers))
+	//for _, snailBlcok := range snailBlocks {
+	peers := pm.peers.PeersWithoutSnailBlock(snailBlocks.Hash())
+	for _, peer := range peers {
+		snailBlcokset[peer] = append(snailBlcokset[peer], snailBlocks)
+		//}
+	log.Trace("Broadcast snailBlcoks", "hash", snailBlocks.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, snailBlocks := range snailBlcokset {
@@ -1285,8 +1288,8 @@ func (pm *ProtocolManager) snailBlockBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.snailBlocksch:
-			pm.BroadcastSnailBlocks(event.SnailBlocks)
-
+			//pm.BroadcastSnailBlocks(event.SnailBlocks)
+			pm.BroadcastSnailBlocks(event.Block)
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.snailBlocksSub.Err():
 			return
