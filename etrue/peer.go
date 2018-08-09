@@ -38,6 +38,7 @@ var (
 
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownSigns    = 1024 // Maximum signs to keep in the known list
 	maxKnownFruits    = 1024 // Maximum fruits hashes to keep in the known list (prevent DOS)
 	maxKnownSnailBlocks    = 1024 // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
 	maxKnownFastBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
@@ -46,6 +47,10 @@ const (
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
 	maxQueuedTxs = 128
+	// maxQueuedSigns is the maximum number of sign lists to queue up before
+	// dropping broadcasts. This is a sensitive number as a transaction list might
+	// contain a single transaction, or thousands.
+	maxQueuedSigns = 128
 	// contain a single transaction, or thousands.
 	maxQueuedFruits = 128
 	//for fruitEvent
@@ -103,10 +108,12 @@ type peer struct {
 	lock sync.RWMutex
 
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
+	knownSigns    *set.Set                  // Set of sign  known to be known by this peer
 	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
 	knownSnailBlocks    *set.Set              // Set of snailBlocks hashes known to be known by this peer
 	knownFastBlocks *set.Set              // Set of fast block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedSigns   chan []*types.PbftSign // Queue of signs to broadcast to the peer
 	queuedFruits   chan []*types.SnailBlock // Queue of fruits to broadcast to the peer
 	queuedSnailBlcoks   chan []*types.SnailBlock // Queue of snailBlocks to broadcast to the peer
 	queuedFastProps chan *propFastEvent           // Queue of fast blocks to broadcast to the peer
@@ -125,10 +132,12 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		version:     version,
 		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
 		knownTxs:    set.New(),
+		knownSigns:		set.New(),
 		knownFastBlocks: set.New(),
 		knownFruits: set.New(),
 
 		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
+		queuedSigns:	make(chan []*types.PbftSign,maxQueuedSigns),
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 		queuedFastAnns:  make(chan *types.FastBlock, maxQueuedFastAnns),
 
@@ -149,6 +158,13 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
+
+			//add for sign
+		case signs := <-p.queuedSigns:
+			if err := p.SendSigns(signs); err != nil {
+				return
+			}
+			p.Log().Trace("Broadcast signs", "count", len(signs))
 
 		//add for fruit
 		case fruits := <-p.queuedFruits:
@@ -250,6 +266,15 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	}
 	p.knownTxs.Add(hash)
 }
+// MarkSign marks a sign as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkSign(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known sign hash
+	for p.knownSigns.Size() >= maxKnownSigns {
+		p.knownSigns.Pop()
+	}
+	p.knownSigns.Add(hash)
+}
 // MarkFruit marks a fruit as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
 func (p *peer) MarkFruit(hash common.Hash) {
@@ -290,6 +315,25 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
+//SendSigns sends signs to the peer and includes the hashes
+// in its signs hash set for future reference.
+func (p *peer) SendSigns(signs types.PbftSigns) error {
+	for _, sign := range signs {
+		p.knownSigns.Add(sign.FastHash)
+	}
+	return p2p.Send(p.rw, BlockSignMsg, signs)
+}
+
+func (p *peer) AsyncSendSigns(signs []*types.PbftSign) {
+	select {
+	case p.queuedSigns <- signs:
+		for _, sign := range signs {
+			p.knownSigns.Add(sign.FastHash)
+		}
+	default:
+		p.Log().Debug("Dropping sign propagation", "count", len(signs))
+	}
+}
 
 //Sendfruits sends fruits to the peer and includes the hashes
 // in its fruit hash set for future reference.
@@ -613,6 +657,20 @@ func (ps *peerSet) PeersWithoutFastBlock(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownFastBlocks.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+// PeersWithoutSign retrieves a list of peers that do not have a given sign
+// in their set of known hashes.
+func (ps *peerSet) PeersWithoutSign(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownSigns.Has(hash) {
 			list = append(list, p)
 		}
 	}

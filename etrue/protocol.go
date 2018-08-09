@@ -56,6 +56,7 @@ const (
 	GetFastBlockBodiesMsg  = 0x05
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
+	BlockSignMsg        = 0x07
 
 	FruitMsg		   = 0x0a
 	SnailBlockMsg		   = 0x0b
