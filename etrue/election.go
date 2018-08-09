@@ -273,15 +273,10 @@ func (e *Election) loop() {
 	}
 }
 
-func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
+func NewElction()*Election {
 
-	e := &Election{
-		fastHead:		fastHead,
-		snailHead: 		snailHead,
-		fastchain:		fastchain,
-		snailchain:		snailchain,
-	}
-	return e
+
+	return nil
 }
 
 //Interface for some subscribed events
