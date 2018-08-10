@@ -103,3 +103,6 @@ type FastChainHeadEvent struct{ Block *types.FastBlock }
 type SnailChainHeadEvent struct{ Block *types.SnailBlock }
 
 type PbftSignEvent struct{ PbftSigns []*types.PbftSign }
+
+// NewFastBlockEvent is posted when a block has been generate .
+type NewFastBlockEvent struct{ FastBlock *types.FastBlock}

@@ -102,11 +102,6 @@ func (h *PbftSign) Hash() common.Hash {
 	return rlpHash(h)
 }
 
-type  BlockAndSign struct{//dd sign put into block
-	Block *FastBlock
-	Sign  *PbftSign
-}
-
 type CommitteeInfo struct {
 	Id *big.Int
 	Members []*CommitteeMember

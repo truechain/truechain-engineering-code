@@ -250,7 +250,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.FastBlock {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	return types.NewFastBlock(head, nil, nil)
+	return types.NewFastBlock(head, nil, nil,nil)
 }
 
 // Commit writes the block and state of a genesis specification to the database.

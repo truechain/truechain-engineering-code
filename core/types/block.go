@@ -621,6 +621,7 @@ type FastHeader struct {
 	GasUsed     uint64      `json:"gasUsed"          gencodec:"required"`
 	Time        *big.Int    `json:"timestamp"        gencodec:"required"`
 	Extra       []byte      `json:"extraData"        gencodec:"required"`
+	Sign       *PbftSign
 }
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
@@ -642,6 +643,7 @@ type BlockReward struct {
 type FastBlock struct {
 	header       *FastHeader
 	transactions Transactions
+
 	signs        PbftSigns
 
 	// caches
@@ -678,7 +680,7 @@ func (h *FastHeader) Size() common.StorageSize {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt) *FastBlock {
+func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt, sign *PbftSign) *FastBlock {
 	b := &FastBlock{header: CopyFastHeader(header)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -696,7 +698,18 @@ func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt) *
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
 		b.header.Bloom = CreateBloom(receipts)
 	}
+
+	if sign != nil  {
+		signP := *sign
+		b.header.Sign = &signP
+	}
+
 	return b
+}
+
+func (h *FastHeader) SetLeaderSign(sign *PbftSign) {
+	signP := *sign
+	h.Sign = &signP
 }
 
 // NewFastBlockWithHeader creates a block with the given header data. The
@@ -1029,7 +1042,7 @@ func (b *SnailBlock) ToElect() bool             { return b.header.ToElect }
 func (b *SnailBlock) Extra() []byte             { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader      { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool             { return b.header.Fruit }
-func (b *SnailBlock) GetSigns() []*PbftVoteSign { return b.body.Signs }
+func (b *SnailBlock) GetSigns() []*PbftSign { return b.body.Signs }
 
 // Body returns the non-header content of the snailblock.
 func (b *SnailBlock) Body() *SnailBody { return b.body }
