@@ -23,12 +23,6 @@ const (
 	Switch
 )
 
-
-type addressInfo struct {
-	IP 		string 
-	Port 	uint
-	Pk		*ecdsa.PublicKey
-}
 type serverInfo struct {
 	leader 		*ecdsa.PublicKey
 	nodeid 		string
@@ -86,6 +80,9 @@ func (ss *PbftServerMgr) getLastBlock() *types.FastBlock {
 		}
 	}
 	return fb
+}
+func (ss *PbftServerMgr) removeBlock(height *big.Int) {
+	delete(ss.blocks,height)
 }
 func (ss *PbftServerMgr) clear(id *big.Int) {
 	if id.Cmp(common.Big0) == 0{
@@ -179,6 +176,7 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 		Sign:			sig,
 	}
 	err = ss.Agent.BroadcastSign(&sign,block)
+	ss.removeBlock(height)
 	if err != nil {
 		return false
 	}
@@ -189,8 +187,28 @@ func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 		ss.Agent.BroadcastFastBlock(v)
 	}
 }
-func (ss *PbftServerMgr) SignMsg(msg *consensus.RequestMsg) (*consensus.SignedVoteMsg) {
-	return nil
+func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
+	height := big.NewInt(h)
+	block,ok := ss.blocks[height]
+	if !ok {
+		return nil
+	}
+	hash := rlpHash([]interface{} {
+		block.Hash(),
+		height,
+		res,
+		ss.pk,
+	})
+	sig,err := crypto.Sign(hash[:],ss.priv)
+	if err != nil {
+		return nil
+	}
+	sign := &consensus.SignedVoteMsg{
+		FastHeight:		height,
+		Result:			res,
+		Sign:			sig,
+	}
+	return sign
 }
 
 func (ss *PbftServerMgr) work() {

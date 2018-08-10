@@ -30,7 +30,7 @@ type ConsensusHelp interface {
 	GetRequest(id *big.Int) (*RequestMsg,error)
 	CheckMsg(msg *RequestMsg) (bool)
 	ReplyResult(msg *RequestMsg,res uint) (bool)
-	SignMsg(msg *RequestMsg) (*SignedVoteMsg)	
+	SignMsg(h int64,res uint) (*SignedVoteMsg)	
 	Broadcast(height *big.Int)
 }
 
