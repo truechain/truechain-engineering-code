@@ -774,7 +774,7 @@ func (ethash *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *typ
 		accumulateRewardsFast(state, header)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewFastBlock(header, txs, receipts), nil
+	return types.NewFastBlock(header, txs, receipts,nil), nil
 }
 
 //gas allocation
