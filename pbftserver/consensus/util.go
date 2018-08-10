@@ -28,10 +28,12 @@ type SignedVoteMsg struct{
 
 type ConsensusHelp interface {
 	GetRequest(id *big.Int) (*RequestMsg,error)
-	CheckMsg(msg *RequestMsg) (bool)
 	ReplyResult(msg *RequestMsg,res uint) (bool)
-	SignMsg(h int64,res uint) (*SignedVoteMsg)	
 	Broadcast(height *big.Int)
+}
+type ConsensusVerify interface {
+	SignMsg(h int64,res uint) (*SignedVoteMsg)	
+	CheckMsg(msg *RequestMsg) (bool)
 }
 
 func Hash(content []byte) string {

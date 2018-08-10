@@ -152,6 +152,7 @@ func (state *State) Commit(commitMsg *VoteMsg) (*ReplyMsg, *RequestMsg, error) {
 			Timestamp: state.MsgLogs.ReqMsg.Timestamp,
 			ClientID: state.MsgLogs.ReqMsg.ClientID,
 			Result: result,
+			Height:	state.MsgLogs.ReqMsg.Height,
 		}, state.MsgLogs.ReqMsg, nil
 	}
 

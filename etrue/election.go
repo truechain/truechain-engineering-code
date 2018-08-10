@@ -56,10 +56,10 @@ type Election struct {
 	committeeFeed	event.Feed
 	scope         event.SubscriptionScope
 
-	fastChainHeadCh  chan core.FastChainHeadEvent
+	fastChainHeadCh  chan fastchain.ChainHeadEvent
 	fastChainHeadSub event.Subscription
 
-	snailChainHeadCh  chan core.SnailChainHeadEvent
+	snailChainHeadCh  chan snailchain.ChainHeadEvent
 	snailChainHeadSub event.Subscription
 
 	fastchain *fastchain.FastBlockChain
@@ -67,29 +67,22 @@ type Election struct {
 }
 
 
-func NewElction()*Election {
+func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.SnailBlockChain)*Election {
 
 	// init
 	election := &Election{
 
-		//fastNumber:	fastNumber,
-		//snailNumber: snailNumber,
-		//committee:        committee,
 		committeeList:    make(map[*big.Int]*Committee),
-		//committeeId:	committeeId,
-		//nextCommitteeId: nextCommitteeId,
-		//startSwitchover:	startSwitchover,
-		//number:			number,
-		//fastCount		uint,
-		//snailCount		uint,
-
-		//fastChainHeadCh make(chan core.FastChainHeadEvent,fastChainHeadSize) ,
-		//snailChainHeadCh  make(chan core.SnailChainHeadEvent,snailchainHeadSize),
+		fastchain:		fastchain,
+		snailchain:		snailchain,
+		fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize) ,
+		snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
 
 	}
 
 	// get genesis committee
-
+	//fg := fastchain.Genesis()
+	//fg.Hash() = append(election.committeeList)
 	// get current fast/snail
 
 	// get current committee
@@ -97,8 +90,8 @@ func NewElction()*Election {
 	// get snail count
 
 	// Subscribe events from blockchain
-	//election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
-	//election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
+	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
 	// Start the event loop and return
 	go election.loop()

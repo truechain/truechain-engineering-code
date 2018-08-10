@@ -262,7 +262,7 @@ func (ss *PbftServerMgr)PutNodes(id *big.Int, nodes []*types.CommitteeNode) erro
 	for _,v := range nodes {
 		server.insertNode(v)
 	}
-	server.server = network.NewServer(server.nodeid,id,ss)
+	server.server = network.NewServer(server.nodeid,id,ss,ss)
 	return nil
 }
 func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {

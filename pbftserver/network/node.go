@@ -18,6 +18,7 @@ type Node struct {
 	MsgEntrance   chan interface{}
 	MsgDelivery   chan interface{}
 	Alarm         chan bool
+	Verify 		  consensus.ConsensusVerify
 }
 
 type MsgBuffer struct {
@@ -34,7 +35,7 @@ type View struct {
 
 const ResolvingTimeDuration = time.Millisecond * 1000 // 1 second.
 
-func NewNode(nodeID string) *Node {
+func NewNode(nodeID string,verify consensus.ConsensusVerify) *Node {
 	const viewID = 10000000000 // temporary.
 
 	node := &Node{
@@ -50,7 +51,7 @@ func NewNode(nodeID string) *Node {
 			ID: viewID,
 			Primary: "Apple",
 		},
-
+		Verify:	verify,
 		// Consensus-related struct
 		CurrentState: nil,
 		CommittedMsgs: make([]*consensus.RequestMsg, 0),
@@ -168,7 +169,14 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		prePareMsg.NodeID = node.NodeID
 
 		LogStage("Pre-prepare", true)
-		node.Broadcast(prePareMsg, "/prepare")
+		msg := &consensus.StorgePrepareMsg {
+			ViewID:			prePareMsg.ViewID,
+			SequenceID:		prePareMsg.SequenceID,
+			Digest:			prePareMsg.Digest,
+			NodeID:			prePareMsg.NodeID,
+			MsgType:		prePareMsg.MsgType,
+		}
+		node.Broadcast(msg, "/prepare")
 		LogStage("Prepare", false)
 	}
 
@@ -186,7 +194,12 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
-
+		res := node.Verify.CheckMsg(node.CurrentState.MsgLogs.ReqMsg)
+		var result uint = 0
+		if !res {
+			result = 1
+		} 
+		commitMsg.Pass = node.Verify.SignMsg(node.CurrentState.MsgLogs.ReqMsg.Height,result)
 		LogStage("Prepare", true)
 		node.Broadcast(commitMsg, "/commit")
 		LogStage("Commit", false)

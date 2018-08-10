@@ -17,8 +17,9 @@ type Server struct {
 	help consensus.ConsensusHelp
 }
 
-func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp) *Server {
-	node := NewNode(nodeID)
+func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
+	verify consensus.ConsensusVerify) *Server {
+	node := NewNode(nodeID,verify)
 	server := &Server{node.NodeTable[nodeID], node,id,help}
 
 	server.setRoute()
@@ -66,12 +67,15 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 
 func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Request) {
 	var msg consensus.VoteMsg
-	err := json.NewDecoder(request.Body).Decode(&msg)
+	var tmp consensus.StorgePrepareMsg
+	err := json.NewDecoder(request.Body).Decode(&tmp)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
+	msg.Digest,msg.NodeID,msg.ViewID = tmp.Digest,tmp.NodeID,tmp.ViewID
+	msg.SequenceID,msg.MsgType = tmp.SequenceID,tmp.MsgType
+	msg.Pass = nil
 	server.node.MsgEntrance <- &msg
 }
 
@@ -106,7 +110,7 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	} else {
 		// wrong state
 	}
-	height := big.NewInt(0)
+	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionBroadcast,
 		ID:		server.ID,
