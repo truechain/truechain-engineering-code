@@ -57,11 +57,13 @@ type Genesis struct {
 //
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
-	if &genesis.snailGenesis != nil && genesis.snailGenesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
-	}
-	if &genesis.fastGenesis != nil && genesis.fastGenesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+	if genesis != nil {
+		if &genesis.snailGenesis != nil && genesis.snailGenesis.Config == nil {
+			return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		}
+		if &genesis.fastGenesis != nil && genesis.fastGenesis.Config == nil {
+			return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		}
 	}
 
 	snailchain.SetupGenesisBlock(db, &genesis.snailGenesis)
