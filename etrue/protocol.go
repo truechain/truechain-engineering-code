@@ -56,7 +56,7 @@ const (
 	GetFastBlockBodiesMsg  = 0x05
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
-	BlockSignMsg        = 0x07
+	BlockSignMsg           = 0x08
 
 	FruitMsg		   = 0x0a
 	SnailBlockMsg		   = 0x0b
@@ -125,12 +125,8 @@ type SnailPool interface {
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 }
 
-type PbftAgentInteractNetwork interface {
+type AgentNetworkProxy interface {
 	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
-}
-
-type ElectionInteractNetwork interface {
-	VerifyLeaderBlock(height *big.Int, sign []byte) bool
 }
 
 // statusData is the network packet for the status message.

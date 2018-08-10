@@ -8,6 +8,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/common"
+	"crypto/ecdsa"
 )
 
 const (
@@ -159,6 +160,10 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 	// sorition()
 
 	return nil, nil
+}
+
+func (e *Election)GetByCommitteeId(FastNumber *big.Int)  [] *ecdsa.PublicKey{
+	return nil
 }
 
 //elect

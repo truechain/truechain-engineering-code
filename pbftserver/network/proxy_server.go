@@ -1,6 +1,7 @@
 package network
 
 import (
+	"math/big"
 	"net/http"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"encoding/json"
@@ -8,14 +9,31 @@ import (
 	"bytes"
 )
 
+
+type SignedVoteMsg struct{
+	FastHeight 	*big.Int
+	Result     	uint        // 0--agree,1--against
+	Sign       	[]byte      // sign for fastblock height + hash + result + Pk
+}
+
+type ConsensusHelp interface {
+	GetRequest(id *big.Int) (*consensus.RequestMsg,error)
+	CheckMsg(msg *consensus.RequestMsg) (bool)
+	ReplyResult(msg *consensus.RequestMsg,res uint) (bool)
+	SignMsg(msg *consensus.RequestMsg) (*SignedVoteMsg)	
+	Broadcast(height *big.Int)
+}
+
 type Server struct {
 	url string
 	node *Node
+	ID	*big.Int
+	help ConsensusHelp
 }
 
-func NewServer(nodeID string) *Server {
+func NewServer(nodeID string,id *big.Int,help ConsensusHelp) *Server {
 	node := NewNode(nodeID)
-	server := &Server{node.NodeTable[nodeID], node}
+	server := &Server{node.NodeTable[nodeID], node,id,help}
 
 	server.setRoute()
 
@@ -89,8 +107,29 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 		fmt.Println(err)
 		return
 	}
-
 	server.node.GetReply(&msg)
+	server.handleResult(&msg)
+}
+func (server *Server) handleResult(msg *consensus.ReplyMsg) {
+	var res uint = 0
+	if msg.NodeID == "Executed" {
+		res = 1
+	}
+	if msg.ViewID == server.node.CurrentState.ViewID {
+		server.help.ReplyResult(server.node.CurrentState.MsgLogs.ReqMsg,res)
+	} else {
+		// wrong state
+	}
+	height := big.NewInt(0)
+	ac := &consensus.ActionIn{
+		AC:		1,
+		ID:		server.ID,
+		Height:	height,
+	}
+	consensus.ActionChan <- ac
+}
+func (server *Server) PutRequest(msg *consensus.RequestMsg) {
+	server.node.MsgEntrance <- msg
 }
 
 func send(url string, msg []byte) {
