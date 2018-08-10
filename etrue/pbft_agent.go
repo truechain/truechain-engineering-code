@@ -63,15 +63,14 @@ type PbftAgent struct {
 	committeeSub event.Subscription
 
 
-
 	eventMux      *event.TypeMux
 	PbftNodeSub *event.TypeMuxSubscription
 	election	*Election
 
-	committeeNode *types.CommitteeNode
+	cryNodeInfo   *CryNodeInfo
+	committeeNode *types.CommitteeNode	//node info
 	privateKey *ecdsa.PrivateKey
 
-	//CommitteeMembers	[]*CommitteeMember
 }
 
 type PbftAction struct {
@@ -177,6 +176,7 @@ func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
 	cryNodeInfo.Sign=sigInfo
 	//pbftAgent.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+	pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
 
@@ -502,6 +502,21 @@ func (self * PbftAgent)  SubscribeNewNodeInfoEvent(ch chan<- NodeInfoEvent) even
 func (self * PbftAgent) Stop() {
 	// Unsubscribe all subscriptions registered from agent
 	self.scope.Close()
+}
+
+// VerifyCommitteeSign verify committee sign.
+func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool {
+	return false
+}
+
+// ChangeCommitteeLeader trigger view change.
+func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
+	return false
+}
+
+// getCommitteeNumber return Committees number
+func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
+	return 0
 }
 
 func FromByte(data []byte,to interface{}) error {

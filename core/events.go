@@ -89,12 +89,15 @@ type SnailChainSideEvent struct {
 }
 
 type ElectionEvent struct {
-	option 	uint
-	fastnumber	*big.Int
-	snailnumber *big.Int
+	Option 	uint
+	Fastnumber	*big.Int
+	Snailnumber *big.Int
 }
 
-
+type CommitteeEvent struct {
+	CommitteeId	*big.Int
+	Members []*types.CommitteeMember
+	}
 type ChainHeadEvent struct{ Block *types.Block }
 type FastChainHeadEvent struct{ Block *types.FastBlock }
 
