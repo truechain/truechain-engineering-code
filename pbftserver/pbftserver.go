@@ -60,7 +60,7 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey) *PbftServerMgr
 func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	for _,v := range ss.info {
 		if !bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(mm.Publickey)) {
-			ss.info = append(ss.info,&typesCommitteeNode {
+			ss.info = append(ss.info,&types.CommitteeNode {
 				CM:			mm,
 			})
 		}
@@ -72,6 +72,20 @@ func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
 			ss.info[i] = n
 		}
 	}
+}
+func (ss *PbftServerMgr) getLastBlock() *types.FastBlock {
+	cur := big.NewInt(0)
+	var fb *types.FastBlock = nil
+	for _,v := range ss.blocks {
+		if cur.Cmp(common.Big0) == 0 {
+			fb = v
+		}
+		if cur.Cmp(v.Number()) == -1 {
+			cur.Set(v.Number())
+			fb = v
+		}
+	}
+	return fb
 }
 func (ss *PbftServerMgr) clear(id *big.Int) {
 	if id.Cmp(common.Big0) == 0{
@@ -107,13 +121,16 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 	}
 	sum := len(ss.blocks)
 	if sum > 0 {
-		cur := ss.blocks[sum-1].Number()
-		cur.Add(cur,common.Big1)
-		if cur.Cmp(fb.Number()) != 0 {
-			return nil,errors.New("wrong fastblock,lastheight:"+cur.String()+" cur:"+fb.Number().String())
+		last := ss.getLastBlock()
+		if last != nil {
+			cur := last.Number()
+			cur.Add(cur,common.Big1)
+			if cur.Cmp(fb.Number()) != 0 {
+				return nil,errors.New("wrong fastblock,lastheight:"+cur.String()+" cur:"+fb.Number().String())
+			}
 		}
 	}
-	ss.blocks = append(ss.blocks,fb)
+	ss.blocks[fb.Number()] = fb
 	data,err := rlp.EncodeToBytes(fb)
 	if err != nil {
 		return nil,err
@@ -133,7 +150,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
 	if !ok {
 		return false
 	}
-	err = ss.Agent.VerifyFastBlock(block)
+	err := ss.Agent.VerifyFastBlock(block)
 	if err != nil {
 		return false
 	}
@@ -146,12 +163,12 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 	if !ok {
 		return false
 	}
-	hash := rlpHash([]interfase {
+	hash := rlpHash([]interface{} {
 		block.Hash(),
 		block.Number(),
 		res,
 	})
-	sig,err := crypto.Sign(hash,priv)
+	sig,err := crypto.Sign(hash[:],ss.priv)
 	if err != nil {
 		return false
 	}
@@ -181,7 +198,7 @@ func (ss *PbftServerMgr) work() {
 		select {
 		case ac := <-consensus.ActionChan:
 			if ac.AC == consensus.ActionFecth {
-				req,err := GetRequest(ac.ID)
+				req,err := ss.GetRequest(ac.ID)
 				if err != nil  && req != nil {
 					if server,ok := ss.servers[ac.ID];ok {
 						server.server.PutRequest(req)
@@ -210,19 +227,23 @@ func (ss *PbftServerMgr)PutCommittee(id *big.Int, members []*types.CommitteeMemb
 		Height:		new(big.Int).Set(common.Big0),
 		clear:		false,
 	}
-	server.insertMember(members)
-	ss.servers[id] = server
+	for _,v := range members {
+		server.insertMember(v)
+	}
+	ss.servers[id] = &server
 	return nil
 }
 func (ss *PbftServerMgr)PutNodes(id *big.Int, nodes []*types.CommitteeNode) error{
-	if id == nil || len(members) <= 0 {
+	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	} 
 	server,ok := ss.servers[id]
 	if !ok {
 		return errors.New("wrong ID:"+id.String())
 	}
-	server.insertNode(nodes)
+	for _,v := range nodes {
+		server.insertNode(v)
+	}
 	server.server = network.NewServer(server.nodeid,id,ss)
 	return nil
 }
@@ -234,7 +255,7 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 			// start to fetch
 			ac := &consensus.ActionIn{
 				AC:		consensus.ActionFecth,
-				ID:		server.ID,
+				ID:		id,
 				Height:	common.Big0,
 			}
 			consensus.ActionChan <- ac
@@ -251,7 +272,7 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 		// begin to make network..
 		return nil
 	}
-	return errors.New("wrong action Num:"+strconv.Itoa(ac))
+	return errors.New("wrong action Num:"+strconv.Itoa(action))
 }
 func test() {
 	// nodeID := os.Args[1]
