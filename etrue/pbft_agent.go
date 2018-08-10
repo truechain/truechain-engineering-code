@@ -35,8 +35,8 @@ type PbftAgent struct {
 	config *params.ChainConfig
 	chain   *fastchain.FastBlockChain
 
-	CommitteeInfo *CommitteeInfo
-	NextCommitteeInfo *CommitteeInfo
+	CommitteeInfo *types.CommitteeInfo
+	NextCommitteeInfo *types.CommitteeInfo
 
 	engine consensus.Engine
 	eth     Backend
@@ -105,7 +105,7 @@ type Backend interface {
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
 // NewFastBlockEvent is posted when a block has been generate .
-type NewFastBlockEvent struct{ blockAndSign *BlockAndSign}
+type NewFastBlockEvent struct{ blockAndSign *types.BlockAndSign}
 
 type EncryptCommitteeNode []byte
 type  CryNodeInfo struct {
@@ -113,19 +113,6 @@ type  CryNodeInfo struct {
 	//InfoByte	[]byte	//before sign msg hash
 	Sign 		[]byte	//sign msg
 	CommitteeId *big.Int
-}
-
-type CommitteeInfo struct {
-	id *big.Int
-	members []*types.CommitteeMember
-}
-func (committeeInfo *CommitteeInfo) SetCommitteeInfo(newCommitteeInfo *CommitteeInfo){
-	committeeInfo =newCommitteeInfo
-}
-
-type  BlockAndSign struct{//dd sign put into block
-	Block *types.FastBlock
-	Sign  *types.PbftSign
 }
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine, election *Election) *PbftAgent {
@@ -152,9 +139,9 @@ func (self *PbftAgent) loop(){
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
 				self.CommitteeInfo.SetCommitteeInfo(self.NextCommitteeInfo)
-				self.server.Notify(self.CommitteeInfo.id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
-				self.server.Notify(self.CommitteeInfo.id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 				self.CommitteeInfo.SetCommitteeInfo(nil)
 			}
 		case ch := <-self.CommitteeCh:
@@ -177,9 +164,9 @@ func (self *PbftAgent) loop(){
 	}
 }
 
-func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *CommitteeInfo) bool{
+func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *types.CommitteeInfo) bool{
 	pubKey := self.committeeNode.CM.Publickey
-	for _,member := range committeeInfo.members {
+	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true
 			break;
@@ -188,10 +175,10 @@ func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *CommitteeInfo) bool{
 	return false
 }
 
-func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *CommitteeInfo)	*CryNodeInfo{
+func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo)	*CryNodeInfo{
 	var cryNodeInfo *CryNodeInfo
 	nodeByte,_ :=ToByte(pbftAgent.committeeNode)//dd
-	for _,member := range committeeInfo.members{
+	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
 		if err != nil{
@@ -205,7 +192,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *CommitteeInfo)	*CryNodeI
 		log.Info("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
-	cryNodeInfo.CommitteeId =committeeInfo.id
+	cryNodeInfo.CommitteeId =committeeInfo.Id
 
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
 
@@ -236,13 +223,13 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		log.Info("SigToPub error.")
 		return nil
 	}
-	if pbftAgent.CommitteeInfo.id !=cryNodeInfo.CommitteeId{
+	if pbftAgent.CommitteeInfo.Id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
 	}
 	verifyFlag := false
 
-	for _, member:= range pbftAgent.CommitteeInfo.members{
+	for _, member:= range pbftAgent.CommitteeInfo.Members{
 		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			continue
 		}else{
@@ -330,7 +317,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	if err != nil{
 		log.Info("sign error")
 	}
-	blockAndSign := &BlockAndSign{fb,voteSign,}
+	blockAndSign := &types.BlockAndSign{fb,voteSign,}
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
 	self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
 	return err

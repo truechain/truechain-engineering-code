@@ -87,9 +87,9 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 	// Account for the data traffic
 	packets, traffic := miscInPacketsMeter, miscInTrafficMeter
 	switch {
-	case msg.Code == BlockHeadersMsg:
+	case msg.Code == FastBlockHeadersMsg:
 		packets, traffic = reqHeaderInPacketsMeter, reqHeaderInTrafficMeter
-	case msg.Code == BlockBodiesMsg:
+	case msg.Code == FastBlockBodiesMsg:
 		packets, traffic = reqBodyInPacketsMeter, reqBodyInTrafficMeter
 
 	case rw.version >= eth63 && msg.Code == NodeDataMsg:
@@ -114,9 +114,9 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 	// Account for the data traffic
 	packets, traffic := miscOutPacketsMeter, miscOutTrafficMeter
 	switch {
-	case msg.Code == BlockHeadersMsg:
+	case msg.Code == FastBlockHeadersMsg:
 		packets, traffic = reqHeaderOutPacketsMeter, reqHeaderOutTrafficMeter
-	case msg.Code == BlockBodiesMsg:
+	case msg.Code == FastBlockBodiesMsg:
 		packets, traffic = reqBodyOutPacketsMeter, reqBodyOutTrafficMeter
 
 	case rw.version >= eth63 && msg.Code == NodeDataMsg:

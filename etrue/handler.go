@@ -119,12 +119,11 @@ type ProtocolManager struct {
 	// and processing
 	wg sync.WaitGroup
 	agent *PbftAgent
-	election *Election
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database, agent *PbftAgent, election *Election) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -141,7 +140,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		agent: 	agent,
-		election: election,
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
@@ -203,7 +201,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	fastHeighter := func() uint64 {
 		return fastBlockchain.CurrentFastBlock().NumberU64()
 	}
-	fastInserter := func(blocks types.FastBlocks) (int, error) {
+	fastInserter := func(blocks types.FastBlocks, signs []*types.PbftSign) (int, error) {
 		// If fast sync is running, deny importing weird blocks
 		if atomic.LoadUint32(&manager.fastSync) == 1 {
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
@@ -212,7 +210,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		return manager.fastBlockchain.InsertChain(blocks)
 	}
-	manager.fetcherFast = fetcher.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, manager)
+	manager.fetcherFast = fetcher.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent)
 
 	return manager, nil
 }
@@ -714,7 +712,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.FastHash)
 		}
-		pm.fetcherFast.AddSigns(signs)
+		pm.fetcherFast.EnqueueSigns(p.id,signs)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
@@ -764,9 +762,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	return nil
 }
 
-// BroadcastBlock will either propagate a block to a subset of it's peers, or
+// BroadcastFastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastFastBlock(blockSign *BlockAndSign, propagate bool) {
+func (pm *ProtocolManager) BroadcastFastBlock(blockSign *types.BlockAndSign, propagate bool) {
 	hash := blockSign.Block.Hash()
 	block := blockSign.Block
 	peers := pm.peers.PeersWithoutFastBlock(hash)
@@ -1039,19 +1037,4 @@ func (pm *ProtocolManager) NodeInfo() *NodeInfo {
 		Config:     pm.blockchain.Config(),
 		Head:       currentBlock.Hash(),
 	}
-}
-
-//  VerifyBlock Determine whether it is send by the leader
-func (pm *ProtocolManager) VerifyBlock(height *big.Int, sign []byte) bool {
-	return pm.election.VerifyLeaderBlock(height, sign)
-}
-
-//  ChangLeader when leader make bad block it's evil Leader
-func (pm *ProtocolManager) ChangLeader() bool {
-	return false
-}
-
-//  ChangLeader when leader make bad block it's evil Leader
-func (pm *ProtocolManager) getElectionNumber() int32 {
-	return 0
 }
