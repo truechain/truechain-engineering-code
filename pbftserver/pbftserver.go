@@ -32,7 +32,7 @@ type addressInfo struct {
 type serverInfo struct {
 	leader 		*ecdsa.PublicKey
 	nodeid 		string
-	info 		[]*addressInfo
+	info 		[]*types.CommitteeNode
 	server		*network.Server
 	Height		*big.Int
 	clear		bool 
@@ -56,35 +56,21 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey) *PbftServerMgr
 	return ss
 }
 // note: all functions below this was not thread-safe
-func (ss *serverInfo) insert(addr *addressInfo) {
+
+func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	for _,v := range ss.info {
-		if !bytes.Equal(crypto.FromECDSAPub(v.Pk), crypto.FromECDSAPub(addr.Pk)) {
-			ss.info = append(ss.info,addr)
+		if !bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(mm.Publickey)) {
+			ss.info = append(ss.info,&typesCommitteeNode {
+				CM:			mm,
+			})
 		}
 	}
 }
-// initServer: 
-func (ss *PbftServerMgr) initServer(id *big.Int, nodeid,leader *ecdsa.PublicKey, 
-	infos []*addressInfo,start bool) {
-	if id == nil {
-		return 
-	}
-	if server,ok := ss.servers[id]; ok {
-		server.leader = leader
-		server.nodeid = common.ToHex(crypto.FromECDSAPub(nodeid))
-		for _,v:=range infos {
-			server.insert(v)
+func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
+	for i,v := range ss.info {
+		if bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(n.CM.Publickey)) {
+			ss.info[i] = n
 		}
-	} else {
-		ser := &serverInfo{
-			leader:		leader,
-			nodeid:		common.ToHex(crypto.FromECDSAPub(nodeid)),
-			info:		infos,
-			Height:		new(big.Int).Set(common.Big0),
-			clear:		false,
-		}
-		ser.server = network.NewServer(ser.nodeid,id,ss)
-		ss.servers[id] = ser
 	}
 }
 func (ss *PbftServerMgr) clear(id *big.Int) {
@@ -100,27 +86,6 @@ func (ss *PbftServerMgr) clear(id *big.Int) {
 			delete(ss.servers,id)
 		}
 	}
-}
-
-func (ss *PbftServerMgr) actions(id *big.Int,ac int) error {
-	switch ac {
-	case Start:
-		if server,ok := ss.servers[id]; ok {
-			// set ip:port list and leader and viewID 
-			server.server.Start()
-			return nil
-		} 
-		return errors.New("wrong conmmitt ID:"+id.String())
-	case Stop:
-		if server,ok := ss.servers[id]; ok {
-			server.clear = true
-		}
-		ss.clear(id)
-		return nil
-	case Switch:
-		return nil
-	}
-	return errors.New("wrong action Num:"+strconv.Itoa(ac))
 }
 
 func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
@@ -160,7 +125,6 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
 	ss.blocks[fb.Number()] = &fb
 	return true
 }
-
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) {
 	var fb types.FastBlock 
 	err := rlp.DecodeBytes(common.FromHex(msg.Operation),&fb)
@@ -188,11 +152,13 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) {
 	}
 	return true
 }
-
 func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 	if v,ok := ss.blocks[height]; ok {
 		ss.Agent.BroadcastFastBlock(v)
 	}
+}
+func (ss *PbftServerMgr) SignMsg(msg *consensus.RequestMsg) (*consensus.SignedVoteMsg) {
+	return nil
 }
 
 func (ss *PbftServerMgr) work() {
@@ -213,6 +179,57 @@ func (ss *PbftServerMgr) work() {
 	}
 }
 
+func (ss *PbftServerMgr)PutCommittee(id *big.Int, members []*types.CommitteeMember) error {
+	if id == nil || len(members) <= 0 {
+		return errors.New("wrong params...")
+	} 
+	if _,ok := ss.servers[id];ok {
+		return errors.New("repeat ID:"+id.String())
+	}
+	leader := members[0].Publickey
+	infos := make([]*types.CommitteeNode,0)	
+	server := serverInfo{
+		leader:		leader,
+		nodeid:		common.ToHex(crypto.FromECDSAPub(ss.pk)),
+		info:		infos,
+		Height:		new(big.Int).Set(common.Big0),
+		clear:		false,
+	}
+	server.insertMember(members)
+	ss.servers[id] = server
+	return nil
+}
+func (ss *PbftServerMgr)PutNodes(id *big.Int, nodes []*types.CommitteeNode) error{
+	if id == nil || len(members) <= 0 {
+		return errors.New("wrong params...")
+	} 
+	server,ok := ss.servers[id]
+	if !ok {
+		return errors.New("wrong ID:"+id.String())
+	}
+	server.insertNode(nodes)
+	server.server = network.NewServer(server.nodeid,id,ss)
+	return nil
+}
+func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
+	switch action {
+	case Start:
+		if server,ok := ss.servers[id]; ok {
+			server.server.Start()
+			return nil
+		} 
+		return errors.New("wrong conmmitt ID:"+id.String())
+	case Stop:
+		if server,ok := ss.servers[id]; ok {
+			server.clear = true
+		}
+		ss.clear(id)
+		return nil
+	case Switch:
+		return nil
+	}
+	return errors.New("wrong action Num:"+strconv.Itoa(ac))
+}
 func test() {
 	// nodeID := os.Args[1]
 	// server := network.NewServer(nodeID)
