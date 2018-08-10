@@ -108,7 +108,7 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	}
 	height := big.NewInt(0)
 	ac := &consensus.ActionIn{
-		AC:		1,
+		AC:		consensus.ActionBroadcast,
 		ID:		server.ID,
 		Height:	height,
 	}

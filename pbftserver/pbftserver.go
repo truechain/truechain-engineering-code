@@ -94,10 +94,26 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 	if !ok {
 		return nil,errors.New("wrong conmmitt ID:"+id.String())
 	} 
-	if !bytes.Equal(crypto.FromECDSAPub(ss.pk),crypto.FromECDSAPub(server.leader)) {
-		return nil,errors.New("node was not leader")
+	// the node must be leader 
+	if !bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
+		return nil,errors.New("local node must be leader...")	
 	}
-	fb:= ss.Agent.FetchFastBlock()  
+	fb,err := ss.Agent.FetchFastBlock()  
+	if err != nil {
+		return nil,err
+	}
+	if _,ok := ss.blocks[fb.Number()]; ok {
+		return nil,errors.New("same height:"+fb.Number().String())
+	}
+	sum := len(ss.blocks)
+	if sum > 0 {
+		cur := ss.blocks[sum-1].Number()
+		cur.Add(cur,common.Big1)
+		if cur.Cmp(fb.Number()) != 0 {
+			return nil,errors.New("wrong fastblock,lastheight:"+cur.String()+" cur:"+fb.Number().String())
+		}
+	}
+	ss.blocks = append(ss.blocks,fb)
 	data,err := rlp.EncodeToBytes(fb)
 	if err != nil {
 		return nil,err
@@ -216,6 +232,13 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 	case Start:
 		if server,ok := ss.servers[id]; ok {
 			server.server.Start()
+			// start to fetch
+			ac := &consensus.ActionIn{
+				AC:		consensus.ActionFecth,
+				ID:		server.ID,
+				Height:	common.Big0,
+			}
+			consensus.ActionChan <- ac
 			return nil
 		} 
 		return errors.New("wrong conmmitt ID:"+id.String())
@@ -226,6 +249,7 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 		ss.clear(id)
 		return nil
 	case Switch:
+		// begin to make network..
 		return nil
 	}
 	return errors.New("wrong action Num:"+strconv.Itoa(ac))
@@ -233,7 +257,6 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 func test() {
 	// nodeID := os.Args[1]
 	// server := network.NewServer(nodeID)
-
 	// server.Start()
 }
 func rlpHash(x interface{}) (h common.Hash) {
