@@ -75,10 +75,10 @@ type PbftAgent struct {
 
 }
 
-type PbftAction struct {
+/*type PbftAction struct {
 	Id *big.Int		//committee times
 	action int
-}
+}*/
 
 type AgentWork struct {
 	config *params.ChainConfig
@@ -111,7 +111,7 @@ type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 type NewFastBlockEvent struct{ blockAndSign *BlockAndSign}
 
 type EncryptCommitteeNode []byte
-type  CryNodeInfo struct {//dd update
+type  CryNodeInfo struct {
 	Nodes       []EncryptCommitteeNode
 	//InfoByte	[]byte	//before sign msg hash
 	Sign 		[]byte	//sign msg
@@ -307,19 +307,18 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	//self.BroadcastFastBlock(fastBlock,voteSign)
 	return	fastBlock,nil
 }
 
 //broadcast blockAndSign
-func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock,	sign *types.PbftSign) error{
+func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
 		FastHash:fb.Hash(),
 	}
-	msgByte :=voteSign.PrepareData()
-	hash :=RlpHash(msgByte)//dd
+	msgByte := voteSign.PrepareData()//dd
+	hash :=RlpHash(msgByte)
 	var err error
 	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
 	if err != nil{
@@ -327,19 +326,14 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock,	sign *types.Pbft
 	}
 	blockAndSign := &BlockAndSign{
 		fb,
-		sign,
+		voteSign,
 	}
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	go self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
+	self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
 	return err
 }
 
-
-func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- NewFastBlockEvent) event.Subscription {
-	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
-}
-
-func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
+func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	bc := self.chain
 
 	// get current head
@@ -352,31 +346,31 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 		err = bc.Validator().ValidateBody(fb)
 	}
 	if err != nil{
-		return err
+		return false,err
 	}
 
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 
 	state, err := bc.State()
 	if err != nil{
-		return err
+		return false,err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
-		return err
+		return false,err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil{
-		return err
+		return false,err
 	}
-	return nil
+	return true,nil
 }
 
 //verify the sign , insert chain  and  broadcast the signs
 func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
-	var voteNum int =0
+	 voteNum := 0
 	//get committee list  by height and hash
-	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())
+	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())//dd
 	for _,voteSign := range voteSigns{
 		if voteSign.Result == VoteAgreeAgainst{
 			continue
@@ -422,8 +416,7 @@ func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHe
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,
-	bc *fastchain.FastBlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,bc *fastchain.FastBlockChain) {
 	if env.gasPool == nil {
 		env.gasPool = new(fastchain.GasPool).AddGas(env.header.GasLimit)
 	}
@@ -522,6 +515,9 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 	return nil, receipt.Logs
 }
 
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- NewFastBlockEvent) event.Subscription {
+	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
+}
 
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
 // starts sending event to the given channel.
@@ -552,7 +548,7 @@ func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
 
 // getCommitteeNumber return Committees number
 func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
-	return 0
+	return int32(len(self.members))
 }
 
 func FromByte(data []byte,to interface{}) error {
