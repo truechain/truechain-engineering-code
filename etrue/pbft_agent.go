@@ -35,11 +35,8 @@ type PbftAgent struct {
 	config *params.ChainConfig
 	chain   *fastchain.FastBlockChain
 
-	id *big.Int
-	members []*types.CommitteeMember
-
-	nextId  *big.Int
-	nextMembers []*types.CommitteeMember
+	CommitteeInfo *CommitteeInfo
+	NextCommitteeInfo *CommitteeInfo
 
 	engine consensus.Engine
 	eth     Backend
@@ -118,6 +115,14 @@ type  CryNodeInfo struct {
 	CommitteeId *big.Int
 }
 
+type CommitteeInfo struct {
+	id *big.Int
+	members []*types.CommitteeMember
+}
+func (committeeInfo *CommitteeInfo) SetCommitteeInfo(newCommitteeInfo *CommitteeInfo){
+	committeeInfo =newCommitteeInfo
+}
+
 type  BlockAndSign struct{//dd sign put into block
 	Block *types.FastBlock
 	Sign  *types.PbftSign
@@ -146,18 +151,19 @@ func (self *PbftAgent) loop(){
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
-				self.server.Notify(self.id,int(ch.Option))
+				self.CommitteeInfo.SetCommitteeInfo(self.NextCommitteeInfo)
+				self.server.Notify(self.CommitteeInfo.id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
-				self.server.Notify(self.id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.id,int(ch.Option))
+				self.CommitteeInfo.SetCommitteeInfo(nil)
 			}
 		case ch := <-self.CommitteeCh:
-			if self.CommitteeIncludeNode(ch.Members){
-				self.nextId=ch.CommitteeId
-				self.nextMembers=ch.Members
-
-				self.SendPbftNode()
+			if self.CommitteeIncludeNode(ch.CommitteeInfo){
+				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
+				self.server.PutCommittee(ch.CommitteeInfo)
+				self.SendPbftNode(ch.CommitteeInfo)
 			}
-			self.server.PutCommittee(ch.CommitteeId,ch.Members)
+
 
 			/*self.server.Notify(ch.pbftAction.Id,ch.pbftAction.action)
 			self.Start()//receive nodeInfo from other member
@@ -171,9 +177,9 @@ func (self *PbftAgent) loop(){
 	}
 }
 
-func (self *PbftAgent) CommitteeIncludeNode(members []*types.CommitteeMember) bool{
+func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *CommitteeInfo) bool{
 	pubKey := self.committeeNode.CM.Publickey
-	for _,member := range members {
+	for _,member := range committeeInfo.members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true
 			break;
@@ -182,13 +188,12 @@ func (self *PbftAgent) CommitteeIncludeNode(members []*types.CommitteeMember) bo
 	return false
 }
 
-func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
+func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *CommitteeInfo)	*CryNodeInfo{
 	var cryNodeInfo *CryNodeInfo
-	nodeByte,_ :=ToByte(pbftAgent.committeeNode)
-	pks :=pbftAgent.election.GetByCommitteeId(pbftAgent.id)
-	for _,pk := range pks{
+	nodeByte,_ :=ToByte(pbftAgent.committeeNode)//dd
+	for _,member := range committeeInfo.members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
-			ecies.ImportECDSAPublic(pk),nodeByte, nil, nil)
+			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
 		if err != nil{
 			return nil
 		}
@@ -200,9 +205,10 @@ func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
 		log.Info("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
-	cryNodeInfo.CommitteeId =pbftAgent.id
-	pbftAgent.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
+	cryNodeInfo.CommitteeId =committeeInfo.id
+
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+
 	pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
@@ -230,14 +236,14 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		log.Info("SigToPub error.")
 		return nil
 	}
-	if pbftAgent.id !=cryNodeInfo.CommitteeId{
+	if pbftAgent.CommitteeInfo.id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
 	}
 	verifyFlag := false
-	pks :=pbftAgent.election.GetByCommitteeId( pbftAgent.id)
-	for _, pk:= range pks{
-		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
+
+	for _, member:= range pbftAgent.CommitteeInfo.members{
+		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			continue
 		}else{
 			verifyFlag = true
@@ -324,10 +330,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	if err != nil{
 		log.Info("sign error")
 	}
-	blockAndSign := &BlockAndSign{
-		fb,
-		voteSign,
-	}
+	blockAndSign := &BlockAndSign{fb,voteSign,}
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
 	self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
 	return err
@@ -548,7 +551,7 @@ func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
 
 // getCommitteeNumber return Committees number
 func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
-	return int32(len(self.members))
+	return 0
 }
 
 func FromByte(data []byte,to interface{}) error {

@@ -9,6 +9,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"log"
 	"math/big"
+	"github.com/truechain/truechain-engineering-code/etrue"
 )
 
 // Committee is an committee info in the state of the genesis block.
@@ -51,7 +52,7 @@ type PbftAgentProxy interface {
 }
 
 type PbftServerProxy interface {
-	PutCommittee(id *big.Int, members []*CommitteeMember) error
+	PutCommittee(committeeInfo *etrue.CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
 

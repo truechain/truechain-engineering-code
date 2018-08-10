@@ -20,6 +20,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
+	"github.com/truechain/truechain-engineering-code/etrue"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -95,9 +96,8 @@ type ElectionEvent struct {
 }
 
 type CommitteeEvent struct {
-	CommitteeId	*big.Int
-	Members []*types.CommitteeMember
-	}
+	CommitteeInfo *etrue.CommitteeInfo
+}
 type ChainHeadEvent struct{ Block *types.Block }
 type FastChainHeadEvent struct{ Block *types.FastBlock }
 
