@@ -627,6 +627,7 @@ type FastHeader struct {
 // a block's data contents (transactions and uncles) together.
 type FastBody struct {
 	Transactions []*Transaction
+	Signs   []*PbftSign
 }
 
 // Block Reward
@@ -776,7 +777,7 @@ func (b *FastBlock) Extra() []byte            { return common.CopyBytes(b.header
 func (b *FastBlock) Header() *FastHeader { return CopyFastHeader(b.header) }
 
 // Body returns the non-header content of the fastblock.
-func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions} }
+func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions,b.signs} }
 
 // Size returns the true RLP encoded storage size of the fastblock, either by encoding
 // and returning it, or returning a previsouly cached value.
