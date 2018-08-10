@@ -94,10 +94,13 @@ type ElectionEvent struct {
 	snailnumber *big.Int
 }
 
-
+type CommitteeEvent struct {
+	committeeId	*big.Int
+	members []*types.CommitteeMember
+	}
 type ChainHeadEvent struct{ Block *types.Block }
 type FastChainHeadEvent struct{ Block *types.FastBlock }
 
 type SnailChainHeadEvent struct{ Block *types.SnailBlock }
 
-type PbftSignEvent struct{ PbftSigns []*types.PbftSign }
+type PbftVoteSignEvent struct{ PbftVoteSign []*types.PbftSign }
