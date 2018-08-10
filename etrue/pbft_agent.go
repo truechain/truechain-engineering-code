@@ -504,6 +504,21 @@ func (self * PbftAgent) Stop() {
 	self.scope.Close()
 }
 
+// VerifyCommitteeSign verify committee sign.
+func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool {
+	return false
+}
+
+// ChangeCommitteeLeader trigger view change.
+func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
+	return false
+}
+
+// getCommitteeNumber return Committees number
+func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
+	return 0
+}
+
 func FromByte(data []byte,to interface{}) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
