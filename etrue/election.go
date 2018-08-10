@@ -220,6 +220,10 @@ func (e *Election) GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big
 	return nil, nil
 }
 
+func (e *Election) GetByCommitteeId(CommitteeId *big.Int)  []*ecdsa.PublicKey {
+	return nil
+}
+
 //Number of external query committee cycles
 func (e *Election) GetXh() uint {
 	return e.pn
@@ -291,4 +295,8 @@ func (e *Election) SubscribeElectionStartEvent(ch chan<- ElectionStartEvent) eve
 
 func (e *Election) SubscribeCommitteeActionEvent(ch chan<- PbftCommitteeActionEvent) event.Subscription {
 	return e.scope.Track(e.CommitteeFeed.Subscribe(ch))
+}
+
+func (e *Election) VerifyLeaderBlock(height *big.Int, sign []byte) bool  {
+	return true
 }

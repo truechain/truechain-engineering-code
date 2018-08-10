@@ -103,8 +103,8 @@ type ProtocolManager struct {
 
 	//fast block
 	minedFastSub *event.TypeMuxSubscription
-	pbVotesCh         chan core.PbftVoteSignEvent
-	pbVotesSub        event.Subscription
+	pbSignsCh         chan core.PbftSignEvent
+	pbSignsSub        event.Subscription
     //fruit
 	minedFruitSub *event.TypeMuxSubscription
 	//minedsnailBlock
@@ -119,11 +119,12 @@ type ProtocolManager struct {
 	// and processing
 	wg sync.WaitGroup
 	agent *PbftAgent
+	election *Election
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database, agent *PbftAgent, election *Election) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -140,6 +141,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
 		agent: 	agent,
+		election: election,
 	}
 	// Figure out whether to allow fast sync or not
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
@@ -210,7 +212,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		return manager.fastBlockchain.InsertChain(blocks)
 	}
-	manager.fetcherFast = fetcher.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer)
+	manager.fetcherFast = fetcher.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, manager)
 
 	return manager, nil
 }
@@ -254,13 +256,13 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.snailBlockBroadcastLoop()
 
 	// broadcast mined fastBlocks
-	pm.minedFastSub = pm.eventMux.Subscribe(core.NewMinedFastBlockEvent{})
+	pm.minedFastSub = pm.eventMux.Subscribe(NewMinedFastBlockEvent{})
 	go pm.minedFastBroadcastLoop()
 
 	// broadcast transactions
-	pm.pbVotesCh = make(chan core.PbftVoteSignEvent, txChanSize)
-	pm.pbVotesSub = pm.agent.SubscribeNewPbftVoteSignEvent(pm.pbVotesCh)
-	go pm.pbVoteBroadcastLoop()
+	pm.pbSignsCh = make(chan core.PbftSignEvent, txChanSize)
+	pm.pbSignsSub = pm.agent.SubscribeNewPbftSignEvent(pm.pbSignsCh)
+	go pm.pbSignBroadcastLoop()
 
 	// broadcast mined fruits
 	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
@@ -280,7 +282,7 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
-	pm.pbVotesSub.Unsubscribe()
+	pm.pbSignsSub.Unsubscribe()
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
@@ -669,32 +671,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		request.Block.ReceivedAt = msg.ReceivedAt
-		request.Block.ReceivedFrom = p
+		request.BlockAndSign.Block.ReceivedAt = msg.ReceivedAt
+		request.BlockAndSign.Block.ReceivedFrom = p
 
 		// Mark the peer as owning the block and schedule it for import
-		p.MarkFastBlock(request.Block.Hash())
-		pm.fetcherFast.Enqueue(p.id, request.Block)
-
-		// Assuming the block is importable by the peer, but possibly not yet done so,
-		// calculate the head hash and TD that the peer truly must have.
-		var (
-			trueHead = request.Block.ParentHash()
-			trueTD   = new(big.Int).Sub(request.TD, /*request.Block.Difficulty()*/big.NewInt(10))
-		)
-		request.Block.Body()
-		// Update the peers total difficulty if better than the previous
-		if _, td := p.Head(); trueTD.Cmp(td) > 0 {
-			p.SetHead(trueHead, trueTD)
-
-			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-			// a singe block (as the true TD is below the propagated block), however this
-			// scenario should easily be covered by the fetcher.
-			currentBlock := pm.blockchain.CurrentBlock()
-			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-				go pm.synchronise(p)
-			}
-		}
+		p.MarkFastBlock(request.BlockAndSign.Block.Hash())
+		pm.fetcherFast.Enqueue(p.id, request.BlockAndSign)
 
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
@@ -714,6 +696,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)
+
+	case msg.Code == BlockSignMsg:
+		// signs arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			break
+		}
+		// Transactions can be processed, parse all of them and deliver to the pool
+		var signs []*types.PbftSign
+		if err := msg.Decode(&signs); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		for i, sign := range signs {
+			// Validate and mark the remote transaction
+			if sign == nil {
+				return errResp(ErrDecode, "sign %d is nil", i)
+			}
+			p.MarkSign(sign.FastHash)
+		}
+		pm.fetcherFast.AddSigns(signs)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
@@ -765,14 +766,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 // BroadcastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate bool) {
-	hash := block.Hash()
+func (pm *ProtocolManager) BroadcastFastBlock(blockSign *BlockAndSign, propagate bool) {
+	hash := blockSign.Block.Hash()
+	block := blockSign.Block
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
 	// If propagation is requested, send to a subset of the peer
 	if propagate {
-		// Calculate the TD of the block (it's not imported yet, so block.Td is not valid)
-		var td *big.Int
 		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent == nil {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
@@ -780,7 +780,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate 
 		// Send the block to a subset of our peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
-			peer.AsyncSendNewFastBlock(block, td)
+			peer.AsyncSendNewFastBlock(blockSign)
 		}
 		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
@@ -794,23 +794,23 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate 
 	}
 }
 
-// BroadcastPbVotes will propagate a batch of PbftVoteSigns to all peers which are not known to
+// BroadcastPbSigns will propagate a batch of PbftVoteSigns to all peers which are not known to
 // already have the given PbftVoteSign.
-func (pm *ProtocolManager) BroadcastPbVotes(pbVotes PbftVoteSigns) {
-	var pbVoteSet = make(map[*peer]PbftVoteSigns)
+func (pm *ProtocolManager) BroadcastPbSigns(pbSigns types.PbftSigns) {
+	var pbSignSet = make(map[*peer]types.PbftSigns)
 
 	// Broadcast transactions to a batch of peers not knowing about it
-	for _, pbVote := range pbVotes {
-		peers := pm.peers.PeersWithoutTx(pbVote.Msg)
+	for _, sign := range pbSigns {
+		peers := pm.peers.PeersWithoutSign(sign.FastHash)
 		for _, peer := range peers {
-			pbVoteSet[peer] = append(pbVoteSet[peer], pbVote)
+			pbSignSet[peer] = append(pbSignSet[peer], sign)
 		}
-		log.Trace("Broadcast PbftVoteSign", "hash", pbVote.Msg, "recipients", len(peers))
+		log.Trace("Broadcast PbftVoteSign", "hash", sign.FastHash, "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	//for peer, txs := range pbVoteSet {
-	//	peer.AsyncSendTransactions(txs)
-	//}
+	for peer, signs := range pbSignSet {
+		peer.AsyncSendSigns(signs)
+	}
 }
 
 // Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
@@ -938,21 +938,23 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedFastSub.Chan() {
 		switch ev := obj.Data.(type) {
-		case core.NewMinedFastBlockEvent:
-			pm.BroadcastFastBlock(ev.Block, true)  // First propagate fast block to peers
-			pm.BroadcastFastBlock(ev.Block, false) // Only then announce to the rest
+		case NewMinedFastBlockEvent:
+			pm.BroadcastFastBlock(ev.blockAndSign, true)  // First propagate fast block to peers
+			pm.BroadcastFastBlock(ev.blockAndSign, false) // Only then announce to the rest
 		}
 	}
 }
 
-func (pm *ProtocolManager) pbVoteBroadcastLoop() {
+func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.pbVotesCh:
-			pm.BroadcastPbVotes(event.PbftVoteSign)
+		case event := <-pm.pbSignsCh:
+			if len(event.PbftSigns) > 0 {
+				pm.BroadcastPbSigns(event.PbftSigns)
+			}
 
 			// Err() channel will be closed when unsubscribing.
-		case <-pm.pbVotesSub.Err():
+		case <-pm.pbSignsSub.Err():
 			return
 		}
 	}
@@ -1037,4 +1039,19 @@ func (pm *ProtocolManager) NodeInfo() *NodeInfo {
 		Config:     pm.blockchain.Config(),
 		Head:       currentBlock.Hash(),
 	}
+}
+
+//  VerifyBlock Determine whether it is send by the leader
+func (pm *ProtocolManager) VerifyBlock(height *big.Int, sign []byte) bool {
+	return pm.election.VerifyLeaderBlock(height, sign)
+}
+
+//  ChangLeader when leader make bad block it's evil Leader
+func (pm *ProtocolManager) ChangLeader() bool {
+	return false
+}
+
+//  ChangLeader when leader make bad block it's evil Leader
+func (pm *ProtocolManager) getElectionNumber() int32 {
+	return 0
 }
