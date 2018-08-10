@@ -641,6 +641,7 @@ type BlockReward struct {
 type FastBlock struct {
 	header       *FastHeader
 	transactions Transactions
+	signs        PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -846,12 +847,11 @@ type SnailHeader struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
-	// for fruit  20180804
+
 	Fruit bool
 }
 
 type SnailBody struct {
-	// for fruit 20180804
 	Fruits []*SnailBlock
 	Signs  []*PbftSign
 }
@@ -860,6 +860,9 @@ type SnailBody struct {
 type SnailBlock struct {
 	header *SnailHeader
 	body   *SnailBody
+
+	fruits SnailBlocks
+	signs  PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -882,7 +885,7 @@ type extsnailblock struct {
 	Td     *big.Int
 }
 
-// 20180804 for snail chain
+
 type SnailBlocks []*SnailBlock
 
 type SnailBlockBy func(b1, b2 *SnailBlock) bool
