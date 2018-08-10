@@ -1039,7 +1039,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 // wrong.
 //
 // After insertion is done, all accumulated events will be fired.
-func (bc *FastBlockChain) InsertChain(chain types.FastBlocks, signs []*types.PbftSign) (int, error) {
+func (bc *FastBlockChain) InsertChain(chain types.FastBlocks) (int, error) {
 	n, events, logs, err := bc.insertChain(chain)
 	bc.PostChainEvents(events, logs)
 	return n, err
