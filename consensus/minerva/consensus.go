@@ -391,30 +391,11 @@ func (ethash *Minerva) verifySnailHeader(chain consensus.SnailChainReader, heade
 		return errZeroBlockTime
 	}
 
-	if header.Fruit {
-		//fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-		//fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
-		//number := header.Number.Uint64()
-		//dataSet := ethash.dataset(number)
-		//_, result := hashimotoFull(dataSet.dataset, header.HashNoNonce().Bytes(), uint64(ethash.rand.Int63()))
-		//lastResult := result[16:]
-		//if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) > 0 {
-		//	return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.Difficulty, lastResult)
-		//}
-		expected := ethash.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-		fruitExpected := new(big.Int).Div(expected, FruitBlockRatio)
+	// Verify the block's difficulty based in it's timestamp and parent's difficulty
+	expected := ethash.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
 
-		if fruitExpected.Cmp(header.Difficulty) > 0 {
-			return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.Difficulty, fruitExpected)
-		}
-
-	} else {
-		// Verify the block's difficulty based in it's timestamp and parent's difficulty
-		expected := ethash.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-
-		if expected.Cmp(header.Difficulty) != 0 {
-			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
-		}
+	if expected.Cmp(header.Difficulty) != 0 {
+		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
 	}
 
 	// Verify that the gas limit is <= 2^63-1
