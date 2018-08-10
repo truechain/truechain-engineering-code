@@ -1609,7 +1609,7 @@ func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- SnailChainEvent) event.
 }
 
 // SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- SnailChainHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
