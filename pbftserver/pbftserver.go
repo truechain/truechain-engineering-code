@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"encoding/hex"
 	"time"
-	"os"
 	"bytes"
 	"math/big"
 	"errors"
@@ -44,7 +43,7 @@ type PbftServerMgr struct {
 	blocks			map[*big.Int]*types.FastBlock
 	pk 				*ecdsa.PublicKey
 	priv 			*ecdsa.PrivateKey
-	Agent			*types.PbftAgentProxy
+	Agent			types.PbftAgentProxy
 }
 
 func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey) *PbftServerMgr {
@@ -84,7 +83,7 @@ func (ss *PbftServerMgr) initServer(id *big.Int, nodeid,leader *ecdsa.PublicKey,
 			Height:		new(big.Int).Set(common.Big0),
 			clear:		false,
 		}
-		ser.server = network.NewServer(ser.nodeid)
+		ser.server = network.NewServer(ser.nodeid,id,ss)
 		ss.servers[id] = ser
 	}
 }
@@ -210,10 +209,10 @@ func (ss *PbftServerMgr) work() {
 }
 
 func test() {
-	nodeID := os.Args[1]
-	server := network.NewServer(nodeID)
+	// nodeID := os.Args[1]
+	// server := network.NewServer(nodeID)
 
-	server.Start()
+	// server.Start()
 }
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
