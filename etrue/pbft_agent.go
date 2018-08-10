@@ -18,6 +18,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"crypto/ecdsa"
 	"sync"
 	"bytes"
