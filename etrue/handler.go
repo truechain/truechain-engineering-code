@@ -256,7 +256,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.snailBlockBroadcastLoop()
 
 	// broadcast mined fastBlocks
-	pm.minedFastSub = pm.eventMux.Subscribe(NewMinedFastBlockEvent{})
+	pm.minedFastSub = pm.eventMux.Subscribe(NewFastBlockEvent{})
 	go pm.minedFastBroadcastLoop()
 
 	// broadcast transactions
@@ -938,7 +938,7 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedFastSub.Chan() {
 		switch ev := obj.Data.(type) {
-		case NewMinedFastBlockEvent:
+		case NewFastBlockEvent:
 			pm.BroadcastFastBlock(ev.blockAndSign, true)  // First propagate fast block to peers
 			pm.BroadcastFastBlock(ev.blockAndSign, false) // Only then announce to the rest
 		}
