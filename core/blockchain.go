@@ -1378,13 +1378,6 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
-		
-		// neo 20180628
-		case FruitEvent:
-			//bc.
-		case FruitFleashEvent:
-
-		 	
 		}
 	}
 }
