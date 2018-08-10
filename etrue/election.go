@@ -12,7 +12,7 @@ import (
 
 const (
 	fastChainHeadSize = 256
-	chainHeadSize  = 4096
+	snailchainHeadSize  = 4096
 	z = 99
 	k  =  10000
 	lamada = 12
@@ -63,6 +63,46 @@ type Election struct {
 
 	fastchain *fastchain.FastBlockChain
 	snailchain *snailchain.SnailBlockChain
+}
+
+
+func NewElction()*Election {
+
+	// init
+	election := &Election{
+
+		//fastNumber:	fastNumber,
+		//snailNumber: snailNumber,
+		//committee:        committee,
+		committeeList:    make(map[*big.Int]*Committee),
+		//committeeId:	committeeId,
+		//nextCommitteeId: nextCommitteeId,
+		//startSwitchover:	startSwitchover,
+		//number:			number,
+		//fastCount		uint,
+		//snailCount		uint,
+
+		//fastChainHeadCh make(chan core.FastChainHeadEvent,fastChainHeadSize) ,
+		//snailChainHeadCh  make(chan core.SnailChainHeadEvent,snailchainHeadSize),
+
+	}
+
+	// get genesis committee
+
+	// get current fast/snail
+
+	// get current committee
+
+	// get snail count
+
+	// Subscribe events from blockchain
+	//election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
+	//election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+
+	// Start the event loop and return
+	go election.loop()
+
+	return nil
 }
 
 //Read creation block information and return public key for signature verification
@@ -157,7 +197,6 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 	// find fruit/snail block pointer to this fast block from snail chain
 	// find pre committee snail block, calculate committee begin and end number
 	// sorition()
-
 	return nil, nil
 }
 
@@ -171,8 +210,8 @@ func (e *Election)elect(snailBeginNumber *big.Int, snailEndNumber *big.Int, comm
 	// get all fruits from all snail blocks
 	sortition()
 	e.committeeList[committeeId] = &committee
-	//go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, committeeId})
-	//go e.committeeFeed.Send(core.CommitteeEvent{committeeId, members})
+	go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, committeeId,nil})
+	go e.committeeFeed.Send(core.CommitteeEvent{committeeId, members})
 }
 
 
@@ -209,7 +248,7 @@ func (e *Election) loop() {
 			if ev.Block != nil{
 				if e.startSwitchover {
 					if e.number.Cmp(ev.Block.Number()) == 0 {
-						//go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id})
+						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id,nil})
 
 						// find committee already exist in committee list
 						e.committeeList[e.committee.id] = e.committee
@@ -218,7 +257,7 @@ func (e *Election) loop() {
 						e.committeeId = e.nextCommitteeId
 						e.startSwitchover = false
 
-						//go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id})
+						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id,nil})
 					}
 				}
 			}
@@ -235,22 +274,4 @@ func (e *Election) SubscribeCommitteeEvent(ch chan<- core.CommitteeEvent) event.
 }
 
 
-func NewElction()*Election {
-
-	// init
-
-	// get genesis committee
-
-	// get current fast/snail
-
-	// get current committee
-
-	// get snail count
-
-	// subscribe chainhead
-
-	// start loop
-
-	return nil
-}
 
