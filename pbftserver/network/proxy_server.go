@@ -9,15 +9,6 @@ import (
 	"bytes"
 )
 
-const (
-	Agree 	int = 0
-	Against int = 1
-)
-type ActionIn struct {
-	ac 		int
-	id 		*big.Int
-}
-var ActionChan chan ActionIn = make(chan ActionIn)
 
 type SignedVoteMsg struct{
 	FastHeight 	*big.Int
@@ -36,11 +27,13 @@ type ConsensusHelp interface {
 type Server struct {
 	url string
 	node *Node
+	ID	*big.Int
+	help ConsensusHelp
 }
 
-func NewServer(nodeID string) *Server {
+func NewServer(nodeID string,id *big.Int,help ConsensusHelp) *Server {
 	node := NewNode(nodeID)
-	server := &Server{node.NodeTable[nodeID], node}
+	server := &Server{node.NodeTable[nodeID], node,id,help}
 
 	server.setRoute()
 
@@ -114,8 +107,29 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 		fmt.Println(err)
 		return
 	}
-
 	server.node.GetReply(&msg)
+	server.handleResult(&msg)
+}
+func (server *Server) handleResult(msg *consensus.ReplyMsg) {
+	var res uint = 0
+	if msg.NodeID == "Executed" {
+		res = 1
+	}
+	if msg.ViewID == server.node.CurrentState.ViewID {
+		server.help.ReplyResult(server.node.CurrentState.MsgLogs.ReqMsg,res)
+	} else {
+		// wrong state
+	}
+	height := big.NewInt(0)
+	ac := &consensus.ActionIn{
+		AC:		1,
+		ID:		server.ID,
+		Height:	height,
+	}
+	consensus.ActionChan <- ac
+}
+func (server *Server) PutRequest(msg *consensus.RequestMsg) {
+	server.node.MsgEntrance <- msg
 }
 
 func send(url string, msg []byte) {
