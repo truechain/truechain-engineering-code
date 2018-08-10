@@ -127,6 +127,8 @@ type SnailPool interface {
 
 type AgentNetworkProxy interface {
 	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
+	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
+	AddRemoteNodeInfo(*CryNodeInfo) error
 }
 
 // statusData is the network packet for the status message.
@@ -190,7 +192,7 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 
 // newFastBlockData is the network packet for the block propagation message.
 type newFastBlockData struct {
-	BlockAndSign *types.BlockAndSign
+	FastBlock *types.FastBlock
 }
 
 // blockBody represents the data content of a single block.

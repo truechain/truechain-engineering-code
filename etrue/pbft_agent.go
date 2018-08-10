@@ -100,9 +100,6 @@ type Backend interface {
 // NewPbftNodeEvent is posted when nodeInfo send
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
-// NewFastBlockEvent is posted when a block has been generate .
-type NewFastBlockEvent struct{ blockAndSign *types.BlockAndSign}
-
 type EncryptCommitteeNode []byte
 type  CryNodeInfo struct {
 	Nodes       []EncryptCommitteeNode
@@ -318,9 +315,9 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	if err != nil{
 		log.Info("sign error")
 	}
-	blockAndSign := &types.BlockAndSign{fb,voteSign,}
+	fb.Header().SetLeaderSign(voteSign)
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
+	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{fb})
 	return err
 }
 
@@ -506,7 +503,7 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 	return nil, receipt.Logs
 }
 
-func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- NewFastBlockEvent) event.Subscription {
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewFastBlockEvent) event.Subscription {
 	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
 }
 
