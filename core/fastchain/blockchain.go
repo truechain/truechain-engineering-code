@@ -1039,7 +1039,7 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 // wrong.
 //
 // After insertion is done, all accumulated events will be fired.
-func (bc *FastBlockChain) InsertChain(chain types.FastBlocks) (int, error) {
+func (bc *FastBlockChain) InsertChain(chain types.FastBlocks, signs []*types.PbftSign) (int, error) {
 	n, events, logs, err := bc.insertChain(chain)
 	bc.PostChainEvents(events, logs)
 	return n, err
@@ -1561,6 +1561,11 @@ func (bc *FastBlockChain) CurrentHeader() *types.FastHeader {
 // database by hash and number, caching it if found.
 func (bc *FastBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return bc.hc.GetTd(hash, number)
+}
+
+// database by hash and number, caching it if found.
+func (bc *FastBlockChain) GetSigns(hash common.Hash, number uint64) []*types.PbftSign {
+	return nil
 }
 
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the
