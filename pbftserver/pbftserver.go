@@ -151,8 +151,8 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 		block.Number(),
 		res,
 	})
-	sig,err2 := crypto.Sign(hash,priv)
-	if err2 != nil {
+	sig,err := crypto.Sign(hash,priv)
+	if err != nil {
 		return false
 	}
 	sign := types.PbftSign{
