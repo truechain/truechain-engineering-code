@@ -123,33 +123,32 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 		ClientID:		server.nodeid,
 		Timestamp:		time.Now().Unix(),
 		Operation:		msg,
+		Height:			fb.Number().Int64(),
 	}
 	return val,nil
 }
 func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
-	var fb types.FastBlock 
-	err := rlp.DecodeBytes(common.FromHex(msg.Operation),&fb)
+	height := big.NewInt(msg.Height)
+	block,ok := ss.blocks[height]
+	if !ok {
+		return false
+	}
+	err = ss.Agent.VerifyFastBlock(block)
 	if err != nil {
 		return false
 	}
-	// will be get ReceiptHash after verify by agent
-	// update fastblock
-	err = ss.Agent.VerifyFastBlock(&fb)
-	if err != nil {
-		return false
-	}
-	ss.blocks[fb.Number()] = &fb
+	ss.blocks[height] = block
 	return true
 }
-func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) {
-	var fb types.FastBlock 
-	err := rlp.DecodeBytes(common.FromHex(msg.Operation),&fb)
-	if err != nil {
+func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
+	height := big.NewInt(msg.Height)
+	block,ok := ss.blocks[height]
+	if !ok {
 		return false
 	}
 	hash := rlpHash([]interfase {
-		fb.Hash(),
-		fb.Number(),
+		block.Hash(),
+		block.Number(),
 		res,
 	})
 	sig,err2 := crypto.Sign(hash,priv)
@@ -157,12 +156,12 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) {
 		return false
 	}
 	sign := types.PbftSign{
-		FastHeight:		fb.Number(),
-		FastHash:		fb.Hash(),
+		FastHeight:		block.Number(),
+		FastHash:		block.Hash(),
 		Result:			res,
 		Sign:			sig,
 	}
-	err = ss.Agent.BroadcastSign(&sign,&fb)
+	err = ss.Agent.BroadcastSign(&sign,block)
 	if err != nil {
 		return false
 	}
