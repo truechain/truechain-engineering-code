@@ -53,6 +53,7 @@ type PbftAgent struct {
 
 	agentFeed       event.Feed
 	nodeInfoFeed 	event.Feed
+	NewFastBlockFeed	event.Feed
 	scope        event.SubscriptionScope
 
 	CommitteeCh  chan core.CommitteeEvent
@@ -106,8 +107,8 @@ type Backend interface {
 // NewPbftNodeEvent is posted when nodeInfo send
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
-// NewMinedFastBlockEvent is posted when a block has been imported.
-type NewMinedFastBlockEvent struct{ blockAndSign *BlockAndSign}
+// NewFastBlockEvent is posted when a block has been generate .
+type NewFastBlockEvent struct{ blockAndSign *BlockAndSign}
 
 type EncryptCommitteeNode []byte
 type  CryNodeInfo struct {//dd update
@@ -127,7 +128,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		config:         	config,
 		engine:         	engine,
 		eth:            	eth,
-		mux:            	mux,
+		//mux:            	mux,
 		chain:          	eth.FastBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		election: election,
@@ -200,7 +201,7 @@ func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
 	}
 	cryNodeInfo.Sign=sigInfo
 	cryNodeInfo.CommitteeId =pbftAgent.id
-	//pbftAgent.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
+	pbftAgent.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
 	pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
@@ -306,31 +307,36 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	voteSign := &types.PbftSign{
-		Result: VoteAgree,
-		FastHeight:fastBlock.Header().Number,
-		FastHash:fastBlock.Hash(),
-	}
-	msgByte :=voteSign.PrepareData()
-	hash :=RlpHash(msgByte)//dd
-	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
-	if err != nil{
-		log.Info("sign error")
-	}
-	//broadcast blockAndSign
 	//self.BroadcastFastBlock(fastBlock,voteSign)
 	return	fastBlock,nil
 }
 
+//broadcast blockAndSign
 func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock,	sign *types.PbftSign) error{
-	// sign
+	voteSign := &types.PbftSign{
+		Result: VoteAgree,
+		FastHeight:fb.Header().Number,
+		FastHash:fb.Hash(),
+	}
+	msgByte :=voteSign.PrepareData()
+	hash :=RlpHash(msgByte)//dd
+	var err error
+	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
+	if err != nil{
+		log.Info("sign error")
+	}
 	blockAndSign := &BlockAndSign{
 		fb,
 		sign,
 	}
-	err :=self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-
+	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
+	go self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
 	return err
+}
+
+
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- NewFastBlockEvent) event.Subscription {
+	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
 }
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
