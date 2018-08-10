@@ -198,11 +198,16 @@ func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 func (ss *PbftServerMgr) work() {
 	for {
 		select {
-		case ac := <-consensus.ActionChan:
-			req,err := GetRequest(ac.id)
-			if err != nil  && req != nil {
-				return 
+		case ac := <-network.ActionChan:
+			if ac.ac == network.ActionFecth {
+				req,err := GetRequest(ac.id)
+				if err != nil  && req != nil {
+					return 
+				}
+			} else if ac.ac == network.ActionBroadcast {
+				
 			}
+			
 			return 
 		}
 	}

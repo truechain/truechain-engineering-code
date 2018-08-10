@@ -10,9 +10,12 @@ import (
 )
 
 const (
-	Agree 	int = 0
-	Against int = 1
+	Agree 			int = iota
+	Against 	
+	ActionFecth 	
+	ActionBroadcast 
 )
+
 type ActionIn struct {
 	ac 		int
 	id 		*big.Int
@@ -130,6 +133,9 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 		// wrong state
 	}
 	ActionChan <- &ActionIn{1,server.ID}
+}
+func (server *Server) PutRequest(msg *consensus.RequestMsg) {
+	server.node.MsgEntrance <- msg
 }
 
 func send(url string, msg []byte) {
