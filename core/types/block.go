@@ -1025,7 +1025,7 @@ func (b *SnailBlock) ToElect() bool             { return b.header.ToElect }
 func (b *SnailBlock) Extra() []byte             { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader      { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool             { return b.header.Fruit }
-func (b *SnailBlock) GetSigns() []*PbftVoteSign { return b.body.Signs }
+func (b *SnailBlock) GetSigns() []*PbftSign { return b.body.Signs }
 
 // Body returns the non-header content of the snailblock.
 func (b *SnailBlock) Body() *SnailBody { return b.body }

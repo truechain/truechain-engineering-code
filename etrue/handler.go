@@ -805,7 +805,7 @@ func (pm *ProtocolManager) BroadcastPbSigns(pbSigns types.PbftSigns) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], sign)
 		}
-		log.Trace("Broadcast PbftVoteSign", "hash", sign.FastHash, "recipients", len(peers))
+		log.Trace("Broadcast PbftSign", "hash", sign.FastHash, "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, signs := range pbSignSet {
