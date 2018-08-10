@@ -56,6 +56,7 @@ const (
 	GetFastBlockBodiesMsg  = 0x05
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
+	BlockSignMsg        = 0x07
 
 	FruitMsg		   = 0x0a
 	SnailBlockMsg		   = 0x0b
@@ -64,6 +65,9 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
+
+	PbftInfoMsg = 0x18
+	PbftSignMsg = 0x19
 )
 
 type errCode int
@@ -126,7 +130,7 @@ type PbftAgentInteractNetwork interface {
 }
 
 type ElectionInteractNetwork interface {
-	VerifyLeaderBlock(height int, sign []byte) bool
+	VerifyLeaderBlock(height *big.Int, sign []byte) bool
 }
 
 // statusData is the network packet for the status message.
@@ -190,8 +194,7 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 
 // newFastBlockData is the network packet for the block propagation message.
 type newFastBlockData struct {
-	Block *types.FastBlock
-	TD    *big.Int
+	BlockAndSign *BlockAndSign
 }
 
 // blockBody represents the data content of a single block.
