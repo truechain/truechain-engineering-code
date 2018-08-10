@@ -63,15 +63,14 @@ type PbftAgent struct {
 	committeeSub event.Subscription
 
 
-
 	eventMux      *event.TypeMux
 	PbftNodeSub *event.TypeMuxSubscription
 	election	*Election
 
-	committeeNode *types.CommitteeNode
+	cryNodeInfo   *CryNodeInfo
+	committeeNode *types.CommitteeNode	//node info
 	privateKey *ecdsa.PrivateKey
 
-	//CommitteeMembers	[]*CommitteeMember
 }
 
 type PbftAction struct {
@@ -177,6 +176,7 @@ func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
 	cryNodeInfo.Sign=sigInfo
 	//pbftAgent.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+	pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
 
