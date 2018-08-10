@@ -1633,7 +1633,7 @@ func (bc *FastBlockChain) SubscribeChainEvent(ch chan<- ChainEvent) event.Subscr
 }
 
 // SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *FastBlockChain) SubscribeChainHeadEvent(ch chan<- FastChainHeadEvent) event.Subscription {
+func (bc *FastBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
