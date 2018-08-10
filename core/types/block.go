@@ -627,6 +627,7 @@ type FastHeader struct {
 // a block's data contents (transactions and uncles) together.
 type FastBody struct {
 	Transactions []*Transaction
+	Signs   []*PbftSign
 }
 
 // Block Reward
@@ -641,6 +642,7 @@ type BlockReward struct {
 type FastBlock struct {
 	header       *FastHeader
 	transactions Transactions
+	signs        PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -775,7 +777,7 @@ func (b *FastBlock) Extra() []byte            { return common.CopyBytes(b.header
 func (b *FastBlock) Header() *FastHeader { return CopyFastHeader(b.header) }
 
 // Body returns the non-header content of the fastblock.
-func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions} }
+func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions,b.signs} }
 
 // Size returns the true RLP encoded storage size of the fastblock, either by encoding
 // and returning it, or returning a previsouly cached value.
@@ -846,12 +848,11 @@ type SnailHeader struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
-	// for fruit  20180804
+
 	Fruit bool
 }
 
 type SnailBody struct {
-	// for fruit 20180804
 	Fruits []*SnailBlock
 	Signs  []*PbftSign
 }
@@ -860,6 +861,9 @@ type SnailBody struct {
 type SnailBlock struct {
 	header *SnailHeader
 	body   *SnailBody
+
+	fruits SnailBlocks
+	signs  PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -882,7 +886,7 @@ type extsnailblock struct {
 	Td     *big.Int
 }
 
-// 20180804 for snail chain
+
 type SnailBlocks []*SnailBlock
 
 type SnailBlockBy func(b1, b2 *SnailBlock) bool

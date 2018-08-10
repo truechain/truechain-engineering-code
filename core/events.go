@@ -95,9 +95,8 @@ type ElectionEvent struct {
 }
 
 type CommitteeEvent struct {
-	CommitteeId	*big.Int
-	Members []*types.CommitteeMember
-	}
+	CommitteeInfo *types.CommitteeInfo
+}
 type ChainHeadEvent struct{ Block *types.Block }
 type FastChainHeadEvent struct{ Block *types.FastBlock }
 

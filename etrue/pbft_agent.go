@@ -35,11 +35,8 @@ type PbftAgent struct {
 	config *params.ChainConfig
 	chain   *fastchain.FastBlockChain
 
-	id *big.Int
-	members []*types.CommitteeMember
-
-	nextId  *big.Int
-	nextMembers []*types.CommitteeMember
+	CommitteeInfo *types.CommitteeInfo
+	NextCommitteeInfo *types.CommitteeInfo
 
 	engine consensus.Engine
 	eth     Backend
@@ -75,10 +72,6 @@ type PbftAgent struct {
 
 }
 
-type PbftAction struct {
-	Id *big.Int		//committee times
-	action int
-}
 
 type AgentWork struct {
 	config *params.ChainConfig
@@ -108,19 +101,13 @@ type Backend interface {
 type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
 // NewFastBlockEvent is posted when a block has been generate .
-type NewFastBlockEvent struct{ blockAndSign *BlockAndSign}
+type NewFastBlockEvent struct{ blockAndSign *types.BlockAndSign}
 
 type EncryptCommitteeNode []byte
-type  CryNodeInfo struct {//dd update
+type  CryNodeInfo struct {
 	Nodes       []EncryptCommitteeNode
-	//InfoByte	[]byte	//before sign msg hash
 	Sign 		[]byte	//sign msg
 	CommitteeId *big.Int
-}
-
-type  BlockAndSign struct{//dd sign put into block
-	Block *types.FastBlock
-	Sign  *types.PbftSign
 }
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine, election *Election) *PbftAgent {
@@ -133,7 +120,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		election: election,
 	}
-	//self.committeeSub = self.chain.SubscribeChainHeadEvent(self.committeeActionCh)
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
 
@@ -146,18 +132,19 @@ func (self *PbftAgent) loop(){
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
-				self.server.Notify(self.id,int(ch.Option))
+				self.CommitteeInfo.SetCommitteeInfo(self.NextCommitteeInfo)
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
-				self.server.Notify(self.id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				self.CommitteeInfo.SetCommitteeInfo(nil)
 			}
 		case ch := <-self.CommitteeCh:
-			if self.CommitteeIncludeNode(ch.Members){
-				self.nextId=ch.CommitteeId
-				self.nextMembers=ch.Members
+			if self.CommitteeIncludeNode(ch.CommitteeInfo){
+				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
 
-				self.SendPbftNode()
+				self.server.PutCommittee(ch.CommitteeInfo)
+				self.SendPbftNode(ch.CommitteeInfo)
 			}
-			self.server.PutCommittee(ch.CommitteeId,ch.Members)
 
 			/*self.server.Notify(ch.pbftAction.Id,ch.pbftAction.action)
 			self.Start()//receive nodeInfo from other member
@@ -171,9 +158,9 @@ func (self *PbftAgent) loop(){
 	}
 }
 
-func (self *PbftAgent) CommitteeIncludeNode(members []*types.CommitteeMember) bool{
+func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *types.CommitteeInfo) bool{
 	pubKey := self.committeeNode.CM.Publickey
-	for _,member := range members {
+	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true
 			break;
@@ -182,13 +169,12 @@ func (self *PbftAgent) CommitteeIncludeNode(members []*types.CommitteeMember) bo
 	return false
 }
 
-func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
+func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo)	*CryNodeInfo{
 	var cryNodeInfo *CryNodeInfo
-	nodeByte,_ :=ToByte(pbftAgent.committeeNode)
-	pks :=pbftAgent.election.GetByCommitteeId(pbftAgent.id)
-	for _,pk := range pks{
+	nodeByte,_ :=ToByte(pbftAgent.committeeNode)//dd
+	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
-			ecies.ImportECDSAPublic(pk),nodeByte, nil, nil)
+			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
 		if err != nil{
 			return nil
 		}
@@ -200,9 +186,10 @@ func (pbftAgent *PbftAgent) SendPbftNode()	*CryNodeInfo{
 		log.Info("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
-	cryNodeInfo.CommitteeId =pbftAgent.id
-	pbftAgent.eventMux.Post(NewPbftNodeEvent{cryNodeInfo})
+	cryNodeInfo.CommitteeId =committeeInfo.Id
+
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+
 	pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
@@ -217,27 +204,31 @@ func  (pbftAgent *PbftAgent) handle(){
 	for obj := range pbftAgent.PbftNodeSub.Chan() {
 		switch ev := obj.Data.(type) {
 		case NewPbftNodeEvent:
-			pbftAgent.ReceivePbftNode(ev.cryNodeInfo)
+			//if committee member receive and handle info
+			if pbftAgent.CommitteeIncludeNode(pbftAgent.CommitteeInfo){
+				pbftAgent.ReceivePbftNode(ev.cryNodeInfo)
+			}
+			//transpond  info
+			pbftAgent.SendPbftNode(pbftAgent.CommitteeInfo)
 		}
 	}
 }
 
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.CommitteeNode {
-	var node *types.CommitteeNode
 	hash :=RlpHash(cryNodeInfo.Nodes)
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
 		log.Info("SigToPub error.")
 		return nil
 	}
-	if pbftAgent.id !=cryNodeInfo.CommitteeId{
+	if pbftAgent.CommitteeInfo.Id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
 	}
 	verifyFlag := false
-	pks :=pbftAgent.election.GetByCommitteeId( pbftAgent.id)
-	for _, pk:= range pks{
-		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
+
+	for _, member:= range pbftAgent.CommitteeInfo.Members{
+		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			continue
 		}else{
 			verifyFlag = true
@@ -250,13 +241,16 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 	priKey :=ecies.ImportECDSA(pbftAgent.privateKey)//ecdsa-->ecies
 	for _,info := range cryNodeInfo.Nodes{
 		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
-		if err != nil{
+		if err == nil{// can Decrypt by priKey
+			var node *types.CommitteeNode //receive nodeInfo
 			FromByte(encryptMsg,node)
+			pbftAgent.server.PutNodes(cryNodeInfo.CommitteeId,  []*types.CommitteeNode{node})
 			return node
 		}
 	}
-	pbftAgent.server.PutNodes(cryNodeInfo.CommitteeId,  []*types.CommitteeNode{node})
 	return nil
+
+
 }
 
 //generateBlock and broadcast
@@ -307,39 +301,30 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	//self.BroadcastFastBlock(fastBlock,voteSign)
 	return	fastBlock,nil
 }
 
 //broadcast blockAndSign
-func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock,	sign *types.PbftSign) error{
+func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
 		FastHash:fb.Hash(),
 	}
-	msgByte :=voteSign.PrepareData()
-	hash :=RlpHash(msgByte)//dd
+	msgByte := voteSign.PrepareData()//dd
+	hash :=RlpHash(msgByte)
 	var err error
 	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
 	if err != nil{
 		log.Info("sign error")
 	}
-	blockAndSign := &BlockAndSign{
-		fb,
-		sign,
-	}
+	blockAndSign := &types.BlockAndSign{fb,voteSign,}
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	go self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
+	self.NewFastBlockFeed.Send(NewFastBlockEvent{blockAndSign})
 	return err
 }
 
-
-func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- NewFastBlockEvent) event.Subscription {
-	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
-}
-
-func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
+func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	bc := self.chain
 
 	// get current head
@@ -352,31 +337,31 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) error{
 		err = bc.Validator().ValidateBody(fb)
 	}
 	if err != nil{
-		return err
+		return false,err
 	}
 
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 
 	state, err := bc.State()
 	if err != nil{
-		return err
+		return false,err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
-		return err
+		return false,err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil{
-		return err
+		return false,err
 	}
-	return nil
+	return true,nil
 }
 
 //verify the sign , insert chain  and  broadcast the signs
 func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
-	var voteNum int =0
+	 voteNum := 0
 	//get committee list  by height and hash
-	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())
+	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())//dd
 	for _,voteSign := range voteSigns{
 		if voteSign.Result == VoteAgreeAgainst{
 			continue
@@ -396,7 +381,7 @@ func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.Fas
 	}
 	if 	voteNum > 2*len(members)/3 {
 		fastBlocks	:= []*types.FastBlock{fb}
-		_,err :=self.chain.InsertChain(fastBlocks,voteSigns)
+		_,err :=self.chain.InsertChain(fastBlocks)
 		if err != nil{
 			panic(err)
 		}
@@ -422,8 +407,7 @@ func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHe
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,
-	bc *fastchain.FastBlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,bc *fastchain.FastBlockChain) {
 	if env.gasPool == nil {
 		env.gasPool = new(fastchain.GasPool).AddGas(env.header.GasLimit)
 	}
@@ -510,8 +494,8 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 
 func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.FastBlockChain,  gp *fastchain.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
-
-	receipt, _, err := fastchain.FastApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
+	var feeAmount *big.Int;
+	receipt, _, err := fastchain.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed,feeAmount, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
@@ -522,6 +506,9 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 	return nil, receipt.Logs
 }
 
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- NewFastBlockEvent) event.Subscription {
+	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
+}
 
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
 // starts sending event to the given channel.

@@ -92,7 +92,9 @@ func (b *BlockGen) AddTxWithChain(bc *FastBlockChain, tx *types.Transaction) {
 		b.SetCoinbase(common.Address{})
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, _, err := FastApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
+
+	var feeAmount *big.Int;
+	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed,feeAmount, vm.Config{})
 	if err != nil {
 		panic(err)
 	}

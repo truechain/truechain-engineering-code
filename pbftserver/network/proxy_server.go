@@ -10,28 +10,14 @@ import (
 )
 
 
-type SignedVoteMsg struct{
-	FastHeight 	*big.Int
-	Result     	uint        // 0--agree,1--against
-	Sign       	[]byte      // sign for fastblock height + hash + result + Pk
-}
-
-type ConsensusHelp interface {
-	GetRequest(id *big.Int) (*consensus.RequestMsg,error)
-	CheckMsg(msg *consensus.RequestMsg) (bool)
-	ReplyResult(msg *consensus.RequestMsg,res uint) (bool)
-	SignMsg(msg *consensus.RequestMsg) (*SignedVoteMsg)	
-	Broadcast(height *big.Int)
-}
-
 type Server struct {
 	url string
 	node *Node
 	ID	*big.Int
-	help ConsensusHelp
+	help consensus.ConsensusHelp
 }
 
-func NewServer(nodeID string,id *big.Int,help ConsensusHelp) *Server {
+func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp) *Server {
 	node := NewNode(nodeID)
 	server := &Server{node.NodeTable[nodeID], node,id,help}
 
@@ -122,7 +108,7 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	}
 	height := big.NewInt(0)
 	ac := &consensus.ActionIn{
-		AC:		1,
+		AC:		consensus.ActionBroadcast,
 		ID:		server.ID,
 		Height:	height,
 	}

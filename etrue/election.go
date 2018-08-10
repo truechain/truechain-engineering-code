@@ -216,7 +216,7 @@ func (e *Election)elect(snailBeginNumber *big.Int, snailEndNumber *big.Int, comm
 	sortition()
 	e.committeeList[committeeId] = &committee
 	go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, committeeId,nil})
-	go e.committeeFeed.Send(core.CommitteeEvent{committeeId, members})
+	go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{committeeId, members}})
 }
 
 

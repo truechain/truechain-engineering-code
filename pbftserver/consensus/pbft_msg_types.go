@@ -5,6 +5,7 @@ type RequestMsg struct {
 	ClientID   string `json:"clientID"`
 	Operation  string `json:"operation"`
 	SequenceID int64  `json:"sequenceID"`
+	Height	   int64  `json:"Height"`
 }
 
 type ReplyMsg struct {
@@ -13,6 +14,7 @@ type ReplyMsg struct {
 	ClientID  string `json:"clientID"`
 	NodeID    string `json:"nodeID"`
 	Result    string `json:"result"`
+	Height	  int64  `json:"Height"`
 }
 
 type PrePrepareMsg struct {
@@ -35,3 +37,5 @@ const (
 	PrepareMsg MsgType = iota
 	CommitMsg
 )
+
+

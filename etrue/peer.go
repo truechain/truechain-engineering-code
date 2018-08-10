@@ -79,7 +79,7 @@ type PeerInfo struct {
 
 // propEvent is a fast block propagation, waiting for its turn in the broadcast queue.
 type propFastEvent struct {
-	blockSign *BlockAndSign
+	blockSign *types.BlockAndSign
 }
 
 // propEvent is a fruit propagation, waiting for its turn in the broadcast queue.
@@ -400,14 +400,14 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.FastBlock) {
 }
 
 // SendNewFastBlock propagates an entire fast block to a remote peer.
-func (p *peer) SendNewFastBlock(blockSgin *BlockAndSign) error {
+func (p *peer) SendNewFastBlock(blockSgin *types.BlockAndSign) error {
 	p.knownFastBlocks.Add(blockSgin.Block.Hash())
 	return p2p.Send(p.rw, NewFastBlockMsg, []interface{}{blockSgin})
 }
 
 // AsyncSendNewFastBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendNewFastBlock(blockSign *BlockAndSign) {
+func (p *peer) AsyncSendNewFastBlock(blockSign *types.BlockAndSign) {
 	select {
 	case p.queuedFastProps <- &propFastEvent{blockSign: blockSign}:
 		p.knownFastBlocks.Add(blockSign.Block.Hash())

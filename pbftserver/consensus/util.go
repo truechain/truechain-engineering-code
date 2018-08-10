@@ -20,6 +20,20 @@ type ActionIn struct {
 }
 var ActionChan chan *ActionIn = make(chan *ActionIn)
 
+type SignedVoteMsg struct{
+	FastHeight 	*big.Int
+	Result     	uint        // 0--agree,1--against
+	Sign       	[]byte      // sign for fastblock height + hash + result + Pk
+}
+
+type ConsensusHelp interface {
+	GetRequest(id *big.Int) (*RequestMsg,error)
+	CheckMsg(msg *RequestMsg) (bool)
+	ReplyResult(msg *RequestMsg,res uint) (bool)
+	SignMsg(h int64,res uint) (*SignedVoteMsg)	
+	Broadcast(height *big.Int)
+}
+
 func Hash(content []byte) string {
 	h := sha256.New()
 	h.Write(content)
