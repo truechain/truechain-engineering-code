@@ -120,7 +120,7 @@ type worker struct {
 	fruitSub  event.Subscription // for fruit
 	recordSub event.Subscription //for record
 	fruitCh   chan chain.NewFruitsEvent
-	recordCh  chan chain.NewRecordsEvent
+	recordCh  chan chain.NewFastBlocksEvent
 
 	txsCh        chan chain.NewTxsEvent
 	txsSub       event.Subscription
@@ -168,7 +168,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		mux:            mux,
 		txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),  //neo 20180626 for fruit
-		recordCh:       make(chan chain.NewRecordsEvent, txChanSize), //neo 20180626 for record
+		recordCh:       make(chan chain.NewFastBlocksEvent, txChanSize), //neo 20180626 for record
 		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
 		chainDb:        eth.ChainDb(),
@@ -318,7 +318,8 @@ func (self *worker) updateofFruitTx([]*types.Block) {
 }
 
 //Neo 20180626 for record pool event
-func (self *worker) updateofRecordTx([]*types.PbftRecord) {
+
+func (self *worker) updateofRecordTx([]*types.FastBlock) {
 
 }
 
@@ -380,7 +381,7 @@ func (self *worker) update() {
 			*/ 
 			
 		case ev := <-self.recordCh:
-			self.updateofRecordTx(ev.Records)
+			self.updateofRecordTx(ev.FastBlocks)
 
 			//return
 		// System stopped
@@ -582,7 +583,7 @@ func (self *worker) commitNewWork() {
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
 	}
-	PendingRecord, err := self.eth.HybridPool().PendingRecords()
+	PendingRecord, err := self.eth.HybridPool().PendingFastBlocks()
 	if err != nil {
 		return
 	}

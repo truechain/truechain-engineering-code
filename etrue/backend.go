@@ -74,6 +74,7 @@ type Truechain struct {
 	hybridPool *core.SnailPool
 
 	fastBlockchain  *fastchain.FastBlockChain
+	//blockchain      *core.BlockChain
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
 	protocolManager *ProtocolManager
@@ -180,7 +181,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
+	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
 
 	agent := NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 

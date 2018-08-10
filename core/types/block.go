@@ -73,7 +73,7 @@ func (r *PbftRecord) TxHash() common.Hash {return r.header.TxHash}
 
 func (r *PbftRecord) Transactions() Transactions { return r.transactions }
 
-func (r *PbftRecord) CalcHash() common.Hash {
+/*func (r *PbftRecord) CalcHash() common.Hash {
 	return rlpHash([]interface{}{
 		r.header.Number,
 		r.header.TxHash,
@@ -82,10 +82,10 @@ func (r *PbftRecord) CalcHash() common.Hash {
 		r.header.Time,
 		r.sig,
 	})
-}
+}*/
 
 
-func CopyRecord(r *PbftRecord) *PbftRecord {
+/*func CopyRecord(r *PbftRecord) *PbftRecord {
 	header := *r.header
 	if header.Time = new(big.Int); r.header.Time != nil {
 		header.Time.Set(r.header.Time)
@@ -112,10 +112,38 @@ func CopyRecord(r *PbftRecord) *PbftRecord {
 	// TODO: copy sigs
 
 	return record
+}*/
+
+func CopyFastBlock(f *FastBlock) *FastBlock {
+	//TODO
+	header := *f.header
+	if header.Time = new(big.Int); f.header.Time != nil {
+		header.Time.Set(f.header.Time)
+	}
+	if header.Number = new(big.Int); f.header.Number != nil {
+		header.Number.Set(f.header.Number)
+	}
+	if header.GasLimit = 0; f.header.GasLimit != 0 {
+		header.GasLimit=f.header.GasLimit
+	}
+	if header.GasUsed = 0; f.header.GasUsed != 0 {
+		header.GasUsed=f.header.GasUsed
+	}
+
+	fastBlock := &FastBlock{
+		header: &header,
+	}
+
+	if len(f.transactions) != 0 {
+		fastBlock.transactions = make(Transactions, len(f.transactions))
+		copy(fastBlock.transactions, f.transactions)
+	}
+
+	return fastBlock
 }
 
 
-func NewRecord(number *big.Int, txs []*Transaction, sig []*string) *PbftRecord {
+/*func NewRecord(number *big.Int, txs []*Transaction, sig []*string) *PbftRecord {
 
 	r := &PbftRecord{
 		header: &PbftRecordHeader {
@@ -135,7 +163,7 @@ func NewRecord(number *big.Int, txs []*Transaction, sig []*string) *PbftRecord {
 	r.header.Hash = r.CalcHash()
 
 	return r
-}
+}*/
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
@@ -458,6 +486,7 @@ func (b *Block) Transaction(hash common.Hash) *Transaction {
 }
 
 func (b *Block) Fruits() []*Block { return b.fruits }
+func (s *SnailBlock) Fruits() []*SnailBlock { return s.body.Fruits }
 
 func (b *Block) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
 func (b *Block) GasLimit() uint64     { return b.header.GasLimit }

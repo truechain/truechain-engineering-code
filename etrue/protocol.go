@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // Constants to match up protocol versions and messages
@@ -129,11 +130,13 @@ type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
 	PendingFruits() (map[common.Hash]*types.SnailBlock, error)
-	SubscribeNewFruitEvent(chan<- core.NewFruitsEvent) event.Subscription
+	SubscribeNewFruitEvent(chan<- snailchain.NewFruitsEvent) event.Subscription
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
-	AddRemoteRecords([]*types.PbftRecord) []error
-	PendingRecords() (*types.PbftRecord, error)
-	SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
+	//AddRemoteRecords([]*types.PbftRecord) []error
+	//AddRemoteRecords([]*types.PbftRecord) []error
+	PendingFastBlocks() (*types.FastBlock, error)
+	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
+	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
 }
 
 // statusData is the network packet for the status message.

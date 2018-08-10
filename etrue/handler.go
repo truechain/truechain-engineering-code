@@ -98,7 +98,7 @@ type ProtocolManager struct {
 	recordsch      chan core.NewRecordsEvent
 	recordsSub	   event.Subscription
 	//fruit
-	fruitsch       chan core.NewFruitsEvent
+	fruitsch       chan snailchain.NewFruitsEvent
 	fruitsSub	   event.Subscription
     //snailblock
 	//snailBlocksch  chan core.NewSnailBlocksEvent
@@ -262,7 +262,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.txBroadcastLoop()
 
 	//broadcast fruits
-	pm.fruitsch = make(chan core.NewFruitsEvent, fruitChanSize)
+	pm.fruitsch = make(chan snailchain.NewFruitsEvent, fruitChanSize)
 	//pm.fruitsSub = pm.hybridpool.SubscribeNewFruitEvent(pm.fruitsch)
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
