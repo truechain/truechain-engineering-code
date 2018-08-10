@@ -198,17 +198,17 @@ func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 func (ss *PbftServerMgr) work() {
 	for {
 		select {
-		case ac := <-network.ActionChan:
-			if ac.ac == network.ActionFecth {
-				req,err := GetRequest(ac.id)
+		case ac := <-consensus.ActionChan:
+			if ac.AC == consensus.ActionFecth {
+				req,err := GetRequest(ac.ID)
 				if err != nil  && req != nil {
-					return 
+					if server,ok := ss.servers[ac.ID];ok {
+						server.server.PutRequest(req)
+					} 
 				}
-			} else if ac.ac == network.ActionBroadcast {
-				
-			}
-			
-			return 
+			} else if ac.AC == consensus.ActionBroadcast {
+				ss.Broadcast(ac.Height)
+			} 
 		}
 	}
 }

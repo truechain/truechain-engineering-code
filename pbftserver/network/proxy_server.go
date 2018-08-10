@@ -9,18 +9,6 @@ import (
 	"bytes"
 )
 
-const (
-	Agree 			int = iota
-	Against 	
-	ActionFecth 	
-	ActionBroadcast 
-)
-
-type ActionIn struct {
-	ac 		int
-	id 		*big.Int
-}
-var ActionChan chan *ActionIn = make(chan *ActionIn)
 
 type SignedVoteMsg struct{
 	FastHeight 	*big.Int
@@ -132,7 +120,13 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	} else {
 		// wrong state
 	}
-	ActionChan <- &ActionIn{1,server.ID}
+	height := big.NewInt(0)
+	ac := &consensus.ActionIn{
+		AC:		1,
+		ID:		server.ID,
+		Height:	height,
+	}
+	consensus.ActionChan <- ac
 }
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 	server.node.MsgEntrance <- msg
