@@ -621,7 +621,6 @@ type FastHeader struct {
 	GasUsed     uint64      `json:"gasUsed"          gencodec:"required"`
 	Time        *big.Int    `json:"timestamp"        gencodec:"required"`
 	Extra       []byte      `json:"extraData"        gencodec:"required"`
-	Sign       *PbftSign
 }
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
@@ -680,7 +679,7 @@ func (h *FastHeader) Size() common.StorageSize {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt, sign *PbftSign) *FastBlock {
+func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt, signs []*PbftSign) *FastBlock {
 	b := &FastBlock{header: CopyFastHeader(header)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -699,17 +698,32 @@ func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt, s
 		b.header.Bloom = CreateBloom(receipts)
 	}
 
-	if sign != nil  {
-		signP := *sign
-		b.header.Sign = &signP
+	if len(receipts) == 0 {
+		b.header.ReceiptHash = EmptyRootHash
+	} else {
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
+		b.header.Bloom = CreateBloom(receipts)
+	}
+
+	if len(signs) != 0 {
+		b.signs = make(PbftSigns, len(signs))
+		copy(b.signs, signs)
 	}
 
 	return b
 }
 
-func (h *FastHeader) SetLeaderSign(sign *PbftSign) {
+func (b *FastBody) SetLeaderSign(sign *PbftSign) {
 	signP := *sign
-	h.Sign = &signP
+	b.Signs = []*PbftSign{}
+	b.Signs = append(b.Signs,&signP)
+}
+
+func (b *FastBody) GetLeaderSign() *PbftSign{
+	if len(b.Signs) > 0 {
+		return b.Signs[0]
+	}
+	return nil
 }
 
 // NewFastBlockWithHeader creates a block with the given header data. The

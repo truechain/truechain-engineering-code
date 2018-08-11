@@ -336,7 +336,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	if err != nil{
 		log.Info("sign error")
 	}
-	fb.Header().SetLeaderSign(voteSign)
+	fb.Body().SetLeaderSign(voteSign)
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
 	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{fb})
 	return err
