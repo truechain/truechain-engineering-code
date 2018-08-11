@@ -189,18 +189,19 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		eth.snailblockchain.SetHead(compat.RewindTo)
 		rawsnaildb.WriteChainConfig(chainDb, snailHash, snailConfig)
 	}
-	eth.bloomIndexer.Start(eth.blockchain)
+	// TODO: start bloom indexer
+	//eth.bloomIndexer.Start(eth.blockchain)
 
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
-	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
+	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.fastBlockchain)
 
 	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
 
 	eth.election = NewElction(eth.fastBlockchain, eth.snailblockchain)
 
-	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine, eth.election)
+	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
 	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.snailPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, eth.agent); err != nil {
 		return nil, err

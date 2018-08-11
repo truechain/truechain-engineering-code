@@ -96,7 +96,7 @@ func NewElction(fc *fastchain.FastBlockChain,sc *snailchain.SnailBlockChain)*Ele
 	// Start the event loop and return
 	go election.loop()
 
-	return nil
+	return election
 }
 
 //Read creation block information and return public key for signature verification
