@@ -45,6 +45,9 @@ type BlockGen struct {
 	receipts []*types.Receipt
 	uncles   []*types.SnailHeader
 
+	fruits   []*types.SnailBlock
+	signs    []*types.PbftSign
+
 	config *params.ChainConfig
 	engine consensus.Engine
 }
@@ -201,7 +204,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine 
 
 		if b.engine != nil {
 			// TODO: add fruits support
-			block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, statedb, b.txs, b.uncles, b.receipts, nil)
+			block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, statedb, b.uncles, b.fruits, b.signs)
 			// Write state changes to db
 			root, err := statedb.Commit(config.IsEIP158(b.header.Number))
 			if err != nil {

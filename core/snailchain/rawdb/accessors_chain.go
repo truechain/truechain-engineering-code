@@ -330,7 +330,7 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.SnailB
 	if body == nil {
 		return nil
 	}
-	return types.NewSnailBlockWithHeader(header).WithBody(body)
+	return types.NewSnailBlockWithHeader(header).WithBody(body.Fruits, body.Signs, nil)
 }
 
 // WriteBlock serializes a block into the database, header and body separately.

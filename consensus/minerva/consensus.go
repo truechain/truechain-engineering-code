@@ -757,12 +757,12 @@ func (ethash *Minerva) Finalize(chain consensus.ChainReader, header *types.Heade
 	return nil, nil
 }
 func (ethash *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader, state *state.StateDB,
-	txs []*types.Transaction, uncles []*types.SnailHeader, receipts []*types.Receipt, fruits []*types.SnailBlock) (*types.SnailBlock, error) {
+	 uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
 
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
 	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
-	return types.NewSnailBlock(header, fruits[1].Body()), nil
+	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,

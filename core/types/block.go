@@ -37,6 +37,7 @@ import (
 var (
 	EmptyRootHash  = DeriveSha(Transactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
+	EmptySignHash = CalcSignHash(nil)
 )
 
 type PbftRecordHeader struct {
@@ -425,13 +426,6 @@ func CopyHeader(h *Header) *Header {
 	return &cpy
 }
 
-// TODO: implement copy function
-func CopyFruit(f *SnailBlock) *SnailBlock {
-
-	b := NewSnailBlock(f.Header(), f.Body())
-
-	return b
-}
 
 // DecodeRLP decodes the Ethereum
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
@@ -479,7 +473,6 @@ func (b *Block) Transaction(hash common.Hash) *Transaction {
 }
 
 func (b *Block) Fruits() []*Block { return b.fruits }
-func (s *SnailBlock) Fruits() []*SnailBlock { return s.body.Fruits }
 
 func (b *Block) Number() *big.Int     { return new(big.Int).Set(b.header.Number) }
 func (b *Block) GasLimit() uint64     { return b.header.GasLimit }
@@ -534,6 +527,10 @@ func (c *writeCounter) Write(b []byte) (int, error) {
 
 func CalcUncleHash(uncles []*Header) common.Hash {
 	return rlpHash(uncles)
+}
+
+func CalcSignHash(signs []*PbftSign) common.Hash {
+	return rlpHash(signs)
 }
 
 // WithSeal returns a new block with the data from b but the header replaced with
@@ -917,10 +914,12 @@ type SnailBody struct {
 // Block represents an entire block in the Ethereum blockchain.
 type SnailBlock struct {
 	header *SnailHeader
-	body   *SnailBody
+	//body   *SnailBody
 
 	fruits SnailBlocks
 	signs  PbftSigns
+
+	uncles  []*SnailHeader
 
 	// caches
 	hash atomic.Value
@@ -939,7 +938,9 @@ type SnailBlock struct {
 // "external" block encoding. used for eth protocol, etc.
 type extsnailblock struct {
 	Header *SnailHeader
-	Body   *SnailBody
+	Fruits []*SnailBlock
+	Signs  []*PbftSign
+	//Body   *SnailBody
 	Td     *big.Int
 }
 
@@ -995,26 +996,33 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 // NewSnailBlock creates a new block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
-func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
+func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,  uncles []*SnailHeader)*SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header),
-		body:   body,
-		td:     new(big.Int)}
+		//body:   body,
+		td:     new(big.Int),
+	}
 
-	// the fruits struct is same of snailblock not header 20180804
-	if body.Fruits != nil {
-		b.body.Fruits = make([]*SnailBlock, len(body.Fruits))
-
-		for i := range body.Fruits {
-			//b.body.Fruits[i] = append(b.body.Fruits[i], body.Fruits[i])
-			b.body.Fruits[i] = CopyFruit(body.Fruits[i])
+	if len(fruits) == 0 {
+		b.header.FruitsHash = EmptyRootHash
+	}else {
+		// TODO: get fruits hash
+		b.header.FruitsHash = DeriveSha(Fruits(fruits))
+		b.fruits = make([]*SnailBlock, len(fruits))
+		for i := range fruits {
+			b.fruits[i] = CopyFruit(fruits[i])
 		}
 	}
-	if body.Signs != nil {
-		b.body.Signs = make([]*PbftSign, len(body.Signs))
 
-		for i := range body.Signs {
-			b.body.Signs[i] = CopySnailPbftVoteSigns(body.Signs[i])
+	b.header.UncleHash = EmptyUncleHash
+
+	if len(signs) == 0 {
+		b.header.UncleHash = EmptySignHash
+	} else {
+		b.header.UncleHash = CalcSignHash(signs)
+		b.signs = make([]*PbftSign, len(signs))
+		for i := range signs {
+			b.signs[i] = CopyPbftSign(signs[i])
 		}
 	}
 
@@ -1026,6 +1034,32 @@ func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
 // will not affect the block.
 func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
 	return &SnailBlock{header: CopySnailHeader(header)}
+}
+
+
+// TODO: implement copy function
+func CopyFruit(f *SnailBlock) *SnailBlock {
+	//return NewSnailBlockWithHeader(f.Header()).WithBody(f.fruits, f.signs, f.uncles)
+	b := &SnailBlock{
+		header: CopySnailHeader(f.Header()),
+		td:     new(big.Int),
+	}
+
+	if len(f.fruits) > 0 {
+		b.fruits = make([]*SnailBlock, len(f.fruits))
+		for i := range f.fruits {
+			b.fruits[i] = CopyFruit(f.fruits[i])
+		}
+	}
+
+	if len(f.signs) > 0 {
+		b.signs = make([]*PbftSign, len(f.signs))
+		for i := range f.signs {
+			b.signs[i] = CopyPbftSign(f.signs[i])
+		}
+	}
+
+	return b
 }
 
 // CopyHeader creates a deep copy of a block header to prevent side effects from
@@ -1051,10 +1085,14 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	return &cpy
 }
 
-func CopySnailPbftVoteSigns(s *PbftSign) *PbftSign {
+func CopyPbftSign(s *PbftSign) *PbftSign {
 	cpy := *s
 	if cpy.FastHeight = new(big.Int); s.FastHeight != nil {
 		cpy.FastHeight.Set(s.FastHeight)
+	}
+	if len(s.Sign) > 0 {
+		cpy.Sign = make([]byte, len(s.Sign))
+		copy(cpy.Sign, s.Sign)
 	}
 	return &cpy
 }
@@ -1066,7 +1104,7 @@ func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&eb); err != nil {
 		return err
 	}
-	b.header, b.td, b.body = eb.Header, eb.Td, eb.Body
+	b.header, b.td, b.fruits, b.signs = eb.Header, eb.Td, eb.Fruits, eb.Signs
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
@@ -1075,7 +1113,8 @@ func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
 func (b *SnailBlock) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extsnailblock{
 		Header: b.header,
-		Body:   b.body,
+		Fruits: b.fruits,
+		Signs:  b.signs,
 		Td:     b.td,
 	})
 }
@@ -1104,10 +1143,12 @@ func (b *SnailBlock) ToElect() bool            { return b.header.ToElect }
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool            { return b.header.Fruit }
-func (b *SnailBlock) GetSigns() []*PbftSign    { return b.body.Signs }
+func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
+func (b *SnailBlock) GetSigns() []*PbftSign    { return b.signs }
 
 // Body returns the non-header content of the snailblock.
-func (b *SnailBlock) Body() *SnailBody { return b.body }
+//func (b *SnailBlock) Body() *SnailBody { return b.body }
+func (b *SnailBlock) Body() *SnailBody { return &SnailBody{b.fruits, b.signs} }
 func (b *SnailBlock) HashNoNonce() common.Hash {
 	return b.header.HashNoNonce()
 }
@@ -1130,27 +1171,25 @@ func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 	cpy := *header
 	return &SnailBlock{
 		header: &cpy,
-		body:   b.body,
+		fruits: b.fruits,
+		signs: b.signs,
 	}
 }
 
 // WithBody returns a new snailblock with the given transaction and uncle contents.
-func (b *SnailBlock) WithBody(body *SnailBody) *SnailBlock {
+func (b *SnailBlock) WithBody(fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader) *SnailBlock {
 	block := &SnailBlock{
 		header: b.Header(),
 		//body : 		body,
+		fruits: make([]*SnailBlock, len(fruits)),
+		signs:make([]*PbftSign, len(signs)),
 	}
-	// for fruit ,the fruit struit same of snial block 20180804
+	copy(block.fruits, fruits)
+	copy(block.signs, signs)
+	for i := range uncles {
+		block.uncles[i] = CopySnailHeader(uncles[i])
+	}
 
-	block.body.Fruits = make([]*SnailBlock, len(body.Fruits))
-	for i := range body.Fruits {
-		block.body.Fruits[i] = CopyFruit(body.Fruits[i])
-	}
-
-	block.body.Signs = make([]*PbftSign, len(body.Signs))
-	for i := range body.Signs {
-		b.body.Signs[i] = CopySnailPbftVoteSigns(body.Signs[i])
-	}
 	return block
 }
 

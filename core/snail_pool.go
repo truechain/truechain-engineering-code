@@ -826,7 +826,7 @@ func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.SnailBlock, error
 
 	pending := make(map[common.Hash]*types.SnailBlock)
 	for addr, fruit := range pool.fruitPending {
-		pending[addr] = types.NewSnailBlock(fruit.Header(), fruit.Body())
+		pending[addr] = types.CopyFruit(fruit)
 	}
 
 	return pending, nil

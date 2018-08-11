@@ -88,6 +88,7 @@ type Work struct {
 	txs      []*types.Transaction
 	receipts []*types.Receipt
 	fruits   []*types.SnailBlock // for the fresh
+	signs    []*types.PbftSign
 	body   *types.SnailBody
  
 	createdAt time.Time
@@ -639,7 +640,7 @@ func (self *worker) commitNewWork() {
 
 	// TODO: get fruits from tx pool
 	// Create the new block to seal with the consensus engine
-	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, work.state, work.txs, uncles, work.receipts, work.fruits); err != nil {
+	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, work.state, uncles, work.fruits, work.signs); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
 	}
@@ -684,7 +685,9 @@ func (self *worker) updateSnapshot() {
 	//TODO need add this process
 	self.snapshotBlock = types.NewSnailBlock(
 		self.current.header,
-		self.current.fruits[1].Body(),
+		self.current.fruits,
+		self.current.signs,
+		nil,
 	)
 
 	self.snapshotState = self.current.state.Copy()
