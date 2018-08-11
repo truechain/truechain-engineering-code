@@ -39,6 +39,7 @@ var (
 const (
 	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownSigns    = 1024 // Maximum signs to keep in the known list
+	maxKnownNodeInfo    = 1024 // Maximum node info to keep in the known list
 	maxKnownFruits    = 1024 // Maximum fruits hashes to keep in the known list (prevent DOS)
 	maxKnownSnailBlocks    = 1024 // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
 	maxKnownFastBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
@@ -60,6 +61,11 @@ const (
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
 	maxQueuedFastProps = 4
+
+	// maxQueuedNodeInfo is the maximum number of node info propagations to queue up before
+	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
+	// that might cover uncles should be enough.
+	maxQueuedNodeInfo = 32
 
 	// maxQueuedAnns is the maximum number of block announcements to queue up before
 	// dropping broadcasts. Similarly to block propagations, there's no point to queue
@@ -109,11 +115,13 @@ type peer struct {
 
 	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
 	knownSigns    *set.Set                  // Set of sign  known to be known by this peer
+	knownNodeInfos    *set.Set             // Set of node info  known to be known by this peer
 	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
 	knownSnailBlocks    *set.Set              // Set of snailBlocks hashes known to be known by this peer
 	knownFastBlocks *set.Set              // Set of fast block hashes known to be known by this peer
 	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedSigns   chan []*types.PbftSign // Queue of signs to broadcast to the peer
+	queuedNodeInfo   chan *CryNodeInfo // a node info to broadcast to the peer
 	queuedFruits   chan []*types.SnailBlock // Queue of fruits to broadcast to the peer
 	queuedSnailBlcoks   chan []*types.SnailBlock // Queue of snailBlocks to broadcast to the peer
 	queuedFastProps chan *propFastEvent           // Queue of fast blocks to broadcast to the peer
@@ -131,14 +139,16 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		rw:          rw,
 		version:     version,
 		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:    set.New(),
+		knownTxs:    	set.New(),
 		knownSigns:		set.New(),
-		knownFastBlocks: set.New(),
-		knownFruits: set.New(),
+		knownNodeInfos: 	set.New(),
+		knownFastBlocks: 	set.New(),
+		knownFruits: 		set.New(),
 
 		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
 		queuedSigns:	make(chan []*types.PbftSign,maxQueuedSigns),
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
+		queuedNodeInfo:  make(chan *CryNodeInfo, maxQueuedNodeInfo),
 		queuedFastAnns:  make(chan *types.FastBlock, maxQueuedFastAnns),
 
 		queuedFruit: make(chan *fruitEvent, maxQueuedFruit),
@@ -165,6 +175,13 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast signs", "count", len(signs))
+
+			//add for node info
+		case nodeInfo := <-p.queuedNodeInfo:
+			if err := p.SendNodeInfo(nodeInfo); err != nil {
+				return
+			}
+			p.Log().Trace("Broadcast node info ")
 
 		//add for fruit
 		case fruits := <-p.queuedFruits:
@@ -275,6 +292,17 @@ func (p *peer) MarkSign(hash common.Hash) {
 	}
 	p.knownSigns.Add(hash)
 }
+
+// MarkNodeInfo marks a node info as known for the peer, ensuring that it
+// will never be propagated to this particular peer.
+func (p *peer) MarkNodeInfo(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known node info hash
+	for p.knownNodeInfos.Size() >= maxKnownNodeInfo {
+		p.knownNodeInfos.Pop()
+	}
+	p.knownNodeInfos.Add(hash)
+}
+
 // MarkFruit marks a fruit as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
 func (p *peer) MarkFruit(hash common.Hash) {
@@ -332,6 +360,22 @@ func (p *peer) AsyncSendSigns(signs []*types.PbftSign) {
 		}
 	default:
 		p.Log().Debug("Dropping sign propagation", "count", len(signs))
+	}
+}
+
+//SendNodeInfo sends node info to the peer and includes the hashes
+// in its signs hash set for future reference.
+func (p *peer) SendNodeInfo(nodeInfo *CryNodeInfo) error {
+	p.knownNodeInfos.Add(nodeInfo.Hash())
+	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
+}
+
+func (p *peer) AsyncSendNodeInfo(nodeInfo *CryNodeInfo) {
+	select {
+	case p.queuedNodeInfo <- nodeInfo:
+		p.knownNodeInfos.Add(nodeInfo.Hash())
+	default:
+		p.Log().Debug("Dropping node info propagation")
 	}
 }
 
@@ -671,6 +715,20 @@ func (ps *peerSet) PeersWithoutSign(hash common.Hash) []*peer {
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		if !p.knownSigns.Has(hash) {
+			list = append(list, p)
+		}
+	}
+	return list
+}
+// PeersWithoutNodeInfo retrieves a list of peers that do not have a given node info
+// in their set of known hashes.
+func (ps *peerSet) PeersWithoutNodeInfo(hash common.Hash) []*peer {
+	ps.lock.RLock()
+	defer ps.lock.RUnlock()
+
+	list := make([]*peer, 0, len(ps.peers))
+	for _, p := range ps.peers {
+		if !p.knownNodeInfos.Has(hash) {
 			list = append(list, p)
 		}
 	}
