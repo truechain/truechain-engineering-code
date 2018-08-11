@@ -63,14 +63,17 @@ const (
 	FastBlockChainVersion = 3
 )
 
-
-// BlockChain represents the canonical chain given a database with a genesis
-// block. The Blockchain manages chain imports, reverts, chain reorganisations.
+// CacheConfig contains the configuration values for the trie caching/pruning
+// that's resident in a blockchain.
 type CacheConfig struct {
 	Disabled      bool          // Whether to disable trie write caching (archive node)
 	TrieNodeLimit int           // Memory limit (MB) at which to flush the current in-memory trie to disk
 	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
 }
+
+// BlockChain represents the canonical chain given a database with a genesis
+// block. The Blockchain manages chain imports, reverts, chain reorganisations.
+//
 // Importing blocks in to the block chain happens according to the set of rules
 // defined by the two stage Validator. Processing of blocks is done using the
 // Processor which processes the included transaction. The validation of the state
@@ -138,8 +141,6 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 			TrieTimeLimit: 5 * time.Minute,
 		}
 	}
-
-	//初始化 缓存
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
@@ -161,34 +162,23 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 	}
-	// NewBlockValidator()初始化区块和状态验证器，
-	// NewStateProcessor()初始化区块状态处理器
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
-	// 初始化区块头部链
 	var err error
 		bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
 		if err != nil {
 			return nil, err
 	}
-
-	// 获取创始块
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
 	}
-
-	// 加载最新的状态数据
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
-
-	// 检查当前的状态,确认我们的区块链上面没有非法的区块.
-	// BadHashes是一些手工配置的区块hash值, 用来硬分叉使用的.
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
 	//for hash := range BadHashes {
-	//	//获取header用hash
 	//	if header := bc.GetHeaderByHash(hash); header != nil {
 	//
 	//		// get the canonical block corresponding to the offending header's number
@@ -212,15 +202,11 @@ func (bc *FastBlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
 }
 
-
-// 加载数据库里面的最新的我们知道的区块链状态. 这个方法假设已经获取到锁了.
 // loadLastState loads the last known chain state from the database. This method
 // assumes that the chain manager mutex is held.
 func (bc *FastBlockChain) loadLastState() error {
 	// Restore the last known head block
-	// 返回我们知道的最新的区块的hash
 	head := rawdb.ReadHeadBlockHash(bc.db)
-	// 如果获取到了空.那么认为数据库已经被破坏.那么设置区块链为创世区块.
 	if head == (common.Hash{}) {
 		// Corrupt or empty database, init from scratch
 		log.Warn("Empty database, resetting chain")
@@ -235,7 +221,6 @@ func (bc *FastBlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Make sure the state associated with the block is available
-	// 确认和这个区块的world state是否正确.
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
@@ -284,7 +269,6 @@ func (bc *FastBlockChain) loadLastState() error {
 // above the new head will be deleted and the new one set. In the case of blocks
 // though, the head may be further rewound if block bodies are missing (non-archive
 // nodes after a fast sync).
-// 回溯到之前的块
 func (bc *FastBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
 
@@ -1179,10 +1163,6 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 			bc.reportBlock(block, nil, err)
 			return i, events, coalescedLogs, err
 		}
-
-
-		//根据ValidateBody验证结果，如果是还没有插入本地的区块，但是其父区块在bc.futureBlocks就加入bc.futureBlocks。
-		// 如果父区块是本地区块，但是没有状态，就递归调用bc.insertChain(winner)，直到有状态才插入。
 		// Create a new statedb using the parent block and report an
 		// error if it fails.
 		var parent *types.FastBlock
@@ -1197,7 +1177,6 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 			return i, events, coalescedLogs, err
 		}
 		// Process block using the parent state as reference point.
-		//执行交易
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)//update
 
 
@@ -1207,7 +1186,6 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 			return i, events, coalescedLogs, err
 		}
 		// Validate the state using the default validator
-		// 验证状态
 		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1216,7 +1194,7 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, state) //update
+		status, err := bc.WriteBlockWithState(block, receipts, state)
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
