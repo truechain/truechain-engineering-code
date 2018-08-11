@@ -703,19 +703,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
 		}
-		// Transactions can be processed, parse all of them and deliver to the pool
-		var signs []*types.PbftSign
-		if err := msg.Decode(&signs); err != nil {
+		// PbftSign can be processed, parse all of them and deliver to the queue
+		var sign *types.PbftSign
+		if err := msg.Decode(&sign); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for i, sign := range signs {
-			// Validate and mark the remote transaction
-			if sign == nil {
-				return errResp(ErrDecode, "sign %d is nil", i)
-			}
-			p.MarkSign(sign.FastHash)
+		// Validate and mark the remote PbftSign
+		if sign == nil {
+			return errResp(ErrDecode, "sign is nil")
 		}
-		pm.fetcherFast.EnqueueSigns(p.id,signs)
+		p.MarkSign(sign.Hash())
+		pm.fetcherFast.EnqueueSign(p.id,sign)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
