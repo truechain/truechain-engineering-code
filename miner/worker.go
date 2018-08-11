@@ -191,8 +191,6 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 
 	//  subscribe event for fruit and record
 	//TODO need add snail txpool
-	//worker.fruitSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh) // Neo 20180628 we need change the txsCh for fruit and record
-	//worker.recordSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 
 	go worker.update()
 
@@ -325,11 +323,10 @@ func (self *worker) updateofRecordTx([]*types.FastBlock) {
 }
 
 func (self *worker) update() {
-	defer self.txsSub.Unsubscribe()
+	//defer self.txsSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
 
-	// for fruit and record Neo 20180626
 	defer self.fruitSub.Unsubscribe()
 	defer self.recordSub.Unsubscribe()
 

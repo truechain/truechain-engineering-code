@@ -28,10 +28,6 @@ type NewTxsEvent struct{ Txs []*types.Transaction }
 //for fruit and record
 type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
 
-type NewRecordsEvent struct{ Records []*types.PbftRecord }
-//for snailblock
-type NewSnailBlocksEvent struct{ SnailBlocks []*types.SnailBlock }
-
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
 	Logs []*types.Log
