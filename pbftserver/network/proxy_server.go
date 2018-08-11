@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"net/http"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"encoding/json"
 	"fmt"
 	"bytes"
@@ -18,8 +19,8 @@ type Server struct {
 }
 
 func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
-	verify consensus.ConsensusVerify) *Server {
-	node := NewNode(nodeID,verify)
+	verify consensus.ConsensusVerify,addrs []*types.CommitteeNode) *Server {
+	node := NewNode(nodeID,verify,addrs)
 	server := &Server{node.NodeTable[nodeID], node,id,help}
 
 	server.setRoute()
@@ -97,7 +98,7 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 		fmt.Println(err)
 		return
 	}
-	server.node.GetReply(&msg)
+	// server.node.GetReply(&msg)
 	server.handleResult(&msg)
 }
 func (server *Server) handleResult(msg *consensus.ReplyMsg) {
