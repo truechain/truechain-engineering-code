@@ -1646,3 +1646,7 @@ func (bc *FastBlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) even
 func (bc *FastBlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
+
+func (bc *FastBlockChain) GetSnailHeightByFastHeight(fh *big.Int) *big.Int{
+	return nil
+}

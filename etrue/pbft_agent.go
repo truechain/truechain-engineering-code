@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/gob"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 const (
@@ -33,8 +34,8 @@ const (
 
 type PbftAgent struct {
 	config *params.ChainConfig
-	chain   *fastchain.FastBlockChain
-
+	fastChain   *fastchain.FastBlockChain
+	snailChain *snailchain.SnailBlockChain
 	engine consensus.Engine
 	eth     Backend
 	signer types.Signer
@@ -48,7 +49,7 @@ type PbftAgent struct {
 
 	currentMu sync.Mutex
 	mux          *event.TypeMux
-	eventMux      *event.TypeMux
+	eventMux     *event.TypeMux
 
 	agentFeed       event.Feed
 	nodeInfoFeed 	event.Feed
@@ -58,10 +59,12 @@ type PbftAgent struct {
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
+	SnailBlockCh  chan core.SnailChainHeadEvent
 
 	electionSub event.Subscription
 	committeeSub event.Subscription
 	PbftNodeSub *event.TypeMuxSubscription
+	snailBlockSub event.Subscription
 
 	//cryNodeInfo   *CryNodeInfo
 	committeeNode *types.CommitteeNode	//node info
@@ -70,6 +73,8 @@ type PbftAgent struct {
 	//snapshotMu    sync.RWMutex
 	//snapshotState *state.StateDB
 	//snapshotBlock *types.FastBlock
+	MinSnailBlockHeight  *big.Int
+	MaxSnailBlockHeight  *big.Int
 }
 
 type AgentWork struct {
@@ -112,17 +117,23 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		engine:         	engine,
 		eth:            	eth,
 		//mux:            	mux,
-		chain:          	eth.FastBlockChain(),
+		fastChain:          	eth.FastBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		election: election,
 	}
+	/*fb :=self.fastChain.CurrentBlock()
+	fb  -> sb hegith*/
+	a := big.NewInt(11)
+	self.MinSnailBlockHeight= a
+
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-
+	self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
 	// Subscribe
 	go self.loop()
 	return self
 }
+
 
 func (self *PbftAgent) loop(){
 	for {
@@ -146,11 +157,16 @@ func (self *PbftAgent) loop(){
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+
 			if  self.IsCommitteeMember(self.NextCommitteeInfo){
 				self.ReceivePbftNode(cryNodeInfo)
 			}
+
+		case snailBlock := <-self.SnailBlockCh:
+			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number
 		}
 	}
+
 }
 
 func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool{
@@ -257,7 +273,7 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 	var fastBlock  *types.FastBlock
 
 	tstart := time.Now()
-	parent := self.chain.CurrentBlock()
+	parent := self.fastChain.CurrentBlock()
 
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
@@ -278,7 +294,7 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		Time:       big.NewInt(tstamp),
 	}
 
-	if err := self.engine.PrepareFast(self.chain, header); err != nil {
+	if err := self.engine.PrepareFast(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return	fastBlock,err
 	}
@@ -292,13 +308,21 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		return	fastBlock,err
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.chain)
+	work.commitTransactions(self.mux, txs, self.fastChain)
 
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
-	if fastBlock, err = self.engine.FinalizeFast(self.chain, header, work.state, work.txs, work.receipts); err != nil {
+	if fastBlock, err = self.engine.FinalizeFast(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
+	}
+	snailHegiht :=self.fastChain.GetSnailHeightByFastHeight(
+		self.fastChain.CurrentBlock().Header().Number)
+	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
+	if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=12{
+		fastBlock.Header().SnailNumber = snailHegiht
+		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
+		fastBlock.Header().SnailHash =sb.Hash()
 	}
 	return	fastBlock,nil
 }
@@ -310,8 +334,8 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 		FastHeight:fb.Header().Number,
 		FastHash:fb.Hash(),
 	}
-	msgByte := voteSign.PrepareData()//dd
-	hash :=RlpHash(msgByte)
+	data := voteSign.PrepareData()//dd
+	hash :=RlpHash(data)
 	var err error
 	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
 	if err != nil{
@@ -324,7 +348,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 }
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
-	bc := self.chain
+	bc := self.fastChain
 	// get current head
 	var parent *types.FastBlock
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
@@ -377,7 +401,7 @@ func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.Fas
 	}
 	if 	voteNum > 2*len(members)/3 {
 		fastBlocks	:= []*types.FastBlock{fb}
-		_,err :=self.chain.InsertChain(fastBlocks)
+		_,err :=self.fastChain.InsertChain(fastBlocks)
 		if err != nil{
 			panic(err)
 		}
@@ -386,7 +410,7 @@ func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.Fas
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
-	state, err := self.chain.StateAt(parent.Root())
+	state, err := self.fastChain.StateAt(parent.Root())
 	if err != nil {
 		return err
 	}
