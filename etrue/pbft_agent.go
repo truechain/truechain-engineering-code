@@ -59,7 +59,7 @@ type PbftAgent struct {
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
-	SnailBlockCh  chan core.SnailChainHeadEvent
+	SnailBlockCh  chan snailchain.ChainHeadEvent
 
 	electionSub event.Subscription
 	committeeSub event.Subscription

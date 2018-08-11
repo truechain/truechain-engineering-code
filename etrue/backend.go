@@ -73,6 +73,9 @@ type Truechain struct {
 
 	snailPool *core.SnailPool
 
+	agent *PbftAgent
+	election *Election
+
 	fastBlockchain  *fastchain.FastBlockChain
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -182,9 +185,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.blockchain)
 
-	agent := NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine, NewElction())
+	eth.election = NewElction(eth.fastBlockchain, eth.snailblockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.snailPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, agent); err != nil {
+	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine, eth.election)
+
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.snailPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, eth.agent); err != nil {
 		return nil, err
 	}
 	//TODO should add 20180805

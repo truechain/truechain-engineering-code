@@ -67,14 +67,14 @@ type Election struct {
 }
 
 
-func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.SnailBlockChain)*Election {
+func NewElction(fc *fastchain.FastBlockChain,sc *snailchain.SnailBlockChain)*Election {
 
 	// init
 	election := &Election{
 
 		committeeList:    make(map[*big.Int]*Committee),
-		fastchain:		fastchain,
-		snailchain:		snailchain,
+		fastchain:		fc,
+		snailchain:		sc,
 		fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize) ,
 		snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
 
