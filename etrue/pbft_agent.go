@@ -35,43 +35,42 @@ type PbftAgent struct {
 	config *params.ChainConfig
 	chain   *fastchain.FastBlockChain
 
-	CommitteeInfo *types.CommitteeInfo
-	NextCommitteeInfo *types.CommitteeInfo
-
 	engine consensus.Engine
 	eth     Backend
 	signer types.Signer
 	current *AgentWork
-	
+
+	CommitteeInfo *types.CommitteeInfo
+	NextCommitteeInfo *types.CommitteeInfo
+
 	server types.PbftServerProxy
+	election	*Election
 
 	currentMu sync.Mutex
 	mux          *event.TypeMux
+	eventMux      *event.TypeMux
 
 	agentFeed       event.Feed
 	nodeInfoFeed 	event.Feed
 	NewFastBlockFeed	event.Feed
 	scope        event.SubscriptionScope
 
-	CommitteeCh  chan core.CommitteeEvent
-	committeeSub event.Subscription
 	ElectionCh  chan core.ElectionEvent
+	CommitteeCh  chan core.CommitteeEvent
+	CryNodeInfoCh 	chan *CryNodeInfo
+
 	electionSub event.Subscription
-
-	eventMux      *event.TypeMux
+	committeeSub event.Subscription
 	PbftNodeSub *event.TypeMuxSubscription
-	election	*Election
 
-	cryNodeInfo   *CryNodeInfo
+	//cryNodeInfo   *CryNodeInfo
 	committeeNode *types.CommitteeNode	//node info
 	privateKey *ecdsa.PrivateKey
 
-	snapshotMu    sync.RWMutex
-	snapshotState *state.StateDB
-	snapshotBlock *types.FastBlock
-
+	//snapshotMu    sync.RWMutex
+	//snapshotState *state.StateDB
+	//snapshotBlock *types.FastBlock
 }
-
 
 type AgentWork struct {
 	config *params.ChainConfig
@@ -120,6 +119,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
 
+	// Subscribe
 	go self.loop()
 	return self
 }
@@ -136,26 +136,27 @@ func (self *PbftAgent) loop(){
 				self.CommitteeInfo.SetCommitteeInfo(nil)
 			}
 		case ch := <-self.CommitteeCh:
-			if self.CommitteeIncludeNode(ch.CommitteeInfo){
+			if self.IsCommitteeMember(ch.CommitteeInfo){
 				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
-
-				self.server.PutCommittee(ch.CommitteeInfo)
 				self.SendPbftNode(ch.CommitteeInfo)
+				self.server.PutCommittee(ch.CommitteeInfo)
 			}
 
-			/*self.server.Notify(ch.pbftAction.Id,ch.pbftAction.action)
-			self.Start()//receive nodeInfo from other member
-			self.SendPbftNode()//bro*/
-
-			/*type CommitteeEvent struct {
-				CommitteeId	*big.Int
-				Members []*types.CommitteeMember
-			}*/
+		//receive nodeInfo
+		case cryNodeInfo := <-self.CryNodeInfoCh:
+			//transpond  cryNodeInfo
+			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+			if  self.IsCommitteeMember(self.NextCommitteeInfo){
+				self.ReceivePbftNode(cryNodeInfo)
+			}
 		}
 	}
 }
 
-func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *types.CommitteeInfo) bool{
+func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool{
+	if committeeInfo==nil || len(committeeInfo.Members) <0 {
+		return false
+	}
 	pubKey := self.committeeNode.CM.Publickey
 	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
@@ -166,9 +167,9 @@ func (self *PbftAgent) CommitteeIncludeNode(committeeInfo *types.CommitteeInfo) 
 	return false
 }
 
-func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo)	*CryNodeInfo{
-	var cryNodeInfo *CryNodeInfo
-	nodeByte,_ :=ToByte(pbftAgent.committeeNode)//dd
+func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo{
+	cryNodeInfo := new(CryNodeInfo)
+	nodeByte,_ :=ToByte(pbftAgent.committeeNode)
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -187,28 +188,32 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo)	*Cr
 
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
 
-	pbftAgent.cryNodeInfo =cryNodeInfo
+	//pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
 
-func (pbftAgent *PbftAgent) Start() {
+/*func (pbftAgent *PbftAgent) Start() {
 	// broadcast mined blocks
 	pbftAgent.PbftNodeSub = pbftAgent.eventMux.Subscribe(NewPbftNodeEvent{})
 	go pbftAgent.handle()
 }
-
 func  (pbftAgent *PbftAgent) handle(){
 	for obj := range pbftAgent.PbftNodeSub.Chan() {
 		switch ev := obj.Data.(type) {
 		case NewPbftNodeEvent:
 			//if committee member receive and handle info
-			if pbftAgent.CommitteeIncludeNode(pbftAgent.CommitteeInfo){
+			if pbftAgent.IsCommitteeMember(pbftAgent.CommitteeInfo){
 				pbftAgent.ReceivePbftNode(ev.cryNodeInfo)
 			}
 			//transpond  info
 			pbftAgent.SendPbftNode(pbftAgent.CommitteeInfo)
 		}
 	}
+}*/
+
+func (pbftAgent *PbftAgent)  AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error{
+	pbftAgent.CryNodeInfoCh <- cryNodeInfo
+	return nil
 }
 
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.CommitteeNode {
@@ -218,17 +223,16 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		log.Info("SigToPub error.")
 		return nil
 	}
-	if pbftAgent.CommitteeInfo.Id !=cryNodeInfo.CommitteeId{
+	/*if pbftAgent.CommitteeInfo.Id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
-	}
+	}*/
+	pks :=pbftAgent.election.GetByCommitteeId(cryNodeInfo.CommitteeId)
 	verifyFlag := false
-
-	for _, member:= range pbftAgent.CommitteeInfo.Members{
-		if !bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-			continue
-		}else{
+	for _, pk:= range  pks{
+		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
 			verifyFlag = true
+			break
 		}
 	}
 	if !verifyFlag{
@@ -236,18 +240,16 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		return nil
 	}
 	priKey :=ecies.ImportECDSA(pbftAgent.privateKey)//ecdsa-->ecies
-	for _,info := range cryNodeInfo.Nodes{
-		encryptMsg,err :=priKey.Decrypt(info, nil, nil)
+	for _,encryptNode := range cryNodeInfo.Nodes{
+		decryptNode,err :=priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil{// can Decrypt by priKey
-			var node *types.CommitteeNode //receive nodeInfo
-			FromByte(encryptMsg,node)
+			node := new(types.CommitteeNode) //receive nodeInfo
+			FromByte(decryptNode,node)
 			pbftAgent.server.PutNodes(cryNodeInfo.CommitteeId,  []*types.CommitteeNode{node})
 			return node
 		}
 	}
 	return nil
-
-
 }
 
 //generateBlock and broadcast
@@ -323,9 +325,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	bc := self.chain
-
 	// get current head
-
 	var parent *types.FastBlock
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 
@@ -338,7 +338,6 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	}
 
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
-
 	state, err := bc.State()
 	if err != nil{
 		return false,err
