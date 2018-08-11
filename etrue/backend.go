@@ -203,7 +203,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.snailPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, eth.agent); err != nil {
+	if eth.protocolManager, err = NewProtocolManager(
+		eth.chainConfig, config.SyncMode, config.NetworkId,
+		eth.eventMux, eth.txPool, eth.snailPool, eth.engine,
+		eth.fastBlockchain, eth.snailblockchain,
+		chainDb, eth.agent); err != nil {
 		return nil, err
 	}
 	//TODO should add 20180805

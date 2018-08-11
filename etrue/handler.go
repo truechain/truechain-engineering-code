@@ -74,7 +74,6 @@ type ProtocolManager struct {
 	acceptFruits uint32
 	acceptSnailBlocks uint32
 	txpool      txPool
-	//hybridpool  hybridPool
 	SnailPool     SnailPool
 	blockchain  *core.BlockChain
 	fastBlockchain  *fastchain.FastBlockChain
@@ -91,20 +90,18 @@ type ProtocolManager struct {
 	eventMux      *event.TypeMux
 	txsCh         chan core.NewTxsEvent
 	txsSub        event.Subscription
-	//records
-	recordsch      chan core.NewRecordsEvent
-	recordsSub	   event.Subscription
+
 	//fruit
 	fruitsch       chan snailchain.NewFruitsEvent
 	fruitsSub	   event.Subscription
-    //snailblock
-	//snailBlocksch  chan core.NewSnailBlocksEvent
+
 	snailBlocksch  chan snailchain.ChainEvent
 	snailBlocksSub	   event.Subscription
 
 	//fast block
 	minedFastCh         chan core.NewFastBlockEvent
 	minedFastSub        event.Subscription
+
 	pbSignsCh         chan core.PbftSignEvent
 	pbSignsSub        event.Subscription
     //fruit
@@ -125,15 +122,14 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, fastBlockchain *fastchain.FastBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, fastBlockchain *fastchain.FastBlockChain, snailchain *snailchain.SnailBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
 		eventMux:    mux,
 		txpool:      txpool,
-		//hybridpool:  hybridpool,
 		SnailPool:  SnailPool,
-		blockchain:  blockchain,
+		snailchain:  snailchain,
 		fastBlockchain:	 fastBlockchain,
 		chainconfig: config,
 		peers:       newPeerSet(),
@@ -197,7 +193,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return nil, errIncompatibleConfig
 	}
 	// Construct the different synchronisation mechanisms
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
+	// TODO: support downloader func.
+	//manager.downloader = downloader.New(mode, chaindb, manager.eventMux, nil, nil, manager.removePeer)
 
 	fastValidator := func(header *types.FastHeader) error {
 		//mecMark how to get ChainFastReader
