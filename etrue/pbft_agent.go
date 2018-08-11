@@ -73,7 +73,7 @@ type PbftAgent struct {
 	//snapshotMu    sync.RWMutex
 	//snapshotState *state.StateDB
 	//snapshotBlock *types.FastBlock
-	MinSnailBlockHeight  *big.Int
+	//MinSnailBlockHeight  *big.Int
 	MaxSnailBlockHeight  *big.Int
 }
 
@@ -121,11 +121,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, en
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		election: election,
 	}
-	/*fb :=self.fastChain.CurrentBlock()
-	fb  -> sb hegith*/
-	a := big.NewInt(11)
-	self.MinSnailBlockHeight= a
-
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
 	self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
