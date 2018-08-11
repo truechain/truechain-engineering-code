@@ -6,9 +6,9 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"encoding/json"
-	"math/big"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"math/big"
 )
 
 // Committee is an committee info in the state of the genesis block.
@@ -43,17 +43,17 @@ type PbftSign struct {
 	Sign       []byte      // sign for fastblock height + hash + result
 }
 
-type PbftAgent interface {
+type PbftAgentProxy interface {
 	FetchFastBlock() (*FastBlock, error)
 	VerifyFastBlock(*FastBlock) error
 	BroadcastFastBlock(*FastBlock) error
-	BroadcastSign(sign []*PbftSign,block *FastBlock) error
+	BroadcastSign(sign *PbftSign,block *FastBlock) error
 }
 
-type PbftServer interface {
+type PbftServerProxy interface {
+	PutCommittee(committeeInfo *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
-
 }
 
 func (voteSign *PbftSign) PrepareData() []byte {
@@ -94,4 +94,19 @@ func (g *Committee) UnmarshalJSON(input []byte) error {
 		g.PubKey = *dec.PubKey
 	}
 	return nil
+}
+
+// Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *PbftSign) Hash() common.Hash {
+	return rlpHash(h)
+}
+
+type CommitteeInfo struct {
+	Id *big.Int
+	Members []*CommitteeMember
+}
+
+func (committeeInfo *CommitteeInfo) SetCommitteeInfo(newCommitteeInfo *CommitteeInfo){
+	committeeInfo =newCommitteeInfo
 }

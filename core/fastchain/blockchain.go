@@ -917,16 +917,19 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	batch := bc.db.NewBatch()
 	rawdb.WriteBlock(batch, block)
 
-	//create BlockReward
-	br := &types.BlockReward{
-		FastHash:block.Hash(),
-		FastNumber:block.Number(),
-		SnailHash:block.SnailHash(),
-		SnailNumber:block.SnailNumber(),
+	if(block.SnailNumber().Int64() != 0){
+		//create BlockReward
+		br := &types.BlockReward{
+			FastHash:block.Hash(),
+			FastNumber:block.Number(),
+			SnailHash:block.SnailHash(),
+			SnailNumber:block.SnailNumber(),
+		}
+
+		//insert BlockReward to db
+		rawdb.WriteBlockReward(batch,br)
 	}
 
-	//insert BlockReward to db
-	rawdb.WriteBlockReward(batch,br)
 
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
@@ -1088,6 +1091,9 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 	abort, results := bc.engine.VerifyFastHeaders(bc, headers, seals)
 	defer close(abort)
 
+
+
+
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	senderCacher.recoverFromFastBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
@@ -1193,6 +1199,8 @@ func (bc *FastBlockChain) insertChain(chain types.FastBlocks) (int, []interface{
 		// Process block using the parent state as reference point.
 		//执行交易
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)//update
+
+
 
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1429,12 +1437,6 @@ func (bc *FastBlockChain) PostChainEvents(events []interface{}, logs []*types.Lo
 
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
-		
-		// neo 20180628
-		case FruitEvent:
-			//bc.
-		case FruitFleashEvent:
-
 		 	
 		}
 	}
@@ -1555,6 +1557,11 @@ func (bc *FastBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return bc.hc.GetTd(hash, number)
 }
 
+// database by hash and number, caching it if found.
+func (bc *FastBlockChain) GetSigns(hash common.Hash, number uint64) []*types.PbftSign {
+	return nil
+}
+
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the
 // database by hash, caching it if found.
 func (bc *FastBlockChain) GetTdByHash(hash common.Hash) *big.Int {
@@ -1632,4 +1639,8 @@ func (bc *FastBlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) even
 // SubscribeLogsEvent registers a subscription of []*types.Log.
 func (bc *FastBlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
+}
+
+func (bc *FastBlockChain) GetSnailHeightByFastHeight(fh *big.Int) *big.Int{
+	return nil
 }

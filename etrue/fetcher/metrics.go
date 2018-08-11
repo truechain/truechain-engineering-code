@@ -33,6 +33,12 @@ var (
 	propBroadcastDropMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/drop", nil)
 	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/dos", nil)
 
+	propSignInMeter   = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/in", nil)
+	propSignDropMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/drop", nil)
+	propSignInvaildMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/invaild", nil)
+	propSignDOSMeter  = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/dos", nil)
+	propSignFarDropMeter = metrics.NewRegisteredMeter("eth/fetcher/signs/far", nil)
+
 	headerFetchMeter = metrics.NewRegisteredMeter("eth/fetcher/fetch/headers", nil)
 	bodyFetchMeter   = metrics.NewRegisteredMeter("eth/fetcher/fetch/bodies", nil)
 

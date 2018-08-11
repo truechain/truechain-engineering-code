@@ -40,12 +40,9 @@ type PendingLogsEvent struct {
 // PendingStateEvent is posted pre mining and notifies of pending state changes.
 type PendingStateEvent struct{}
 
-// NewMinedBlockEvent is posted when a block has been imported.
-type NewMinedBlockEvent struct{ Block *types.Block }
 type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
 
-// NewMinedFastBlockEvent is posted when a block has been imported.
-type NewMinedFastBlockEvent struct{ Block *types.FastBlock }
+
 
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.SnailBlock }
@@ -54,26 +51,8 @@ type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
+
 type ChainEvent struct {
-	Block *types.Block
-	Hash  common.Hash
-	Logs  []*types.Log
-}
-
-type FastChainEvent struct {
-	Block *types.FastBlock
-	Hash  common.Hash
-	Logs  []*types.Log
-}
-
-type SnailChainEvent struct {
-	Block *types.SnailBlock
-	Hash  common.Hash
-	Logs  []*types.Log
-}
-
-// for fruit event
-type FruitEvent struct {
 	Block *types.Block
 	Hash  common.Hash
 	Logs  []*types.Log
@@ -83,24 +62,27 @@ type ChainSideEvent struct {
 	Block *types.Block
 }
 
-type FastChainSideEvent struct {
-	Block *types.FastBlock
+type ChainHeadEvent struct{ Block *types.Block }
+
+// for fruit event
+type FruitEvent struct {
+	Block *types.Block
+	Hash  common.Hash
+	Logs  []*types.Log
 }
 
-type SnailChainSideEvent struct {
-	Block *types.SnailBlock
-}
 
 type ElectionEvent struct {
-	option 	uint
-	fastnumber	*big.Int
-	snailnumber *big.Int
+	Option 	uint
+	Fastnumber	*big.Int
+	Snailnumber *big.Int
 }
 
+type CommitteeEvent struct {
+	CommitteeInfo *types.CommitteeInfo
+}
 
-type ChainHeadEvent struct{ Block *types.Block }
-type FastChainHeadEvent struct{ Block *types.FastBlock }
+type PbftSignEvent struct{ PbftSigns []*types.PbftSign }
 
-type SnailChainHeadEvent struct{ Block *types.SnailBlock }
-
-type FruitFleashEvent struct{ Block *types.SnailBlock }
+// NewFastBlockEvent is posted when a block has been generate .
+type NewFastBlockEvent struct{ FastBlock *types.FastBlock}

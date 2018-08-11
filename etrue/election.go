@@ -1,138 +1,120 @@
 package etrue
 
 import (
-	"crypto/ecdsa"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
-	"log"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	"crypto/sha256"
-)
-
-var ( 	z  = 100
- 		k  = 10000
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/common"
+	"crypto/ecdsa"
 )
 
 const (
 	fastChainHeadSize = 256
-	chainHeadSize  = 4096
-
+	snailchainHeadSize  = 4096
+	z = 99
+	k  =  10000
+	lamada = 12
 )
+
 type VoteuUse struct {
 	wi 		int64  //Local value
 	seed 	string
 	b   	bool
 	j 		int
-
-}
-
-type CmmitteeStartEvent struct { start  bool}
-type CmmitteeStopEvent struct { stop   bool }
-type ElectionStartEvent struct {election bool}
-
-
-type Signature struct{
-	blockHash common.Hash
-	blockNumber *big.Int
-	hash common.Hash
-	sign []byte
-}
-
-type queue struct{
-	queuesize int   //Array size
-	head int  		//The header and subscript of the queue
-	tail int		//Tail subscript of the queue
-	q []int   		//Array
-}
-
-type CommitteeMember struct{
-	ip		[]string
-	port  	uint
-	coinbase common.Hash
-	pubkey  *ecdsa.PublicKey
 }
 
 type Committee struct {
-	Id 	*big.Int
-	CommitteeList []*Committee
+	id *big.Int
+	beginFastNumber *big.Int
+	endFastNumber *big.Int
+	beginSnailNumber *big.Int
+	endSnailNumber *big.Int
+	members []*types.CommitteeMember
 }
-
-
 
 type Election struct {
-	genesisCommittee []*CommitteeMember
+	genesisCommittee []*types.CommitteeMember
 
-	committee []*CommitteeMember
+	fastNumber       *big.Int
+	snailNumber      *big.Int
+	committee        *Committee
+	committeeList    map[*big.Int]*Committee
 
-	fcEvent		fcEvent
-	scEvent		scEvent
+	committeeId		 *big.Int
+	nextCommitteeId  *big.Int
 
-	fastHead *big.Int
-	snailHead *big.Int
+	startSwitchover  bool //Flag bit for handling event switching
+	number           *big.Int
 
-	switchFeed  event.Feed
+	fastCount		uint
+	snailCount		uint
 
-	fastChainHeadCh  chan core.FastChainHeadEvent
+	electionFeed	event.Feed
+	committeeFeed	event.Feed
+	scope         event.SubscriptionScope
+
+	fastChainHeadCh  chan fastchain.ChainHeadEvent
 	fastChainHeadSub event.Subscription
 
-	chainHeadCh  chan core.ChainHeadEvent
-	chainHeadSub event.Subscription
+	snailChainHeadCh  chan snailchain.ChainHeadEvent
+	snailChainHeadSub event.Subscription
 
 	fastchain *fastchain.FastBlockChain
-	snailchain *core.BlockChain
+	snailchain *snailchain.SnailBlockChain
 }
 
-//Read creation block information and return public key for signature verification
-func  (v VoteuUse)ReadGenesis()[]string{
+
+func NewElction(fc *fastchain.FastBlockChain,sc *snailchain.SnailBlockChain)*Election {
+
+	// init
+	election := &Election{
+
+		committeeList:    make(map[*big.Int]*Committee),
+		fastchain:		fc,
+		snailchain:		sc,
+		fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize) ,
+		snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
+
+	}
+
+	// get genesis committee
+	//fg := fastchain.Genesis()
+	//fg.Hash() = append(election.committeeList)
+	// get current fast/snail
+
+	// get current committee
+
+	// get snail count
+
+	// Subscribe events from blockchain
+	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
+	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+
+	// Start the event loop and return
+	go election.loop()
 
 	return nil
 }
 
-
-func (e *Election) Events() *event.Feed {
-	return &e.switchFeed
-}
-
-type fcEvent interface {
-	AddRemoteFruits([]*types.Block) []error
-	PendingFruits() (map[common.Hash]*types.Block, error)
-	SubscribeNewFastEvent(chan<- core.FastChainHeadEvent) event.Subscription
-}
-
-type scEvent interface {
-	AddRemoteFruits([]*types.Block) []error
-	PendingFruits() (map[common.Hash]*types.Block, error)
-	SubscribeNewChainHeadEvent(chan<- core.ChainHeadEvent) event.Subscription
-}
-
-func (e *Election)start(){
-
-	e.fastChainHeadCh = make(chan core.FastChainHeadEvent, fastChainHeadSize )
-	e.fastChainHeadSub = e.fcEvent.SubscribeNewFastEvent(e.fastChainHeadCh)
-	go e.fastChainHeadLoop()
-
-	e.chainHeadCh = make(chan core.ChainHeadEvent, chainHeadSize)
-	e.chainHeadSub= e.scEvent.SubscribeNewChainHeadEvent(e.chainHeadCh)
-	go e.chainHeadLoop()
+//Read creation block information and return public key for signature verification
+func  (v VoteuUse)ReadGenesis()[]string{
+	return nil
 }
 
 //Calculate your own force unit locally
 func (v VoteuUse)localForce()int64{
-
-
 	w := v.wi
 	//w_i=(D_pf-〖[h]〗_(-k))/u
 	return w
-
 }
 
 //The power function used by the draw function
 func powerf(x float64, n int) float64 {
-	ans := 1.0
 
+	ans := 1.0
 	for n != 0 {
 		if n%2 == 1 {
 			ans *= x
@@ -145,7 +127,6 @@ func powerf(x float64, n int) float64 {
 
 //Factorial function
 func factorial(){
-
 }
 
 //The sum function
@@ -157,177 +138,138 @@ func sigma(j int,k int,wi int,P int64) {
 // the parameters seed, w_i, W, P are required
 func sortition()bool{
 	//j := 0;
-	//
 	//for (seed / powerf(2,seedlen)) ^ [Sigma(j,0,wi,P) , Sigma(j+1,0,wi,P)]{
-	//
 	//j++;
-	//
 	//if  j > N {
 	//return j,true;
 	//	}
 	//}
-
 	return false;
-
-}
-
-//Used for election counting
-func(qu queue) InitQueue(){
-
-	qu.queuesize = z;
-
-	//qu.q = make(int,qu.queuesize)
-
-	qu.tail = 0;
-
-	qu.head = 0;
-
-}
-
-func (qu queue) EnQueue(key int){
-
-	tail := (qu.tail+1) % qu.queuesize //取余保证，当quil=queuesize-1时，再转回0
-
-	if tail == qu.head{
-
-		log.Print("the queue has been filled full!")
-
-	} else {
-
-	qu.q[qu.tail] = key
-
-	qu.tail = tail
-
-	}
-
-}
-
-func (qu queue) gettail() int {
-
-	return qu.tail
-
 }
 
 // Verify checks a raw ECDSA signature.
 // Returns true if it's valid and false if not.
+/*
 func (cm CommitteeMember)Verify(signature []byte)bool {
 	// hash message
 	digest := sha256.Sum256(signature)
 	pubkey := cm.pubkey
 	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
-
 	r, s := new(big.Int), new(big.Int)
 	r.SetBytes(signature[:curveOrderByteSize])
 	s.SetBytes(signature[curveOrderByteSize:])
-
 	return ecdsa.Verify(pubkey,digest[:], r, s)
 
+}
+*/
 
+//Another method for validation
+func (e *Election)VerifySign(FastHeight *big.Int,FastHash common.Hash, msgHash common.Hash, Sign []byte)bool {
+	return true
+}
 
+func (e *Election) VerifyLeaderBlock(height *big.Int, sign []byte) bool  {
+	return true
+}
+
+//Verify the fast chain committee signatures in batches
+func (e *Election) VerifySigns(pvs *[]types.PbftSign) (cfvf *[]types.CommitteeMember) {
+	return cfvf
 }
 
 
-func (e *Election)elect(FastNumber *big.Int, FastHash common.Hash)[]*CommitteeMember {
+// GetCommittee returns the committee members who propose this fast block
+func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember){
 
-	return nil
-}
+	// get fast block from fastchain
+	fb := e.fastchain.GetBlock(FastHash, FastNumber.Uint64())
+	if fb == nil {
 
-func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*CommitteeMember){
+	}
+	// find fast block from committee map
 
-	//if block, ok := e.blockCache.Get(hash); ok {
-	//	return nil,block.(*types.FastBlock)
-	//}
-	//block := rawdb.ReadBlock(e.db, hash, number)
-	//if block == nil {
-	//	return nil,nil
-	//}
-	//
-	//e.blockCache.Add(block.Hash(), block)
-
+	// find fruit/snail block pointer to this fast block from snail chain
+	// find pre committee snail block, calculate committee begin and end number
+	// sorition()
 	return nil, nil
 }
 
-
-func (e *Election) fastChainHeadLoop() {
-	for {
-		select {
-			case ev := <-e.fastChainHeadCh:
-				if ev.Block != nil	{
-
-				}
-
-			// Err() channel will be closed when unsubscribing.
-		case <-e.fastChainHeadSub.Err():
-			return
-		}
-	}
+func (e *Election)GetByCommitteeId(FastNumber *big.Int)  [] *ecdsa.PublicKey{
+	return nil
 }
 
-func (e *Election) chainHeadLoop() {
-	Qu := queue{}
-	Qu.InitQueue()
+//elect
+func (e *Election)elect(snailBeginNumber *big.Int, snailEndNumber *big.Int, committeeId *big.Int) {
+	var members []*types.CommitteeMember
+	committee := Committee {
+		id : committeeId,
+		members : members,
+	}
+	// get all fruits from all snail blocks
+	sortition()
+	e.committeeList[committeeId] = &committee
+	go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, committeeId,nil})
+	go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{committeeId, members}})
+}
+
+
+//Monitor both chains and trigger elections at the same time
+func (e *Election) loop() {
+	// Keep waiting for and reacting to the various events
 	for {
 		select {
 		// Handle ChainHeadEvent
-		case fb := <-e.chainHeadCh:
-			if fb.Block != nil {
+		case se := <-e.snailChainHeadCh:
+			if se.Block != nil {
 				//Record Numbers to open elections
-				Qu.EnQueue(0)
-				if Qu.gettail() == z-1{
+				e.snailCount++
 
-					sortition()
-					//fb.GetBlock()
-					//fb. GetBlockByNumber()
+				if e.snailCount == z {
+					e.snailCount = 0
+					// start switchover
+					e.startSwitchover = true
+					// get end fast block number
+					snailEndNumber := new(big.Int).Sub(se.Block.Number(), big.NewInt(lamada))
+					snailStartNumber := new(big.Int).Sub(snailEndNumber, big.NewInt(z))
+					//sb := e.snailchain.GetBlockByNumber(snailEndNumber.Uint64())
+					//fruits := sb.Fruits()
+					//e.number = new(big.Int).Add(fruits[len(fruits) - 1].Number(), big.NewInt(k))
 
+					e.nextCommitteeId = new(big.Int).Add(se.Block.Number(), common.Big1)
+
+					go e.elect(snailStartNumber, snailEndNumber, e.nextCommitteeId)
+				}
+
+			}
+			// Make logical decisions based on the Number provided by the ChainheadEvent
+		case ev := <-e.fastChainHeadCh:
+			if ev.Block != nil{
+				if e.startSwitchover {
+					if e.number.Cmp(ev.Block.Number()) == 0 {
+						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id,nil})
+
+						// find committee already exist in committee list
+						e.committeeList[e.committee.id] = e.committee
+
+						e.committee = e.committeeList[e.nextCommitteeId]
+						e.committeeId = e.nextCommitteeId
+						e.startSwitchover = false
+
+						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id,nil})
+					}
 				}
 			}
-			// Err() channel will be closed when unsubscribing.
-		case <-e.chainHeadSub.Err():
-			return
 		}
 	}
 }
 
-//Monitor both chains and trigger elections at the same time
-//func (e *Election) loop() {
-//
-//	// Keep waiting for and reacting to the various events
-//	Qu := queue{}
-//	Qu.InitQueue()
-//	for {
-//		select {
-//		// Handle ChainHeadEvent
-//		case fb := <-e.chainHeadCh:
-//			if fb.Block != nil {
-//				//Record Numbers to open elections
-//				Qu.EnQueue(0)
-//				if Qu.gettail() == z-1{
-//
-//					sortition()
-//					//fb.GetBlock()
-//					//fb. GetBlockByNumber()
-//
-//				}
-//			}
-//
-//		case ev := <-e.fastChainHeadCh:
-//			if ev.Block != nil{
-//
-//			}
-//		}
-//	}
-//}
-
-
-func NewElction(fastHead *big.Int,snailHead *big.Int,fastchain *fastchain.FastBlockChain,snailchain *core.BlockChain)*Election {
-
-	e := &Election{
-		fastHead:		fastHead,
-		snailHead: 		snailHead,
-		fastchain:		fastchain,
-		snailchain:		snailchain,
-
-	}
-
-	return e
+func (e *Election) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
+	return e.scope.Track(e.electionFeed.Subscribe(ch))
 }
+
+func (e *Election) SubscribeCommitteeEvent(ch chan<- core.CommitteeEvent) event.Subscription {
+	return e.scope.Track(e.committeeFeed.Subscribe(ch))
+}
+
+
+

@@ -72,7 +72,10 @@ type Truechain struct {
 	// Handlers
 	txPool *core.TxPool
 
-	hybridPool *core.SnailPool
+	snailPool *core.SnailPool
+
+	agent *PbftAgent
+	election *Election
 
 	fastBlockchain  *fastchain.FastBlockChain
 	blockchain      *core.BlockChain
@@ -193,15 +196,17 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	eth.hybridPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
+	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
 
-	agent := NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.election = NewElction(eth.fastBlockchain, eth.snailblockchain)
 
-	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.hybridPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, agent); err != nil {
+	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.EventMux(), eth.engine, eth.election)
+
+	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.snailPool, eth.engine, eth.blockchain, eth.fastBlockchain, chainDb, eth.agent); err != nil {
 		return nil, err
 	}
 	//TODO should add 20180805
-	//eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
+	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
@@ -412,7 +417,7 @@ func (s *Truechain) FastBlockChain() *fastchain.FastBlockChain      { return s.f
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain      { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
-func (s *Truechain) HybridPool() *core.SnailPool { return s.hybridPool }
+func (s *Truechain) HybridPool() *core.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }

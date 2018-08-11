@@ -651,15 +651,12 @@ type FastHeader struct {
 	Time        *big.Int    `json:"timestamp"        gencodec:"required"`
 	Extra       []byte      `json:"extraData"        gencodec:"required"`
 }
-type SignInfo struct {
-	signs  []byte
-	result byte
-}
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
 // a block's data contents (transactions and uncles) together.
 type FastBody struct {
 	Transactions []*Transaction
+	Signs   []*PbftSign
 }
 
 // Block Reward
@@ -674,6 +671,8 @@ type BlockReward struct {
 type FastBlock struct {
 	header       *FastHeader
 	transactions Transactions
+
+	signs        PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -709,7 +708,7 @@ func (h *FastHeader) Size() common.StorageSize {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt) *FastBlock {
+func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt, signs []*PbftSign) *FastBlock {
 	b := &FastBlock{header: CopyFastHeader(header)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -727,7 +726,33 @@ func NewFastBlock(header *FastHeader, txs []*Transaction, receipts []*Receipt) *
 		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
 		b.header.Bloom = CreateBloom(receipts)
 	}
+
+	if len(receipts) == 0 {
+		b.header.ReceiptHash = EmptyRootHash
+	} else {
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
+		b.header.Bloom = CreateBloom(receipts)
+	}
+
+	if len(signs) != 0 {
+		b.signs = make(PbftSigns, len(signs))
+		copy(b.signs, signs)
+	}
+
 	return b
+}
+
+func (b *FastBody) SetLeaderSign(sign *PbftSign) {
+	signP := *sign
+	b.Signs = []*PbftSign{}
+	b.Signs = append(b.Signs,&signP)
+}
+
+func (b *FastBody) GetLeaderSign() *PbftSign{
+	if len(b.Signs) > 0 {
+		return b.Signs[0]
+	}
+	return nil
 }
 
 // NewFastBlockWithHeader creates a block with the given header data. The
@@ -808,7 +833,8 @@ func (b *FastBlock) Extra() []byte            { return common.CopyBytes(b.header
 func (b *FastBlock) Header() *FastHeader { return CopyFastHeader(b.header) }
 
 // Body returns the non-header content of the fastblock.
-func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions} }
+func (b *FastBlock) Body() *FastBody { return &FastBody{b.transactions,b.signs} }
+
 
 // Size returns the true RLP encoded storage size of the fastblock, either by encoding
 // and returning it, or returning a previsouly cached value.
@@ -879,7 +905,7 @@ type SnailHeader struct {
 	Extra       []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
-	// for fruit  20180804
+
 	Fruit bool
 }
 
@@ -892,6 +918,9 @@ type SnailBody struct {
 type SnailBlock struct {
 	header *SnailHeader
 	body   *SnailBody
+
+	fruits SnailBlocks
+	signs  PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -914,7 +943,7 @@ type extsnailblock struct {
 	Td     *big.Int
 }
 
-// 20180804 for snail chain
+
 type SnailBlocks []*SnailBlock
 
 type SnailBlockBy func(b1, b2 *SnailBlock) bool
@@ -969,8 +998,8 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 func NewSnailBlock(header *SnailHeader, body *SnailBody) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header),
-		//body : body,
-		td: new(big.Int)}
+		body:   body,
+		td:     new(big.Int)}
 
 	// the fruits struct is same of snailblock not header 20180804
 	if body.Fruits != nil {
