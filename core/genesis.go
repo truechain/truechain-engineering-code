@@ -39,8 +39,8 @@ var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	snailGenesis snailchain.Genesis
-	fastGenesis  fastchain.Genesis
+	Snail *snailchain.Genesis
+	Fast  *fastchain.Genesis
 }
 
 // SetupGenesisBlock writes or updates the genesis block in db.
@@ -58,16 +58,29 @@ type Genesis struct {
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil {
-		if &genesis.snailGenesis != nil && genesis.snailGenesis.Config == nil {
+		if genesis.Snail != nil && genesis.Snail.Config == nil {
 			return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 		}
-		if &genesis.fastGenesis != nil && genesis.fastGenesis.Config == nil {
-			return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		if genesis.Fast != nil && genesis.Fast.Config == nil {
+			return params.AllEthashProtocolChanges, common.Hash{},  errGenesisNoConfig
 		}
+
+		config, fastHash, err:= fastchain.SetupGenesisBlock(db, genesis.Fast)
+		if err != nil {
+			return config, fastHash, err
+		}
+		config, snailHash, err:= snailchain.SetupGenesisBlock(db, genesis.Snail)
+
+		return config, snailHash, err
 	}
 
-	snailchain.SetupGenesisBlock(db, &genesis.snailGenesis)
-	return fastchain.SetupGenesisBlock(db, &genesis.fastGenesis)
+	config, fastHash, err:= fastchain.SetupGenesisBlock(db, nil)
+	if err != nil {
+		return config, fastHash, err
+	}
+	config, snailHash, err:= snailchain.SetupGenesisBlock(db, nil)
+
+	return config, snailHash, err
 }
 
 // // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
@@ -118,8 +131,8 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 		},
 	}
 	return &Genesis{
-		snailGenesis: snailGenesis,
-		fastGenesis:  fastGenesis,
+		Snail: &snailGenesis,
+		Fast:  &fastGenesis,
 	}
 }
 
@@ -142,8 +155,8 @@ func DefaultRinkebyGenesisBlock() *Genesis {
 		Alloc:      types.DecodePrealloc(rinkebyAllocData),
 	}
 	return &Genesis{
-		snailGenesis: snailGenesis,
-		fastGenesis:  fastGenesis,
+		Snail: &snailGenesis,
+		Fast:  &fastGenesis,
 	}
 }
 
@@ -166,7 +179,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		Alloc:      types.DecodePrealloc(testnetAllocData),
 	}
 	return &Genesis{
-		snailGenesis: snailGenesis,
-		fastGenesis:  fastGenesis,
+		Snail: &snailGenesis,
+		Fast:  &fastGenesis,
 	}
 }

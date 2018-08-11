@@ -12,21 +12,15 @@ import (
 //var _ = (*genesisSpecMarshaling)(nil)
 
 func (g Genesis) MarshalJSON() ([]byte, error) {
-	type Genesis struct {
-		snailGenesis snailchain.Genesis
-		fastGenesis  fastchain.Genesis
-	}
+
 	var enc Genesis
-	enc.snailGenesis = g.snailGenesis
-	enc.fastGenesis = g.fastGenesis
+	enc.Snail = g.Snail
+	enc.Fast = g.Fast
 	return json.Marshal(&enc)
 }
 
 func (g *Genesis) UnmarshalJSON(input []byte) error {
-	type Genesis struct {
-		snailGenesis snailchain.Genesis
-		fastGenesis  fastchain.Genesis
-	}
+
 	var snaildec snailchain.Genesis
 	var fastdec fastchain.Genesis
 	if err := json.Unmarshal(input, &snaildec); err != nil {
@@ -37,10 +31,10 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	}
 
 	if &snaildec != nil {
-		g.snailGenesis = snaildec
+		g.Snail = &snaildec
 	}
 	if &fastdec != nil {
-		g.fastGenesis = fastdec
+		g.Fast = &fastdec
 	}
 	return nil
 }

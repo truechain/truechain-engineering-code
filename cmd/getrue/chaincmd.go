@@ -22,6 +22,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/urfave/cli.v1"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 var (
@@ -180,11 +182,16 @@ func initGenesis(ctx *cli.Context) error {
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
 		}
-		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
+
+		_, hash, err := fastchain.SetupGenesisBlock(chaindb, genesis.Fast)
 		if err != nil {
-			utils.Fatalf("Failed to write genesis block: %v", err)
+			utils.Fatalf("Failed to write fast genesis block: %v", err)
 		}
-		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
+		_, snailHash, err := snailchain.SetupGenesisBlock(chaindb, genesis.Snail)
+		if err != nil {
+			utils.Fatalf("Failed to write snail genesis block: %v", err)
+		}
+		log.Info("Successfully wrote genesis state", "database", name, "hash", hash, "snail", snailHash)
 	}
 	return nil
 }

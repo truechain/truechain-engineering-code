@@ -35,6 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	fastrawdb "github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -74,7 +75,6 @@ type Truechain struct {
 	hybridPool *core.SnailPool
 
 	fastBlockchain  *fastchain.FastBlockChain
-	//blockchain      *core.BlockChain
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
 	protocolManager *ProtocolManager
@@ -121,11 +121,17 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if err != nil {
 		return nil, err
 	}
-	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+
+	chainConfig, genesisHash, genesisErr := fastchain.SetupGenesisBlock(chainDb, config.FastGenesis)
+	snailConfig, snailHash, snailErr := chain.SetupGenesisBlock(chainDb, config.SnailGenesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
+	if _, ok := snailErr.(*params.ConfigCompatError); snailErr != nil && !ok {
+		return nil, snailErr
+	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
+	log.Info("Initialised chain configuration", "config", snailConfig)
 
 	eth := &Truechain{
 		config:         config,
@@ -153,12 +159,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	var (
 		vmConfig        = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-		cacheConfig     = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		//cacheConfig     = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		fastCacheConfig = &fastchain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		)
 
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	//eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 
 	eth.fastBlockchain, err = fastchain.NewFastBlockChain(chainDb, fastCacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
@@ -171,8 +177,14 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-		eth.blockchain.SetHead(compat.RewindTo)
+		eth.fastBlockchain.SetHead(compat.RewindTo)
 		fastrawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+	}
+
+	if compat, ok := snailErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+		eth.snailblockchain.SetHead(compat.RewindTo)
+		rawsnaildb.WriteChainConfig(chainDb, snailHash, snailConfig)
 	}
 	eth.bloomIndexer.Start(eth.blockchain)
 

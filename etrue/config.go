@@ -31,6 +31,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -77,6 +79,8 @@ type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
 	Genesis *core.Genesis `toml:",omitempty"`
+	FastGenesis *fastchain.Genesis
+	SnailGenesis *snailchain.Genesis
 
 	// Protocol options
 	NetworkId uint64 // Network ID to use for selecting peers to connect to
