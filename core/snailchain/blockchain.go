@@ -44,6 +44,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/trie"
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"github.com/truechain/truechain-engineering-code/core"
 )
 
 var (
@@ -1609,7 +1610,7 @@ func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- SnailChainEvent) event.
 }
 
 // SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- SnailChainHeadEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- core.SnailChainHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
