@@ -111,12 +111,12 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	}
 	fmt.Print("\n")
 
-	jsonMsg, err := json.Marshal(msg)
-	if err != nil {
-		return err
-	}
-	send(node.NodeTable[node.View.Primary] + "/reply", jsonMsg)
-
+	// jsonMsg, err := json.Marshal(msg)
+	// if err != nil {
+	// 	return err
+	// }
+	// send(node.NodeTable[node.View.Primary] + "/reply", jsonMsg)
+	node.Broadcast(msg, "/reply")
 	return nil
 }
 
