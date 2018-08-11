@@ -2,6 +2,9 @@ package network
 
 import (
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -35,21 +38,24 @@ type View struct {
 
 const ResolvingTimeDuration = time.Millisecond * 1000 // 1 second.
 
-func NewNode(nodeID string,verify consensus.ConsensusVerify) *Node {
+func NewNode(nodeID string,verify consensus.ConsensusVerify,addrs []*types.CommitteeNode) *Node {
 	const viewID = 10000000000 // temporary.
-
+	if len(addrs) <= 0 {
+		return nil
+	}
+	primary := common.ToHex(crypto.FromECDSAPub(addrs[0].CM.Publickey))
+	nodeTable := make(map[string]string)
+	for _,v := range addrs {
+		name:=common.ToHex(crypto.FromECDSAPub(v.CM.Publickey))
+		nodeTable[name] = fmt.Sprintf("%s:%d",v.IP,v.Port)
+	}
 	node := &Node{
 		// Hard-coded for test.
 		NodeID: nodeID,
-		NodeTable: map[string]string{
-			"Apple": "localhost:1111",
-			"MS": "localhost:1112",
-			"Google": "localhost:1113",
-			"IBM": "localhost:1114",
-		},
+		NodeTable: nodeTable,
 		View: &View{
 			ID: viewID,
-			Primary: "Apple",
+			Primary: primary,
 		},
 		Verify:	verify,
 		// Consensus-related struct
