@@ -30,7 +30,6 @@ type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
 type NewRecordsEvent struct{ Records []*types.PbftRecord }
 
 
-
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
 	Logs []*types.Log
@@ -62,12 +61,6 @@ type FruitEvent struct {
 	Logs  []*types.Log
 }
 
-//For snailChian event
-type SnailChainEvent struct {
-	Block *types.SnailBlock
-	Hash  common.Hash
-	Logs  []*types.Log
-}
 
 type ChainSideEvent struct {
 	Block *types.SnailBlock

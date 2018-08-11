@@ -1437,12 +1437,6 @@ func (bc *FastBlockChain) PostChainEvents(events []interface{}, logs []*types.Lo
 
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
-		
-		// neo 20180628
-		case FruitEvent:
-			//bc.
-		case FruitFleashEvent:
-
 		 	
 		}
 	}

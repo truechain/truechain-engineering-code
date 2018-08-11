@@ -51,26 +51,8 @@ type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
+
 type ChainEvent struct {
-	Block *types.Block
-	Hash  common.Hash
-	Logs  []*types.Log
-}
-
-type FastChainEvent struct {
-	Block *types.FastBlock
-	Hash  common.Hash
-	Logs  []*types.Log
-}
-
-type SnailChainEvent struct {
-	Block *types.SnailBlock
-	Hash  common.Hash
-	Logs  []*types.Log
-}
-
-// for fruit event
-type FruitEvent struct {
 	Block *types.Block
 	Hash  common.Hash
 	Logs  []*types.Log
@@ -80,13 +62,15 @@ type ChainSideEvent struct {
 	Block *types.Block
 }
 
-type FastChainSideEvent struct {
-	Block *types.FastBlock
+type ChainHeadEvent struct{ Block *types.Block }
+
+// for fruit event
+type FruitEvent struct {
+	Block *types.Block
+	Hash  common.Hash
+	Logs  []*types.Log
 }
 
-type SnailChainSideEvent struct {
-	Block *types.SnailBlock
-}
 
 type ElectionEvent struct {
 	Option 	uint
@@ -97,10 +81,6 @@ type ElectionEvent struct {
 type CommitteeEvent struct {
 	CommitteeInfo *types.CommitteeInfo
 }
-type ChainHeadEvent struct{ Block *types.Block }
-type FastChainHeadEvent struct{ Block *types.FastBlock }
-
-type SnailChainHeadEvent struct{ Block *types.SnailBlock }
 
 type PbftSignEvent struct{ PbftSigns []*types.PbftSign }
 

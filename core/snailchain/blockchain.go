@@ -1194,7 +1194,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			coalescedLogs = append(coalescedLogs, logs...)
 			*/
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, SnailChainEvent{block, block.Hash(), logs})
+			events = append(events, ChainEvent{block, block.Hash(), logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1604,12 +1604,12 @@ func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent)
 }
  
 // SubscribeSnailChainEvent registers a subscription of ChainEvent.
-func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- SnailChainEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
 // SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- SnailChainHeadEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
