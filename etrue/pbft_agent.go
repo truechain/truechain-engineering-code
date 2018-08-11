@@ -30,6 +30,8 @@ import (
 const (
 	VoteAgree = iota		//vote agree
 	VoteAgreeAgainst  		//vote against
+
+	chainHeadChanSize = 10
 )
 
 type PbftAgent struct {
@@ -97,6 +99,7 @@ type AgentWork struct {
 type Backend interface {
 	AccountManager() *accounts.Manager
 	FastBlockChain() *fastchain.FastBlockChain
+	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
 }
@@ -111,14 +114,16 @@ type  CryNodeInfo struct {
 	CommitteeId *big.Int
 }
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine, election *Election) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
 		config:         	config,
 		engine:         	engine,
 		eth:            	eth,
-		//mux:            	mux,
 		fastChain:          	eth.FastBlockChain(),
+		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
+		ElectionCh: make(chan core.ElectionEvent, 10),
+		SnailBlockCh: make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
 	}
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
