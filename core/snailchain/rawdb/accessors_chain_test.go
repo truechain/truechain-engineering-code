@@ -146,8 +146,6 @@ func TestBlockStorage(t *testing.T) {
 // Tests that partial block contents don't get reassembled into full blocks.
 func TestPartialBlockStorage(t *testing.T) {
 	db := ethdb.NewMemDatabase()
-	//block := types.NewSnailBlockWithHeader(&types.SnailHeader{Extra: []byte("test header")})
-
 	block := types.NewSnailBlockWithHeader(&types.SnailHeader{
 		Extra:       []byte("test block"),
 		UncleHash:   types.EmptyUncleHash,
