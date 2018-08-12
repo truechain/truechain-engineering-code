@@ -118,7 +118,7 @@ func (c *CryNodeInfo) Hash() common.Hash {
 	return RlpHash(c)
 }
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig,mux *event.TypeMux, engine consensus.Engine, election *Election) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
 		config:         	config,
 		engine:         	engine,
