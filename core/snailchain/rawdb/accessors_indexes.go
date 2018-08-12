@@ -23,72 +23,67 @@ import (
 	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
-// ReadTxLookupEntry retrieves the positional metadata associated with a transaction
-// hash to allow retrieving the transaction or receipt by hash.
-func ReadTxLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
+// ReadFtLookupEntry retrieves the positional metadata associated with a fruit
+// hash to allow retrieving the fruit by hash.
+func ReadFtLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
 	data, _ := db.Get(txLookupKey(hash))
 	if len(data) == 0 {
 		return common.Hash{}, 0, 0
 	}
-	var entry TxLookupEntry
+	var entry FtLookupEntry
 	if err := rlp.DecodeBytes(data, &entry); err != nil {
-		log.Error("Invalid transaction lookup entry RLP", "hash", hash, "err", err)
+		log.Error("Invalid fruit lookup entry RLP", "hash", hash, "err", err)
 		return common.Hash{}, 0, 0
 	}
 	return entry.BlockHash, entry.BlockIndex, entry.Index
 }
 
-// WriteTxLookupEntries stores a positional metadata for every transaction from
-// a block, enabling hash based transaction and receipt lookups.
-func WriteTxLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
-	
-	//TODO should snail transaction 
-	/*
-	for i, tx := range block.Transactions() {
-		entry := TxLookupEntry{
+// WriteFtLookupEntries stores a positional metadata for every fruit from
+// a block, enabling hash based fruit lookups.
+func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
+	for i, tx := range block.Fruits() {
+		entry := FtLookupEntry{
 			BlockHash:  block.Hash(),
 			BlockIndex: block.NumberU64(),
 			Index:      uint64(i),
 		}
 		data, err := rlp.EncodeToBytes(entry)
 		if err != nil {
-			log.Crit("Failed to encode transaction lookup entry", "err", err)
+			log.Crit("Failed to encode fruit lookup entry", "err", err)
 		}
 		if err := db.Put(txLookupKey(tx.Hash()), data); err != nil {
-			log.Crit("Failed to store transaction lookup entry", "err", err)
+			log.Crit("Failed to store fruit lookup entry", "err", err)
 		}
-	}*/
+	}
 }
 
-// DeleteTxLookupEntry removes all transaction data associated with a hash.
-func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
+// DeleteFtLookupEntry removes all fruit data associated with a hash.
+func DeleteFtLookupEntry(db DatabaseDeleter, hash common.Hash) {
 	db.Delete(txLookupKey(hash))
 }
 
-// ReadTransaction retrieves a specific transaction from the database, along with
+// ReadFruit retrieves a specific fruit from the database, along with
 // its added positional metadata.
-func ReadTransaction(db DatabaseReader, hash common.Hash) (*types.Transaction, common.Hash, uint64, uint64) {
-	//blockHash, blockNumber, txIndex := ReadTxLookupEntry(db, hash)
-	blockHash, _, _ := ReadTxLookupEntry(db, hash)
+func ReadFruit(db DatabaseReader, hash common.Hash) (*types.SnailBlock, common.Hash, uint64, uint64) {
+	blockHash, blockNumber, txIndex := ReadFtLookupEntry(db, hash)
+
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}
-	//body := ReadBody(db, blockHash, blockNumber)
-	// TODO should add transaction 20180804
-	/*
-	if body == nil || len(body.Transactions) <= int(txIndex) {
-		log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
+
+	body := ReadBody(db, blockHash, blockNumber)
+
+	if body == nil || len(body.Fruits) <= int(txIndex) {
+		log.Error("Fruit referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
 		return nil, common.Hash{}, 0, 0
 	}
-	return body.Transactions[txIndex], blockHash, blockNumber, txIndex
-	*/
-	return nil, common.Hash{}, 0, 0
+	return body.Fruits[txIndex], blockHash, blockNumber, txIndex
 }
 
 // ReadReceipt retrieves a specific transaction receipt from the database, along with
 // its added positional metadata.
 func ReadReceipt(db DatabaseReader, hash common.Hash) (*types.Receipt, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, receiptIndex := ReadTxLookupEntry(db, hash)
+	blockHash, blockNumber, receiptIndex := ReadFtLookupEntry(db, hash)
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
 	}

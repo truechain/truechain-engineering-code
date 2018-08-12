@@ -839,7 +839,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 		// Write all the data out into the database
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-		rawdb.WriteTxLookupEntries(batch, block)
+		rawdb.WriteFtLookupEntries(batch, block)
 
 		stats.processed++
  
@@ -994,7 +994,7 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 		}
 		// Write the positional metadata for transaction/receipt lookups and preimages
 		
-		///rawdb.WriteTxLookupEntries(batch, block)
+		///rawdb.WriteFtLookupEntries(batch, block)
 		//rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
 
 		status = CanonStatTy
@@ -1367,7 +1367,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])
 		// write lookup entries for hash based transaction/receipt searches
-		rawdb.WriteTxLookupEntries(bc.db, newChain[i])
+		rawdb.WriteFtLookupEntries(bc.db, newChain[i])
 		//TODO need add transaction for snail 20180804
 		//addedTxs = append(addedTxs, newChain[i].Transactions()...)
 	} 
@@ -1382,7 +1382,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	//TODO need add transaction for snail 20180804
 	/*
 	for _, tx := range diff {
-		rawdb.DeleteTxLookupEntry(batch, tx.Hash())
+		rawdb.DeleteFtLookupEntry(batch, tx.Hash())
 	}
 	*/
 	batch.Write()
