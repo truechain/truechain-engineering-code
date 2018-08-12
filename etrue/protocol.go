@@ -57,7 +57,9 @@ const (
 	GetFastBlockBodiesMsg  = 0x05
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
+
 	BlockSignMsg           = 0x08
+	PbftNodeInfoMsg = 0x09
 
 	FruitMsg		   = 0x0a
 	SnailBlockMsg		   = 0x0b
@@ -67,8 +69,6 @@ const (
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
 
-	PbftInfoMsg = 0x18
-	PbftSignMsg = 0x19
 )
 
 type errCode int

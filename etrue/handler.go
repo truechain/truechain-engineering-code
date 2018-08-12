@@ -50,6 +50,8 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
+	signChanSize = 256
+	nodeChanSize = 256
 	fruitChanSize = 256
 	snailBlockChanSize = 256
 )
@@ -104,6 +106,9 @@ type ProtocolManager struct {
 
 	pbSignsCh         chan core.PbftSignEvent
 	pbSignsSub        event.Subscription
+	pbNodeInfoCh         chan NodeInfoEvent
+	pbNodeInfoSub        event.Subscription
+
     //fruit
 	minedFruitSub *event.TypeMuxSubscription
 	//minedsnailBlock
@@ -260,10 +265,15 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedFastSub = pm.agent.SubscribeNewFastBlockEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
 
-	// broadcast transactions
-	pm.pbSignsCh = make(chan core.PbftSignEvent, txChanSize)
+	// broadcast sign
+	pm.pbSignsCh = make(chan core.PbftSignEvent, signChanSize)
 	pm.pbSignsSub = pm.agent.SubscribeNewPbftSignEvent(pm.pbSignsCh)
 	go pm.pbSignBroadcastLoop()
+
+	// broadcast node info
+	pm.pbNodeInfoCh = make(chan NodeInfoEvent, nodeChanSize)
+	pm.pbNodeInfoSub = pm.agent.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
+	go pm.pbNodeInfoBroadcastLoop()
 
 	// broadcast mined fruits
 	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
@@ -284,7 +294,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
 	pm.pbSignsSub.Unsubscribe()
-	pm.minedFastSub.Unsubscribe()
+	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
@@ -699,6 +709,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		pm.txpool.AddRemotes(txs)
 
+	case msg.Code == PbftNodeInfoMsg:
+		// node arrived, make sure we have a valid and fresh chain to handle them
+		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
+			break
+		}
+		// CryNodeInfo can be processed, parse all of them and deliver to the queue
+		var nodeInfo *CryNodeInfo
+		if err := msg.Decode(&nodeInfo); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// Validate and mark the remote PbftSign
+		if nodeInfo == nil {
+			return errResp(ErrDecode, "sign is nil")
+		}
+		p.MarkNodeInfo(nodeInfo.Hash())
+		pm.agent.AddRemoteNodeInfo(nodeInfo)
+
 	case msg.Code == BlockSignMsg:
 		// signs arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -811,6 +838,22 @@ func (pm *ProtocolManager) BroadcastPbSigns(pbSigns types.PbftSigns) {
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, signs := range pbSignSet {
 		peer.AsyncSendSigns(signs)
+	}
+}
+
+// BroadcastPbNodeInfo will propagate a batch of CryNodeInfo to all peers which are not known to
+// already have the given CryNodeInfo.
+func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
+	var nodeInfoSet = make(map[*peer]NewPbftNodeEvent)
+
+	// Broadcast transactions to a batch of peers not knowing about it
+	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
+	for _, peer := range peers {
+		nodeInfoSet[peer] = NewPbftNodeEvent{nodeInfo}
+	}
+	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers))
+	for peer, nodeInfo := range nodeInfoSet {
+		peer.AsyncSendNodeInfo(nodeInfo.cryNodeInfo)
 	}
 }
 
@@ -963,6 +1006,20 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		}
 	}
 }
+
+func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
+	for {
+		select {
+		case event := <-pm.pbNodeInfoCh:
+			pm.BroadcastPbNodeInfo(event.nodeInfo)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-pm.pbNodeInfoSub.Err():
+			return
+		}
+	}
+}
+
 // Mined fruit loop
 func (pm *ProtocolManager) minedFruitLoop() {
 	// automatically stops if unsubscribe
