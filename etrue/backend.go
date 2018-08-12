@@ -41,7 +41,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
-	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
@@ -168,6 +167,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		)
 
 	//eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	eth.fastBlockchain, err = fastchain.NewFastBlockChain(chainDb, fastCacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
@@ -316,11 +318,12 @@ func (s *Truechain) APIs() []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
 			Public:    false,
-		}, {
-			Namespace: "eth",
-			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
-			Public:    true,
+		//}, {
+		// TODO: support fitlers later
+		//	Namespace: "eth",
+		//	Version:   "1.0",
+		//	Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
+		//	Public:    true,
 		}, {
 			Namespace: "admin",
 			Version:   "1.0",
@@ -470,8 +473,9 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 // Truechain protocol.
 func (s *Truechain) Stop() error {
 	s.bloomIndexer.Close()
-	s.blockchain.Stop()
+	//s.blockchain.Stop()
 	s.fastBlockchain.Stop()
+	s.snailblockchain.Stop()
 	s.protocolManager.Stop()
 	if s.lesServer != nil {
 		s.lesServer.Stop()
