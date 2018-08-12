@@ -187,7 +187,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if compat, ok := snailErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
 		eth.snailblockchain.SetHead(compat.RewindTo)
-		rawsnaildb.WriteChainConfig(chainDb, snailHash, snailConfig)
+		rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
 	}
 	// TODO: start bloom indexer
 	//eth.bloomIndexer.Start(eth.blockchain)

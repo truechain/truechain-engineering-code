@@ -15,7 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package rawdb contains a collection of low level database accessors.
-package rawsnaildb
+package rawdb
 
 import (
 	"encoding/binary"
