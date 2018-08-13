@@ -414,7 +414,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	}
 }*/
 
-func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBlock){
+func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBlock) error{
 	fastBlocks	:= []*types.FastBlock{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
@@ -423,6 +423,7 @@ func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBl
 	self.agentFeed.Send(core.PbftSignEvent{
 		PbftSign:	voteSign,
 	})
+	return err
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
