@@ -27,17 +27,17 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.FastBlock, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	println(pap.Name, "FetchFastBlock")
-	header := new(types.FastHeader)
-	return types.NewFastBlock(header, nil, nil, nil), nil
+	header := new(types.Header)
+	return types.NewBlock(header, nil, nil, nil), nil
 }
-func (pap *PbftAgentProxyImp) VerifyFastBlock(*types.FastBlock) error {
+func (pap *PbftAgentProxyImp) VerifyFastBlock(*types.Block) error {
 	println(pap.Name, "VerifyFastBlock")
 	return nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(*types.FastBlock) error {
+func (pap *PbftAgentProxyImp) BroadcastFastBlock(*types.Block) error {
 	println(pap.Name, "BroadcastFastBlock")
 	return nil
 }
@@ -80,6 +80,15 @@ func TestPbftServerStart(t *testing.T) {
 	c1 := new(types.CommitteeInfo)
 	c1.Id = big.NewInt(1)
 
+	c2 := new(types.CommitteeInfo)
+	c2.Id = big.NewInt(2)
+
+	c3 := new(types.CommitteeInfo)
+	c3.Id = big.NewInt(3)
+
+	c4 := new(types.CommitteeInfo)
+	c4.Id = big.NewInt(4)
+
 	m1 := new(types.CommitteeMember)
 	m1.Publickey = ser1.pk
 	m2 := new(types.CommitteeMember)
@@ -116,8 +125,21 @@ func TestPbftServerStart(t *testing.T) {
 	var nodes []*types.CommitteeNode
 	nodes = append(nodes, node1)
 
+	ser1.PutCommittee(c1)
 	ser1.PutNodes(c1.Id, nodes)
 	ser1.Notify(c1.Id, 0)
+
+	ser2.PutCommittee(c2)
+	ser2.PutNodes(c2.Id, nodes)
+	ser2.Notify(c2.Id, 0)
+
+	ser2.PutCommittee(c3)
+	ser2.PutNodes(c3.Id, nodes)
+	ser2.Notify(c3.Id, 0)
+
+	ser2.PutCommittee(c4)
+	ser2.PutNodes(c4.Id, nodes)
+	ser2.Notify(c4.Id, 0)
 
 	<-start
 }
