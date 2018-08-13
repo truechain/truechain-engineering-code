@@ -27,10 +27,10 @@ func (g Genesis) MarshalJSON() ([]byte, error) {
 		Mixhash    common.Hash           `json:"mixHash"`
 		Coinbase   common.Address        `json:"coinbase"`
 		// Alloc      map[common.UnprefixedAddress]types.GenesisAccount `json:"alloc"      gencodec:"required"`
-		Number     math.HexOrDecimal64 `json:"number"`
-		GasUsed    math.HexOrDecimal64 `json:"gasUsed"`
-		ParentHash common.Hash         `json:"parentHash"`
-		Committee  []types.Committee   `json:"committee"      gencodec:"required"`
+		Number     math.HexOrDecimal64     `json:"number"`
+		GasUsed    math.HexOrDecimal64     `json:"gasUsed"`
+		ParentHash common.Hash             `json:"parentHash"`
+		Committee  []*types.CommitteeMember `json:"committee"      gencodec:"required"`
 	}
 	var enc Genesis
 	enc.Config = g.Config
@@ -65,10 +65,10 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		Mixhash    *common.Hash                                      `json:"mixHash"`
 		Coinbase   *common.Address                                   `json:"coinbase"`
 		// Alloc      map[common.UnprefixedAddress]types.GenesisAccount `json:"alloc"      gencodec:"required"`
-		Number     *math.HexOrDecimal64                              `json:"number"`
-		GasUsed    *math.HexOrDecimal64                              `json:"gasUsed"`
-		ParentHash *common.Hash                                      `json:"parentHash"`
-		Committee  []types.Committee                                 `json:"committee"      gencodec:"required"`
+		Number     *math.HexOrDecimal64    `json:"number"`
+		GasUsed    *math.HexOrDecimal64    `json:"gasUsed"`
+		ParentHash *common.Hash            `json:"parentHash"`
+		Committee  []*types.CommitteeMember `json:"committee"      gencodec:"required"`
 	}
 	var dec Genesis
 	if err := json.Unmarshal(input, &dec); err != nil {

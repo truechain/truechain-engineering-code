@@ -154,7 +154,7 @@ func (self *PbftAgent) loop(){
 			if self.IsCommitteeMember(ch.CommitteeInfo){
 				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
 				self.SendPbftNode(ch.CommitteeInfo)
-				self.server.PutCommittee(ch.CommitteeInfo)
+				self.server.PutCommittee(self.CommitteeInfo.Id,ch.CommitteeInfo)
 			}
 
 		//receive nodeInfo
@@ -181,7 +181,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true
-			break;
 		}
 	}
 	return false
@@ -347,7 +346,9 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	}
 	fb.Body().SetLeaderSign(voteSign)
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{fb})
+	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{
+		FastBlock:	fb,
+	})
 	return err
 }
 
@@ -413,13 +414,16 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	}
 }*/
 
-func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBlock){
+func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBlock) error{
 	fastBlocks	:= []*types.FastBlock{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
 		panic(err)
 	}
-	self.agentFeed.Send(core.PbftSignEvent{voteSign})
+	self.agentFeed.Send(core.PbftSignEvent{
+		PbftSign:	voteSign,
+	})
+	return err
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
