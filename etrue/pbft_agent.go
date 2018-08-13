@@ -25,6 +25,7 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -32,6 +33,10 @@ const (
 	VoteAgreeAgainst  		//vote against
 
 	chainHeadChanSize = 10
+
+	setCurrentCommittee = iota		//vote agree
+	setNextCommittee
+
 )
 
 type PbftAgent struct {
@@ -69,7 +74,7 @@ type PbftAgent struct {
 	snailBlockSub event.Subscription
 
 	//cryNodeInfo   *CryNodeInfo
-	committeeNode *types.CommitteeNode	//node info
+	committeeNode *types.CommitteeNode
 	privateKey *ecdsa.PrivateKey
 
 	//snapshotMu    sync.RWMutex
@@ -138,21 +143,34 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 	return self
 }
 
+func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,CommitteeType int) error {
+	if newCommitteeInfo == nil{
+		newCommitteeInfo = &types.CommitteeInfo{}
+	}
+	if CommitteeType ==setCurrentCommittee{
+		self.CommitteeInfo = newCommitteeInfo
+	}else if CommitteeType ==setNextCommittee{
+		self.NextCommitteeInfo = newCommitteeInfo
+	}else{
+		return errors.New("CommitteeType is nil")
+	}
+	return nil
+}
 
 func (self *PbftAgent) loop(){
 	for {
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
-				self.CommitteeInfo.SetCommitteeInfo(self.NextCommitteeInfo)
+				self.SetCommitteeInfo(self.NextCommitteeInfo,setCurrentCommittee)
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
-				self.CommitteeInfo.SetCommitteeInfo(nil)
+				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
+				self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 				self.SendPbftNode(ch.CommitteeInfo)
 				self.server.PutCommittee(ch.CommitteeInfo)
 			}
@@ -173,7 +191,7 @@ func (self *PbftAgent) loop(){
 }
 
 func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool{
-	if committeeInfo==nil || len(committeeInfo.Members) <0 {
+	if committeeInfo==nil || len(committeeInfo.Members) <= 0 {
 		return false
 	}
 	pubKey := self.committeeNode.CM.Publickey
@@ -186,8 +204,14 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 }
 
 func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo{
-	cryNodeInfo := new(CryNodeInfo)
-	nodeByte,_ :=ToByte(pbftAgent.committeeNode)
+	if committeeInfo == nil && len(committeeInfo.Members) <= 0{
+		log.Info("committeeInfo is nil")
+		return nil
+	}
+	cryNodeInfo := &CryNodeInfo{
+		CommitteeId:committeeInfo.Id,
+	}
+	nodeByte,_ :=ToByte(pbftAgent.committeeNode) // TODO init committeeNode
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -202,11 +226,8 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		log.Info("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
-	cryNodeInfo.CommitteeId =committeeInfo.Id
 
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
-
-	//pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
 
