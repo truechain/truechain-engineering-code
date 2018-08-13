@@ -78,7 +78,7 @@ type CommitteeEvent struct {
 	CommitteeInfo *types.CommitteeInfo
 }
 
-type PbftSignEvent struct{ PbftSigns []*types.PbftSign }
+type PbftSignEvent struct{ PbftSign *types.PbftSign }
 
 // NewBlockEvent is posted when a block has been generate .
 type NewBlockEvent struct{ Block *types.Block}
