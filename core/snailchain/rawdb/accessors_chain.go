@@ -25,6 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -374,9 +375,22 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 	return a
 }
 
+
+type committeeMember struct {
+	Address common.Address
+	PubKey  []byte
+}
+
 // WriteCommittee stores the Committee of a block into the database.
-func WriteCommittee(db DatabaseWriter, number uint64, committee []types.Committee) {
-	data, err := rlp.EncodeToBytes(committee)
+func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.CommitteeMember) {
+	members := make([]*committeeMember, len(committee))
+	for i, member := range committee {
+		members[i] = &committeeMember{
+			Address: member.Coinbase,
+			PubKey: crypto.FromECDSAPub(member.Publickey),
+		}
+	}
+	data, err := rlp.EncodeToBytes(members)
 	if err != nil {
 		log.Crit("Failed to RLP encode block committee", "err", err)
 	}
@@ -390,30 +404,32 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []types.Committe
 
 // ReadCommittee read committee
 //
-func ReadCommittee(db DatabaseReader, number uint64) []types.Committee {
+func ReadCommittee(db DatabaseReader, number uint64) []*types.CommitteeMember {
 	key := headerCommitteeKey(number)
 	data, _ := db.Get(key)
 	if len(data) == 0 {
 		return nil
 	}
-	committee := new([]types.Committee)
-	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
+	var members []*committeeMember
+	if err := rlp.Decode(bytes.NewReader(data), &members); err != nil {
 		log.Error("Invalid block  committee RLP", "err", err)
 		return nil
 	}
-	return *committee
+	committee := make([]*types.CommitteeMember, len(members))
+	for i, member := range members {
+		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
+		if puberr != nil {
+			return nil
+		}
+		committee[i] = &types.CommitteeMember{
+			Coinbase: member.Address,
+			Publickey:pubkey,
+		}
+	}
+	return committee
 }
 
 // ReadCommittee read the Genesis committee
-func ReadGenesisCommittee(db DatabaseReader) []types.Committee {
-	data, _ := db.Get(headerCommitteeKey(0))
-	if len(data) == 0 {
-		return nil
-	}
-	committee := new([]types.Committee)
-	if err := rlp.Decode(bytes.NewReader(data), committee); err != nil {
-		log.Error("Invalid block  committee RLP", "err", err)
-		return nil
-	}
-	return *committee
+func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
+	return ReadCommittee(db, 0)
 }

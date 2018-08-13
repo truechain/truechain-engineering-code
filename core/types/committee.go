@@ -5,17 +5,13 @@ import (
 	"log"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"math/big"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"math/big"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
-// Committee is an committee info in the state of the genesis block.
-type Committee struct {
-	Address common.Address `json:"address,omitempty"`
-	PubKey  []byte         `json:"pubKey,omitempty"`
-}
 
 const (
 	CommitteeStart      = iota // start pbft consensus
@@ -23,9 +19,35 @@ const (
 	CommitteeSwitchover        //switch pbft committee
 )
 
+
+type CommitteeMembers []*CommitteeMember
+
 type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
+}
+
+
+func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
+	type committee struct {
+		Address common.Address `json:"address,omitempty"`
+		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
+	}
+	var dec committee
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+
+	g.Coinbase = dec.Address
+
+	var err error
+	if dec.PubKey != nil {
+		g.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type CommitteeNode struct {
@@ -78,23 +100,6 @@ func IntToHex(num interface{}) []byte {
 	return buff.Bytes()
 }
 
-func (g *Committee) UnmarshalJSON(input []byte) error {
-	type Committee struct {
-		Address common.Address `json:"address,omitempty"`
-		PubKey  *hexutil.Bytes `json:"pubKey,omitempty"`
-	}
-	var dec Committee
-	if err := json.Unmarshal(input, &dec); err != nil {
-		return err
-	}
-	//if dec.Address != nil {
-	g.Address = dec.Address
-	//}
-	if dec.PubKey != nil {
-		g.PubKey = *dec.PubKey
-	}
-	return nil
-}
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
 // RLP encoding.
