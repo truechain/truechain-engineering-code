@@ -181,7 +181,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true
-			break;
 		}
 	}
 	return false
@@ -347,7 +346,9 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	}
 	fb.Body().SetLeaderSign(voteSign)
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{fb})
+	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{
+		FastBlock:	fb,
+	})
 	return err
 }
 
@@ -419,7 +420,9 @@ func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBl
 	if err != nil{
 		panic(err)
 	}
-	self.agentFeed.Send(core.PbftSignEvent{voteSign})
+	self.agentFeed.Send(core.PbftSignEvent{
+		PbftSign:	voteSign,
+	})
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
