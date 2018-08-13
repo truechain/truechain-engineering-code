@@ -163,6 +163,7 @@ func (self *PbftAgent) loop(){
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
 				self.SetCommitteeInfo(self.NextCommitteeInfo,setCurrentCommittee)
+				self.SetCommitteeInfo(nil,setNextCommittee)
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
@@ -183,7 +184,7 @@ func (self *PbftAgent) loop(){
 			if  self.IsCommitteeMember(self.NextCommitteeInfo){
 				self.ReceivePbftNode(cryNodeInfo)
 			}
-
+		//receive snailBlock
 		case snailBlock := <-self.SnailBlockCh:
 			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number
 		}
@@ -231,24 +232,6 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	return cryNodeInfo
 }
 
-/*func (pbftAgent *PbftAgent) Start() {
-	// broadcast mined blocks
-	pbftAgent.PbftNodeSub = pbftAgent.eventMux.Subscribe(NewPbftNodeEvent{})
-	go pbftAgent.handle()
-}
-func  (pbftAgent *PbftAgent) handle(){
-	for obj := range pbftAgent.PbftNodeSub.Chan() {
-		switch ev := obj.Data.(type) {
-		case NewPbftNodeEvent:
-			//if committee member receive and handle info
-			if pbftAgent.IsCommitteeMember(pbftAgent.CommitteeInfo){
-				pbftAgent.ReceivePbftNode(ev.cryNodeInfo)
-			}
-			//transpond  info
-			pbftAgent.SendPbftNode(pbftAgent.CommitteeInfo)
-		}
-	}
-}*/
 
 func (pbftAgent *PbftAgent)  AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error{
 	pbftAgent.CryNodeInfoCh <- cryNodeInfo
@@ -262,10 +245,10 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		log.Info("SigToPub error.")
 		return nil
 	}
-	/*if pbftAgent.CommitteeInfo.Id !=cryNodeInfo.CommitteeId{
+	if pbftAgent.NextCommitteeInfo.Id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
-	}*/
+	}
 	pks :=pbftAgent.election.GetByCommitteeId(cryNodeInfo.CommitteeId)
 	verifyFlag := false
 	for _, pk:= range  pks{
@@ -549,7 +532,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.FastBlockChain,  gp *fastchain.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Block,  gp *fastchain.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 	var feeAmount *big.Int;
 	receipt, _, err := fastchain.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed,feeAmount, vm.Config{})
