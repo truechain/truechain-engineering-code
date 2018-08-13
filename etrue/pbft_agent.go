@@ -423,7 +423,7 @@ func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block)
 		panic(err)
 	}
 	self.agentFeed.Send(core.PbftSignEvent{
-		PbftSigns:	[]*types.PbftSign{voteSign}, // TODO  PbftSign
+		PbftSign:	voteSign, // TODO  PbftSign
 	})
 	return err
 }
