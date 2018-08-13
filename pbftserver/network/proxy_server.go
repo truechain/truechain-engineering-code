@@ -20,6 +20,9 @@ type Server struct {
 
 func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 	verify consensus.ConsensusVerify,addrs []*types.CommitteeNode) *Server {
+	if len(addrs) <= 0{
+		return nil
+	}
 	node := NewNode(nodeID,verify,addrs)
 	server := &Server{node.NodeTable[nodeID], node,id,help}
 
@@ -35,7 +38,9 @@ func (server *Server) Start() {
 		return
 	}
 }
-
+func (server *Server) Stop(){
+	// do nothing
+}
 func (server *Server) setRoute() {
 	http.HandleFunc("/req", server.getReq)
 	http.HandleFunc("/preprepare", server.getPrePrepare)
