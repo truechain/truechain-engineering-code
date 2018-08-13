@@ -518,29 +518,6 @@ func (bc *FastBlockChain) GetBody(hash common.Hash) *types.FastBody {
 	return body
 }
 
-// GetSign retrieves a block Sign (transactions and uncles) from the database by
-// hash, caching it if found.
-func (bc *FastBlockChain) GetSign(hash common.Hash) []*types.PbftSign {
-	// Short circuit if the sign's already in the cache, retrieve otherwise
-	if cached, ok := bc.signCache.Get(hash); ok {
-
-		sign := cached.([]*types.PbftSign)
-		return sign
-	}
-	number := bc.hc.GetBlockNumber(hash)
-	if number == nil {
-		return nil
-	}
-	body := rawdb.ReadBody(bc.db, hash, *number)
-	if body == nil {
-		return nil
-	}
-	sign := body.Signs
-	// Cache the found sign for next time and return
-	bc.signCache.Add(hash, sign)
-	return sign
-}
-
 
 
 // GetBodyRLP retrieves a block body in RLP encoding from the database by hash,
@@ -1565,8 +1542,25 @@ func (bc *FastBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 }
 
 // database by hash and number, caching it if found.
-func (bc *FastBlockChain) GetSigns(hash common.Hash, number uint64) []*types.PbftSign {
-	return nil
+func (bc *FastBlockChain) GetSigns(hash common.Hash) []*types.PbftSign {
+	// Short circuit if the sign's already in the cache, retrieve otherwise
+	if cached, ok := bc.signCache.Get(hash); ok {
+
+		sign := cached.([]*types.PbftSign)
+		return sign
+	}
+	number := bc.hc.GetBlockNumber(hash)
+	if number == nil {
+		return nil
+	}
+	body := rawdb.ReadBody(bc.db, hash, *number)
+	if body == nil {
+		return nil
+	}
+	sign := body.Signs
+	// Cache the found sign for next time and return
+	bc.signCache.Add(hash, sign)
+	return sign
 }
 
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the
