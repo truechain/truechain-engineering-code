@@ -83,6 +83,7 @@ func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.Snail
 	}
 
 	// get genesis committee
+	election.genesisCommittee = election.snailchain.GetGenesisCommittee()
 	//fg := fastchain.Genesis()
 	//fg.Hash() = append(election.committeeList)
 	// get current fast/snail
@@ -94,6 +95,11 @@ func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.Snail
 	// Subscribe events from blockchain
 	//election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
 	//election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+
+
+	// send event to the subscripber
+	//go election.committeeFeed.Send(core.CommitteeEvent{})
+	//go election.electionFeed.Send(core.ElectionEvent{types.CommitteeStart}, nil, nil)
 
 	// Start the event loop and return
 	go election.loop()

@@ -39,7 +39,7 @@ import (
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
 	Ethash: ethash.Config{
-		CacheDir:       "truechain",
+		CacheDir:       "minerva",
 		CachesInMem:    2,
 		CachesOnDisk:   3,
 		DatasetsInMem:  1,
@@ -67,9 +67,9 @@ func init() {
 		}
 	}
 	if runtime.GOOS == "windows" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Truechain")
+		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Minerva")
 	} else {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".truechain")
+		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".minerva")
 	}
 }
 

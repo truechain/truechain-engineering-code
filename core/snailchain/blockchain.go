@@ -1593,6 +1593,14 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 	return bc.hc.GetHeaderByNumber(number)
 }
 
+func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
+	committee := rawdb.ReadGenesisCommittee(bc.db)
+	if committee == nil {
+		return nil
+	}
+	return committee
+}
+
 // Config retrieves the blockchain's chain configuration.
 func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 
