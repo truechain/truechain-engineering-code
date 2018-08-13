@@ -80,5 +80,5 @@ type CommitteeEvent struct {
 
 type PbftSignEvent struct{ PbftSigns []*types.PbftSign }
 
-// NewFastBlockEvent is posted when a block has been generate .
-type NewFastBlockEvent struct{ FastBlock *types.Block}
+// NewBlockEvent is posted when a block has been generate .
+type NewBlockEvent struct{ Block *types.Block}
