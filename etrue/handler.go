@@ -29,7 +29,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
@@ -78,7 +77,6 @@ type ProtocolManager struct {
 	txpool      txPool
 	SnailPool     SnailPool
 	blockchain  *core.BlockChain
-	fastBlockchain  *fastchain.FastBlockChain
 	snailchain *snailchain.SnailBlockChain
 	chainconfig *params.ChainConfig
 	maxPeers    int
@@ -101,7 +99,7 @@ type ProtocolManager struct {
 	snailBlocksSub	   event.Subscription
 
 	//fast block
-	minedFastCh         chan core.NewFastBlockEvent
+	minedFastCh         chan core.NewBlockEvent
 	minedFastSub        event.Subscription
 
 	pbSignsCh         chan core.PbftSignEvent
@@ -127,7 +125,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
-func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, fastBlockchain *fastchain.FastBlockChain, snailchain *snailchain.SnailBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, snailchain *snailchain.SnailBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
 		networkID:   networkID,
@@ -135,7 +133,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		txpool:      txpool,
 		SnailPool:  SnailPool,
 		snailchain:  snailchain,
-		fastBlockchain:	 fastBlockchain,
+		blockchain:	 blockchain,
 		chainconfig: config,
 		peers:       newPeerSet(),
 		newPeerCh:   make(chan *peer),
@@ -151,7 +149,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		log.Warn("Blockchain not empty, fast sync disabled")
 		mode = downloader.FullSync
 	}
-	if mode == downloader.FastSync && fastBlockchain.CurrentBlock().NumberU64() > 0 {
+	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")
 		mode = downloader.FullSync
 	}
@@ -201,23 +199,23 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// TODO: support downloader func.
 	//manager.downloader = downloader.New(mode, chaindb, manager.eventMux, nil, nil, manager.removePeer)
 
-	fastValidator := func(header *types.FastHeader) error {
+	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
-		return engine.VerifyFastHeader(fastBlockchain, header, true)
+		return engine.VerifyFastHeader(blockchain, header, true)
 	}
 	fastHeighter := func() uint64 {
-		return fastBlockchain.CurrentFastBlock().NumberU64()
+		return blockchain.CurrentFastBlock().NumberU64()
 	}
-	fastInserter := func(blocks types.FastBlocks) (int, error) {
+	fastInserter := func(blocks types.Blocks) (int, error) {
 		// If fast sync is running, deny importing weird blocks
 		if atomic.LoadUint32(&manager.fastSync) == 1 {
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.fastBlockchain.InsertChain(blocks)
+		return manager.blockchain.InsertChain(blocks)
 	}
-	manager.fetcherFast = fetcher.New(fastBlockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent)
+	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent)
 
 	return manager, nil
 }
@@ -261,7 +259,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.snailBlockBroadcastLoop()
 
 	// broadcast mined fastBlocks
-	pm.minedFastCh = make(chan core.NewFastBlockEvent, txChanSize)
+	pm.minedFastCh = make(chan core.NewBlockEvent, txChanSize)
 	pm.minedFastSub = pm.agent.SubscribeNewFastBlockEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
 
@@ -425,24 +423,24 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
-			headers []*types.FastHeader
+			headers []*types.Header
 			unknown bool
 		)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
 			// Retrieve the next header satisfying the query
-			var origin *types.FastHeader
+			var origin *types.Header
 			if hashMode {
 				if first {
 					first = false
-					origin = pm.fastBlockchain.GetHeaderByHash(query.Origin.Hash)
+					origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
 					if origin != nil {
 						query.Origin.Number = origin.Number.Uint64()
 					}
 				} else {
-					origin = pm.fastBlockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+					origin = pm.blockchain.GetHeader(query.Origin.Hash, query.Origin.Number)
 				}
 			} else {
-				origin = pm.fastBlockchain.GetHeaderByNumber(query.Origin.Number)
+				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
 				break
@@ -458,7 +456,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				if ancestor == 0 {
 					unknown = true
 				} else {
-					query.Origin.Hash, query.Origin.Number = pm.fastBlockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+					query.Origin.Hash, query.Origin.Number = pm.blockchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
 					unknown = (query.Origin.Hash == common.Hash{})
 				}
 			case hashMode && !query.Reverse:
@@ -472,9 +470,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
 					unknown = true
 				} else {
-					if header := pm.fastBlockchain.GetHeaderByNumber(next); header != nil {
+					if header := pm.blockchain.GetHeaderByNumber(next); header != nil {
 						nextHash := header.Hash()
-						expOldHash, _ := pm.fastBlockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+						expOldHash, _ := pm.blockchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
 						if expOldHash == query.Origin.Hash {
 							query.Origin.Hash, query.Origin.Number = nextHash, next
 						} else {
@@ -501,7 +499,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == FastBlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
-		var headers []*types.FastHeader
+		var headers []*types.Header
 		if err := msg.Decode(&headers); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -540,7 +538,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "msg %v: %v", msg, err)
 			}
 			// Retrieve the requested block body, stopping if enough was found
-			if data := pm.fastBlockchain.GetBodyRLP(hash); len(data) != 0 {
+			if data := pm.blockchain.GetBodyRLP(hash); len(data) != 0 {
 				bodies = append(bodies, data)
 				bytes += len(data)
 			}
@@ -669,7 +667,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.fastBlockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPedingBlock(block.Hash) == nil {
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPedingBlock(block.Hash) == nil {
 				unknown = append(unknown, block)
 			}
 		}
@@ -679,16 +677,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == NewFastBlockMsg:
 		// Retrieve and decode the propagated block
-		var request newFastBlockData
+		var request newBlockData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		request.FastBlock.ReceivedAt = msg.ReceivedAt
-		request.FastBlock.ReceivedFrom = p
+		request.Block.ReceivedAt = msg.ReceivedAt
+		request.Block.ReceivedFrom = p
 
 		// Mark the peer as owning the block and schedule it for import
-		p.MarkFastBlock(request.FastBlock.Hash())
-		pm.fetcherFast.Enqueue(p.id, request.FastBlock)
+		p.MarkFastBlock(request.Block.Hash())
+		pm.fetcherFast.Enqueue(p.id, request.Block)
 
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
@@ -795,7 +793,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 // BroadcastFastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate bool) {
+func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool) {
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
@@ -814,7 +812,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate 
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
-	if pm.fastBlockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPedingBlock(hash) != nil {
+	if pm.blockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPedingBlock(hash) != nil {
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
@@ -980,8 +978,8 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.minedFastCh:
-			pm.BroadcastFastBlock(event.FastBlock, true)  // First propagate fast block to peers
-			pm.BroadcastFastBlock(event.FastBlock, false) // Only then announce to the rest
+			pm.BroadcastFastBlock(event.Block, true)  // First propagate fast block to peers
+			pm.BroadcastFastBlock(event.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.minedFastSub.Err():

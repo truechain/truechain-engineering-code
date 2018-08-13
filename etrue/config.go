@@ -27,11 +27,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
@@ -79,7 +78,7 @@ type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
 	Genesis *core.Genesis `toml:",omitempty"`
-	FastGenesis *fastchain.Genesis
+	FastGenesis *core.Genesis
 	SnailGenesis *snailchain.Genesis
 
 	// Protocol options

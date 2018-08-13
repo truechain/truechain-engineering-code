@@ -30,13 +30,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	fastrawdb "github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -78,7 +75,6 @@ type Truechain struct {
 	agent *PbftAgent
 	election *Election
 
-	fastBlockchain  *fastchain.FastBlockChain
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
 	protocolManager *ProtocolManager
@@ -128,7 +124,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	chainConfig, genesisHash, genesisErr := fastchain.SetupGenesisBlock(chainDb, config.FastGenesis)
+	chainConfig, genesisHash, genesisErr := chain.SetupGenesisBlock(chainDb, config.FastGenesis)
 	snailConfig, snailHash, snailErr := chain.SetupGenesisBlock(chainDb, config.SnailGenesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
@@ -157,28 +153,24 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
 
 	if !config.SkipBcVersionCheck {
-		bcVersion := fastrawdb.ReadDatabaseVersion(chainDb)
+		bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 		if bcVersion != core.BlockChainVersion && bcVersion != 0 {
 			return nil, fmt.Errorf("Blockchain DB version mismatch (%d / %d). Run geth upgradedb.\n", bcVersion, core.BlockChainVersion)
 		}
-		fastrawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
+		rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 	}
 	var (
 		vmConfig        = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 		//cacheConfig     = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
-		fastCacheConfig = &fastchain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		)
 
-	//eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	eth.fastBlockchain, err = fastchain.NewFastBlockChain(chainDb, fastCacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
+
 	eth.snailblockchain, err = chain.NewSnailBlockChain(chainDb, snailCacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
@@ -186,8 +178,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-		eth.fastBlockchain.SetHead(compat.RewindTo)
-		fastrawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+		eth.blockchain.SetHead(compat.RewindTo)
+		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
 	if compat, ok := snailErr.(*params.ConfigCompatError); ok {
@@ -201,18 +193,18 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
-	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.fastBlockchain)
+	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
 	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
 
-	eth.election = NewElction(eth.fastBlockchain, eth.snailblockchain)
+	eth.election = NewElction(eth.blockchain, eth.snailblockchain)
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
 	if eth.protocolManager, err = NewProtocolManager(
 		eth.chainConfig, config.SyncMode, config.NetworkId,
 		eth.eventMux, eth.txPool, eth.snailPool, eth.engine,
-		eth.fastBlockchain, eth.snailblockchain,
+		eth.blockchain, eth.snailblockchain,
 		chainDb, eth.agent); err != nil {
 		return nil, err
 	}
@@ -354,8 +346,8 @@ func (s *Truechain) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *Truechain) ResetWithFastGenesisBlock(gb *types.FastBlock) {
-	s.fastBlockchain.ResetWithGenesisBlock(gb)
+func (s *Truechain) ResetWithFastGenesisBlock(gb *types.Block) {
+	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
 func (s *Truechain) Etherbase() (eb common.Address, err error) {
@@ -425,7 +417,6 @@ func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
 func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
-func (s *Truechain) FastBlockChain() *fastchain.FastBlockChain      { return s.fastBlockchain }
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain      { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
@@ -479,8 +470,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 func (s *Truechain) Stop() error {
 	s.stopPbftServer()
 	s.bloomIndexer.Close()
-	//s.blockchain.Stop()
-	s.fastBlockchain.Stop()
+	s.blockchain.Stop()
 	s.snailblockchain.Stop()
 	s.protocolManager.Stop()
 	if s.lesServer != nil {
