@@ -123,11 +123,11 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		config:         	config,
 		engine:         	engine,
 		eth:            	eth,
-		fastChain:          	eth.FastBlockChain(),
+		fastChain:          eth.FastBlockChain(),
 		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
-		ElectionCh: make(chan core.ElectionEvent, 10),
-		SnailBlockCh: make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
+		ElectionCh: 	make(chan core.ElectionEvent, 10),
+		SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
 	}
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
@@ -154,7 +154,7 @@ func (self *PbftAgent) loop(){
 			if self.IsCommitteeMember(ch.CommitteeInfo){
 				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
 				self.SendPbftNode(ch.CommitteeInfo)
-				self.server.PutCommittee(self.CommitteeInfo.Id,ch.CommitteeInfo)
+				self.server.PutCommittee(ch.CommitteeInfo)
 			}
 
 		//receive nodeInfo
@@ -170,7 +170,6 @@ func (self *PbftAgent) loop(){
 			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number
 		}
 	}
-
 }
 
 func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool{
@@ -319,8 +318,8 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	snailHegiht :=self.fastChain.GetSnailHeightByFastHeight(
-		self.fastChain.CurrentBlock().Header().Number)
+	currentFastHeader :=self.fastChain.CurrentBlock().Header()
+	snailHegiht :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
 	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
 	if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=12{
 		fastBlock.Header().SnailNumber = snailHegiht
