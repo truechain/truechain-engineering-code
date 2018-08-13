@@ -327,8 +327,8 @@ func (self *worker) update() {
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
 
-	defer self.fruitSub.Unsubscribe()
-	defer self.recordSub.Unsubscribe()
+	//defer self.fruitSub.Unsubscribe()
+	//defer self.recordSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
@@ -371,20 +371,7 @@ func (self *worker) update() {
 				}
 			}
 			//TODO　fruit event
-			/*
-		case ev := <-self.fruitCh:
 
-			//self.updateofFruitTx(ev.Fruits)
-			//return
-			*/ 
-			
-		case ev := <-self.recordCh:
-			self.updateofRecordTx(ev.FastBlocks)
-
-			//return
-		// System stopped
-		case <-self.txsSub.Err():
-			return
 		case <-self.chainHeadSub.Err():
 			return
 		case <-self.chainSideSub.Err():

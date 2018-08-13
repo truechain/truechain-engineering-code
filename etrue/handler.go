@@ -257,7 +257,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	//broadcast snailblock
 	pm.snailBlocksch = make(chan snailchain.ChainEvent, snailBlockChanSize)
 	// TODO: modify snailblock broadcast
-	pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
+	pm.snailBlocksSub = pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
 	go pm.snailBlockBroadcastLoop()
 
 	// broadcast mined fastBlocks
