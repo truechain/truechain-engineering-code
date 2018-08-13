@@ -67,14 +67,16 @@ type Election struct {
 }
 
 
-func NewElction(fc *fastchain.FastBlockChain,sc *snailchain.SnailBlockChain)*Election {
+func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.SnailBlockChain)*Election {
 
 	// init
 	election := &Election{
-
+		fastNumber:			new(big.Int).SetUint64(0),
+		snailNumber: 		new(big.Int).SetUint64(0),
+			number:			new(big.Int).SetUint64(0),
 		committeeList:    make(map[*big.Int]*Committee),
-		fastchain:		fc,
-		snailchain:		sc,
+		fastchain:		fastchain,
+		snailchain:		snailchain,
 		fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize) ,
 		snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
 
@@ -84,7 +86,7 @@ func NewElction(fc *fastchain.FastBlockChain,sc *snailchain.SnailBlockChain)*Ele
 	//fg := fastchain.Genesis()
 	//fg.Hash() = append(election.committeeList)
 	// get current fast/snail
-
+		//fastchain.GetTdByHash()
 	// get current committee
 
 	// get snail count
@@ -231,9 +233,9 @@ func (e *Election) loop() {
 					// get end fast block number
 					snailEndNumber := new(big.Int).Sub(se.Block.Number(), big.NewInt(lamada))
 					snailStartNumber := new(big.Int).Sub(snailEndNumber, big.NewInt(z))
-					//sb := e.snailchain.GetBlockByNumber(snailEndNumber.Uint64())
-					//fruits := sb.Fruits()
-					//e.number = new(big.Int).Add(fruits[len(fruits) - 1].Number(), big.NewInt(k))
+					sb := e.snailchain.GetBlockByNumber(snailEndNumber.Uint64())
+					fruits := sb.Fruits()
+					e.number = new(big.Int).Add(fruits[len(fruits) - 1].Number(), big.NewInt(k))
 
 					e.nextCommitteeId = new(big.Int).Add(se.Block.Number(), common.Big1)
 
