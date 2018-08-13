@@ -111,7 +111,3 @@ type CommitteeInfo struct {
 	Id *big.Int
 	Members []*CommitteeMember
 }
-
-func (committeeInfo *CommitteeInfo) SetCommitteeInfo(newCommitteeInfo *CommitteeInfo){
-	committeeInfo =newCommitteeInfo
-}
