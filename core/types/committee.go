@@ -67,13 +67,13 @@ type PbftSign struct {
 
 type PbftAgentProxy interface {
 	FetchFastBlock() (*FastBlock, error)
-	VerifyFastBlock(*FastBlock) (bool,error)
+	VerifyFastBlock(*FastBlock) error
 	BroadcastFastBlock(*FastBlock) error
 	BroadcastSign(sign *PbftSign,block *FastBlock) error
 }
 
 type PbftServerProxy interface {
-	PutCommittee(id *big.Int,committeeInfo *CommitteeInfo) error
+	PutCommittee(committeeInfo *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
 }
