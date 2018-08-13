@@ -382,7 +382,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 }
 
 //verify the sign , insert chain  and  broadcast the signs
-func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
+/*func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
 	 voteNum := 0
 	//get committee list  by height and hash
 	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())//dd
@@ -411,6 +411,15 @@ func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.Fas
 		}
 		self.agentFeed.Send(core.PbftSignEvent{voteSigns})
 	}
+}*/
+
+func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBlock){
+	fastBlocks	:= []*types.FastBlock{fb}
+	_,err :=self.fastChain.InsertChain(fastBlocks)
+	if err != nil{
+		panic(err)
+	}
+	self.agentFeed.Send(core.PbftSignEvent{voteSign})
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
