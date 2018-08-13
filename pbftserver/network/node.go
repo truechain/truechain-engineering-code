@@ -191,8 +191,8 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	LogMsg(prepareMsg)
-
-	commitMsg, err := node.CurrentState.Prepare(prepareMsg)
+	f := len(node.NodeTable)/3
+	commitMsg, err := node.CurrentState.Prepare(prepareMsg,f)
 	if err != nil {
 		return err
 	}
@@ -216,8 +216,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	LogMsg(commitMsg)
-
-	replyMsg, committedMsg, err := node.CurrentState.Commit(commitMsg)
+	f := len(node.NodeTable)/3
+	replyMsg, committedMsg, err := node.CurrentState.Commit(commitMsg,f)
 	if err != nil {
 		return err
 	}
