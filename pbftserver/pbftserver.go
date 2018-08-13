@@ -40,14 +40,30 @@ type PbftServerMgr struct {
 	Agent			types.PbftAgentProxy
 }
 
-func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey) *PbftServerMgr {
+func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey,agent types.PbftAgentProxy) *PbftServerMgr {
 	ss := &PbftServerMgr {
 		servers : 	make(map[*big.Int]*serverInfo),
 		blocks:		make(map[*big.Int]*types.FastBlock),
 		pk:			pk,
 		priv:		priv,
+		Agent:		agent,
 	}
+	go ss.work()
 	return ss
+}
+func (ss *PbftServerMgr) Finish() error{
+
+	ac := &consensus.ActionIn{
+		AC:		consensus.ActionFinish,
+		ID:		common.Big0,
+		Height:	common.Big0,
+	}
+	consensus.ActionChan <- ac
+	// sleep 1s
+	for _,v := range ss.servers {
+		v.server.Stop()
+	}
+	return nil
 }
 // note: all functions below this was not thread-safe
 
@@ -225,7 +241,9 @@ func (ss *PbftServerMgr) work() {
 				}
 			} else if ac.AC == consensus.ActionBroadcast {
 				ss.Broadcast(ac.Height)
-			} 
+			} else if ac.AC == consensus.ActionFinish {
+				return 
+			}
 		}
 	}
 }
