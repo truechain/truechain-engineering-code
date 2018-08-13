@@ -67,7 +67,7 @@ type PbftSign struct {
 
 type PbftAgentProxy interface {
 	FetchFastBlock() (*FastBlock, error)
-	VerifyFastBlock(*FastBlock) error
+	VerifyFastBlock(*FastBlock) (bool,error)
 	BroadcastFastBlock(*FastBlock) error
 	BroadcastSign(sign *PbftSign,block *FastBlock) error
 }
