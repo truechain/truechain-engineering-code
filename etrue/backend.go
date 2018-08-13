@@ -216,6 +216,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 
+	sender := NewSender(eth.snailPool, eth.chainConfig)
+	sender.Start()
+
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {

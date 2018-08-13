@@ -893,6 +893,18 @@ func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlo
 }
 */
 
+func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.FastBlock) []error {
+	errs := make([]error, len(fastBlocks))
+
+	// TODO: check fastBlock signatures
+	for _, fastBlock := range fastBlocks {
+		f :=types.NewFastBlockWithHeader(fastBlock.Header()).WithBody(fastBlock.Transactions())
+		pool.newFastBlockCh <- f
+	}
+
+	return errs
+}
+
 // Pending retrieves one currently record.
 // The returned record is a copy and can be freely modified by calling code.
 /*func (pool *SnailPool) PendingRecords() (*types.PbftRecord, error) {
