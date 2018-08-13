@@ -13,7 +13,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
@@ -41,7 +40,7 @@ const (
 
 type PbftAgent struct {
 	config *params.ChainConfig
-	fastChain   *fastchain.FastBlockChain
+	fastChain   *core.BlockChain
 	snailChain *snailchain.SnailBlockChain
 	engine consensus.Engine
 	eth     Backend
@@ -90,11 +89,11 @@ type AgentWork struct {
 
 	state     *state.StateDB // apply state changes here
 	tcount    int            // tx count in cycle
-	gasPool   *fastchain.GasPool  // available gas used to pack transactions
+	gasPool   *core.GasPool  // available gas used to pack transactions
 
-	Block *types.FastBlock // the new block
+	Block *types.Block // the new block
 
-	header   *types.FastHeader
+	header   *types.Header
 	txs      []*types.Transaction
 	receipts []*types.Receipt
 
@@ -103,7 +102,7 @@ type AgentWork struct {
 
 type Backend interface {
 	AccountManager() *accounts.Manager
-	FastBlockChain() *fastchain.FastBlockChain
+	FastBlockChain() *core.BlockChain
 	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
@@ -275,8 +274,8 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 }
 
 //generateBlock and broadcast
-func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
-	var fastBlock  *types.FastBlock
+func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
+	var fastBlock  *types.Block
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
@@ -293,10 +292,10 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 	}
 
 	num := parent.Number()
-	header := &types.FastHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		GasLimit:   fastchain.FastCalcGasLimit(parent),
+		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
 
@@ -334,7 +333,7 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 }
 
 //broadcast blockAndSign
-func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
+func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
@@ -355,10 +354,10 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
 	return err
 }
 
-func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
+func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	bc := self.fastChain
 	// get current head
-	var parent *types.FastBlock
+	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 
 	err :=bc.Engine().VerifyFastHeader(bc, fb.Header(),true)
@@ -417,19 +416,19 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 	}
 }*/
 
-func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.FastBlock) error{
-	fastBlocks	:= []*types.FastBlock{fb}
+func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block) error{
+	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
 		panic(err)
 	}
 	self.agentFeed.Send(core.PbftSignEvent{
-		PbftSign:	voteSign,
+		PbftSign:	voteSign, // TODO  PbftSign
 	})
 	return err
 }
 
-func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
+func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := self.fastChain.StateAt(parent.Root())
 	if err != nil {
 		return err
@@ -447,9 +446,9 @@ func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHe
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,bc *fastchain.FastBlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,bc *core.BlockChain) {
 	if env.gasPool == nil {
-		env.gasPool = new(fastchain.GasPool).AddGas(env.header.GasLimit)
+		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 
 	var coalescedLogs []*types.Log
@@ -532,10 +531,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Block,  gp *fastchain.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain,  gp *core.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 	var feeAmount *big.Int;
-	receipt, _, err := fastchain.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed,feeAmount, vm.Config{})
+	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed,feeAmount, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
