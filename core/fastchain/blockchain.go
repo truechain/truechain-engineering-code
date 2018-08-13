@@ -112,6 +112,7 @@ type FastBlockChain struct {
 
 	stateCache   state.Database // State database to reuse between imports (contains state cache)
 	bodyCache    *lru.Cache     // Cache for the most recent block bodies
+	signCache    *lru.Cache     // Cache for the most recent block bodies
 	bodyRLPCache *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
 	blockCache   *lru.Cache     // Cache for the most recent entire blocks
 	futureBlocks *lru.Cache     // future blocks are blocks added for later processing
@@ -146,6 +147,8 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 	blockCache, _ := lru.New(blockCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
+	signCache,_ :=lru.New(bodyCacheLimit)
+
 
 	bc := &FastBlockChain{
 		chainConfig:  chainConfig,
@@ -155,6 +158,7 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 		stateCache:   state.NewDatabase(db),
 		quit:         make(chan struct{}),
 		bodyCache:    bodyCache,
+		signCache:	  signCache,
 		bodyRLPCache: bodyRLPCache,
 		blockCache:   blockCache,
 		futureBlocks: futureBlocks,
@@ -513,6 +517,31 @@ func (bc *FastBlockChain) GetBody(hash common.Hash) *types.FastBody {
 	bc.bodyCache.Add(hash, body)
 	return body
 }
+
+// GetSign retrieves a block Sign (transactions and uncles) from the database by
+// hash, caching it if found.
+func (bc *FastBlockChain) GetSign(hash common.Hash) []*types.PbftSign {
+	// Short circuit if the sign's already in the cache, retrieve otherwise
+	if cached, ok := bc.signCache.Get(hash); ok {
+
+		sign := cached.([]*types.PbftSign)
+		return sign
+	}
+	number := bc.hc.GetBlockNumber(hash)
+	if number == nil {
+		return nil
+	}
+	body := rawdb.ReadBody(bc.db, hash, *number)
+	if body == nil {
+		return nil
+	}
+	sign := body.Signs
+	// Cache the found sign for next time and return
+	bc.signCache.Add(hash, sign)
+	return sign
+}
+
+
 
 // GetBodyRLP retrieves a block body in RLP encoding from the database by hash,
 // caching it if found.
