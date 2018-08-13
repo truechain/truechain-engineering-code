@@ -31,7 +31,7 @@ const (
 // f: # of Byzantine faulty node
 // f = (n­1) / 3
 // n = 4, in this case.
-const f = 1
+// const f = 1
 
 // lastSequenceID will be -1 if there is no last sequence ID.
 func CreateState(viewID int64, lastSequenceID int64) *State {
@@ -90,7 +90,6 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 	if !state.verifyMsg(prePrepareMsg.ViewID, prePrepareMsg.SequenceID, prePrepareMsg.Digest) {
 		return nil, errors.New("pre-prepare message is corrupted")
 	}
-
 	// Change the stage to pre-prepared.
 	state.CurrentStage = PrePrepared
 
@@ -103,7 +102,7 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 }
 
 
-func (state *State) Prepare(prepareMsg *VoteMsg) (*VoteMsg, error){
+func (state *State) Prepare(prepareMsg *VoteMsg,f int) (*VoteMsg, error){
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
 	}
@@ -114,7 +113,7 @@ func (state *State) Prepare(prepareMsg *VoteMsg) (*VoteMsg, error){
 	// Print current voting status
 	fmt.Printf("[Prepare-Vote]: %d\n", len(state.MsgLogs.PrepareMsgs))
 
-	if state.prepared() {
+	if state.prepared(f) {
 		// Change the stage to prepared.
 		state.CurrentStage = Prepared
 
@@ -129,7 +128,7 @@ func (state *State) Prepare(prepareMsg *VoteMsg) (*VoteMsg, error){
 	return nil, nil
 }
 
-func (state *State) Commit(commitMsg *VoteMsg) (*ReplyMsg, *RequestMsg, error) {
+func (state *State) Commit(commitMsg *VoteMsg,f int) (*ReplyMsg, *RequestMsg, error) {
 	if !state.verifyMsg(commitMsg.ViewID, commitMsg.SequenceID, commitMsg.Digest) {
 		return nil, nil, errors.New("commit message is corrupted")
 	}
@@ -140,7 +139,7 @@ func (state *State) Commit(commitMsg *VoteMsg) (*ReplyMsg, *RequestMsg, error) {
 	// Print current voting status
 	fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
 
-	if state.committed() {
+	if state.committed(f) {
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 
@@ -187,7 +186,7 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 	return true
 }
 
-func (state *State) prepared() bool {
+func (state *State) prepared(f int) bool {
 	if state.MsgLogs.ReqMsg == nil {
 		return false
 	}
@@ -199,8 +198,8 @@ func (state *State) prepared() bool {
 	return true
 }
 
-func (state *State) committed() bool {
-	if !state.prepared() {
+func (state *State) committed(f int) bool {
+	if !state.prepared(f) {
 		return false
 	}
 
