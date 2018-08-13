@@ -11,6 +11,7 @@ const (
 	Against 	
 	ActionFecth 	
 	ActionBroadcast 
+	ActionFinish
 )
 
 type ActionIn struct {

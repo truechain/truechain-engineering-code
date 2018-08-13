@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"crypto/ecdsa"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -31,6 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
@@ -100,6 +102,8 @@ type Truechain struct {
 
 	networkID     uint64
 	netRPCService *trueapi.PublicNetAPI
+
+	pbftServer	*pbftserver.PbftServerMgr
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
@@ -466,12 +470,14 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
+	s.startPbftServer()
 	return nil
 }
 
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Truechain protocol.
 func (s *Truechain) Stop() error {
+	s.stopPbftServer()
 	s.bloomIndexer.Close()
 	//s.blockchain.Stop()
 	s.fastBlockchain.Stop()
@@ -487,5 +493,18 @@ func (s *Truechain) Stop() error {
 	s.chainDb.Close()
 	close(s.shutdownChan)
 
+	return nil
+}
+func (s *Truechain) startPbftServer() error{
+	var pk *ecdsa.PublicKey
+	var priv *ecdsa.PrivateKey
+	var agent types.PbftAgentProxy
+	s.pbftServer = pbftserver.NewPbftServerMgr(pk,priv,agent)
+	return nil
+}
+func (s *Truechain) stopPbftServer() error {
+	if s.pbftServer != nil {
+		s.pbftServer.Finish()
+	}
 	return nil
 }

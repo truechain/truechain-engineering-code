@@ -47,7 +47,6 @@ import (
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-
 	ErrNoGenesis = errors.New("Fast Genesis not found in chain")
 )
 
@@ -112,6 +111,7 @@ type FastBlockChain struct {
 
 	stateCache   state.Database // State database to reuse between imports (contains state cache)
 	bodyCache    *lru.Cache     // Cache for the most recent block bodies
+	signCache    *lru.Cache     // Cache for the most recent block bodies
 	bodyRLPCache *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
 	blockCache   *lru.Cache     // Cache for the most recent entire blocks
 	futureBlocks *lru.Cache     // future blocks are blocks added for later processing
@@ -146,6 +146,8 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 	blockCache, _ := lru.New(blockCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
+	signCache,_ :=lru.New(bodyCacheLimit)
+
 
 	bc := &FastBlockChain{
 		chainConfig:  chainConfig,
@@ -155,6 +157,7 @@ func NewFastBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig 
 		stateCache:   state.NewDatabase(db),
 		quit:         make(chan struct{}),
 		bodyCache:    bodyCache,
+		signCache:	  signCache,
 		bodyRLPCache: bodyRLPCache,
 		blockCache:   blockCache,
 		futureBlocks: futureBlocks,
@@ -513,6 +516,8 @@ func (bc *FastBlockChain) GetBody(hash common.Hash) *types.FastBody {
 	bc.bodyCache.Add(hash, body)
 	return body
 }
+
+
 
 // GetBodyRLP retrieves a block body in RLP encoding from the database by hash,
 // caching it if found.
@@ -1016,6 +1021,22 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil
 }
+
+
+func (bc *FastBlockChain) InsertSign(block *types.FastBlock,signs []*types.PbftSign) (int, error) {
+
+	if(signs == nil){
+		return 0,errors.New("signs is nil")
+	}
+
+	block.Body().Signs=signs
+	chain := []*types.FastBlock{block}
+	n, events, logs, err := bc.insertChain(chain)
+	bc.PostChainEvents(events, logs)
+	return n, err
+}
+
+
 
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
@@ -1536,8 +1557,25 @@ func (bc *FastBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 }
 
 // database by hash and number, caching it if found.
-func (bc *FastBlockChain) GetSigns(hash common.Hash, number uint64) []*types.PbftSign {
-	return nil
+func (bc *FastBlockChain) GetSigns(hash common.Hash) []*types.PbftSign {
+	// Short circuit if the sign's already in the cache, retrieve otherwise
+	if cached, ok := bc.signCache.Get(hash); ok {
+
+		sign := cached.([]*types.PbftSign)
+		return sign
+	}
+	number := bc.hc.GetBlockNumber(hash)
+	if number == nil {
+		return nil
+	}
+	body := rawdb.ReadBody(bc.db, hash, *number)
+	if body == nil {
+		return nil
+	}
+	sign := body.Signs
+	// Cache the found sign for next time and return
+	bc.signCache.Add(hash, sign)
+	return sign
 }
 
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the

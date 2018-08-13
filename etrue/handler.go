@@ -727,7 +727,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.agent.AddRemoteNodeInfo(nodeInfo)
 
 	case msg.Code == BlockSignMsg:
-		// signs arrived, make sure we have a valid and fresh chain to handle them
+		// sign arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
 		}
@@ -824,20 +824,18 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.FastBlock, propagate 
 
 // BroadcastPbSigns will propagate a batch of PbftVoteSigns to all peers which are not known to
 // already have the given PbftVoteSign.
-func (pm *ProtocolManager) BroadcastPbSigns(pbSigns types.PbftSigns) {
-	var pbSignSet = make(map[*peer]types.PbftSigns)
+func (pm *ProtocolManager) BroadcastPbSign(pbSign *types.PbftSign) {
+	var pbSignSet = make(map[*peer]*types.PbftSign)
 
 	// Broadcast transactions to a batch of peers not knowing about it
-	for _, sign := range pbSigns {
-		peers := pm.peers.PeersWithoutSign(sign.FastHash)
-		for _, peer := range peers {
-			pbSignSet[peer] = append(pbSignSet[peer], sign)
-		}
-		log.Trace("Broadcast PbftSign", "hash", sign.FastHash, "recipients", len(peers))
+	peers := pm.peers.PeersWithoutSign(pbSign.FastHash)
+	for _, peer := range peers {
+		pbSignSet[peer] = pbSign
 	}
+	log.Trace("Broadcast PbftSign", "hash", pbSign.FastHash, "recipients", len(peers))
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, signs := range pbSignSet {
-		peer.AsyncSendSigns(signs)
+	for peer, sign := range pbSignSet {
+		peer.AsyncSendSign(sign)
 	}
 }
 
@@ -996,9 +994,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.pbSignsCh:
-			if len(event.PbftSigns) > 0 {
-				pm.BroadcastPbSigns(event.PbftSigns)
-			}
+				pm.BroadcastPbSign(event.PbftSign)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():
