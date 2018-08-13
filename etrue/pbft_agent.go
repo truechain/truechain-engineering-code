@@ -154,7 +154,7 @@ func (self *PbftAgent) loop(){
 			if self.IsCommitteeMember(ch.CommitteeInfo){
 				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
 				self.SendPbftNode(ch.CommitteeInfo)
-				self.server.PutCommittee(ch.CommitteeInfo)
+				self.server.PutCommittee(self.CommitteeInfo.Id,ch.CommitteeInfo)
 			}
 
 		//receive nodeInfo

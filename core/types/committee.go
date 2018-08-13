@@ -51,7 +51,7 @@ type PbftAgentProxy interface {
 }
 
 type PbftServerProxy interface {
-	PutCommittee(committeeInfo *CommitteeInfo) error
+	PutCommittee(id *big.Int,committeeInfo *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
 }
