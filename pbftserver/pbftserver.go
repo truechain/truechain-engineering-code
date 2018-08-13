@@ -68,19 +68,33 @@ func (ss *PbftServerMgr) Finish() error{
 // note: all functions below this was not thread-safe
 
 func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
+	var update bool = false
 	for _,v := range ss.info {
 		if !bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(mm.Publickey)) {
 			ss.info = append(ss.info,&types.CommitteeNode {
 				CM:			mm,
 			})
+			update = true
+			break
 		}
+	}
+	if !update {
+		ss.info = append(ss.info,&types.CommitteeNode {
+			CM:			mm,
+		})
 	}
 }
 func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
+	var update bool = false
 	for i,v := range ss.info {
 		if bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(n.CM.Publickey)) {
 			ss.info[i] = n
+			update = true
+			break
 		}
+	}
+	if !update {
+		ss.info = append(ss.info,n)
 	}
 }
 func (ss *PbftServerMgr) getLastBlock() *types.FastBlock {
