@@ -25,7 +25,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	rawdb "github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
+	rawdb "github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -44,7 +44,7 @@ var (
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *FastBlockChain, error) {
+func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
 	var (
 		db      = ethdb.NewMemDatabase()
 		genesis = new(Genesis).MustCommit(db)
@@ -52,7 +52,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *F
 
 	// Initialize a fresh chain with only a genesis block
 	//初始化一个新链
-	blockchain, _ := NewFastBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
@@ -70,7 +70,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *F
 }
 
 // Test fork of length N starting from block i
-func testFork(t *testing.T, blockchain *FastBlockChain, i, n int, full bool) {
+func testFork(t *testing.T, blockchain *BlockChain, i, n int, full bool) {
 	// Copy old chain up to #i into a new db
 	db, blockchain2, err := newCanonical(ethash.NewFaker(), i, full)
 	if err != nil {
@@ -92,8 +92,8 @@ func testFork(t *testing.T, blockchain *FastBlockChain, i, n int, full bool) {
 	}
 	// Extend the newly created chain
 	var (
-		blockChainB  []*types.FastBlock
-		headerChainB []*types.FastHeader
+		blockChainB  []*types.Block
+		headerChainB []*types.Header
 	)
 	if full {
 		blockChainB = makeBlockChain(blockchain2.CurrentBlock(), n, ethash.NewFaker(), db, forkSeed)
@@ -128,7 +128,7 @@ func testFork(t *testing.T, blockchain *FastBlockChain, i, n int, full bool) {
 	//comparator(tdPre, tdPost)
 }
 
-func printChain(bc *FastBlockChain) {
+func printChain(bc *BlockChain) {
 	for i := bc.CurrentBlock().Number().Uint64(); i > 0; i-- {
 		b := bc.GetBlockByNumber(uint64(i))
 		fmt.Printf("\t%x \n", b.Hash())
@@ -137,7 +137,7 @@ func printChain(bc *FastBlockChain) {
 
 // testBlockChainImport tries to process a chain of blocks, writing them into
 // the database if successful.
-func testFastBlockChainImport(chain types.FastBlocks, blockchain *FastBlockChain) error {
+func testFastBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 	for _, block := range chain {
 		// Try and process the block
 		err := blockchain.engine.VerifyFastHeader(blockchain, block.Header(), true)
@@ -175,7 +175,7 @@ func testFastBlockChainImport(chain types.FastBlocks, blockchain *FastBlockChain
 
 // testHeaderChainImport tries to process a chain of header, writing them into
 // the database if successful.
-func testFastHeaderChainImport(chain []*types.FastHeader, blockchain *FastBlockChain) error {
+func testFastHeaderChainImport(chain []*types.Header, blockchain *BlockChain) error {
 	for _, header := range chain {
 		// Try and validate the header
 		if err := blockchain.engine.VerifyFastHeader(blockchain, header, false); err != nil {
@@ -190,7 +190,7 @@ func testFastHeaderChainImport(chain []*types.FastHeader, blockchain *FastBlockC
 	return nil
 }
 
-func insertChain(done chan bool, blockchain *FastBlockChain, chain types.FastBlocks, t *testing.T) {
+func insertChain(done chan bool, blockchain *BlockChain, chain types.Blocks, t *testing.T) {
 	_, err := blockchain.InsertChain(chain)
 	if err != nil {
 		fmt.Println(err)
@@ -304,11 +304,11 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 			t.Fatalf("failed to insert difficult chain: %v", err)
 		}
 	} else {
-		easyHeaders := make([]*types.FastHeader, len(easyBlocks))
+		easyHeaders := make([]*types.Header, len(easyBlocks))
 		for i, block := range easyBlocks {
 			easyHeaders[i] = block.Header()
 		}
-		diffHeaders := make([]*types.FastHeader, len(diffBlocks))
+		diffHeaders := make([]*types.Header, len(diffBlocks))
 		for i, block := range diffBlocks {
 			diffHeaders[i] = block.Header()
 		}
@@ -418,7 +418,7 @@ func testReorgBadHashes(t *testing.T, full bool) {
 	blockchain.Stop()
 
 	// Create a new BlockChain and check that it rolled back the state.
-	ncm, err := NewFastBlockChain(blockchain.db, nil, blockchain.chainConfig, ethash.NewFaker(), vm.Config{})
+	ncm, err := NewBlockChain(blockchain.db, nil, blockchain.chainConfig, ethash.NewFaker(), vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create new chain manager: %v", err)
 	}
@@ -477,7 +477,7 @@ func TestFastVsFullChains(t *testing.T) {
 	// Import the chain as an archive node for the comparison baseline
 	archiveDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(archiveDb)
-	archive, _ := NewFastBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer archive.Stop()
 
 	if n, err := archive.InsertChain(blocks); err != nil {
@@ -486,10 +486,10 @@ func TestFastVsFullChains(t *testing.T) {
 	// Fast import the chain as a non-archive node to test
 	fastDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(fastDb)
-	fast, _ := NewFastBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer fast.Stop()
 
-	headers := make([]*types.FastHeader, len(blocks))
+	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -549,7 +549,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 		remove = append(remove, block.Hash())
 	}
 	// Create a small assertion method to check the three heads
-	assert := func(t *testing.T, kind string, chain *FastBlockChain, header uint64, fast uint64, block uint64) {
+	assert := func(t *testing.T, kind string, chain *BlockChain, header uint64, fast uint64, block uint64) {
 		if num := chain.CurrentBlock().NumberU64(); num != block {
 			t.Errorf("%s head block mismatch: have #%v, want #%v", kind, num, block)
 		}
@@ -564,7 +564,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	archiveDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(archiveDb)
 
-	archive, _ := NewFastBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	if n, err := archive.InsertChain(blocks); err != nil {
 		t.Fatalf("failed to process block %d: %v", n, err)
 	}
@@ -577,10 +577,10 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Import the chain as a non-archive node and ensure all pointers are updated
 	fastDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(fastDb)
-	fast, _ := NewFastBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer fast.Stop()
 
-	headers := make([]*types.FastHeader, len(blocks))
+	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -598,7 +598,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	lightDb := ethdb.NewMemDatabase()
 	gspec.MustCommit(lightDb)
 
-	light, _ := NewFastBlockChain(lightDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	light, _ := NewBlockChain(lightDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	if n, err := light.InsertHeaderChain(headers, 1); err != nil {
 		t.Fatalf("failed to insert header %d: %v", n, err)
 	}
@@ -667,7 +667,7 @@ func TestChainTxReorgs(t *testing.T) {
 		}
 	})
 	// Import the chain. This runs all block validation rules.
-	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	if i, err := blockchain.InsertChain(chain); err != nil {
 		t.Fatalf("failed to insert original chain[%d]: %v", i, err)
 	}
@@ -738,7 +738,7 @@ func TestLogReorgs(t *testing.T) {
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
 
-	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
 	rmLogsCh := make(chan RemovedLogsEvent)
@@ -785,7 +785,7 @@ func TestReorgSideEvent(t *testing.T) {
 		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
 	)
 
-	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
 	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {})
@@ -869,7 +869,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 	pend.Add(len(chain))
 
 	for i := range chain {
-		go func(block *types.FastBlock) {
+		go func(block *types.Block) {
 			defer pend.Done()
 
 			// try to retrieve a block by its canonical hash and see if the block data can be retrieved.
@@ -892,7 +892,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 			}
 		}(chain[i])
 
-		if _, err := blockchain.InsertChain(types.FastBlocks{chain[i]}); err != nil {
+		if _, err := blockchain.InsertChain(types.Blocks{chain[i]}); err != nil {
 			t.Fatalf("failed to insert block %d: %v", i, err)
 		}
 	}
@@ -914,7 +914,7 @@ func TestEIP155Transition(t *testing.T) {
 		genesis = gspec.MustCommit(db)
 	)
 
-	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
 	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
@@ -1022,7 +1022,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		}
 		genesis = gspec.MustCommit(db)
 	)
-	blockchain, _ := NewFastBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()
 
 	blocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, block *BlockGen) {
@@ -1045,7 +1045,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		block.AddTx(tx)
 	})
 	// account must exist pre eip 161
-	if _, err := blockchain.InsertChain(types.FastBlocks{blocks[0]}); err != nil {
+	if _, err := blockchain.InsertChain(types.Blocks{blocks[0]}); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ := blockchain.State(); !st.Exist(theAddr) {
@@ -1053,7 +1053,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 
 	// account needs to be deleted post eip 161
-	if _, err := blockchain.InsertChain(types.FastBlocks{blocks[1]}); err != nil {
+	if _, err := blockchain.InsertChain(types.Blocks{blocks[1]}); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ := blockchain.State(); st.Exist(theAddr) {
@@ -1061,7 +1061,7 @@ func TestEIP161AccountRemoval(t *testing.T) {
 	}
 
 	// account musn't be created post eip 161
-	if _, err := blockchain.InsertChain(types.FastBlocks{blocks[2]}); err != nil {
+	if _, err := blockchain.InsertChain(types.Blocks{blocks[2]}); err != nil {
 		t.Fatal(err)
 	}
 	if st, _ := blockchain.State(); st.Exist(theAddr) {
@@ -1083,7 +1083,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.FastBlock, len(blocks))
+	forks := make([]*types.Block, len(blocks))
 	for i := 0; i < len(forks); i++ {
 		parent := genesis
 		if i > 0 {
@@ -1097,7 +1097,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	diskdb := ethdb.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
 
-	chain, err := NewFastBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
+	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1128,7 +1128,7 @@ func TestTrieForkGC(t *testing.T) {
 	blocks, _ := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
-	forks := make([]*types.FastBlock, len(blocks))
+	forks := make([]*types.Block, len(blocks))
 	for i := 0; i < len(forks); i++ {
 		parent := genesis
 		if i > 0 {
@@ -1141,7 +1141,7 @@ func TestTrieForkGC(t *testing.T) {
 	diskdb := ethdb.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
 
-	chain, err := NewFastBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
+	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1180,7 +1180,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	diskdb := ethdb.NewMemDatabase()
 	new(Genesis).MustCommit(diskdb)
 
-	chain, err := NewFastBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
+	chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
@@ -1262,7 +1262,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		diskdb := ethdb.NewMemDatabase()
 		gspec.MustCommit(diskdb)
 
-		chain, err := NewFastBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
+		chain, err := NewBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 		if err != nil {
 			b.Fatalf("failed to create tester chain: %v", err)
 		}

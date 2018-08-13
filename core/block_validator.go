@@ -48,7 +48,7 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (fv *BlockValidator) ValidateBody(block *types.FastBlock) error {
+func (fv *BlockValidator) ValidateBody(block *types.Block) error {
 	// Check whether the block's known, and if not, that it's linkable
 	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock

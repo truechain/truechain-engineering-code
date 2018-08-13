@@ -34,16 +34,16 @@ import (
 // See GenerateChain for a detailed explanation.
 type BlockGen struct {
 	i           int
-	parent      *types.FastBlock
-	chain       []*types.FastBlock
+	parent      *types.Block
+	chain       []*types.Block
 	chainReader consensus.ChainFastReader
-	header      *types.FastHeader
+	header      *types.Header
 	statedb     *state.StateDB
 
 	gasPool  *GasPool
 	txs      []*types.Transaction
 	receipts []*types.Receipt
-	uncles   []*types.FastHeader
+	uncles   []*types.Header
 
 	config *params.ChainConfig
 	engine consensus.Engine
@@ -87,7 +87,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // further limitations on the content of transactions that can be
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(bc *FastBlockChain, tx *types.Transaction) {
+func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
@@ -133,7 +133,7 @@ func (b *BlockGen) TxNonce(addr common.Address) uint64 {
 // PrevBlock returns a previously generated block by number. It panics if
 // num is greater or equal to the number of the block being generated.
 // For index -1, PrevBlock returns the parent block given to GenerateChain.
-func (b *BlockGen) PrevBlock(index int) *types.FastBlock {
+func (b *BlockGen) PrevBlock(index int) *types.Block {
 	if index >= b.i {
 		panic("block index out of range")
 	}
@@ -166,15 +166,15 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.FastBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.FastBlock, []types.Receipts) {
+func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
-	blocks, receipts := make(types.FastBlocks, n), make([]types.Receipts, n)
-	genblock := func(i int, parent *types.FastBlock, statedb *state.StateDB) (*types.FastBlock, types.Receipts) {
+	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
+	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewFastBlockChain(db, nil, config, engine, vm.Config{})
+		blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
 		defer blockchain.Stop()
 
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
@@ -226,7 +226,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.FastBlock, engine c
 	return blocks, receipts
 }
 
-func makeHeader(chain consensus.ChainFastReader, parent *types.FastBlock, state *state.StateDB, engine consensus.Engine) *types.FastHeader {
+func makeHeader(chain consensus.ChainFastReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time *big.Int
 	if parent.Time() == nil {
 		time = big.NewInt(10)
@@ -234,7 +234,7 @@ func makeHeader(chain consensus.ChainFastReader, parent *types.FastBlock, state 
 		time = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 	}
 
-	return &types.FastHeader{
+	return &types.Header{
 		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
 		GasLimit: FastCalcGasLimit(parent),
@@ -244,9 +244,9 @@ func makeHeader(chain consensus.ChainFastReader, parent *types.FastBlock, state 
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.FastHeader, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.FastHeader {
-	blocks := makeBlockChain(types.NewFastBlockWithHeader(parent), n, engine, db, seed)
-	headers := make([]*types.FastHeader, len(blocks))
+func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
+	blocks := makeBlockChain(types.NewBlockWithHeader(parent), n, engine, db, seed)
+	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
 	}
@@ -254,7 +254,7 @@ func makeHeaderChain(parent *types.FastHeader, n int, engine consensus.Engine, d
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *types.FastBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.FastBlock {
+func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
