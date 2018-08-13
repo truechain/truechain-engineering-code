@@ -64,7 +64,7 @@ func NewRemoteAgent(chain consensus.ChainReader, snailchain consensus.SnailChain
 		hashrate: make(map[common.Hash]hashrate),
 	}
 
-	return nil
+	//return nil
 }
 
 func (a *RemoteAgent) SubmitHashrate(id common.Hash, rate uint64) {

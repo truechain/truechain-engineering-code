@@ -189,6 +189,11 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	worker.chainHeadSub = eth.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
+	worker.fruitSub = eth.SnailBlockChain().SubscribeNewFruitEvent(worker.fruitCh)
+//	worker.chainSideSub = eth.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+
+
+
 	//  subscribe event for fruit and record
 	//TODO need add snail txpool
 
@@ -327,7 +332,7 @@ func (self *worker) update() {
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
 
-	//defer self.fruitSub.Unsubscribe()
+	defer self.fruitSub.Unsubscribe()
 	//defer self.recordSub.Unsubscribe()
 
 	for {
@@ -371,7 +376,8 @@ func (self *worker) update() {
 				}
 			}
 			//TODO　fruit event
-
+		case  <-self.fruitCh:
+			self.commitNewWork()
 		case <-self.chainHeadSub.Err():
 			return
 		case <-self.chainSideSub.Err():
@@ -414,6 +420,14 @@ func (self *worker) wait() {
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
 				self.eth.HybridPool().AddRemoteFruits(newFruits)
+
+				var (
+					events []interface{}
+					logs   = work.state.Logs()
+				)
+				events = append(events, chain.NewFruitsEvent{Fruits: newFruits})
+				
+				self.chain.PostChainEvents(events, logs)
 
 			} else {
 				// Update the block hash in all logs since it is now available and not when the
@@ -536,6 +550,7 @@ func (self *worker) commitNewWork() {
 		Extra:       self.extra,
 		Time:        big.NewInt(tstamp),
 	}
+	log.Info("commit new fruit ","pointer hash",parent.Hash())
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
@@ -573,27 +588,41 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	if PendingRecord != nil {
+		
+		work.header.FastNumber = PendingRecord.Number()
+		work.header.FastHash = PendingRecord.Hash()
+		signs := make([]*types.PbftSign, len(PendingRecord.Body().Signs))
+		for i := range signs {
+			work.signs[i] = types.CopyPbftSign(signs[i])
+		}
+
+		/*
 		for _, tx := range PendingRecord.Transactions() {
 			work.txs = append(work.txs, tx)
 		}
+		*/
 		//TODO new snail need add fruit for fast block heard
 		//work.header.RecordHash = PendingRecord.Hash()
 		//work.header.RecordNumber = PendingRecord.Number()
-
-		log.Info("commit record", "number", PendingRecord.Number())
+	}else{
+		//log.Info("not got the true fb","FB number ",PendingRecord.Number().NumberU64())
 	}
 
 	//TODO should add fruit flow 20180804
-	/*
+	
 	PendingFruits, err := self.eth.HybridPool().PendingFruits()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return
 	}
-	fruits := FruitsByNumber(PendingFruits)
+
+	if PendingFruits != nil{
+		fruits := FruitsByNumber(PendingFruits)
 	
-	work.commitFruits(fruits, self.snailchain, self.coinbase)
-	*/
+		work.commitFruits(fruits, self.snailchain, self.coinbase)
+	}
+	
+	
 	// compute uncles for the new block.
 	var (
 		uncles    []*types.SnailHeader
@@ -616,11 +645,6 @@ func (self *worker) commitNewWork() {
 	for _, hash := range badUncles {
 		delete(self.possibleUncles, hash)
 	}
-
-	//body := &types.SnailBody{
-	//	Fruits : 
-		
-	//}
 
 	// TODO: get fruits from tx pool
 	// Create the new block to seal with the consensus engine
@@ -697,10 +721,12 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) (error, []*types.Receipt) {
 	var receipts []*types.Receipt
 
+	//TODO should add pointer 
 	pointer := bc.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
 		return core.ErrInvalidPointer, nil
 	}
+	
 
 	freshNumber := new(big.Int).Sub(env.header.Number, pointer.Number())
 

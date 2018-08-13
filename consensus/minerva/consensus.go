@@ -94,11 +94,11 @@ func (ethash *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, heade
 	}
 
 	//TODO for fruit
-	/*
+	
 		if header.Fruit {
-			return ethash.verifyHeader(chain, header, parent, false, seal)
+			return ethash.verifySnailHeader(chain, header, parent, false, seal)
 		}
-	*/
+	
 
 	if chain.GetHeader(header.Hash(), number) != nil {
 		return nil
