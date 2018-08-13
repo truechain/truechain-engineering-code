@@ -248,7 +248,9 @@ func (ss *PbftServerMgr) work() {
 	}
 }
 
-func (ss *PbftServerMgr)PutCommittee(id *big.Int, members []*types.CommitteeMember) error {
+func (ss *PbftServerMgr)PutCommittee(committeeInfo *types.CommitteeInfo) error {
+	id := committeeInfo.Id
+	members := committeeInfo.Members
 	if id == nil || len(members) <= 0 {
 		return errors.New("wrong params...")
 	} 
