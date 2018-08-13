@@ -59,7 +59,7 @@ const (
 	triesInMemory       = 128
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
-	FastBlockChainVersion = 3
+	BlockChainVersion = 3
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning

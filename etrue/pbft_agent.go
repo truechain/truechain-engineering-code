@@ -102,7 +102,7 @@ type AgentWork struct {
 
 type Backend interface {
 	AccountManager() *accounts.Manager
-	FastBlockChain() *core.BlockChain
+	BlockChain() *core.BlockChain
 	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
@@ -127,7 +127,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		config:         	config,
 		engine:         	engine,
 		eth:            	eth,
-		fastChain:          eth.FastBlockChain(),
+		fastChain:          eth.BlockChain(),
 		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		ElectionCh: 	make(chan core.ElectionEvent, 10),
@@ -348,8 +348,8 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	}
 	fb.Body().SetLeaderSign(voteSign)
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{
-		FastBlock:	fb,
+	self.NewFastBlockFeed.Send(core.NewBlockEvent{
+		Block:	fb,
 	})
 	return err
 }
@@ -545,7 +545,7 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockCha
 	return nil, receipt.Logs
 }
 
-func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewFastBlockEvent) event.Subscription {
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewBlockEvent) event.Subscription {
 	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
 }
 
