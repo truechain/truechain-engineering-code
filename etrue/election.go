@@ -77,8 +77,8 @@ func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.Snail
 		committeeList:    make(map[*big.Int]*Committee),
 		fastchain:		fastchain,
 		snailchain:		snailchain,
-		fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize) ,
-		snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
+		//fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize),
+		//snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
 
 	}
 
@@ -92,8 +92,8 @@ func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.Snail
 	// get snail count
 
 	// Subscribe events from blockchain
-	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
-	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+	//election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
+	//election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
 	// Start the event loop and return
 	go election.loop()
