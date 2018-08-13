@@ -47,7 +47,6 @@ import (
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-
 	ErrNoGenesis = errors.New("Fast Genesis not found in chain")
 )
 
@@ -1022,6 +1021,22 @@ func (bc *FastBlockChain) WriteBlockWithState(block *types.FastBlock, receipts [
 	bc.futureBlocks.Remove(block.Hash())
 	return status, nil
 }
+
+
+func (bc *FastBlockChain) InsertSign(block *types.FastBlock,signs []*types.PbftSign) (int, error) {
+
+	if(signs == nil){
+		return 0,errors.New("signs is nil")
+	}
+
+	block.Body().Signs=signs
+	chain := []*types.FastBlock{block}
+	n, events, logs, err := bc.insertChain(chain)
+	bc.PostChainEvents(events, logs)
+	return n, err
+}
+
+
 
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
