@@ -176,6 +176,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		recv:           make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
 		chain:          eth.SnailBlockChain(),
+		snailchain:     eth.SnailBlockChain(),
 		proc:           eth.SnailBlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.SnailBlock),
 		coinbase:       coinbase,
