@@ -26,7 +26,7 @@ import (
 // ReadFtLookupEntry retrieves the positional metadata associated with a fruit
 // hash to allow retrieving the fruit by hash.
 func ReadFtLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
-	data, _ := db.Get(txLookupKey(hash))
+	data, _ := db.Get(ftLookupKey(hash))
 	if len(data) == 0 {
 		return common.Hash{}, 0, 0
 	}
@@ -41,7 +41,7 @@ func ReadFtLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64
 // WriteFtLookupEntries stores a positional metadata for every fruit from
 // a block, enabling hash based fruit lookups.
 func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
-	for i, tx := range block.Fruits() {
+	for i, ft := range block.Fruits() {
 		entry := FtLookupEntry{
 			BlockHash:  block.Hash(),
 			BlockIndex: block.NumberU64(),
@@ -51,7 +51,7 @@ func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
 		if err != nil {
 			log.Crit("Failed to encode fruit lookup entry", "err", err)
 		}
-		if err := db.Put(txLookupKey(tx.Hash()), data); err != nil {
+		if err := db.Put(ftLookupKey(ft.FastHash()), data); err != nil {
 			log.Crit("Failed to store fruit lookup entry", "err", err)
 		}
 	}
@@ -59,13 +59,13 @@ func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
 
 // DeleteFtLookupEntry removes all fruit data associated with a hash.
 func DeleteFtLookupEntry(db DatabaseDeleter, hash common.Hash) {
-	db.Delete(txLookupKey(hash))
+	db.Delete(ftLookupKey(hash))
 }
 
 // ReadFruit retrieves a specific fruit from the database, along with
 // its added positional metadata.
 func ReadFruit(db DatabaseReader, hash common.Hash) (*types.SnailBlock, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, txIndex := ReadFtLookupEntry(db, hash)
+	blockHash, blockNumber, ftIndex := ReadFtLookupEntry(db, hash)
 
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
@@ -73,11 +73,11 @@ func ReadFruit(db DatabaseReader, hash common.Hash) (*types.SnailBlock, common.H
 
 	body := ReadBody(db, blockHash, blockNumber)
 
-	if body == nil || len(body.Fruits) <= int(txIndex) {
-		log.Error("Fruit referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
+	if body == nil || len(body.Fruits) <= int(ftIndex) {
+		log.Error("Fruit referenced missing", "number", blockNumber, "hash", blockHash, "index", ftIndex)
 		return nil, common.Hash{}, 0, 0
 	}
-	return body.Fruits[txIndex], blockHash, blockNumber, txIndex
+	return body.Fruits[ftIndex], blockHash, blockNumber, ftIndex
 }
 
 // ReadReceipt retrieves a specific transaction receipt from the database, along with
