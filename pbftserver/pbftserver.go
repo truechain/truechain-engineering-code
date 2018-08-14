@@ -233,7 +233,7 @@ func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
 	return sign
 }
 
-func (ss *PbftServerMgr) work(acChan chan *consensus.ActionIn) {
+func (ss *PbftServerMgr) work(acChan <-chan *consensus.ActionIn) {
 	for {
 		select {
 		case ac := <-acChan:

@@ -35,7 +35,7 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 	server.setRoute()
 	return server
 }
-func (server *Server) Start(work func(acChan chan *consensus.ActionIn)) {
+func (server *Server) Start(work func(acChan <-chan *consensus.ActionIn)) {
 	go server.startHttpServer()
 	go work(server.ActionChan)
 }
