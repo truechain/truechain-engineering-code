@@ -25,14 +25,17 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 		return nil
 	}
 	node := NewNode(nodeID,verify,addrs)
-	server := &Server{node.NodeTable[nodeID], node,id,help}
-	mux := http.NewServeMux()
+	mux := http.NewServeMux()	
+	server := &Server{node.NodeTable[nodeID], node,id,help,mux}
+
 	server.setRoute()
 
 	return server
 }
-
 func (server *Server) Start() {
+	go server.startHttpServer()
+}
+func (server *Server) startHttpServer() {
 	fmt.Printf("Server will be started at %s...\n", server.url)
 	if err := http.ListenAndServe(server.url, server.mux); err != nil {
 		fmt.Println(err)
