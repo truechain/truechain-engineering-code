@@ -466,7 +466,7 @@ func (f *Fetcher) loop() {
 		case op := <-f.injectSign:
 			// A direct block insertion was requested, try and fill any pending gaps
 			propSignInMeter.Mark(1)
-			f.enqueueSign(op.origin, op.sign,false)
+			f.enqueueSign(op.origin, op.sign)
 		case hash := <-f.done:
 			// A pending import finished, remove all traces of the notification
 			f.forgetHash(hash)
@@ -708,17 +708,10 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 	complete.Reset(gatherSlack - time.Since(earliest))
 }
 
-// enqueueSigns schedules a new future import operation, if the sign to be imported
-// has not yet been seen.
-func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign, leader bool) {
+// enqueueSign schedules a new future Sign gather operation, gather 2/3 committee number
+// sign insert block chain.
+func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign) {
 	hash := sign.Hash()
-	if leader {
-		hash = sign.FastHash
-		if _, ok := f.queuedSign[hash]; ok {
-			return
-		}
-	}
-
 	number := sign.FastHeight
 
 	// Ensure the peer isn't DOSing us
@@ -821,8 +814,6 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		f.queues[peer] = count
 		f.queued[hash] = op
 
-		f.enqueueSign(peer,block.Body().GetLeaderSign(),true)
-
 		opMulti := injectMulti{}
 		if blockHsahs, ok := f.blockMultiHash[block.Number()]; ok {
 			for _, hash := range blockHsahs {
@@ -919,8 +910,8 @@ func (f *Fetcher) verifyComeAgreement(injectMulti *injectSignMulti) {
 	}()
 }
 
-// GetPedingBlock gets a block that is not inserted locally
-func (f *Fetcher) GetPedingBlock(hash common.Hash) *types.Block{
+// GetPendingBlock gets a block that is not inserted locally
+func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block{
 	if  _, ok := f.queued[hash]; !ok {
 		return nil
 	} else {
@@ -982,7 +973,7 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 	}
 }
 
-// forgetBlock removes all traces of a queued block from the fetcher's internal
+// forgetSign removes all traces of a queued block from the fetcher's internal
 // state.
 func (f *Fetcher) forgetSign(hash common.Hash) {
 	if insert := f.queuedSign[hash]; insert != nil {
