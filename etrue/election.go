@@ -5,7 +5,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/core"
 	"math/big"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/common"
 	"crypto/ecdsa"
@@ -50,24 +49,24 @@ type Election struct {
 	number           *big.Int
 
 	fastCount		uint
-	snailCount		uint
+	snailCount		uint64
 
 	electionFeed	event.Feed
 	committeeFeed	event.Feed
 	scope         event.SubscriptionScope
 
-	fastChainHeadCh  chan fastchain.ChainHeadEvent
+	fastChainHeadCh  chan core.ChainHeadEvent
 	fastChainHeadSub event.Subscription
 
 	snailChainHeadCh  chan snailchain.ChainHeadEvent
 	snailChainHeadSub event.Subscription
 
-	fastchain *fastchain.FastBlockChain
+	fastchain *core.BlockChain
 	snailchain *snailchain.SnailBlockChain
 }
 
 
-func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.SnailBlockChain)*Election {
+func NewElction(fastchain *core.BlockChain, snailchain *snailchain.SnailBlockChain)*Election {
 
 	// init
 	election := &Election{
@@ -77,24 +76,31 @@ func NewElction(fastchain *fastchain.FastBlockChain,snailchain *snailchain.Snail
 		committeeList:    make(map[*big.Int]*Committee),
 		fastchain:		fastchain,
 		snailchain:		snailchain,
-		//fastChainHeadCh: make(chan fastchain.ChainHeadEvent,fastChainHeadSize),
-		//snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
+			fastChainHeadCh: make(chan core.ChainHeadEvent,fastChainHeadSize),
+		snailChainHeadCh:  make(chan snailchain.ChainHeadEvent,snailchainHeadSize),
 
 	}
 
 	// get genesis committee
-	election.genesisCommittee = election.snailchain.GetGenesisCommittee()
+	genesis := election.snailchain.GetBlockByNumber(1)
+	Committee := &Committee{}
+	pk,_ := genesis.GetPubKey()
+	Committee.members = append(Committee.members, &types.CommitteeMember{genesis.Header().Coinbase,pk})
+	election.committeeList[new(big.Int).SetUint64(1)] = Committee
+
 	//fg := fastchain.Genesis()
 	//fg.Hash() = append(election.committeeList)
 	// get current fast/snail
 		//fastchain.GetTdByHash()
 	// get current committee
-
+	sc := 	election.snailchain.CurrentBlock()
+	//fc := 	election.fastchain.CurrentBlock()
 	// get snail count
-
+		ss := sc.Number()
+	election.snailCount = 	election.snailchain.GetHeaderByNumber(ss.Uint64()).Number.Uint64()
 	// Subscribe events from blockchain
-	//election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
-	//election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
+	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
 
 	// send event to the subscripber
@@ -189,13 +195,18 @@ func (e *Election) VerifySigns(pvs *[]types.PbftSign) (cfvf *[]types.CommitteeMe
 // GetCommittee returns the committee members who propose this fast block
 func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember){
 
-		//commIn := types.CommitteeInfo{}
-		//uj := types.Committee{}
 	// get fast block from fastchain
 	fb := e.fastchain.GetBlock(FastHash, FastNumber.Uint64())
 	if fb == nil {
 			return nil,nil
 	}
+	if FastNumber.Cmp(new(big.Int).SetUint64(e.snailCount))	<=	0 {
+
+		return new(big.Int).SetUint64(e.snailCount),e.committee.members
+	}else {
+		return nil,nil
+	}
+
 	// find fast block from committee map
 	//uj.UnmarshalJSON(e.committee)
 	//if commIn == nil || len(commIn.Members) <0 {
