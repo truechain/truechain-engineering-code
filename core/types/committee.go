@@ -66,10 +66,10 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock() (*FastBlock, error)
-	VerifyFastBlock(*FastBlock) error
-	BroadcastFastBlock(*FastBlock) error
-	BroadcastSign(sign *PbftSign,block *FastBlock) error
+	FetchFastBlock() (*Block, error)
+	VerifyFastBlock(*Block) error
+	BroadcastFastBlock(*Block) error
+	BroadcastSign(sign *PbftSign,block *Block) error
 }
 
 type PbftServerProxy interface {
