@@ -48,17 +48,9 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey,agent types.Pbf
 		priv:		priv,
 		Agent:		agent,
 	}
-	go ss.work()
 	return ss
 }
 func (ss *PbftServerMgr) Finish() error{
-
-	ac := &consensus.ActionIn{
-		AC:		consensus.ActionFinish,
-		ID:		common.Big0,
-		Height:	common.Big0,
-	}
-	consensus.ActionChan <- ac
 	// sleep 1s
 	for _,v := range ss.servers {
 		v.server.Stop()
@@ -241,16 +233,16 @@ func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
 	return sign
 }
 
-func (ss *PbftServerMgr) work() {
+func (ss *PbftServerMgr) work(acChan chan *consensus.ActionIn) {
 	for {
 		select {
-		case ac := <-consensus.ActionChan:
+		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
 				req,err := ss.GetRequest(ac.ID)
 				if err == nil  && req != nil {
 					if server,ok := ss.servers[ac.ID.Uint64()];ok {
-						server.server.PutRequest(req)
 						server.Height = big.NewInt(req.Height)
+						server.server.PutRequest(req)
 					} 
 				}
 			} else if ac.AC == consensus.ActionBroadcast {
@@ -304,14 +296,14 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 	switch action {
 	case Start:
 		if server,ok := ss.servers[id.Uint64()]; ok {
-			server.server.Start()
+			server.server.Start(ss.work)
 			// start to fetch
 			ac := &consensus.ActionIn{
 				AC:		consensus.ActionFecth,
 				ID:		id,
 				Height:	common.Big0,
 			}
-			consensus.ActionChan <- ac
+			server.server.ActionChan <- ac
 			return nil
 		} 
 		return errors.New("wrong conmmitt ID:"+id.String())
