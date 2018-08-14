@@ -10,6 +10,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"io"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 
@@ -58,6 +60,17 @@ type CommitteeNode struct {
 
 type PbftSigns []*PbftSign
 
+// DecodeRLP decodes the Ethereum
+func (p *PbftSign) DecodeRLP(s *rlp.Stream) error {
+	err := s.Decode(p)
+	return err
+}
+
+// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
+func (p *PbftSign) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, p)
+}
+
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
@@ -66,10 +79,10 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock() (*FastBlock, error)
-	VerifyFastBlock(*FastBlock) error
-	BroadcastFastBlock(*FastBlock) error
-	BroadcastSign(sign *PbftSign,block *FastBlock) error
+	FetchFastBlock() (*Block, error)
+	VerifyFastBlock(*Block) error
+	BroadcastFastBlock(*Block) error
+	BroadcastSign(sign *PbftSign,block *Block) error
 }
 
 type PbftServerProxy interface {
