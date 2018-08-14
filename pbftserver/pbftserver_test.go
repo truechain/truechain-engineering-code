@@ -42,7 +42,7 @@ func (pap *PbftAgentProxyImp) BroadcastFastBlock(*types.Block) error {
 	return nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.FastBlock) error {
+func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {
 	println(pap.Name, "BroadcastSign")
 	return nil
 }
@@ -81,13 +81,13 @@ func TestPbftServerStart(t *testing.T) {
 	c1.Id = big.NewInt(1)
 
 	c2 := new(types.CommitteeInfo)
-	c2.Id = big.NewInt(2)
+	c2.Id = big.NewInt(1)
 
 	c3 := new(types.CommitteeInfo)
-	c3.Id = big.NewInt(3)
+	c3.Id = big.NewInt(1)
 
 	c4 := new(types.CommitteeInfo)
-	c4.Id = big.NewInt(4)
+	c4.Id = big.NewInt(1)
 
 	m1 := new(types.CommitteeMember)
 	m1.Publickey = ser1.pk
@@ -99,47 +99,130 @@ func TestPbftServerStart(t *testing.T) {
 	m4.Publickey = ser4.pk
 
 	c1.Members = append(c1.Members, m1, m2, m3, m4)
+	c2.Members = append(c2.Members, m1, m2, m3, m4)
+	c3.Members = append(c3.Members, m1, m2, m3, m4)
+	c4.Members = append(c4.Members, m1, m2, m3, m4)
 
 	ser1.PutCommittee(c1)
 
 	node1 := new(types.CommitteeNode)
-	node1.IP = "http://127.0.0.1"
-	node1.Port = 10001
+	node1.IP = "127.0.0.1"
+	node1.Port = 10011
 	node1.CM = m1
 
 	node2 := new(types.CommitteeNode)
-	node2.IP = "http://127.0.0.1"
-	node2.Port = 10002
+	node2.IP = "127.0.0.1"
+	node2.Port = 10012
 	node2.CM = m2
 
 	node3 := new(types.CommitteeNode)
-	node3.IP = "http://127.0.0.1"
-	node3.Port = 10003
+	node3.IP = "127.0.0.1"
+	node3.Port = 10013
 	node3.CM = m3
 
 	node4 := new(types.CommitteeNode)
-	node4.IP = "http://127.0.0.1"
-	node4.Port = 10004
+	node4.IP = "127.0.0.1"
+	node4.Port = 10014
 	node4.CM = m4
+
+	var nodes []*types.CommitteeNode
+	nodes = append(nodes, node1, node2, node3, node4)
+
+	ser1.PutCommittee(c1)
+	ser1.PutNodes(c1.Id, nodes)
+	go ser1.Notify(c1.Id, 0)
+
+	ser2.PutCommittee(c1)
+	ser2.PutNodes(c1.Id, nodes)
+	go ser2.Notify(c1.Id, 0)
+
+	ser3.PutCommittee(c3)
+	ser3.PutNodes(c3.Id, nodes)
+	go ser3.Notify(c3.Id, 0)
+
+	ser4.PutCommittee(c4)
+	ser4.PutNodes(c4.Id, nodes)
+	go ser4.Notify(c4.Id, 0)
+
+	<-start
+}
+
+func TestPbftServerStart2(t *testing.T) {
+	start := make(chan bool)
+
+	pa1 := NewPbftAgent("Agent1")
+	pa2 := NewPbftAgent("Agent2")
+
+	ser1 := addServer(pa1)
+	ser2 := addServer(pa2)
+
+	fmt.Println(ser1, ser2)
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+
+	c2 := new(types.CommitteeInfo)
+	c2.Id = big.NewInt(1)
+
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = ser1.pk
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = ser2.pk
+
+	c1.Members = append(c1.Members, m1, m2)
+	c2.Members = append(c2.Members, m1, m2)
+
+	ser1.PutCommittee(c1)
+
+	node1 := new(types.CommitteeNode)
+	node1.IP = "127.0.0.1"
+	node1.Port = 10011
+	node1.CM = m1
+
+	node2 := new(types.CommitteeNode)
+	node2.IP = "127.0.0.1"
+	node2.Port = 10012
+	node2.CM = m2
+
+	var nodes []*types.CommitteeNode
+	nodes = append(nodes, node1, node2)
+
+	ser1.PutCommittee(c1)
+	ser1.PutNodes(c1.Id, nodes)
+	go ser1.Notify(c1.Id, 0)
+
+	ser2.PutCommittee(c1)
+	ser2.PutNodes(c1.Id, nodes)
+	go ser2.Notify(c1.Id, 0)
+
+	<-start
+}
+
+func TestPbftServerStartOne(t *testing.T) {
+	start := make(chan bool)
+	pa1 := NewPbftAgent("Agent1")
+	ser1 := addServer(pa1)
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = ser1.pk
+
+	c1.Members = append(c1.Members, m1)
+
+	ser1.PutCommittee(c1)
+
+	node1 := new(types.CommitteeNode)
+	node1.IP = "127.0.0.1"
+	node1.Port = 10009
+	node1.CM = m1
 
 	var nodes []*types.CommitteeNode
 	nodes = append(nodes, node1)
 
 	ser1.PutCommittee(c1)
 	ser1.PutNodes(c1.Id, nodes)
-	ser1.Notify(c1.Id, 0)
-
-	ser2.PutCommittee(c2)
-	ser2.PutNodes(c2.Id, nodes)
-	ser2.Notify(c2.Id, 0)
-
-	ser2.PutCommittee(c3)
-	ser2.PutNodes(c3.Id, nodes)
-	ser2.Notify(c3.Id, 0)
-
-	ser2.PutCommittee(c4)
-	ser2.PutNodes(c4.Id, nodes)
-	ser2.Notify(c4.Id, 0)
-
+	go ser1.Notify(c1.Id, 0)
 	<-start
 }
