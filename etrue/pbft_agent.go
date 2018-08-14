@@ -170,8 +170,8 @@ func (self *PbftAgent) loop(){
 				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
+			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 				self.SendPbftNode(ch.CommitteeInfo)
 				self.server.PutCommittee(ch.CommitteeInfo)
 			}
@@ -326,7 +326,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		FastHeight:fb.Header().Number,
 		FastHash:fb.Hash(),
 	}
-	data := voteSign.PrepareData()//dd
+	data := voteSign.PrepareData() //TODO
 	hash :=RlpHash(data)
 	var err error
 	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
@@ -403,16 +403,15 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	}
 }*/
 
-func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block) error{
-	fastBlocks	:= []*types.Block{fb}
+func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block){
+	/*fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
 		panic(err)
-	}
+	}*/
 	self.agentFeed.Send(core.PbftSignEvent{
-		PbftSign:	voteSign, // TODO  PbftSign
+		PbftSign:	voteSign,
 	})
-	return err
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
@@ -568,6 +567,20 @@ func (self * PbftAgent) Stop() {
 
 // VerifyCommitteeSign verify committee sign.
 func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool {
+	for _,sign := range signs{
+		msg :=sign.PrepareData()
+		pubKey,err :=crypto.SigToPub(msg,sign.Sign)
+		if err != nil{
+			log.Info("SigToPub error.")
+			panic(err)
+		}
+		for _,member := range self.CommitteeInfo.Members { // TODO  self.CommitteeInfo is nil
+			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
+				break;
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -578,7 +591,7 @@ func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
 
 // getCommitteeNumber return Committees number
 func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
-	return 0
+	return int32(len(self.CommitteeInfo.Members))
 }
 
 func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,CommitteeType int) error {
