@@ -17,6 +17,7 @@ type Server struct {
 	ID	*big.Int
 	help consensus.ConsensusHelp
 	mux * http.ServeMux
+	server *http.Server
 }
 
 func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
@@ -25,11 +26,12 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 		return nil
 	}
 	node := NewNode(nodeID,verify,addrs)
-	mux := http.NewServeMux()	
+		
 	server := &Server{node.NodeTable[nodeID], node,id,help,mux}
-
+	server.server = &http.Server{
+		Addr:		server.url,
+	}
 	server.setRoute()
-
 	return server
 }
 func (server *Server) Start() {
@@ -37,20 +39,25 @@ func (server *Server) Start() {
 }
 func (server *Server) startHttpServer() {
 	fmt.Printf("Server will be started at %s...\n", server.url)
-	if err := http.ListenAndServe(server.url, server.mux); err != nil {
+	if err := server.server.ListenAndServe(); err != nil {
 		fmt.Println(err)
 		return
 	}
 }
 func (server *Server) Stop(){
 	// do nothing
+	if server.server != nil {
+		server.server.Close()
+	}
 }
 func (server *Server) setRoute() {
-	server.mux.HandleFunc("/req", server.getReq)
-	server.mux.HandleFunc("/preprepare", server.getPrePrepare)
-	server.mux.HandleFunc("/prepare", server.getPrepare)
-	server.mux.HandleFunc("/commit", server.getCommit)
-	server.mux.HandleFunc("/reply", server.getReply)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/req", server.getReq)
+	mux.HandleFunc("/preprepare", server.getPrePrepare)
+	mux.HandleFunc("/prepare", server.getPrepare)
+	mux.HandleFunc("/commit", server.getCommit)
+	mux.HandleFunc("/reply", server.getReply)
+	server.server.Handler = mux
 }
 
 func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) {
