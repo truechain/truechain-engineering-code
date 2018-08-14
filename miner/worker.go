@@ -550,7 +550,6 @@ func (self *worker) commitNewWork() {
 		Extra:       self.extra,
 		Time:        big.NewInt(tstamp),
 	}
-	log.Info("commit new fruit ","pointer hash",parent.Hash())
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
@@ -589,8 +588,8 @@ func (self *worker) commitNewWork() {
 	}
 	if PendingRecord != nil {
 		
-		work.header.FastNumber = PendingRecord.Number()
-		work.header.FastHash = PendingRecord.Hash()
+		self.current.header.FastNumber = PendingRecord.Number()
+		self.current.header.FastHash = PendingRecord.Hash()
 		signs := make([]*types.PbftSign, len(PendingRecord.Body().Signs))
 		for i := range signs {
 			work.signs[i] = types.CopyPbftSign(signs[i])
@@ -605,7 +604,7 @@ func (self *worker) commitNewWork() {
 		//work.header.RecordHash = PendingRecord.Hash()
 		//work.header.RecordNumber = PendingRecord.Number()
 	}else{
-		//log.Info("not got the true fb","FB number ",PendingRecord.Number().NumberU64())
+
 	}
 
 	//TODO should add fruit flow 20180804
