@@ -247,7 +247,7 @@ func (ss *PbftServerMgr) work() {
 		case ac := <-consensus.ActionChan:
 			if ac.AC == consensus.ActionFecth {
 				req,err := ss.GetRequest(ac.ID)
-				if err != nil  && req != nil {
+				if err == nil  && req != nil {
 					if server,ok := ss.servers[ac.ID];ok {
 						server.server.PutRequest(req)
 						server.Height = big.NewInt(req.Height)

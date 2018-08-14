@@ -120,7 +120,7 @@ type ProtocolManager struct {
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
 	wg sync.WaitGroup
-	agent *PbftAgent
+	agentProxy AgentNetworkProxy
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
@@ -140,7 +140,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
-		agent: 	agent,
+		agentProxy: 	agent,
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
@@ -260,17 +260,17 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 
 	// broadcast mined fastBlocks
 	pm.minedFastCh = make(chan core.NewBlockEvent, txChanSize)
-	pm.minedFastSub = pm.agent.SubscribeNewFastBlockEvent(pm.minedFastCh)
+	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
 
 	// broadcast sign
 	pm.pbSignsCh = make(chan core.PbftSignEvent, signChanSize)
-	pm.pbSignsSub = pm.agent.SubscribeNewPbftSignEvent(pm.pbSignsCh)
+	pm.pbSignsSub = pm.agentProxy.SubscribeNewPbftSignEvent(pm.pbSignsCh)
 	go pm.pbSignBroadcastLoop()
 
 	// broadcast node info
 	pm.pbNodeInfoCh = make(chan NodeInfoEvent, nodeChanSize)
-	pm.pbNodeInfoSub = pm.agent.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
+	pm.pbNodeInfoSub = pm.agentProxy.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
 	go pm.pbNodeInfoBroadcastLoop()
 
 	// broadcast mined fruits
@@ -667,7 +667,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPedingBlock(block.Hash) == nil {
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
 				unknown = append(unknown, block)
 			}
 		}
@@ -722,7 +722,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "sign is nil")
 		}
 		p.MarkNodeInfo(nodeInfo.Hash())
-		pm.agent.AddRemoteNodeInfo(nodeInfo)
+		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
 
 	case msg.Code == BlockSignMsg:
 		// sign arrived, make sure we have a valid and fresh chain to handle them
@@ -812,7 +812,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPedingBlock(hash) != nil {
+	if pm.blockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPendingBlock(hash) != nil {
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
