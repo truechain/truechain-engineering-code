@@ -170,8 +170,8 @@ func (self *PbftAgent) loop(){
 				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
+			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 				self.SendPbftNode(ch.CommitteeInfo)
 				self.server.PutCommittee(ch.CommitteeInfo)
 			}
