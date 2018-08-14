@@ -91,21 +91,20 @@ func NewElction(fastchain *core.BlockChain, snailchain *snailchain.SnailBlockCha
 	//fg := fastchain.Genesis()
 	//fg.Hash() = append(election.committeeList)
 	// get current fast/snail
-		//fastchain.GetTdByHash()
+	//fastchain.GetTdByHash()
 	// get current committee
 	sc := 	election.snailchain.CurrentBlock()
 	//fc := 	election.fastchain.CurrentBlock()
 	// get snail count
-		ss := sc.Number()
+	ss := sc.Number()
 	election.snailCount = 	election.snailchain.GetHeaderByNumber(ss.Uint64()).Number.Uint64()
 	// Subscribe events from blockchain
 	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
 	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
-
 	// send event to the subscripber
-	//go election.committeeFeed.Send(core.CommitteeEvent{})
-	//go election.electionFeed.Send(core.ElectionEvent{types.CommitteeStart}, nil, nil)
+	go election.committeeFeed.Send(core.CommitteeEvent{})
+	go election.electionFeed.Send(core.ElectionEvent{})
 
 	// Start the event loop and return
 	go election.loop()
@@ -201,7 +200,6 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 			return nil,nil
 	}
 	if FastNumber.Cmp(new(big.Int).SetUint64(e.snailCount))	<=	0 {
-
 		return new(big.Int).SetUint64(e.snailCount),e.committee.members
 	}else {
 		return nil,nil
@@ -231,7 +229,7 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 	//}
 	//// find pre committee snail block, calculate committee begin and end number
 
-	go sortition()
+	//go sortition()
 	return nil, nil
 }
 
