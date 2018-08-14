@@ -231,7 +231,7 @@ func (e *Election)GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.
 	//}
 	//// find pre committee snail block, calculate committee begin and end number
 
-	go sortition()
+	//go sortition()
 	return nil, nil
 }
 
