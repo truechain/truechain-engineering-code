@@ -25,6 +25,7 @@ import (
 	"encoding/gob"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/pkg/errors"
+	"io"
 )
 
 const (
@@ -116,6 +117,17 @@ type  CryNodeInfo struct {
 	Nodes       []EncryptCommitteeNode
 	Sign 		[]byte	//sign msg
 	CommitteeId *big.Int
+}
+
+// DecodeRLP decodes the Ethereum
+func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
+	err := s.Decode(c)
+	return err
+}
+
+// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
+func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, c)
 }
 
 func (c *CryNodeInfo) Hash() common.Hash {
