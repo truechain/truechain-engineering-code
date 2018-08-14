@@ -32,7 +32,7 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 	server.server = &http.Server{
 		Addr:		server.url,
 	}
-	server.ActionChan = make(chan *ActionIn)
+	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
 	return server
 }
