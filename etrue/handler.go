@@ -667,7 +667,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPedingBlock(block.Hash) == nil {
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
 				unknown = append(unknown, block)
 			}
 		}
@@ -812,7 +812,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPedingBlock(hash) != nil {
+	if pm.blockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPendingBlock(hash) != nil {
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
