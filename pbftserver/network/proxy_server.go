@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/common"
 	"encoding/json"
 	"fmt"
 	"bytes"
@@ -17,6 +18,7 @@ type Server struct {
 	ID	*big.Int
 	help consensus.ConsensusHelp
 	server *http.Server
+	ActionChan chan *consensus.ActionIn
 }
 
 func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
@@ -25,16 +27,18 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 		return nil
 	}
 	node := NewNode(nodeID,verify,addrs)
-		
+
 	server := &Server{url:node.NodeTable[nodeID], node:node,ID:id,help:help,}
 	server.server = &http.Server{
 		Addr:		server.url,
 	}
+	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
 	return server
 }
-func (server *Server) Start() {
+func (server *Server) Start(work func(acChan <-chan *consensus.ActionIn)) {
 	go server.startHttpServer()
+	go work(server.ActionChan)
 }
 func (server *Server) startHttpServer() {
 	fmt.Printf("Server will be started at %s...\n", server.url)
@@ -48,6 +52,12 @@ func (server *Server) Stop(){
 	if server.server != nil {
 		server.server.Close()
 	}
+	ac := &consensus.ActionIn{
+		AC:		consensus.ActionFinish,
+		ID:		common.Big0,
+		Height:	common.Big0,
+	}
+	server.ActionChan <- ac
 }
 func (server *Server) setRoute() {
 	mux := http.NewServeMux()
@@ -126,16 +136,16 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	} else {
 		// wrong state
 	}
+}
+func (server *Server) PutRequest(msg *consensus.RequestMsg) {
+	server.node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionBroadcast,
 		ID:		server.ID,
 		Height:	height,
 	}
-	consensus.ActionChan <- ac
-}
-func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	server.node.MsgEntrance <- msg
+	server.ActionChan <- ac
 }
 
 func send(url string, msg []byte) {
