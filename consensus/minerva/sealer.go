@@ -161,14 +161,14 @@ mineloop:
 			send <- result
 			// TODO snail need a flag to distinguish furit and block
 			
-			//if !result.IsFruit() {
+			if !result.IsFruit() {
 				// stop threads when get a block, wait for outside abort when result is fruit
 				close(abort)
 				pend.Wait()
 				break mineloop
-			//}
+			}
 			
-			//break
+			break
 		case <-ethash.update:
 			// Thread count was changed on user request, restart
 			close(abort)
@@ -319,21 +319,22 @@ search:
 				break search
 			} else {
 				lastResult := result[16:]
+				if header.FastNumber.Uint64() !=0 {
+					if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
+						// last 128 bit < Dpf, get a fruit
+						header = types.CopySnailHeader(header)
+						header.Nonce = types.EncodeNonce(nonce)
+						header.MixDigest = common.BytesToHash(digest)
+						//TODO need add fruit flow
+						header.Fruit = true
 
-				if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
-					// last 128 bit < Dpf, get a fruit
-					header = types.CopySnailHeader(header)
-					header.Nonce = types.EncodeNonce(nonce)
-					header.MixDigest = common.BytesToHash(digest)
-					//TODO need add fruit flow
-					header.Fruit = true
-
-					// Seal and return a block (if still needed)
-					select {
-					case found <- block.WithSeal(header):
-						logger.Trace("IsFruit nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
-					case <-abort:
-						logger.Trace("IsFruit nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+						// Seal and return a block (if still needed)
+						select {
+						case found <- block.WithSeal(header):
+							logger.Trace("IsFruit nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+						case <-abort:
+							logger.Trace("IsFruit nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+						}
 					}
 				}
 			}

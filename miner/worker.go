@@ -416,7 +416,7 @@ func (self *worker) wait() {
 				// put it into pool first
 				// Broadcast the new fruit event
 				self.mux.Post(chain.NewMinedFruitEvent{Block: block})
- 
+				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
 				self.eth.HybridPool().AddRemoteFruits(newFruits)
