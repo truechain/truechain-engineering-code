@@ -23,6 +23,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/urfave/cli.v1"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 var (

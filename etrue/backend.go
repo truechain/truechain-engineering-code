@@ -124,7 +124,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	chainConfig, genesisHash, genesisErr := chain.SetupGenesisBlock(chainDb, config.FastGenesis)
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.FastGenesis)
 	snailConfig, snailHash, snailErr := chain.SetupGenesisBlock(chainDb, config.SnailGenesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr

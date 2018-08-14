@@ -318,7 +318,7 @@ func (self *worker) updateofFruitTx([]*types.Block) {
 
 //Neo 20180626 for record pool event
 
-func (self *worker) updateofRecordTx([]*types.FastBlock) {
+func (self *worker) updateofRecordTx([]*types.Block) {
 
 }
 

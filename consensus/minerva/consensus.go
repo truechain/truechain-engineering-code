@@ -67,7 +67,7 @@ var (
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
 func (m *Minerva) Author(header *types.Header) (common.Address, error) {
-	return header.Coinbase, nil
+	return common.Address{}, nil
 }
 func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error) {
 	return header.Coinbase, nil
@@ -110,7 +110,7 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *ty
 
 // VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-func (m *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.FastHeader, seal bool) error {
+func (m *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.Header, seal bool) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -219,7 +219,7 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	return m.verifySnailHeader(chain, headers[index], parent, false, seals[index])
 }
 
-func (m *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.FastHeader,
+func (m *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.Header,
 	seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if m.config.PowMode == ModeFullFake || len(headers) == 0 {
@@ -283,8 +283,8 @@ func (m *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*
 }
 
 func (m *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
-	headers []*types.FastHeader, seals []bool, index int) error {
-	var parent *types.FastHeader
+	headers []*types.Header, seals []bool, index int) error {
+	var parent *types.Header
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
 	} else if headers[index-1].Hash() == headers[index].ParentHash {
@@ -447,7 +447,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Fast Block Header Validity"
 func (m *Minerva) verifyFastHeader(chain consensus.ChainFastReader,
-	header, parent *types.FastHeader) error {
+	header, parent *types.Header) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -743,7 +743,7 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 
 // PrepareFast implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
-func (m *Minerva) PrepareFast(chain consensus.ChainFastReader, header *types.FastHeader) error {
+func (m *Minerva) PrepareFast(chain consensus.ChainFastReader, header *types.Header) error {
 	if parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
@@ -768,13 +768,13 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 // FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 // Please pass in the parameter block when reward distribution is required.
-func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.FastHeader, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.FastBlock, error) {
+func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.Header, state *state.StateDB,
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 	if header.SnailHash.String() != "" {
 		accumulateRewardsFast(state, header)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewFastBlock(header, txs, receipts, nil), nil
+	return types.NewBlock(header, txs, receipts, nil), nil
 }
 
 //gas allocation
@@ -791,7 +791,7 @@ func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(state *state.StateDB, header *types.FastHeader) error {
+func accumulateRewardsFast(state *state.StateDB, header *types.Header) error {
 	//get snail block
 	var sc consensus.SnailChainReader
 	sBlock := sc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())

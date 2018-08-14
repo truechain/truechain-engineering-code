@@ -561,7 +561,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		Miner:      author,
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
-		Diff:       header.Difficulty.String(),
+		//Diff:       header.Difficulty.String(),
 		TotalDiff:  td.String(),
 		Txs:        txs,
 		TxHash:     header.TxHash,

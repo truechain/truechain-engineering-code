@@ -68,30 +68,6 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("BlockNonce", input, n[:])
 }
 
-//go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
-
-
-
-// field type overrides for gencodec
-type headerMarshaling struct {
-	Difficulty *hexutil.Big
-	Number     *hexutil.Big
-	GasLimit   hexutil.Uint64
-	GasUsed    hexutil.Uint64
-	Time       *hexutil.Big
-	Extra      hexutil.Bytes
-	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
-}
-
-
-func rlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
-	rlp.Encode(hw, x)
-	hw.Sum(h[:0])
-	return h
-}
-
-
 
 
 // Fruits is a wrapper around a fruit array to implement DerivableList.
@@ -165,13 +141,46 @@ type Header struct {
 	TxHash      common.Hash `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash common.Hash `json:"receiptsRoot"     gencodec:"required"`
 	Bloom       Bloom       `json:"logsBloom"        gencodec:"required"`
-	SnailHash   common.Hash `json:"SnailHash"        gencodec:"required"`
-	SnailNumber *big.Int    `json:"SnailNumber"      gencodec:"required"`
+	SnailHash   common.Hash `json:"snailHash"        gencodec:"required"`
+	SnailNumber *big.Int    `json:"snailNumber"      gencodec:"required"`
 	Number      *big.Int    `json:"number"           gencodec:"required"`
 	GasLimit    uint64      `json:"gasLimit"         gencodec:"required"`
 	GasUsed     uint64      `json:"gasUsed"          gencodec:"required"`
 	Time        *big.Int    `json:"timestamp"        gencodec:"required"`
 	Extra       []byte      `json:"extraData"        gencodec:"required"`
+}
+
+// field type overrides for gencodec
+type headerMarshaling struct {
+	SnailNumber *hexutil.Big
+	Number     *hexutil.Big
+	GasLimit   hexutil.Uint64
+	GasUsed    hexutil.Uint64
+	Time       *hexutil.Big
+	Extra      hexutil.Bytes
+	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
+}
+
+
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *Header) Hash() common.Hash {
+	return rlpHash(h)
+}
+
+
+// Size returns the approximate memory used by all internal contents. It is used
+// to approximate and limit the memory consumption of various caches.
+func (h *Header) Size() common.StorageSize {
+	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
+		(h.SnailNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
+}
+
+func rlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
 
 // Body is a simple (mutable, non-safe) data container for storing and moving
@@ -194,6 +203,8 @@ type Block struct {
 	header       *Header
 	transactions Transactions
 
+	uncles       []*Header // reserved for compile
+
 	signs        PbftSigns
 
 	// caches
@@ -210,18 +221,7 @@ type Block struct {
 	ReceivedFrom interface{}
 }
 
-// Hash returns the block hash of the header, which is simply the keccak256 hash of its
-// RLP encoding.
-func (h *Header) Hash() common.Hash {
-	return rlpHash(h)
-}
 
-// Size returns the approximate memory used by all internal contents. It is used
-// to approximate and limit the memory consumption of various caches.
-func (h *Header) Size() common.StorageSize {
-	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
-		(h.SnailNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
-}
 
 // NewFastBlock creates a new fastblock. The input data is copied,
 // changes to header and to the field values will not affect the
@@ -327,6 +327,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 	})
 }
 
+func (b *Block) Uncles() []*Header          { return b.uncles }
 func (b *Block) Transactions() Transactions { return b.transactions }
 func (b *Block) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header, b.transactions}) }
 func (b *Block) Transaction(hash common.Hash) *Transaction {
@@ -346,10 +347,12 @@ func (b *Block) Time() *big.Int        { return new(big.Int).Set(b.header.Time) 
 func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *Block) SnailHash() common.Hash   { return b.header.SnailHash }
 func (b *Block) Bloom() Bloom             { return b.header.Bloom }
+func (b *Block) Coinbase() common.Address { return common.Address{} }
 func (b *Block) Root() common.Hash        { return b.header.Root }
 func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
 func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
 func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
+func (b *Block) UncleHash() common.Hash   { return common.Hash{} }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 
 func (b *Block) Header() *Header { return CopyHeader(b.header) }
@@ -382,7 +385,7 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction contents.
-func (b *Block) WithBody(transactions []*Transaction) *Block {
+func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),

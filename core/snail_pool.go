@@ -917,7 +917,7 @@ func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 		return nil, nil
 	}
 	block := first.Value.(*types.Block)
-	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions())
+	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), nil)
 
 	return fastBlock, nil
 }

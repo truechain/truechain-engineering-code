@@ -67,7 +67,6 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	election := &Election{
 		fastNumber:       new(big.Int).SetUint64(0),
 		snailNumber:      new(big.Int).SetUint64(0),
-		number:           new(big.Int).SetUint64(0),
 		//committeeList:    make(map[*big.Int]*Committee),
 		fastchain:        fastBlockChain,
 		snailchain:       snailBlockChain,
@@ -78,8 +77,8 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	// get genesis committee
 	election.genesisCommittee =	election.snailchain.GetGenesisCommittee()
 
-	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(e.fastChainHeadCh)
-	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(e.snailChainHeadCh)
+	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
+	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
 	return election
 }
@@ -312,6 +311,7 @@ func (e *Election)Start() error{
 	// Start the event loop and return
 	go e.loop()
 
+	return nil
 }
 
 //Monitor both chains and trigger elections at the same time

@@ -34,7 +34,7 @@ type serverInfo struct {
 
 type PbftServerMgr struct {
 	servers 		map[*big.Int]*serverInfo
-	blocks			map[*big.Int]*types.FastBlock
+	blocks			map[*big.Int]*types.Block
 	pk 				*ecdsa.PublicKey
 	priv 			*ecdsa.PrivateKey
 	Agent			types.PbftAgentProxy
@@ -43,7 +43,7 @@ type PbftServerMgr struct {
 func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey,agent types.PbftAgentProxy) *PbftServerMgr {
 	ss := &PbftServerMgr {
 		servers : 	make(map[*big.Int]*serverInfo),
-		blocks:		make(map[*big.Int]*types.FastBlock),
+		blocks:		make(map[*big.Int]*types.Block),
 		pk:			pk,
 		priv:		priv,
 		Agent:		agent,
@@ -97,9 +97,9 @@ func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
 		ss.info = append(ss.info,n)
 	}
 }
-func (ss *PbftServerMgr) getLastBlock() *types.FastBlock {
+func (ss *PbftServerMgr) getLastBlock() *types.Block {
 	cur := big.NewInt(0)
-	var fb *types.FastBlock = nil
+	var fb *types.Block = nil
 	for _,v := range ss.blocks {
 		if cur.Cmp(common.Big0) == 0 {
 			fb = v

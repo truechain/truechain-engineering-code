@@ -740,7 +740,7 @@ func (bc *BlockChain) Rollback(chain []common.Hash) {
 }
 
 // SetReceiptsData computes all the non-consensus fields of the receipts
-func SetFastReceiptsData(config *params.ChainConfig, block *types.Block, receipts types.Receipts) error {
+func SetReceiptsData(config *params.ChainConfig, block *types.Block, receipts types.Receipts) error {
 	signer := types.MakeSigner(config, block.Number())
 
 	transactions, logIndex := block.Transactions(), uint(0)
@@ -815,7 +815,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			continue
 		}
 		// Compute all the non-consensus fields of the receipts
-		if err := SetFastReceiptsData(bc.chainConfig, block, receipts); err != nil {
+		if err := SetReceiptsData(bc.chainConfig, block, receipts); err != nil {
 			return i, fmt.Errorf("failed to set receipts data: %v", err)
 		}
 		// Write all the data out into the database

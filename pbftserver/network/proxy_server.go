@@ -16,7 +16,6 @@ type Server struct {
 	node *Node
 	ID	*big.Int
 	help consensus.ConsensusHelp
-	mux * http.ServeMux
 	server *http.Server
 }
 
@@ -27,7 +26,7 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 	}
 	node := NewNode(nodeID,verify,addrs)
 		
-	server := &Server{node.NodeTable[nodeID], node,id,help,mux}
+	server := &Server{url:node.NodeTable[nodeID], node:node,ID:id,help:help,}
 	server.server = &http.Server{
 		Addr:		server.url,
 	}
