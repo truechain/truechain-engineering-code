@@ -27,11 +27,12 @@ func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 		return nil
 	}
 	node := NewNode(nodeID,verify,addrs)
-		
+
 	server := &Server{url:node.NodeTable[nodeID], node:node,ID:id,help:help,}
 	server.server = &http.Server{
 		Addr:		server.url,
 	}
+	server.ActionChan = make(chan *ActionIn)
 	server.setRoute()
 	return server
 }
