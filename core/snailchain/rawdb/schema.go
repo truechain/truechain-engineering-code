@@ -51,7 +51,7 @@ var (
 	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("sr") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 
-	txLookupPrefix  = []byte("sl") // txLookupPrefix + hash -> transaction/receipt lookup metadata
+	ftLookupPrefix  = []byte("sl") // ftLookupPrefix + hash -> fruit lookup metadata
 	bloomBitsPrefix = []byte("sB") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	preimagePrefix = []byte("snailchain-secure-key-")      // preimagePrefix + hash -> preimage
@@ -109,9 +109,9 @@ func blockReceiptsKey(number uint64, hash common.Hash) []byte {
 	return append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
 }
 
-// txLookupKey = txLookupPrefix + hash
-func txLookupKey(hash common.Hash) []byte {
-	return append(txLookupPrefix, hash.Bytes()...)
+// ftLookupKey = ftLookupPrefix + hash
+func ftLookupKey(hash common.Hash) []byte {
+	return append(ftLookupPrefix, hash.Bytes()...)
 }
 
 // bloomBitsKey = bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash
