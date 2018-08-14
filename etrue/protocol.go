@@ -132,7 +132,15 @@ type SnailPool interface {
 }
 
 type AgentNetworkProxy interface {
+	// SubscribeNewFastBlockEvent should return an event subscription of
+	// NewBlockEvent and send events to the given channel.
+	SubscribeNewFastBlockEvent(chan<- core.NewBlockEvent) event.Subscription
+	// SubscribeNewPbftSignEvent should return an event subscription of
+	// PbftSignEvent and send events to the given channel.
 	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
+	// SubscribeNodeInfoEvent should return an event subscription of
+	// NodeInfoEvent and send events to the given channel.
+	SubscribeNodeInfoEvent(chan<- NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*CryNodeInfo) error
 }
