@@ -126,6 +126,9 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	} else {
 		// wrong state
 	}
+}
+func (server *Server) PutRequest(msg *consensus.RequestMsg) {
+	server.node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionBroadcast,
@@ -133,9 +136,6 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 		Height:	height,
 	}
 	consensus.ActionChan <- ac
-}
-func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	server.node.MsgEntrance <- msg
 }
 
 func send(url string, msg []byte) {
