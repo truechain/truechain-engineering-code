@@ -32,7 +32,7 @@ import (
 	"time"
 	"unsafe"
 
-	mmap "github.com/edsrzf/mmap-go"
+	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -426,6 +426,8 @@ type Minerva struct {
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
 	lock sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
+
+	sbc consensus.SnailChainReader
 }
 
 // New creates a full sized ethash PoW scheme.
@@ -445,6 +447,28 @@ func New(config Config) *Minerva {
 		caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
 		update:   make(chan struct{}),
+		hashrate: metrics.NewMeter(),
+	}
+}
+
+// New creates a full sized ethash PoW scheme.
+func New2(config Config, chain consensus.SnailChainReader) *Minerva {
+	if config.CachesInMem <= 0 {
+		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
+		config.CachesInMem = 1
+	}
+	if config.CacheDir != "" && config.CachesOnDisk > 0 {
+		log.Info("Disk storage enabled for ethash caches", "dir", config.CacheDir, "count", config.CachesOnDisk)
+	}
+	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
+		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
+	}
+	return &Minerva{
+		config:   config,
+		caches:   newlru("cache", config.CachesInMem, newCache),
+		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
+		update:   make(chan struct{}),
+		sbc:      chain,
 		hashrate: metrics.NewMeter(),
 	}
 }

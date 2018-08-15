@@ -770,8 +770,14 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 // Please pass in the parameter block when reward distribution is required.
 func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
-	if header.SnailHash.String() != "" {
-		accumulateRewardsFast(state, header)
+	if header.SnailNumber != nil {
+		fmt.Println(header.SnailNumber.Uint64())
+		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
+		if sBlock == nil {
+			return nil, consensus.ErrInvalidNumber
+		}
+
+		accumulateRewardsFast(state, header, sBlock)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	return types.NewBlock(header, txs, receipts, nil), nil
@@ -791,13 +797,11 @@ func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(state *state.StateDB, header *types.Header) error {
+func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
 	//get snail block
-	var sc consensus.SnailChainReader
-	sBlock := sc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
-	if sBlock == nil {
-		return consensus.ErrInvalidNumber
-	}
+	//if sc == nil {
+	//	return nil
+	//}
 
 	//Get snailBlock current -12
 	minerCoin, committeeCoin := getCurrentBlockCoin(sBlock.Number())
