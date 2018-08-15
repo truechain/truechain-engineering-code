@@ -102,7 +102,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEthereum, error)
 		peers:            peers,
 		reqDist:          newRequestDistributor(peers, quitSync),
 		accountManager:   ctx.AccountManager,
-		engine:           etrue.CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
+		engine:           etrue.CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb, nil),
 		shutdownChan:     make(chan bool),
 		networkId:        config.NetworkId,
 		bloomRequests:    make(chan chan *bloombits.Retrieval),
