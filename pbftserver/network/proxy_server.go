@@ -138,14 +138,16 @@ func (server *Server) handleResult(msg *consensus.ReplyMsg) {
 	}
 }
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	server.node.MsgEntrance <- msg
+	server.node.Broadcast(msg, "/req")
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionBroadcast,
 		ID:		server.ID,
 		Height:	height,
 	}
-	server.ActionChan <- ac
+	go func() {
+		server.ActionChan <- ac
+	}()
 }
 
 func send(url string, msg []byte) {

@@ -1593,6 +1593,17 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 	return bc.hc.GetHeaderByNumber(number)
 }
 
+func (bc *SnailBlockChain)GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
+	fruit, hash, number, index :=  rawdb.ReadFruit(bc.db, fastHash)
+	if fruit == nil {
+		return nil, 0
+	}
+
+	block := bc.GetBlock(hash, number)
+
+	return block, index
+}
+
 func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
 	committee := rawdb.ReadGenesisCommittee(bc.db)
 	if committee == nil {
