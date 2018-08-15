@@ -112,7 +112,6 @@ func (s *Truechain) AddLesServer(ls LesServer) {
 
 // New creates a new Truechain object (including the
 // initialisation of the common Truechain object)
-
 func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Truechain in light sync mode, use les.LightEthereum")
@@ -209,12 +208,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		chainDb, eth.agent); err != nil {
 		return nil, err
 	}
-	//TODO should add 20180805
+
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 
-	sender := NewSender(eth.snailPool, eth.chainConfig)
-	sender.Start()
+	//sender := NewSender(eth.snailPool, eth.chainConfig)
+	//sender.Start()
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
