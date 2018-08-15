@@ -123,22 +123,11 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 		fmt.Println(err)
 		return
 	}
-	// server.node.GetReply(&msg)
-	server.handleResult(&msg)
-}
-func (server *Server) handleResult(msg *consensus.ReplyMsg) {
-	var res uint = 0
-	if msg.NodeID == "Executed" {
-		res = 1
-	}
-	if msg.ViewID == server.node.CurrentState.ViewID {
-		server.help.ReplyResult(server.node.CurrentState.MsgLogs.ReqMsg,res)
-	} else {
-		// wrong state
-	}
+	server.node.GetReply(&msg)
 }
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	server.node.Broadcast(msg, "/req")
+	// server.node.Broadcast(msg, "/req")
+	server.node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionBroadcast,

@@ -37,6 +37,8 @@ const (
 	setCurrentCommittee = iota
 	setNextCommittee
 
+	BlockRewordSpace =12
+
 )
 
 type PbftAgent struct {
@@ -145,6 +147,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		ElectionCh: 	make(chan core.ElectionEvent, 10),
 		SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
+		MaxSnailBlockHeight: big.NewInt(0),
 	}
 	return self
 }
@@ -308,15 +311,18 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	currentFastHeader :=self.fastChain.CurrentBlock().Header()
-	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
-	snailHegiht :=blockReward.SnailNumber
-	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
-	if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=12{
-		fastBlock.Header().SnailNumber = snailHegiht
-		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
-		fastBlock.Header().SnailHash =sb.Hash()
+	if self.MaxSnailBlockHeight.Cmp(big.NewInt(0)) == 1{
+		currentFastHeader :=self.fastChain.CurrentBlock().Header()
+		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
+		snailHegiht :=blockReward.SnailNumber
+		snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
+		if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=BlockRewordSpace{
+			fastBlock.Header().SnailNumber = snailHegiht
+			sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
+			fastBlock.Header().SnailHash =sb.Hash()
+		}
 	}
+
 	return	fastBlock,nil
 }
 

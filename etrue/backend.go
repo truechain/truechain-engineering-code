@@ -18,28 +18,30 @@
 package etrue
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"crypto/ecdsa"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
-	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -47,7 +49,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
@@ -72,7 +73,7 @@ type Truechain struct {
 
 	snailPool *core.SnailPool
 
-	agent    *PbftAgent
+	agent *PbftAgent
 	election *Election
 
 	blockchain      *core.BlockChain
@@ -99,7 +100,7 @@ type Truechain struct {
 	networkID     uint64
 	netRPCService *trueapi.PublicNetAPI
 
-	pbftServer *pbftserver.PbftServerMgr
+	pbftServer	*pbftserver.PbftServerMgr
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
@@ -111,7 +112,6 @@ func (s *Truechain) AddLesServer(ls LesServer) {
 
 // New creates a new Truechain object (including the
 // initialisation of the common Truechain object)
-
 func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Truechain in light sync mode, use les.LightEthereum")
@@ -141,13 +141,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		chainConfig:    chainConfig,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
-		//engine:         CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
-		shutdownChan:  make(chan bool),
-		networkID:     config.NetworkId,
-		gasPrice:      config.GasPrice,
-		etherbase:     config.Etherbase,
-		bloomRequests: make(chan chan *bloombits.Retrieval),
-		bloomIndexer:  NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+		engine:         CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
+		shutdownChan:   make(chan bool),
+		networkID:      config.NetworkId,
+		gasPrice:       config.GasPrice,
+		etherbase:      config.Etherbase,
+		bloomRequests:  make(chan chan *bloombits.Retrieval),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
 
 	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
@@ -160,11 +160,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 	}
 	var (
-		vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+		vmConfig        = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 		//cacheConfig     = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
-		cacheConfig      = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		cacheConfig = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
-	)
+		)
 
 	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
@@ -175,9 +175,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	eth.engine = CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb, eth.snailblockchain)
-
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -198,13 +195,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
-	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
+	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.blockchain, eth.snailblockchain, eth.engine)
 
 	eth.election = NewElction(eth.blockchain, eth.snailblockchain)
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
-
-	go sendBlock(eth.agent)
 
 	if eth.protocolManager, err = NewProtocolManager(
 		eth.chainConfig, config.SyncMode, config.NetworkId,
@@ -213,9 +208,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		chainDb, eth.agent); err != nil {
 		return nil, err
 	}
-	//TODO should add 20180805
+
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
+
+	//sender := NewSender(eth.snailPool, eth.chainConfig)
+	//sender.Start()
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
@@ -257,13 +255,13 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Truechain service
-func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig, db ethdb.Database, reader consensus.SnailChainReader) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig, db ethdb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
-	// snail chain not need clique
+	// snail chain not need clique 
 	/*
-		if chainConfig.Clique != nil {
-			return clique.New(chainConfig.Clique, db)
-		}*/
+	if chainConfig.Clique != nil {
+		return clique.New(chainConfig.Clique, db)
+	}*/
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:
@@ -276,14 +274,14 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 		log.Warn("Ethash used in shared mode")
 		return ethash.NewShared()
 	default:
-		engine := ethash.New2(ethash.Config{
+		engine := ethash.New(ethash.Config{
 			CacheDir:       ctx.ResolvePath(config.CacheDir),
 			CachesInMem:    config.CachesInMem,
 			CachesOnDisk:   config.CachesOnDisk,
 			DatasetDir:     config.DatasetDir,
 			DatasetsInMem:  config.DatasetsInMem,
 			DatasetsOnDisk: config.DatasetsOnDisk,
-		}, reader)
+		})
 		engine.SetThreads(-1) // Disable CPU mining
 		return engine
 	}
@@ -319,12 +317,11 @@ func (s *Truechain) APIs() []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
 			Public:    false,
-			//}, {
-			// TODO: support fitlers later
-			//	Namespace: "eth",
-			//	Version:   "1.0",
-			//	Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
-			//	Public:    true,
+		}, {
+			Namespace: "eth",
+			Version:   "1.0",
+			Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
+			Public:    true,
 		}, {
 			Namespace: "admin",
 			Version:   "1.0",
@@ -396,14 +393,14 @@ func (s *Truechain) StartMining(local bool) error {
 
 	// snail chain not need clique
 	/*
-		if clique, ok := s.engine.(*clique.Clique); ok {
-			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
-			if wallet == nil || err != nil {
-				log.Error("Etherbase account unavailable locally", "err", err)
-				return fmt.Errorf("signer missing: %v", err)
-			}
-			clique.Authorize(eb, wallet.SignHash)
-		}*/
+	if clique, ok := s.engine.(*clique.Clique); ok {
+		wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
+		if wallet == nil || err != nil {
+			log.Error("Etherbase account unavailable locally", "err", err)
+			return fmt.Errorf("signer missing: %v", err)
+		}
+		clique.Authorize(eb, wallet.SignHash)
+	}*/
 
 	if local {
 		// If local (CPU) mining is started, we can disable the transaction rejection
@@ -420,10 +417,10 @@ func (s *Truechain) StopMining()         { s.miner.Stop() }
 func (s *Truechain) IsMining() bool      { return s.miner.Mining() }
 func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
-func (s *Truechain) AccountManager() *accounts.Manager       { return s.accountManager }
-func (s *Truechain) BlockChain() *core.BlockChain            { return s.blockchain }
-func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
-func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
+func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
+func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
+func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain      { return s.snailblockchain }
+func (s *Truechain) TxPool() *core.TxPool              { return s.txPool }
 
 func (s *Truechain) HybridPool() *core.SnailPool { return s.snailPool }
 
@@ -490,11 +487,11 @@ func (s *Truechain) Stop() error {
 
 	return nil
 }
-func (s *Truechain) startPbftServer() error {
+func (s *Truechain) startPbftServer() error{
 	var pk *ecdsa.PublicKey
 	var priv *ecdsa.PrivateKey
 	var agent types.PbftAgentProxy
-	s.pbftServer = pbftserver.NewPbftServerMgr(pk, priv, agent)
+	s.pbftServer = pbftserver.NewPbftServerMgr(pk,priv,agent)
 	return nil
 }
 func (s *Truechain) stopPbftServer() error {

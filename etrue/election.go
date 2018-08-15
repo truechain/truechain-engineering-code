@@ -137,7 +137,7 @@ func (e *Election)VerifySign(FastHeight *big.Int)bool {
 			log.Info("SigToPub error.")
 			panic(err)
 		}
-		for _,member := range e.committee.members{ // TODO  self.CommitteeInfo is nil
+		for _,member := range e.committee.members{
 			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 				break;
 				return true
@@ -263,14 +263,14 @@ func (e *Election)getCommittee(fastNumber *big.Int, snailNumber *big.Int) (*Comm
 }
 
 
-func (e *Election)GetCommittee(fastNumber *big.Int) (*Committee) {
+func (e *Election)GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	newestFast := new(big.Int).Add(e.fastHeadNumber, big.NewInt(k))
 	if fastNumber.Cmp(newestFast) > 0 {
 		return nil
 	}
 	if e.committee != nil {
 		if fastNumber.Cmp(e.committee.beginFastNumber) > 0 {
-			return e.committee
+			return e.committee.members
 		}
 	}
 
@@ -292,10 +292,10 @@ func (e *Election)GetCommittee(fastNumber *big.Int) (*Committee) {
 	// find committee from map
 	committee := e.getCommitteeFromCache(fastNumber, snailNumber)
 	if committee != nil {
-		return committee
+		return committee.members
 	}
 
-	return e.getCommittee(fastNumber, snailNumber)
+	return e.getCommittee(fastNumber, snailNumber).members
 }
 
 
