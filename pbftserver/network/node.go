@@ -109,20 +109,31 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 		return errorMap
 	}
 }
+func (node *Node) handleResult(msg *consensus.ReplyMsg) {
+	var res uint = 0
+	if msg.NodeID == "Executed" {
+		res = 1
+	}
+	if msg.ViewID == node.CurrentState.ViewID {
+		node.Verify.ReplyResult(node.CurrentState.MsgLogs.ReqMsg,res)
+	} else {
+		// wrong state
+	}
+}
 
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	// Print all committed messages.
-	for _, value := range node.CommittedMsgs {
-		fmt.Printf("Committed value: %s, %d, %s, %d", value.ClientID, value.Timestamp, value.Operation, value.SequenceID)
-	}
-	fmt.Print("\n")
+	// for _, value := range node.CommittedMsgs {
+	// 	fmt.Printf("Committed value: %s, %d, %s, %d", value.ClientID, value.Timestamp, value.Operation, value.SequenceID)
+	// }
+	// fmt.Print("\n")
 
 	// jsonMsg, err := json.Marshal(msg)
 	// if err != nil {
 	// 	return err
 	// }
 	// send(node.NodeTable[node.View.Primary] + "/reply", jsonMsg)
-	node.Broadcast(msg, "/reply")
+	node.handleResult(msg)
 	return nil
 }
 
