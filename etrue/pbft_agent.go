@@ -311,7 +311,9 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	if self.MaxSnailBlockHeight.Cmp(big.NewInt(0)) == 1{
+
+	/*if self.MaxSnailBlockHeight.Cmp(big.NewInt(0)) == 1{
+
 		currentFastHeader :=self.fastChain.CurrentBlock().Header()
 		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
 		snailHegiht :=blockReward.SnailNumber
@@ -321,6 +323,15 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 			sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
 			fastBlock.Header().SnailHash =sb.Hash()
 		}
+	}*/
+	currentFastBlock := self.fastChain.CurrentBlock()
+	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
+	snailHegiht :=blockReward.SnailNumber
+	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
+	if temp :=snailHegiht; temp.Sub(self.snailChain.CurrentBlock().Number(),temp).Int64()>=BlockRewordSpace{
+		fastBlock.Header().SnailNumber = snailHegiht
+		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
+		fastBlock.Header().SnailHash =sb.Hash()
 	}
 
 	return	fastBlock,nil
