@@ -780,7 +780,7 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 //gas allocation
 func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
 	var ce consensus.CommitteeElection
-	_, committee := ce.GetCommittee(fastNumber, fastHash)
+	committee := ce.GetCommittee(fastNumber)
 	committeeGas := new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
