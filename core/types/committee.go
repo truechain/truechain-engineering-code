@@ -26,7 +26,7 @@ type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
 	Coinbase  common.Address
-	Publickey *ecdsa.PublicKey
+	Publickey  *ecdsa.PublicKey
 }
 
 
@@ -55,7 +55,9 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 type CommitteeNode struct {
 	IP   string
 	Port uint
-	CM   *CommitteeMember
+	//CM   *CommitteeMember
+	Coinbase  common.Address
+	Publickey  []byte
 }
 
 type PbftSigns []*PbftSign

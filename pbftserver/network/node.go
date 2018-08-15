@@ -3,7 +3,6 @@ package network
 import (
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/common"
 	"encoding/json"
 	"fmt"
@@ -43,10 +42,10 @@ func NewNode(nodeID string,verify consensus.ConsensusVerify,addrs []*types.Commi
 	if len(addrs) <= 0 {
 		return nil
 	}
-	primary := common.ToHex(crypto.FromECDSAPub(addrs[0].CM.Publickey))
+	primary := common.ToHex(addrs[0].Publickey)
 	nodeTable := make(map[string]string)
 	for _,v := range addrs {
-		name:=common.ToHex(crypto.FromECDSAPub(v.CM.Publickey))
+		name:=common.ToHex(v.Publickey)
 		nodeTable[name] = fmt.Sprintf("%s:%d",v.IP,v.Port)
 	}
 	node := &Node{
