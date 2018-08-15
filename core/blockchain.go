@@ -115,6 +115,7 @@ type BlockChain struct {
 	bodyRLPCache *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
 	blockCache   *lru.Cache     // Cache for the most recent entire blocks
 	futureBlocks *lru.Cache     // future blocks are blocks added for later processing
+	rewardCache  *lru.Cache
 
 	quit    chan struct{} // blockchain quit channel
 	running int32         // running must be called atomically
@@ -147,7 +148,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 	signCache,_ :=lru.New(bodyCacheLimit)
-
+	rewardCache,_:=lru.New(bodyCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig:  chainConfig,
@@ -161,6 +162,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		bodyRLPCache: bodyRLPCache,
 		blockCache:   blockCache,
 		futureBlocks: futureBlocks,
+		rewardCache: rewardCache,
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
@@ -1657,7 +1659,21 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetSnailHeightByFastHeight(hash common.Hash, number uint64) *big.Int{
-	rawdb.ReadBlockReward(bc.db,hash,number)
-	return nil
+func (bc *BlockChain) GetSnailHeightByFastHeight(hash common.Hash, number uint64) *types.BlockReward{
+
+
+	if signs, ok := bc.rewardCache.Get(number); ok {
+
+		sign := signs.(*types.BlockReward)
+		return sign
+	}
+
+	signs := rawdb.ReadBlockReward(bc.db,hash,number)
+
+	if signs == nil {
+		return nil
+	}
+	// Cache the found sign for next time and return
+	bc.signCache.Add(number, signs)
+	return signs
 }

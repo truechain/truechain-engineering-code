@@ -188,7 +188,8 @@ type CommitteeElection interface {
 	VerifyFastBlockSigns(pvs []*types.PbftSign) (cfvf []types.CommitteeMember)
 
 	//Get a list of committee members
-	GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
+	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
+	GetCommitteeMember(fastNumber *big.Int) []*types.CommitteeMember
 }
 
 // PoW is a consensus engine based on proof-of-work.
