@@ -25,14 +25,14 @@ import (
 
 // ReadFtLookupEntry retrieves the positional metadata associated with a fruit
 // hash to allow retrieving the fruit by hash.
-func ReadFtLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64, uint64) {
-	data, _ := db.Get(ftLookupKey(hash))
+func ReadFtLookupEntry(db DatabaseReader, fastHash common.Hash) (common.Hash, uint64, uint64) {
+	data, _ := db.Get(ftLookupKey(fastHash))
 	if len(data) == 0 {
 		return common.Hash{}, 0, 0
 	}
 	var entry FtLookupEntry
 	if err := rlp.DecodeBytes(data, &entry); err != nil {
-		log.Error("Invalid fruit lookup entry RLP", "hash", hash, "err", err)
+		log.Error("Invalid fruit lookup entry RLP", "hash", fastHash, "err", err)
 		return common.Hash{}, 0, 0
 	}
 	return entry.BlockHash, entry.BlockIndex, entry.Index
@@ -58,14 +58,14 @@ func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
 }
 
 // DeleteFtLookupEntry removes all fruit data associated with a hash.
-func DeleteFtLookupEntry(db DatabaseDeleter, hash common.Hash) {
-	db.Delete(ftLookupKey(hash))
+func DeleteFtLookupEntry(db DatabaseDeleter, fastHash common.Hash) {
+	db.Delete(ftLookupKey(fastHash))
 }
 
 // ReadFruit retrieves a specific fruit from the database, along with
 // its added positional metadata.
-func ReadFruit(db DatabaseReader, hash common.Hash) (*types.SnailBlock, common.Hash, uint64, uint64) {
-	blockHash, blockNumber, ftIndex := ReadFtLookupEntry(db, hash)
+func ReadFruit(db DatabaseReader, fastHash common.Hash) (*types.SnailBlock, common.Hash, uint64, uint64) {
+	blockHash, blockNumber, ftIndex := ReadFtLookupEntry(db, fastHash)
 
 	if blockHash == (common.Hash{}) {
 		return nil, common.Hash{}, 0, 0
