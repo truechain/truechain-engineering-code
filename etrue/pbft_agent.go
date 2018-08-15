@@ -200,7 +200,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	cryNodeInfo := &CryNodeInfo{
 		CommitteeId:committeeInfo.Id,
 	}
-	nodeByte,_ :=ToByte(pbftAgent.CommitteeNode) // TODO init committeeNode
+	nodeByte,_ :=rlp.EncodeToBytes(pbftAgent.CommitteeNode) // TODO init committeeNode
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -253,7 +253,7 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		decryptNode,err :=priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil{// can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
-			FromByte(decryptNode,node)
+			rlp.DecodeBytes(decryptNode,node)
 			pbftAgent.server.PutNodes(cryNodeInfo.CommitteeId,  []*types.CommitteeNode{node})
 			return node
 		}
