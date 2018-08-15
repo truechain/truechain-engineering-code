@@ -41,6 +41,7 @@ import (
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -314,12 +315,11 @@ func (s *Truechain) APIs() []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
 			Public:    false,
-		//}, {
-		// TODO: support fitlers later
-		//	Namespace: "eth",
-		//	Version:   "1.0",
-		//	Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
-		//	Public:    true,
+		}, {
+			Namespace: "eth",
+			Version:   "1.0",
+			Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
+			Public:    true,
 		}, {
 			Namespace: "admin",
 			Version:   "1.0",
