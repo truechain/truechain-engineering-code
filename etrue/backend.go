@@ -199,7 +199,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.fastBlockchain)
 
-	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.snailblockchain)
+	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.fastBlockchain, eth.snailblockchain)
 
 	eth.election = NewElction(eth.fastBlockchain, eth.snailblockchain)
 

@@ -27,13 +27,13 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	//"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 const (
@@ -41,6 +41,8 @@ const (
 	//recordChanSize = 100
 	fastBlockChanSize = 100
 	fruitChanSize  = 100
+
+	fastchainHeadChanSize = 100
 )
 
 // freshFruitSize is the freshness of fruit according to the paper
@@ -62,7 +64,7 @@ var (
 )
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
-type HybridPoolConfig struct {
+type SnailPoolConfig struct {
 	NoLocals  bool          // Whether local transaction handling should be disabled
 	Journal   string        // Journal of local transactions to survive node restarts
 	Rejournal time.Duration // Time interval to regenerate the local transaction journal
@@ -80,7 +82,7 @@ type HybridPoolConfig struct {
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
-var DefaultHybridPoolConfig = HybridPoolConfig{
+var DefaultHybridPoolConfig = SnailPoolConfig{
 	//Journal:   "records.rlp",
 	Journal:   "fastBlocks.rlp",
 	Rejournal: time.Hour,
@@ -98,7 +100,7 @@ var DefaultHybridPoolConfig = HybridPoolConfig{
 
 // sanitize checks the provided user configurations and changes anything that's
 // unreasonable or unworkable.
-func (config *HybridPoolConfig) sanitize() HybridPoolConfig {
+func (config *SnailPoolConfig) sanitize() SnailPoolConfig {
 	conf := *config
 	if conf.Rejournal < time.Second {
 		log.Warn("Sanitizing invalid txpool journal time", "provided", conf.Rejournal, "updated", time.Second)
@@ -123,10 +125,11 @@ func (config *HybridPoolConfig) sanitize() HybridPoolConfig {
 // current state) and future transactions. Transactions move between those
 // two states over time as they are received and processed.
 type SnailPool struct {
-	config      HybridPoolConfig
+	config      SnailPoolConfig
 	chainconfig *params.ChainConfig
 	//chain       *BlockChain
 	chain       *snailchain.SnailBlockChain
+	fastchain   *fastchain.FastBlockChain
 	gasPrice    *big.Int
 
 	scope event.SubscriptionScope
@@ -140,11 +143,14 @@ type SnailPool struct {
 	chainHeadCh  chan snailchain.ChainHeadEvent
 	chainHeadSub event.Subscription
 
-	signer types.Signer
+	fastchainHeadCh chan fastchain.ChainHeadEvent
+	fastchainHeadSub event.Subscription
 
-	currentState  *state.StateDB      // Current state in the blockchain head
-	pendingState  *state.ManagedState // Pending state tracking virtual nonces
-	currentMaxGas uint64              // Current gas limit for transaction caps
+	//signer types.Signer
+
+	//currentState  *state.StateDB      // Current state in the blockchain head
+	//pendingState  *state.ManagedState // Pending state tracking virtual nonces
+	//currentMaxGas uint64              // Current gas limit for transaction caps
 
 	engine consensus.Engine // Consensus engine used for validating
 
@@ -155,13 +161,11 @@ type SnailPool struct {
 	//allRecords    map[common.Hash]*types.PbftRecord
 	allFastBlocks    map[common.Hash]*types.FastBlock
 
-	//fruitRecords  map[common.Hash]*types.PbftRecord // the records have fruit
 	fruitFastBlocks  map[common.Hash]*types.FastBlock // the fastBlocks have fruit
 	//recordList    *list.List
 	fastBlockList    *list.List
-	//recordPending *list.List
 	fastBlockPending *list.List
-	//newRecordCh   chan *types.PbftRecord
+
 	newFastBlockCh   chan *types.FastBlock
 
 	allFruits    map[common.Hash]*types.SnailBlock
@@ -180,9 +184,9 @@ type SnailPool struct {
 	homestead bool
 }
 
-// NewTxPool creates a new transaction pool to gather, sort and filter inbound
-// transactions from the network.
-func NewSnailPool(chainconfig *params.ChainConfig, chain *snailchain.SnailBlockChain) *SnailPool {
+// NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
+// fruits/fastblock from the network.
+func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *fastchain.FastBlockChain, chain *snailchain.SnailBlockChain, ) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	//config = (&config).sanitize()
 	config := DefaultHybridPoolConfig
@@ -191,10 +195,11 @@ func NewSnailPool(chainconfig *params.ChainConfig, chain *snailchain.SnailBlockC
 	pool := &SnailPool{
 		config:      config,
 		chainconfig: chainconfig,
+		fastchain :  fastBlockChain,
 		chain:       chain,
-		signer:      types.NewEIP155Signer(chainconfig.ChainID),
+
 		chainHeadCh: make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
-		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
+		fastchainHeadCh: make(chan fastchain.ChainHeadEvent, fastchainHeadChanSize),
 
 		//newRecordCh: make(chan *types.PbftRecord, recordChanSize),
 		newFastBlockCh: make(chan *types.FastBlock, fastBlockChanSize),
@@ -215,19 +220,12 @@ func NewSnailPool(chainconfig *params.ChainConfig, chain *snailchain.SnailBlockC
 	if !config.NoLocals && config.Journal != "" {
 	}
 	// Subscribe events from blockchain
+	pool.fastchainHeadSub = pool.fastchain.SubscribeChainHeadEvent(pool.fastchainHeadCh)
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	//pool.minedFruitSub = pool.eventMux.Subscribe(NewMinedFruitEvent{})
 
 	pool.header = pool.chain.CurrentBlock()
-	statedb, err := pool.chain.StateAt(pool.header.Root())
-	if err != nil {
-		log.Error("Failed to reset pool state", "err", err)
-		return nil
-	}
-	pool.currentState = statedb
-	pool.pendingState = state.ManageState(statedb)
-	//pool.currentMaxGas = pool.header.GasLimit()
 
 	// Start the event loop and return
 	pool.wg.Add(1)
@@ -237,26 +235,6 @@ func NewSnailPool(chainconfig *params.ChainConfig, chain *snailchain.SnailBlockC
 	return pool
 }
 
-/*func (pool *SnailPool) getRecord(hash common.Hash, number *big.Int) *types.PbftRecord {
-	pool.muRecord.Lock()
-	defer pool.muRecord.Unlock()
-
-	for lr := pool.recordPending.Front(); lr != nil; lr = lr.Next() {
-		r := lr.Value.(*types.PbftRecord)
-		if r.Number().Cmp(number) > 0 {
-			// rest records are greater than number
-			return nil
-		} else if r.Number().Cmp(number) == 0 {
-			if r.Hash() != hash {
-				return nil
-			} else {
-				return r
-			}
-		}
-	}
-
-	return nil
-}*/
 
 func (pool *SnailPool) getFastBlock(hash common.Hash, number *big.Int) *types.FastBlock {
 	pool.muFastBlock.Lock()
@@ -279,7 +257,7 @@ func (pool *SnailPool) getFastBlock(hash common.Hash, number *big.Int) *types.Fa
 	return nil
 }
 
-// move the fruit of execute record to pending list
+//updateFruit move the validated fruit to pending list
 func (pool *SnailPool) updateFruit(fastBlock *types.FastBlock, toLock bool) error {
 	if toLock {
 		pool.muFruit.Lock()
@@ -302,12 +280,15 @@ func (pool *SnailPool) updateFruit(fastBlock *types.FastBlock, toLock bool) erro
 	return nil
 }
 
-// add
+// addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	//check
+	//TODO: add fruit validation
+
+	// TODO: check fruit using fastchain block
+	//r := pool.fastchain.GetBlock(fruit.FastHash(), fruit.NumberU64())
 	r := pool.getFastBlock(fruit.FastHash(), fruit.FastNumber())
 	f := pool.allFruits[fruit.FastHash()]
 	if f == nil {
@@ -321,184 +302,30 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 		return nil
 	} else {
-		if fruit.Hash().Big().Cmp(f.Hash().Big()) > 0 {
-			// new fruit hash is greater than old one
+
+		if fruit.Difficulty().Cmp(f.Difficulty()) < 0 {
+
 			return nil
-		} else {
-			pool.allFruits[fruit.FastHash()] = fruit
-			if r != nil {
-				pool.muFastBlock.Lock()
-				pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-				pool.muFastBlock.Unlock()
-				pool.fruitPending[fruit.FastHash()] = fruit
-			} else if _,ok := pool.fruitPending[fruit.FastHash()]; ok {
-				pool.fruitPending[fruit.FastHash()] = fruit
+		} else if fruit.Difficulty().Cmp(f.Difficulty()) == 0 {
+			if fruit.Hash().Big().Cmp(f.Hash().Big()) > 0 {
+				// new fruit hash is greater than old one
+				return nil
 			}
+		}
+		pool.allFruits[fruit.FastHash()] = fruit
+		if r != nil {
+			pool.muFastBlock.Lock()
+			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
+			pool.muFastBlock.Unlock()
+			pool.fruitPending[fruit.FastHash()] = fruit
+		} else if _, ok := pool.fruitPending[fruit.FastHash()]; ok {
+			pool.fruitPending[fruit.FastHash()] = fruit
 		}
 	}
 
 	return nil
 }
 
-func (pool *SnailPool) commitTransaction(tx *types.Transaction, coinbase common.Address, gp *GasPool, gasUsed *uint64) (error, *types.Receipt) {
-	//snap := pool.currentState.Snapshot()
-
-	// TODO: commit tx
-	//return nil, nil
-
-	//receipt, _, err := ApplyTransaction(pool.chainconfig, pool.chain, &coinbase, gp, pool.currentState, pool.header.Header(), tx, gasUsed, vm.Config{})
-	/*if err != nil {
-		//pool.currentState.RevertToSnapshot(snap)
-		log.Info("apply transaction field ", "err", err.Error())
-		return err, nil
-	}*/
-
-	return nil, nil
-}
-
-/*func (pool *SnailPool) commitRecord(record *types.PbftRecord, coinbase common.Address) (error, []*types.Receipt) {
-	var receipts []*types.Receipt
-
-	if pool.gasPool == nil {
-		pool.gasPool = new(GasPool).AddGas(pool.header.GasLimit())
-	}
-	//return nil, nil
-
-	snap := pool.currentState.Snapshot()
-
-	for _, tx := range record.Transactions() {
-		err, receipt := pool.commitTransaction(tx, coinbase, pool.gasPool, &pool.gasUsed)
-		if err != nil {
-			pool.currentState.RevertToSnapshot(snap)
-			return err, nil
-		}
-		receipts = append(receipts, receipt)
-	}
-
-	return nil, receipts
-}*/
-
-func (pool *SnailPool) commitFastBlock(fastBlock *types.FastBlock, coinbase common.Address) (error, []*types.Receipt) {
-	var receipts []*types.Receipt
-
-	/*if pool.gasPool == nil {
-		pool.gasPool = new(GasPool).AddGas(pool.header.GasLimit())
-	}*/
-	//return nil, nil
-
-	snap := pool.currentState.Snapshot()
-
-	for _, tx := range fastBlock.Transactions() {
-		err, receipt := pool.commitTransaction(tx, coinbase, pool.gasPool, &pool.gasUsed)
-		if err != nil {
-			pool.currentState.RevertToSnapshot(snap)
-			return err, nil
-		}
-		receipts = append(receipts, receipt)
-	}
-
-	return nil, receipts
-}
-
-// re execute records whose number are larger than the give on
-// maybe they can execute now
-/*func (pool *SnailPool) updateRecordsWithLock(number *big.Int, lockFruits bool) {
-	// TODO:
-	var remove []*list.Element
-	for lr := pool.recordList.Front(); lr != nil; lr = lr.Next() {
-		r := lr.Value.(*types.PbftRecord)
-		if r == nil {
-			return
-		} else if number.Cmp(r.Number()) > 0 {
-			continue
-		} else {
-			err, _ := pool.commitRecord(r, common.Address{})
-			if err == nil {
-				errf := pool.updateFruit(r, lockFruits)
-				if errf != nil {
-					pool.insertRecordWithLock(pool.recordPending, r)
-					var records []*types.PbftRecord
-					records = append(records, r)
-					go pool.recordFeed.Send(NewRecordsEvent{records})
-				}
-
-				remove = append(remove, lr)
-			} else {
-				break
-			}
-		}
-	}
-
-	for _, e := range remove {
-		pool.recordList.Remove(e)
-	}
-}*/
-
-
-func (pool *SnailPool) updateFastBlocksWithLock(number *big.Int, lockFruits bool) {
-	// TODO:
-	var remove []*list.Element
-	for lr := pool.fastBlockList.Front(); lr != nil; lr = lr.Next() {
-		f := lr.Value.(*types.FastBlock)
-		if f == nil {
-			return
-		} else if number.Cmp(f.Number()) > 0 {
-			continue
-		} else {
-			err, _ := pool.commitFastBlock(f, common.Address{})
-			if err == nil {
-				errf := pool.updateFruit(f, lockFruits)
-				if errf != nil {
-					pool.insertFastBlockWithLock(pool.fastBlockPending, f)
-					var fastBlocks []*types.FastBlock
-					fastBlocks = append(fastBlocks, f)
-					go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{fastBlocks})
-				}
-
-				remove = append(remove, lr)
-			} else {
-				break
-			}
-		}
-	}
-
-	for _, e := range remove {
-		pool.fastBlockList.Remove(e)
-	}
-}
-
-
-/*func (pool *SnailPool) addRecord(record *types.PbftRecord) error {
-	pool.muRecord.Lock()
-	defer pool.muRecord.Unlock()
-
-	//check
-	f := pool.allRecords[record.Hash()]
-	if f != nil {
-		return ErrExist
-	}
-
-	pool.allRecords[record.Hash()] = record
-
-	// TODO: execute all the txs in the record
-	err, _ := pool.commitRecord(record, common.Address{})
-	if err != nil {
-		pool.insertRecordWithLock(pool.recordList, record)
-	} else {
-		err := pool.updateFruit(record, true)
-		if err != nil {
-			// insert pending list to send to mine
-			pool.insertRecordWithLock(pool.recordPending, record)
-		}
-        var records []*types.PbftRecord
-		records = append(records, record)
-		go pool.recordFeed.Send(NewRecordsEvent{records})
-
-		pool.updateRecordsWithLock(record.Number(), true)
-	}
-
-	return nil
-}*/
 
 func (pool *SnailPool) addFastBlock(fastBlock *types.FastBlock) error {
 	pool.muFastBlock.Lock()
@@ -512,22 +339,16 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.FastBlock) error {
 
 	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
 
-	// TODO: execute all the txs in the record
-	err, _ := pool.commitFastBlock(fastBlock, common.Address{})
+	err := pool.updateFruit(fastBlock, true)
 	if err != nil {
-		pool.insertFastBlockWithLock(pool.fastBlockList, fastBlock)
-	} else {
-		err := pool.updateFruit(fastBlock, true)
-		if err != nil {
-			// insert pending list to send to mine
-			pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
-		}
-		var fastBlocks []*types.FastBlock
-		fastBlocks = append(fastBlocks, fastBlock)
-		go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{fastBlocks})
-
-		pool.updateFastBlocksWithLock(fastBlock.Number(), true)
+		// insert pending list to send to mine
+		pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
 	}
+	var fastBlocks []*types.FastBlock
+	fastBlocks = append(fastBlocks, fastBlock)
+	//go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{fastBlocks})
+
+	//pool.updateFastBlocksWithLock(fastBlock.Number(), true)
 
 	return nil
 }
@@ -566,15 +387,16 @@ func (pool *SnailPool) loop() {
 				pool.mu.Unlock()
 			}
 
+		case ev := <-pool.fastchainHeadCh:
+			if ev.Block != nil {
+				pool.addFastBlock(ev.Block)
+			}
+
 		case fruit := <-pool.newFruitCh:
 			if fruit != nil {
 				pool.addFruit(fruit)
 			}
 
-		/*case record := <-pool.newRecordCh:
-			if record != nil {
-				pool.addRecord(record)
-			}*/
 		case fastBlock := <-pool.newFastBlockCh:
 			if fastBlock != nil {
 				pool.addFastBlock(fastBlock)
@@ -630,7 +452,7 @@ func fruitsDifference(a, b []*types.SnailBlock) []*types.SnailBlock {
 	}
 }*/
 
-// remove the record from pending list and unexecutable list
+// removeFastBlockWithLock remove the fastblock from pending list and unexecutable list
 func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash common.Hash) {
 	for e := fastBlockList.Front(); e != nil; e = e.Next() {
 		r := e.Value.(*types.FastBlock)
@@ -732,14 +554,6 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
 	}
-	statedb, err := pool.chain.StateAt(newHead.Root())
-	if err != nil {
-		log.Error("Failed to reset txpool state", "err", err)
-		return
-	}
-	pool.currentState = statedb
-	pool.pendingState = state.ManageState(statedb)
-	//pool.currentMaxGas = newHead.GasLimit()
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -762,7 +576,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 
 	// Check the queue and move transactions over to the pending if possible
 	// or remove those that have become invalid
-	pool.updateFastBlocksWithLock(common.Big0, false)
+	//pool.updateFastBlocksWithLock(common.Big0, false)
 }
 
 // Stop terminates the transaction pool.
@@ -789,13 +603,6 @@ func (pool *SnailPool) GasPrice() *big.Int {
 	return new(big.Int).Set(pool.gasPrice)
 }
 
-// State returns the virtual managed state of the transaction pool.
-func (pool *SnailPool) State() *state.ManagedState {
-	pool.mu.RLock()
-	defer pool.mu.RUnlock()
-
-	return pool.pendingState
-}
 
 // AddLocals enqueues a batch of transactions into the pool if they are valid,
 // marking the senders as a local ones in the mean time, ensuring they go around
@@ -893,10 +700,11 @@ func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlo
 }
 */
 
+
+// AddRemoteFastBlock is for test only
 func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.FastBlock) []error {
 	errs := make([]error, len(fastBlocks))
 
-	// TODO: check fastBlock signatures
 	for _, fastBlock := range fastBlocks {
 		f :=types.NewFastBlockWithHeader(fastBlock.Header()).WithBody(fastBlock.Transactions())
 		pool.newFastBlockCh <- f
@@ -965,8 +773,6 @@ func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- snailchain.NewFastBl
 
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
-	// TODO: checks whether the fruit is valid
-
 	// check freshness
 	pointer := pool.chain.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
@@ -978,28 +784,17 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return ErrFreshness
 	}
 
-	//header := fruit.Header()
-	//if err := pool.engine.VerifyHeader(pool.chain, header, true); err != nil {
-	//	return err
-	//}
+	header := fruit.Header()
+	if err := pool.engine.VerifySnailHeader(pool.chain, header, true); err != nil {
+		return err
+	}
 
-	//TODO snail chain not need use transactions 20180804
-	/*
-	if hash := types.DeriveSha(fruit.Transactions()); hash != header.TxHash {
+	if hash := types.CalcSignHash(fruit.Signs()); hash != header.SignHash {
 		return ErrInvalidHash
 	}
-	*/
+
+	// validate the signatures of this fruit
+
 
 	return nil
-}
-
-// PostChainEvents iterates over the events generated by a chain insertion and
-// posts them into the event feed.
-// TODO: Should not expose PostChainEvents. The chain events should be posted in WriteBlock.
-/*func (pool *SnailPool) PostNewRecordEvents(event interface{}) {
-	pool.recordFeed.Send(event)
-}*/
-
-func (pool *SnailPool) PostNewFastBlockEvents(event interface{}) {
-	pool.fastBlockFeed.Send(event)
 }
