@@ -8,6 +8,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/common"
 	"crypto/ecdsa"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"bytes"
 )
 
 const (
@@ -80,11 +83,6 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	return election
 }
 
-//Read creation block information and return public key for signature verification
-func  (v VoteuUse)ReadGenesis()[]string{
-	return nil
-}
-
 //Calculate your own force unit locally
 func (v VoteuUse)localForce()int64{
 	w := v.wi
@@ -128,29 +126,25 @@ func sortition()bool{
 	return false;
 }
 
-// Verify checks a raw ECDSA signature.
-// Returns true if it's valid and false if not.
-/*
-func (cm CommitteeMember)Verify(signature []byte)bool {
-	// hash message
-	digest := sha256.Sum256(signature)
-	pubkey := cm.pubkey
-	curveOrderByteSize := pubkey.Curve.Params().P.BitLen() / 8
-	r, s := new(big.Int), new(big.Int)
-	r.SetBytes(signature[:curveOrderByteSize])
-	s.SetBytes(signature[curveOrderByteSize:])
-	return ecdsa.Verify(pubkey,digest[:], r, s)
-
-}
-*/
-
 //Another method for validation
-func (e *Election)VerifySign(FastHeight *big.Int,FastHash common.Hash, msgHash common.Hash, Sign []byte)bool {
-	return true
-}
-
-func (e *Election) VerifyLeaderBlock(height *big.Int, sign []byte) bool  {
-	return true
+func (e *Election)VerifySign(FastHeight *big.Int)bool {
+	VerifBlock := e.fastchain.GetBlockByNumber(FastHeight.Uint64())
+	BlockSigns := VerifBlock.Body().Signs
+	for _,sign := range BlockSigns{
+		msg :=sign.PrepareData()
+		pubKey,err :=crypto.SigToPub(msg,sign.Sign)
+		if err != nil{
+			log.Info("SigToPub error.")
+			panic(err)
+		}
+		for _,member := range e.committee.members{ // TODO  self.CommitteeInfo is nil
+			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
+				break;
+				return true
+			}
+		}
+	}
+	return false
 }
 
 //Verify the fast chain committee signatures in batches
@@ -209,7 +203,6 @@ func (e *Election)getCommittee(fastNumber *big.Int, snailNumber *big.Int) (*Comm
 	}
 
 	// find the last committee end fastblock number
-
 	lastSwitchoverBlock := e.snailchain.GetBlockByNumber(lastSwitchoverNumber.Uint64())
 	if lastSwitchoverBlock == nil {
 		return nil
