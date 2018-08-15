@@ -309,7 +309,8 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		return	fastBlock,err
 	}
 	currentFastHeader :=self.fastChain.CurrentBlock().Header()
-	snailHegiht :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
+	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
+	snailHegiht :=blockReward.SnailNumber
 	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
 	if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=12{
 		fastBlock.Header().SnailNumber = snailHegiht
@@ -330,7 +331,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	hash :=RlpHash(data)
 	var err error
 	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
-	if err != nil{
+		if err != nil{
 		log.Info("sign error")
 	}
 	fb.Body().SetLeaderSign(voteSign)
