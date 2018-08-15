@@ -34,6 +34,17 @@ var (
 	propFastBlockInTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/fastblocks/in/traffic", nil)
 	propFastBlockOutPacketsMeter  = metrics.NewRegisteredMeter("eth/prop/fastblocks/out/packets", nil)
 	propFastBlockOutTrafficMeter  = metrics.NewRegisteredMeter("eth/prop/fastblocks/out/traffic", nil)
+
+	propBlockSignInPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/blocksign/in/packets", nil)
+	propBlockSignInTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/blocksign/in/traffic", nil)
+	propBlockSignOutPacketsMeter  = metrics.NewRegisteredMeter("eth/prop/blocksign/out/packets", nil)
+	propBlockSignOutTrafficMeter  = metrics.NewRegisteredMeter("eth/prop/blocksign/out/traffic", nil)
+
+	propNodeInfoPacketsMeter   	  = metrics.NewRegisteredMeter("eth/prop/nodeinfo/in/packets", nil)
+	propNodeInfoInTrafficMeter    = metrics.NewRegisteredMeter("eth/prop/nodeinfo/in/traffic", nil)
+	propNodeInfoOutPacketsMeter   = metrics.NewRegisteredMeter("eth/prop/nodeinfo/out/packets", nil)
+	propNodeInfoOutTrafficMeter   = metrics.NewRegisteredMeter("eth/prop/nodeinfo/out/traffic", nil)
+
 	reqHeaderInPacketsMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/packets", nil)
 	reqHeaderInTrafficMeter   = metrics.NewRegisteredMeter("eth/req/headers/in/traffic", nil)
 	reqHeaderOutPacketsMeter  = metrics.NewRegisteredMeter("eth/req/headers/out/packets", nil)
@@ -103,6 +114,10 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 		packets, traffic = propFastBlockInPacketsMeter, propFastBlockInTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnInPacketsMeter, propTxnInTrafficMeter
+	case msg.Code == BlockSignMsg:
+		packets, traffic = propBlockSignInPacketsMeter, propBlockSignInTrafficMeter
+	case msg.Code == PbftNodeInfoMsg:
+		packets, traffic = propNodeInfoPacketsMeter, propNodeInfoInTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))
@@ -130,6 +145,10 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 		packets, traffic = propFastBlockOutPacketsMeter, propFastBlockOutTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnOutPacketsMeter, propTxnOutTrafficMeter
+	case msg.Code == BlockSignMsg:
+		packets, traffic = propBlockSignOutPacketsMeter, propBlockSignOutTrafficMeter
+	case msg.Code == PbftNodeInfoMsg:
+		packets, traffic = propNodeInfoOutPacketsMeter, propNodeInfoOutTrafficMeter
 	}
 	packets.Mark(1)
 	traffic.Mark(int64(msg.Size))

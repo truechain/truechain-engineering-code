@@ -49,7 +49,7 @@ type Genesis struct {
 	Coinbase   common.Address      `json:"coinbase"`
 	// Alloc      types.GenesisAlloc  `json:"alloc"      gencodec:"required"`
 	//committee info
-	Committee []types.Committee `json:"committee"      gencodec:"required"`
+	Committee []*types.CommitteeMember `json:"committee"      gencodec:"required"`
 
 	// These fields are used for consensus tests. Please don't use them
 	// in actual genesis blocks.

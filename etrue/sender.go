@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	sendInterval = 1 * time.Second // Time interval to send record
+	sendInterval = 5 * time.Second // Time interval to send record
 
 	sendAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"
 	sendPrivHex = "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
@@ -58,8 +58,8 @@ func (sender *FastBlockSender) send() {
 			}
 			//header
 			number = number.Add(number, common.Big1)
-			var header *types.FastHeader
-			header = &types.FastHeader{
+			var header *types.Header
+			header = &types.Header{
 				parentHash,
 				header.Hash(),
 				txhash,
@@ -74,9 +74,9 @@ func (sender *FastBlockSender) send() {
 				nil,
 			}
 			//fmt.Println(header)
-			fb := types.NewFastBlock(header, txs, nil, nil)
+			fb := types.NewBlock(header, txs, nil, nil)
 			parentHash = fb.Hash()
-			var fastblocks []*types.FastBlock
+			var fastblocks []*types.Block
 			fastblocks = append(fastblocks, fb)
 
 			sender.SnailPool.AddRemoteFastBlock(fastblocks)

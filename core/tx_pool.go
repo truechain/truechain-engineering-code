@@ -33,7 +33,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 const (
@@ -115,11 +114,11 @@ const (
 // blockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
 type blockChain interface {
-	CurrentBlock() *types.FastBlock
-	GetBlock(hash common.Hash, number uint64) *types.FastBlock
+	CurrentBlock() *types.Block
+	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (*state.StateDB, error)
 
-	SubscribeChainHeadEvent(ch chan<- fastchain.ChainHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -189,7 +188,7 @@ type TxPool struct {
 	gasPrice     *big.Int
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
-	chainHeadCh  chan fastchain.ChainHeadEvent
+	chainHeadCh  chan ChainHeadEvent
 	chainHeadSub event.Subscription
 	signer       types.Signer
 	mu           sync.RWMutex
@@ -228,7 +227,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		queue:       make(map[common.Address]*txList),
 		beats:       make(map[common.Address]time.Time),
 		all:         newTxLookup(),
-		chainHeadCh: make(chan fastchain.ChainHeadEvent, chainHeadChanSize),
+		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
 		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
 	pool.locals = newAccountSet(pool.signer)
@@ -340,7 +339,7 @@ func (pool *TxPool) loop() {
 
 // lockedReset is a wrapper around reset to allow calling it in a thread safe
 // manner. This method is only ever used in the tester!
-func (pool *TxPool) lockedReset(oldHead, newHead *types.FastHeader) {
+func (pool *TxPool) lockedReset(oldHead, newHead *types.Header) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -349,7 +348,7 @@ func (pool *TxPool) lockedReset(oldHead, newHead *types.FastHeader) {
 
 // reset retrieves the current state of the blockchain and ensures the content
 // of the transaction pool is valid with regard to the chain state.
-func (pool *TxPool) reset(oldHead, newHead *types.FastHeader) {
+func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	// If we're reorging an old state, reinject all dropped transactions
 	var reinject types.Transactions
 

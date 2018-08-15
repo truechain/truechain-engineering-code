@@ -47,7 +47,7 @@ var (
 )
 
 // blockRetrievalFn is a callback type for retrieving a block from the local chain.
-type blockRetrievalFn func(common.Hash) *types.FastBlock
+type blockRetrievalFn func(common.Hash) *types.Block
 
 // headerRequesterFn is a callback type for sending a header retrieval request.
 type headerRequesterFn func(common.Hash) error
@@ -56,16 +56,16 @@ type headerRequesterFn func(common.Hash) error
 type bodyRequesterFn func([]common.Hash) error
 
 // headerVerifierFn is a callback type to verify a block's header for fast propagation.
-type headerVerifierFn func(header *types.FastHeader) error
+type headerVerifierFn func(header *types.Header) error
 
 // blockBroadcasterFn is a callback type for broadcasting a block to connected peers.
-type blockBroadcasterFn func(block *types.FastBlock, propagate bool)
+type blockBroadcasterFn func(block *types.Block, propagate bool)
 
 // chainHeightFn is a callback type to retrieve the current chain height.
 type chainHeightFn func() uint64
 
 // chainInsertFn is a callback type to insert a batch of blocks into the local chain.
-type chainInsertFn func(types.FastBlocks) (int, error)
+type chainInsertFn func(types.Blocks) (int, error)
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type peerDropFn func(id string)
@@ -75,7 +75,7 @@ type peerDropFn func(id string)
 type announce struct {
 	hash   common.Hash   // Hash of the block being announced
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
-	header *types.FastHeader // Header of the block partially reassembled (new protocol)
+	header *types.Header // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
 
 	origin string // Identifier of the peer originating the notification
@@ -87,7 +87,7 @@ type announce struct {
 // headerFilterTask represents a batch of headers needing fetcher filtering.
 type headerFilterTask struct {
 	peer    string          // The source peer of block headers
-	headers []*types.FastHeader // Collection of headers to filter
+	headers []*types.Header // Collection of headers to filter
 	time    time.Time       // Arrival time of the headers
 }
 
@@ -112,13 +112,13 @@ type bodyFilterTask struct {
 // inject represents a schedules import operation.
 type inject struct {
 	origin string
-	block  *types.FastBlock
+	block  *types.Block
 }
 
 // injectMulti represents more schedules import operation.
 type injectMulti struct {
 	origins []string
-	blocks  []*types.FastBlock
+	blocks  []*types.Block
 }
 
 // injectSign represents a schedules sign operation.
@@ -141,7 +141,7 @@ type Fetcher struct {
 	inject chan *inject
 	injectSign chan *injectSign
 
-	blockFilter  chan chan []*types.FastBlock
+	blockFilter  chan chan []*types.Block
 	headerFilter chan chan *headerFilterTask
 	bodyFilter   chan chan *bodyFilterTask
 
@@ -183,7 +183,7 @@ type Fetcher struct {
 	queueChangeHook    func(common.Hash, bool) // Method to call upon adding or deleting a block from the import queue
 	fetchingHook       func([]common.Hash)     // Method to call upon starting a block (eth/61) or header (eth/62) fetch
 	completingHook     func([]common.Hash)     // Method to call upon starting a block body fetch (eth/62)
-	importedHook       func(*types.FastBlock)      // Method to call upon successful block import (both eth/61 and eth/62)
+	importedHook       func(*types.Block)      // Method to call upon successful block import (both eth/61 and eth/62)
 }
 
 // New creates a block fetcher to retrieve blocks based on hash announcements.
@@ -192,7 +192,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		notify:         make(chan *announce),
 		inject:         make(chan *inject),
 		injectSign:     make(chan *injectSign),
-		blockFilter:    make(chan chan []*types.FastBlock),
+		blockFilter:    make(chan chan []*types.Block),
 		headerFilter:   make(chan chan *headerFilterTask),
 		bodyFilter:     make(chan chan *bodyFilterTask),
 		done:           make(chan common.Hash),
@@ -255,7 +255,7 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time
 }
 
 // Enqueue tries to fill gaps the the fetcher's future import queue.
-func (f *Fetcher) Enqueue(peer string, block *types.FastBlock) error {
+func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 	op := &inject{
 		origin: peer,
 		block:  block,
@@ -284,7 +284,7 @@ func (f *Fetcher) EnqueueSign(peer string, sign *types.PbftSign) error {
 
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
-func (f *Fetcher) FilterHeaders(peer string, headers []*types.FastHeader, time time.Time) []*types.FastHeader {
+func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
 	log.Trace("Filtering headers", "peer", peer, "headers", len(headers))
 
 	// Send the filter channel to the fetcher
@@ -466,7 +466,7 @@ func (f *Fetcher) loop() {
 		case op := <-f.injectSign:
 			// A direct block insertion was requested, try and fill any pending gaps
 			propSignInMeter.Mark(1)
-			f.enqueueSign(op.origin, op.sign,false)
+			f.enqueueSign(op.origin, op.sign)
 		case hash := <-f.done:
 			// A pending import finished, remove all traces of the notification
 			f.forgetHash(hash)
@@ -554,7 +554,7 @@ func (f *Fetcher) loop() {
 
 			// Split the batch of headers into unknown ones (to return to the caller),
 			// known incomplete ones (requiring body retrievals) and completed blocks.
-			unknown, incomplete, complete := []*types.FastHeader{}, []*announce{}, []*types.FastBlock{}
+			unknown, incomplete, complete := []*types.Header{}, []*announce{}, []*types.Block{}
 			for _, header := range task.headers {
 				hash := header.Hash()
 
@@ -576,7 +576,7 @@ func (f *Fetcher) loop() {
 						if header.TxHash == types.DeriveSha(types.Transactions{}) {
 							log.Trace("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash())
 
-							block := types.NewFastBlockWithHeader(header)
+							block := types.NewBlockWithHeader(header)
 							block.ReceivedAt = task.time
 
 							complete = append(complete, block)
@@ -628,7 +628,7 @@ func (f *Fetcher) loop() {
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
 
-			blocks := []*types.FastBlock{}
+			blocks := []*types.Block{}
 			for i := 0; i < len(task.transactions); i++ {
 				// Match up a body to any possible completion request
 				matched := false
@@ -643,7 +643,7 @@ func (f *Fetcher) loop() {
 
 							if f.getBlock(hash) == nil {
 								// mecMark
-								block := types.NewFastBlockWithHeader(announce.header).WithBody(task.transactions[i])
+								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], nil)
 								block.ReceivedAt = task.time
 
 								blocks = append(blocks, block)
@@ -708,17 +708,10 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 	complete.Reset(gatherSlack - time.Since(earliest))
 }
 
-// enqueueSigns schedules a new future import operation, if the sign to be imported
-// has not yet been seen.
-func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign, leader bool) {
+// enqueueSign schedules a new future Sign gather operation, gather 2/3 committee number
+// sign insert block chain.
+func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign) {
 	hash := sign.Hash()
-	if leader {
-		hash = sign.FastHash
-		if _, ok := f.queuedSign[hash]; ok {
-			return
-		}
-	}
-
 	number := sign.FastHeight
 
 	// Ensure the peer isn't DOSing us
@@ -787,7 +780,7 @@ func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign, leader bool) {
 
 // enqueue schedules a new future import operation, if the block to be imported
 // has not yet been seen.
-func (f *Fetcher) enqueue(peer string, block *types.FastBlock) {
+func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	hash := block.Hash()
 
 	// Ensure the peer isn't DOSing us
@@ -821,8 +814,6 @@ func (f *Fetcher) enqueue(peer string, block *types.FastBlock) {
 		f.queues[peer] = count
 		f.queued[hash] = op
 
-		f.enqueueSign(peer,block.Body().GetLeaderSign(),true)
-
 		opMulti := injectMulti{}
 		if blockHsahs, ok := f.blockMultiHash[block.Number()]; ok {
 			for _, hash := range blockHsahs {
@@ -846,7 +837,7 @@ func (f *Fetcher) enqueue(peer string, block *types.FastBlock) {
 	}
 }
 
-func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.FastBlock) {
+func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 		hash := block.Hash()
 
 		// Run the import on a new thread
@@ -902,19 +893,15 @@ func (f *Fetcher) verifyComeAgreement(injectMulti *injectSignMulti) {
 			if voteCount >= int(float64(f.agentFetcher.GetCommitteeNumber(sign.FastHeight)*3/2) + 1) {
 
 				// Run the actual import and log any issues
-				if _, err := f.insertChain(types.FastBlocks{f.queued[sign.FastHash].block}); err != nil {
+				if _, err := f.insertChain(types.Blocks{f.queued[sign.FastHash].block}); err != nil {
 					log.Debug("Propagated block import failed", "peer", injectMulti.origins[i], "number", sign.FastHeight, "hash", sign.FastHash, "err", err)
 					f.done <- sign.FastHash
 					return
 				}
 				f.done <- sign.FastHash
 
-				for i, sign := range injectMulti.signs {
-					if i == 0 {
-						f.doneSign <- sign.FastHash
-					} else {
-						f.doneSign <- sign.Hash()
-					}
+				for _, sign := range injectMulti.signs {
+					f.doneSign <- sign.Hash()
 				}
 
 				log.Debug("Importing propagated block", "peer", injectMulti.origins[i], "number", sign.FastHeight, "hash", sign.FastHash)
@@ -923,8 +910,8 @@ func (f *Fetcher) verifyComeAgreement(injectMulti *injectSignMulti) {
 	}()
 }
 
-// GetPedingBlock gets a block that is not inserted locally
-func (f *Fetcher) GetPedingBlock(hash common.Hash) *types.FastBlock{
+// GetPendingBlock gets a block that is not inserted locally
+func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block{
 	if  _, ok := f.queued[hash]; !ok {
 		return nil
 	} else {
@@ -986,7 +973,7 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 	}
 }
 
-// forgetBlock removes all traces of a queued block from the fetcher's internal
+// forgetSign removes all traces of a queued block from the fetcher's internal
 // state.
 func (f *Fetcher) forgetSign(hash common.Hash) {
 	if insert := f.queuedSign[hash]; insert != nil {

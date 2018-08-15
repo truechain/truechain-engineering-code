@@ -27,11 +27,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
@@ -39,7 +38,7 @@ import (
 var DefaultConfig = Config{
 	SyncMode: downloader.FastSync,
 	Ethash: ethash.Config{
-		CacheDir:       "truechain",
+		CacheDir:       "minerva",
 		CachesInMem:    2,
 		CachesOnDisk:   3,
 		DatasetsInMem:  1,
@@ -67,9 +66,9 @@ func init() {
 		}
 	}
 	if runtime.GOOS == "windows" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Truechain")
+		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Minerva")
 	} else {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".truechain")
+		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".minerva")
 	}
 }
 
@@ -79,7 +78,7 @@ type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
 	Genesis *core.Genesis `toml:",omitempty"`
-	FastGenesis *fastchain.Genesis
+	FastGenesis *core.Genesis
 	SnailGenesis *snailchain.Genesis
 
 	// Protocol options

@@ -5,17 +5,15 @@ import (
 	"log"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"math/big"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"math/big"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"io"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
-// Committee is an committee info in the state of the genesis block.
-type Committee struct {
-	Address common.Address `json:"address,omitempty"`
-	PubKey  []byte         `json:"pubKey,omitempty"`
-}
 
 const (
 	CommitteeStart      = iota // start pbft consensus
@@ -23,9 +21,35 @@ const (
 	CommitteeSwitchover        //switch pbft committee
 )
 
+
+type CommitteeMembers []*CommitteeMember
+
 type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
+}
+
+
+func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
+	type committee struct {
+		Address common.Address `json:"address,omitempty"`
+		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
+	}
+	var dec committee
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+
+	g.Coinbase = dec.Address
+
+	var err error
+	if dec.PubKey != nil {
+		g.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type CommitteeNode struct {
@@ -36,6 +60,17 @@ type CommitteeNode struct {
 
 type PbftSigns []*PbftSign
 
+// DecodeRLP decodes the Ethereum
+func (p *PbftSign) DecodeRLP(s *rlp.Stream) error {
+	err := s.Decode(p)
+	return err
+}
+
+// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
+func (p *PbftSign) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, p)
+}
+
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
@@ -44,10 +79,10 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock() (*FastBlock, error)
-	VerifyFastBlock(*FastBlock) error
-	BroadcastFastBlock(*FastBlock) error
-	BroadcastSign(sign *PbftSign,block *FastBlock) error
+	FetchFastBlock() (*Block, error)
+	VerifyFastBlock(*Block) error
+	BroadcastFastBlock(*Block) error
+	BroadcastSign(sign *PbftSign,block *Block) error
 }
 
 type PbftServerProxy interface {
@@ -78,23 +113,6 @@ func IntToHex(num interface{}) []byte {
 	return buff.Bytes()
 }
 
-func (g *Committee) UnmarshalJSON(input []byte) error {
-	type Committee struct {
-		Address common.Address `json:"address,omitempty"`
-		PubKey  *hexutil.Bytes `json:"pubKey,omitempty"`
-	}
-	var dec Committee
-	if err := json.Unmarshal(input, &dec); err != nil {
-		return err
-	}
-	//if dec.Address != nil {
-	g.Address = dec.Address
-	//}
-	if dec.PubKey != nil {
-		g.PubKey = *dec.PubKey
-	}
-	return nil
-}
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
 // RLP encoding.
@@ -105,8 +123,4 @@ func (h *PbftSign) Hash() common.Hash {
 type CommitteeInfo struct {
 	Id *big.Int
 	Members []*CommitteeMember
-}
-
-func (committeeInfo *CommitteeInfo) SetCommitteeInfo(newCommitteeInfo *CommitteeInfo){
-	committeeInfo =newCommitteeInfo
 }

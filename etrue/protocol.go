@@ -126,13 +126,21 @@ type SnailPool interface {
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
-	PendingFastBlocks() (*types.FastBlock, error)
+	PendingFastBlocks() (*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
 }
 
 type AgentNetworkProxy interface {
+	// SubscribeNewFastBlockEvent should return an event subscription of
+	// NewBlockEvent and send events to the given channel.
+	SubscribeNewFastBlockEvent(chan<- core.NewBlockEvent) event.Subscription
+	// SubscribeNewPbftSignEvent should return an event subscription of
+	// PbftSignEvent and send events to the given channel.
 	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
+	// SubscribeNodeInfoEvent should return an event subscription of
+	// NodeInfoEvent and send events to the given channel.
+	SubscribeNodeInfoEvent(chan<- NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*CryNodeInfo) error
 }
@@ -197,8 +205,8 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 }
 
 // newFastBlockData is the network packet for the block propagation message.
-type newFastBlockData struct {
-	FastBlock *types.FastBlock
+type newBlockData struct {
+	Block *types.Block
 }
 
 // blockBody represents the data content of a single block.

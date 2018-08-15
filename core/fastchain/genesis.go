@@ -24,7 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/common/math"
-	"github.com/truechain/truechain-engineering-code/core/fastchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -152,7 +152,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
-func (g *Genesis) ToBlock(db ethdb.Database) *types.FastBlock {
+func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if db == nil {
 		db = ethdb.NewMemDatabase()
 	}
@@ -166,7 +166,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.FastBlock {
 		}
 	}
 	root := statedb.IntermediateRoot(false)
-	head := &types.FastHeader{
+	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Time:       new(big.Int).SetUint64(g.Timestamp),
 		ParentHash: g.ParentHash,
@@ -182,12 +182,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.FastBlock {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	return types.NewFastBlock(head, nil, nil,nil)
+	return types.NewBlock(head, nil, nil,nil)
 }
 
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
-func (g *Genesis) Commit(db ethdb.Database) (*types.FastBlock, error) {
+func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	block := g.ToBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
@@ -209,7 +209,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.FastBlock, error) {
 
 // MustCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
-func (g *Genesis) MustCommit(db ethdb.Database) *types.FastBlock {
+func (g *Genesis) MustCommit(db ethdb.Database) *types.Block {
 	block, err := g.Commit(db)
 	if err != nil {
 		panic(err)
@@ -218,7 +218,7 @@ func (g *Genesis) MustCommit(db ethdb.Database) *types.FastBlock {
 }
 
 // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
-func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.FastBlock {
+func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
 	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
 	return g.MustCommit(db)
 }

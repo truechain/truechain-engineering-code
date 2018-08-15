@@ -509,18 +509,18 @@ func NewShared() *Minerva {
 // cache tries to retrieve a verification cache for the specified block number
 // by first checking against a list of in-memory caches, then against caches
 // stored on disk, and finally generating one if none can be found.
-func (ethash *Minerva) cache(block uint64) *cache {
+func (m *Minerva) cache(block uint64) *cache {
 	epoch := block / epochLength
-	currentI, futureI := ethash.caches.get(epoch)
+	currentI, futureI := m.caches.get(epoch)
 	current := currentI.(*cache)
 
 	// Wait for generation finish.
-	current.generate(ethash.config.CacheDir, ethash.config.CachesOnDisk, ethash.config.PowMode == ModeTest)
+	current.generate(m.config.CacheDir, m.config.CachesOnDisk, m.config.PowMode == ModeTest)
 
 	// If we need a new future cache, now's a good time to regenerate it.
 	if futureI != nil {
 		future := futureI.(*cache)
-		go future.generate(ethash.config.CacheDir, ethash.config.CachesOnDisk, ethash.config.PowMode == ModeTest)
+		go future.generate(m.config.CacheDir, m.config.CachesOnDisk, m.config.PowMode == ModeTest)
 	}
 	return current
 }
@@ -528,18 +528,18 @@ func (ethash *Minerva) cache(block uint64) *cache {
 // dataset tries to retrieve a mining dataset for the specified block number
 // by first checking against a list of in-memory datasets, then against DAGs
 // stored on disk, and finally generating one if none can be found.
-func (ethash *Minerva) dataset(block uint64) *dataset {
+func (m *Minerva) dataset(block uint64) *dataset {
 	epoch := block / epochLength
-	currentI, futureI := ethash.datasets.get(epoch)
+	currentI, futureI := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
 	// Wait for generation finish.
-	current.generate(ethash.config.DatasetDir, ethash.config.DatasetsOnDisk, ethash.config.PowMode == ModeTest)
+	current.generate(m.config.DatasetDir, m.config.DatasetsOnDisk, m.config.PowMode == ModeTest)
 
 	// If we need a new future dataset, now's a good time to regenerate it.
 	if futureI != nil {
 		future := futureI.(*dataset)
-		go future.generate(ethash.config.DatasetDir, ethash.config.DatasetsOnDisk, ethash.config.PowMode == ModeTest)
+		go future.generate(m.config.DatasetDir, m.config.DatasetsOnDisk, m.config.PowMode == ModeTest)
 	}
 
 	return current
@@ -547,11 +547,11 @@ func (ethash *Minerva) dataset(block uint64) *dataset {
 
 // Threads returns the number of mining threads currently enabled. This doesn't
 // necessarily mean that mining is running!
-func (ethash *Minerva) Threads() int {
-	ethash.lock.Lock()
-	defer ethash.lock.Unlock()
+func (m *Minerva) Threads() int {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	return ethash.threads
+	return m.threads
 }
 
 // SetThreads updates the number of mining threads currently enabled. Calling
@@ -559,32 +559,32 @@ func (ethash *Minerva) Threads() int {
 // specified, the miner will use all cores of the machine. Setting a thread
 // count below zero is allowed and will cause the miner to idle, without any
 // work being done.
-func (ethash *Minerva) SetThreads(threads int) {
-	ethash.lock.Lock()
-	defer ethash.lock.Unlock()
+func (m *Minerva) SetThreads(threads int) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	// If we're running a shared PoW, set the thread count on that instead
-	if ethash.shared != nil {
-		ethash.shared.SetThreads(threads)
+	if m.shared != nil {
+		m.shared.SetThreads(threads)
 		return
 	}
 	// Update the threads and ping any running seal to pull in any changes
-	ethash.threads = threads
+	m.threads = threads
 	select {
-	case ethash.update <- struct{}{}:
+	case m.update <- struct{}{}:
 	default:
 	}
 }
 
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
-func (ethash *Minerva) Hashrate() float64 {
-	return ethash.hashrate.Rate1()
+func (m *Minerva) Hashrate() float64 {
+	return m.hashrate.Rate1()
 }
 
 // APIs implements consensus.Engine, returning the user facing RPC APIs. Currently
 // that is empty.
-func (ethash *Minerva) APIs(chain consensus.ChainReader) []rpc.API {
+func (m *Minerva) APIs(chain consensus.ChainReader) []rpc.API {
 	return nil
 }
 

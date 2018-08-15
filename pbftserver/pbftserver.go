@@ -33,43 +33,65 @@ type serverInfo struct {
 }
 
 type PbftServerMgr struct {
-	servers 		map[*big.Int]*serverInfo
-	blocks			map[*big.Int]*types.FastBlock
+	servers 		map[uint64]*serverInfo
+	blocks			map[uint64]*types.Block
 	pk 				*ecdsa.PublicKey
 	priv 			*ecdsa.PrivateKey
 	Agent			types.PbftAgentProxy
 }
 
-func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey) *PbftServerMgr {
+func NewPbftServerMgr(pk *ecdsa.PublicKey,priv *ecdsa.PrivateKey,agent types.PbftAgentProxy) *PbftServerMgr {
 	ss := &PbftServerMgr {
-		servers : 	make(map[*big.Int]*serverInfo),
-		blocks:		make(map[*big.Int]*types.FastBlock),
+		servers : 	make(map[uint64]*serverInfo),
+		blocks:		make(map[uint64]*types.Block),
 		pk:			pk,
 		priv:		priv,
+		Agent:		agent,
 	}
 	return ss
+}
+func (ss *PbftServerMgr) Finish() error{
+	// sleep 1s
+	for _,v := range ss.servers {
+		v.server.Stop()
+	}
+	return nil
 }
 // note: all functions below this was not thread-safe
 
 func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
+	var update bool = false
 	for _,v := range ss.info {
 		if !bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(mm.Publickey)) {
 			ss.info = append(ss.info,&types.CommitteeNode {
 				CM:			mm,
 			})
+			update = true
+			break
 		}
+	}
+	if !update {
+		ss.info = append(ss.info,&types.CommitteeNode {
+			CM:			mm,
+		})
 	}
 }
 func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
+	var update bool = false
 	for i,v := range ss.info {
 		if bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(n.CM.Publickey)) {
 			ss.info[i] = n
+			update = true
+			break
 		}
 	}
+	if !update {
+		ss.info = append(ss.info,n)
+	}
 }
-func (ss *PbftServerMgr) getLastBlock() *types.FastBlock {
+func (ss *PbftServerMgr) getLastBlock() *types.Block {
 	cur := big.NewInt(0)
-	var fb *types.FastBlock = nil
+	var fb *types.Block = nil
 	for _,v := range ss.blocks {
 		if cur.Cmp(common.Big0) == 0 {
 			fb = v
@@ -82,7 +104,7 @@ func (ss *PbftServerMgr) getLastBlock() *types.FastBlock {
 	return fb
 }
 func (ss *PbftServerMgr) removeBlock(height *big.Int) {
-	delete(ss.blocks,height)
+	delete(ss.blocks,height.Uint64())
 }
 func (ss *PbftServerMgr) clear(id *big.Int) {
 	if id.Cmp(common.Big0) == 0{
@@ -93,15 +115,15 @@ func (ss *PbftServerMgr) clear(id *big.Int) {
 			}
 		}
 	} else {
-		if _,ok := ss.servers[id]; ok {
-			delete(ss.servers,id)
+		if _,ok := ss.servers[id.Uint64()]; ok {
+			delete(ss.servers,id.Uint64())
 		}
 	}
 }
 
 func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 	// get new fastblock
-	server,ok := ss.servers[id]
+	server,ok := ss.servers[id.Uint64()]
 	if !ok {
 		return nil,errors.New("wrong conmmitt ID:"+id.String())
 	} 
@@ -113,7 +135,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 	if err != nil {
 		return nil,err
 	}
-	if _,ok := ss.blocks[fb.Number()]; ok {
+	if _,ok := ss.blocks[fb.NumberU64()]; ok {
 		return nil,errors.New("same height:"+fb.Number().String())
 	}
 	sum := len(ss.blocks)
@@ -127,7 +149,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 			}
 		}
 	}
-	ss.blocks[fb.Number()] = fb
+	ss.blocks[fb.NumberU64()] = fb
 	data,err := rlp.EncodeToBytes(fb)
 	if err != nil {
 		return nil,err
@@ -143,7 +165,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg,error) {
 }
 func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
 	height := big.NewInt(msg.Height)
-	block,ok := ss.blocks[height]
+	block,ok := ss.blocks[height.Uint64()]
 	if !ok {
 		return false
 	}
@@ -151,12 +173,12 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
 	if err != nil {
 		return false
 	}
-	ss.blocks[height] = block
+	ss.blocks[height.Uint64()] = block
 	return true
 }
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 	height := big.NewInt(msg.Height)
-	block,ok := ss.blocks[height]
+	block,ok := ss.blocks[height.Uint64()]
 	if !ok {
 		return false
 	}
@@ -183,13 +205,13 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 	return true
 }
 func (ss *PbftServerMgr) Broadcast(height *big.Int) {
-	if v,ok := ss.blocks[height]; ok {
+	if v,ok := ss.blocks[height.Uint64()]; ok {
 		ss.Agent.BroadcastFastBlock(v)
 	}
 }
 func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
 	height := big.NewInt(h)
-	block,ok := ss.blocks[height]
+	block,ok := ss.blocks[height.Uint64()]
 	if !ok {
 		return nil
 	}
@@ -211,30 +233,34 @@ func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
 	return sign
 }
 
-func (ss *PbftServerMgr) work() {
+func (ss *PbftServerMgr) work(acChan <-chan *consensus.ActionIn) {
 	for {
 		select {
-		case ac := <-consensus.ActionChan:
+		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
 				req,err := ss.GetRequest(ac.ID)
-				if err != nil  && req != nil {
-					if server,ok := ss.servers[ac.ID];ok {
-						server.server.PutRequest(req)
+				if err == nil  && req != nil {
+					if server,ok := ss.servers[ac.ID.Uint64()];ok {
 						server.Height = big.NewInt(req.Height)
+						server.server.PutRequest(req)
 					} 
 				}
 			} else if ac.AC == consensus.ActionBroadcast {
 				ss.Broadcast(ac.Height)
-			} 
+			} else if ac.AC == consensus.ActionFinish {
+				return 
+			}
 		}
 	}
 }
 
-func (ss *PbftServerMgr)PutCommittee(id *big.Int, members []*types.CommitteeMember) error {
+func (ss *PbftServerMgr)PutCommittee(committeeInfo *types.CommitteeInfo) error {
+	id := committeeInfo.Id
+	members := committeeInfo.Members
 	if id == nil || len(members) <= 0 {
 		return errors.New("wrong params...")
 	} 
-	if _,ok := ss.servers[id];ok {
+	if _,ok := ss.servers[id.Uint64()];ok {
 		return errors.New("repeat ID:"+id.String())
 	}
 	leader := members[0].Publickey
@@ -249,14 +275,14 @@ func (ss *PbftServerMgr)PutCommittee(id *big.Int, members []*types.CommitteeMemb
 	for _,v := range members {
 		server.insertMember(v)
 	}
-	ss.servers[id] = &server
+	ss.servers[id.Uint64()] = &server
 	return nil
 }
 func (ss *PbftServerMgr)PutNodes(id *big.Int, nodes []*types.CommitteeNode) error{
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	} 
-	server,ok := ss.servers[id]
+	server,ok := ss.servers[id.Uint64()]
 	if !ok {
 		return errors.New("wrong ID:"+id.String())
 	}
@@ -269,20 +295,20 @@ func (ss *PbftServerMgr)PutNodes(id *big.Int, nodes []*types.CommitteeNode) erro
 func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 	switch action {
 	case Start:
-		if server,ok := ss.servers[id]; ok {
-			server.server.Start()
+		if server,ok := ss.servers[id.Uint64()]; ok {
+			server.server.Start(ss.work)
 			// start to fetch
 			ac := &consensus.ActionIn{
 				AC:		consensus.ActionFecth,
 				ID:		id,
 				Height:	common.Big0,
 			}
-			consensus.ActionChan <- ac
+			server.server.ActionChan <- ac
 			return nil
 		} 
 		return errors.New("wrong conmmitt ID:"+id.String())
 	case Stop:
-		if server,ok := ss.servers[id]; ok {
+		if server,ok := ss.servers[id.Uint64()]; ok {
 			server.clear = true
 		}
 		ss.clear(id)

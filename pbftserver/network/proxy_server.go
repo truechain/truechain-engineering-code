@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/common"
 	"encoding/json"
 	"fmt"
 	"bytes"
@@ -16,32 +17,56 @@ type Server struct {
 	node *Node
 	ID	*big.Int
 	help consensus.ConsensusHelp
+	server *http.Server
+	ActionChan chan *consensus.ActionIn
 }
 
 func NewServer(nodeID string,id *big.Int,help consensus.ConsensusHelp,
 	verify consensus.ConsensusVerify,addrs []*types.CommitteeNode) *Server {
+	if len(addrs) <= 0{
+		return nil
+	}
 	node := NewNode(nodeID,verify,addrs)
-	server := &Server{node.NodeTable[nodeID], node,id,help}
 
+	server := &Server{url:node.NodeTable[nodeID], node:node,ID:id,help:help,}
+	server.server = &http.Server{
+		Addr:		server.url,
+	}
+	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
-
 	return server
 }
-
-func (server *Server) Start() {
+func (server *Server) Start(work func(acChan <-chan *consensus.ActionIn)) {
+	go server.startHttpServer()
+	go work(server.ActionChan)
+}
+func (server *Server) startHttpServer() {
 	fmt.Printf("Server will be started at %s...\n", server.url)
-	if err := http.ListenAndServe(server.url, nil); err != nil {
+	if err := server.server.ListenAndServe(); err != nil {
 		fmt.Println(err)
 		return
 	}
 }
-
+func (server *Server) Stop(){
+	// do nothing
+	if server.server != nil {
+		server.server.Close()
+	}
+	ac := &consensus.ActionIn{
+		AC:		consensus.ActionFinish,
+		ID:		common.Big0,
+		Height:	common.Big0,
+	}
+	server.ActionChan <- ac
+}
 func (server *Server) setRoute() {
-	http.HandleFunc("/req", server.getReq)
-	http.HandleFunc("/preprepare", server.getPrePrepare)
-	http.HandleFunc("/prepare", server.getPrepare)
-	http.HandleFunc("/commit", server.getCommit)
-	http.HandleFunc("/reply", server.getReply)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/req", server.getReq)
+	mux.HandleFunc("/preprepare", server.getPrePrepare)
+	mux.HandleFunc("/prepare", server.getPrepare)
+	mux.HandleFunc("/commit", server.getCommit)
+	mux.HandleFunc("/reply", server.getReply)
+	server.server.Handler = mux
 }
 
 func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) {
@@ -98,29 +123,20 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 		fmt.Println(err)
 		return
 	}
-	// server.node.GetReply(&msg)
-	server.handleResult(&msg)
+	server.node.GetReply(&msg)
 }
-func (server *Server) handleResult(msg *consensus.ReplyMsg) {
-	var res uint = 0
-	if msg.NodeID == "Executed" {
-		res = 1
-	}
-	if msg.ViewID == server.node.CurrentState.ViewID {
-		server.help.ReplyResult(server.node.CurrentState.MsgLogs.ReqMsg,res)
-	} else {
-		// wrong state
-	}
+func (server *Server) PutRequest(msg *consensus.RequestMsg) {
+	// server.node.Broadcast(msg, "/req")
+	server.node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionBroadcast,
 		ID:		server.ID,
 		Height:	height,
 	}
-	consensus.ActionChan <- ac
-}
-func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	server.node.MsgEntrance <- msg
+	go func() {
+		server.ActionChan <- ac
+	}()
 }
 
 func send(url string, msg []byte) {

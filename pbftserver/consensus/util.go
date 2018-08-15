@@ -11,6 +11,7 @@ const (
 	Against 	
 	ActionFecth 	
 	ActionBroadcast 
+	ActionFinish
 )
 
 type ActionIn struct {
@@ -18,7 +19,7 @@ type ActionIn struct {
 	ID 		*big.Int
 	Height	*big.Int
 }
-var ActionChan chan *ActionIn = make(chan *ActionIn)
+// var ActionChan chan *ActionIn = make(chan *ActionIn)
 
 type SignedVoteMsg struct{
 	FastHeight 	*big.Int
@@ -28,12 +29,12 @@ type SignedVoteMsg struct{
 
 type ConsensusHelp interface {
 	GetRequest(id *big.Int) (*RequestMsg,error)
-	ReplyResult(msg *RequestMsg,res uint) (bool)
 	Broadcast(height *big.Int)
 }
 type ConsensusVerify interface {
 	SignMsg(h int64,res uint) (*SignedVoteMsg)	
 	CheckMsg(msg *RequestMsg) (bool)
+	ReplyResult(msg *RequestMsg,res uint) (bool)
 }
 
 func Hash(content []byte) string {

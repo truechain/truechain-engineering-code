@@ -13,7 +13,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
@@ -25,6 +24,8 @@ import (
 	"crypto/rand"
 	"encoding/gob"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"errors"
+	"io"
 )
 
 const (
@@ -32,11 +33,17 @@ const (
 	VoteAgreeAgainst  		//vote against
 
 	chainHeadChanSize = 10
+
+	setCurrentCommittee = iota
+	setNextCommittee
+
+	BlockRewordSpace =12
+
 )
 
 type PbftAgent struct {
 	config *params.ChainConfig
-	fastChain   *fastchain.FastBlockChain
+	fastChain   *core.BlockChain
 	snailChain *snailchain.SnailBlockChain
 	engine consensus.Engine
 	eth     Backend
@@ -69,7 +76,7 @@ type PbftAgent struct {
 	snailBlockSub event.Subscription
 
 	//cryNodeInfo   *CryNodeInfo
-	committeeNode *types.CommitteeNode	//node info
+	committeeNode *types.CommitteeNode
 	privateKey *ecdsa.PrivateKey
 
 	//snapshotMu    sync.RWMutex
@@ -85,11 +92,11 @@ type AgentWork struct {
 
 	state     *state.StateDB // apply state changes here
 	tcount    int            // tx count in cycle
-	gasPool   *fastchain.GasPool  // available gas used to pack transactions
+	gasPool   *core.GasPool  // available gas used to pack transactions
 
-	Block *types.FastBlock // the new block
+	Block *types.Block // the new block
 
-	header   *types.FastHeader
+	header   *types.Header
 	txs      []*types.Transaction
 	receipts []*types.Receipt
 
@@ -98,7 +105,7 @@ type AgentWork struct {
 
 type Backend interface {
 	AccountManager() *accounts.Manager
-	FastBlockChain() *fastchain.FastBlockChain
+	BlockChain() *core.BlockChain
 	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
 	ChainDb() ethdb.Database
@@ -114,6 +121,17 @@ type  CryNodeInfo struct {
 	CommitteeId *big.Int
 }
 
+// DecodeRLP decodes the Ethereum
+func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
+	err := s.Decode(c)
+	return err
+}
+
+// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
+func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, c)
+}
+
 func (c *CryNodeInfo) Hash() common.Hash {
 	return RlpHash(c)
 }
@@ -123,36 +141,40 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		config:         	config,
 		engine:         	engine,
 		eth:            	eth,
-		fastChain:          	eth.FastBlockChain(),
+		fastChain:          eth.BlockChain(),
 		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
-		ElectionCh: make(chan core.ElectionEvent, 10),
-		SnailBlockCh: make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
+		ElectionCh: 	make(chan core.ElectionEvent, 10),
+		SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
+		MaxSnailBlockHeight: big.NewInt(0),
 	}
+	return self
+}
+
+func (self *PbftAgent)Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
 	self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
 	// Subscribe
 	go self.loop()
-	return self
 }
-
 
 func (self *PbftAgent) loop(){
 	for {
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
-				self.CommitteeInfo.SetCommitteeInfo(self.NextCommitteeInfo)
+				self.SetCommitteeInfo(self.NextCommitteeInfo,setCurrentCommittee)
+				self.SetCommitteeInfo(nil,setNextCommittee)
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
-				self.CommitteeInfo.SetCommitteeInfo(nil)
+				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
+			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				self.NextCommitteeInfo.SetCommitteeInfo(ch.CommitteeInfo)
 				self.SendPbftNode(ch.CommitteeInfo)
 				self.server.PutCommittee(ch.CommitteeInfo)
 			}
@@ -165,31 +187,22 @@ func (self *PbftAgent) loop(){
 			if  self.IsCommitteeMember(self.NextCommitteeInfo){
 				self.ReceivePbftNode(cryNodeInfo)
 			}
-
+		//receive snailBlock
 		case snailBlock := <-self.SnailBlockCh:
 			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number
 		}
 	}
-
-}
-
-func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool{
-	if committeeInfo==nil || len(committeeInfo.Members) <0 {
-		return false
-	}
-	pubKey := self.committeeNode.CM.Publickey
-	for _,member := range committeeInfo.Members {
-		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-			return true
-			break;
-		}
-	}
-	return false
 }
 
 func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo{
-	cryNodeInfo := new(CryNodeInfo)
-	nodeByte,_ :=ToByte(pbftAgent.committeeNode)
+	if committeeInfo == nil && len(committeeInfo.Members) <= 0{
+		log.Info("committeeInfo is nil")
+		return nil
+	}
+	cryNodeInfo := &CryNodeInfo{
+		CommitteeId:committeeInfo.Id,
+	}
+	nodeByte,_ :=ToByte(pbftAgent.committeeNode) // TODO init committeeNode
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -204,32 +217,10 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		log.Info("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
-	cryNodeInfo.CommitteeId =committeeInfo.Id
 
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
-
-	//pbftAgent.cryNodeInfo =cryNodeInfo
 	return cryNodeInfo
 }
-
-/*func (pbftAgent *PbftAgent) Start() {
-	// broadcast mined blocks
-	pbftAgent.PbftNodeSub = pbftAgent.eventMux.Subscribe(NewPbftNodeEvent{})
-	go pbftAgent.handle()
-}
-func  (pbftAgent *PbftAgent) handle(){
-	for obj := range pbftAgent.PbftNodeSub.Chan() {
-		switch ev := obj.Data.(type) {
-		case NewPbftNodeEvent:
-			//if committee member receive and handle info
-			if pbftAgent.IsCommitteeMember(pbftAgent.CommitteeInfo){
-				pbftAgent.ReceivePbftNode(ev.cryNodeInfo)
-			}
-			//transpond  info
-			pbftAgent.SendPbftNode(pbftAgent.CommitteeInfo)
-		}
-	}
-}*/
 
 func (pbftAgent *PbftAgent)  AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error{
 	pbftAgent.CryNodeInfoCh <- cryNodeInfo
@@ -243,10 +234,10 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		log.Info("SigToPub error.")
 		return nil
 	}
-	/*if pbftAgent.CommitteeInfo.Id !=cryNodeInfo.CommitteeId{
+	if pbftAgent.NextCommitteeInfo.Id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
-	}*/
+	}
 	pks :=pbftAgent.election.GetByCommitteeId(cryNodeInfo.CommitteeId)
 	verifyFlag := false
 	for _, pk:= range  pks{
@@ -273,8 +264,8 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 }
 
 //generateBlock and broadcast
-func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
-	var fastBlock  *types.FastBlock
+func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
+	var fastBlock  *types.Block
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
@@ -291,10 +282,10 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 	}
 
 	num := parent.Number()
-	header := &types.FastHeader{
+	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
-		GasLimit:   fastchain.FastCalcGasLimit(parent),
+		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
 
@@ -320,41 +311,47 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.FastBlock,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	snailHegiht :=self.fastChain.GetSnailHeightByFastHeight(
-		self.fastChain.CurrentBlock().Header().Number)
-	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
-	if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=12{
-		fastBlock.Header().SnailNumber = snailHegiht
-		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
-		fastBlock.Header().SnailHash =sb.Hash()
+	if self.MaxSnailBlockHeight.Cmp(big.NewInt(0)) == 1{
+		currentFastHeader :=self.fastChain.CurrentBlock().Header()
+		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
+		snailHegiht :=blockReward.SnailNumber
+		snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
+		if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=BlockRewordSpace{
+			fastBlock.Header().SnailNumber = snailHegiht
+			sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
+			fastBlock.Header().SnailHash =sb.Hash()
+		}
 	}
+
 	return	fastBlock,nil
 }
 
 //broadcast blockAndSign
-func (self * PbftAgent) BroadcastFastBlock(fb *types.FastBlock) error{
+func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
 		FastHash:fb.Hash(),
 	}
-	data := voteSign.PrepareData()//dd
+	data := voteSign.PrepareData() //TODO
 	hash :=RlpHash(data)
 	var err error
 	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
-	if err != nil{
+		if err != nil{
 		log.Info("sign error")
 	}
 	fb.Body().SetLeaderSign(voteSign)
 	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
-	self.NewFastBlockFeed.Send(core.NewFastBlockEvent{fb})
+	self.NewFastBlockFeed.Send(core.NewBlockEvent{
+		Block:	fb,
+	})
 	return err
 }
 
-func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
+func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	bc := self.fastChain
 	// get current head
-	var parent *types.FastBlock
+	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 
 	err :=bc.Engine().VerifyFastHeader(bc, fb.Header(),true)
@@ -382,7 +379,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.FastBlock) (bool,error){
 }
 
 //verify the sign , insert chain  and  broadcast the signs
-func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
+/*func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
 	 voteNum := 0
 	//get committee list  by height and hash
 	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())//dd
@@ -411,9 +408,20 @@ func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.Fas
 		}
 		self.agentFeed.Send(core.PbftSignEvent{voteSigns})
 	}
+}*/
+
+func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block){
+	/*fastBlocks	:= []*types.Block{fb}
+	_,err :=self.fastChain.InsertChain(fastBlocks)
+	if err != nil{
+		panic(err)
+	}*/
+	self.agentFeed.Send(core.PbftSignEvent{
+		PbftSign:	voteSign,
+	})
 }
 
-func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHeader) error {
+func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := self.fastChain.StateAt(parent.Root())
 	if err != nil {
 		return err
@@ -431,9 +439,9 @@ func (self *PbftAgent) makeCurrent(parent *types.FastBlock, header *types.FastHe
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,bc *fastchain.FastBlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce,bc *core.BlockChain) {
 	if env.gasPool == nil {
-		env.gasPool = new(fastchain.GasPool).AddGas(env.header.GasLimit)
+		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 
 	var coalescedLogs []*types.Log
@@ -516,10 +524,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.FastBlockChain,  gp *fastchain.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain,  gp *core.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 	var feeAmount *big.Int;
-	receipt, _, err := fastchain.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed,feeAmount, vm.Config{})
+	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed,feeAmount, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
@@ -530,7 +538,7 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *fastchain.Fas
 	return nil, receipt.Logs
 }
 
-func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewFastBlockEvent) event.Subscription {
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewBlockEvent) event.Subscription {
 	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
 }
 
@@ -545,6 +553,19 @@ func (self * PbftAgent)  SubscribeNodeInfoEvent(ch chan<- NodeInfoEvent) event.S
 	return self.scope.Track(self.nodeInfoFeed.Subscribe(ch))
 }
 
+func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool{
+	if committeeInfo==nil || len(committeeInfo.Members) <= 0 {
+		return false
+	}
+	pubKey := self.committeeNode.CM.Publickey
+	for _,member := range committeeInfo.Members {
+		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+	return false
+}
+
 // Stop terminates the PbftAgent.
 func (self * PbftAgent) Stop() {
 	// Unsubscribe all subscriptions registered from agent
@@ -553,6 +574,20 @@ func (self * PbftAgent) Stop() {
 
 // VerifyCommitteeSign verify committee sign.
 func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool {
+	for _,sign := range signs{
+		msg :=sign.PrepareData()
+		pubKey,err :=crypto.SigToPub(msg,sign.Sign)
+		if err != nil{
+			log.Info("SigToPub error.")
+			panic(err)
+		}
+		for _,member := range self.CommitteeInfo.Members { // TODO  self.CommitteeInfo is nil
+			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
+				break;
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -563,7 +598,21 @@ func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
 
 // getCommitteeNumber return Committees number
 func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
-	return 0
+	return int32(len(self.CommitteeInfo.Members))
+}
+
+func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,CommitteeType int) error {
+	if newCommitteeInfo == nil{
+		newCommitteeInfo = &types.CommitteeInfo{}
+	}
+	if CommitteeType ==setCurrentCommittee{
+		self.CommitteeInfo = newCommitteeInfo
+	}else if CommitteeType ==setNextCommittee{
+		self.NextCommitteeInfo = newCommitteeInfo
+	}else{
+		return errors.New("CommitteeType is nil")
+	}
+	return nil
 }
 
 func FromByte(data []byte,to interface{}) error {

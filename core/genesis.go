@@ -25,10 +25,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -42,6 +42,9 @@ type Genesis struct {
 	Snail *snailchain.Genesis
 	Fast  *fastchain.Genesis
 }
+
+
+
 
 // SetupGenesisBlock writes or updates the genesis block in db.
 // The block that will be used is:
