@@ -19,7 +19,7 @@ type ActionIn struct {
 	ID 		*big.Int
 	Height	*big.Int
 }
-var ActionChan chan *ActionIn = make(chan *ActionIn)
+// var ActionChan chan *ActionIn = make(chan *ActionIn)
 
 type SignedVoteMsg struct{
 	FastHeight 	*big.Int
