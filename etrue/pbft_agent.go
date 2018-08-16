@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"errors"
 	"io"
+	"fmt"
 )
 
 const (
@@ -130,7 +131,6 @@ func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
 func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, c)
 }
-
 func (c *CryNodeInfo) Hash() common.Hash {
 	return RlpHash(c)
 }
@@ -147,10 +147,21 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
 	}
+
+	prv_Hex := "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc"
+	acc1Key, _ := crypto.HexToECDSA(prv_Hex)
+	self.PrivateKey =acc1Key
+	pubBytes :=crypto.FromECDSAPub(&acc1Key.PublicKey)
+	self.CommitteeNode =&types.CommitteeNode{
+		"127.0.0.1",
+		80,
+		crypto.PubkeyToAddress(acc1Key.PublicKey),
+		pubBytes,
+	}
 	return self
 }
 
-func (self *PbftAgent)Start() {
+func (self *PbftAgent) Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
 	self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
@@ -226,16 +237,17 @@ func (pbftAgent *PbftAgent)  AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error{
 }
 
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.CommitteeNode {
+	fmt.Println("ReceivePbftNode ...")
 	hash :=RlpHash(cryNodeInfo.Nodes)
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
 		log.Info("SigToPub error.")
 		return nil
 	}
-	if pbftAgent.NextCommitteeInfo.Id !=cryNodeInfo.CommitteeId{
+	/*if pbftAgent.NextCommitteeInfo.Id !=cryNodeInfo.CommitteeId{
 		log.Info("commiteeId  is not consistency .")
 		return nil
-	}
+	}*/
 	pks :=pbftAgent.election.GetByCommitteeId(cryNodeInfo.CommitteeId)
 	verifyFlag := false
 	for _, pk:= range  pks{
@@ -255,10 +267,18 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode,node)
 			pbftAgent.server.PutNodes(cryNodeInfo.CommitteeId,  []*types.CommitteeNode{node})
+			PrintNode(node)
 			return node
 		}
 	}
 	return nil
+}
+func PrintNode(node *types.CommitteeNode){
+	fmt.Println("*********************")
+	fmt.Println("IP:",node.IP)
+	fmt.Println("Port:",node.Port)
+	fmt.Println("Coinbase:",node.Coinbase)
+	fmt.Println("Publickey:",node.Publickey)
 }
 
 //generateBlock and broadcast
@@ -407,15 +427,13 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block){
+func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign){
 	/*fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
 		panic(err)
 	}*/
-	self.agentFeed.Send(core.PbftSignEvent{
-		PbftSign:	voteSign,
-	})
+	self.agentFeed.Send(core.PbftSignEvent{PbftSign:voteSign,})
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
