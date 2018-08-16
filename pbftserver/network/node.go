@@ -285,7 +285,6 @@ func (node *Node) routeMsg(msg interface{}) []error {
 	switch msg.(type) {
 	case *consensus.RequestMsg:
 		if node.CurrentState == nil {
-			printLog(node, "RequestMsg")
 			// Copy buffered messages first.
 			msgs := make([]*consensus.RequestMsg, len(node.MsgBuffer.ReqMsgs))
 			copy(msgs, node.MsgBuffer.ReqMsgs)
@@ -299,7 +298,6 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			// Send messages.
 			node.MsgDelivery <- msgs
 		} else {
-			printLog(node, "RequestMsg")
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs, msg.(*consensus.RequestMsg))
 		}
 	case *consensus.PrePrepareMsg:
@@ -322,10 +320,8 @@ func (node *Node) routeMsg(msg interface{}) []error {
 	case *consensus.VoteMsg:
 		if msg.(*consensus.VoteMsg).MsgType == consensus.PrepareMsg {
 			if node.CurrentState == nil || node.CurrentState.CurrentStage != consensus.PrePrepared {
-				printLog(node, "PrepareMsg")
 				node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs, msg.(*consensus.VoteMsg))
 			} else {
-				printLog(node, "PrepareMsg")
 				// Copy buffered messages first.
 				msgs := make([]*consensus.VoteMsg, len(node.MsgBuffer.PrepareMsgs))
 				copy(msgs, node.MsgBuffer.PrepareMsgs)
