@@ -2,6 +2,7 @@ package network
 
 import (
 	"encoding/json"
+	"math/big"
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -21,6 +22,7 @@ type Node struct {
 	MsgDelivery   chan interface{}
 	Alarm         chan bool
 	Verify        consensus.ConsensusVerify
+	ID			  *big.Int
 }
 
 type MsgBuffer struct {
@@ -37,7 +39,7 @@ type View struct {
 
 const ResolvingTimeDuration = time.Millisecond * 1000 // 1 second.
 
-func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.CommitteeNode) *Node {
+func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.CommitteeNode,id *big.Int) *Node {
 	const viewID = 10000000000 // temporary.
 	if len(addrs) <= 0 {
 		return nil
@@ -57,6 +59,7 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.Com
 			Primary: primary,
 		},
 		Verify: verify,
+		ID:		id,
 		// Consensus-related struct
 		CurrentState:  nil,
 		CommittedMsgs: make([]*consensus.RequestMsg, 0),
@@ -113,7 +116,7 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 		res = 1
 	}
 	if msg.ViewID == node.CurrentState.ViewID {
-		node.Verify.ReplyResult(node.CurrentState.MsgLogs.ReqMsg, res)
+		node.Verify.ReplyResult(node.CurrentState.MsgLogs.ReqMsg, res,node.ID)
 	} else {
 		// wrong state
 	}

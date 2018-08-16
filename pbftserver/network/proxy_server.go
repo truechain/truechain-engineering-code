@@ -25,7 +25,7 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	if len(addrs) <= 0 {
 		return nil
 	}
-	node := NewNode(nodeID, verify, addrs)
+	node := NewNode(nodeID, verify, addrs,id)
 
 	server := &Server{url: node.NodeTable[nodeID], node: node, ID: id, help: help}
 	server.server = &http.Server{
@@ -35,9 +35,9 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	server.setRoute()
 	return server
 }
-func (server *Server) Start(work func(acChan <-chan *consensus.ActionIn)) {
+func (server *Server) Start(work func(cid *big.Int,acChan <-chan *consensus.ActionIn)) {
 	go server.startHttpServer()
-	go work(server.ActionChan)
+	go work(server.ID,server.ActionChan)
 }
 func (server *Server) startHttpServer() {
 	if err := server.server.ListenAndServe(); err != nil {
@@ -46,7 +46,6 @@ func (server *Server) startHttpServer() {
 	}
 }
 func (server *Server) Stop() {
-	// do nothing
 	if server.server != nil {
 		server.server.Close()
 	}
