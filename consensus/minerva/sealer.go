@@ -163,7 +163,7 @@ mineloop:
 			
 				if !result.IsFruit() {
 					// stop threads when get a block, wait for outside abort when result is fruit
-					//close(abort)
+					close(abort)
 					pend.Wait()
 					break mineloop
 				}

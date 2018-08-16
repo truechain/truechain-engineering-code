@@ -694,7 +694,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEven
 // Insert record into list order by record number
 func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlock *types.Block) error {
 
-	log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash())
+	//log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash())
 
 	for lr := fastBlockList.Front(); lr != nil; lr = lr.Next() {
 		f := lr.Value.(*types.Block)
