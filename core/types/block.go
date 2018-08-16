@@ -476,6 +476,30 @@ type SnailBlocks []*SnailBlock
 
 type SnailBlockBy func(b1, b2 *SnailBlock) bool
 
+func (self SnailBlockBy) Sort(snailBlocks SnailBlocks) {
+	bs := snailBlockSorter{
+		snailBlocks: snailBlocks,
+		by:     self,
+	}
+	sort.Sort(bs)
+}
+
+
+type snailBlockSorter struct {
+	snailBlocks SnailBlocks
+	by     func(b1, b2 *SnailBlock) bool
+}
+
+func (self snailBlockSorter) Len() int { return len(self.snailBlocks) }
+func (self snailBlockSorter) Swap(i, j int) {
+	self.snailBlocks[i], self.snailBlocks[j] = self.snailBlocks[j], self.snailBlocks[i]
+}
+func (self snailBlockSorter) Less(i, j int) bool { return self.by(self.snailBlocks[i], self.snailBlocks[j]) }
+
+func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *SnailHeader) Hash() common.Hash {
