@@ -627,7 +627,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 // Pending retrieves all currently processable allFruits, sorted by record number.
 // The returned fruit set is a copy and can be freely modified by calling code.
-func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.SnailBlock, error) {
+/*func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.SnailBlock, error) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
@@ -637,8 +637,37 @@ func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.SnailBlock, error
 	}
 
 	return pending, nil
+}*/
+func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+	//pending := make(map[common.Hash]*types.SnailBlock)
+	for _, fruit := range pool.fruitPending {
+		//pending[addr] = types.CopyFruit(fruit)
+		fruits=append(fruits,types.CopyFruit(fruit))
+	}
+	types.SnailBlockBy(types.SnailNumber).Sort(fruits)
+	var number *big.Int
+	if len(fruits)>0{
+		number=fruits[0].Number()
+	}
+	for k, v := range fruits {
+		a:=number.Sub(v.Number(),number)
+		if k<1{
+			rtfruits=append(rtfruits,v)
+			continue
+		}
+		if a.Cmp(common.Big1)==0{
+			rtfruits=append(rtfruits,v)
+		}else {
+			break
+		}
+		number=v.Number()
+	}
+	return rtfruits, nil
 }
-
 // SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
 // starts sending event to the given channel.
 func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {

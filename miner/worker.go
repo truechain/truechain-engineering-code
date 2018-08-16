@@ -752,7 +752,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 	return nil, receipts
 }
 
-func FruitsByNumber(fruits map[common.Hash]*types.SnailBlock) []*types.SnailBlock {
+func FruitsByNumber(fruits []*types.SnailBlock) []*types.SnailBlock {
 	var fruitset []*types.SnailBlock
 	// TODO: order by record number
 	for _, fruit := range fruits {
