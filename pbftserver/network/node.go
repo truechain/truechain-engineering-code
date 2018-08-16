@@ -1,14 +1,13 @@
 package network
 
 import (
-	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/common"
 	"encoding/json"
-	"fmt"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"time"
 	"errors"
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
+	"time"
 )
 
 type Node struct {
@@ -45,9 +44,9 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.Com
 	}
 	primary := common.ToHex(addrs[0].Publickey)
 	nodeTable := make(map[string]string)
-	for _,v := range addrs {
-		name:=common.ToHex(v.Publickey)
-		nodeTable[name] = fmt.Sprintf("%s:%d",v.IP,v.Port)
+	for _, v := range addrs {
+		name := common.ToHex(v.Publickey)
+		nodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
 	}
 	node := &Node{
 		// Hard-coded for test.
@@ -88,7 +87,6 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.Com
 
 func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 	errorMap := make(map[string]error)
-
 	for nodeID, url := range node.NodeTable {
 		if nodeID == node.NodeID {
 			continue
@@ -122,17 +120,6 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 }
 
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
-	// Print all committed messages.
-	// for _, value := range node.CommittedMsgs {
-	// 	fmt.Printf("Committed value: %s, %d, %s, %d", value.ClientID, value.Timestamp, value.Operation, value.SequenceID)
-	// }
-	// fmt.Print("\n")
-
-	// jsonMsg, err := json.Marshal(msg)
-	// if err != nil {
-	// 	return err
-	// }
-	// send(node.NodeTable[node.View.Primary] + "/reply", jsonMsg)
 	node.handleResult(msg)
 	return nil
 }
@@ -186,12 +173,12 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		prePareMsg.NodeID = node.NodeID
 
 		LogStage("Pre-prepare", true)
-		msg := &consensus.StorgePrepareMsg {
-			ViewID:			prePareMsg.ViewID,
-			SequenceID:		prePareMsg.SequenceID,
-			Digest:			prePareMsg.Digest,
-			NodeID:			prePareMsg.NodeID,
-			MsgType:		prePareMsg.MsgType,
+		msg := &consensus.StorgePrepareMsg{
+			ViewID:     prePareMsg.ViewID,
+			SequenceID: prePareMsg.SequenceID,
+			Digest:     prePareMsg.Digest,
+			NodeID:     prePareMsg.NodeID,
+			MsgType:    prePareMsg.MsgType,
 		}
 		node.Broadcast(msg, "/prepare")
 		LogStage("Prepare", false)
@@ -202,12 +189,11 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	LogMsg(prepareMsg)
-	f := len(node.NodeTable)/3
-	commitMsg, err := node.CurrentState.Prepare(prepareMsg,f)
+	f := len(node.NodeTable) / 3
+	commitMsg, err := node.CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
 		return err
 	}
-
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
@@ -215,25 +201,23 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		var result uint = 0
 		if !res {
 			result = 1
-		} 
-		commitMsg.Pass = node.Verify.SignMsg(node.CurrentState.MsgLogs.ReqMsg.Height,result)
+		}
+		commitMsg.Pass = node.Verify.SignMsg(node.CurrentState.MsgLogs.ReqMsg.Height, result)
 		LogStage("Prepare", true)
 		node.Broadcast(commitMsg, "/commit")
 		LogStage("Commit", false)
 	}
-
 	return nil
 }
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
-	fmt.Println("node commit start")
 	LogMsg(commitMsg)
 	f := len(node.NodeTable) / 3
 	replyMsg, committedMsg, err := node.CurrentState.Commit(commitMsg, f)
+
 	if err != nil {
 		return err
 	}
-
 	if replyMsg != nil {
 		if committedMsg == nil {
 			return errors.New("committed message is nil, even though the reply message is not nil")
@@ -249,7 +233,6 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 		node.Reply(replyMsg)
 		LogStage("Reply", true)
 	}
-	fmt.Println("node commit end")
 	return nil
 }
 
@@ -298,14 +281,6 @@ func (node *Node) dispatchMsg() {
 	}
 }
 
-func printLog(state *Node, name string) {
-	if state == nil || state.CurrentState == nil {
-		fmt.Println("[7777777]", name, state.NodeID, "nil")
-	} else {
-		fmt.Println("[7777777]", name, state.NodeID, state.CurrentState.CurrentStage)
-	}
-}
-
 func (node *Node) routeMsg(msg interface{}) []error {
 	switch msg.(type) {
 	case *consensus.RequestMsg:
@@ -330,7 +305,6 @@ func (node *Node) routeMsg(msg interface{}) []error {
 	case *consensus.PrePrepareMsg:
 		if node.CurrentState == nil {
 			// Copy buffered messages first.
-			printLog(node, "PrePrepareMsg")
 			msgs := make([]*consensus.PrePrepareMsg, len(node.MsgBuffer.PrePrepareMsgs))
 			copy(msgs, node.MsgBuffer.PrePrepareMsgs)
 
@@ -343,12 +317,10 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			// Send messages.
 			node.MsgDelivery <- msgs
 		} else {
-			printLog(node, "PrePrepareMsg")
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs, msg.(*consensus.PrePrepareMsg))
 		}
 	case *consensus.VoteMsg:
 		if msg.(*consensus.VoteMsg).MsgType == consensus.PrepareMsg {
-			//fmt.Println("node.CurrentState.MsgLogs.CommitMsgs", len(node.CurrentState.MsgLogs.CommitMsgs), "**********************************")
 			if node.CurrentState == nil || node.CurrentState.CurrentStage != consensus.PrePrepared {
 				printLog(node, "PrepareMsg")
 				node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs, msg.(*consensus.VoteMsg))
@@ -368,12 +340,9 @@ func (node *Node) routeMsg(msg interface{}) []error {
 				node.MsgDelivery <- msgs
 			}
 		} else if msg.(*consensus.VoteMsg).MsgType == consensus.CommitMsg {
-			fmt.Println("node.CurrentState.MsgLogs.CommitMsgs", len(node.CurrentState.MsgLogs.CommitMsgs), ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 			if node.CurrentState == nil || node.CurrentState.CurrentStage != consensus.Prepared {
-				printLog(node, "CommitMsg")
 				node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs, msg.(*consensus.VoteMsg))
 			} else {
-				printLog(node, "CommitMsg")
 				// Copy buffered messages first.
 				msgs := make([]*consensus.VoteMsg, len(node.MsgBuffer.CommitMsgs))
 				copy(msgs, node.MsgBuffer.CommitMsgs)
@@ -527,7 +496,6 @@ func (node *Node) resolvePrePrepareMsg(msgs []*consensus.PrePrepareMsg) []error 
 
 func (node *Node) resolvePrepareMsg(msgs []*consensus.VoteMsg) []error {
 	errs := make([]error, 0)
-
 	// Resolve messages
 	for _, prepareMsg := range msgs {
 		err := node.GetPrepare(prepareMsg)
@@ -539,7 +507,6 @@ func (node *Node) resolvePrepareMsg(msgs []*consensus.VoteMsg) []error {
 	if len(errs) != 0 {
 		return errs
 	}
-
 	return nil
 }
 
