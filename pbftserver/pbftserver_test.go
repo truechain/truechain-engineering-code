@@ -27,13 +27,21 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
+var ID = big.NewInt(0)
+
+func getID() *big.Int {
+	return new(big.Int).Add(ID, big.NewInt(1))
+}
+
 func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
-	println(pap.Name, "FetchFastBlock")
+
 	header := new(types.Header)
+	header.Number = getID()
+	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(*types.Block) error {
-	println(pap.Name, "VerifyFastBlock")
+
 	return nil
 }
 
@@ -43,7 +51,7 @@ func (pap *PbftAgentProxyImp) BroadcastFastBlock(*types.Block) error {
 }
 
 func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {
-	println(pap.Name, "BroadcastSign")
+	println("[AGENT]", "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
 

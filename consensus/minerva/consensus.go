@@ -94,11 +94,10 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *ty
 	}
 
 	//TODO for fruit
-	
-		if header.Fruit {
-			return m.verifySnailHeader(chain, header, parent, false, seal)
-		}
-	
+
+	if header.Fruit {
+		return m.verifySnailHeader(chain, header, parent, false, seal)
+	}
 
 	if chain.GetHeader(header.Hash(), number) != nil {
 		return nil
@@ -770,8 +769,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 // Please pass in the parameter block when reward distribution is required.
 func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
-	if header.SnailNumber != nil {
-		fmt.Println(header.SnailNumber.Uint64())
+	if header != nil && len(header.SnailHash) > 0 && header.SnailNumber != nil {
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
@@ -784,9 +782,9 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 }
 
 //gas allocation
-func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	var ce consensus.CommitteeElection
-	committee := ce.GetCommittee(fastNumber)
+func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int,
+	ce consensus.CommitteeElection) error {
+	committee := ce.GetCommitteeMember(fastNumber)
 	committeeGas := new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
