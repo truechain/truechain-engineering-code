@@ -674,6 +674,11 @@ func (f *Fetcher) loop() {
 			// Schedule the header-only blocks for import
 			for _, block := range complete {
 				if announce := f.completing[block.Hash()]; announce != nil {
+					f.markBlock[block.Number()] = &injectPend{
+						block.Hash(),
+						block.NumberU64(),
+						announce.origin,
+					}
 					f.enqueue(announce.origin, block)
 				}
 			}
@@ -729,6 +734,11 @@ func (f *Fetcher) loop() {
 			// Schedule the retrieved blocks for ordered import
 			for _, block := range blocks {
 				if announce := f.completing[block.Hash()]; announce != nil {
+					f.markBlock[block.Number()] = &injectPend{
+						block.Hash(),
+						block.NumberU64(),
+						announce.origin,
+					}
 					f.enqueue(announce.origin, block)
 				}
 			}
