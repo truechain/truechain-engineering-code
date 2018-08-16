@@ -96,22 +96,22 @@ func TestPbftServerStart(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
-	node1.CM = m1
+	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
-	node2.CM = m2
+	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
-	node3.CM = m3
+	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	node4 := new(types.CommitteeNode)
 	node4.IP = "127.0.0.1"
 	node4.Port = 10014
-	node4.CM = m4
+	node4.Publickey = crypto.FromECDSAPub(m4.Publickey)
 
 	var nodes []*types.CommitteeNode
 	nodes = append(nodes, node1, node2, node3, node4)
@@ -171,17 +171,17 @@ func TestPbftServerStart3(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
-	node1.CM = m1
+	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
-	node2.CM = m2
+	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
-	node3.CM = m3
+	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
 	nodes = append(nodes, node1, node2, node3)
@@ -231,12 +231,12 @@ func TestPbftServerStart2(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
-	node1.CM = m1
+	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
-	node2.CM = m2
+	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	var nodes []*types.CommitteeNode
 	nodes = append(nodes, node1, node2)
@@ -270,7 +270,7 @@ func TestPbftServerStartOne(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10009
-	node1.CM = m1
+	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	var nodes []*types.CommitteeNode
 	nodes = append(nodes, node1)
