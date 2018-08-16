@@ -25,7 +25,7 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	if len(addrs) <= 0 {
 		return nil
 	}
-	node := NewNode(nodeID, verify, addrs)
+	node := NewNode(nodeID, verify, addrs,id)
 
 	server := &Server{url: node.NodeTable[nodeID], node: node, ID: id, help: help}
 	server.server = &http.Server{
@@ -35,19 +35,17 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	server.setRoute()
 	return server
 }
-func (server *Server) Start(work func(acChan <-chan *consensus.ActionIn)) {
+func (server *Server) Start(work func(cid *big.Int,acChan <-chan *consensus.ActionIn)) {
 	go server.startHttpServer()
-	go work(server.ActionChan)
+	go work(server.ID,server.ActionChan)
 }
 func (server *Server) startHttpServer() {
-	fmt.Printf("Server will be started at %s...\n", server.url)
 	if err := server.server.ListenAndServe(); err != nil {
 		fmt.Println(err)
 		return
 	}
 }
 func (server *Server) Stop() {
-	// do nothing
 	if server.server != nil {
 		server.server.Close()
 	}
@@ -69,7 +67,6 @@ func (server *Server) setRoute() {
 }
 
 func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) {
-	fmt.Println("[999999]", "getReq", server.node.NodeID)
 	var msg consensus.RequestMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
@@ -81,7 +78,6 @@ func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Request) {
-	fmt.Println("[999999]", "getPrePrepare", server.node.NodeID)
 	var msg consensus.PrePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
@@ -93,7 +89,6 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 }
 
 func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Request) {
-	fmt.Println("[999999]", "getPrepare", server.node.NodeID)
 	var msg consensus.VoteMsg
 	var tmp consensus.StorgePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&tmp)
@@ -108,8 +103,7 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 }
 
 func (server *Server) getCommit(writer http.ResponseWriter, request *http.Request) {
-	fmt.Println("[999999]", "getCommit", server.node.NodeID)
-	fmt.Println("proxy commit start")
+	//fmt.Println("proxy commit start")
 	var msg consensus.VoteMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
@@ -118,11 +112,10 @@ func (server *Server) getCommit(writer http.ResponseWriter, request *http.Reques
 	}
 
 	server.node.MsgEntrance <- &msg
-	fmt.Println("proxy commit end")
+	//fmt.Println("proxy commit end")
 }
 
 func (server *Server) getReply(writer http.ResponseWriter, request *http.Request) {
-	fmt.Println("[999999]", "getReply", server.node.NodeID)
 	var msg consensus.ReplyMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
@@ -133,7 +126,6 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 }
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	fmt.Println("[999999]", "PutRequest", server.node.NodeID)
 	// server.node.Broadcast(msg, "/req")
 	server.node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
@@ -149,5 +141,5 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 
 func send(url string, msg []byte) {
 	buff := bytes.NewBuffer(msg)
-	http.Post("http://"+url, "application/json", buff)
+	go http.Post("http://"+url, "application/json", buff)
 }

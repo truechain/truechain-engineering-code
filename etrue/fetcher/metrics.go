@@ -39,6 +39,8 @@ var (
 	propSignDOSMeter  = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/dos", nil)
 	propSignFarDropMeter = metrics.NewRegisteredMeter("eth/fetcher/signs/far", nil)
 
+	propReadyInMeter   = metrics.NewRegisteredMeter("eth/fetcher/prop/ready/in", nil)
+
 	headerFetchMeter = metrics.NewRegisteredMeter("eth/fetcher/fetch/headers", nil)
 	bodyFetchMeter   = metrics.NewRegisteredMeter("eth/fetcher/fetch/bodies", nil)
 

@@ -178,7 +178,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
 	ss.blocks[height.Uint64()] = block
 	return true
 }
-func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
+func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint,cid *big.Int) bool {
 	height := big.NewInt(msg.Height)
 	block,ok := ss.blocks[height.Uint64()]
 	if !ok {
@@ -201,6 +201,15 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 	}
 	err = ss.Agent.BroadcastSign(&sign,block)
 	ss.removeBlock(height)
+	if server,ok := ss.servers[cid.Uint64()]; ok {
+		// start to fetch
+		ac := &consensus.ActionIn{
+			AC:		consensus.ActionFecth,
+			ID:		cid,
+			Height:	common.Big0,
+		}
+		server.server.ActionChan <- ac
+	} 
 	if err != nil {
 		return false
 	}
@@ -235,14 +244,14 @@ func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
 	return sign
 }
 
-func (ss *PbftServerMgr) work(acChan <-chan *consensus.ActionIn) {
+func (ss *PbftServerMgr) work(cid *big.Int,acChan <-chan *consensus.ActionIn) {
 	for {
 		select {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
-				req,err := ss.GetRequest(ac.ID)
+				req,err := ss.GetRequest(cid)
 				if err == nil  && req != nil {
-					if server,ok := ss.servers[ac.ID.Uint64()];ok {
+					if server,ok := ss.servers[cid.Uint64()];ok {
 						server.Height = big.NewInt(req.Height)
 						server.server.PutRequest(req)
 					} 
@@ -321,11 +330,7 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 	}
 	return errors.New("wrong action Num:"+strconv.Itoa(action))
 }
-func test() {
-	// nodeID := os.Args[1]
-	// server := network.NewServer(nodeID)
-	// server.Start()
-}
+
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)

@@ -161,7 +161,8 @@ type Engine interface {
 		txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error)
 
 	//Call allocation gas before FinalizeFast
-	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
+	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int,
+		ce CommitteeElection) error
 
 	// Seal generates a new block for the given input block with the local miner's
 	// seal place on top.
@@ -185,11 +186,11 @@ type Engine interface {
 //Election module implementation committee interface
 type CommitteeElection interface {
 	//Verify the fast chain committee signatures in batches
-	VerifyFastBlockSigns(pvs []*types.PbftSign) (cfvf []types.CommitteeMember)
+	VerifyFastBlockSigns(pvs []*types.PbftSign) (cfvf []*types.CommitteeMember)
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
-	GetCommitteeMember(fastNumber *big.Int) []*types.CommitteeMember
+	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
 }
 
 // PoW is a consensus engine based on proof-of-work.
