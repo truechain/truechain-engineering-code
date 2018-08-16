@@ -1,14 +1,14 @@
 package network
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/common"
+	"encoding/json"
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"time"
+	"errors"
 )
 
 type Node struct {
@@ -43,11 +43,11 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.Com
 	if len(addrs) <= 0 {
 		return nil
 	}
-	primary := common.ToHex(crypto.FromECDSAPub(addrs[0].CM.Publickey))
+	primary := common.ToHex(addrs[0].Publickey)
 	nodeTable := make(map[string]string)
-	for _, v := range addrs {
-		name := common.ToHex(crypto.FromECDSAPub(v.CM.Publickey))
-		nodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+	for _,v := range addrs {
+		name:=common.ToHex(v.Publickey)
+		nodeTable[name] = fmt.Sprintf("%s:%d",v.IP,v.Port)
 	}
 	node := &Node{
 		// Hard-coded for test.
@@ -186,12 +186,12 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		prePareMsg.NodeID = node.NodeID
 
 		LogStage("Pre-prepare", true)
-		msg := &consensus.StorgePrepareMsg{
-			ViewID:     prePareMsg.ViewID,
-			SequenceID: prePareMsg.SequenceID,
-			Digest:     prePareMsg.Digest,
-			NodeID:     prePareMsg.NodeID,
-			MsgType:    prePareMsg.MsgType,
+		msg := &consensus.StorgePrepareMsg {
+			ViewID:			prePareMsg.ViewID,
+			SequenceID:		prePareMsg.SequenceID,
+			Digest:			prePareMsg.Digest,
+			NodeID:			prePareMsg.NodeID,
+			MsgType:		prePareMsg.MsgType,
 		}
 		node.Broadcast(msg, "/prepare")
 		LogStage("Prepare", false)
@@ -202,8 +202,8 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	LogMsg(prepareMsg)
-	f := len(node.NodeTable) / 3
-	commitMsg, err := node.CurrentState.Prepare(prepareMsg, f)
+	f := len(node.NodeTable)/3
+	commitMsg, err := node.CurrentState.Prepare(prepareMsg,f)
 	if err != nil {
 		return err
 	}
@@ -215,8 +215,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		var result uint = 0
 		if !res {
 			result = 1
-		}
-		commitMsg.Pass = node.Verify.SignMsg(node.CurrentState.MsgLogs.ReqMsg.Height, result)
+		} 
+		commitMsg.Pass = node.Verify.SignMsg(node.CurrentState.MsgLogs.ReqMsg.Height,result)
 		LogStage("Prepare", true)
 		node.Broadcast(commitMsg, "/commit")
 		LogStage("Commit", false)

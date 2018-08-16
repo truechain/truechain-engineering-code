@@ -38,7 +38,6 @@ const (
 	setNextCommittee
 
 	BlockRewordSpace =12
-
 )
 
 type PbftAgent struct {
@@ -76,14 +75,14 @@ type PbftAgent struct {
 	snailBlockSub event.Subscription
 
 	//cryNodeInfo   *CryNodeInfo
-	committeeNode *types.CommitteeNode
-	privateKey *ecdsa.PrivateKey
+	CommitteeNode *types.CommitteeNode
+	PrivateKey *ecdsa.PrivateKey
 
 	//snapshotMu    sync.RWMutex
 	//snapshotState *state.StateDB
 	//snapshotBlock *types.FastBlock
 	//MinSnailBlockHeight  *big.Int
-	MaxSnailBlockHeight  *big.Int
+	//MaxSnailBlockHeight  *big.Int
 }
 
 type AgentWork struct {
@@ -147,7 +146,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		ElectionCh: 	make(chan core.ElectionEvent, 10),
 		SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
-		MaxSnailBlockHeight: big.NewInt(0),
 	}
 	return self
 }
@@ -188,8 +186,8 @@ func (self *PbftAgent) loop(){
 				self.ReceivePbftNode(cryNodeInfo)
 			}
 		//receive snailBlock
-		case snailBlock := <-self.SnailBlockCh:
-			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number
+		/*case snailBlock := <-self.SnailBlockCh:
+			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number*/
 		}
 	}
 }
@@ -202,7 +200,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	cryNodeInfo := &CryNodeInfo{
 		CommitteeId:committeeInfo.Id,
 	}
-	nodeByte,_ :=ToByte(pbftAgent.committeeNode) // TODO init committeeNode
+	nodeByte,_ :=rlp.EncodeToBytes(pbftAgent.CommitteeNode) // TODO init committeeNode
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -212,7 +210,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		cryNodeInfo.Nodes =append(cryNodeInfo.Nodes,EncryptCommitteeNode)
 	}
 	hash:=RlpHash(cryNodeInfo.Nodes)
-	sigInfo,err :=crypto.Sign(hash[:], pbftAgent.privateKey)
+	sigInfo,err :=crypto.Sign(hash[:], pbftAgent.PrivateKey)
 	if err != nil{
 		log.Info("sign error")
 	}
@@ -250,12 +248,12 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		log.Info("publicKey is not exist.")
 		return nil
 	}
-	priKey :=ecies.ImportECDSA(pbftAgent.privateKey)//ecdsa-->ecies
+	priKey :=ecies.ImportECDSA(pbftAgent.PrivateKey)//ecdsa-->ecies
 	for _,encryptNode := range cryNodeInfo.Nodes{
 		decryptNode,err :=priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil{// can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
-			FromByte(decryptNode,node)
+			rlp.DecodeBytes(decryptNode,node)
 			pbftAgent.server.PutNodes(cryNodeInfo.CommitteeId,  []*types.CommitteeNode{node})
 			return node
 		}
@@ -311,16 +309,15 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return	fastBlock,err
 	}
-	if self.MaxSnailBlockHeight.Cmp(big.NewInt(0)) == 1{
-		currentFastHeader :=self.fastChain.CurrentBlock().Header()
-		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastHeader.Hash(),currentFastHeader.Number.Uint64())
-		snailHegiht :=blockReward.SnailNumber
-		snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
-		if temp :=snailHegiht; temp.Sub(self.MaxSnailBlockHeight,temp).Int64()>=BlockRewordSpace{
-			fastBlock.Header().SnailNumber = snailHegiht
-			sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
-			fastBlock.Header().SnailHash =sb.Hash()
-		}
+
+	currentFastBlock := self.fastChain.CurrentBlock()
+	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
+	snailHegiht :=blockReward.SnailNumber
+	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
+	if temp :=snailHegiht; temp.Sub(self.snailChain.CurrentBlock().Number(),temp).Int64()>=BlockRewordSpace{
+		fastBlock.Header().SnailNumber = snailHegiht
+		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
+		fastBlock.Header().SnailHash =sb.Hash()
 	}
 
 	return	fastBlock,nil
@@ -336,7 +333,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	data := voteSign.PrepareData() //TODO
 	hash :=RlpHash(data)
 	var err error
-	voteSign.Sign,err =crypto.Sign(hash[:], self.privateKey)
+	voteSign.Sign,err =crypto.Sign(hash[:], self.PrivateKey)
 		if err != nil{
 		log.Info("sign error")
 	}
@@ -557,7 +554,10 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	if committeeInfo==nil || len(committeeInfo.Members) <= 0 {
 		return false
 	}
-	pubKey := self.committeeNode.CM.Publickey
+	pubKey,err :=crypto.UnmarshalPubkey(self.CommitteeNode.Publickey)
+	if err != nil{
+		panic(err)
+	}
 	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true

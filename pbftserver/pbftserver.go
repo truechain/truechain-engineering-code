@@ -62,9 +62,10 @@ func (ss *PbftServerMgr) Finish() error{
 func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	var update bool = false
 	for _,v := range ss.info {
-		if !bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(mm.Publickey)) {
+		if !bytes.Equal(v.Publickey, crypto.FromECDSAPub(mm.Publickey)) {
 			ss.info = append(ss.info,&types.CommitteeNode {
-				CM:			mm,
+				Coinbase:mm.Coinbase,
+				Publickey:crypto.FromECDSAPub(mm.Publickey),
 			})
 			update = true
 			break
@@ -72,14 +73,15 @@ func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	}
 	if !update {
 		ss.info = append(ss.info,&types.CommitteeNode {
-			CM:			mm,
+			Coinbase:mm.Coinbase,
+			Publickey:crypto.FromECDSAPub(mm.Publickey),
 		})
 	}
 }
 func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
 	var update bool = false
 	for i,v := range ss.info {
-		if bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(n.CM.Publickey)) {
+		if bytes.Equal(v.Publickey, n.Publickey) {
 			ss.info[i] = n
 			update = true
 			break
