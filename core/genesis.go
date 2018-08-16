@@ -87,10 +87,10 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 }
 
 // // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
-// func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
-// 	g := Genesis{Alloc: GenesisAlloc{addr: {Balance: balance}}}
-// 	return g.MustCommit(db)
-// }
+func GenesisBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
+	g := fastchain.Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
+	return g.MustCommit(db)
+}
 
 // be seeded with the
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
