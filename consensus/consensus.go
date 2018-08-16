@@ -185,11 +185,11 @@ type Engine interface {
 //Election module implementation committee interface
 type CommitteeElection interface {
 	//Verify the fast chain committee signatures in batches
-	VerifyFastBlockSigns(pvs []*types.PbftSign) (cfvf []types.CommitteeMember)
+	VerifyFastBlockSigns(pvs []*types.PbftSign) (cfvf []*types.CommitteeMember)
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
-	GetCommitteeMember(fastNumber *big.Int) []*types.CommitteeMember
+	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
 }
 
 // PoW is a consensus engine based on proof-of-work.

@@ -148,8 +148,8 @@ func (e *Election)VerifySign(FastHeight *big.Int)bool {
 }
 
 //Verify the fast chain committee signatures in batches
-func (e *Election) VerifySigns(pvs *[]types.PbftSign) (cfvf *[]types.CommitteeMember) {
-	return cfvf
+func (e *Election) VerifyFastBlockSigns(pvs []*types.PbftSign) []*types.CommitteeMember {
+	return e.committee.members
 }
 
 
