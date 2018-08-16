@@ -216,7 +216,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	//sender := NewSender(eth.snailPool, eth.chainConfig)
 	//sender.Start()
-
+	eth.election.Start()
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
