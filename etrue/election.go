@@ -131,7 +131,7 @@ func (e *Election)VerifySign(FastHeight *big.Int)bool {
 	VerifBlock := e.fastchain.GetBlockByNumber(FastHeight.Uint64())
 	BlockSigns := VerifBlock.Body().Signs
 	for _,sign := range BlockSigns{
-		msg :=sign.PrepareData()
+		msg :=GetSignHash(sign)
 		pubKey,err :=crypto.SigToPub(msg,sign.Sign)
 		if err != nil{
 			log.Info("SigToPub error.")

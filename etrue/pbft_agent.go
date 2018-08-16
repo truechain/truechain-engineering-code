@@ -312,7 +312,10 @@ func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 
 	currentFastBlock := self.fastChain.CurrentBlock()
 	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
-	snailHegiht :=blockReward.SnailNumber
+	var snailHegiht *big.Int = big.NewInt(0)
+	if blockReward != nil{
+		snailHegiht =blockReward.SnailNumber
+	}
 	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
 	if temp :=snailHegiht; temp.Sub(self.snailChain.CurrentBlock().Number(),temp).Int64()>=BlockRewordSpace{
 		fastBlock.Header().SnailNumber = snailHegiht
@@ -330,15 +333,12 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		FastHeight:fb.Header().Number,
 		FastHash:fb.Hash(),
 	}
-	data := voteSign.PrepareData() //TODO
-	hash :=RlpHash(data)
 	var err error
-	voteSign.Sign,err =crypto.Sign(hash[:], self.PrivateKey)
-		if err != nil{
+	voteSign.Sign,err =crypto.Sign(GetSignHash(voteSign), self.PrivateKey)
+	if err != nil{
 		log.Info("sign error")
 	}
 	fb.Body().SetLeaderSign(voteSign)
-	//err =self.mux.Post(NewMinedFastBlockEvent{blockAndSign})
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{
 		Block:	fb,
 	})
@@ -407,7 +407,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	}
 }*/
 
-func  (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block){
+func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block){
 	/*fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
@@ -572,11 +572,19 @@ func (self * PbftAgent) Stop() {
 	self.scope.Close()
 }
 
+func  GetSignHash(sign *types.PbftSign) []byte{
+	hash := RlpHash([]interface{} {
+		sign.FastHash,
+		sign.FastHeight,
+		sign.Result,
+	})
+	return hash[:]
+}
+
 // VerifyCommitteeSign verify committee sign.
 func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool {
 	for _,sign := range signs{
-		msg :=sign.PrepareData()
-		pubKey,err :=crypto.SigToPub(msg,sign.Sign)
+		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
 		if err != nil{
 			log.Info("SigToPub error.")
 			panic(err)

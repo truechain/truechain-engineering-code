@@ -93,17 +93,19 @@ type PbftServerProxy interface {
 	Notify(id *big.Int, action int) error
 }
 
-func (voteSign *PbftSign) PrepareData() []byte {
+/*func (voteSign *PbftSign) PrepareData() []byte {
+	result,_ :=rlp.EncodeToBytes(voteSign.Result)
+	height,_ :=rlp.EncodeToBytes(voteSign.FastHeight)
 	data := bytes.Join(
 		[][]byte{
 			voteSign.FastHash[:],
-			IntToHex(voteSign.Result),
-			IntToHex(voteSign.FastHeight),
+			result,
+			height,
 		},
 		[]byte{},
 	)
 	return data
-}
+}*/
 
 // IntToHex converts an int64 to a byte array
 func IntToHex(num interface{}) []byte {
