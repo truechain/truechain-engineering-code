@@ -49,25 +49,25 @@ const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a prot
 // eth protocol message codes
 const (
 	// Protocol messages belonging to eth/62
-	StatusMsg          = 0x00
-	NewFastBlockHashesMsg  = 0x01
-	TxMsg              = 0x02
-	GetFastBlockHeadersMsg = 0x03
-	FastBlockHeadersMsg    = 0x04
-	GetFastBlockBodiesMsg  = 0x05
-	FastBlockBodiesMsg     = 0x06
-	NewFastBlockMsg        = 0x07
+	StatusMsg          		= 0x00
+	NewFastBlockHashesMsg  	= 0x01
+	TxMsg              		= 0x02
+	GetFastBlockHeadersMsg 	= 0x03
+	FastBlockHeadersMsg    	= 0x04
+	GetFastBlockBodiesMsg  	= 0x05
+	FastBlockBodiesMsg     	= 0x06
+	NewFastBlockMsg        	= 0x07
 
-	BlockSignMsg           = 0x08
-	PbftNodeInfoMsg = 0x09
+	BlockSignMsg          	= 0x08
+	PbftNodeInfoMsg 		= 0x09
 
-	FruitMsg		   = 0x0a
-	SnailBlockMsg		   = 0x0b
+	FruitMsg		   		= 0x0a
+	SnailBlockMsg		   	= 0x0b
 	// Protocol messages belonging to eth/63
-	GetNodeDataMsg = 0x0d
-	NodeDataMsg    = 0x0e
-	GetReceiptsMsg = 0x0f
-	ReceiptsMsg    = 0x10
+	GetNodeDataMsg 			= 0x0d
+	NodeDataMsg    			= 0x0e
+	GetReceiptsMsg 			= 0x0f
+	ReceiptsMsg    			= 0x10
 
 )
 
