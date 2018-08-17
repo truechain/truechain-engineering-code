@@ -22,6 +22,7 @@ type Node struct {
 	MsgDelivery   chan interface{}
 	Alarm         chan bool
 	Verify        consensus.ConsensusVerify
+	Finish		  consensus.ConsensusFinish
 	ID			  *big.Int
 }
 
@@ -39,7 +40,8 @@ type View struct {
 
 const ResolvingTimeDuration = time.Millisecond * 1000 // 1 second.
 
-func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.CommitteeNode,id *big.Int) *Node {
+func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
+	addrs []*types.CommitteeNode,id *big.Int) *Node {
 	const viewID = 10000000000 // temporary.
 	if len(addrs) <= 0 {
 		return nil
@@ -59,6 +61,7 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, addrs []*types.Com
 			Primary: primary,
 		},
 		Verify: verify,
+		Finish:	finish,
 		ID:		id,
 		// Consensus-related struct
 		CurrentState:  nil,
@@ -116,18 +119,20 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 		res = 1
 	}
 	if msg.ViewID == node.CurrentState.ViewID {
-		node.Verify.ReplyResult(node.CurrentState.MsgLogs.ReqMsg, res,node.ID)
+		node.Verify.ReplyResult(node.CurrentState.MsgLogs.ReqMsg, res)
 	} else {
 		// wrong state
 	}
 }
 func (node *Node) ReplyResult() {
 	if node.CurrentState.CurrentStage == consensus.Committed {
-		node.CurrentState.CurrentStage = consensus.Idle
+		node.CurrentState = nil
 	}
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	node.handleResult(msg)
+	node.ReplyResult()
+	node.Finish.ConsensusFinish()
 	return nil
 }
 

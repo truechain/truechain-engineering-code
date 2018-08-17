@@ -178,7 +178,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (bool) {
 	ss.blocks[height.Uint64()] = block
 	return true
 }
-func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint,cid *big.Int) bool {
+func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint) bool {
 	height := big.NewInt(msg.Height)
 	block,ok := ss.blocks[height.Uint64()]
 	if !ok {
@@ -201,9 +201,6 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint,cid *big
 	}
 	err = ss.Agent.BroadcastSign(&sign,block)
 	ss.removeBlock(height)
-	if server,ok := ss.servers[cid.Uint64()]; ok {
-		server.server.ReplyResult()
-	} 
 	if err != nil {
 		return false
 	}

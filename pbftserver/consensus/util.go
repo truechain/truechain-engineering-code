@@ -34,7 +34,10 @@ type ConsensusHelp interface {
 type ConsensusVerify interface {
 	SignMsg(h int64,res uint) (*SignedVoteMsg)	
 	CheckMsg(msg *RequestMsg) (bool)
-	ReplyResult(msg *RequestMsg,res uint,cid *big.Int) (bool)
+	ReplyResult(msg *RequestMsg,res uint) (bool)
+}
+type ConsensusFinish interface {
+	ConsensusFinish()
 }
 
 func Hash(content []byte) string {

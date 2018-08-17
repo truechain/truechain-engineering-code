@@ -25,9 +25,10 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	if len(addrs) <= 0 {
 		return nil
 	}
-	node := NewNode(nodeID, verify, addrs,id)
-
-	server := &Server{url: node.NodeTable[nodeID], node: node, ID: id, help: help}
+	server := &Server{ID: id, help: help}
+	node := NewNode(nodeID, verify,server, addrs,id)
+	server.node = node
+	server.url = node.NodeTable[nodeID]
 	server.server = &http.Server{
 		Addr: server.url,
 	}
@@ -138,8 +139,7 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 		server.ActionChan <- ac
 	}()
 }
-func (server *Server) ReplyResult() {
-	server.node.ReplyResult()
+func (server *Server) ConsensusFinish() {
 	// start to fetch
 	ac := &consensus.ActionIn{
 		AC:		consensus.ActionFecth,
