@@ -21,6 +21,7 @@ type Node struct {
 	MsgEntrance   chan interface{}
 	MsgDelivery   chan interface{}
 	Alarm         chan bool
+	FinishChan	  chan bool
 	Verify        consensus.ConsensusVerify
 	Finish		  consensus.ConsensusFinish
 	ID			  *big.Int
@@ -127,12 +128,18 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 func (node *Node) ReplyResult() {
 	if node.CurrentState.CurrentStage == consensus.Committed {
 		node.CurrentState = nil
+		node.MsgBuffer.ReqMsgs = make([]*consensus.RequestMsg, 0)
+		node.MsgBuffer.PrePrepareMsgs = make([]*consensus.PrePrepareMsg, 0)
+		node.MsgBuffer.PrepareMsgs = make([]*consensus.VoteMsg, 0)
+		node.MsgBuffer.CommitMsgs = make([]*consensus.VoteMsg, 0)
 	}
+	node.Finish.ConsensusFinish()
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	node.handleResult(msg)
-	node.ReplyResult()
-	node.Finish.ConsensusFinish()
+	go func() {
+		node.FinishChan <- true
+	}()
 	return nil
 }
 
@@ -289,6 +296,8 @@ func (node *Node) dispatchMsg() {
 				fmt.Println(err)
 				// TODO: send err to ErrorChannel
 			}
+		case <-node.FinishChan:
+			node.ReplyResult()
 		}
 	}
 }
