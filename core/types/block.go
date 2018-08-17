@@ -368,6 +368,15 @@ func (b *Block) SetLeaderSign(sign *PbftSign) {
 }
 
 
+func (b *Block) GetLeaderSign() *PbftSign{
+	if len(b.signs) > 0 {
+		return b.signs[0]
+	}
+	return nil
+}
+
+
+
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
 func (b *Block) Size() common.StorageSize {
