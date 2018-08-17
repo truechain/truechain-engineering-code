@@ -422,6 +422,7 @@ func (self *worker) wait() {
 				newFruits = append(newFruits, block)
 				self.eth.HybridPool().AddRemoteFruits(newFruits)
 
+				/*
 				var (
 					events []interface{}
 					logs   = work.state.Logs()
@@ -429,6 +430,8 @@ func (self *worker) wait() {
 				events = append(events, chain.NewFruitsEvent{Fruits: newFruits})
 				
 				self.chain.PostChainEvents(events, logs)
+				*/
+				
 
 			} else {
 				// Update the block hash in all logs since it is now available and not when the
@@ -755,8 +758,9 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 func FruitsByNumber(fruits []*types.SnailBlock) []*types.SnailBlock {
 	var fruitset []*types.SnailBlock
 	// TODO: order by record number
+	log.Info("+++  fruitset len","len",len(fruits))
 	for _, fruit := range fruits {
-
+		log.Info("Fruitset fruit number","FB number",fruit.FastNumber())
 		fruitset = append(fruitset, fruit)
 	}
 	

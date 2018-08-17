@@ -694,7 +694,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEven
 // Insert record into list order by record number
 func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlock *types.Block) error {
 
-	log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash())
+	//log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash())
 
 	for lr := fastBlockList.Front(); lr != nil; lr = lr.Next() {
 		f := lr.Value.(*types.Block)
@@ -802,6 +802,16 @@ func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- snailchain.NewFastBl
 
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
+	//check integrity
+	getSignHash:=types.CalcSignHash(fruit.Signs())
+	if fruit.Header().SignHash!=getSignHash{
+		return	ErrInvalidSign
+	}
+	//check fruit's hash
+	fruitHash:=fruit.Hash()
+	if fruit.Header().FruitsHash!=fruitHash{
+		return	ErrInvalidHash
+	}
 	// check freshness
 	pointer := pool.chain.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
