@@ -78,6 +78,7 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 		MsgEntrance: make(chan interface{}),
 		MsgDelivery: make(chan interface{}),
 		Alarm:       make(chan bool),
+		FinishChan:  make(chan bool),
 	}
 
 	// Start message dispatcher
