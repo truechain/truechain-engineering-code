@@ -204,7 +204,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
-	go sendBlock(eth.agent)
+	//go sendBlock(eth.agent)
 
 	if eth.protocolManager, err = NewProtocolManager(
 		eth.chainConfig, config.SyncMode, config.NetworkId,
@@ -219,7 +219,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	//sender := NewSender(eth.snailPool, eth.chainConfig)
 	//sender.Start()
-	eth.election.Start()
+
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
@@ -470,6 +470,9 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		s.lesServer.Start(srvr)
 	}
 	s.startPbftServer()
+
+	s.election.Start()
+
 	return nil
 }
 
