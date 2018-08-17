@@ -431,6 +431,8 @@ type Minerva struct {
 	election consensus.CommitteeElection
 }
 
+var MinervaLocal *Minerva
+
 // New creates a full sized ethash PoW scheme.
 func New(config Config) *Minerva {
 	if config.CachesInMem <= 0 {
@@ -443,36 +445,25 @@ func New(config Config) *Minerva {
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
 		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
-	return &Minerva{
+	MinervaLocal = &Minerva{
 		config:   config,
 		caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
+
+	return MinervaLocal
 }
 
-// New creates a full sized ethash PoW scheme.
-func New2(config Config, chain consensus.SnailChainReader, election consensus.CommitteeElection) *Minerva {
-	if config.CachesInMem <= 0 {
-		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
-		config.CachesInMem = 1
-	}
-	if config.CacheDir != "" && config.CachesOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash caches", "dir", config.CacheDir, "count", config.CachesOnDisk)
-	}
-	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
-	}
-	return &Minerva{
-		config:   config,
-		caches:   newlru("cache", config.CachesInMem, newCache),
-		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
-		update:   make(chan struct{}),
-		sbc:      chain,
-		election: election,
-		hashrate: metrics.NewMeter(),
-	}
+//Append interface SnailChainReader after instantiations
+func SetSnailChainReader(scr consensus.SnailChainReader) {
+	MinervaLocal.sbc = scr
+}
+
+//Append interface CommitteeElection after instantiation
+func SetElection(e consensus.CommitteeElection) {
+	MinervaLocal.election = e
 }
 
 // NewTester creates a small sized ethash PoW scheme useful only for testing

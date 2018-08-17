@@ -141,13 +141,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		chainConfig:    chainConfig,
 		eventMux:       ctx.EventMux,
 		accountManager: ctx.AccountManager,
-		//engine:         CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
-		shutdownChan:  make(chan bool),
-		networkID:     config.NetworkId,
-		gasPrice:      config.GasPrice,
-		etherbase:     config.Etherbase,
-		bloomRequests: make(chan chan *bloombits.Retrieval),
-		bloomIndexer:  NewBloomIndexer(chainDb, params.BloomBitsBlocks),
+		engine:         CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb),
+		shutdownChan:   make(chan bool),
+		networkID:      config.NetworkId,
+		gasPrice:       config.GasPrice,
+		etherbase:      config.Etherbase,
+		bloomRequests:  make(chan chan *bloombits.Retrieval),
+		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
 
 	log.Info("Initialising Truechain protocol", "versions", ProtocolVersions, "network", config.NetworkId)
@@ -200,7 +200,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.election = NewElction(eth.blockchain, eth.snailblockchain)
 
-	eth.engine = CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb, eth.snailblockchain, eth.election)
+	ethash.SetElection(eth.election)
+	ethash.SetSnailChainReader(eth.snailblockchain)
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
@@ -261,7 +262,7 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Truechain service
 func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig,
-	db ethdb.Database, reader consensus.SnailChainReader, election consensus.CommitteeElection) consensus.Engine {
+	db ethdb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	// snail chain not need clique
 	/*
@@ -280,14 +281,14 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 		log.Warn("Ethash used in shared mode")
 		return ethash.NewShared()
 	default:
-		engine := ethash.New2(ethash.Config{
+		engine := ethash.New(ethash.Config{
 			CacheDir:       ctx.ResolvePath(config.CacheDir),
 			CachesInMem:    config.CachesInMem,
 			CachesOnDisk:   config.CachesOnDisk,
 			DatasetDir:     config.DatasetDir,
 			DatasetsInMem:  config.DatasetsInMem,
 			DatasetsOnDisk: config.DatasetsOnDisk,
-		}, reader, election)
+		})
 		engine.SetThreads(-1) // Disable CPU mining
 		return engine
 	}
