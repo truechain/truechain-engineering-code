@@ -427,7 +427,8 @@ type Minerva struct {
 
 	lock sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
 
-	sbc consensus.SnailChainReader
+	sbc      consensus.SnailChainReader
+	election consensus.CommitteeElection
 }
 
 // New creates a full sized ethash PoW scheme.
@@ -452,7 +453,7 @@ func New(config Config) *Minerva {
 }
 
 // New creates a full sized ethash PoW scheme.
-func New2(config Config, chain consensus.SnailChainReader) *Minerva {
+func New2(config Config, chain consensus.SnailChainReader, election consensus.CommitteeElection) *Minerva {
 	if config.CachesInMem <= 0 {
 		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
 		config.CachesInMem = 1
@@ -469,6 +470,7 @@ func New2(config Config, chain consensus.SnailChainReader) *Minerva {
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
 		update:   make(chan struct{}),
 		sbc:      chain,
+		election: election,
 		hashrate: metrics.NewMeter(),
 	}
 }

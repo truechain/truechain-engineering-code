@@ -176,7 +176,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	eth.engine = CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb, eth.snailblockchain)
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
@@ -201,7 +200,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.election = NewElction(eth.blockchain, eth.snailblockchain)
 
+	eth.engine = CreateConsensusEngine(ctx, &config.Ethash, chainConfig, chainDb, eth.snailblockchain, eth.election)
+
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
+
+	go sendBlock(eth.agent)
 
 	if eth.protocolManager, err = NewProtocolManager(
 		eth.chainConfig, config.SyncMode, config.NetworkId,
@@ -257,7 +260,8 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Truechain service
-func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig, db ethdb.Database, reader consensus.SnailChainReader) consensus.Engine {
+func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig,
+	db ethdb.Database, reader consensus.SnailChainReader, election consensus.CommitteeElection) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	// snail chain not need clique
 	/*
@@ -283,7 +287,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 			DatasetDir:     config.DatasetDir,
 			DatasetsInMem:  config.DatasetsInMem,
 			DatasetsOnDisk: config.DatasetsOnDisk,
-		}, reader)
+		}, reader, election)
 		engine.SetThreads(-1) // Disable CPU mining
 		return engine
 	}
