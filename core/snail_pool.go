@@ -802,6 +802,16 @@ func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- snailchain.NewFastBl
 
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
+	//check integrity
+	getSignHash:=types.CalcSignHash(fruit.Signs())
+	if fruit.Header().SignHash!=getSignHash{
+		return	ErrInvalidSign
+	}
+	//check fruit's hash
+	fruitHash:=fruit.Hash()
+	if fruit.Header().FruitsHash!=fruitHash{
+		return	ErrInvalidHash
+	}
 	// check freshness
 	pointer := pool.chain.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
