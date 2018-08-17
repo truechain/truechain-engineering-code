@@ -202,13 +202,7 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg,res uint,cid *big
 	err = ss.Agent.BroadcastSign(&sign,block)
 	ss.removeBlock(height)
 	if server,ok := ss.servers[cid.Uint64()]; ok {
-		// start to fetch
-		ac := &consensus.ActionIn{
-			AC:		consensus.ActionFecth,
-			ID:		cid,
-			Height:	common.Big0,
-		}
-		server.server.ActionChan <- ac
+		server.server.ReplyResult()
 	} 
 	if err != nil {
 		return false

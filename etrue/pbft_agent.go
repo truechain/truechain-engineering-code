@@ -282,7 +282,7 @@ func PrintNode(node *types.CommitteeNode){
 }
 
 //generateBlock and broadcast
-func  (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
+func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	var fastBlock  *types.Block
 
 	tstart := time.Now()
@@ -358,7 +358,8 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	if err != nil{
 		log.Info("sign error")
 	}
-	fb.Body().SetLeaderSign(voteSign)
+	fb.SetLeaderSign(voteSign)
+	fmt.Println("BroadcastFastBlock:",len(fb.Body().Signs))
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{
 		Block:	fb,
 	})
@@ -433,7 +434,9 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign){
 	if err != nil{
 		panic(err)
 	}*/
+	fmt.Println("voteSign:",voteSign)
 	self.agentFeed.Send(core.PbftSignEvent{PbftSign:voteSign,})
+
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {

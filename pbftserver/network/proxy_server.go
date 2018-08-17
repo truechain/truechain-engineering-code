@@ -138,6 +138,16 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 		server.ActionChan <- ac
 	}()
 }
+func (server *Server) ReplyResult() {
+	server.node.ReplyResult()
+	// start to fetch
+	ac := &consensus.ActionIn{
+		AC:		consensus.ActionFecth,
+		ID:		server.ID,
+		Height:	common.Big0,
+	}
+	server.ActionChan <- ac
+}
 
 func send(url string, msg []byte) {
 	buff := bytes.NewBuffer(msg)
