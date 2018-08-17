@@ -22,7 +22,6 @@ import (
 	"sync"
 	"bytes"
 	"crypto/rand"
-	"encoding/gob"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"errors"
 	"io"
@@ -75,15 +74,9 @@ type PbftAgent struct {
 	PbftNodeSub *event.TypeMuxSubscription
 	snailBlockSub event.Subscription
 
-	//cryNodeInfo   *CryNodeInfo
 	CommitteeNode *types.CommitteeNode
 	PrivateKey *ecdsa.PrivateKey
 
-	//snapshotMu    sync.RWMutex
-	//snapshotState *state.StateDB
-	//snapshotBlock *types.FastBlock
-	//MinSnailBlockHeight  *big.Int
-	//MaxSnailBlockHeight  *big.Int
 }
 
 type AgentWork struct {
@@ -174,18 +167,21 @@ func (self *PbftAgent) loop(){
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
+				fmt.Println("CommitteeStart:")
 				self.SetCommitteeInfo(self.NextCommitteeInfo,setCurrentCommittee)
 				self.SetCommitteeInfo(nil,setNextCommittee)
-				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
-				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				fmt.Println("CommitteeStop:")
+				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
 			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
+			fmt.Println("CommitteeCh:",ch.CommitteeInfo)
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				self.SendPbftNode(ch.CommitteeInfo)
-				self.server.PutCommittee(ch.CommitteeInfo)
+				//self.SendPbftNode(ch.CommitteeInfo)
+				//self.server.PutCommittee(ch.CommitteeInfo)
 			}
 
 		//receive nodeInfo
@@ -196,6 +192,7 @@ func (self *PbftAgent) loop(){
 			if  self.IsCommitteeMember(self.NextCommitteeInfo){
 				self.ReceivePbftNode(cryNodeInfo)
 			}
+
 		//receive snailBlock
 		/*case snailBlock := <-self.SnailBlockCh:
 			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number*/
@@ -359,7 +356,6 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		log.Info("sign error")
 	}
 	fb.SetLeaderSign(voteSign)
-	fmt.Println("BroadcastFastBlock:",len(fb.Body().Signs))
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{
 		Block:	fb,
 	})
@@ -371,9 +367,10 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	// get current head
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
-
-	err :=bc.Engine().VerifyFastHeader(bc, fb.Header(),true)
-	if err == nil{
+	err :=self.engine.VerifyFastHeader(bc, fb.Header(),true)
+	if err != nil{
+		panic(err)
+	}else{
 		err = bc.Validator().ValidateBody(fb)
 	}
 	if err != nil{
@@ -434,7 +431,6 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign){
 	if err != nil{
 		panic(err)
 	}*/
-	fmt.Println("voteSign:",voteSign)
 	self.agentFeed.Send(core.PbftSignEvent{PbftSign:voteSign,})
 
 }
@@ -644,7 +640,7 @@ func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,Co
 	return nil
 }
 
-func FromByte(data []byte,to interface{}) error {
+/*func FromByte(data []byte,to interface{}) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 	dec.Decode(to)
@@ -659,7 +655,7 @@ func ToByte(e interface{}) ([]byte,error) {
 		return nil,err
 	}
 	return buf.Bytes(),nil
-}
+}*/
 
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
