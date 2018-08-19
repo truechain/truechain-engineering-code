@@ -17,7 +17,6 @@
 package etrue
 
 import (
-	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snailfecher"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
+	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snailfetcher"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
@@ -84,7 +84,7 @@ type ProtocolManager struct {
 
 	downloader   *downloader.Downloader
 	fetcherFast  *fetcher.Fetcher
-	fetcherSnail *fetcher.Fetcher
+	fetcherSnail *snailfetcher.Fetcher
 	peers        *peerSet
 
 	SubProtocols []p2p.Protocol
@@ -219,8 +219,13 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 
 	snailValidator := func(header *types.SnailHeader) error {
+		headers := make([]*types.SnailHeader, 1)
+		headers[0] = header
 		//mecMark how to get ChainFastReader
-		return engine.VerifySnailHeaders(snailchain, header, true)
+		seals := make([]bool, 1)
+		seals[0] = true
+		_, err := engine.VerifySnailHeaders(snailchain, headers, seals)
+		return <-err
 	}
 	snailHeighter := func() uint64 {
 		return snailchain.CurrentBlock().NumberU64()
@@ -790,19 +795,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
-		var snailBlocks []*types.SnailBlock
-		if err := msg.Decode(&snailBlocks); err != nil {
+		//var snailBlocks []*types.SnailBlock
+		var snailBlock *types.SnailBlock
+		if err := msg.Decode(&snailBlock); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for i, snailBlock := range snailBlocks {
-			// Validate and mark the remote snailBlock
-			if snailBlock == nil {
-				return errResp(ErrDecode, "snailBlock %d is nil", i)
-			}
-			p.MarkSnailBlock(snailBlock.Hash())
+		// for i, snailBlock := range snailBlocks {
+		// 	// Validate and mark the remote snailBlock
+		if snailBlock == nil {
+			return errResp(ErrDecode, "snailBlock  is nil")
 		}
+		p.MarkSnailBlock(snailBlock.Hash())
+		// }
 
-		pm.fetcherSnail.Enqueue(p.id, snailBlocks)
+		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
 		// TODO: send snail block to snail blockchain
 		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
