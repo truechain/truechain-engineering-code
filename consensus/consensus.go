@@ -184,8 +184,8 @@ type Engine interface {
 
 //Election module implementation committee interface
 type CommitteeElection interface {
-	//Verify the fast chain committee signatures in batches
-	VerifyFastBlockSigns(pvs []*types.PbftSign) (cfvf []*types.CommitteeMember)
+	//VerifySigns verify the fast chain committee signatures in batches
+	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)

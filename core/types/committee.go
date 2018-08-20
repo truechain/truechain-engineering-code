@@ -124,6 +124,14 @@ func (h *PbftSign) Hash() common.Hash {
 	return rlpHash(h)
 }
 
+func (h *PbftSign) HashWithNoSign() common.Hash {
+	return rlpHash([]interface{}{
+		h.FastHeight,
+		h.FastHash,
+		h.Result,
+	})
+}
+
 type CommitteeInfo struct {
 	Id *big.Int
 	Members []*CommitteeMember

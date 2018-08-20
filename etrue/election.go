@@ -1,6 +1,7 @@
 package etrue
 
 import (
+	"errors"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -9,8 +10,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"crypto/ecdsa"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
-	"bytes"
 )
 
 const (
@@ -19,6 +18,13 @@ const (
 	z = 100
 	k  =  10000
 	lamada = 12
+)
+
+var (
+	// ErrInvalidSender is returned if the transaction contains an invalid signature.
+	ErrInvalidSign = errors.New("invalid sign")
+	ErrCommittee = errors.New("get committee failed")
+	ErrInvalidMember = errors.New("invalid committee member")
 )
 
 type VoteuUse struct {
@@ -126,30 +132,41 @@ func sortition()bool{
 	return false;
 }
 
-//Another method for validation
-func (e *Election)VerifySign(FastHeight *big.Int)bool {
-	VerifBlock := e.fastchain.GetBlockByNumber(FastHeight.Uint64())
-	BlockSigns := VerifBlock.Body().Signs
-	for _,sign := range BlockSigns{
-		msg :=GetSignHash(sign)
-		pubKey,err :=crypto.SigToPub(msg,sign.Sign)
-		if err != nil{
-			log.Info("SigToPub error.")
-			panic(err)
+
+//VerifySigns verify a batch of sings the fast chain committee signatures in batches
+func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
+	members := make ([]*types.CommitteeMember, len(signs))
+	errs := make([]error, len(signs))
+
+	for i, sign := range signs {
+
+		hash := sign.HashWithNoSign()
+		pubkey, err := crypto.SigToPub(hash.Bytes(), sign.Sign)
+		if err != nil {
+			errs[i] = err
+			continue
 		}
-		for _,member := range e.committee.members{
-			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-				break;
-				return true
+		address := crypto.PubkeyToAddress(*pubkey)
+
+		committee := e.GetCommittee(sign.FastHeight)
+		if committee == nil {
+			errs[i] = ErrCommittee
+			continue
+		}
+		for _, member := range committee {
+			committeeAddress := crypto.PubkeyToAddress(*member.Publickey)
+			if address != committeeAddress {
+				continue
 			}
+			members[i] = member
+			break
+		}
+		if members[i] == nil {
+			errs[i] = ErrInvalidMember
 		}
 	}
-	return false
-}
 
-//Verify the fast chain committee signatures in batches
-func (e *Election) VerifyFastBlockSigns(pvs []*types.PbftSign) []*types.CommitteeMember {
-	return e.committee.members
+	return members, errs
 }
 
 
@@ -305,7 +322,7 @@ func (e *Election)GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 }
 
 
-func (e *Election)GetByCommitteeId(FastNumber *big.Int)  [] *ecdsa.PublicKey{
+func (e *Election)GetByCommitteeId(id *big.Int)  [] *ecdsa.PublicKey{
 	return nil
 }
 

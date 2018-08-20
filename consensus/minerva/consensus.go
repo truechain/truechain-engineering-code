@@ -819,7 +819,7 @@ func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *t
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr := ce.VerifyFastBlockSigns(signs)
+		addr, _ := ce.VerifySigns(signs)
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
