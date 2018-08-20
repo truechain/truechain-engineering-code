@@ -783,9 +783,6 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 
 //gas allocation
 func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	if  m.election ==nil{
-		fmt.Println("m.election is nil ")
-	}
 	committee := m.election.GetCommittee(fastNumber)
     committeeGas :=big.NewInt(0)
 	if len(committee) != 0{
