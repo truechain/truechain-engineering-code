@@ -322,7 +322,27 @@ func (e *Election)GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 }
 
 
+func (e *Election)GetComitteeById(id *big.Int) []*types.CommitteeMember{
+
+	if e.committee.id.Cmp(id) == 0 {
+		return e.committee.members
+	}
+	if e.nextCommittee != nil {
+		if e.nextCommittee.id.Cmp(id) == 0 {
+			return e.nextCommittee.members
+		}
+	}
+
+	if committee, ok := e.committeeList[id]; ok {
+		return committee.members
+	}
+
+	return nil
+}
+
+
 func (e *Election)GetByCommitteeId(id *big.Int)  [] *ecdsa.PublicKey{
+
 	return nil
 }
 

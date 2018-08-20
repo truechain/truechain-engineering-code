@@ -108,10 +108,11 @@ type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
 
 type EncryptCommitteeNode []byte
 type  CryNodeInfo struct {
+	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign 		[]byte	//sign msg
-	CommitteeId *big.Int
 }
+
 // DecodeRLP decodes the Ethereum
 func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
 	err := s.Decode(c)
