@@ -235,15 +235,14 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	return pool
 }
 
-
-func (pool *SnailPool) getFastBlock(hash common.Hash, number *big.Int) *types.Block {
+/*func (pool *SnailPool) getFastBlock(hash common.Hash, number *big.Int) *types.Block {
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
 
 	for lr := pool.fastBlockPending.Front(); lr != nil; lr = lr.Next() {
 		r := lr.Value.(*types.Block)
 		if r.Number().Cmp(number) > 0 {
-			// rest records are greater than number
+			// rest fastblocks are greater than number
 			return nil
 		} else if r.Number().Cmp(number) == 0 {
 			if r.Hash() != hash {
@@ -255,7 +254,7 @@ func (pool *SnailPool) getFastBlock(hash common.Hash, number *big.Int) *types.Bl
 	}
 
 	return nil
-}
+}*/
 
 //updateFruit move the validated fruit to pending list
 func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
@@ -285,44 +284,53 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	//TODO: add fruit validation
-
-	// TODO: check fruit using fastchain block
-	//r := pool.fastchain.GetBlock(fruit.FastHash(), fruit.NumberU64())
-	r := pool.getFastBlock(fruit.FastHash(), fruit.FastNumber())
-	f := pool.allFruits[fruit.FastHash()]
-	if f == nil {
-		pool.allFruits[fruit.FastHash()] = fruit
-		if r != nil {
-			pool.muFastBlock.Lock()
-			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-			pool.muFastBlock.Unlock()
-			pool.fruitPending[fruit.FastHash()] = fruit
-		}
-
-		return nil
-	} else {
-
-		if fruit.Difficulty().Cmp(f.Difficulty()) < 0 {
-
-			return nil
-		} else if fruit.Difficulty().Cmp(f.Difficulty()) == 0 {
-			if fruit.Hash().Big().Cmp(f.Hash().Big()) > 0 {
-				// new fruit hash is greater than old one
-				return nil
-			}
-		}
-		pool.allFruits[fruit.FastHash()] = fruit
-		if r != nil {
-			pool.muFastBlock.Lock()
-			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-			pool.muFastBlock.Unlock()
-			pool.fruitPending[fruit.FastHash()] = fruit
-		} else if _, ok := pool.fruitPending[fruit.FastHash()]; ok {
-			pool.fruitPending[fruit.FastHash()] = fruit
-		}
+	//fruit validation
+	if err := pool.validateFruit(fruit); err != nil {
+		return err
 	}
 
+	//TODO check is really signature
+	//pool.chain. //if error return error
+
+	//check number(fb)
+	rnumber:=fruit.FastNumber()
+	lnumber:=pool.fastchain.CurrentBlock().Number()
+	if rnumber.Cmp(lnumber)==1{
+		pool.allFruits[fruit.FastHash()] = fruit
+		// now can't confirm
+		go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+		return nil
+	}else {
+		//judge is the fb exist
+		fb:=pool.fastchain.GetBlock(fruit.FastHash(),fruit.FastNumber().Uint64())
+		if fb ==nil{
+			go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+			//the fruit already exists,so remove the fruit's fb from fastBlockPending
+			pool.muFastBlock.Lock()
+			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
+			pool.muFastBlock.Unlock()
+			return nil
+		}
+		// compare with allFruits's fruit
+		lf := pool.allFruits[fruit.FastHash()]
+		if lf == nil {
+			pool.allFruits[fruit.FastHash()] = fruit
+			//the fruit already exists,so remove the fruit's fb from fastBlockPending
+			pool.muFastBlock.Lock()
+			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
+			pool.muFastBlock.Unlock()
+			// send out
+			go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+		}else {
+			if fruit.Difficulty().Cmp(lf.Difficulty()) <= 0 {
+				return nil
+			}else{
+				pool.allFruits[fruit.FastHash()] = fruit
+				pool.fruitPending[fruit.FastHash()] = fruit
+				go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+			}
+		}
+	}
 	return nil
 }
 
@@ -802,15 +810,11 @@ func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- snailchain.NewFastBl
 
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
+
 	//check integrity
 	getSignHash:=types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash!=getSignHash{
 		return	ErrInvalidSign
-	}
-	//check fruit's hash
-	fruitHash:=fruit.Hash()
-	if fruit.Header().FruitsHash!=fruitHash{
-		return	ErrInvalidHash
 	}
 	// check freshness
 	pointer := pool.chain.GetBlockByHash(fruit.PointerHash())
