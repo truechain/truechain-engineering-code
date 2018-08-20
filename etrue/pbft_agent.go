@@ -287,7 +287,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
-
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
@@ -360,8 +359,8 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		log.Info("sign error")
 		panic(err)
 	}
-	fb.SetLeaderSign(voteSign)
-	self.NewFastBlockFeed.Send(core.NewBlockEvent{
+	fb.AppendSign(voteSign)
+	go self.NewFastBlockFeed.Send(core.NewBlockEvent{
 		Block:	fb,
 	})
 	return err
@@ -443,6 +442,7 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign){
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := self.fastChain.StateAt(parent.Root())
 	if err != nil {
+		panic(err)
 		return err
 	}
 	work := &AgentWork{

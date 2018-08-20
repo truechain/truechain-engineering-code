@@ -205,6 +205,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
+
 	if eth.protocolManager, err = NewProtocolManager(
 		eth.chainConfig, config.SyncMode, config.NetworkId,
 		eth.eventMux, eth.txPool, eth.snailPool, eth.engine,
@@ -472,8 +473,8 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 
 	s.election.Start()
 
+	s.agent.Start()
 	//go sendBlock(s.agent)
-
 	return nil
 }
 

@@ -18,7 +18,6 @@ package core
 
 import (
 		"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -26,6 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 
 	"math/big"
+	"log"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -65,9 +65,9 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 
 	)
 	// Mutate the the block and state according to any hard-fork specs
-	if fp.config.DAOForkSupport && fp.config.DAOForkBlock != nil && fp.config.DAOForkBlock.Cmp(block.Number()) == 0 {
+	/*if fp.config.DAOForkSupport && fp.config.DAOForkBlock != nil && fp.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
-	}
+	}*/
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
@@ -79,11 +79,16 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	fp.engine.FinalizeFast(fp.bc, header, statedb, block.Transactions(), receipts)
+	_,err := fp.engine.FinalizeFast(fp.bc, header, statedb, block.Transactions(), receipts)
+	if err != nil{
+		panic(err)
+	}
 
 	//Commission allocation
-	fp.engine.FinalizeFastGas(statedb,block.Number(),block.Hash(),feeAmount)
-
+	err = fp.engine.FinalizeFastGas(statedb,block.Number(),block.Hash(),feeAmount)
+	if err != nil{
+		log.Panic(err)
+	}
 
 	return receipts, allLogs, *usedGas, nil
 }
