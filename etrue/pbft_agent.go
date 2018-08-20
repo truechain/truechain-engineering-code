@@ -170,6 +170,7 @@ func (self *PbftAgent) Stop() {
 }
 
 func (self *PbftAgent) loop(){
+	var ticker *time.Ticker
 	for {
 		select {
 		case ch := <-self.ElectionCh:
@@ -179,17 +180,27 @@ func (self *PbftAgent) loop(){
 				self.SetCommitteeInfo(nil,setNextCommittee)
 				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
+				ticker.Stop()
 				fmt.Println("CommitteeStop:")
 				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
+			ticker = time.NewTicker(time.Minute * 5)
 			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			fmt.Println("CommitteeCh:",ch.CommitteeInfo)
-			//if self.IsCommitteeMember(ch.CommitteeInfo){
-			//	self.SendPbftNode(ch.CommitteeInfo)
-			//	self.server.PutCommittee(ch.CommitteeInfo)
-			//}
+			if self.IsCommitteeMember(ch.CommitteeInfo){
+				go func(){
+					for{
+						select {
+						case <-ticker.C:
+							self.SendPbftNode(ch.CommitteeInfo)
+						}
+					}
+				}()
+				self.server.PutCommittee(ch.CommitteeInfo)
+			}
+
 
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
