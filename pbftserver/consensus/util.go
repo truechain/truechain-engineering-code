@@ -36,6 +36,9 @@ type ConsensusVerify interface {
 	CheckMsg(msg *RequestMsg) (bool)
 	ReplyResult(msg *RequestMsg,res uint) (bool)
 }
+type ConsensusFinish interface {
+	ConsensusFinish()
+}
 
 func Hash(content []byte) string {
 	h := sha256.New()

@@ -62,9 +62,10 @@ func (ss *PbftServerMgr) Finish() error{
 func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	var update bool = false
 	for _,v := range ss.info {
-		if !bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(mm.Publickey)) {
+		if !bytes.Equal(v.Publickey, crypto.FromECDSAPub(mm.Publickey)) {
 			ss.info = append(ss.info,&types.CommitteeNode {
-				CM:			mm,
+				Coinbase:mm.Coinbase,
+				Publickey:crypto.FromECDSAPub(mm.Publickey),
 			})
 			update = true
 			break
@@ -72,14 +73,15 @@ func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	}
 	if !update {
 		ss.info = append(ss.info,&types.CommitteeNode {
-			CM:			mm,
+			Coinbase:mm.Coinbase,
+			Publickey:crypto.FromECDSAPub(mm.Publickey),
 		})
 	}
 }
 func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
 	var update bool = false
 	for i,v := range ss.info {
-		if bytes.Equal(crypto.FromECDSAPub(v.CM.Publickey), crypto.FromECDSAPub(n.CM.Publickey)) {
+		if bytes.Equal(v.Publickey, n.Publickey) {
 			ss.info[i] = n
 			update = true
 			break
@@ -233,14 +235,14 @@ func (ss *PbftServerMgr) SignMsg(h int64,res uint) (*consensus.SignedVoteMsg) {
 	return sign
 }
 
-func (ss *PbftServerMgr) work(acChan <-chan *consensus.ActionIn) {
+func (ss *PbftServerMgr) work(cid *big.Int,acChan <-chan *consensus.ActionIn) {
 	for {
 		select {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
-				req,err := ss.GetRequest(ac.ID)
+				req,err := ss.GetRequest(cid)
 				if err == nil  && req != nil {
-					if server,ok := ss.servers[ac.ID.Uint64()];ok {
+					if server,ok := ss.servers[cid.Uint64()];ok {
 						server.Height = big.NewInt(req.Height)
 						server.server.PutRequest(req)
 					} 
@@ -319,11 +321,7 @@ func (ss *PbftServerMgr)Notify(id *big.Int, action int) error {
 	}
 	return errors.New("wrong action Num:"+strconv.Itoa(action))
 }
-func test() {
-	// nodeID := os.Args[1]
-	// server := network.NewServer(nodeID)
-	// server.Start()
-}
+
 func rlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)

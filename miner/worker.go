@@ -420,7 +420,7 @@ func (self *worker) wait() {
 				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
-				self.eth.HybridPool().AddRemoteFruits(newFruits)
+				self.eth.SnailPool().AddRemoteFruits(newFruits)
 
 				/*
 				var (
@@ -586,7 +586,7 @@ func (self *worker) commitNewWork() {
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
 	}
-	PendingRecord, err := self.eth.HybridPool().PendingFastBlocks()
+	PendingRecord, err := self.eth.SnailPool().PendingFastBlocks()
 	if err != nil {
 		return
 	}
@@ -613,7 +613,7 @@ func (self *worker) commitNewWork() {
 
 	//TODO should add fruit flow 20180804
 	
-	PendingFruits, err := self.eth.HybridPool().PendingFruits()
+	PendingFruits, err := self.eth.SnailPool().PendingFruits()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return

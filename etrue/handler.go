@@ -254,8 +254,9 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 	log.Debug("Removing Truechain peer", "peer", id)
 
+	// TODO: downloader.UnregisterPeer
 	// Unregister the peer from the downloader and Truechain peer set
-	pm.downloader.UnregisterPeer(id)
+	//pm.downloader.UnregisterPeer(id)
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
@@ -380,10 +381,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 	defer pm.removePeer(p.id)
 
-	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
-		return err
-	}
+	// TODO: downloader.RegisterPeer
+	//// Register the peer in the downloader. If the downloader considers it banned, we disconnect
+	//if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+	//	return err
+	//}
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
@@ -693,7 +695,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) && pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
+			if pm.fetcherFast.GetPendingBlock(block.Hash) != nil {
+				pm.fetcherFast.NotifyPendingBlock(p.id,block.Hash,block.Number)
+			} else if !pm.blockchain.HasBlock(block.Hash, block.Number) {
 				unknown = append(unknown, block)
 			}
 		}
@@ -841,7 +845,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, block.NumberU64()) || pm.fetcherFast.GetPendingBlock(hash) != nil {
+	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
@@ -1011,7 +1015,6 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 		select {
 		case event := <-pm.minedFastCh:
 			pm.BroadcastFastBlock(event.Block, true)  // First propagate fast block to peers
-			pm.BroadcastFastBlock(event.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.minedFastSub.Err():

@@ -43,7 +43,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"github.com/truechain/truechain-engineering-code/params"
-	rpc "github.com/truechain/truechain-engineering-code/rpc"
+	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
 type LightEthereum struct {

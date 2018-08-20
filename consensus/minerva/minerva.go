@@ -32,7 +32,7 @@ import (
 	"time"
 	"unsafe"
 
-	mmap "github.com/edsrzf/mmap-go"
+	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -426,7 +426,12 @@ type Minerva struct {
 	fakeDelay time.Duration // Time delay to sleep for before returning from verify
 
 	lock sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
+
+	sbc      consensus.SnailChainReader
+	election consensus.CommitteeElection
 }
+
+var MinervaLocal *Minerva
 
 // New creates a full sized ethash PoW scheme.
 func New(config Config) *Minerva {
@@ -440,13 +445,25 @@ func New(config Config) *Minerva {
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
 		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
-	return &Minerva{
+	MinervaLocal = &Minerva{
 		config:   config,
 		caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
+
+	return MinervaLocal
+}
+
+//Append interface SnailChainReader after instantiations
+func SetSnailChainReader(scr consensus.SnailChainReader) {
+	MinervaLocal.sbc = scr
+}
+
+//Append interface CommitteeElection after instantiation
+func SetElection(e consensus.CommitteeElection) {
+	MinervaLocal.election = e
 }
 
 // NewTester creates a small sized ethash PoW scheme useful only for testing

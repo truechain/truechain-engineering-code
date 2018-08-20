@@ -26,7 +26,7 @@ type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
 	Coinbase  common.Address
-	Publickey *ecdsa.PublicKey
+	Publickey  *ecdsa.PublicKey
 }
 
 
@@ -55,7 +55,8 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 type CommitteeNode struct {
 	IP   string
 	Port uint
-	CM   *CommitteeMember
+	Coinbase  common.Address
+	Publickey  []byte
 }
 
 type PbftSigns []*PbftSign
@@ -91,17 +92,19 @@ type PbftServerProxy interface {
 	Notify(id *big.Int, action int) error
 }
 
-func (voteSign *PbftSign) PrepareData() []byte {
+/*func (voteSign *PbftSign) PrepareData() []byte {
+	result,_ :=rlp.EncodeToBytes(voteSign.Result)
+	height,_ :=rlp.EncodeToBytes(voteSign.FastHeight)
 	data := bytes.Join(
 		[][]byte{
 			voteSign.FastHash[:],
-			IntToHex(voteSign.Result),
-			IntToHex(voteSign.FastHeight),
+			result,
+			height,
 		},
 		[]byte{},
 	)
 	return data
-}
+}*/
 
 // IntToHex converts an int64 to a byte array
 func IntToHex(num interface{}) []byte {
@@ -118,6 +121,14 @@ func IntToHex(num interface{}) []byte {
 // RLP encoding.
 func (h *PbftSign) Hash() common.Hash {
 	return rlpHash(h)
+}
+
+func (h *PbftSign) HashWithNoSign() common.Hash {
+	return rlpHash([]interface{}{
+		h.FastHeight,
+		h.FastHash,
+		h.Result,
+	})
 }
 
 type CommitteeInfo struct {

@@ -37,9 +37,8 @@ import (
 var (
 	EmptyRootHash  = DeriveSha(Transactions{})
 	EmptyUncleHash = CalcUncleHash(nil)
-	EmptySignHash = CalcSignHash(nil)
+	EmptySignHash  = CalcSignHash(nil)
 )
-
 
 // A BlockNonce is a 64-bit hash which proves (combined with the
 // mix-hash) that a sufficient amount of computation has been carried
@@ -68,8 +67,6 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("BlockNonce", input, n[:])
 }
 
-
-
 // Fruits is a wrapper around a fruit array to implement DerivableList.
 type Fruits []*SnailBlock
 
@@ -85,7 +82,6 @@ func (fs Fruits) GetRlp(i int) []byte {
 	return bytes
 }
 
-
 type writeCounter common.StorageSize
 
 func (c *writeCounter) Write(b []byte) (int, error) {
@@ -97,11 +93,9 @@ func CalcUncleHash(uncles []*Header) common.Hash {
 	return rlpHash(uncles)
 }
 
-
 func CalcSignHash(signs []*PbftSign) common.Hash {
 	return rlpHash(signs)
 }
-
 
 type Blocks []*Block
 
@@ -114,7 +108,6 @@ func (self BlockBy) Sort(blocks Blocks) {
 	}
 	sort.Sort(bs)
 }
-
 
 type blockSorter struct {
 	blocks Blocks
@@ -153,21 +146,19 @@ type Header struct {
 // field type overrides for gencodec
 type headerMarshaling struct {
 	SnailNumber *hexutil.Big
-	Number     *hexutil.Big
-	GasLimit   hexutil.Uint64
-	GasUsed    hexutil.Uint64
-	Time       *hexutil.Big
-	Extra      hexutil.Bytes
-	Hash       common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
+	Number      *hexutil.Big
+	GasLimit    hexutil.Uint64
+	GasUsed     hexutil.Uint64
+	Time        *hexutil.Big
+	Extra       hexutil.Bytes
+	Hash        common.Hash `json:"hash"` // adds call to Hash() in MarshalJSON
 }
-
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *Header) Hash() common.Hash {
 	return rlpHash(h)
 }
-
 
 // Size returns the approximate memory used by all internal contents. It is used
 // to approximate and limit the memory consumption of various caches.
@@ -187,7 +178,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 // a block's data contents (transactions and uncles) together.
 type Body struct {
 	Transactions []*Transaction
-	Signs   []*PbftSign
+	Signs        []*PbftSign
 }
 
 // Block Reward
@@ -203,9 +194,9 @@ type Block struct {
 	header       *Header
 	transactions Transactions
 
-	uncles       []*Header // reserved for compile
+	uncles []*Header // reserved for compile
 
-	signs        PbftSigns
+	signs PbftSigns
 
 	// caches
 	hash atomic.Value
@@ -220,8 +211,6 @@ type Block struct {
 	ReceivedAt   time.Time
 	ReceivedFrom interface{}
 }
-
-
 
 // NewFastBlock creates a new fastblock. The input data is copied,
 // changes to header and to the field values will not affect the
@@ -267,10 +256,10 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 func (b *Body) SetLeaderSign(sign *PbftSign) {
 	signP := *sign
 	b.Signs = []*PbftSign{}
-	b.Signs = append(b.Signs,&signP)
+	b.Signs = append(b.Signs, &signP)
 }
 
-func (b *Body) GetLeaderSign() *PbftSign{
+func (b *Body) GetLeaderSign() *PbftSign {
 	if len(b.Signs) > 0 {
 		return b.Signs[0]
 	}
@@ -305,6 +294,7 @@ func CopyHeader(h *Header) *Header {
 type extblock struct {
 	Header *Header
 	Txs    []*Transaction
+	Signs  []*PbftSign
 }
 
 // DecodeRLP decodes the Ethereum
@@ -314,7 +304,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&eb); err != nil {
 		return err
 	}
-	b.header, b.transactions = eb.Header, eb.Txs
+	b.header, b.transactions, b.signs = eb.Header, eb.Txs, eb.Signs
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
@@ -324,6 +314,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extblock{
 		Header: b.header,
 		Txs:    b.transactions,
+		Signs:  b.signs,
 	})
 }
 
@@ -354,12 +345,23 @@ func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
 func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
 func (b *Block) UncleHash() common.Hash   { return common.Hash{} }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
-
-func (b *Block) Header() *Header { return CopyHeader(b.header) }
+func (b *Block) Signs() []*PbftSign       { return b.signs }
+func (b *Block) Header() *Header          { return CopyHeader(b.header) }
 
 // Body returns the non-header content of the block.
-func (b *Block) Body() *Body { return &Body{b.transactions,b.signs} }
+func (b *Block) Body() *Body { return &Body{b.transactions, b.signs} }
 
+func (b *Block) AppendSign(sign *PbftSign) {
+	signP := CopyPbftSign(sign)
+	b.signs = append(b.signs, signP)
+}
+
+func (b *Block) GetLeaderSign() *PbftSign {
+	if len(b.signs) > 0 {
+		return b.signs[0]
+	}
+	return nil
+}
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
@@ -446,7 +448,7 @@ type SnailBlock struct {
 	fruits SnailBlocks
 	signs  PbftSigns
 
-	uncles  []*SnailHeader
+	uncles []*SnailHeader
 
 	// caches
 	hash atomic.Value
@@ -468,9 +470,8 @@ type extsnailblock struct {
 	Fruits []*SnailBlock
 	Signs  []*PbftSign
 	//Body   *SnailBody
-	Td     *big.Int
+	Td *big.Int
 }
-
 
 type SnailBlocks []*SnailBlock
 
@@ -547,16 +548,16 @@ func (b *SnailBlock) DeprecatedTd() *big.Int {
 // NewSnailBlock creates a new block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
-func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,  uncles []*SnailHeader)*SnailBlock {
+func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign, uncles []*SnailHeader) *SnailBlock {
 	b := &SnailBlock{
 		header: CopySnailHeader(header),
 		//body:   body,
-		td:     new(big.Int),
+		td: new(big.Int),
 	}
 
 	if len(fruits) == 0 {
 		b.header.FruitsHash = EmptyRootHash
-	}else {
+	} else {
 		// TODO: get fruits hash
 		b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		b.fruits = make([]*SnailBlock, len(fruits))
@@ -586,7 +587,6 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
 	return &SnailBlock{header: CopySnailHeader(header)}
 }
-
 
 // TODO: implement copy function
 func CopyFruit(f *SnailBlock) *SnailBlock {
@@ -695,7 +695,7 @@ func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.heade
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool            { return b.header.Fruit }
 func (b *SnailBlock) Fruits() []*SnailBlock    { return b.fruits }
-func (b *SnailBlock) Signs() PbftSigns    { return b.signs }
+func (b *SnailBlock) Signs() PbftSigns         { return b.signs }
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }
@@ -723,7 +723,7 @@ func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 	return &SnailBlock{
 		header: &cpy,
 		fruits: b.fruits,
-		signs: b.signs,
+		signs:  b.signs,
 	}
 }
 
@@ -733,7 +733,7 @@ func (b *SnailBlock) WithBody(fruits []*SnailBlock, signs []*PbftSign, uncles []
 		header: b.Header(),
 		//body : 		body,
 		fruits: make([]*SnailBlock, len(fruits)),
-		signs:make([]*PbftSign, len(signs)),
+		signs:  make([]*PbftSign, len(signs)),
 	}
 	copy(block.fruits, fruits)
 	copy(block.signs, signs)
