@@ -59,24 +59,23 @@ type PbftAgent struct {
 	mux          *event.TypeMux
 	eventMux     *event.TypeMux
 
-	agentFeed       event.Feed
+	signFeed       event.Feed
 	nodeInfoFeed 	event.Feed
 	NewFastBlockFeed	event.Feed
-	scope        event.SubscriptionScope
+	scope        event.SubscriptionScope //send scope
 
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
-	SnailBlockCh  chan snailchain.ChainHeadEvent
+	//SnailBlockCh  chan snailchain.ChainHeadEvent
 
 	electionSub event.Subscription
 	committeeSub event.Subscription
 	PbftNodeSub *event.TypeMuxSubscription
-	snailBlockSub event.Subscription
+	//snailBlockSub event.Subscription
 
 	CommitteeNode *types.CommitteeNode
 	PrivateKey *ecdsa.PrivateKey
-
 }
 
 type AgentWork struct {
@@ -113,13 +112,11 @@ type  CryNodeInfo struct {
 	Sign 		[]byte	//sign msg
 	CommitteeId *big.Int
 }
-
 // DecodeRLP decodes the Ethereum
 func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
 	err := s.Decode(c)
 	return err
 }
-
 // EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
 func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, c)
@@ -137,7 +134,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		ElectionCh: 	make(chan core.ElectionEvent, 10),
-		SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
+		//SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
 	}
 
@@ -157,9 +154,18 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 func (self *PbftAgent) Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
+	//self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
 	// Subscribe
 	go self.loop()
+}
+
+
+// Stop terminates the PbftAgent.
+func (self *PbftAgent) Stop() {
+	// Unsubscribe all subscriptions registered from agent
+	self.committeeSub.Unsubscribe()
+	self.electionSub.Unsubscribe()
+	self.scope.Close()
 }
 
 func (self *PbftAgent) loop(){
@@ -179,23 +185,18 @@ func (self *PbftAgent) loop(){
 		case ch := <-self.CommitteeCh:
 			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			fmt.Println("CommitteeCh:",ch.CommitteeInfo)
-			if self.IsCommitteeMember(ch.CommitteeInfo){
-				//self.SendPbftNode(ch.CommitteeInfo)
-				//self.server.PutCommittee(ch.CommitteeInfo)
-			}
+			//if self.IsCommitteeMember(ch.CommitteeInfo){
+			//	self.SendPbftNode(ch.CommitteeInfo)
+			//	self.server.PutCommittee(ch.CommitteeInfo)
+			//}
 
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
-
 			if  self.IsCommitteeMember(self.NextCommitteeInfo){
 				self.ReceivePbftNode(cryNodeInfo)
 			}
-
-		//receive snailBlock
-		/*case snailBlock := <-self.SnailBlockCh:
-			self.MaxSnailBlockHeight =snailBlock.Block.Header().Number*/
 		}
 	}
 }
@@ -213,6 +214,9 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
 		if err != nil{
+			log.Info("encrypt error,pub:",ecies.ImportECDSAPublic(member.Publickey),
+					", coinbase:",member.Coinbase)
+			panic(err)
 			return nil
 		}
 		cryNodeInfo.Nodes =append(cryNodeInfo.Nodes,EncryptCommitteeNode)
@@ -221,6 +225,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	sigInfo,err :=crypto.Sign(hash[:], pbftAgent.PrivateKey)
 	if err != nil{
 		log.Info("sign error")
+		panic(err)
 	}
 	cryNodeInfo.Sign=sigInfo
 
@@ -239,12 +244,9 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
 		log.Info("SigToPub error.")
+		panic(err)
 		return nil
 	}
-	/*if pbftAgent.NextCommitteeInfo.Id !=cryNodeInfo.CommitteeId{
-		log.Info("commiteeId  is not consistency .")
-		return nil
-	}*/
 	pks :=pbftAgent.election.GetByCommitteeId(cryNodeInfo.CommitteeId)
 	verifyFlag := false
 	for _, pk:= range  pks{
@@ -254,7 +256,7 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		}
 	}
 	if !verifyFlag{
-		log.Info("publicKey is not exist.")
+		log.Info("publicKey of send node is not in committee.")
 		return nil
 	}
 	priKey :=ecies.ImportECDSA(pbftAgent.PrivateKey)//ecdsa-->ecies
@@ -351,9 +353,11 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		FastHash:fb.Hash(),
 	}
 	var err error
-	voteSign.Sign,err =crypto.Sign(GetSignHash(voteSign), self.PrivateKey)
+	signHash :=GetSignHash(voteSign)
+	voteSign.Sign,err =crypto.Sign(signHash, self.PrivateKey)
 	if err != nil{
 		log.Info("sign error")
+		panic(err)
 	}
 	fb.SetLeaderSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{
@@ -421,7 +425,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 		if err != nil{
 			panic(err)
 		}
-		self.agentFeed.Send(core.PbftSignEvent{voteSigns})
+		self.signFeed.Send(core.PbftSignEvent{voteSigns})
 	}
 }*/
 
@@ -431,7 +435,7 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign){
 	if err != nil{
 		panic(err)
 	}*/
-	self.agentFeed.Send(core.PbftSignEvent{PbftSign:voteSign,})
+	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign,})
 
 }
 
@@ -559,7 +563,7 @@ func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewBlockEvent)
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
 // starts sending event to the given channel.
 func (self * PbftAgent) SubscribeNewPbftSignEvent(ch chan<- core.PbftSignEvent) event.Subscription {
-	return self.scope.Track(self.agentFeed.Subscribe(ch))
+	return self.scope.Track(self.signFeed.Subscribe(ch))
 }
 
 type NodeInfoEvent struct{ nodeInfo *CryNodeInfo }
@@ -583,11 +587,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	return false
 }
 
-// Stop terminates the PbftAgent.
-func (self * PbftAgent) Stop() {
-	// Unsubscribe all subscriptions registered from agent
-	self.scope.Close()
-}
 
 func  GetSignHash(sign *types.PbftSign) []byte{
 	hash := RlpHash([]interface{} {
@@ -639,23 +638,6 @@ func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,Co
 	}
 	return nil
 }
-
-/*func FromByte(data []byte,to interface{}) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	dec.Decode(to)
-	return nil
-}
-
-func ToByte(e interface{}) ([]byte,error) {
-	buf := bytes.NewBuffer(nil)
-	enc := gob.NewEncoder(buf)
-	err := enc.Encode(e)
-	if err != nil {
-		return nil,err
-	}
-	return buf.Bytes(),nil
-}*/
 
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
