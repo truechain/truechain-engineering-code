@@ -770,7 +770,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 
-	if header != nil && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
+	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
