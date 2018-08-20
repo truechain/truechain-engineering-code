@@ -34,7 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
-	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snailfetcher"
+	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snail"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
