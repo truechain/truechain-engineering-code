@@ -775,7 +775,6 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
 		}
-
 		accumulateRewardsFast(state, header, sBlock)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -784,8 +783,14 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 
 //gas allocation
 func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
+	if  m.election ==nil{
+		fmt.Println("m.election is nil ")
+	}
 	committee := m.election.GetCommittee(fastNumber)
-	committeeGas := new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+    committeeGas :=big.NewInt(0)
+	if len(committee) != 0{
+		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+	}
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
 	}
