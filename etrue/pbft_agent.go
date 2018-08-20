@@ -358,8 +358,8 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		log.Info("sign error")
 		panic(err)
 	}
-	fb.SetLeaderSign(voteSign)
-	self.NewFastBlockFeed.Send(core.NewBlockEvent{
+	fb.AppendSign(voteSign)
+	go self.NewFastBlockFeed.Send(core.NewBlockEvent{
 		Block:	fb,
 	})
 	return err
