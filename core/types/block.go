@@ -360,11 +360,9 @@ func (b *Block) Header() *Header { return CopyHeader(b.header) }
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body { return &Body{b.transactions,b.signs} }
 
-
-func (b *Block) SetLeaderSign(sign *PbftSign) {
-	signP := *sign
-	b.signs = []*PbftSign{}
-	b.signs = append(b.signs,&signP)
+func (b *Block) AppendSign(sign *PbftSign) {
+	signP := CopyPbftSign(sign)
+	b.signs = append(b.signs, signP)
 }
 
 
