@@ -33,6 +33,7 @@ type BlockValidator struct {
 	config *params.ChainConfig // Chain configuration options
 	bc     *SnailBlockChain         // Canonical block chain
 	engine consensus.Engine    // Consensus engine used for validating
+	election consensus.CommitteeElection
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
@@ -43,6 +44,12 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *SnailBlockChain, 
 		bc:     blockchain,
 	}
 	return validator
+}
+
+func (v *BlockValidator) SetElection(e consensus.CommitteeElection) error {
+	v.election = e
+
+	return nil
 }
 
 // ValidateBody validates the given block's uncles and verifies the the block

@@ -200,6 +200,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.election = NewElction(eth.blockchain, eth.snailblockchain)
 
+	eth.snailblockchain.Validator().SetElection(eth.election)
+
 	ethash.SetElection(eth.election)
 	ethash.SetSnailChainReader(eth.snailblockchain)
 
