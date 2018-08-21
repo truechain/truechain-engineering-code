@@ -34,4 +34,7 @@ var (
 	// ErrInvalidNumber is returned if a block's number doesn't equal it's parent's
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
+
+	//If the number of returned committees and the results are inconsistent, return ErrInvalidSingsLength
+	ErrInvalidSingsLength = errors.New("invalid sings length")
 )
