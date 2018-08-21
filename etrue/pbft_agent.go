@@ -32,12 +32,14 @@ const (
 	VoteAgree = iota		//vote agree
 	VoteAgreeAgainst  		//vote against
 
-	chainHeadChanSize = 10
+	electionChanSize = 10
 
 	setCurrentCommittee = iota
 	setNextCommittee
 
 	BlockRewordSpace =12
+	SignLength =32
+	prv_Hex = "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc"
 )
 
 type PbftAgent struct {
@@ -57,6 +59,7 @@ type PbftAgent struct {
 
 	currentMu sync.Mutex //verifyBlock mutex
 	mu sync.Mutex //generateBlock mutex
+	committeeMu  sync.Mutex //generateBlock mutex
 
 	mux          *event.TypeMux
 	eventMux     *event.TypeMux
@@ -76,6 +79,10 @@ type PbftAgent struct {
 
 	CommitteeNode *types.CommitteeNode
 	PrivateKey *ecdsa.PrivateKey
+
+	pauseBlock   chan bool
+	//cacheSign    map[[SignLength]byte]CryNodeInfo
+	cacheSign    []Sign
 }
 
 type AgentWork struct {
@@ -104,30 +111,35 @@ type Backend interface {
 }
 
 // NewPbftNodeEvent is posted when nodeInfo send
-type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
+//type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
+type NodeInfoEvent struct{ nodeInfo *CryNodeInfo }
 
 type EncryptCommitteeNode []byte
+type Sign []byte
 type  CryNodeInfo struct {
 	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
-	Sign 		[]byte	//sign msg
+	Sign 		//sign msg
 }
 
-
-
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
+
 	self := &PbftAgent{
 		config:         	config,
 		engine:         	engine,
 		eth:            	eth,
 		fastChain:          eth.BlockChain(),
 		snailChain:			eth.SnailBlockChain(),
-		CommitteeCh:	make(chan core.CommitteeEvent, 3),
-		ElectionCh: 	make(chan core.ElectionEvent, 10),
+		CommitteeCh:	make(chan core.CommitteeEvent),
+		ElectionCh: 	make(chan core.ElectionEvent, electionChanSize),
 		election: election,
+		pauseBlock : make(chan bool ,1),
 	}
+	self.InitNodeInfo()
+	return self
+}
 
-	prv_Hex := "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc"
+func (self *PbftAgent) InitNodeInfo() {
 	acc1Key, _ := crypto.HexToECDSA(prv_Hex)
 	self.PrivateKey =acc1Key
 	pubBytes :=crypto.FromECDSAPub(&acc1Key.PublicKey)
@@ -137,16 +149,13 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		crypto.PubkeyToAddress(acc1Key.PublicKey),
 		pubBytes,
 	}
-	return self
 }
 
 func (self *PbftAgent) Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	// Subscribe
 	go self.loop()
 }
-
 
 // Stop terminates the PbftAgent.
 func (self *PbftAgent) Stop() {
@@ -167,20 +176,28 @@ func (self *PbftAgent) loop(){
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
 				fmt.Println("CommitteeStart:")
+				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo,setCurrentCommittee)
 				self.SetCommitteeInfo(nil,setNextCommittee)
+				self.committeeMu.Unlock()
 				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
-				ticker.Stop()
 				fmt.Println("CommitteeStop:")
-				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				ticker.Stop()
+				self.committeeMu.Lock()
+				self.cacheSign =[]Sign{}
 				self.SetCommitteeInfo(nil,setCurrentCommittee)
+				self.committeeMu.Unlock()
+				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}
 		case ch := <-self.CommitteeCh:
-			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			fmt.Println("CommitteeCh:",ch.CommitteeInfo)
+			self.committeeMu.Lock()
+			self.SetCommitteeInfo(ch.CommitteeInfo,setNextCommittee)
+			self.committeeMu.Unlock()
 			if self.IsCommitteeMember(ch.CommitteeInfo){
 				ticker = time.NewTicker(time.Minute * 5)
+				//self.server.PutCommittee(ch.CommitteeInfo)
 				go func(){
 					for{
 						select {
@@ -190,15 +207,24 @@ func (self *PbftAgent) loop(){
 						}
 					}
 				}()
-				//self.server.PutCommittee(ch.CommitteeInfo)
 			}
-
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
-			if  self.IsCommitteeMember(self.NextCommitteeInfo){
-				self.ReceivePbftNode(cryNodeInfo)
+			//TODO  1 judge is wrong  2 cache :has received nodeInfo
+			if  self.IsCommitteeMember(self.NextCommitteeInfo) {
+				flag :=false
+				for _,sign := range self.cacheSign{
+					if bytes.Equal(sign,cryNodeInfo.Sign){
+						flag =true
+						break
+					}
+				}
+				if !flag{
+					self.ReceivePbftNode(cryNodeInfo)
+				}
+
 			}
 		}
 	}
@@ -277,8 +303,17 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 	return nil
 }
 
-//generateBlock and broadcast
 func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
+	for {
+		select {
+		case <- self.pauseBlock:
+			self.GenerateFastBlock()
+		}
+	}
+
+}
+//generateBlock and broadcast
+func (self * PbftAgent)  GenerateFastBlock() (*types.Block,error){
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	var fastBlock  *types.Block
@@ -432,14 +467,14 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign){
-	/*fastBlocks	:= []*types.Block{fb}
+func (self *PbftAgent)  BroadcastSign(fb *types.Block, voteSign *types.PbftSign){
+	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
+	self.pauseBlock <-true //TODO if insertchain error
 	if err != nil{
 		panic(err)
-	}*/
-	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign,})
-
+	}
+	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
@@ -570,7 +605,7 @@ func (self * PbftAgent) SubscribeNewPbftSignEvent(ch chan<- core.PbftSignEvent) 
 	return self.scope.Track(self.signFeed.Subscribe(ch))
 }
 
-type NodeInfoEvent struct{ nodeInfo *CryNodeInfo }
+
 func (self * PbftAgent)  SubscribeNodeInfoEvent(ch chan<- NodeInfoEvent) event.Subscription {
 	return self.scope.Track(self.nodeInfoFeed.Subscribe(ch))
 }
@@ -590,7 +625,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	}
 	return false
 }
-
 
 func  GetSignHash(sign *types.PbftSign) []byte{
 	hash := RlpHash([]interface{} {
