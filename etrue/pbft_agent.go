@@ -24,8 +24,8 @@ import (
 	"crypto/rand"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"errors"
-	"io"
 	"fmt"
+	"io"
 )
 
 const (
@@ -55,7 +55,7 @@ type PbftAgent struct {
 	server types.PbftServerProxy
 	election	*Election
 
-	currentMu sync.Mutex
+	currentMu sync.Mutex //verifyBlock mutex
 	mu sync.Mutex //generateBlock mutex
 
 	mux          *event.TypeMux
@@ -113,18 +113,7 @@ type  CryNodeInfo struct {
 	Sign 		[]byte	//sign msg
 }
 
-// DecodeRLP decodes the Ethereum
-func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
-	err := s.Decode(c)
-	return err
-}
-// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
-func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, c)
-}
-func (c *CryNodeInfo) Hash() common.Hash {
-	return RlpHash(c)
-}
+
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
@@ -168,6 +157,10 @@ func (self *PbftAgent) Stop() {
 }
 
 func (self *PbftAgent) loop(){
+	defer self.committeeSub.Unsubscribe()
+	defer self.electionSub.Unsubscribe()
+	defer self.scope.Close()
+
 	var ticker *time.Ticker
 	for {
 		select {
@@ -192,11 +185,12 @@ func (self *PbftAgent) loop(){
 					for{
 						select {
 						case <-ticker.C:
+							fmt.Println("94")
 							self.SendPbftNode(ch.CommitteeInfo)
 						}
 					}
 				}()
-				self.server.PutCommittee(ch.CommitteeInfo)
+				//self.server.PutCommittee(ch.CommitteeInfo)
 			}
 
 		//receive nodeInfo
@@ -653,6 +647,19 @@ func RlpHash(x interface{}) (h common.Hash) {
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
+}
+
+// DecodeRLP decodes the Ethereum
+func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
+	err := s.Decode(c)
+	return err
+}
+// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
+func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, c)
+}
+func (c *CryNodeInfo) Hash() common.Hash {
+	return RlpHash(c)
 }
 
 func PrintNode(node *types.CommitteeNode){
