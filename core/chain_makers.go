@@ -92,7 +92,7 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 
-	var feeAmount *big.Int;
+	feeAmount := big.NewInt(0);
 	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed,feeAmount, vm.Config{})
 	if err != nil {
 		panic(err)
