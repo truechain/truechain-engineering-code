@@ -20,6 +20,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
 // Validator is an interface which defines the standard for block validation. It
@@ -27,6 +28,9 @@ import (
 // done by the specific consensus engines.
 //
 type Validator interface {
+	// SetElection set election
+	SetElection(e consensus.CommitteeElection) error
+
 	// ValidateBody validates the given block's content.
 	ValidateBody(block *types.SnailBlock) error
 

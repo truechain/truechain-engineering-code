@@ -60,6 +60,7 @@ var (
 	ErrInvalidHash = errors.New("invalid hash")
 
 	ErrFreshness = errors.New("fruit not fresh")
+	ErrMined = errors.New("already mined")
 )
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -268,7 +269,7 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 		return ErrNotExist
 	} else {
 		if f.TxHash() != fastBlock.TxHash() {
-			// fruit txs is invalid
+			// fastblock txs is invalid
 			delete(pool.allFruits, fastBlock.Hash())
 			delete(pool.fruitPending, fastBlock.Hash())
 			return ErrInvalidHash
@@ -298,13 +299,15 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	if rnumber.Cmp(lnumber)==1{
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
-		go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
+		//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
 		return nil
 	}else {
 		//judge is the fb exist
 		fb:=pool.fastchain.GetBlock(fruit.FastHash(),fruit.FastNumber().Uint64())
 		if fb ==nil{
-			go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
+			//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
 			//the fruit already exists,so remove the fruit's fb from fastBlockPending
 			pool.muFastBlock.Lock()
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
@@ -320,14 +323,16 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
 			pool.muFastBlock.Unlock()
 			// send out
-			go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
+			//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
 		}else {
 			if fruit.Difficulty().Cmp(lf.Difficulty()) <= 0 {
 				return nil
 			}else{
 				pool.allFruits[fruit.FastHash()] = fruit
 				pool.fruitPending[fruit.FastHash()] = fruit
-				go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
+				go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
+				//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
 			}
 		}
 	}
@@ -339,15 +344,33 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
 
-	//check
+	//check number(fb)
+	/*rnumber:=fastBlock.Number()
+	lnumber:=pool.fastchain.CurrentBlock().Number()
+	if rnumber.Cmp(lnumber)<1{
+		return ErrMined
+	}*/
+	//check exist
 	f := pool.allFastBlocks[fastBlock.Hash()]
 	if f != nil {
 		return ErrExist
 	}
-
+	//check fruit already had
+	number:=fastBlock.Number()
+	for _, fruit := range pool.allFruits {
+		if number.Cmp(fruit.Header().FastNumber)==1{
+			return ErrMined
+		}
+	}
 	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
-
-	err := pool.updateFruit(fastBlock, true)
+	end := pool.fastBlockPending.Back()
+	bf:=end.Value.(*types.Block)
+	a:=number.Sub(number,bf.Number())
+	if a.Cmp(common.Big1)==0{
+		pool.fastBlockPending.InsertAfter(fastBlock,end)
+	}
+	go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{types.Blocks{fastBlock}})
+	/*err := pool.updateFruit(fastBlock, true)
 	if err != nil {
 		// insert pending list to send to mine
 		pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
@@ -356,7 +379,7 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	fastBlocks = append(fastBlocks, fastBlock)
 	//go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{fastBlocks})
 
-	//pool.updateFastBlocksWithLock(fastBlock.Number(), true)
+	//pool.updateFastBlocksWithLock(fastBlock.Number(), true)*/
 
 	return nil
 }
@@ -699,7 +722,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEven
 	return nil
 }*/
 
-// Insert record into list order by record number
+// Insert fastblock into list order by fastblock number
 func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlock *types.Block) error {
 
 	//log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash())
