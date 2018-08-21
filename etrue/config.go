@@ -77,7 +77,7 @@ func init() {
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
-	Genesis *core.Genesis `toml:",omitempty"`
+	Genesis *core.Genesis
 	FastGenesis *core.Genesis
 	SnailGenesis *snailchain.Genesis
 
@@ -89,6 +89,20 @@ type Config struct {
 	// Light client options
 	LightServ  int `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
 	LightPeers int `toml:",omitempty"` // Maximum number of LES client peers
+
+	// election options
+
+	EnableElection bool `toml:",omitempty"`
+	// CommitteeKey is the ECDSA private key for committee member.
+	// If this filed is empty, can't be a committee member.
+	CommitteeKey  []byte `toml:",omitempty"`
+
+	// Host is the host interface on which to start the pbft server. If this
+	// field is empty, can't be a committee member.
+	Host string `toml:",omitempty"`
+
+	// Port is the TCP port number on which to start the pbft server.
+	Port int `toml:",omitempty"`
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`

@@ -27,6 +27,7 @@ var (
 	ErrInvalidMember = errors.New("invalid committee member")
 )
 
+
 type VoteuUse struct {
 	wi 		int64  //Local value
 	seed 	string
