@@ -47,9 +47,9 @@ var (
 //
 // BlockValidator implements Validator.
 type BlockValidator struct {
-	config *params.ChainConfig // Chain configuration options
-	bc     *SnailBlockChain    // Canonical block chain
-	engine consensus.Engine    // Consensus engine used for validating
+	config   *params.ChainConfig // Chain configuration options
+	bc       *SnailBlockChain    // Canonical block chain
+	engine   consensus.Engine    // Consensus engine used for validating
 	election consensus.CommitteeElection
 }
 
@@ -181,13 +181,6 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 	*/
 }
 
-var election consensus.CommitteeElection
-
-//Append interface CommitteeElection after instantiation
-func SetElection(e consensus.CommitteeElection) {
-	election = e
-}
-
 func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
 
 	//check integrity
@@ -211,16 +204,13 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
 		return err
 	}
 
-	if _, err := election.VerifySigns(fruit.Signs()); err != nil {
-		return err[0]
-	}
-
-	// TODO: check sign hash
-	//if hash := types.CalcSignHash(fruit.Signs()); hash != header.SignHash {
-	//	return ErrInvalidHash
-	//}
-
 	// validate the signatures of this fruit
+	_, errs := v.election.VerifySigns(fruit.Signs())
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
