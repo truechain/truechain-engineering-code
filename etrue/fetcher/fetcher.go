@@ -828,11 +828,10 @@ func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign) {
 
 		if _, ok := f.signMultiHash[number]; ok {
 			f.signMultiHash[number] = append(f.signMultiHash[number], hash)
-			if !verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(len(f.signMultiHash[number]))) {
-				return
-			}
 		} else {
 			f.signMultiHash[number] = append(f.signMultiHash[number],hash)
+		}
+		if !verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(len(f.signMultiHash[number]))) {
 			return
 		}
 
@@ -865,7 +864,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 
-	if f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.Body().GetLeaderSign()}) {
+	if f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}) {
 		log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
 		propSignInvaildMeter.Mark(1)
 		return
@@ -880,7 +879,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		f.queues[peer] = count
 		f.queued[hash] = op
 
-		opMulti := injectMulti{}
+		opMulti := &injectMulti{}
 		if blockHashs, ok := f.blockMultiHash[block.Number()]; ok {
 			f.blockMultiHash[block.Number()] = append(f.blockMultiHash[block.Number()], hash)
 			// update queue cache far more block in same height
@@ -991,7 +990,6 @@ func (f *Fetcher) NotifyPendingBlock(peer string, hash common.Hash, number uint6
 // block's number is at the same height as the current import phase, it updates
 // the phase states accordingly.
 func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) bool {
-
 	// Run the actual import and log any issues
 	if _, err := f.insertChain(types.Blocks{block}); err != nil {
 		log.Debug("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", block.Hash(), "err", err)
