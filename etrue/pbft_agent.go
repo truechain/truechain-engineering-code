@@ -220,9 +220,6 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	}
 
 	nodeByte,_ :=rlp.EncodeToBytes(pbftAgent.CommitteeNode)
-	/*nodeByte,_ :=rlp.EncodeToBytes([]interface{}{
-		pbftAgent.CommitteeNode,
-		committeeInfo.Id})*/
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -234,7 +231,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		}
 		cryNodeInfo.Nodes =append(cryNodeInfo.Nodes,EncryptCommitteeNode)
 	}
-	hash:=RlpHash(cryNodeInfo.Nodes)
+	hash:=RlpHash([]interface{}{cryNodeInfo.Nodes,committeeInfo.Id,})
 	sigInfo,err :=crypto.Sign(hash[:], pbftAgent.PrivateKey)
 	if err != nil{
 		log.Info("sign error")
@@ -253,7 +250,7 @@ func (pbftAgent *PbftAgent)  AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error{
 
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.CommitteeNode {
 	fmt.Println("ReceivePbftNode ...")
-	hash :=RlpHash(cryNodeInfo.Nodes)
+	hash :=RlpHash([]interface{}{cryNodeInfo.Nodes,cryNodeInfo.CommitteeId,})
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
 		log.Info("SigToPub error.")
@@ -284,13 +281,6 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 		}
 	}
 	return nil
-}
-func PrintNode(node *types.CommitteeNode){
-	fmt.Println("*********************")
-	fmt.Println("IP:",node.IP)
-	fmt.Println("Port:",node.Port)
-	fmt.Println("Coinbase:",node.Coinbase)
-	fmt.Println("Publickey:",node.Publickey)
 }
 
 //generateBlock and broadcast
@@ -663,4 +653,12 @@ func RlpHash(x interface{}) (h common.Hash) {
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
+}
+
+func PrintNode(node *types.CommitteeNode){
+	fmt.Println("*********************")
+	fmt.Println("IP:",node.IP)
+	fmt.Println("Port:",node.Port)
+	fmt.Println("Coinbase:",node.Coinbase)
+	fmt.Println("Publickey:",node.Publickey)
 }
