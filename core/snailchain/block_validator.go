@@ -14,15 +14,32 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package snailchain 
+package snailchain
 
 import (
+	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+)
+
+var (
+	// ErrInvalidSender is returned if the transaction contains an invalid signature.
+	ErrInvalidSign = errors.New("invalid sign")
+
+	ErrInvalidPointer = errors.New("invalid pointer block")
+
+	ErrExist = errors.New("already exist")
+
+	ErrNotExist = errors.New("not exist")
+
+	ErrInvalidHash = errors.New("invalid hash")
+
+	ErrFreshness = errors.New("fruit not fresh")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -31,9 +48,12 @@ import (
 // BlockValidator implements Validator.
 type BlockValidator struct {
 	config *params.ChainConfig // Chain configuration options
-	bc     *SnailBlockChain         // Canonical block chain
+	bc     *SnailBlockChain    // Canonical block chain
 	engine consensus.Engine    // Consensus engine used for validating
 }
+
+// freshFruitSize is the freshness of fruit according to the paper
+var fruitFreshness *big.Int = big.NewInt(17)
 
 // NewBlockValidator returns a new block validator which is safe for re-use
 func NewBlockValidator(config *params.ChainConfig, blockchain *SnailBlockChain, engine consensus.Engine) *BlockValidator {
@@ -64,14 +84,21 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
 		return err
 	}
+
+	for _, fruit := range block.Fruits() {
+		if err := v.ValidateFruit(fruit); err != nil {
+			return err
+		}
+	}
+
 	// TODO need add uncles or transaction at snail block 20180804
 	/*
-	if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-		return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-	}
-	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
-		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
-	}*/
+		if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
+			return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
+		}
+		if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
+			return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
+		}*/
 	return nil
 }
 
@@ -80,14 +107,13 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 // itself. ValidateState returns a database batch if the validation was a success
 // otherwise nil and an error is returned.
 
-
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 	//TODO need add gas for snail block 20180804
 	/*
-	if block.GasUsed() != usedGas {
-		return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
-	}
+		if block.GasUsed() != usedGas {
+			return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
+		}
 	*/
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
@@ -115,14 +141,14 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 func CalcGasLimit(parent *types.SnailBlock) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
 
-	// TODO add function 
+	// TODO add function
 	fmt.Printf("Block_Validator calcGasLimit not function")
 	return 0
 	/*
-	contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
+		contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
 
-	// decay = parentGasLimit / 1024 -1
-	decay := parent.GasLimit()/params.GasLimitBoundDivisor - 1
+		// decay = parentGasLimit / 1024 -1
+		decay := parent.GasLimit()/params.GasLimitBoundDivisor - 1
 	*/
 	/*
 		strategy: gasLimit of block-to-mine is set based on parent's
@@ -132,19 +158,62 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 		from parentGasLimit * (2/3) parentGasUsed is.
 	*/
 	/*
-	limit := parent.GasLimit() - decay + contrib
-	if limit < params.MinGasLimit {
-		limit = params.MinGasLimit
-	}
-	// however, if we're now below the target (TargetGasLimit) we increase the
-	// limit as much as we can (parentGasLimit / 1024 -1)
-	if limit < params.TargetGasLimit {
-		limit = parent.GasLimit() + decay
-		if limit > params.TargetGasLimit {
-			limit = params.TargetGasLimit
+		limit := parent.GasLimit() - decay + contrib
+		if limit < params.MinGasLimit {
+			limit = params.MinGasLimit
 		}
-	}
-	return limit
+		// however, if we're now below the target (TargetGasLimit) we increase the
+		// limit as much as we can (parentGasLimit / 1024 -1)
+		if limit < params.TargetGasLimit {
+			limit = parent.GasLimit() + decay
+			if limit > params.TargetGasLimit {
+				limit = params.TargetGasLimit
+			}
+		}
+		return limit
 	*/
 }
 
+var election consensus.CommitteeElection
+
+//Append interface CommitteeElection after instantiation
+func SetElection(e consensus.CommitteeElection) {
+	election = e
+}
+
+func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
+
+	//check integrity
+	getSignHash := types.CalcSignHash(fruit.Signs())
+	if fruit.Header().SignHash != getSignHash {
+		return ErrInvalidSign
+	}
+	// check freshness
+	pointer := v.bc.GetBlockByHash(fruit.PointerHash())
+	if pointer == nil {
+		return ErrInvalidPointer
+	}
+	//freshNumber := pool.header.Number().Sub(pool.header.Number(), pointer.Number())
+	freshNumber := new(big.Int).Sub(v.bc.CurrentBlock().Number(), pointer.Number())
+	if freshNumber.Cmp(fruitFreshness) > 0 {
+		return ErrFreshness
+	}
+
+	header := fruit.Header()
+	if err := v.engine.VerifySnailHeader(v.bc, header, true); err != nil {
+		return err
+	}
+
+	if _, err := election.VerifySigns(fruit.Signs()); err != nil {
+		return err[0]
+	}
+
+	// TODO: check sign hash
+	//if hash := types.CalcSignHash(fruit.Signs()); hash != header.SignHash {
+	//	return ErrInvalidHash
+	//}
+
+	// validate the signatures of this fruit
+
+	return nil
+}
