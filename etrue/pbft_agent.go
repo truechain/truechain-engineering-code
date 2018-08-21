@@ -56,6 +56,8 @@ type PbftAgent struct {
 	election	*Election
 
 	currentMu sync.Mutex
+	mu sync.Mutex //generateBlock mutex
+
 	mux          *event.TypeMux
 	eventMux     *event.TypeMux
 
@@ -67,12 +69,10 @@ type PbftAgent struct {
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
-	//SnailBlockCh  chan snailchain.ChainHeadEvent
 
 	electionSub event.Subscription
 	committeeSub event.Subscription
 	PbftNodeSub *event.TypeMuxSubscription
-	//snailBlockSub event.Subscription
 
 	CommitteeNode *types.CommitteeNode
 	PrivateKey *ecdsa.PrivateKey
@@ -135,7 +135,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent, 3),
 		ElectionCh: 	make(chan core.ElectionEvent, 10),
-		//SnailBlockCh:	make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		election: election,
 	}
 
@@ -155,7 +154,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 func (self *PbftAgent) Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	//self.snailBlockSub =self.snailChain.SubscribeChainHeadEvent(self.SnailBlockCh)
 	// Subscribe
 	go self.loop()
 }
@@ -186,10 +184,10 @@ func (self *PbftAgent) loop(){
 				self.SetCommitteeInfo(nil,setCurrentCommittee)
 			}
 		case ch := <-self.CommitteeCh:
-			ticker = time.NewTicker(time.Minute * 5)
 			self.SetCommitteeInfo(self.NextCommitteeInfo,setNextCommittee)
 			fmt.Println("CommitteeCh:",ch.CommitteeInfo)
 			if self.IsCommitteeMember(ch.CommitteeInfo){
+				ticker = time.NewTicker(time.Minute * 5)
 				go func(){
 					for{
 						select {
@@ -200,7 +198,6 @@ func (self *PbftAgent) loop(){
 				}()
 				self.server.PutCommittee(ch.CommitteeInfo)
 			}
-
 
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
@@ -221,7 +218,11 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	cryNodeInfo := &CryNodeInfo{
 		CommitteeId:committeeInfo.Id,
 	}
-	nodeByte,_ :=rlp.EncodeToBytes(pbftAgent.CommitteeNode) // TODO init committeeNode
+
+	nodeByte,_ :=rlp.EncodeToBytes(pbftAgent.CommitteeNode)
+	/*nodeByte,_ :=rlp.EncodeToBytes([]interface{}{
+		pbftAgent.CommitteeNode,
+		committeeInfo.Id})*/
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
 			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
@@ -294,6 +295,8 @@ func PrintNode(node *types.CommitteeNode){
 
 //generateBlock and broadcast
 func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	var fastBlock  *types.Block
 
 	tstart := time.Now()
@@ -325,6 +328,7 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	err := self.makeCurrent(parent, header)
 	work := self.current
 
+	self.currentMu.Lock()
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
@@ -352,6 +356,7 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
 	}
+	self.currentMu.Unlock()
 
 	return	fastBlock,nil
 }
@@ -397,6 +402,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	if err != nil{
 		return false,err
 	}
+	self.currentMu.Lock()
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
 		return false,err
@@ -405,6 +411,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	if err != nil{
 		return false,err
 	}
+	self.currentMu.Unlock()
 	return true,nil
 }
 
