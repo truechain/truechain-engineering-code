@@ -330,18 +330,19 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 
 	currentFastBlock := self.fastChain.CurrentBlock()
 	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
-	var snailHegiht *big.Int = big.NewInt(0)
+	var snailHegiht *big.Int = common.Big0
 	if blockReward != nil{
 		snailHegiht =blockReward.SnailNumber
 	}
-	snailHegiht = snailHegiht.Add(snailHegiht,big.NewInt(1))
+
+	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
 	if temp :=snailHegiht; temp.Sub(self.snailChain.CurrentBlock().Number(),temp).Int64()>=BlockRewordSpace{
 		fastBlock.Header().SnailNumber = snailHegiht
 		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
 	}
 	self.currentMu.Unlock()
-
+	fmt.Println("fastBlockHeight:",fastBlock.Header().Number)
 	return	fastBlock,nil
 }
 
@@ -624,8 +625,12 @@ func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
 }
 
 // getCommitteeNumber return Committees number
-func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
-	return int32(len(self.CommitteeInfo.Members))
+func (self * PbftAgent) GetCommitteeNumber(height *big.Int) uint16 {
+	committees := self.election.GetCommittee(height)
+	if committees == nil {
+		return 0
+	}
+	return  uint16(len(committees))
 }
 
 func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,CommitteeType int) error {
