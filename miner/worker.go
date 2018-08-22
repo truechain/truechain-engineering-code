@@ -56,6 +56,8 @@ const (
 var (
 	// fruit freshness
 	fruitFreshness *big.Int = big.NewInt(17)
+	//pinter hash Fresh
+	pointerHashFresh *big.Int = big.NewInt(7)
 )
 
 // Agent can register themself with the worker
@@ -90,7 +92,7 @@ type Work struct {
 	fruits   []*types.SnailBlock // for the fresh
 	signs    []*types.PbftSign
 	body   *types.SnailBody
- 
+
 	createdAt time.Time
 }
 
@@ -132,6 +134,8 @@ type worker struct {
 
 	coinbase common.Address
 	extra    []byte
+	toElect   bool // for elect
+	publickey   []byte// for publickey	
 
 	currentMu sync.Mutex
 	current   *Work
@@ -155,7 +159,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		config:         config,
 		engine:         engine,
 		eth:            eth,
-		mux:            mux,
+		mux:            mux,	
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
 		recordCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
@@ -490,7 +494,8 @@ func (self *worker) commitNewWork() {
 	//TODO need add more struct member
 	header := &types.SnailHeader{
 		ParentHash:  parent.Hash(),
-		PointerHash: parent.Hash(),
+		ToElect:	 self.toElect,
+		Publickey:   self.publickey,
 		Number:      num.Add(num, common.Big1),
 		Extra:       self.extra,
 		Time:        big.NewInt(tstamp),
@@ -502,6 +507,13 @@ func (self *worker) commitNewWork() {
 	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
+	}
+	// Set the pointerHash 
+	if num.Cmp(pointerHashFresh)>0 {	
+		header.PointerHash = self.chain.GetBlockByNumber(parent.Number().Uint64() - pointerHashFresh.Uint64()).Hash()
+	}else{
+		// pointer the genesis block
+		header.PointerHash = self.chain.GetBlockByNumber(0).Hash();
 	}
 	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
 	if daoBlock := self.config.DAOForkBlock; daoBlock != nil {
