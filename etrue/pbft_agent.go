@@ -34,11 +34,12 @@ const (
 
 	electionChanSize = 10
 
-	setCurrentCommittee = iota
-	setNextCommittee
+	CurrentCommittee = iota
+	NextCommittee
 
-	BlockRewordSpace =12
-	SignLength =32
+	BlockRewordSpace = 12
+	sendNodeTime = 5
+
 	prv_Hex = "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc"
 )
 
@@ -173,12 +174,13 @@ func (self *PbftAgent) loop(){
 	var ticker *time.Ticker
 	for {
 		select {
+		//TODO   committeeInfo set
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
 				fmt.Println("CommitteeStart:")
 				self.committeeMu.Lock()
-				self.SetCommitteeInfo(self.NextCommitteeInfo,setCurrentCommittee)
-				self.SetCommitteeInfo(nil,setNextCommittee)
+				self.SetCommitteeInfo(self.NextCommitteeInfo,CurrentCommittee)
+				//self.SetCommitteeInfo(nil,NextCommittee)
 				self.committeeMu.Unlock()
 				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
@@ -186,17 +188,17 @@ func (self *PbftAgent) loop(){
 				ticker.Stop()
 				self.committeeMu.Lock()
 				self.cacheSign =[]Sign{}
-				self.SetCommitteeInfo(nil,setCurrentCommittee)
+				self.SetCommitteeInfo(nil,CurrentCommittee)
 				self.committeeMu.Unlock()
 				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}
 		case ch := <-self.CommitteeCh:
 			fmt.Println("CommitteeCh:",ch.CommitteeInfo)
 			self.committeeMu.Lock()
-			self.SetCommitteeInfo(ch.CommitteeInfo,setNextCommittee)
+			self.SetCommitteeInfo(ch.CommitteeInfo,NextCommittee)
 			self.committeeMu.Unlock()
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				ticker = time.NewTicker(time.Minute * 5)
+				ticker = time.NewTicker(time.Minute * sendNodeTime)
 				//self.server.PutCommittee(ch.CommitteeInfo)
 				go func(){
 					for{
@@ -671,9 +673,9 @@ func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,Co
 	if newCommitteeInfo == nil{
 		newCommitteeInfo = &types.CommitteeInfo{}
 	}
-	if CommitteeType ==setCurrentCommittee{
+	if CommitteeType ==CurrentCommittee{
 		self.CommitteeInfo = newCommitteeInfo
-	}else if CommitteeType ==setNextCommittee{
+	}else if CommitteeType ==NextCommittee{
 		self.NextCommitteeInfo = newCommitteeInfo
 	}else{
 		return errors.New("CommitteeType is nil")

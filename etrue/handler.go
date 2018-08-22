@@ -844,16 +844,16 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSign *types.PbftSign) {
 // BroadcastPbNodeInfo will propagate a batch of CryNodeInfo to all peers which are not known to
 // already have the given CryNodeInfo.
 func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
-	var nodeInfoSet = make(map[*peer]NewPbftNodeEvent)
+	var nodeInfoSet = make(map[*peer]NodeInfoEvent)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
 	for _, peer := range peers {
-		nodeInfoSet[peer] = NewPbftNodeEvent{nodeInfo}
+		nodeInfoSet[peer] = NodeInfoEvent{nodeInfo}
 	}
 	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers))
 	for peer, nodeInfo := range nodeInfoSet {
-		peer.AsyncSendNodeInfo(nodeInfo.cryNodeInfo)
+		peer.AsyncSendNodeInfo(nodeInfo.nodeInfo)
 	}
 }
 
