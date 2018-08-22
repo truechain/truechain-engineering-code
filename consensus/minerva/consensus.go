@@ -784,8 +784,8 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 //gas allocation
 func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
 	committee := m.election.GetCommittee(fastNumber)
-    committeeGas :=big.NewInt(0)
-	if len(committee) != 0{
+	committeeGas := big.NewInt(0)
+	if len(committee) != 0 {
 		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
 	}
 	for _, v := range committee {
@@ -821,7 +821,15 @@ func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *t
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr, _ := ce.VerifySigns(signs)
+		addr, err := ce.VerifySigns(signs)
+		if len(addr) != len(err) {
+			return consensus.ErrInvalidSingsLength
+		}
+		for i := 0; i < len(addr); i++ {
+			if err[i] != nil {
+				failAddr[addr[i].Coinbase] = false
+			}
+		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address

@@ -22,6 +22,10 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		SyncMode                downloader.SyncMode
 		LightServ               int  `toml:",omitempty"`
 		LightPeers              int  `toml:",omitempty"`
+		EnableElection          bool  `toml:",omitempty"`
+		CommitteeKey  			hexutil.Bytes `toml:",omitempty"`
+		Host	                string `toml:",omitempty"`
+		Port	                int `toml:",omitempty"`
 		SkipBcVersionCheck      bool `toml:"-"`
 		DatabaseHandles         int  `toml:"-"`
 		DatabaseCache           int
@@ -41,6 +45,10 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.SyncMode = c.SyncMode
 	enc.LightServ = c.LightServ
 	enc.LightPeers = c.LightPeers
+	enc.EnableElection = c.EnableElection
+	enc.CommitteeKey = c.CommitteeKey
+	enc.Host = c.Host
+	enc.Port = c.Port
 	enc.SkipBcVersionCheck = c.SkipBcVersionCheck
 	enc.DatabaseHandles = c.DatabaseHandles
 	enc.DatabaseCache = c.DatabaseCache
@@ -61,6 +69,10 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		Genesis                 *core.Genesis `toml:",omitempty"`
 		NetworkId               *uint64
 		SyncMode                *downloader.SyncMode
+		EnableElection          *bool  `toml:",omitempty"`
+		CommitteeKey  			*hexutil.Bytes `toml:",omitempty"`
+		Host	                *string `toml:",omitempty"`
+		Port	                *int `toml:",omitempty"`
 		LightServ               *int  `toml:",omitempty"`
 		LightPeers              *int  `toml:",omitempty"`
 		SkipBcVersionCheck      *bool `toml:"-"`
@@ -88,6 +100,18 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.SyncMode != nil {
 		c.SyncMode = *dec.SyncMode
+	}
+	if dec.EnableElection != nil {
+		c.EnableElection = *dec.EnableElection
+	}
+	if dec.CommitteeKey != nil {
+		c.CommitteeKey = *dec.CommitteeKey
+	}
+	if dec.Host != nil {
+		c.Host = *dec.Host
+	}
+	if dec.Port != nil {
+		c.Port = *dec.Port
 	}
 	if dec.LightServ != nil {
 		c.LightServ = *dec.LightServ
