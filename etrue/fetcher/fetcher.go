@@ -419,9 +419,8 @@ func (f *Fetcher) loop() {
 			number := sign.FastHeight.Uint64()
 			if number > height+1 {
 				f.queueSign.Push(hashs, -float32(number))
-				break
 			}
-			//if inject, ok := f.queued[injectPend.hash]; ok {
+
 			blockSignHash := []common.Hash{}
 			if len(hashs) > 0 {
 				for _, hash := range hashs {
@@ -458,7 +457,7 @@ func (f *Fetcher) loop() {
 
 					// Otherwise if fresh and still unknown, try and import
 					if number+maxUncleDist < height || f.getBlock(sign.FastHash) != nil {
-						f.forgetSign(hash)
+						f.forgetBlockHeight(big.NewInt(int64(height)))
 						continue
 					}
 
