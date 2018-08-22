@@ -112,10 +112,10 @@ type worker struct {
 	mux *event.TypeMux
 
 	fruitCh   chan chain.NewFruitsEvent
-	fruitSub  event.Subscription // for fruit
+	fruitSub  event.Subscription // for fruit pool
 
-	recordCh  chan chain.NewFastBlocksEvent
-	recordSub event.Subscription //for record
+	fastBlockCh  chan chain.NewFastBlocksEvent
+	fastBlockSub event.Subscription //for fast block pool
 
 	chainHeadCh  chan chain.ChainHeadEvent
 	chainHeadSub event.Subscription
@@ -162,7 +162,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		mux:            mux,	
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
-		recordCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
+		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
 		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
 		chainDb:        eth.ChainDb(),
@@ -181,8 +181,8 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	worker.chainHeadSub = eth.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
-	worker.fruitSub = eth.SnailBlockChain().SubscribeNewFruitEvent(worker.fruitCh)
-//	worker.chainSideSub = eth.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.fruitSub = eth.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
+	worker.fastBlockSub = eth.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
 
 	go worker.update()
 
@@ -318,7 +318,7 @@ func (self *worker) update() {
 	//defer self.txsSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
-
+	defer self.fastBlockSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
 
 	for {
@@ -336,10 +336,12 @@ func (self *worker) update() {
 
 		//TODO　fruit event
 		case  <-self.fruitCh:
-			self.commitNewWork()
-
+			//self.commitNewWork()
+		case  <-self.fastBlockCh:
 		// TODO fast block event
-
+		case <-self.fastBlockSub.Err():
+			
+			return
 		case <-self.fruitSub.Err():
 			return
 		case <-self.chainHeadSub.Err():
@@ -372,7 +374,7 @@ func (self *worker) wait() {
 					continue
 				}
 
-				//log.Info("mined fruit", "record number", block.RecordNumber(), "hash", block.Hash())
+				//log.Info("—mined fruit","NUMBER",block.FastNumber())
 				//neo 20180628
 				// put it into pool first
 				// Broadcast the new fruit event
@@ -508,12 +510,14 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	// Set the pointerHash 
+	/*
 	if num.Cmp(pointerHashFresh)>0 {	
 		header.PointerHash = self.chain.GetBlockByNumber(parent.Number().Uint64() - pointerHashFresh.Uint64()).Hash()
 	}else{
 		// pointer the genesis block
 		header.PointerHash = self.chain.GetBlockByNumber(0).Hash();
 	}
+	*/
 	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
 	if daoBlock := self.config.DAOForkBlock; daoBlock != nil {
 		// Check whether the block is among the fork extra-override range
@@ -543,6 +547,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	if fastblock != nil {
+		log.Info("+++start miner commint new work ","FB number",fastblock.Number())
 		self.current.header.FastNumber = fastblock.Number()
 		self.current.header.FastHash = fastblock.Hash()
 		signs := make([]*types.PbftSign, len(fastblock.Body().Signs))
