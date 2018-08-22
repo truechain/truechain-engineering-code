@@ -29,17 +29,17 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 const (
@@ -48,10 +48,10 @@ const (
 
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
-	signChanSize = 256
-	nodeChanSize = 256
-	fruitChanSize = 256
+	txChanSize         = 4096
+	signChanSize       = 256
+	nodeChanSize       = 256
+	fruitChanSize      = 256
 	snailBlockChanSize = 256
 )
 
@@ -70,44 +70,44 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type ProtocolManager struct {
 	networkID uint64
 
-	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFruits uint32
+	fastSync          uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs         uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptFruits      uint32
 	acceptSnailBlocks uint32
-	txpool      txPool
-	SnailPool     SnailPool
-	blockchain  *core.BlockChain
-	snailchain *snailchain.SnailBlockChain
-	chainconfig *params.ChainConfig
-	maxPeers    int
+	txpool            txPool
+	SnailPool         SnailPool
+	blockchain        *core.BlockChain
+	snailchain        *snailchain.SnailBlockChain
+	chainconfig       *params.ChainConfig
+	maxPeers          int
 
-	downloader *downloader.Downloader
-	fetcherFast    *fetcher.Fetcher
-	peers      *peerSet
+	downloader  *downloader.Downloader
+	fetcherFast *fetcher.Fetcher
+	peers       *peerSet
 
 	SubProtocols []p2p.Protocol
 
-	eventMux      *event.TypeMux
-	txsCh         chan core.NewTxsEvent
-	txsSub        event.Subscription
+	eventMux *event.TypeMux
+	txsCh    chan core.NewTxsEvent
+	txsSub   event.Subscription
 
 	//fruit
-	fruitsch       chan snailchain.NewFruitsEvent
-	fruitsSub	   event.Subscription
+	fruitsch  chan snailchain.NewFruitsEvent
+	fruitsSub event.Subscription
 
 	snailBlocksch  chan snailchain.ChainEvent
-	snailBlocksSub	   event.Subscription
+	snailBlocksSub event.Subscription
 
 	//fast block
-	minedFastCh         chan core.NewBlockEvent
-	minedFastSub        event.Subscription
+	minedFastCh  chan core.NewBlockEvent
+	minedFastSub event.Subscription
 
-	pbSignsCh         chan core.PbftSignEvent
-	pbSignsSub        event.Subscription
-	pbNodeInfoCh         chan NodeInfoEvent
-	pbNodeInfoSub        event.Subscription
+	pbSignsCh     chan core.PbftSignEvent
+	pbSignsSub    event.Subscription
+	pbNodeInfoCh  chan NodeInfoEvent
+	pbNodeInfoSub event.Subscription
 
-    //fruit
+	//fruit
 	minedFruitSub *event.TypeMuxSubscription
 	//minedsnailBlock
 	minedSnailBlockSub *event.TypeMuxSubscription
@@ -119,7 +119,7 @@ type ProtocolManager struct {
 
 	// wait group is used for graceful shutdowns during downloading
 	// and processing
-	wg sync.WaitGroup
+	wg         sync.WaitGroup
 	agentProxy AgentNetworkProxy
 }
 
@@ -131,31 +131,31 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		networkID:   networkID,
 		eventMux:    mux,
 		txpool:      txpool,
-		SnailPool:  SnailPool,
+		SnailPool:   SnailPool,
 		snailchain:  snailchain,
-		blockchain:	 blockchain,
+		blockchain:  blockchain,
 		chainconfig: config,
 		peers:       newPeerSet(),
 		newPeerCh:   make(chan *peer),
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
 		quitSync:    make(chan struct{}),
-		agentProxy: 	agent,
+		agentProxy:  agent,
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
 	/*
-	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync {
-		manager.fastSync = uint32(1)
-	}
+		if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
+			log.Warn("Blockchain not empty, fast sync disabled")
+			mode = downloader.FullSync
+		}
+		if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
+			log.Warn("Blockchain not empty, fast sync disabled")
+			mode = downloader.FullSync
+		}
+		if mode == downloader.FastSync {
+			manager.fastSync = uint32(1)
+		}
 	*/
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
@@ -290,15 +290,15 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 func (pm *ProtocolManager) Stop() {
 	log.Info("Stopping Truechain protocol")
 
-	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
+	pm.txsSub.Unsubscribe()       // quits txBroadcastLoop
 	pm.minedFastSub.Unsubscribe() // quits minedFastBroadcastLoop
 	pm.pbSignsSub.Unsubscribe()
 	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
-	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
+	pm.fruitsSub.Unsubscribe()     // quits fruitBroadcastLoop
 	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
 	//snailblock and minedSnailBlock
-	pm.snailBlocksSub.Unsubscribe() // quits snailBlockBroadcastLoop
+	pm.snailBlocksSub.Unsubscribe()     // quits snailBlockBroadcastLoop
 	pm.minedSnailBlockSub.Unsubscribe() // quits minedSnailBlockBroadcastLoop
 
 	// Quit the sync loop.
@@ -670,7 +670,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
 			if pm.fetcherFast.GetPendingBlock(block.Hash) != nil {
-				pm.fetcherFast.NotifyPendingBlock(p.id,block.Hash,block.Number)
+				pm.fetcherFast.NotifyPendingBlock(p.id, block.Hash, block.Number)
 			} else if !pm.blockchain.HasBlock(block.Hash, block.Number) {
 				unknown = append(unknown, block)
 			}
@@ -688,9 +688,29 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
 
+		// TODO: downloader sync func
 		// Mark the peer as owning the block and schedule it for import
-		p.MarkFastBlock(request.Block.Hash())
-		pm.fetcherFast.Enqueue(p.id, request.Block)
+		//p.MarkFastBlock(request.Block.Hash())
+		//pm.fetcherFast.Enqueue(p.id, request.Block)
+		//
+		//// Assuming the block is importable by the peer, but possibly not yet done so,
+		//// calculate the head hash and TD that the peer truly must have.
+		//var (
+		//	trueHead = request.Block.ParentHash()
+		//	trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
+		//)
+		//// Update the peers total difficulty if better than the previous
+		//if _, td := p.Head(); trueTD.Cmp(td) > 0 {
+		//	p.SetHead(trueHead, trueTD)
+		//
+		//	// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+		//	// a singe block (as the true TD is below the propagated block), however this
+		//	// scenario should easily be covered by the fetcher.
+		//	currentBlock := pm.blockchain.CurrentBlock()
+		//	if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+		//		go pm.synchronise(p)
+		//	}
+		//}
 
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
@@ -729,10 +749,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
 
 	case msg.Code == BlockSignMsg:
-		// sign arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
-			break
-		}
 		// PbftSign can be processed, parse all of them and deliver to the queue
 		var sign *types.PbftSign
 		if err := msg.Decode(&sign); err != nil {
@@ -743,7 +759,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "sign is nil")
 		}
 		p.MarkSign(sign.Hash())
-		pm.fetcherFast.EnqueueSign(p.id,sign)
+		pm.fetcherFast.EnqueueSign(p.id, sign)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
@@ -943,6 +959,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		peer.AsyncSendTransactions(txs)
 	}
 }
+
 //for fruits
 func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 	var fruitset = make(map[*peer]types.Fruits)
@@ -960,6 +977,7 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 		peer.AsyncSendFruits(fruits)
 	}
 }
+
 //for snailBlocks
 func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks *types.SnailBlock) {
 	var snailBlcokset = make(map[*peer]types.SnailBlocks)
@@ -970,19 +988,20 @@ func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks *types.SnailBlock) {
 	for _, peer := range peers {
 		snailBlcokset[peer] = append(snailBlcokset[peer], snailBlocks)
 		//}
-	log.Trace("Broadcast snailBlcoks", "hash", snailBlocks.Hash(), "recipients", len(peers))
+		log.Trace("Broadcast snailBlcoks", "hash", snailBlocks.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, snailBlocks := range snailBlcokset {
 		peer.AsyncSendSnailBlocks(snailBlocks)
 	}
 }
+
 // Mined broadcast loop
 func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.minedFastCh:
-			pm.BroadcastFastBlock(event.Block, true)  // First propagate fast block to peers
+			pm.BroadcastFastBlock(event.Block, true) // First propagate fast block to peers
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.minedFastSub.Err():
@@ -995,7 +1014,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.pbSignsCh:
-				pm.BroadcastPbSign(event.PbftSign)
+			pm.BroadcastPbSign(event.PbftSign)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():
@@ -1028,6 +1047,7 @@ func (pm *ProtocolManager) minedFruitLoop() {
 		}
 	}
 }
+
 // Mined snailBlock loop
 func (pm *ProtocolManager) minedSnailBlockLoop() {
 	// automatically stops if unsubscribe
@@ -1051,6 +1071,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		}
 	}
 }
+
 //  fruits
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	for {
@@ -1064,6 +1085,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 		}
 	}
 }
+
 //  snailBlocks
 func (pm *ProtocolManager) snailBlockBroadcastLoop() {
 	for {
@@ -1077,6 +1099,7 @@ func (pm *ProtocolManager) snailBlockBroadcastLoop() {
 		}
 	}
 }
+
 // NodeInfo represents a short summary of the Truechain sub-protocol metadata
 // known about the host peer.
 type NodeInfo struct {
