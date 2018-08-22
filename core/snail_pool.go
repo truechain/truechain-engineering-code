@@ -268,14 +268,15 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	if f == nil {
 		return ErrNotExist
 	} else {
-		if f.TxHash() != fastBlock.TxHash() {
-			// fastblock txs is invalid
+		if err := pool.validateFruit(f); err != nil {
 			delete(pool.allFruits, fastBlock.Hash())
 			delete(pool.fruitPending, fastBlock.Hash())
 			return ErrInvalidHash
-		} else {
-			pool.fruitPending[fastBlock.Hash()] = f
 		}
+
+		// TODO: verify signatures
+
+		pool.fruitPending[fastBlock.Hash()] = f
 	}
 	return nil
 }
@@ -290,52 +291,45 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		return err
 	}
 
-	//TODO check is really signature
-	//pool.chain. //if error return error
-
 	//check number(fb)
-	rnumber:=fruit.FastNumber()
-	lnumber:=pool.fastchain.CurrentBlock().Number()
-	if rnumber.Cmp(lnumber)==1{
+	currentNumber := pool.fastchain.CurrentBlock().Number()
+	if fruit.FastNumber().Cmp(currentNumber) > 0 {
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
 		return nil
-	}else {
-		//judge is the fb exist
-		fb:=pool.fastchain.GetBlock(fruit.FastHash(),fruit.FastNumber().Uint64())
-		if fb ==nil{
-			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
-			//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
-			//the fruit already exists,so remove the fruit's fb from fastBlockPending
-			pool.muFastBlock.Lock()
-			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-			pool.muFastBlock.Unlock()
-			return nil
-		}
-		// compare with allFruits's fruit
-		lf := pool.allFruits[fruit.FastHash()]
-		if lf == nil {
-			pool.allFruits[fruit.FastHash()] = fruit
-			//the fruit already exists,so remove the fruit's fb from fastBlockPending
-			pool.muFastBlock.Lock()
-			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-			pool.muFastBlock.Unlock()
-			// send out
-			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
-			//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
-		}else {
-			if fruit.Difficulty().Cmp(lf.Difficulty()) <= 0 {
-				return nil
-			}else{
-				pool.allFruits[fruit.FastHash()] = fruit
-				pool.fruitPending[fruit.FastHash()] = fruit
-				go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
-				//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
-			}
-		}
 	}
+	//judge is the fb exist
+	fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
+	if fb == nil {
+		return ErrNotExist
+	}
+
+	// TODO: check signature
+
+	// compare with allFruits's fruit
+	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
+		if fruit.Difficulty().Cmp(f.Difficulty()) <= 0 {
+			return nil
+		} else {
+			pool.allFruits[fruit.FastHash()] = fruit
+			pool.fruitPending[fruit.FastHash()] = fruit
+			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
+		}
+	} else {
+		pool.fruitPending[fruit.FastHash()] = fruit
+
+		pool.allFruits[fruit.FastHash()] = fruit
+		//the fruit already exists,so remove the fruit's fb from fastBlockPending
+
+		pool.muFastBlock.Lock()
+		pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
+		pool.muFastBlock.Unlock()
+		// send out
+		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
+	}
+
 	return nil
 }
 
@@ -344,42 +338,27 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
 
-	//check number(fb)
-	/*rnumber:=fastBlock.Number()
-	lnumber:=pool.fastchain.CurrentBlock().Number()
-	if rnumber.Cmp(lnumber)<1{
-		return ErrMined
-	}*/
 	//check exist
 	f := pool.allFastBlocks[fastBlock.Hash()]
 	if f != nil {
 		return ErrExist
 	}
-	//check fruit already had
-	number:=fastBlock.Number()
-	for _, fruit := range pool.allFruits {
-		if number.Cmp(fruit.Header().FastNumber)==1{
+
+	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
+	//check fruit already exist
+	if _, ok := pool.fruitPending[fastBlock.Hash()]; ok {
+		return ErrMined
+	}
+
+	if _, ok := pool.allFruits[fastBlock.Hash()]; ok {
+		if err := pool.updateFruit(fastBlock, true); err == nil {
 			return ErrMined
 		}
 	}
-	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
-	end := pool.fastBlockPending.Back()
-	bf:=end.Value.(*types.Block)
-	a:=number.Sub(number,bf.Number())
-	if a.Cmp(common.Big1)==0{
-		pool.fastBlockPending.InsertAfter(fastBlock,end)
-	}
-	go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{types.Blocks{fastBlock}})
-	/*err := pool.updateFruit(fastBlock, true)
-	if err != nil {
-		// insert pending list to send to mine
-		pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
-	}
-	var fastBlocks []*types.Block
-	fastBlocks = append(fastBlocks, fastBlock)
-	//go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{fastBlocks})
 
-	//pool.updateFastBlocksWithLock(fastBlock.Number(), true)*/
+	pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
+
+	go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{types.Blocks{fastBlock}})
 
 	return nil
 }
@@ -656,46 +635,34 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	return errs
 }
 
-// Pending retrieves all currently processable allFruits, sorted by record number.
+
+// PendingFruits retrieves all currently verified fruits, sorted by fast number.
 // The returned fruit set is a copy and can be freely modified by calling code.
-/*func (pool *SnailPool) PendingFruits() (map[common.Hash]*types.SnailBlock, error) {
-	pool.muFruit.Lock()
-	defer pool.muFruit.Unlock()
-
-	pending := make(map[common.Hash]*types.SnailBlock)
-	for addr, fruit := range pool.fruitPending {
-		pending[addr] = types.CopyFruit(fruit)
-	}
-
-	return pending, nil
-}*/
 func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
+
 	var fruits types.SnailBlocks
 	var rtfruits types.SnailBlocks
-	//pending := make(map[common.Hash]*types.SnailBlock)
+
 	for _, fruit := range pool.fruitPending {
-		//pending[addr] = types.CopyFruit(fruit)
 		fruits=append(fruits,types.CopyFruit(fruit))
 	}
 	types.SnailBlockBy(types.SnailNumber).Sort(fruits)
+
 	var number *big.Int
-	if len(fruits)>0{
-		number=fruits[0].Number()
-	}
 	for k, v := range fruits {
-		a:=number.Sub(v.Number(),number)
-		if k<1{
+		if k == 0 {
 			rtfruits=append(rtfruits,v)
+			number = v.Number()
+
 			continue
 		}
-		if a.Cmp(common.Big1)==0{
-			rtfruits=append(rtfruits,v)
-		}else {
+		number = new(big.Int).Add(number, common.Big1)
+		if number.Cmp(v.Number()) != 0 {
 			break
 		}
-		number=v.Number()
+		rtfruits = append(rtfruits, v)
 	}
 	return rtfruits, nil
 }
@@ -705,22 +672,6 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEven
 	return pool.scope.Track(pool.fruitFeed.Subscribe(ch))
 }
 
-// Insert record into list order by record number
-/*func (pool *SnailPool) insertRecordWithLock(recordList *list.List, record *types.PbftRecord) error {
-
-	log.Info("++insert record pending", "number", record.Number(), "hash", record.Hash())
-
-	for lr := recordList.Front(); lr != nil; lr = lr.Next() {
-		r := lr.Value.(*types.PbftRecord)
-		if r.Number().Cmp(record.Number()) > 0 {
-			recordList.InsertBefore(record, lr)
-			return nil
-		}
-	}
-	recordList.PushBack(record)
-
-	return nil
-}*/
 
 // Insert fastblock into list order by fastblock number
 func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlock *types.Block) error {
@@ -739,27 +690,6 @@ func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlo
 	return nil
 }
 
-// AddLocals enqueues a batch of transactions into the pool if they are valid,
-// marking the senders as a local ones in the mean time, ensuring they go around
-// the local pricing constraints.
-/*func (pool *SnailPool) AddRemoteRecords(records []*types.PbftRecord) []error {
-	errs := make([]error, len(records))
-
-	// TODO: check record signatures
-	for i, record := range records {
-		if err := pool.validateRecord(record); err != nil {
-			errs[i] = err
-			continue
-		}
-
-		r := types.CopyRecord(record)
-		pool.newRecordCh <- r
-	}
-
-	return errs
-}
-*/
-
 
 // AddRemoteFastBlock is for test only
 func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.Block) []error {
@@ -773,21 +703,8 @@ func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.Block) []error {
 	return errs
 }
 
-// Pending retrieves one currently record.
-// The returned record is a copy and can be freely modified by calling code.
-/*func (pool *SnailPool) PendingRecords() (*types.PbftRecord, error) {
-	pool.muRecord.Lock()
-	defer pool.muRecord.Unlock()
-
-	first := pool.recordPending.Front()
-	if first == nil {
-		return nil, nil
-	}
-	record := types.CopyRecord(first.Value.(*types.PbftRecord))
-
-	return record, nil
-}*/
-
+// PendingFastBlocks retrieves one currently fast block.
+// The returned fast block is a copy and can be freely modified by calling code.
 func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
@@ -802,34 +719,11 @@ func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 	return fastBlock, nil
 }
 
-// SubscribeNewRecordsEvent registers a subscription of NewRecordEvent and
-// starts sending event to the given channel.
-/*func (pool *SnailPool) SubscribeNewRecordEvent(ch chan<- NewRecordsEvent) event.Subscription {
-	return pool.scope.Track(pool.recordFeed.Subscribe(ch))
-}*/
+// SubscribeNewFastBlockEvent registers a subscription of NewFastBlocksEvent
+// and starts sending event to the given channel.
 func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- snailchain.NewFastBlocksEvent) event.Subscription {
 	return pool.scope.Track(pool.fastBlockFeed.Subscribe(ch))
 }
-// validateRecord checks whether a Record is valid.
-/*func (pool *SnailPool) validateRecord(record *types.PbftRecord) error {
-	// TODO: check the record is signed properly
-	//from, err := types.Sender(pool.signer, tx)
-	//if err != nil {
-	//	return ErrInvalidSender
-	//}
-
-	txHash := types.DeriveSha(record.Transactions())
-	if txHash != record.TxHash() {
-		return ErrInvalidHash
-	}
-
-	hash := record.CalcHash()
-	if hash != record.Hash() {
-		return ErrInvalidHash
-	}
-
-	return nil
-}*/
 
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
