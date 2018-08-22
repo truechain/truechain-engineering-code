@@ -661,12 +661,12 @@ func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
 }
 
 // getCommitteeNumber return Committees number
-func (self * PbftAgent) GetCommitteeNumber(height *big.Int) uint16 {
+func (self * PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
 	committees := self.election.GetCommittee(height)
 	if committees == nil {
 		return 0
 	}
-	return  uint16(len(committees))
+	return  int32(len(committees))
 }
 
 func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo,CommitteeType int) error {
