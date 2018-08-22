@@ -2,16 +2,15 @@ package types
 
 import (
 	"bytes"
-	"log"
 	"crypto/ecdsa"
 	"encoding/binary"
-	"math/big"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"log"
+	"math/big"
 )
-
 
 const (
 	CommitteeStart      = iota // start pbft consensus
@@ -19,14 +18,12 @@ const (
 	CommitteeSwitchover        //switch pbft committee
 )
 
-
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
 	Coinbase  common.Address
-	Publickey  *ecdsa.PublicKey
+	Publickey *ecdsa.PublicKey
 }
-
 
 func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
@@ -51,10 +48,10 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 }
 
 type CommitteeNode struct {
-	IP   string
-	Port uint
+	IP        string
+	Port      uint
 	Coinbase  common.Address
-	Publickey  []byte
+	Publickey []byte
 }
 
 type PbftSigns []*PbftSign
@@ -92,7 +89,7 @@ type PbftAgentProxy interface {
 	FetchFastBlock() (*Block, error)
 	VerifyFastBlock(*Block) error
 	BroadcastFastBlock(*Block) error
-	BroadcastSign(sign *PbftSign,block *Block) error
+	BroadcastSign(sign *PbftSign, block *Block) error
 }
 
 type PbftServerProxy interface {
@@ -125,11 +122,10 @@ func IntToHex(num interface{}) []byte {
 	return buff.Bytes()
 }
 
-
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *PbftSign) Hash() common.Hash {
-	return rlpHash(h)
+	return h.HashWithNoSign()
 }
 
 func (h *PbftSign) HashWithNoSign() common.Hash {
@@ -141,6 +137,6 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 }
 
 type CommitteeInfo struct {
-	Id *big.Int
+	Id      *big.Int
 	Members []*CommitteeMember
 }
