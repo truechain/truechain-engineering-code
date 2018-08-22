@@ -428,7 +428,7 @@ func (s *Truechain) BlockChain() *core.BlockChain            { return s.blockcha
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
 
-func (s *Truechain) HybridPool() *core.SnailPool { return s.snailPool }
+func (s *Truechain) SnailPool() *core.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }
@@ -469,11 +469,13 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
+
 	s.startPbftServer()
+
+	s.agent.Start()
 
 	s.election.Start()
 
-	s.agent.Start()
 	//go sendBlock(s.agent)
 	return nil
 }
