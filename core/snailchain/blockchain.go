@@ -126,7 +126,6 @@ type SnailBlockChain struct {
 	wg            sync.WaitGroup // chain processing wait group for shutting down
 
 	engine    consensus.Engine
-	processor Processor // block processor interface
 	validator Validator // block and state validator interface
 	vmConfig  vm.Config
 
@@ -362,13 +361,6 @@ func (bc *SnailBlockChain) CurrentFastBlock() *types.Block {
 	return bc.currentFastBlock.Load().(*types.Block)
 }
 
-// SetProcessor sets the processor required for making state modifications.
-func (bc *SnailBlockChain) SetProcessor(processor Processor) {
-	bc.procmu.Lock()
-	defer bc.procmu.Unlock()
-	bc.processor = processor
-}
-
 // SetValidator sets the validator which is used to validate incoming blocks.
 func (bc *SnailBlockChain) SetValidator(validator Validator) {
 	bc.procmu.Lock()
@@ -381,13 +373,6 @@ func (bc *SnailBlockChain) Validator() Validator {
 	bc.procmu.RLock()
 	defer bc.procmu.RUnlock()
 	return bc.validator
-}
-
-// Processor returns the current processor.
-func (bc *SnailBlockChain) Processor() Processor {
-	bc.procmu.RLock()
-	defer bc.procmu.RUnlock()
-	return bc.processor
 }
 
 // State returns a new mutable state based on the current HEAD block.
@@ -883,10 +868,10 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 }
 var lastSnailWrite uint64
 
-// WriteBlockWithoutState writes only the block and its metadata to the database,
+// WriteBlock writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
-func (bc *SnailBlockChain) WriteBlockWithoutState(block *types.SnailBlock, td *big.Int) (err error) {
+func (bc *SnailBlockChain) WriteBlock(block *types.SnailBlock, td *big.Int) (err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -898,8 +883,8 @@ func (bc *SnailBlockChain) WriteBlockWithoutState(block *types.SnailBlock, td *b
 	return nil
 }
 
-// WriteBlockWithState writes the block and all associated state to the database.
-func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts []*types.Receipt, state *state.StateDB) (status WriteStatus, err error) {
+// WriteCanonicalBlock writes the block and all associated state to the database.
+func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -924,60 +909,6 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 	batch := bc.db.NewBatch()
 	rawdb.WriteBlock(batch, block)
 
-	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
-	if err != nil {
-		return NonStatTy, err
-	}
-	triedb := bc.stateCache.TrieDB()
-
-	// If we're running an archive node, always flush
-	if bc.cacheConfig.Disabled {
-		if err := triedb.Commit(root, false); err != nil {
-			return NonStatTy, err
-		}
-	} else {
-		// Full but not archive node, do proper garbage collection
-		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
-		bc.triegc.Push(root, -float32(block.NumberU64()))
-
-		if current := block.NumberU64(); current > triesInMemory {
-			// If we exceeded our memory allowance, flush matured singleton nodes to disk
-			var (
-				nodes, imgs = triedb.Size()
-				limit       = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
-			)
-			if nodes > limit || imgs > 4*1024*1024 {
-				triedb.Cap(limit - ethdb.IdealBatchSize)
-			}
-			// Find the next state trie we need to commit
-			header := bc.GetHeaderByNumber(current - triesInMemory)
-			chosen := header.Number.Uint64()
-
-			// If we exceeded out time allowance, flush an entire trie to disk
-			if bc.gcproc > bc.cacheConfig.TrieTimeLimit {
-				// If we're exceeding limits but haven't reached a large enough memory gap,
-				// warn the user that the system is becoming unstable.
-				if chosen < lastSnailWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-					log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastSnailWrite)/triesInMemory)
-				}
-				// Flush an entire trie and restart the counters
-				triedb.Commit(header.Root, true)
-				lastSnailWrite = chosen
-				bc.gcproc = 0
-			}
-			// Garbage collect anything below our required write retention
-			for !bc.triegc.Empty() {
-				root, number := bc.triegc.Pop()
-				if uint64(-number) > chosen {
-					bc.triegc.Push(root, number)
-					break
-				}
-				triedb.Dereference(root.(common.Hash))
-			}
-		}
-	}
-	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
 	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
@@ -994,10 +925,9 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 				return NonStatTy, err
 			}
 		}
-		// Write the positional metadata for transaction/receipt lookups and preimages
-		
-		///rawdb.WriteFtLookupEntries(batch, block)
-		//rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
+
+		// Write the positional metadata for fruit lookups
+		rawdb.WriteFtLookupEntries(batch, block)
 
 		status = CanonStatTy
 	} else {
@@ -1022,18 +952,18 @@ func (bc *SnailBlockChain) WriteBlockWithState(block *types.SnailBlock, receipts
 //
 // After insertion is done, all accumulated events will be fired.
 func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
-	n, events, logs, err := bc.insertChain(chain)
-	bc.PostChainEvents(events, logs)
+	n, events, err := bc.insertChain(chain)
+	bc.PostChainEvents(events)
 	return n, err
 }
 
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
-func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interface{}, []*types.Log, error) {
+func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interface{}, error) {
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
-		return 0, nil, nil, nil
+		return 0, nil, nil
 	}
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
@@ -1042,7 +972,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			log.Error("Non contiguous block insert", "number", chain[i].Number(), "hash", chain[i].Hash(),
 				"parent", chain[i].ParentHash(), "prevnumber", chain[i-1].Number(), "prevhash", chain[i-1].Hash())
 
-			return 0, nil, nil, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
+			return 0, nil, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
 				chain[i-1].Hash().Bytes()[:4], i, chain[i].NumberU64(), chain[i].Hash().Bytes()[:4], chain[i].ParentHash().Bytes()[:4])
 		}
 	}
@@ -1060,7 +990,6 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		stats         = insertSnailStats{startTime: mclock.Now()}
 		events        = make([]interface{}, 0, len(chain))
 		lastCanon     *types.SnailBlock
-		coalescedLogs []*types.Log
 	)
 	// Start the parallel header verifier
 	headers := make([]*types.SnailHeader, len(chain))
@@ -1074,9 +1003,6 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 	abort, results := bc.engine.VerifySnailHeaders(bc, headers, seals)
 	defer close(abort)
 
-	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
-	//senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
-
 	// Iterate over the blocks and insert when the verifier permits
 	for i, block := range chain {
 		// If the chain is terminating, stop processing blocks
@@ -1086,8 +1012,8 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		}
 		// If the header is a banned one, straight out abort
 		if BadHashes[block.Hash()] {
-			bc.reportBlock(block, nil, ErrBlacklistedHash)
-			return i, events, coalescedLogs, ErrBlacklistedHash
+			bc.reportBlock(block, ErrBlacklistedHash)
+			return i, events, ErrBlacklistedHash
 		}
 		// Wait for the block's verification to complete
 		bstart := time.Now()
@@ -1110,7 +1036,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			// the chain is discarded and processed at a later time if given.
 			max := big.NewInt(time.Now().Unix() + maxTimeFutureBlocks)
 			if block.Time().Cmp(max) > 0 {
-				return i, events, coalescedLogs, fmt.Errorf("future block: %v > %v", block.Time(), max)
+				return i, events, fmt.Errorf("future block: %v > %v", block.Time(), max)
 			}
 			bc.futureBlocks.Add(block.Hash(), block)
 			stats.queued++
@@ -1128,8 +1054,8 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 			externTd := new(big.Int).Add(bc.GetTd(block.ParentHash(), block.NumberU64()-1), block.Difficulty())
 			if localTd.Cmp(externTd) > 0 {
-				if err = bc.WriteBlockWithoutState(block, externTd); err != nil {
-					return i, events, coalescedLogs, err
+				if err = bc.WriteBlock(block, externTd); err != nil {
+					return i, events, err
 				}
 				continue
 			}
@@ -1137,7 +1063,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			var winner []*types.SnailBlock
 
 			parent := bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-			for !bc.HasState(parent.Root()) {
+			for rawdb.ReadCanonicalHash(bc.db, parent.NumberU64()) != parent.Hash() {
 				winner = append(winner, parent)
 				parent = bc.GetBlock(parent.ParentHash(), parent.NumberU64()-1)
 			}
@@ -1146,83 +1072,58 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			}
 			// Import all the pruned blocks to make the state available
 			bc.chainmu.Unlock()
-			_, evs, logs, err := bc.insertChain(winner)
+			_, evs, err := bc.insertChain(winner)
 			bc.chainmu.Lock()
-			events, coalescedLogs = evs, logs
+			events = evs
 
 			if err != nil {
-				return i, events, coalescedLogs, err
+				return i, events, err
 			}
 
 		case err != nil:
-			bc.reportBlock(block, nil, err)
-			return i, events, coalescedLogs, err
+			bc.reportBlock(block, err)
+			return i, events, err
 		}
-		// Create a new statedb using the parent block and report an
-		// error if it fails.
-		var parent *types.SnailBlock
-		if i == 0 {
-			parent = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-		} else {
-			parent = chain[i-1]
-		}
-		state, err := state.New(parent.Root(), bc.stateCache)
-		if err != nil {
-			return i, events, coalescedLogs, err
-		}
-		// Process block using the parent state as reference point.
-		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
-		if err != nil {
-			bc.reportBlock(block, receipts, err)
-			return i, events, coalescedLogs, err
-		}
-		// Validate the state using the default validator
-		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
-		if err != nil {
-			bc.reportBlock(block, receipts, err)
-			return i, events, coalescedLogs, err
-		}
+
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteBlockWithState(block, receipts, state)
+		status, err := bc.WriteCanonicalBlock(block)
 		if err != nil {
-			return i, events, coalescedLogs, err
+			return i, events, err
 		}
 		switch status {
 		case CanonStatTy:
-			/*
-			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
-			coalescedLogs = append(coalescedLogs, logs...)
-			*/
+			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+				"fts", len(block.Fruits()), "elapsed", common.PrettyDuration(time.Since(bstart)))
+
+			//coalescedLogs = append(coalescedLogs, logs...)
+
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainEvent{block, block.Hash(), logs})
+			events = append(events, ChainEvent{block, block.Hash()})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
 			bc.gcproc += proctime
 
 		case SideStatTy:
-			/*
+
 			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
-				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()))
-			*/
+				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()), "uncles", len(block.Uncles()))
+
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, ChainSideEvent{block})
 		}
 		stats.processed++
-		stats.usedGas += usedGas
 
-		cache, _ := bc.stateCache.TrieDB().Size()
-		stats.report(chain, i, cache)
+		stats.report(chain, i)
 	}
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
 		events = append(events, ChainHeadEvent{lastCanon})
 	}
-	return 0, events, coalescedLogs, nil
+	return 0, events, nil
 }
 
 // insertSnailStats tracks and reports on block insertion.
@@ -1239,7 +1140,7 @@ const statsSnailReportLimit = 8 * time.Second
 
 // report prints statistics if some number of blocks have been processed
 // or more than a few seconds have passed since the last message.
-func (st *insertSnailStats) report(chain []*types.SnailBlock, index int, cache common.StorageSize) {
+func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 	// Fetch the timings for the batch
 	var (
 		now     = mclock.Now()
@@ -1255,7 +1156,7 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int, cache c
 		context := []interface{}{
 			"blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
-			"number", end.Number(), "hash", end.Hash(), "cache", cache,
+			"number", end.Number(), "hash", end.Hash(),
 		}
 		if st.queued > 0 {
 			context = append(context, []interface{}{"queued", st.queued}...)
@@ -1265,7 +1166,7 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int, cache c
 		}
 		log.Info("Imported new chain segment", context...)
 
-		//*st = insertSnalStats{startTime: now, lastIndex: index + 1}
+		*st = insertSnailStats{startTime: now, lastIndex: index + 1}
 	}
 }
 
@@ -1281,33 +1182,14 @@ func countSnailTransactions(chain []*types.SnailBlock) (c int) {
 }
 
 // reorgs takes two blocks, an old chain and a new chain and will reconstruct the blocks and inserts them
-// to be part of the new canonical chain and accumulates potential missing transactions and post an
+// to be part of the new canonical chain and accumulates potential missing fruits and post an
 // event about them
 func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	var (
 		newChain    types.SnailBlocks
 		oldChain    types.SnailBlocks
 		commonBlock *types.SnailBlock
-		//deletedTxs  types.Transactions
-		deletedLogs []*types.Log
-		// collectLogs collects the logs that were generated during the
-		// processing of the block that corresponds with the given hash.
-		// These logs are later announced as deleted.
-		collectLogs = func(hash common.Hash) {
-			// Coalesce logs and set 'Removed'.
-			number := bc.hc.GetBlockNumber(hash)
-			if number == nil {
-				return
-			}
-			receipts := rawdb.ReadReceipts(bc.db, hash, *number)
-			for _, receipt := range receipts {
-				for _, log := range receipt.Logs {
-					del := *log
-					del.Removed = true
-					deletedLogs = append(deletedLogs, &del)
-				}
-			}
-		}
+		deletedFts  types.Fruits
 	)
 
 	// first reduce whoever is higher bound
@@ -1315,9 +1197,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		// reduce old chain
 		for ; oldBlock != nil && oldBlock.NumberU64() != newBlock.NumberU64(); oldBlock = bc.GetBlock(oldBlock.ParentHash(), oldBlock.NumberU64()-1) {
 			oldChain = append(oldChain, oldBlock)
-			//deletedTxs = append(deletedTxs, oldBlock.Transactions()...)
-
-			collectLogs(oldBlock.Hash())
+			deletedFts = append(deletedFts, oldBlock.Fruits()...)
 		}
 	} else {
 		// reduce new chain and append new chain blocks for inserting later on
@@ -1340,8 +1220,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 
 		oldChain = append(oldChain, oldBlock)
 		newChain = append(newChain, newBlock)
-		//deletedTxs = append(deletedTxs, oldBlock.Transactions()...)
-		collectLogs(oldBlock.Hash())
+		deletedFts = append(deletedFts, oldBlock.Fruits()...)
 
 		oldBlock, newBlock = bc.GetBlock(oldBlock.ParentHash(), oldBlock.NumberU64()-1), bc.GetBlock(newBlock.ParentHash(), newBlock.NumberU64()-1)
 		if oldBlock == nil {
@@ -1363,35 +1242,26 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		log.Error("Impossible reorg, please file an issue", "oldnum", oldBlock.Number(), "oldhash", oldBlock.Hash(), "newnum", newBlock.Number(), "newhash", newBlock.Hash())
 	}
 	// Insert the new chain, taking care of the proper incremental order
-	//TODO add transaction
-	//var addedTxs types.Transactions
+	var addedFts types.Fruits
 	for i := len(newChain) - 1; i >= 0; i-- {
 		// insert the block in the canonical way, re-writing history
 		bc.insert(newChain[i])
-		// write lookup entries for hash based transaction/receipt searches
+		// write lookup entries for hash based fruits
 		rawdb.WriteFtLookupEntries(bc.db, newChain[i])
-		//TODO need add transaction for snail 20180804
-		//addedTxs = append(addedTxs, newChain[i].Transactions()...)
-	} 
-	// calculate the difference between deleted and added transactions
+		addedFts = append(addedFts, newChain[i].Fruits()...)
+	}
 
-	//TODO need add transaction for snail 20180804
-	//diff := types.TxDifference(deletedTxs, addedTxs)
+	// calculate the difference between deleted and added fruits
+	diff := types.FtDifference(deletedFts, addedFts)
 
-	// When transactions get deleted from the database that means the
-	// receipts that were created in the fork must also be deleted
 	batch := bc.db.NewBatch()
-	//TODO need add transaction for snail 20180804
-	/*
-	for _, tx := range diff {
-		rawdb.DeleteFtLookupEntry(batch, tx.Hash())
+
+	for _, ft := range diff {
+		rawdb.DeleteFtLookupEntry(batch, ft.Hash())
 	}
-	*/
+
 	batch.Write()
-	
-	if len(deletedLogs) > 0 {
-		go bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
-	}
+
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
@@ -1406,11 +1276,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 // PostChainEvents iterates over the events generated by a chain insertion and
 // posts them into the event feed.
 // TODO: Should not expose PostChainEvents. The chain events should be posted in WriteBlock.
-func (bc *SnailBlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
-	// post event logs for further processing
-	if logs != nil {
-		bc.logsFeed.Send(logs)
-	}
+func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
 		case ChainEvent:
@@ -1466,24 +1332,19 @@ func (bc *SnailBlockChain) addBadBlock(block *types.SnailBlock) {
 }
 
 // reportBlock logs a bad block error.
-func (bc *SnailBlockChain) reportBlock(block *types.SnailBlock, receipts types.Receipts, err error) {
+func (bc *SnailBlockChain) reportBlock(block *types.SnailBlock, err error) {
 	bc.addBadBlock(block)
 
-	var receiptString string
-	for _, receipt := range receipts {
-		receiptString += fmt.Sprintf("\t%v\n", receipt)
-	}
 	log.Error(fmt.Sprintf(`
 ########## BAD BLOCK #########
 Chain config: %v
 
 Number: %v
 Hash: 0x%x
-%v
 
 Error: %v
 ##############################
-`, bc.chainConfig, block.Number(), block.Hash(), receiptString, err))
+`, bc.chainConfig, block.Number(), block.Hash(), err))
 }
 
 // InsertHeaderChain attempts to insert the given header chain in to the local

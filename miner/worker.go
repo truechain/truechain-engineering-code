@@ -391,7 +391,7 @@ func (self *worker) wait() {
 					}
 				}
 
-				stat, err := self.chain.WriteBlockWithState(block, work.receipts, work.state)
+				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
 					continue
@@ -401,13 +401,12 @@ func (self *worker) wait() {
 				self.mux.Post(chain.NewMinedBlockEvent{Block: block})
 				var (
 					events []interface{}
-					logs   []*types.Log
 				)
-				events = append(events, chain.ChainEvent{Block: block, Hash: block.Hash(), Logs: nil})
+				events = append(events, chain.ChainEvent{Block: block, Hash: block.Hash()})
 				if stat == chain.CanonStatTy {
 					events = append(events, chain.ChainHeadEvent{Block: block})
 				}
-				self.chain.PostChainEvents(events, logs)
+				self.chain.PostChainEvents(events)
 
 				// Insert the block into the set of pending ones to wait for confirmations
 				self.unconfirmed.Insert(block.NumberU64(), block.Hash())

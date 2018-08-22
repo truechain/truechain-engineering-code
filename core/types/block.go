@@ -696,6 +696,7 @@ func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header
 func (b *SnailBlock) IsFruit() bool            { return b.header.Fruit }
 func (b *SnailBlock) Fruits() []*SnailBlock    { return b.fruits }
 func (b *SnailBlock) Signs() PbftSigns         { return b.signs }
+func (b *SnailBlock) Uncles() []*SnailHeader { return b.uncles }
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }
