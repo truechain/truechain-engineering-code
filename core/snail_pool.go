@@ -339,8 +339,7 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	defer pool.muFastBlock.Unlock()
 
 	//check exist
-	f := pool.allFastBlocks[fastBlock.Hash()]
-	if f != nil {
+	if _, ok := pool.allFastBlocks[fastBlock.Hash()]; ok {
 		return ErrExist
 	}
 
@@ -582,7 +581,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 
 	// reset pool state by re-verify all the records, including pending records
 	// TODO: reset pool state using pendingState, refer to tx_pool
-	pool.resetFastBlocksWithLock()
+	//pool.resetFastBlocksWithLock()
 
 	// Check the queue and move transactions over to the pending if possible
 	// or remove those that have become invalid
@@ -676,7 +675,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEven
 // Insert fastblock into list order by fastblock number
 func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlock *types.Block) error {
 
-	//log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash())
+	log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash(), "count", fastBlockList.Len())
 
 	for lr := fastBlockList.Front(); lr != nil; lr = lr.Next() {
 		f := lr.Value.(*types.Block)
@@ -696,7 +695,7 @@ func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.Block) []error {
 	errs := make([]error, len(fastBlocks))
 
 	for _, fastBlock := range fastBlocks {
-		f :=types.NewBlockWithHeader(fastBlock.Header()).WithBody(fastBlock.Transactions(), nil)
+		f :=types.NewBlockWithHeader(fastBlock.Header()).WithBody(fastBlock.Transactions(), fastBlock.Signs(), nil)
 		pool.newFastBlockCh <- f
 	}
 
@@ -714,7 +713,7 @@ func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 		return nil, nil
 	}
 	block := first.Value.(*types.Block)
-	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), nil)
+	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
 
 	return fastBlock, nil
 }
