@@ -425,6 +425,8 @@ func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
 func (s *Truechain) AccountManager() *accounts.Manager       { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain            { return s.blockchain }
+func (s *Truechain) Config() *Config            { return s.config }
+
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
 
@@ -469,14 +471,13 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-
 	s.startPbftServer()
 
 	s.agent.Start()
 
 	s.election.Start()
 
-	//go sendBlock(s.agent)
+	go sendBlock(s.agent)
 	return nil
 }
 
