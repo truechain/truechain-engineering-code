@@ -654,6 +654,10 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockCha
 	return nil, receipt.Logs
 }
 
+func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewBlockEvent) event.Subscription {
+	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
+}
+
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
 // starts sending event to the given channel.
 func (self * PbftAgent) SubscribeNewPbftSignEvent(ch chan<- core.PbftSignEvent) event.Subscription {
