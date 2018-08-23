@@ -312,17 +312,6 @@ func (self *worker) unregister(agent Agent) {
 	agent.Stop()
 }
 
-//Neo 20180626 for fruit pool event
-func (self *worker) updateofFruitTx([]*types.Block) {
-
-}
-
-//Neo 20180626 for record pool event
-
-func (self *worker) updateofRecordTx([]*types.Block) {
-
-}
-
 func (self *worker) update() {
 	//defer self.txsSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
@@ -371,7 +360,7 @@ func (self *worker) wait() {
 			}
 
 			block := result.Block
-			work := result.Work
+			//work := result.Work
 
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
@@ -630,33 +619,36 @@ func (self *worker) updateSnapshot() {
 
 
 // TODO: check fruit freshness?
-func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) (error, []*types.Receipt) {
-	var receipts []*types.Receipt
+func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, lastNumber *big.Int) error {
 
+	if fruit.Number().Cmp(lastNumber) <= 0 {
+		return consensus.ErrInvalidNumber
+	}
 	//TODO should add pointer 
 	pointer := bc.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
-		return core.ErrInvalidPointer, nil
+		return core.ErrInvalidPointer
 	}
 
 	freshNumber := new(big.Int).Sub(env.header.Number, pointer.Number())
 
 	if freshNumber.Cmp(fruitFreshness) > 0 {
-		return core.ErrFreshness, nil
+		return core.ErrFreshness
 	}
 
-	return nil, receipts
+	return nil
 }
 
 
 // TODO: check fruits continue with last snail block
 func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) {
+
+	parent := bc.CurrentBlock()
+	fs := parent.Fruits()
+	lastFastNumber := fs[len(fs) - 1].FastNumber()
 	for _, fruit := range fruits {
-		err, receipts := env.commitFruit(fruit, bc, coinbase)
+		err := env.commitFruit(fruit, bc, lastFastNumber)
 		if err == nil {
-			for _, receipt := range receipts {
-				env.receipts = append(env.receipts, receipt)
-			}
 			env.fruits = append(env.fruits, fruit)
 		}
 	}
