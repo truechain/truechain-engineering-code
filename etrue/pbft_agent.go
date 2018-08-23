@@ -152,7 +152,8 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 	}
 	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
 	self.rewardNumber =snailHegiht*/
-	currentSnailBlock := self.fastChain.CurrentBlock()
+
+	currentSnailBlock := self.snailChain.CurrentBlock()
 	snailHegiht := common.Big0
 	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
 		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
@@ -162,6 +163,7 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 		}
 	}
 	self.rewardNumber =snailHegiht
+	log.Info("rewardNumber:",self.rewardNumber.Int64())
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
@@ -208,7 +210,7 @@ func (self *PbftAgent) loop(){
 				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo,CurrentCommittee)
 				self.committeeMu.Unlock()
-				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
 				log.Info("CommitteeStop:")
 				ticker.Stop()
@@ -216,7 +218,7 @@ func (self *PbftAgent) loop(){
 				self.cacheSign =[]Sign{}
 				self.SetCommitteeInfo(nil,CurrentCommittee)
 				self.committeeMu.Unlock()
-				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}
 		case ch := <-self.CommitteeCh:
 			log.Info("CommitteeCh:",ch.CommitteeInfo)
@@ -224,8 +226,7 @@ func (self *PbftAgent) loop(){
 			self.SetCommitteeInfo(ch.CommitteeInfo,NextCommittee)
 			self.committeeMu.Unlock()
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-
-				//self.server.PutCommittee(ch.CommitteeInfo)
+				self.server.PutCommittee(ch.CommitteeInfo)
 				go func(){
 					for{
 						select {
@@ -240,7 +241,7 @@ func (self *PbftAgent) loop(){
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			log.Info("receive nodeInfo.")
-			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo}) //TODO jduge the nodeInfo is in committee
 			if  self.IsCommitteeMember(self.NextCommitteeInfo) {
 				flag :=false
 				for _,sign := range self.cacheSign{
