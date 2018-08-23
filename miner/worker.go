@@ -550,7 +550,8 @@ func (self *worker) commitNewWork() {
 		log.Info("+++start miner commint new work ","FB number",fastblock.Number())
 		self.current.header.FastNumber = fastblock.Number()
 		self.current.header.FastHash = fastblock.Hash()
-		signs := make([]*types.PbftSign, len(fastblock.Body().Signs))
+		signs := fastblock.Body().Signs
+		work.signs = make([]*types.PbftSign, len(signs))
 		for i := range signs {
 			work.signs[i] = types.CopyPbftSign(signs[i])
 		}
