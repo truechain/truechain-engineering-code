@@ -55,7 +55,7 @@ type PbftAgent struct {
 	server types.PbftServerProxy
 	election	*Election
 
-	currentMu sync.Mutex //verifyBlock mutex
+	//currentMu sync.Mutex //verifyBlock mutex
 	mu *sync.Mutex //generateBlock mutex
 	committeeMu  sync.Mutex //generateBlock mutex
 
@@ -142,9 +142,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent)	SetCurrentRewardNumber() {
-	self.committeeMu.Lock()
-	self.committeeMu.Unlock()
-	currentFastBlock := self.fastChain.CurrentBlock()
+	/*currentFastBlock := self.fastChain.CurrentBlock()
 	snailHegiht := common.Big0
 	for i:=currentFastBlock.Number().Uint64(); i>0; i--{
 		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
@@ -153,11 +151,21 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 		}
 	}
 	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
+	self.rewardNumber =snailHegiht*/
+	currentSnailBlock := self.fastChain.CurrentBlock()
+	snailHegiht := common.Big0
+	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
+		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
+		if blockReward != nil{
+			snailHegiht =blockReward.SnailNumber
+			break
+		}
+	}
 	self.rewardNumber =snailHegiht
+
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	//acc1Key, _ := crypto.HexToECDSA(config.CommitteeKey)
 	acc1Key, _ := crypto.ToECDSA(config.CommitteeKey)
 	self.PrivateKey =acc1Key
 	pubBytes :=crypto.FromECDSAPub(&acc1Key.PublicKey)
@@ -191,7 +199,7 @@ func (self *PbftAgent) loop(){
 	defer self.RewardNumberSub.Unsubscribe()
 	defer self.scope.Close()
 
-	var ticker *time.Ticker
+	ticker := time.NewTicker(time.Minute * sendNodeTime)
 	for {
 		select {
 		//TODO   committeeInfo set
@@ -217,7 +225,7 @@ func (self *PbftAgent) loop(){
 			self.SetCommitteeInfo(ch.CommitteeInfo,NextCommittee)
 			self.committeeMu.Unlock()
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				ticker = time.NewTicker(time.Minute * sendNodeTime)
+
 				//self.server.PutCommittee(ch.CommitteeInfo)
 				go func(){
 					for{
@@ -250,11 +258,10 @@ func (self *PbftAgent) loop(){
 			}
 		case ch := <- self.ChainHeadCh:
 			log.Info("RewardNumberCh.")
-		if ch.Block.Header().SnailNumber != nil &&
-			self.rewardNumber.Cmp(ch.Block.Header().SnailNumber) == -1{
-			self.rewardNumber =ch.Block.Header().SnailNumber
-		}
-
+			if ch.Block.Header().SnailNumber != nil &&
+				self.rewardNumber.Cmp(ch.Block.Header().SnailNumber) == -1{
+				self.rewardNumber =ch.Block.Header().SnailNumber
+			}
 		}
 	}
 }
@@ -370,7 +377,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	err := self.makeCurrent(parent, header)
 	work := self.current
 
-	self.currentMu.Lock()
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
@@ -404,7 +410,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
 	}
-	self.currentMu.Unlock()
 	fmt.Println("fastBlockHeight:",fastBlock.Header().Number)
 	return	fastBlock,nil
 }
@@ -462,6 +467,8 @@ func (self * PbftAgent) broadCastChainEvent(fb *types.Block){
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	log.Info("into VerifyFastBlock.")
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -481,7 +488,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	if err != nil{
 		return false,err
 	}
-	self.currentMu.Lock()
+
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
 		return false,err
@@ -490,7 +497,6 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	if err != nil{
 		return false,err
 	}
-	self.currentMu.Unlock()
 	return true,nil
 }
 
