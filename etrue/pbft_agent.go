@@ -55,7 +55,7 @@ type PbftAgent struct {
 	server types.PbftServerProxy
 	election	*Election
 
-	currentMu sync.Mutex //verifyBlock mutex
+	//currentMu sync.Mutex //verifyBlock mutex
 	mu *sync.Mutex //generateBlock mutex
 	committeeMu  sync.Mutex //generateBlock mutex
 
@@ -142,9 +142,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent)	SetCurrentRewardNumber() {
-	self.committeeMu.Lock()
-	self.committeeMu.Unlock()
-	currentFastBlock := self.fastChain.CurrentBlock()
+	/*currentFastBlock := self.fastChain.CurrentBlock()
 	snailHegiht := common.Big0
 	for i:=currentFastBlock.Number().Uint64(); i>0; i--{
 		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
@@ -153,19 +151,30 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 		}
 	}
 	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
+	self.rewardNumber =snailHegiht*/
+
+	currentSnailBlock := self.snailChain.CurrentBlock()
+	snailHegiht := common.Big0
+	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
+		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
+		if blockReward != nil{
+			snailHegiht =blockReward.SnailNumber
+			break
+		}
+	}
 	self.rewardNumber =snailHegiht
+	log.Info("rewardNumber:",self.rewardNumber.Int64())
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	//acc1Key, _ := crypto.HexToECDSA(config.CommitteeKey)
 	acc1Key, _ := crypto.ToECDSA(config.CommitteeKey)
 	self.PrivateKey =acc1Key
 	pubBytes :=crypto.FromECDSAPub(&acc1Key.PublicKey)
 	self.CommitteeNode =&types.CommitteeNode{
-		config.Host,
-		uint(config.Port),
-		crypto.PubkeyToAddress(acc1Key.PublicKey),
-		pubBytes,
+		IP:config.Host,
+		Port:uint(config.Port),
+		Coinbase:crypto.PubkeyToAddress(acc1Key.PublicKey),
+		Publickey:pubBytes,
 	}
 }
 
@@ -191,7 +200,7 @@ func (self *PbftAgent) loop(){
 	defer self.RewardNumberSub.Unsubscribe()
 	defer self.scope.Close()
 
-	var ticker *time.Ticker
+	ticker := time.NewTicker(time.Minute * sendNodeTime)
 	for {
 		select {
 		//TODO   committeeInfo set
@@ -201,7 +210,7 @@ func (self *PbftAgent) loop(){
 				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo,CurrentCommittee)
 				self.committeeMu.Unlock()
-				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
 				log.Info("CommitteeStop:")
 				ticker.Stop()
@@ -209,7 +218,7 @@ func (self *PbftAgent) loop(){
 				self.cacheSign =[]Sign{}
 				self.SetCommitteeInfo(nil,CurrentCommittee)
 				self.committeeMu.Unlock()
-				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
+				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}
 		case ch := <-self.CommitteeCh:
 			log.Info("CommitteeCh:",ch.CommitteeInfo)
@@ -217,8 +226,7 @@ func (self *PbftAgent) loop(){
 			self.SetCommitteeInfo(ch.CommitteeInfo,NextCommittee)
 			self.committeeMu.Unlock()
 			if self.IsCommitteeMember(ch.CommitteeInfo){
-				ticker = time.NewTicker(time.Minute * sendNodeTime)
-				//self.server.PutCommittee(ch.CommitteeInfo)
+				self.server.PutCommittee(ch.CommitteeInfo)
 				go func(){
 					for{
 						select {
@@ -233,7 +241,7 @@ func (self *PbftAgent) loop(){
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			log.Info("receive nodeInfo.")
-			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo}) //TODO jduge the nodeInfo is in committee
 			if  self.IsCommitteeMember(self.NextCommitteeInfo) {
 				flag :=false
 				for _,sign := range self.cacheSign{
@@ -250,11 +258,10 @@ func (self *PbftAgent) loop(){
 			}
 		case ch := <- self.ChainHeadCh:
 			log.Info("RewardNumberCh.")
-		if ch.Block.Header().SnailNumber != nil &&
-			self.rewardNumber.Cmp(ch.Block.Header().SnailNumber) == -1{
-			self.rewardNumber =ch.Block.Header().SnailNumber
-		}
-
+			if ch.Block.Header().SnailNumber != nil &&
+				self.rewardNumber.Cmp(ch.Block.Header().SnailNumber) == -1{
+				self.rewardNumber =ch.Block.Header().SnailNumber
+			}
 		}
 	}
 }
@@ -370,7 +377,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	err := self.makeCurrent(parent, header)
 	work := self.current
 
-	self.currentMu.Lock()
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
@@ -404,7 +410,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
 	}
-	self.currentMu.Unlock()
 	fmt.Println("fastBlockHeight:",fastBlock.Header().Number)
 	return	fastBlock,nil
 }
@@ -460,8 +465,10 @@ func (self * PbftAgent) broadCastChainEvent(fb *types.Block){
 	self.fastChain.PostChainEvents(events, logs)
 }
 
-func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (error){
+func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	log.Info("into VerifyFastBlock.")
+	self.mu.Lock()
+	defer self.mu.Unlock()
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -481,7 +488,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (error){
 	if err != nil{
 		return err
 	}
-	self.currentMu.Lock()
+
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
 		return err
@@ -490,7 +497,6 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (error){
 	if err != nil{
 		return err
 	}
-	self.currentMu.Unlock()
 	return nil
 }
 
@@ -526,14 +532,14 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (error){
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block) error {
+func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block) error{
 	log.Info("into BroadcastSign.")
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
-		return errNotRegistered
+		return err
 	}
 	if fb.SnailNumber() !=nil{
 		self.rewardNumber = fb.SnailNumber()
