@@ -171,10 +171,10 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.PrivateKey =acc1Key
 	pubBytes :=crypto.FromECDSAPub(&acc1Key.PublicKey)
 	self.CommitteeNode =&types.CommitteeNode{
-		config.Host,
-		uint(config.Port),
-		crypto.PubkeyToAddress(acc1Key.PublicKey),
-		pubBytes,
+		IP:config.Host,
+		Port:uint(config.Port),
+		Coinbase:crypto.PubkeyToAddress(acc1Key.PublicKey),
+		Publickey:pubBytes,
 	}
 }
 
@@ -532,7 +532,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(fb *types.Block, voteSign *types.PbftSign){
+func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block){
 	log.Info("into BroadcastSign.")
 	self.mu.Lock()
 	defer self.mu.Unlock()
