@@ -470,7 +470,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		s.lesServer.Start(srvr)
 	}
 	s.startPbftServer()
-
+	s.agent.server =s.pbftServer
 	s.agent.Start()
 
 	s.election.Start()

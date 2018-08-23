@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/event"
 	"math/big"
+	"time"
 )
 
 const (
@@ -405,8 +406,10 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	//go e.committeeFeed.Send(core.CommitteeEvent{e.committee})
+
 	go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.committee.id, e.committee.members}})
-	go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, nil, nil})
+	time.Sleep(time.Millisecond*500)
+	go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, nil})
 
 	if e.startSwitchover {
 		// send switch event to the subscripber
