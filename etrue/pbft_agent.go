@@ -532,19 +532,20 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block){
+func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block) error{
 	log.Info("into BroadcastSign.")
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
-		panic(err)
+		return err
 	}
 	if fb.SnailNumber() !=nil{
 		self.rewardNumber = fb.SnailNumber()
 	}
 	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
+	return nil
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
