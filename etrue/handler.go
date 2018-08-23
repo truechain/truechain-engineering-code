@@ -555,14 +555,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
+		signs := make([][]*types.PbftSign, len(request))
 
 		for i, body := range request {
 			transactions[i] = body.Transactions
+			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0
+		filter := len(transactions) > 0 || len(signs) > 0
 		if filter {
-			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
+			transactions, signs = pm.fetcherFast.FilterBodies(p.id, transactions, signs, time.Now())
 		}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
@@ -732,18 +734,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
-		// node arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
-			break
-		}
 		// CryNodeInfo can be processed, parse all of them and deliver to the queue
 		var nodeInfo *CryNodeInfo
 		if err := msg.Decode(&nodeInfo); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		// Validate and mark the remote PbftSign
+		// Validate and mark the remote node
 		if nodeInfo == nil {
-			return errResp(ErrDecode, "sign is nil")
+			return errResp(ErrDecode, "nodde  is nil")
 		}
 		p.MarkNodeInfo(nodeInfo.Hash())
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)

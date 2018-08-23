@@ -23,10 +23,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // Constants to match up protocol versions and messages
@@ -49,26 +49,25 @@ const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a prot
 // eth protocol message codes
 const (
 	// Protocol messages belonging to eth/62
-	StatusMsg          		= 0x00
-	NewFastBlockHashesMsg  	= 0x01
-	TxMsg              		= 0x02
-	GetFastBlockHeadersMsg 	= 0x03
-	FastBlockHeadersMsg    	= 0x04
-	GetFastBlockBodiesMsg  	= 0x05
-	FastBlockBodiesMsg     	= 0x06
-	NewFastBlockMsg        	= 0x07
+	StatusMsg              = 0x00
+	NewFastBlockHashesMsg  = 0x01
+	TxMsg                  = 0x02
+	GetFastBlockHeadersMsg = 0x03
+	FastBlockHeadersMsg    = 0x04
+	GetFastBlockBodiesMsg  = 0x05
+	FastBlockBodiesMsg     = 0x06
+	NewFastBlockMsg        = 0x07
 
-	BlockSignMsg          	= 0x08
-	PbftNodeInfoMsg 		= 0x09
+	BlockSignMsg    = 0x08
+	PbftNodeInfoMsg = 0x09
 
-	FruitMsg		   		= 0x0a
-	SnailBlockMsg		   	= 0x0b
+	FruitMsg      = 0x0a
+	SnailBlockMsg = 0x0b
 	// Protocol messages belonging to eth/63
-	GetNodeDataMsg 			= 0x0d
-	NodeDataMsg    			= 0x0e
-	GetReceiptsMsg 			= 0x0f
-	ReceiptsMsg    			= 0x10
-
+	GetNodeDataMsg = 0x0d
+	NodeDataMsg    = 0x0e
+	GetReceiptsMsg = 0x0f
+	ReceiptsMsg    = 0x10
 )
 
 type errCode int
@@ -116,7 +115,6 @@ type txPool interface {
 	// for fruits and records
 	//SubscribeNewFruitsEvent(chan<- core.NewFruitsEvent) event.Subscription
 }
-
 
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
@@ -212,7 +210,7 @@ type newBlockData struct {
 // blockBody represents the data content of a single block.
 type blockBody struct {
 	Transactions []*types.Transaction // Transactions contained within a block
-	Uncles       []*types.Header      // Uncles contained within a block
+	Signs        []*types.PbftSign    // Signs contained within a block
 }
 
 // blockBodiesData is the network packet for block content distribution.
