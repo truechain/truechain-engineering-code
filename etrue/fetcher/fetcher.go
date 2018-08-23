@@ -131,6 +131,12 @@ type injectSign struct {
 	signs  []*types.PbftSign
 }
 
+// injectSingleSign represents a schedules sign operation.
+type injectSingleSign struct {
+	origin string
+	sign   *types.PbftSign
+}
+
 // Fetcher is responsible for accumulating block announcements from various peers
 // and scheduling them for retrieval.
 type Fetcher struct {
@@ -160,9 +166,9 @@ type Fetcher struct {
 	queued map[common.Hash]*inject // Set of already queued blocks (to dedupe imports)
 
 	// sign cache
-	queueSign  *prque.Prque                // Queue containing the import operations (sign number sorted)
-	queuesSign map[string]int              // Per peer sign counts to prevent memory exhaustion
-	queuedSign map[common.Hash]*injectSign // Set of already sign blocks (to dedupe imports)
+	queueSign  *prque.Prque                      // Queue containing the import operations (sign number sorted)
+	queuesSign map[string]int                    // Per peer sign counts to prevent memory exhaustion
+	queuedSign map[common.Hash]*injectSingleSign // Set of already sign blocks (to dedupe imports)
 
 	// Callbacks
 	getBlock           blockRetrievalFn   // Retrieves a block from the local chain
@@ -209,7 +215,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 
 		queueSign:          prque.New(),
 		queuesSign:         make(map[string]int),
-		queuedSign:         make(map[common.Hash]*injectSign),
+		queuedSign:         make(map[common.Hash]*injectSingleSign),
 		getBlock:           getBlock,
 		verifyHeader:       verifyHeader,
 		broadcastFastBlock: broadcastFastBlock,
@@ -409,7 +415,7 @@ func (f *Fetcher) loop() {
 		for !f.queueSign.Empty() {
 			hashs := f.queueSign.PopItem().([]common.Hash)
 			if len(hashs) > 0 {
-				sign := f.queuedSign[hashs[0]].signs[0]
+				sign := f.queuedSign[hashs[0]].sign
 				hash := sign.Hash()
 
 				if f.queueChangeHook != nil {
@@ -766,9 +772,9 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 		// Schedule the sign for future importing
 		if _, ok := f.queuedSign[sign.Hash()]; !ok {
-			op := &injectSign{
+			op := &injectSingleSign{
 				origin: peer,
-				signs:  []*types.PbftSign{sign},
+				sign:   sign,
 			}
 
 			f.queuesSign[peer] = count
@@ -779,7 +785,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	}
 
 	if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight), int32(len(f.signMultiHash[number]))) {
-		if ok, _ := f.agreeAtSameHeight(number, signs[0].FastHash); ok {
+		if ok, _ := f.agreeAtSameHeight(number, hash); ok {
 			f.queueSign.Push(f.signMultiHash[number], -float32(number))
 			if f.queueChangeHook != nil {
 				f.queueChangeHook(hash, true)
@@ -894,7 +900,7 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 					signs := []*types.PbftSign{}
 					for _, signHash := range blockSignHash {
 						if sign, ok := f.queuedSign[signHash]; ok {
-							signs = append(signs, sign.signs[0])
+							signs = append(signs, sign.sign)
 						}
 					}
 					f.broadcastSigns(signs)
@@ -1055,7 +1061,7 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool,
 			blockSignHash := []common.Hash{}
 			if hashs, ok := f.signMultiHash[height]; ok {
 				for _, hash := range hashs {
-					sign := f.queuedSign[hash].signs[0]
+					sign := f.queuedSign[hash].sign
 					if sign.Result == 1 && inject.block.Hash() == sign.FastHash {
 						voteCount++
 						blockSignHash = append(blockSignHash, hash)
