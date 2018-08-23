@@ -7,8 +7,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
+	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"math/big"
 	"net/http"
+	"time"
 )
 
 type Server struct {
@@ -20,13 +22,47 @@ type Server struct {
 	ActionChan chan *consensus.ActionIn
 }
 
+func PrintNode(node *Node) {
+start:
+	lock.Lock.Lock()
+	fmt.Println("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count)
+	fmt.Println("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
+		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
+		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
+		"len(node.MsgBuffer.CommitMsgs):", len(node.MsgBuffer.CommitMsgs))
+
+	for i := 0; i < len(node.MsgBuffer.ReqMsgs); i++ {
+		fmt.Print("ReqMsgs: %+v \n", *node.MsgBuffer.ReqMsgs[i])
+	}
+
+	for i := 0; i < len(node.MsgBuffer.PrePrepareMsgs); i++ {
+		fmt.Printf("PrePrepareMsgs: %+v  \n", *node.MsgBuffer.PrePrepareMsgs[i])
+	}
+
+	for i := 0; i < len(node.MsgBuffer.PrepareMsgs); i++ {
+		fmt.Printf("PrepareMsgs: %+v  \n", *node.MsgBuffer.PrepareMsgs[i])
+	}
+	for i := 0; i < len(node.MsgBuffer.CommitMsgs); i++ {
+		fmt.Printf("CommitMsgs: %+v  \n", *node.MsgBuffer.CommitMsgs[i])
+	}
+
+	fmt.Println("states count:", len(node.States))
+	for k, v := range node.States {
+		fmt.Println("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
+	}
+	fmt.Println("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
+	lock.Lock.Unlock()
+	time.Sleep(time.Second * 10)
+	goto start
+}
+
 func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	verify consensus.ConsensusVerify, addrs []*types.CommitteeNode) *Server {
 	if len(addrs) <= 0 {
 		return nil
 	}
 	server := &Server{ID: id, help: help}
-	node := NewNode(nodeID, verify,server, addrs,id)
+	node := NewNode(nodeID, verify, server, addrs, id)
 	server.node = node
 	server.url = node.NodeTable[nodeID]
 	server.server = &http.Server{
@@ -34,11 +70,12 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	}
 	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
+	go PrintNode(server.node)
 	return server
 }
-func (server *Server) Start(work func(cid *big.Int,acChan <-chan *consensus.ActionIn)) {
+func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.ActionIn)) {
 	go server.startHttpServer()
-	go work(server.ID,server.ActionChan)
+	go work(server.ID, server.ActionChan)
 }
 func (server *Server) startHttpServer() {
 	if err := server.server.ListenAndServe(); err != nil {
@@ -100,6 +137,7 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.Digest, msg.NodeID, msg.ViewID = tmp.Digest, tmp.NodeID, tmp.ViewID
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
+	msg.Height = tmp.Height
 	server.node.MsgEntrance <- &msg
 }
 
@@ -127,7 +165,7 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 }
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	// server.node.Broadcast(msg, "/req")
+	fmt.Println("[ServerID]", server.node.NodeID)
 	server.node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
@@ -142,14 +180,22 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 func (server *Server) ConsensusFinish() {
 	// start to fetch
 	ac := &consensus.ActionIn{
-		AC:		consensus.ActionFecth,
-		ID:		server.ID,
-		Height:	common.Big0,
+		AC:     consensus.ActionFecth,
+		ID:     server.ID,
+		Height: common.Big0,
 	}
 	server.ActionChan <- ac
 }
 
 func send(url string, msg []byte) {
 	buff := bytes.NewBuffer(msg)
-	go http.Post("http://"+url, "application/json", buff)
+	for i := 0; i < 3; i++ {
+		_, e := http.Post("http://"+url, "application/json", buff)
+		if e != nil {
+			LogFmt("[POSTERROR]", e.Error())
+			time.Sleep(time.Second * 1)
+		} else {
+			return
+		}
+	}
 }
