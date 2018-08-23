@@ -29,6 +29,7 @@ type Node struct {
 	ID            *big.Int
 	lock          sync.Mutex
 	Count         int64
+	Count2        int64
 }
 
 type MsgBuffer struct {
@@ -91,9 +92,6 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 
 	// Start message resolver
 	go node.resolveMsg()
-
-	//start backward message dispatcher
-	go node.dispatchMsgBackward()
 
 	return node
 }
@@ -343,9 +341,16 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 
 func (node *Node) dispatchMsg() {
 	for {
+		node.Count2 += 1
 		select {
 		case msg := <-node.MsgEntrance:
 			err := node.routeMsg(msg)
+			if err != nil {
+				fmt.Println(err)
+				// TODO: send err to ErrorChannel
+			}
+		case msg := <-node.MsgBackward:
+			err := node.routeMsgBackward(msg)
 			if err != nil {
 				fmt.Println(err)
 				// TODO: send err to ErrorChannel
@@ -446,19 +451,6 @@ func (node *Node) routeMsg(msg interface{}) []error {
 	return nil
 }
 
-func (node *Node) dispatchMsgBackward() {
-	for {
-		select {
-		case msg := <-node.MsgBackward:
-			err := node.routeMsgBackward(msg)
-			if err != nil {
-				fmt.Println(err)
-				// TODO: send err to ErrorChannel
-			}
-		}
-	}
-}
-
 func (node *Node) routeMsgBackward(msg interface{}) error {
 	switch msg.(type) {
 	case []*consensus.VoteMsg:
@@ -492,7 +484,6 @@ func sendSameHightMessage(node *Node) {
 		len(node.MsgBuffer.PrePrepareMsgs) +
 		len(node.MsgBuffer.PrepareMsgs) +
 		len(node.MsgBuffer.CommitMsgs)) > 0 {
-		fmt.Printf("[have]")
 	}
 
 	msgVote := make([]*consensus.VoteMsg, 0)
@@ -656,7 +647,9 @@ func (node *Node) alarmToDispatcher() {
 	for {
 		node.Count += 1
 		time.Sleep(ResolvingTimeDuration)
+		fmt.Println("chain in", node.NodeID, len(node.Alarm))
 		node.Alarm <- true
+		fmt.Println("chain in2", node.NodeID)
 	}
 }
 

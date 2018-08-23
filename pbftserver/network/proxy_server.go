@@ -25,7 +25,7 @@ type Server struct {
 func PrintNode(node *Node) {
 start:
 	lock.Lock.Lock()
-	fmt.Println("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count)
+	fmt.Println("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, node.Count2)
 	fmt.Println("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
 		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
 		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
