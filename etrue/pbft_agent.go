@@ -25,7 +25,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"errors"
 	"fmt"
-	"io"
 )
 
 const (
@@ -762,15 +761,6 @@ func RlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-// DecodeRLP decodes the Ethereum
-func (c *CryNodeInfo) DecodeRLP(s *rlp.Stream) error {
-	err := s.Decode(c)
-	return err
-}
-// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
-func (c *CryNodeInfo) EncodeRLP(w io.Writer) error {
-	return rlp.Encode(w, c)
-}
 func (c *CryNodeInfo) Hash() common.Hash {
 	return RlpHash(c)
 }
