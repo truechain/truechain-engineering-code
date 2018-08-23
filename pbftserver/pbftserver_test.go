@@ -30,23 +30,23 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 var ID = big.NewInt(0)
 
 func getID() *big.Int {
-	return new(big.Int).Add(ID, big.NewInt(1))
+	ID = new(big.Int).Add(ID, big.NewInt(1))
+	return ID
 }
 
 func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
-
 	header := new(types.Header)
 	header.Number = getID()
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	return types.NewBlock(header, nil, nil, nil), nil
 }
-func (pap *PbftAgentProxyImp) VerifyFastBlock(*types.Block) error {
-
+func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
+	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
 	return nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(*types.Block) error {
-	println(pap.Name, "BroadcastFastBlock")
+func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) error {
+	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
 	return nil
 }
 
@@ -70,7 +70,25 @@ func addServer(pap *PbftAgentProxyImp) *PbftServerMgr {
 	return NewPbftServerMgr(pk, pr, pap)
 }
 
+func TestPbftServerTemp(t *testing.T) {
+	s := []int{1, 2, 3}
+
+	fmt.Println(s[1:])
+
+	for i := len(s) - 1; i >= 0; i-- {
+		if i != 0 {
+			z := append(s[:i], s[i+1:]...)
+			fmt.Println(i, z)
+		} else {
+			z := s[1:]
+			fmt.Println(i, z)
+		}
+
+	}
+}
+
 func TestPbftServerStart(t *testing.T) {
+
 	start := make(chan bool)
 
 	pa1 := NewPbftAgent("Agent1")
@@ -126,20 +144,20 @@ func TestPbftServerStart(t *testing.T) {
 
 	ser1.PutCommittee(c1)
 	ser1.PutNodes(c1.Id, nodes)
-	go ser1.Notify(c1.Id, 0)
 
 	ser2.PutCommittee(c1)
 	ser2.PutNodes(c1.Id, nodes)
-	go ser2.Notify(c1.Id, 0)
 
 	ser3.PutCommittee(c1)
 	ser3.PutNodes(c1.Id, nodes)
-	go ser3.Notify(c1.Id, 0)
 
 	ser4.PutCommittee(c1)
 	ser4.PutNodes(c1.Id, nodes)
-	go ser4.Notify(c1.Id, 0)
 
+	go ser2.Notify(c1.Id, 0)
+	go ser3.Notify(c1.Id, 0)
+	go ser4.Notify(c1.Id, 0)
+	go ser1.Notify(c1.Id, 0)
 	<-start
 }
 
