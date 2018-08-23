@@ -162,7 +162,6 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 		}
 	}
 	self.rewardNumber =snailHegiht
-
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
@@ -465,7 +464,7 @@ func (self * PbftAgent) broadCastChainEvent(fb *types.Block){
 	self.fastChain.PostChainEvents(events, logs)
 }
 
-func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
+func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	log.Info("into VerifyFastBlock.")
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -480,24 +479,24 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 		err = bc.Validator().ValidateBody(fb)
 	}
 	if err != nil{
-		return false,err
+		return err
 	}
 
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil{
-		return false,err
+		return err
 	}
 
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
-		return false,err
+		return err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil{
-		return false,err
+		return err
 	}
-	return true,nil
+	return nil
 }
 
 //verify the sign , insert chain  and  broadcast the signs
