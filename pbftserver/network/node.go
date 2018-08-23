@@ -29,6 +29,7 @@ type Node struct {
 	ID            *big.Int
 	lock          sync.Mutex
 	Count         int64
+	Count2        int64
 }
 
 type MsgBuffer struct {
