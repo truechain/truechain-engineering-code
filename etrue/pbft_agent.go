@@ -460,7 +460,7 @@ func (self * PbftAgent) broadCastChainEvent(fb *types.Block){
 	self.fastChain.PostChainEvents(events, logs)
 }
 
-func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
+func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (error){
 	log.Info("into VerifyFastBlock.")
 	bc := self.fastChain
 	// get current head
@@ -473,25 +473,25 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 		err = bc.Validator().ValidateBody(fb)
 	}
 	if err != nil{
-		return false,err
+		return err
 	}
 
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil{
-		return false,err
+		return err
 	}
 	self.currentMu.Lock()
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{})//update
 	if err != nil{
-		return false,err
+		return err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil{
-		return false,err
+		return err
 	}
 	self.currentMu.Unlock()
-	return true,nil
+	return nil
 }
 
 //verify the sign , insert chain  and  broadcast the signs
@@ -526,19 +526,20 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(fb *types.Block, voteSign *types.PbftSign){
+func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign,fb *types.Block) error {
 	log.Info("into BroadcastSign.")
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
-		panic(err)
+		return errNotRegistered
 	}
 	if fb.SnailNumber() !=nil{
 		self.rewardNumber = fb.SnailNumber()
 	}
 	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
+	return nil
 }
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
