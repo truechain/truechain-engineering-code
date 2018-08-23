@@ -56,28 +56,6 @@ type CommitteeNode struct {
 
 type PbftSigns []*PbftSign
 
-// DecodeRLP decodes the Ethereum
-//func (p *PbftSign) DecodeRLP(s *rlp.Stream) error {
-//	var sign struct {
-//		FastHeight *big.Int
-//		FastHash   common.Hash
-//		Result     uint
-//		Sign       []byte
-//	}
-//	if err := s.Decode(&sign); err != nil {
-//		return err
-//	}
-//	p.FastHeight, p.Result, p.FastHash, p.Sign = sign.FastHeight, sign.Result, sign.FastHash, sign.Sign
-//	return nil
-//}
-
-// EncodeRLP serializes b into the Ethereum RLP CryNodeInfo format.
-//func (p *PbftSign) EncodeRLP(w io.Writer) error {
-//	return rlp.Encode(w,[]interface{}{ p.FastHeight,p.Result,
-//		p.FastHash, p.Sign,
-//	})
-//}
-
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
