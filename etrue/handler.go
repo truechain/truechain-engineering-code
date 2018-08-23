@@ -555,16 +555,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
-		signs := make([][]*types.PbftSign, len(request))
 
 		for i, body := range request {
 			transactions[i] = body.Transactions
-			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0 || len(signs) > 0
+		filter := len(transactions) > 0
 		if filter {
-			transactions, signs = pm.fetcherFast.FilterBodies(p.id, transactions, signs, time.Now())
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
 		}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {

@@ -107,7 +107,6 @@ type PbftAgentFetcher interface {
 type bodyFilterTask struct {
 	peer         string                 // The source peer of block bodies
 	transactions [][]*types.Transaction // Collection of transactions per block bodies
-	signs        [][]*types.PbftSign    // Collection of signs per block bodies
 	time         time.Time              // Arrival time of the blocks' contents
 }
 
@@ -321,8 +320,8 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign) {
-	log.Trace("Filtering bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
+func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, time time.Time) [][]*types.Transaction {
+	log.Trace("Filtering bodies", "peer", peer, "txs", len(transactions))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -330,20 +329,20 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	select {
 	case f.bodyFilter <- filter:
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 	// Request the filtering of the body list
 	select {
-	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, signs: signs, time: time}:
+	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, time: time}:
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		return task.transactions, task.signs
+		return task.transactions
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 }
 
@@ -420,8 +419,9 @@ func (f *Fetcher) loop() {
 			number := sign.FastHeight.Uint64()
 			if number > height+1 {
 				f.queueSign.Push(hashs, -float32(number))
+				break
 			}
-
+			//if inject, ok := f.queued[injectPend.hash]; ok {
 			blockSignHash := []common.Hash{}
 			if len(hashs) > 0 {
 				for _, hash := range hashs {
@@ -458,7 +458,7 @@ func (f *Fetcher) loop() {
 
 					// Otherwise if fresh and still unknown, try and import
 					if number+maxUncleDist < height || f.getBlock(sign.FastHash) != nil {
-						f.forgetBlockHeight(big.NewInt(int64(height)))
+						f.forgetSign(hash)
 						continue
 					}
 
@@ -637,6 +637,8 @@ func (f *Fetcher) loop() {
 							block.ReceivedAt = task.time
 
 							complete = append(complete, block)
+							f.completing[hash] = announce
+							continue
 						}
 						// Otherwise add to the list of blocks needing completion
 						incomplete = append(incomplete, announce)
@@ -668,13 +670,13 @@ func (f *Fetcher) loop() {
 			}
 			// Schedule the header-only blocks for import
 			for _, block := range complete {
-				if announce := f.fetched[block.Hash()]; announce != nil {
+				if announce := f.completing[block.Hash()]; announce != nil {
 					f.markBlock[block.NumberU64()] = &injectPend{
 						block.Hash(),
 						block.NumberU64(),
-						announce[0].origin,
+						announce.origin,
 					}
-					f.enqueue(announce[0].origin, block)
+					f.enqueue(announce.origin, block)
 				}
 			}
 
@@ -719,32 +721,6 @@ func (f *Fetcher) loop() {
 					continue
 				}
 			}
-
-			//for i := 0; i < len(task.signs); i++ {
-			//	// Match up a body to any possible completion request
-			//	matched := false
-			//
-			//	for hash, announce := range f.completing {
-			//		if f.queued[hash] == nil {
-			//
-			//			if announce.origin == task.peer {
-			//				// Mark the body matched, reassemble if still unknown
-			//				matched = true
-			//
-			//				if f.getBlock(hash) == nil {
-			//
-			//				} else {
-			//					f.forgetHash(hash)
-			//				}
-			//			}
-			//		}
-			//	}
-			//	if matched {
-			//		task.signs = append(task.signs[:i], task.signs[i+1:]...)
-			//		i--
-			//		continue
-			//	}
-			//}
 
 			bodyFilterOutMeter.Mark(int64(len(task.transactions)))
 			select {
@@ -848,11 +824,7 @@ func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign) {
 
 		f.signMultiHash[number] = append(f.signMultiHash[number], hash)
 
-		if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(len(f.signMultiHash[number]))) {
-			if ok, _ := f.agreeAtSameHeight(number, sign.FastHash); !ok {
-				return
-			}
-		} else {
+		if !verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(len(f.signMultiHash[number]))) {
 			return
 		}
 
@@ -962,16 +934,32 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 
 func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 	go func() {
+		find := false
 		if blockHashs, ok := f.blockMultiHash[height.Uint64()]; ok {
 			for _, hash := range blockHashs {
-				if find, blockSignHash := f.agreeAtSameHeight(height.Uint64(), hash); find {
-					find = f.insert(f.queuedSign[hash].origin, f.queued[hash].block, blockSignHash)
-					if find {
-						f.forgetBlockHeight(height)
+				if inject, ok := f.queued[hash]; ok {
+					voteCount := 0
+					blockSignHash := []common.Hash{}
+					for _, hash := range hashs {
+						sign := f.queuedSign[hash].sign
+						if sign.Result == 1 && inject.block.Hash() == sign.FastHash {
+							voteCount++
+							blockSignHash = append(blockSignHash, hash)
+						}
+
+						if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
+							find = f.insert(f.queuedSign[hash].origin, f.queued[sign.FastHash].block, blockSignHash)
+							break
+						}
 					}
-					break
+					if find {
+						break
+					}
 				}
 			}
+		}
+		if find {
+			f.forgetBlockHeight(height)
 		}
 	}()
 }
@@ -1119,40 +1107,6 @@ func (f *Fetcher) forgetSign(hash common.Hash) {
 		}
 		delete(f.queuedSign, hash)
 	}
-}
-
-func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool, []common.Hash) {
-
-	find := false
-	if blockHashs, ok := f.blockMultiHash[height]; ok {
-		for _, hash := range blockHashs {
-			if hash == blockHash {
-				find = true
-				break
-			}
-		}
-	}
-
-	if find {
-		if inject, ok := f.queued[blockHash]; ok {
-			voteCount := 0
-			blockSignHash := []common.Hash{}
-			if hashs, ok := f.signMultiHash[height]; ok {
-				for _, hash := range hashs {
-					sign := f.queuedSign[hash].sign
-					if sign.Result == 1 && inject.block.Hash() == sign.FastHash {
-						voteCount++
-						blockSignHash = append(blockSignHash, hash)
-					}
-
-					if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
-						return find, blockSignHash
-					}
-				}
-			}
-		}
-	}
-	return false, nil
 }
 
 func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool {
