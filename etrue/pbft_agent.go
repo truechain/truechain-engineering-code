@@ -70,7 +70,8 @@ type PbftAgent struct {
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
-	RewardNumberCh  chan core.RewardNumberEvent
+	//RewardNumberCh  chan core.RewardNumberEvent
+	ChainHeadCh 	chan core.ChainHeadEvent
 
 	electionSub event.Subscription
 	committeeSub event.Subscription
@@ -131,6 +132,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		snailChain:			eth.SnailBlockChain(),
 		CommitteeCh:	make(chan core.CommitteeEvent),
 		ElectionCh: 	make(chan core.ElectionEvent, electionChanSize),
+		ChainHeadCh:	make(chan core.ChainHeadEvent, 3),
 		election: election,
 		mu:	new(sync.Mutex),
 	}
@@ -170,7 +172,7 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 func (self *PbftAgent) Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	self.RewardNumberSub = self.fastChain.SubscribeRewardNumberEvent(self.RewardNumberCh)
+	self.RewardNumberSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
 	go self.loop()
 }
 
@@ -246,11 +248,13 @@ func (self *PbftAgent) loop(){
 					self.cacheSign =append(self.cacheSign,cryNodeInfo.Sign)
 				}
 			}
-		case ch := <-self.RewardNumberCh:
+		case ch := <- self.ChainHeadCh:
 			log.Info("RewardNumberCh.")
-			if self.rewardNumber.Cmp(ch.RewardNumber) == -1{
-				self.rewardNumber =ch.RewardNumber
-			}
+		if ch.Block.Header().SnailNumber != nil &&
+			self.rewardNumber.Cmp(ch.Block.Header().SnailNumber) == -1{
+			self.rewardNumber =ch.Block.Header().SnailNumber
+		}
+
 		}
 	}
 }

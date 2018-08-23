@@ -1436,9 +1436,9 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 
 		case ChainHeadEvent:
 			bc.chainHeadFeed.Send(ev)
-			if ev.Block.Header().SnailNumber!=nil{
+			/*if ev.Block.Header().SnailNumber!=nil{
 				bc.RewardNumberFeed.Send(ev.Block.Header().SnailNumber)
-			}
+			}*/
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
 		 	
