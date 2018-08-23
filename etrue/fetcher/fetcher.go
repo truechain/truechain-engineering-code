@@ -823,7 +823,11 @@ func (f *Fetcher) enqueueSign(peer string, sign *types.PbftSign) {
 
 		f.signMultiHash[number] = append(f.signMultiHash[number], hash)
 
-		if !verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(len(f.signMultiHash[number]))) {
+		if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(len(f.signMultiHash[number]))) {
+			if ok, _ := f.agreeAtSameHeight(number, sign.FastHash); !ok {
+				return
+			}
+		} else {
 			return
 		}
 
@@ -933,32 +937,16 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 
 func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 	go func() {
-		find := false
 		if blockHashs, ok := f.blockMultiHash[height.Uint64()]; ok {
 			for _, hash := range blockHashs {
-				if inject, ok := f.queued[hash]; ok {
-					voteCount := 0
-					blockSignHash := []common.Hash{}
-					for _, hash := range hashs {
-						sign := f.queuedSign[hash].sign
-						if sign.Result == 1 && inject.block.Hash() == sign.FastHash {
-							voteCount++
-							blockSignHash = append(blockSignHash, hash)
-						}
-
-						if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
-							find = f.insert(f.queuedSign[hash].origin, f.queued[sign.FastHash].block, blockSignHash)
-							break
-						}
-					}
+				if find, blockSignHash := f.agreeAtSameHeight(height.Uint64(),hash); find {
+					find = f.insert(f.queuedSign[hash].origin, f.queued[hash].block, blockSignHash)
 					if find {
-						break
+						f.forgetBlockHeight(height)
 					}
+					break
 				}
 			}
-		}
-		if find {
-			f.forgetBlockHeight(height)
 		}
 	}()
 }
@@ -1106,6 +1094,40 @@ func (f *Fetcher) forgetSign(hash common.Hash) {
 		}
 		delete(f.queuedSign, hash)
 	}
+}
+
+func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool, []common.Hash) {
+
+	find := false
+	if blockHashs, ok := f.blockMultiHash[height]; ok {
+		for _, hash := range blockHashs {
+			if hash == blockHash {
+				find = true
+				break
+			}
+		}
+	}
+
+	if find {
+		if inject, ok := f.queued[blockHash]; ok {
+			voteCount := 0
+			blockSignHash := []common.Hash{}
+			if hashs, ok := f.signMultiHash[height]; ok {
+				for _, hash := range hashs {
+					sign := f.queuedSign[hash].sign
+					if sign.Result == 1 && inject.block.Hash() == sign.FastHash {
+						voteCount++
+						blockSignHash = append(blockSignHash, hash)
+					}
+
+					if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
+						return find, blockSignHash
+					}
+				}
+			}
+		}
+	}
+	return false, nil
 }
 
 func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool {
