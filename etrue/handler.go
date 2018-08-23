@@ -215,7 +215,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
-	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent)
+	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent, manager.BroadcastPbSign)
 
 	return manager, nil
 }
@@ -669,7 +669,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) ||
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) &&
 				pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
 				unknown = append(unknown, block)
 			}
@@ -745,16 +745,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == BlockSignMsg:
 		// PbftSign can be processed, parse all of them and deliver to the queue
-		var sign *types.PbftSign
-		if err := msg.Decode(&sign); err != nil {
+		var signs []*types.PbftSign
+		if err := msg.Decode(&signs); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		// Validate and mark the remote PbftSign
-		if sign == nil {
-			return errResp(ErrDecode, "sign is nil")
+
+		for i, sign := range signs {
+			// Validate and mark the remote transaction
+			if sign == nil {
+				return errResp(ErrDecode, "sign %d is nil", i)
+			}
+			p.MarkTransaction(sign.Hash())
+			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
-		p.MarkSign(sign.Hash())
-		pm.fetcherFast.EnqueueSign(p.id, sign)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
@@ -837,18 +840,21 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 
 // BroadcastPbSigns will propagate a batch of PbftVoteSigns to all peers which are not known to
 // already have the given PbftVoteSign.
-func (pm *ProtocolManager) BroadcastPbSign(pbSign *types.PbftSign) {
-	var pbSignSet = make(map[*peer]*types.PbftSign)
+func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
+	var pbSignSet = make(map[*peer][]*types.PbftSign)
 
 	// Broadcast transactions to a batch of peers not knowing about it
-	peers := pm.peers.PeersWithoutSign(pbSign.FastHash)
-	for _, peer := range peers {
-		pbSignSet[peer] = pbSign
+	for _, pbSign := range pbSigns {
+		peers := pm.peers.PeersWithoutTx(pbSign.Hash())
+		for _, peer := range peers {
+			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
+		}
+		log.Trace("Broadcast sign", "hash", pbSign.Hash(), "recipients", len(peers))
 	}
-	log.Trace("Broadcast PbftSign", "hash", pbSign.FastHash, "recipients", len(peers))
+
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, sign := range pbSignSet {
-		peer.AsyncSendSign(sign)
+	for peer, signs := range pbSignSet {
+		peer.AsyncSendSign(signs)
 	}
 }
 
@@ -1009,7 +1015,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.pbSignsCh:
-			pm.BroadcastPbSign(event.PbftSign)
+			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():

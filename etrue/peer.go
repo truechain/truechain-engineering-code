@@ -37,12 +37,12 @@ var (
 )
 
 const (
-	maxKnownTxs    = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownSigns    = 1024 // Maximum signs to keep in the known list
-	maxKnownNodeInfo    = 1024 // Maximum node info to keep in the known list
-	maxKnownFruits    = 1024 // Maximum fruits hashes to keep in the known list (prevent DOS)
-	maxKnownSnailBlocks    = 1024 // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
-	maxKnownFastBlocks = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
+	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
+	maxKnownSigns       = 1024  // Maximum signs to keep in the known list
+	maxKnownNodeInfo    = 1024  // Maximum node info to keep in the known list
+	maxKnownFruits      = 1024  // Maximum fruits hashes to keep in the known list (prevent DOS)
+	maxKnownSnailBlocks = 1024  // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
+	maxKnownFastBlocks  = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
@@ -113,47 +113,47 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs    *set.Set                  // Set of transaction hashes known to be known by this peer
-	knownSign    *set.Set                  // Set of sign  known to be known by this peer
-	knownNodeInfos    *set.Set             // Set of node info  known to be known by this peer
-	knownFruits    *set.Set              // Set of fruits hashes known to be known by this peer
-	knownSnailBlocks    *set.Set              // Set of snailBlocks hashes known to be known by this peer
-	knownFastBlocks *set.Set              // Set of fast block hashes known to be known by this peer
-	queuedTxs   chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedSign   chan *types.PbftSign 	  // Queue of sign to broadcast to the peer
-	queuedNodeInfo   chan *CryNodeInfo    // a node info to broadcast to the peer
-	queuedFruits   chan []*types.SnailBlock // Queue of fruits to broadcast to the peer
-	queuedSnailBlcoks   chan []*types.SnailBlock // Queue of snailBlocks to broadcast to the peer
-	queuedFastProps chan *propFastEvent           // Queue of fast blocks to broadcast to the peer
+	knownTxs          *set.Set                  // Set of transaction hashes known to be known by this peer
+	knownSign         *set.Set                  // Set of sign  known to be known by this peer
+	knownNodeInfos    *set.Set                  // Set of node info  known to be known by this peer
+	knownFruits       *set.Set                  // Set of fruits hashes known to be known by this peer
+	knownSnailBlocks  *set.Set                  // Set of snailBlocks hashes known to be known by this peer
+	knownFastBlocks   *set.Set                  // Set of fast block hashes known to be known by this peer
+	queuedTxs         chan []*types.Transaction // Queue of transactions to broadcast to the peer
+	queuedSign        chan []*types.PbftSign    // Queue of sign to broadcast to the peer
+	queuedNodeInfo    chan *CryNodeInfo         // a node info to broadcast to the peer
+	queuedFruits      chan []*types.SnailBlock  // Queue of fruits to broadcast to the peer
+	queuedSnailBlcoks chan []*types.SnailBlock  // Queue of snailBlocks to broadcast to the peer
+	queuedFastProps   chan *propFastEvent       // Queue of fast blocks to broadcast to the peer
 
-	queuedFruit chan *fruitEvent           // Queue of newFruits to broadcast to the peer
-	queuedSnailBlock chan *snailBlockEvent           // Queue of newSnailBlock to broadcast to the peer
+	queuedFruit      chan *fruitEvent      // Queue of newFruits to broadcast to the peer
+	queuedSnailBlock chan *snailBlockEvent // Queue of newSnailBlock to broadcast to the peer
 
-	queuedFastAnns  chan *types.Block   // Queue of fastBlocks to announce to the peer
-	term        chan struct{}             // Termination channel to stop the broadcaster
+	queuedFastAnns chan *types.Block // Queue of fastBlocks to announce to the peer
+	term           chan struct{}     // Termination channel to stop the broadcaster
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return &peer{
-		Peer:        p,
-		rw:          rw,
-		version:     version,
-		id:          fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:    	set.New(),
-		knownSign:		set.New(),
-		knownNodeInfos: 	set.New(),
-		knownFastBlocks: 	set.New(),
-		knownFruits: 		set.New(),
+		Peer:            p,
+		rw:              rw,
+		version:         version,
+		id:              fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:        set.New(),
+		knownSign:       set.New(),
+		knownNodeInfos:  set.New(),
+		knownFastBlocks: set.New(),
+		knownFruits:     set.New(),
 
-		queuedTxs:   make(chan []*types.Transaction, maxQueuedTxs),
-		queuedSign:	make(chan *types.PbftSign,maxQueuedSigns),
+		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
+		queuedSign:      make(chan []*types.PbftSign, maxQueuedSigns),
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 		queuedNodeInfo:  make(chan *CryNodeInfo, maxQueuedNodeInfo),
 		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
 
-		queuedFruit: make(chan *fruitEvent, maxQueuedFruit),
-		queuedFruits:  make(chan []*types.SnailBlock, maxQueuedFruits),
-		term:        make(chan struct{}),
+		queuedFruit:  make(chan *fruitEvent, maxQueuedFruit),
+		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
+		term:         make(chan struct{}),
 	}
 }
 
@@ -170,8 +170,8 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast transactions", "count", len(txs))
 
 			//add for sign
-		case sign := <-p.queuedSign:
-			if err := p.SendSign(sign); err != nil {
+		case signs := <-p.queuedSign:
+			if err := p.SendSign(signs); err != nil {
 				return
 			}
 			p.Log().Trace("Broadcast sign")
@@ -283,6 +283,7 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 	}
 	p.knownTxs.Add(hash)
 }
+
 // MarkSign marks a sign as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
 func (p *peer) MarkSign(hash common.Hash) {
@@ -312,6 +313,7 @@ func (p *peer) MarkFruit(hash common.Hash) {
 	}
 	p.knownFruits.Add(hash)
 }
+
 // MarkSnailBlock marks a snailBlock as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
 func (p *peer) MarkSnailBlock(hash common.Hash) {
@@ -321,6 +323,7 @@ func (p *peer) MarkSnailBlock(hash common.Hash) {
 	}
 	p.knownSnailBlocks.Add(hash)
 }
+
 // SendTransactions sends transactions to the peer and includes the hashes
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {
@@ -345,15 +348,19 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 
 //SendSigns sends signs to the peer and includes the hashes
 // in its signs hash set for future reference.
-func (p *peer) SendSign(sign *types.PbftSign) error {
-	p.knownSign.Add(sign.Hash())
-	return p2p.Send(p.rw, BlockSignMsg, sign)
+func (p *peer) SendSign(signs []*types.PbftSign) error {
+	for _, sign := range signs {
+		p.knownSign.Add(sign.Hash())
+	}
+	return p2p.Send(p.rw, BlockSignMsg, signs)
 }
 
-func (p *peer) AsyncSendSign(sign *types.PbftSign) {
+func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 	select {
-	case p.queuedSign <- sign:
-		p.knownSign.Add(sign.Hash())
+	case p.queuedSign <- signs:
+		for _, sign := range signs {
+			p.knownSign.Add(sign.Hash())
+		}
 	default:
 		p.Log().Debug("Dropping sign propagation")
 	}
@@ -390,6 +397,7 @@ func (p *peer) SendsnailBlocks(snailBlocks types.SnailBlocks) error {
 	}
 	return p2p.Send(p.rw, SnailBlockMsg, snailBlocks)
 }
+
 //for record;the same as transactions
 func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {
@@ -702,6 +710,7 @@ func (ps *peerSet) PeersWithoutFastBlock(hash common.Hash) []*peer {
 	}
 	return list
 }
+
 // PeersWithoutSign retrieves a list of peers that do not have a given sign
 // in their set of known hashes.
 func (ps *peerSet) PeersWithoutSign(hash common.Hash) []*peer {
@@ -716,6 +725,7 @@ func (ps *peerSet) PeersWithoutSign(hash common.Hash) []*peer {
 	}
 	return list
 }
+
 // PeersWithoutNodeInfo retrieves a list of peers that do not have a given node info
 // in their set of known hashes.
 func (ps *peerSet) PeersWithoutNodeInfo(hash common.Hash) []*peer {
@@ -730,6 +740,7 @@ func (ps *peerSet) PeersWithoutNodeInfo(hash common.Hash) []*peer {
 	}
 	return list
 }
+
 // PeersWithoutTx retrieves a list of peers that do not have a given transaction
 // in their set of known hashes.
 func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
@@ -772,6 +783,7 @@ func (ps *peerSet) PeersWithoutSnailBlock(hash common.Hash) []*peer {
 	}
 	return list
 }
+
 // BestPeer retrieves the known peer with the currently highest total difficulty.
 func (ps *peerSet) BestPeer() *peer {
 	ps.lock.RLock()
