@@ -132,6 +132,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		CommitteeCh:	make(chan core.CommitteeEvent),
 		ElectionCh: 	make(chan core.ElectionEvent, electionChanSize),
 		election: election,
+		mu:	new(sync.Mutex),
 	}
 	self.InitNodeInfo(eth.Config())
 	self.SetCurrentRewardNumber()
@@ -139,8 +140,8 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent)	SetCurrentRewardNumber() {
-	self.mu.Lock()
-	self.mu.Unlock()
+	self.committeeMu.Lock()
+	self.committeeMu.Unlock()
 	currentFastBlock := self.fastChain.CurrentBlock()
 	snailHegiht := common.Big0
 	for i:=currentFastBlock.Number().Uint64(); i>0; i--{
