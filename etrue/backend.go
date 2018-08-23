@@ -207,7 +207,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
-
 	if eth.protocolManager, err = NewProtocolManager(
 		eth.chainConfig, config.SyncMode, config.NetworkId,
 		eth.eventMux, eth.txPool, eth.snailPool, eth.engine,
@@ -218,9 +217,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
-
-	//sender := NewSender(eth.snailPool, eth.chainConfig)
-	//sender.Start()
 
 	eth.APIBackend = &EthAPIBackend{eth, nil}
 	gpoParams := config.GPO
@@ -479,6 +475,9 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.election.Start()
 
 	//go sendBlock(s.agent)
+	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
+	//sender.Start()
+
 	return nil
 }
 
