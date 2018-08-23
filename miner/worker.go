@@ -510,14 +510,12 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	// Set the pointerHash 
-	/*
-	if num.Cmp(pointerHashFresh)>0 {	
-		header.PointerHash = self.chain.GetBlockByNumber(parent.Number().Uint64() - pointerHashFresh.Uint64()).Hash()
-	}else{
-		// pointer the genesis block
-		header.PointerHash = self.chain.GetBlockByNumber(0).Hash();
+	pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
+	if pointerNum.Cmp(common.Big0) < 0 {
+		pointerNum = common.Big0
 	}
-	*/
+	header.PointerHash = self.chain.GetBlockByNumber(pointerNum.Uint64()).Hash()
+
 	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
 	if daoBlock := self.config.DAOForkBlock; daoBlock != nil {
 		// Check whether the block is among the fork extra-override range

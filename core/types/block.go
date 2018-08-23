@@ -577,9 +577,9 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	b.header.UncleHash = EmptyUncleHash
 
 	if len(signs) == 0 {
-		b.header.UncleHash = EmptySignHash
+		b.header.SignHash = EmptySignHash
 	} else {
-		b.header.UncleHash = CalcSignHash(signs)
+		b.header.SignHash = CalcSignHash(signs)
 		b.signs = make([]*PbftSign, len(signs))
 		for i := range signs {
 			b.signs[i] = CopyPbftSign(signs[i])
