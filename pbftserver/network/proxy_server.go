@@ -70,7 +70,7 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	}
 	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
-	go PrintNode(server.node)
+	//go PrintNode(server.node)
 	return server
 }
 func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.ActionIn)) {
