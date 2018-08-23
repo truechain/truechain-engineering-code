@@ -198,6 +198,15 @@ func (self *worker) setEtherbase(addr common.Address) {
 	self.coinbase = addr
 }
 
+func (self *worker) setElection(toElect bool, pubkey []byte) {
+	self.mu.Lock()
+	defer  self.mu.Unlock()
+
+	self.toElect = toElect
+	self.publickey = make([]byte, len(pubkey))
+	copy(self.publickey, pubkey)
+}
+
 func (self *worker) setExtra(extra []byte) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -364,10 +373,9 @@ func (self *worker) wait() {
 			block := result.Block
 			work := result.Work
 
-			// 20180624 that for fruit
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
-					// if it does't include a record, it's not a fruit
+					// if it does't include a fast block signs, it's not a fruit
 					continue
 				}
 				if block.FastNumber().Cmp(common.Big0) == 0 {
@@ -375,23 +383,11 @@ func (self *worker) wait() {
 				}
 
 				//log.Info("—mined fruit","NUMBER",block.FastNumber())
-				//neo 20180628
-				// put it into pool first
-				// Broadcast the new fruit event
-				//self.mux.Post(chain.NewMinedFruitEvent{Block: block})
 				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
 				self.eth.SnailPool().AddRemoteFruits(newFruits)
 			} else {
-				// Update the block hash in all logs since it is now available and not when the
-				// receipt/log of individual transactions were created.
-				for _, r := range work.receipts {
-					for _, l := range r.Logs {
-						l.BlockHash = block.Hash()
-						// neo add fruit 20180624
-					}
-				}
 
 				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
@@ -421,7 +417,7 @@ func (self *worker) wait() {
 // push sends a new work task to currently live miner agents.
 func (self *worker) push(work *Work) {
 	if atomic.LoadInt32(&self.mining) != 1 {
-		return //neo mark 20180701
+		return
 	}
 	for agent := range self.agents {
 		atomic.AddInt32(&self.atWork, 1)

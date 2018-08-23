@@ -51,6 +51,9 @@ type Miner struct {
 
 	worker *worker
 
+	toElect   bool // for elect
+	publickey   []byte// for publickey
+
 	coinbase  common.Address
 	mining    int32
 	truechain Backend
@@ -189,4 +192,12 @@ func (self *Miner) PendingSnailBlock() *types.SnailBlock {
 func (self *Miner) SetEtherbase(addr common.Address) {
 	self.coinbase = addr
 	self.worker.setEtherbase(addr)
+}
+
+func (self *Miner) SetElection(toElect bool, pubkey []byte) {
+	self.toElect = toElect
+	self.publickey = make([]byte, len(pubkey))
+
+	copy(self.publickey, pubkey)
+	self.worker.setElection(toElect, pubkey)
 }
