@@ -98,6 +98,7 @@ type BlockChain struct {
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
+	RewardNumberFeed	event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
 
@@ -1435,12 +1436,18 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 
 		case ChainHeadEvent:
 			bc.chainHeadFeed.Send(ev)
-
+			if ev.Block.Header().SnailNumber!=nil{
+				bc.RewardNumberFeed.Send(ev.Block.Header().SnailNumber)
+			}
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
 		 	
 		}
 	}
+}
+
+func (bc *BlockChain) SubscribeRewardNumberEvent(ch chan<- RewardNumberEvent) event.Subscription {
+	return bc.scope.Track(bc.RewardNumberFeed.Subscribe(ch))
 }
 
 func (bc *BlockChain) update() {

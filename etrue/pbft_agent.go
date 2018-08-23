@@ -38,10 +38,6 @@ const (
 
 	BlockRewordSpace = 12
 	sendNodeTime = 5
-
-	prv_Hex = "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc"
-	prv_Hey = "0x289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
-
 )
 
 type PbftAgent struct {
@@ -60,7 +56,7 @@ type PbftAgent struct {
 	election	*Election
 
 	currentMu sync.Mutex //verifyBlock mutex
-	mu sync.Mutex //generateBlock mutex
+	mu *sync.Mutex //generateBlock mutex
 	committeeMu  sync.Mutex //generateBlock mutex
 
 	mux          *event.TypeMux
@@ -74,16 +70,16 @@ type PbftAgent struct {
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
+	RewardNumberCh  chan core.RewardNumberEvent
 
 	electionSub event.Subscription
 	committeeSub event.Subscription
 	PbftNodeSub *event.TypeMuxSubscription
+	RewardNumberSub  event.Subscription
 
 	CommitteeNode *types.CommitteeNode
 	PrivateKey *ecdsa.PrivateKey
 
-	pauseBlock   chan bool
-	//cacheSign    map[[SignLength]byte]CryNodeInfo
 	cacheSign    []Sign
 	rewardNumber  *big.Int
 }
@@ -114,8 +110,7 @@ type Backend interface {
 	Config() *Config
 }
 
-// NewPbftNodeEvent is posted when nodeInfo send
-//type NewPbftNodeEvent struct{ cryNodeInfo *CryNodeInfo}
+// NodeInfoEvent is posted when nodeInfo send
 type NodeInfoEvent struct{ nodeInfo *CryNodeInfo }
 
 type EncryptCommitteeNode []byte
@@ -137,17 +132,15 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		CommitteeCh:	make(chan core.CommitteeEvent),
 		ElectionCh: 	make(chan core.ElectionEvent, electionChanSize),
 		election: election,
-		pauseBlock : make(chan bool ,1),
 	}
 	self.InitNodeInfo(eth.Config())
-	self.pauseBlock <- true
-	self.mu.Lock()
 	self.SetCurrentRewardNumber()
-	self.mu.Unlock()
 	return self
 }
 
 func (self *PbftAgent)	SetCurrentRewardNumber() {
+	self.mu.Lock()
+	self.mu.Unlock()
 	currentFastBlock := self.fastChain.CurrentBlock()
 	snailHegiht := common.Big0
 	for i:=currentFastBlock.Number().Uint64(); i>0; i--{
@@ -176,6 +169,7 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 func (self *PbftAgent) Start() {
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
+	self.RewardNumberSub = self.fastChain.SubscribeRewardNumberEvent(self.RewardNumberCh)
 	go self.loop()
 }
 
@@ -184,12 +178,14 @@ func (self *PbftAgent) Stop() {
 	// Unsubscribe all subscriptions registered from agent
 	self.committeeSub.Unsubscribe()
 	self.electionSub.Unsubscribe()
+	self.RewardNumberSub.Unsubscribe()
 	self.scope.Close()
 }
 
 func (self *PbftAgent) loop(){
 	defer self.committeeSub.Unsubscribe()
 	defer self.electionSub.Unsubscribe()
+	defer self.RewardNumberSub.Unsubscribe()
 	defer self.scope.Close()
 
 	var ticker *time.Ticker
@@ -201,7 +197,6 @@ func (self *PbftAgent) loop(){
 				log.Info("CommitteeStart:")
 				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo,CurrentCommittee)
-				//self.SetCommitteeInfo(nil,NextCommittee)
 				self.committeeMu.Unlock()
 				//self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
@@ -245,10 +240,15 @@ func (self *PbftAgent) loop(){
 					}
 				}
 				if !flag{
-					log.Info("ReceivePbftNode.")
+					log.Info("ReceivePbftNode method.")
 					self.ReceivePbftNode(cryNodeInfo)
 					self.cacheSign =append(self.cacheSign,cryNodeInfo.Sign)
 				}
+			}
+		case ch := <-self.RewardNumberCh:
+			log.Info("RewardNumberCh.")
+			if self.rewardNumber.Cmp(ch.RewardNumber) == -1{
+				self.rewardNumber =ch.RewardNumber
 			}
 		}
 	}
@@ -329,19 +329,8 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 	return nil
 }
 
-func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
-	log.Info("into FetchFastBlock...")
-	for {
-		select {
-		case <- self.pauseBlock:
-			self.GenerateFastBlock()
-			break
-		default:
-		}
-	}
-}
 //generateBlock and broadcast
-func (self * PbftAgent)  GenerateFastBlock() (*types.Block,error){
+func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	log.Info("into GenerateFastBlock...")
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -431,9 +420,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 		panic(err)
 	}
 	fb.AppendSign(voteSign)
-	go self.NewFastBlockFeed.Send(core.NewBlockEvent{
-		Block:	fb,
-	})
+	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block:fb,})
 	self.broadCastChainEvent(fb)
 	return err
 }
@@ -536,9 +523,9 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) (bool,error){
 
 func (self *PbftAgent)  BroadcastSign(fb *types.Block, voteSign *types.PbftSign){
 	log.Info("into BroadcastSign.")
-	fastBlocks	:= []*types.Block{fb}
 	self.mu.Lock()
 	defer self.mu.Unlock()
+	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
 		panic(err)
@@ -546,8 +533,6 @@ func (self *PbftAgent)  BroadcastSign(fb *types.Block, voteSign *types.PbftSign)
 	if fb.SnailNumber() !=nil{
 		self.rewardNumber = fb.SnailNumber()
 	}
-	self.pauseBlock <-true //TODO if insertchain error
-
 	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
 }
 
@@ -667,10 +652,6 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockCha
 	env.receipts = append(env.receipts, receipt)
 
 	return nil, receipt.Logs
-}
-
-func (self * PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewBlockEvent) event.Subscription {
-	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
 }
 
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
