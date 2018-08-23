@@ -58,6 +58,23 @@ func BenchmarkSha3(b *testing.B) {
 	}
 }
 
+func TestCreateAddress(t *testing.T) {
+	var (
+		enc, _ = hex.DecodeString("0x04760c4460e5336ac9bbd87952a3c7ec4363fc0a97bd31c86430806e287b437fd1b01abc6e1db640cf3106b520344af1d58b00b57823db3e1407cbc433e1b6d04d")
+		//dec    = &ecdsa.PublicKey{
+		//	Curve: S256(),
+		//	X:     hexutil.MustDecodeBig("0x760c4460e5336ac9bbd87952a3c7ec4363fc0a97bd31c86430806e287b437fd1"),
+		//	Y:     hexutil.MustDecodeBig("0xb01abc6e1db640cf3106b520344af1d58b00b57823db3e1407cbc433e1b6d04d"),
+		//}
+	)
+	key, err := UnmarshalPubkey(enc)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	} else {
+		println(key)
+	}
+}
+
 func TestUnmarshalPubkey(t *testing.T) {
 	key, err := UnmarshalPubkey(nil)
 	if err != errInvalidPubkey || key != nil {
