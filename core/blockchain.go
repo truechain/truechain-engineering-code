@@ -1684,3 +1684,23 @@ func (bc *BlockChain) GetSnailHeightByFastHeight(hash common.Hash, number uint64
 	bc.signCache.Add(number, signs)
 	return signs
 }
+
+
+func (bc *BlockChain) GetFastHeightBySnailHeight(hash common.Hash, number uint64) *types.BlockReward{
+
+
+	if signs, ok := bc.rewardCache.Get(number); ok {
+
+		sign := signs.(*types.BlockReward)
+		return sign
+	}
+
+	signs := rawdb.ReadBlockReward(bc.db,hash,number)
+
+	if signs == nil {
+		return nil
+	}
+	// Cache the found sign for next time and return
+	bc.signCache.Add(number, signs)
+	return signs
+}

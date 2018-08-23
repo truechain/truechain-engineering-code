@@ -384,7 +384,7 @@ func ReadBlockReward(db DatabaseReader, hash common.Hash, number uint64) *types.
 func WriteBlockReward(db DatabaseWriter, block *types.BlockReward) {
 
 
-	key := blockRewardKey(block.FastNumber.Uint64(),block.FastHash)
+	key := blockRewardKey(block.SnailNumber.Uint64(),block.SnailHash)
 	// Write the encoded BlockReward
 	data, err := rlp.EncodeToBytes(block)
 	if err != nil {
