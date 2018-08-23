@@ -669,9 +669,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if pm.fetcherFast.GetPendingBlock(block.Hash) != nil {
-				pm.fetcherFast.NotifyPendingBlock(p.id, block.Hash, block.Number)
-			} else if !pm.blockchain.HasBlock(block.Hash, block.Number) {
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) ||
+				pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
 				unknown = append(unknown, block)
 			}
 		}
