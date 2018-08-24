@@ -17,13 +17,10 @@
 package snailchain
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/misc"
-	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -38,11 +35,8 @@ type BlockGen struct {
 	chain       []*types.SnailBlock
 	chainReader consensus.SnailChainReader
 	header      *types.SnailHeader
-	statedb     *state.StateDB
 
 	gasPool  *GasPool
-	txs      []*types.Transaction
-	receipts []*types.Receipt
 	uncles   []*types.SnailHeader
 
 	fruits   []*types.SnailBlock
@@ -56,7 +50,7 @@ type BlockGen struct {
 // It can be called at most once.
 func (b *BlockGen) SetCoinbase(addr common.Address) {
 	if b.gasPool != nil {
-		if len(b.txs) > 0 {
+		if len(b.fruits) > 0 {
 			panic("coinbase must be set before adding transactions")
 		}
 		panic("coinbase can only be set once")
@@ -64,6 +58,10 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 	b.header.Coinbase = addr
 	//TODO not gaslimit 20180804
 	//b.gasPool = new(GasPool).AddGas(b.header.GasLimit)
+}
+
+func (b *BlockGen) AddFruit(block *types.SnailBlock) {
+	b.fruits = append(b.fruits, block)
 }
 
 // SetExtra sets the extra data field of the generated block.
@@ -95,7 +93,6 @@ func (b *BlockGen) AddTxWithChain(bc *SnailBlockChain, tx *types.Transaction) {
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 	//TODO not need 20180804
 	/*
 	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
@@ -110,24 +107,6 @@ func (b *BlockGen) AddTxWithChain(bc *SnailBlockChain, tx *types.Transaction) {
 // Number returns the block number of the block being generated.
 func (b *BlockGen) Number() *big.Int {
 	return new(big.Int).Set(b.header.Number)
-}
-
-// AddUncheckedReceipt forcefully adds a receipts to the block without a
-// backing transaction.
-//
-// AddUncheckedReceipt will cause consensus failures when used during real
-// chain processing. This is best used in conjunction with raw block insertion.
-func (b *BlockGen) AddUncheckedReceipt(receipt *types.Receipt) {
-	b.receipts = append(b.receipts, receipt)
-}
-
-// TxNonce returns the next valid transaction nonce for the
-// account at addr. It panics if the account does not exist.
-func (b *BlockGen) TxNonce(addr common.Address) uint64 {
-	if !b.statedb.Exist(addr) {
-		panic("account does not exist")
-	}
-	return b.statedb.GetNonce(addr)
 }
 
 // AddUncle adds an uncle header to the generated block.
@@ -171,19 +150,19 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.SnailBlock, []types.Receipts) {
+func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.SnailBlock) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
-	blocks, receipts := make(types.SnailBlocks, n), make([]types.Receipts, n)
-	genblock := func(i int, parent *types.SnailBlock, statedb *state.StateDB) (*types.SnailBlock, types.Receipts) {
+	blocks := make(types.SnailBlocks, n)
+	genblock := func(i int, parent *types.SnailBlock) (*types.SnailBlock) {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
 		blockchain, _ := NewSnailBlockChain(db, nil, config, engine, vm.Config{})
 		defer blockchain.Stop()
 
-		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
-		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
+		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, config: config, engine: engine}
+		b.header = makeHeader(b.chainReader, parent, b.engine)
 
 		// Mutate the state and block according to any hard-fork specs
 		if daoBlock := config.DAOForkBlock; daoBlock != nil {
@@ -194,9 +173,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine 
 				}
 			}
 		}
-		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(b.header.Number) == 0 {
-			misc.ApplyDAOHardFork(statedb)
-		}
+
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
 			gen(i, b)
@@ -204,33 +181,21 @@ func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine 
 
 		if b.engine != nil {
 			// TODO: add fruits support
-			block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, statedb, b.uncles, b.fruits, b.signs)
-			// Write state changes to db
-			root, err := statedb.Commit(config.IsEIP158(b.header.Number))
-			if err != nil {
-				panic(fmt.Sprintf("state write error: %v", err))
-			}
-			if err := statedb.Database().TrieDB().Commit(root, false); err != nil {
-				panic(fmt.Sprintf("trie write error: %v", err))
-			}
-			return block, b.receipts
+			block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, b.uncles, b.fruits, b.signs)
+
+			return block
 		}
-		return nil, nil
+		return nil
 	}
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
-		if err != nil {
-			panic(err)
-		}
-		block, receipt := genblock(i, parent, statedb)
+		block := genblock(i, parent)
 		blocks[i] = block
-		receipts[i] = receipt
 		parent = block
 	}
-	return blocks, receipts
+	return blocks
 }
 
-func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, state *state.StateDB, engine consensus.Engine) *types.SnailHeader {
+func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engine consensus.Engine) *types.SnailHeader {
 	var time *big.Int
 	if parent.Time() == nil {
 		time = big.NewInt(10)
@@ -239,16 +204,14 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, stat
 	}
 
 	return &types.SnailHeader{
-		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
 		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), &types.SnailHeader{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.Difficulty(),
-			//UncleHash:  parent.UncleHash(),
+			UncleHash:  parent.UncleHash(),
 		}),
-		//GasLimit: CalcGasLimit(parent),
 		Number:   new(big.Int).Add(parent.Number(), common.Big1),
 		Time:     time,
 	}
@@ -266,7 +229,7 @@ func makeHeaderChain(parent *types.SnailHeader, n int, engine consensus.Engine, 
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
 func makeBlockChain(parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
-	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
+	blocks := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 	return blocks
