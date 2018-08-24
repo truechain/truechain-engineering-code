@@ -51,6 +51,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
 type LesServer interface {
@@ -423,6 +424,8 @@ func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
 func (s *Truechain) AccountManager() *accounts.Manager       { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain            { return s.blockchain }
+func (s *Truechain) Config() *Config            { return s.config }
+
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
 
@@ -467,9 +470,8 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-
 	s.startPbftServer()
-
+	s.agent.server =s.pbftServer
 	s.agent.Start()
 
 	s.election.Start()
@@ -502,10 +504,17 @@ func (s *Truechain) Stop() error {
 	return nil
 }
 func (s *Truechain) startPbftServer() error {
-	var pk *ecdsa.PublicKey
-	var priv *ecdsa.PrivateKey
-	var agent types.PbftAgentProxy
-	s.pbftServer = pbftserver.NewPbftServerMgr(pk, priv, agent)
+	priv,err := crypto.ToECDSA(s.config.CommitteeKey)
+	if err != nil {
+		return err
+	}
+	pk := &ecdsa.PublicKey{
+		Curve: priv.Curve,
+		X:     new(big.Int).Set(priv.X),
+		Y:     new(big.Int).Set(priv.Y),
+	}
+	// var agent types.PbftAgentProxy
+	s.pbftServer = pbftserver.NewPbftServerMgr(pk, priv, s.agent)
 	return nil
 }
 func (s *Truechain) stopPbftServer() error {

@@ -98,6 +98,7 @@ type BlockChain struct {
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
 	logsFeed      event.Feed
+	RewardNumberFeed	event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
 
@@ -1435,12 +1436,18 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 
 		case ChainHeadEvent:
 			bc.chainHeadFeed.Send(ev)
-
+			/*if ev.Block.Header().SnailNumber!=nil{
+				bc.RewardNumberFeed.Send(ev.Block.Header().SnailNumber)
+			}*/
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
 		 	
 		}
 	}
+}
+
+func (bc *BlockChain) SubscribeRewardNumberEvent(ch chan<- RewardNumberEvent) event.Subscription {
+	return bc.scope.Track(bc.RewardNumberFeed.Subscribe(ch))
 }
 
 func (bc *BlockChain) update() {
@@ -1660,6 +1667,26 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 }
 
 func (bc *BlockChain) GetSnailHeightByFastHeight(hash common.Hash, number uint64) *types.BlockReward{
+
+
+	if signs, ok := bc.rewardCache.Get(number); ok {
+
+		sign := signs.(*types.BlockReward)
+		return sign
+	}
+
+	signs := rawdb.ReadBlockReward(bc.db,hash,number)
+
+	if signs == nil {
+		return nil
+	}
+	// Cache the found sign for next time and return
+	bc.signCache.Add(number, signs)
+	return signs
+}
+
+
+func (bc *BlockChain) GetFastHeightBySnailHeight(hash common.Hash, number uint64) *types.BlockReward{
 
 
 	if signs, ok := bc.rewardCache.Get(number); ok {

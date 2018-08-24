@@ -32,6 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"bytes"
 )
 
 var (
@@ -355,6 +356,27 @@ func (b *Block) AppendSign(sign *PbftSign) {
 	signP := CopyPbftSign(sign)
 	b.signs = append(b.signs, signP)
 }
+
+func (b *Block) AppendSigns(signs []*PbftSign) {
+
+	if len(b.signs) <=0{
+		b.signs = signs
+		return
+	}
+
+	signP := CopyPbftSign(b.signs[0])
+	signN := make([]*PbftSign,0, len(signs))
+	signN = append(signN, signP)
+	for _,sign := range signs{
+		if bytes.Equal(sign.Sign,signP.Sign){
+			continue
+		}
+		signN = append(signN, sign)
+	}
+
+}
+
+
 
 func (b *Block) GetLeaderSign() *PbftSign {
 	if len(b.signs) > 0 {

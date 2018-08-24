@@ -695,9 +695,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if pm.fetcherFast.GetPendingBlock(block.Hash) != nil {
-				pm.fetcherFast.NotifyPendingBlock(p.id,block.Hash,block.Number)
-			} else if !pm.blockchain.HasBlock(block.Hash, block.Number) {
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) &&
+				pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
 				unknown = append(unknown, block)
 			}
 		}
@@ -714,9 +713,29 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
 
+		// TODO: downloader sync func
 		// Mark the peer as owning the block and schedule it for import
-		p.MarkFastBlock(request.Block.Hash())
-		pm.fetcherFast.Enqueue(p.id, request.Block)
+		//p.MarkFastBlock(request.Block.Hash())
+		//pm.fetcherFast.Enqueue(p.id, request.Block)
+		//
+		//// Assuming the block is importable by the peer, but possibly not yet done so,
+		//// calculate the head hash and TD that the peer truly must have.
+		//var (
+		//	trueHead = request.Block.ParentHash()
+		//	trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
+		//)
+		//// Update the peers total difficulty if better than the previous
+		//if _, td := p.Head(); trueTD.Cmp(td) > 0 {
+		//	p.SetHead(trueHead, trueTD)
+		//
+		//	// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+		//	// a singe block (as the true TD is below the propagated block), however this
+		//	// scenario should easily be covered by the fetcher.
+		//	currentBlock := pm.blockchain.CurrentBlock()
+		//	if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+		//		go pm.synchronise(p)
+		//	}
+		//}
 
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
@@ -738,35 +757,32 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
-		// node arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
-			break
-		}
 		// CryNodeInfo can be processed, parse all of them and deliver to the queue
 		var nodeInfo *CryNodeInfo
 		if err := msg.Decode(&nodeInfo); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		// Validate and mark the remote PbftSign
+		// Validate and mark the remote node
 		if nodeInfo == nil {
-			return errResp(ErrDecode, "sign is nil")
+			return errResp(ErrDecode, "nodde  is nil")
 		}
 		p.MarkNodeInfo(nodeInfo.Hash())
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
 
 	case msg.Code == BlockSignMsg:
-		// sign arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
-			break
-		}
 		// PbftSign can be processed, parse all of them and deliver to the queue
-		var sign *types.PbftSign
-		if err := msg.Decode(&sign); err != nil {
+		var signs []*types.PbftSign
+		if err := msg.Decode(&signs); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		// Validate and mark the remote PbftSign
-		if sign == nil {
-			return errResp(ErrDecode, "sign is nil")
+
+		for i, sign := range signs {
+			// Validate and mark the remote transaction
+			if sign == nil {
+				return errResp(ErrDecode, "sign %d is nil", i)
+			}
+			p.MarkTransaction(sign.Hash())
+			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 		p.MarkSign(sign.Hash())
 		pm.fetcherFast.EnqueueSign(p.id, sign)
@@ -855,18 +871,21 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 
 // BroadcastPbSigns will propagate a batch of PbftVoteSigns to all peers which are not known to
 // already have the given PbftVoteSign.
-func (pm *ProtocolManager) BroadcastPbSign(pbSign *types.PbftSign) {
-	var pbSignSet = make(map[*peer]*types.PbftSign)
+func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
+	var pbSignSet = make(map[*peer][]*types.PbftSign)
 
 	// Broadcast transactions to a batch of peers not knowing about it
-	peers := pm.peers.PeersWithoutSign(pbSign.FastHash)
-	for _, peer := range peers {
-		pbSignSet[peer] = pbSign
+	for _, pbSign := range pbSigns {
+		peers := pm.peers.PeersWithoutTx(pbSign.Hash())
+		for _, peer := range peers {
+			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
+		}
+		log.Trace("Broadcast sign", "hash", pbSign.Hash(), "recipients", len(peers))
 	}
-	log.Trace("Broadcast PbftSign", "hash", pbSign.FastHash, "recipients", len(peers))
+
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, sign := range pbSignSet {
-		peer.AsyncSendSign(sign)
+	for peer, signs := range pbSignSet {
+		peer.AsyncSendSign(signs)
 	}
 }
 
@@ -1014,7 +1033,7 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.minedFastCh:
-			pm.BroadcastFastBlock(event.Block, true)  // First propagate fast block to peers
+			pm.BroadcastFastBlock(event.Block, true) // First propagate fast block to peers
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.minedFastSub.Err():
@@ -1027,7 +1046,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.pbSignsCh:
-			pm.BroadcastPbSign(event.PbftSign)
+			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():

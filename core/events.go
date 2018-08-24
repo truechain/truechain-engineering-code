@@ -82,3 +82,5 @@ type PbftSignEvent struct{ PbftSign *types.PbftSign }
 
 // NewBlockEvent is posted when a block has been generate .
 type NewBlockEvent struct{ Block *types.Block}
+
+type RewardNumberEvent struct{ RewardNumber *big.Int}

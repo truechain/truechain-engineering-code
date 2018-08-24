@@ -30,3 +30,7 @@ func LogStage(stage string, isDone bool) {
 		fmt.Printf("[STAGE-BEGIN] %s\n", stage)
 	}
 }
+
+func LogFmt(a ...interface{}) {
+	fmt.Println(a)
+}
