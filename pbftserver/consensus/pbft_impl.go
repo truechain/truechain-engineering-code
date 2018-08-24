@@ -105,19 +105,13 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 	}, nil
 }
 
-func (state *State) Prepare(prepareMsg *VoteMsg, f int, selfID string) (*VoteMsg, error) {
+func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
 	}
 
 	// Append msg to its logs
 	state.MsgLogs.PrepareMsgs[prepareMsg.NodeID] = prepareMsg
-
-	//Add self
-	if _, ok := state.MsgLogs.PrepareMsgs[selfID]; !ok {
-		myPrepareMsg := prepareMsg
-		state.MsgLogs.PrepareMsgs[selfID] = myPrepareMsg
-	}
 
 	// Print current voting status
 	fmt.Printf("[Prepare-Vote]: %d\n", len(state.MsgLogs.PrepareMsgs))
@@ -138,7 +132,7 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int, selfID string) (*VoteMsg
 	return nil, nil
 }
 
-func (state *State) Commit(commitMsg *VoteMsg, f int, selfID string) (*ReplyMsg, *RequestMsg, error) {
+func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, error) {
 
 	if !state.verifyMsg(commitMsg.ViewID, commitMsg.SequenceID, commitMsg.Digest) {
 		return nil, nil, errors.New("commit message is corrupted")
@@ -146,12 +140,6 @@ func (state *State) Commit(commitMsg *VoteMsg, f int, selfID string) (*ReplyMsg,
 
 	// Append msg to its logs
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
-
-	//Add self
-	if _, ok := state.MsgLogs.CommitMsgs[selfID]; !ok {
-		myCommitMsg := commitMsg
-		state.MsgLogs.CommitMsgs[selfID] = myCommitMsg
-	}
 
 	// Print current voting status
 	fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
