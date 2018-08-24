@@ -1045,6 +1045,8 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		select {
 		case event := <-pm.pbSignsCh:
 			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
+			pm.BroadcastFastBlock(pm.blockchain.GetBlock(event.PbftSign.FastHash,
+				event.PbftSign.FastHeight.Uint64()), false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():
