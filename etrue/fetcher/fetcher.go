@@ -787,7 +787,9 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 	}
 
-	f.broadcastSigns(verifySign)
+	if len(verifySign) > 0 {
+		f.broadcastSigns(verifySign)
+	}
 
 	if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight), int32(len(f.signMultiHash[number]))) {
 		if ok, _ := f.agreeAtSameHeight(number, hash); ok {
