@@ -717,16 +717,17 @@ func  GetSignHash(sign *types.PbftSign) []byte{
 
 // VerifyCommitteeSign verify committee sign.
 func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool,string) {
-
+	if len(self.CommitteeInfo.Members) == 0{
+		log.Error("self.CommitteeInfo.Members is nil ...")
+	}
 	for _,sign := range signs{
 		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
 		if err != nil{
-			log.Info("SigToPub error.")
-			panic(err)
+			log.Error("SigToPub error.")
+			return false, ""
 		}
-		for _,member := range self.CommitteeInfo.Members { // TODO  self.CommitteeInfo is nil
+		for _,member := range self.CommitteeInfo.Members {
 			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-				break;
 				return true,hex.EncodeToString(crypto.FromECDSAPub(pubKey))
 			}
 		}

@@ -98,7 +98,7 @@ type headerFilterTask struct {
 // PbftAgentFetcher encapsulates functions required to interact with PbftAgent.
 type PbftAgentFetcher interface {
 	// a  type to verify a leader's fast block for fast propagation.
-	VerifyCommitteeSign(signs []*types.PbftSign) bool
+	VerifyCommitteeSign(signs []*types.PbftSign) (bool, string)
 	// when check evil Leader, changeLeader
 	ChangeCommitteeLeader(height *big.Int) bool
 	//  according height require committee number
@@ -761,8 +761,8 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	}
 
 	for _, sign := range signs {
-		if !f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}) {
-			log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", number, "hash", hash)
+		if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}); !ok {
+			log.Debug("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
 			propSignInvaildMeter.Mark(1)
 			return
 		}
@@ -817,8 +817,8 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 
-	if f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}) {
-		log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
+	if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}); !ok {
+		log.Debug("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
 		propSignInvaildMeter.Mark(1)
 		return
 	}
