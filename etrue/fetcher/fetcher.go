@@ -762,7 +762,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}); !ok {
-			log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", number, "hash", hash)
+			log.Debug("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
 			propSignInvaildMeter.Mark(1)
 			return
 		}
@@ -818,7 +818,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	}
 
 	if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}); !ok {
-		log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
+		log.Debug("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
 		propSignInvaildMeter.Mark(1)
 		return
 	}
