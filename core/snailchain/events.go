@@ -51,14 +51,12 @@ type RemovedLogsEvent struct{ Logs []*types.Log }
 type ChainEvent struct {
 	Block *types.SnailBlock
 	Hash  common.Hash
-	Logs  []*types.Log
 }
 
 // fruit event
 type FruitEvent struct {
 	Block *types.SnailBlock
 	Hash  common.Hash
-	Logs  []*types.Log
 }
 
 

@@ -267,6 +267,24 @@ func (s Transactions) GetRlp(i int) []byte {
 }
 
 // TxDifference returns a new set t which is the difference between a to b.
+func FtDifference(a, b Fruits) (keep Fruits) {
+	keep = make(Fruits, 0, len(a))
+
+	remove := make(map[common.Hash]struct{})
+	for _, ft := range b {
+		remove[ft.Hash()] = struct{}{}
+	}
+
+	for _, ft := range a {
+		if _, ok := remove[ft.Hash()]; !ok {
+			keep = append(keep, ft)
+		}
+	}
+
+	return keep
+}
+
+// TxDifference returns a new set t which is the difference between a to b.
 func TxDifference(a, b Transactions) (keep Transactions) {
 	keep = make(Transactions, 0, len(a))
 
