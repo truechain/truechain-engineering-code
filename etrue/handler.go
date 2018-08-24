@@ -782,6 +782,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "sign %d is nil", i)
 			}
 			p.MarkSign(sign.Hash())
+		}
+		if pm.blockchain.GetBlock(signs[0].FastHash, signs[0].FastHeight.Uint64()) == nil {
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
