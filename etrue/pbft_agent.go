@@ -25,6 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"errors"
 	"fmt"
+	"encoding/hex"
 )
 
 const (
@@ -412,17 +413,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	}
 	fastBlock = work.Block
 
-	/*currentFastBlock := self.fastChain.CurrentBlock()
-	snailHegiht := common.Big0
-	for i:=currentFastBlock.Number().Uint64(); i>0; i--{
-		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
-		if blockReward != nil{
-			snailHegiht =blockReward.SnailNumber
-		}
-	}
-	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
-	*/
-
 	rewardSnailHegiht := new(big.Int).Add(self.rewardNumber,common.Big1)
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(),rewardSnailHegiht).Int64()
 	if space>=BlockRewordSpace{
@@ -451,7 +441,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	}
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block:fb,})
-	self.broadCastChainEvent(fb)
+	//self.broadCastChainEvent(fb)
 	return err
 }
 
@@ -726,7 +716,7 @@ func  GetSignHash(sign *types.PbftSign) []byte{
 }
 
 // VerifyCommitteeSign verify committee sign.
-/*func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool,string) {
+func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool,string) {
 
 	for _,sign := range signs{
 		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
@@ -742,9 +732,9 @@ func  GetSignHash(sign *types.PbftSign) []byte{
 		}
 	}
 	return false, ""
-}*/
+}
 
-func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool{
+/*func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool{
 	for _,sign := range signs{
 		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
 		if err != nil{
@@ -759,7 +749,7 @@ func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool{
 		}
 	}
 	return false
-}
+}*/
 
 // ChangeCommitteeLeader trigger view change.
 func (self * PbftAgent) ChangeCommitteeLeader(height *big.Int) bool {
