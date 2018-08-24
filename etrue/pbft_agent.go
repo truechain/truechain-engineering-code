@@ -367,12 +367,12 @@ func (self * PbftAgent)  GenerateFastBlock() (*types.Block,error){
 
 	currentFastBlock := self.fastChain.CurrentBlock()
 	blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
-	var snailHegiht *big.Int = common.Big0
+	var snailHegiht *big.Int = new(big.Int).Set(common.Big0)
 	if blockReward != nil{
 		snailHegiht =blockReward.SnailNumber
 	}
 
-	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
+	snailHegiht = new(big.Int).Add(snailHegiht,common.Big1)
 	if temp :=snailHegiht; temp.Sub(self.snailChain.CurrentBlock().Number(),temp).Int64()>=BlockRewordSpace{
 		fastBlock.Header().SnailNumber = snailHegiht
 		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
