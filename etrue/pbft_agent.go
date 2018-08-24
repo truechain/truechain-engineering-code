@@ -183,7 +183,7 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 	self.rewardNumber =snailHegiht*/
 
 	currentSnailBlock := self.snailChain.CurrentBlock()
-	snailHegiht := common.Big0
+	snailHegiht := new(big.Int).Set(common.Big0)
 	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
 		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
 		if blockReward != nil{

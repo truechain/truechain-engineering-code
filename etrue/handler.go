@@ -34,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
+	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snail"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
@@ -81,9 +82,10 @@ type ProtocolManager struct {
 	chainconfig       *params.ChainConfig
 	maxPeers          int
 
-	downloader  *downloader.Downloader
-	fetcherFast *fetcher.Fetcher
-	peers       *peerSet
+	downloader   *downloader.Downloader
+	fetcherFast  *fetcher.Fetcher
+	fetcherSnail *snailfetcher.Fetcher
+	peers        *peerSet
 
 	SubProtocols []p2p.Protocol
 
@@ -215,7 +217,31 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
+
+	snailValidator := func(header *types.SnailHeader) error {
+		headers := make([]*types.SnailHeader, 1)
+		headers[0] = header
+		//mecMark how to get ChainFastReader
+		seals := make([]bool, 1)
+		seals[0] = true
+		_, err := engine.VerifySnailHeaders(snailchain, headers, seals)
+		return <-err
+	}
+	snailHeighter := func() uint64 {
+		return snailchain.CurrentBlock().NumberU64()
+	}
+	snailInserter := func(blocks types.SnailBlocks) (int, error) {
+		// If fast sync is running, deny importing weird blocks
+		// if atomic.LoadUint32(&manager.fastSync) == 1 {
+		// 	log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
+		// 	return 0, nil
+		// }
+		// atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+		return manager.snailchain.InsertChain(blocks)
+	}
+
 	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent, manager.BroadcastPbSign)
+	manager.fetcherSnail = snailfetcher.New(snailchain.GetBlockByHash, snailValidator, manager.BroadcastSnailBlock, snailHeighter, snailInserter, manager.removePeer)
 
 	return manager, nil
 }
@@ -755,7 +781,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if sign == nil {
 				return errResp(ErrDecode, "sign %d is nil", i)
 			}
-			p.MarkTransaction(sign.Hash())
+			p.MarkSign(sign.Hash())
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
@@ -787,17 +813,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
-		var snailBlocks []*types.SnailBlock
-		if err := msg.Decode(&snailBlocks); err != nil {
+		//var snailBlocks []*types.SnailBlock
+		var snailBlock *types.SnailBlock
+		if err := msg.Decode(&snailBlock); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for i, snailBlock := range snailBlocks {
-			// Validate and mark the remote snailBlock
-			if snailBlock == nil {
-				return errResp(ErrDecode, "snailBlock %d is nil", i)
-			}
-			p.MarkSnailBlock(snailBlock.Hash())
+		// for i, snailBlock := range snailBlocks {
+		// 	// Validate and mark the remote snailBlock
+		if snailBlock == nil {
+			return errResp(ErrDecode, "snailBlock  is nil")
 		}
+		p.MarkSnailBlock(snailBlock.Hash())
+		// }
+
+		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
 		// TODO: send snail block to snail blockchain
 		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)

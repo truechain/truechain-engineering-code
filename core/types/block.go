@@ -409,12 +409,20 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction contents.
-func (b *Block) WithBody(transactions []*Transaction, uncles []*Header) *Block {
+func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles []*Header) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),
+		signs:		  make([]*PbftSign, len(signs)),
+		uncles:       make([]*Header, len(uncles)),
 	}
 	copy(block.transactions, transactions)
+	copy(block.signs, signs)
+
+	for i := range uncles {
+		block.uncles[i] = CopyHeader(uncles[i])
+	}
+
 	return block
 }
 
@@ -499,6 +507,30 @@ type SnailBlocks []*SnailBlock
 
 type SnailBlockBy func(b1, b2 *SnailBlock) bool
 
+func (self SnailBlockBy) Sort(snailBlocks SnailBlocks) {
+	bs := snailBlockSorter{
+		snailBlocks: snailBlocks,
+		by:     self,
+	}
+	sort.Sort(bs)
+}
+
+
+type snailBlockSorter struct {
+	snailBlocks SnailBlocks
+	by     func(b1, b2 *SnailBlock) bool
+}
+
+func (self snailBlockSorter) Len() int { return len(self.snailBlocks) }
+func (self snailBlockSorter) Swap(i, j int) {
+	self.snailBlocks[i], self.snailBlocks[j] = self.snailBlocks[j], self.snailBlocks[i]
+}
+func (self snailBlockSorter) Less(i, j int) bool { return self.by(self.snailBlocks[i], self.snailBlocks[j]) }
+
+func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *SnailHeader) Hash() common.Hash {
@@ -567,9 +599,9 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	b.header.UncleHash = EmptyUncleHash
 
 	if len(signs) == 0 {
-		b.header.UncleHash = EmptySignHash
+		b.header.SignHash = EmptySignHash
 	} else {
-		b.header.UncleHash = CalcSignHash(signs)
+		b.header.SignHash = CalcSignHash(signs)
 		b.signs = make([]*PbftSign, len(signs))
 		for i := range signs {
 			b.signs[i] = CopyPbftSign(signs[i])
@@ -694,6 +726,7 @@ func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header
 func (b *SnailBlock) IsFruit() bool            { return b.header.Fruit }
 func (b *SnailBlock) Fruits() []*SnailBlock    { return b.fruits }
 func (b *SnailBlock) Signs() PbftSigns         { return b.signs }
+func (b *SnailBlock) Uncles() []*SnailHeader { return b.uncles }
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }

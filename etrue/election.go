@@ -179,7 +179,7 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	if lastSwitchoverNumber.Cmp(common.Big0) <= 0 {
 		ids = append(ids, common.Big0)
 		ids = append(ids, common.Big1)
-		lastSwitchoverNumber = common.Big0
+		lastSwitchoverNumber = new(big.Int).Set(common.Big0)
 	} else {
 		committeeId := new(big.Int).Add(lastSwitchoverNumber, common.Big1)
 		ids = append(ids, committeeId)
@@ -210,11 +210,11 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	if committeeNumber.Cmp(common.Big0) == 0 {
 		// genesis committee
 		return &committee{
-			id:                common.Big0,
-			beginFastNumber:   common.Big1,
-			endFastNumber:     common.Big0,
-			beginSnailNumber:  common.Big0,
-			endSnailNumber:    common.Big0,
+			id:                new(big.Int).Set(common.Big0),
+			beginFastNumber:   new(big.Int).Set(common.Big1),
+			endFastNumber:     new(big.Int).Set(common.Big0),
+			beginSnailNumber:  new(big.Int).Set(common.Big0),
+			endSnailNumber:    new(big.Int).Set(common.Big0),
 			switchSnailNumber: big.NewInt(z),
 			members:           e.genesisCommittee,
 		}
@@ -233,11 +233,11 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			// snail number between 0 to 99
 			// genesis committee
 			return &committee{
-				id:                common.Big0,
-				beginFastNumber:   common.Big1,
+				id:                new(big.Int).Set(common.Big0),
+				beginFastNumber:   new(big.Int).Set(common.Big1),
 				endFastNumber:     lastFastNumber,
-				beginSnailNumber:  common.Big0,
-				endSnailNumber:    common.Big0,
+				beginSnailNumber:  new(big.Int).Set(common.Big0),
+				endSnailNumber:    new(big.Int).Set(common.Big0),
 				switchSnailNumber: big.NewInt(z),
 				members:           e.genesisCommittee,
 			}
@@ -247,7 +247,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		beginSnailNumber := new(big.Int).Add(new(big.Int).Sub(endSnailNumber, big.NewInt(z)), common.Big1)
 		if beginSnailNumber.Cmp(common.Big0) <= 0 {
 			//
-			beginSnailNumber = common.Big1
+			beginSnailNumber = new(big.Int).Set(common.Big1)
 		}
 		endSnailBlock := e.snailchain.GetBlockByNumber(endSnailNumber.Uint64())
 		fruits = endSnailBlock.Fruits()
@@ -274,7 +274,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	return &committee{
 		id:              beginSnailNumber,
 		beginFastNumber: new(big.Int).Add(lastFastNumber, common.Big1),
-		endFastNumber:   common.Big0,
+		endFastNumber:   new(big.Int).Set(common.Big0),
 
 		beginSnailNumber:  beginSnailNumber,
 		endSnailNumber:    endSnailNumber,
@@ -381,7 +381,7 @@ func (e *Election) Start() error {
 		e.nextCommittee = &committee{
 			id:                electBeginSnailNumber,
 			beginFastNumber:   new(big.Int).Add(comm.endFastNumber, common.Big1),
-			endFastNumber:     common.Big0,
+			endFastNumber:     new(big.Int).Set(common.Big0),
 			beginSnailNumber:  electBeginSnailNumber,
 			endSnailNumber:    electEndSnailNumber,
 			switchSnailNumber: new(big.Int).Add(e.committee.switchSnailNumber, big.NewInt(z)),
