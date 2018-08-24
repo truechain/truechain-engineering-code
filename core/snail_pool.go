@@ -310,8 +310,15 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if fruit.Difficulty().Cmp(f.Difficulty()) <= 0 {
+		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
 			return nil
+		} else if rst == 0 {
+			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
+				return nil
+			}
+			pool.allFruits[fruit.FastHash()] = fruit
+			pool.fruitPending[fruit.FastHash()] = fruit
+			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		} else {
 			pool.allFruits[fruit.FastHash()] = fruit
 			pool.fruitPending[fruit.FastHash()] = fruit
