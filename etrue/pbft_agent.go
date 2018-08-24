@@ -452,6 +452,8 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 //broadcast blockAndSign
 func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	log.Info("into BroadcastFastBlock.")
+	fmt.Println("hash:",fb.Hash(),"number:",fb.Header().Number)
+	fmt.Println("parentHash:",fb.ParentHash())
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
