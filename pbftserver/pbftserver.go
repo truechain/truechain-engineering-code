@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -198,11 +199,13 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) bool {
 	return true
 }
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
+	fmt.Println("[ReplyResult in]<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 	height := big.NewInt(msg.Height)
 	block, ok := ss.blocks[height.Uint64()]
 	if !ok {
 		return false
 	}
+	fmt.Println("[ReplyResult sign]")
 	hash := rlpHash([]interface{}{
 		block.Hash(),
 		block.Number(),
@@ -218,11 +221,13 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 		Result:     res,
 		Sign:       sig,
 	}
+	fmt.Println("[ReplyResult BroadcastSign start]")
 	err = ss.Agent.BroadcastSign(&sign, block)
-	ss.removeBlock(height)
+	//ss.removeBlock(height)
 	if err != nil {
 		return false
 	}
+	fmt.Println("[ReplyResult BroadcastSign end>>>>>>>>>>>>>>>>>>>>>>>>>]")
 	return true
 }
 

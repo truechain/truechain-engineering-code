@@ -208,10 +208,6 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 		return err
 	}
 
-	if !node.Verify.InsertBlock(prePrepareMsg) {
-		fmt.Println("[BlockInsertError]", node.NodeID, prePrepareMsg.Height)
-	}
-
 	LogStage(fmt.Sprintf("Consensus Process (ViewID:%d)", node.GetStatus(reqMsg.Height).ViewID), false)
 
 	// Send getPrePrepare message
@@ -232,6 +228,10 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	err := node.createStateForNewConsensus(prePrepareMsg.Height)
 	if err != nil {
 		return err
+	}
+
+	if !node.Verify.InsertBlock(prePrepareMsg) {
+		fmt.Println("[BlockInsertError]", node.NodeID, prePrepareMsg.Height)
 	}
 
 	prePareMsg, err := node.GetStatus(prePrepareMsg.Height).PrePrepare(prePrepareMsg)
