@@ -179,7 +179,7 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
 		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
 		if blockReward != nil{
-			snailHegiht =blockReward.SnailNumber
+			snailHegiht =new(big.Int).Set(blockReward.SnailNumber)
 			break
 		}
 	}
@@ -188,7 +188,10 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	acc1Key, _ := crypto.ToECDSA(config.CommitteeKey)
+	acc1Key, err := crypto.ToECDSA(config.CommitteeKey)
+	if err != nil {
+		log.Error("InitNodeInfo PrivateKey error ")
+	}
 	self.PrivateKey =acc1Key
 	pubBytes :=crypto.FromECDSAPub(&acc1Key.PublicKey)
 	self.CommitteeNode =&types.CommitteeNode{
@@ -197,6 +200,7 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Coinbase:crypto.PubkeyToAddress(acc1Key.PublicKey),
 		Publickey:pubBytes,
 	}
+	//if self.CommitteeNode.IP == "" || self.CommitteeNode.Port == 0 ||
 }
 
 func (self *PbftAgent) Start() {
@@ -243,7 +247,6 @@ func (self *PbftAgent) loop(){
 			}
 		case ch := <-self.CommitteeCh:
 			log.Info("CommitteeCh...")
-			fmt.Println(ch.CommitteeInfo.Id)
 			self.committeeMu.Lock()
 			self.SetCommitteeInfo(ch.CommitteeInfo,NextCommittee)
 			self.committeeMu.Unlock()
@@ -264,8 +267,11 @@ func (self *PbftAgent) loop(){
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			log.Info("receive nodeInfo.")
-			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
-			// if  the node  is in committee  and the sign is not received
+			//if cryNodeInfo of  node in Committee
+			if self.cryNodeInfoInCommittee(*cryNodeInfo){
+				go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+			}
+			// if  node  is in committee  and the sign is not received
 			if  self.IsCommitteeMember(self.NextCommitteeInfo) && !self.cryNodeInfoInCachSign(cryNodeInfo.Sign){
 				log.Info("ReceivePbftNode method.")
 				self.ReceivePbftNode(cryNodeInfo)
@@ -279,6 +285,25 @@ func (self *PbftAgent) loop(){
 			}
 		}
 	}
+}
+
+func (self * PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool{
+	if len(self.NextCommitteeInfo.Members) == 0{
+		log.Error("NextCommitteeInfo.Members is nil ...")
+		return false
+	}
+	hash :=RlpHash([]interface{}{cryNodeInfo.Nodes,cryNodeInfo.CommitteeId,})
+	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
+	if err != nil{
+		log.Error("SigToPub error.")
+		return false
+	}
+	for _,member := range self.NextCommitteeInfo.Members {
+		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+	return false
 }
 
 func  (self *PbftAgent) cryNodeInfoInCachSign(sign Sign) bool{
@@ -437,7 +462,6 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	voteSign.Sign,err =crypto.Sign(signHash, self.PrivateKey)
 	if err != nil{
 		log.Info("sign error")
-		panic(err)
 	}
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block:fb,})
@@ -485,7 +509,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	err :=self.engine.VerifyFastHeader(bc, fb.Header(),true)
 	if err != nil{
-		panic(err)
+		log.Error("VerifyFastHeader error")
 	}else{
 		err = bc.Validator().ValidateBody(fb)
 	}
@@ -536,7 +560,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 		fastBlocks	:= []*types.FastBlock{fb}
 		_,err :=self.fastChain.InsertChain(fastBlocks)
 		if err != nil{
-			panic(err)
+
 		}
 		self.signFeed.Send(core.PbftSignEvent{voteSigns})
 	}
@@ -561,7 +585,6 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block)
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := self.fastChain.StateAt(parent.Root())
 	if err != nil {
-		panic(err)
 		return err
 	}
 	work := &AgentWork{
@@ -718,8 +741,9 @@ func  GetSignHash(sign *types.PbftSign) []byte{
 // VerifyCommitteeSign verify committee sign.
 func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool,string) {
 	if len(self.CommitteeInfo.Members) == 0{
-		log.Error("self.CommitteeInfo.Members is nil ...")
+		log.Error("CommitteeInfo.Members is nil ...")
 	}
+
 	for _,sign := range signs{
 		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
 		if err != nil{
@@ -744,7 +768,6 @@ func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool,strin
 		}
 		for _,member := range self.CommitteeInfo.Members {
 			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-				break;
 				return true
 			}
 		}
