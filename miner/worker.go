@@ -152,6 +152,7 @@ type worker struct {
 	// atomic status counters
 	mining int32
 	atWork int32
+	atCommintNewwWokr bool
 } 
  
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
@@ -333,9 +334,15 @@ func (self *worker) update() {
 			self.uncleMu.Unlock()
 
 		//TODO　fruit event
-		case  <-self.fruitCh:
-			//self.commitNewWork()
+		case <-self.fruitCh:
+			if !self.atCommintNewwWokr && atomic.LoadInt32(&self.mining)==1 {
+				// after get the fruit event should star mining if have not mining
+				self.commitNewWork()	
+			}
 		case  <-self.fastBlockCh:
+			if !self.atCommintNewwWokr && atomic.LoadInt32(&self.mining)==1 {
+				self.commitNewWork()	
+			}
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
 			
@@ -371,13 +378,13 @@ func (self *worker) wait() {
 					continue
 				}
 
-				//log.Info("—mined fruit","NUMBER",block.FastNumber())
+				log.Info("—mined fruit"," FB NUMBER",block.FastNumber())
 				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
 				self.eth.SnailPool().AddRemoteFruits(newFruits)
 			} else {
-
+				log.Info("_++++   —mined block  ---  "," FB NUMBER",block.FastNumber(),"block number",block.Number())
 				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
@@ -397,6 +404,9 @@ func (self *worker) wait() {
 
 				// Insert the block into the set of pending ones to wait for confirmations
 				self.unconfirmed.Insert(block.NumberU64(), block.Hash())
+
+				self.atCommintNewwWokr = false
+
 			}
 
 		}
@@ -464,6 +474,27 @@ func (self *worker) commitNewWork() {
 
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
+	self.atCommintNewwWokr  = true
+
+	//can not start miner when  fruits and fast block 
+
+	fastblock, errFb := self.eth.SnailPool().PendingFastBlocks()
+	if errFb != nil {
+		self.atCommintNewwWokr  = false
+		return
+	}
+
+	fruits, errFruit := self.eth.SnailPool().PendingFruits()
+	if errFruit != nil {
+		self.atCommintNewwWokr  = false
+		return
+	}
+
+	if fastblock == nil && fruits == nil{
+		self.atCommintNewwWokr  = false
+		log.Info("__commit new work no fruits and fast block not start miner")
+		return
+	} 
 
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
@@ -492,6 +523,7 @@ func (self *worker) commitNewWork() {
 	}
 	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
+		self.atCommintNewwWokr  = false
 		return
 	}
 	// Set the pointerHash 
@@ -518,19 +550,16 @@ func (self *worker) commitNewWork() {
 	err := self.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
+		self.atCommintNewwWokr  = false
 		return
 	}
 	// Create the current work task and check any fork transitions needed
 	work := self.current
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
-	}
-	fastblock, err := self.eth.SnailPool().PendingFastBlocks()
-	if err != nil {
-		return
-	}
-	if fastblock != nil {
-		log.Info("+++start miner commint new work ","FB number",fastblock.Number())
+	}	
+	
+	if fastblock != nil{
 		self.current.header.FastNumber = fastblock.Number()
 		self.current.header.FastHash = fastblock.Hash()
 		signs := fastblock.Body().Signs
@@ -540,16 +569,11 @@ func (self *worker) commitNewWork() {
 		}
 	}
 
-	fruits, err := self.eth.SnailPool().PendingFruits()
-	if err != nil {
-		log.Error("Failed to fetch pending fruits", "err", err)
-		return
-	}
-
-	if fruits != nil{
+	// commit fruits make sure it is correct
+	if fruits != nil{	
 		work.commitFruits(fruits, self.snailchain, self.coinbase)
 	}
-
+	
 	// compute uncles for the new block.
 	var (
 		uncles    []*types.SnailHeader
@@ -557,6 +581,7 @@ func (self *worker) commitNewWork() {
 	)
 	for hash, uncle := range self.possibleUncles {
 		if len(uncles) == 2 {
+			
 			break
 		}
 		if err := self.commitUncle(work, uncle.Header()); err != nil {
@@ -577,6 +602,7 @@ func (self *worker) commitNewWork() {
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, work.state, uncles, work.fruits, work.signs); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
+		self.atCommintNewwWokr  = false
 		return
 	}
 	// We only care about logging if we're actually mining.
@@ -631,7 +657,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 	}
 
 	freshNumber := new(big.Int).Sub(env.header.Number, pointer.Number())
-
+ 
 	if freshNumber.Cmp(fruitFreshness) > 0 {
 		return core.ErrFreshness
 	}
@@ -646,6 +672,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	var lastFastNumber *big.Int
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
+	
 	if len(fs) > 0 {
 		lastFastNumber = fs[len(fs) - 1].FastNumber()
 	} else {
