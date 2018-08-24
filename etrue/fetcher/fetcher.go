@@ -760,12 +760,15 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 	}
 
+	verifySign := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}); !ok {
 			log.Debug("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
 			propSignInvaildMeter.Mark(1)
-			return
+			break
 		}
+
+		verifySign = append(verifySign, sign)
 
 		// Run the import on a new thread
 		log.Debug("Importing propagated sign", "peer", peer, "number", number, "hash", hash.String())
@@ -783,6 +786,8 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 		}
 	}
+
+	f.broadcastSigns(verifySign)
 
 	if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight), int32(len(f.signMultiHash[number]))) {
 		if ok, _ := f.agreeAtSameHeight(number, hash); ok {
