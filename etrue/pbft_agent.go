@@ -434,7 +434,6 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
 	*/
 
-	snailHegiht = new(big.Int).Add(snailHegiht,common.Big1)
 	rewardSnailHegiht := new(big.Int).Add(self.rewardNumber,common.Big1)
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(),rewardSnailHegiht).Int64()
 	if space>=BlockRewordSpace{

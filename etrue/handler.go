@@ -240,7 +240,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return manager.snailchain.InsertChain(blocks)
 	}
 
-	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent)
+	manager.fetcherFast = fetcher.New(blockchain.GetBlockByHash, fastValidator, manager.BroadcastFastBlock, fastHeighter, fastInserter, manager.removePeer, agent, manager.BroadcastPbSign)
 	manager.fetcherSnail = snailfetcher.New(snailchain.GetBlockByHash, snailValidator, manager.BroadcastSnailBlock, snailHeighter, snailInserter, manager.removePeer)
 
 	return manager, nil
@@ -781,11 +781,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if sign == nil {
 				return errResp(ErrDecode, "sign %d is nil", i)
 			}
-			p.MarkTransaction(sign.Hash())
+			p.MarkSign(sign.Hash())
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
-		p.MarkSign(sign.Hash())
-		pm.fetcherFast.EnqueueSign(p.id, sign)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
