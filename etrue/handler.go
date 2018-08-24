@@ -857,7 +857,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
 		}
-		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Trace("Propagated handle block", "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
@@ -865,7 +865,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Trace("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -880,7 +880,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Trace("Broadcast sign", "hash", pbSign.Hash(), "recipients", len(peers))
+		log.Trace("Broadcast sign", "hash", pbSign.Hash().String(), "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
