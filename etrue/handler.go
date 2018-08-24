@@ -713,11 +713,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
 
-		// TODO: downloader sync func
 		// Mark the peer as owning the block and schedule it for import
-		//p.MarkFastBlock(request.Block.Hash())
-		//pm.fetcherFast.Enqueue(p.id, request.Block)
-		//
+		p.MarkFastBlock(request.Block.Hash())
+		pm.fetcherFast.Enqueue(p.id, request.Block)
+
+		// TODO: downloader sync func
 		//// Assuming the block is importable by the peer, but possibly not yet done so,
 		//// calculate the head hash and TD that the peer truly must have.
 		//var (
