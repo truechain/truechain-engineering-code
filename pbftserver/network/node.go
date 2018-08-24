@@ -239,6 +239,12 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		return err
 	}
 
+	//Add self
+	if _, ok := node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID]; !ok {
+		myPrepareMsg := prePareMsg
+		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
+	}
+
 	if prePareMsg != nil {
 		// Attach node ID to the message
 		prePareMsg.NodeID = node.NodeID
@@ -269,7 +275,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		CurrentState.MsgLogs.ReqMsg.SequenceID != prepareMsg.SequenceID {
 		return nil
 	}
-	commitMsg, err := CurrentState.Prepare(prepareMsg, f, node.NodeID)
+	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
 		return err
 	}
@@ -295,7 +301,7 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	if node.GetStatus(commitMsg.Height) == nil {
 		return nil
 	}
-	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f, node.NodeID)
+	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
 	if err != nil {
 		return err
@@ -507,7 +513,9 @@ func sendSameHightMessage(node *Node) {
 		if status != nil && status.CurrentStage == consensus.Prepared {
 			msgVote = append(msgVote, node.MsgBuffer.CommitMsgs[i])
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
-		} else if status.CurrentStage > consensus.Prepared {
+			return
+		}
+		if status != nil && status.CurrentStage > consensus.Prepared {
 			msgVoteBackward := make([]*consensus.VoteMsg, 0)
 			msgVoteBackward = append(msgVoteBackward, node.MsgBuffer.CommitMsgs[i])
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
@@ -520,7 +528,9 @@ func sendSameHightMessage(node *Node) {
 		if status != nil && status.CurrentStage == consensus.PrePrepared {
 			msgVote = append(msgVote, node.MsgBuffer.PrepareMsgs[i])
 			node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs[:i], node.MsgBuffer.PrepareMsgs[i+1:]...)
-		} else if status.CurrentStage > consensus.PrePrepared {
+			return
+		}
+		if status != nil && status.CurrentStage > consensus.PrePrepared {
 			msgVoteBackward := make([]*consensus.VoteMsg, 0)
 			msgVoteBackward = append(msgVoteBackward, node.MsgBuffer.PrepareMsgs[i])
 			node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs[:i], node.MsgBuffer.PrepareMsgs[i+1:]...)
