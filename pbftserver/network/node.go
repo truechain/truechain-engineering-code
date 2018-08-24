@@ -476,19 +476,43 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 		for _, v := range msg.([]*consensus.VoteMsg) {
 			state := node.GetStatus(v.Height)
 			if v.MsgType == consensus.CommitMsg {
-				for _, msg := range state.MsgLogs.CommitMsgs {
-					var msgSend *consensus.VoteMsg = msg
-					msgSend.NodeID = node.NodeID
-					node.BroadcastOne(msgSend, "/commit", v.NodeID)
-					break
+				if v, ok := state.MsgLogs.CommitMsgs[node.NodeID]; ok {
+					node.BroadcastOne(v, "/commit", v.NodeID)
 				}
+				//for _, msg := range state.MsgLogs.CommitMsgs {
+				//	if msg.NodeID == v.NodeID{
+				//		return nil
+				//	}
+				//	var msgSend *consensus.VoteMsg = msg
+				//	msgSend.NodeID = node.NodeID
+				//	node.BroadcastOne(msgSend, "/commit", v.NodeID)
+				//}
 			} else if v.MsgType == consensus.PrepareMsg {
-				for _, msg := range state.MsgLogs.PrepareMsgs {
-					var msgSend *consensus.VoteMsg = msg
-					msgSend.NodeID = node.NodeID
-					node.BroadcastOne(msgSend, "/prepare", v.NodeID)
-					break
+				if v, ok := state.MsgLogs.PrepareMsgs[node.NodeID]; ok {
+					node.BroadcastOne(v, "/prepare", v.NodeID)
 				}
+				if v, ok := state.MsgLogs.CommitMsgs[node.NodeID]; ok {
+					node.BroadcastOne(v, "/commit", v.NodeID)
+				}
+
+				//for _, msg := range state.MsgLogs.CommitMsgs {
+				//	if msg.NodeID == node.NodeID{
+				//		return nil
+				//	}
+				//	var msgSend *consensus.VoteMsg = msg
+				//	msgSend.NodeID = node.NodeID
+				//	node.BroadcastOne(msgSend, "/commit", v.NodeID)
+				//}
+				//
+				//for _, msg := range state.MsgLogs.PrepareMsgs {
+				//	if msg.NodeID == v.NodeID{
+				//		return nil
+				//	}
+				//	var msgSend *consensus.VoteMsg = msg
+				//	msgSend.NodeID = node.NodeID
+				//	node.BroadcastOne(msgSend, "/prepare", v.NodeID)
+				//}
+
 			}
 
 		}
@@ -503,7 +527,7 @@ func sendSameHightMessage(node *Node) {
 		len(node.MsgBuffer.PrePrepareMsgs) +
 		len(node.MsgBuffer.PrepareMsgs) +
 		len(node.MsgBuffer.CommitMsgs)) > 0 {
-		//fmt.Printf("[have]")
+		fmt.Printf("")
 	}
 
 	msgVote := make([]*consensus.VoteMsg, 0)
@@ -519,7 +543,10 @@ func sendSameHightMessage(node *Node) {
 			msgVoteBackward := make([]*consensus.VoteMsg, 0)
 			msgVoteBackward = append(msgVoteBackward, node.MsgBuffer.CommitMsgs[i])
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
-			node.MsgBackward <- msgVoteBackward
+			if _, ok := status.MsgLogs.CommitMsgs[msgVoteBackward[0].NodeID]; !ok {
+				status.MsgLogs.CommitMsgs[msgVoteBackward[0].NodeID] = msgVoteBackward[0]
+				node.MsgBackward <- msgVoteBackward
+			}
 		}
 	}
 
@@ -534,7 +561,10 @@ func sendSameHightMessage(node *Node) {
 			msgVoteBackward := make([]*consensus.VoteMsg, 0)
 			msgVoteBackward = append(msgVoteBackward, node.MsgBuffer.PrepareMsgs[i])
 			node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs[:i], node.MsgBuffer.PrepareMsgs[i+1:]...)
-			node.MsgBackward <- msgVoteBackward
+			if _, ok := status.MsgLogs.PrepareMsgs[msgVoteBackward[0].NodeID]; !ok {
+				status.MsgLogs.PrepareMsgs[msgVoteBackward[0].NodeID] = msgVoteBackward[0]
+				node.MsgBackward <- msgVoteBackward
+			}
 		}
 	}
 	if len(msgVote) > 0 {
