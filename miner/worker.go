@@ -497,7 +497,7 @@ func (self *worker) commitNewWork() {
 	// Set the pointerHash 
 	pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
 	if pointerNum.Cmp(common.Big0) < 0 {
-		pointerNum = common.Big0
+		pointerNum = new(big.Int).Set(common.Big0)
 	}
 	header.PointerHash = self.chain.GetBlockByNumber(pointerNum.Uint64()).Hash()
 
@@ -643,9 +643,15 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 // TODO: check fruits continue with last snail block
 func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) {
 
+	var lastFastNumber *big.Int
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
-	lastFastNumber := fs[len(fs) - 1].FastNumber()
+	if len(fs) > 0 {
+		lastFastNumber = fs[len(fs) - 1].FastNumber()
+	} else {
+		lastFastNumber = new(big.Int).Set(common.Big0)
+	}
+
 	for _, fruit := range fruits {
 		err := env.commitFruit(fruit, bc, lastFastNumber)
 		if err == nil {
