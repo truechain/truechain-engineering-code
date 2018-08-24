@@ -208,6 +208,10 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 		return err
 	}
 
+	if !node.Verify.InsertBlock(prePrepareMsg) {
+		fmt.Println("[BlockInsertError]", node.NodeID, prePrepareMsg.Height)
+	}
+
 	LogStage(fmt.Sprintf("Consensus Process (ViewID:%d)", node.GetStatus(reqMsg.Height).ViewID), false)
 
 	// Send getPrePrepare message
@@ -493,7 +497,7 @@ func sendSameHightMessage(node *Node) {
 		len(node.MsgBuffer.PrePrepareMsgs) +
 		len(node.MsgBuffer.PrepareMsgs) +
 		len(node.MsgBuffer.CommitMsgs)) > 0 {
-		fmt.Printf("[have]")
+		//fmt.Printf("[have]")
 	}
 
 	msgVote := make([]*consensus.VoteMsg, 0)

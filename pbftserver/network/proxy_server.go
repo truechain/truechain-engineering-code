@@ -61,7 +61,8 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	if len(addrs) <= 0 {
 		return nil
 	}
-	server := &Server{ID: id, help: help}
+	//server := &Server{ID: id, help: help}
+	server := &Server{ID: new(big.Int).Set(id), help: help}
 	node := NewNode(nodeID, verify, server, addrs, id)
 	server.node = node
 	server.url = node.NodeTable[nodeID]

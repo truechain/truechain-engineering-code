@@ -166,6 +166,24 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	}
 	return val, nil
 }
+
+func (ss *PbftServerMgr) InsertBlock(msg *consensus.PrePrepareMsg) bool {
+	data := msg.RequestMsg.Operation
+	fbByte, err := hex.DecodeString(data)
+	if err != nil {
+		return false
+	}
+
+	var fb *types.Block = new(types.Block)
+	err = rlp.DecodeBytes(fbByte, fb)
+	if err != nil {
+		return false
+	}
+
+	ss.blocks[fb.Number().Uint64()] = fb
+	return true
+}
+
 func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) bool {
 	height := big.NewInt(msg.Height)
 	block, ok := ss.blocks[height.Uint64()]
@@ -207,6 +225,7 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	}
 	return true
 }
+
 func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 	if v, ok := ss.blocks[height.Uint64()]; ok {
 		ss.Agent.BroadcastFastBlock(v)
