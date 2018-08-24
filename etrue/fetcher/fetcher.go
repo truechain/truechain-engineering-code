@@ -853,7 +853,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
+		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
 	}
 }
 
@@ -861,7 +861,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 	hash := block.Hash()
 	f.sendBlockHash[block.NumberU64()] = append(f.sendBlockHash[block.NumberU64()], hash)
 	// Run the import on a new thread
-	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
+	log.Debug("Broadcast propagated block", "peer", peer, "number", block.Number(), "hash", hash.String())
 	go func() {
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
