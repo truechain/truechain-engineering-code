@@ -418,14 +418,9 @@ func (self *worker) push(work *Work) {
 
 // makeCurrent creates a new environment for the current cycle.
 func (self *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHeader) error {
-	state, err := self.chain.StateAt(parent.Root())
-	if err != nil {
-		return err
-	}
 	work := &Work{
 		config:    self.config,
 		signer:    types.NewEIP155Signer(self.config.ChainID),
-		state:     state,
 		ancestors: set.New(),
 		family:    set.New(),
 		uncles:    set.New(),
@@ -575,7 +570,7 @@ func (self *worker) commitNewWork() {
 
 	// TODO: get fruits from tx pool
 	// Create the new block to seal with the consensus engine
-	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, work.state, uncles, work.fruits, work.signs); err != nil {
+	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, uncles, work.fruits, work.signs); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
 	}
