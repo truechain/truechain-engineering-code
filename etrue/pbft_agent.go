@@ -290,12 +290,14 @@ func (self *PbftAgent) loop(){
 func (self * PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool{
 	if len(self.NextCommitteeInfo.Members) == 0{
 		log.Error("NextCommitteeInfo.Members is nil ...")
+
 		return false
 	}
 	hash :=RlpHash([]interface{}{cryNodeInfo.Nodes,cryNodeInfo.CommitteeId,})
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
 		log.Error("SigToPub error.")
+		panic(err)
 		return false
 	}
 	for _,member := range self.NextCommitteeInfo.Members {
@@ -330,6 +332,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	for _,member := range committeeInfo.Members{
 		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
 		if err != nil{
+			panic(err)
 			log.Error("encrypt error,pub:",ecies.ImportECDSAPublic(member.Publickey),", coinbase:",member.Coinbase)
 		}
 		encryptNodes=append(encryptNodes,EncryptCommitteeNode)
@@ -339,6 +342,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	hash:=RlpHash([]interface{}{cryNodeInfo.Nodes,committeeInfo.Id,})
 	sigInfo,err :=crypto.Sign(hash[:], pbftAgent.PrivateKey)
 	if err != nil{
+		panic(err)
 		log.Error("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
@@ -358,6 +362,7 @@ func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.Co
 	hash :=RlpHash([]interface{}{cryNodeInfo.Nodes,cryNodeInfo.CommitteeId,})
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
+		panic(err)
 		log.Error("SigToPub error.")
 	}
 	members :=pbftAgent.election.GetComitteeById(cryNodeInfo.CommitteeId)
@@ -452,8 +457,7 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 //broadcast blockAndSign
 func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	log.Info("into BroadcastFastBlock.")
-	fmt.Println("hash:",fb.Hash(),"number:",fb.Header().Number)
-	fmt.Println("parentHash:",fb.ParentHash())
+
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
@@ -463,6 +467,7 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	signHash :=GetSignHash(voteSign)
 	voteSign.Sign,err =crypto.Sign(signHash, self.PrivateKey)
 	if err != nil{
+		panic(err)
 		log.Info("sign error")
 	}
 	fb.AppendSign(voteSign)
@@ -503,6 +508,8 @@ func (self * PbftAgent) broadCastChainEvent(fb *types.Block){
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	log.Info("into VerifyFastBlock.")
+	fmt.Println("hash:",fb.Hash(),"number:",fb.Header().Number)
+	fmt.Println("parentHash:",fb.ParentHash())
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	bc := self.fastChain
@@ -511,6 +518,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	err :=self.engine.VerifyFastHeader(bc, fb.Header(),true)
 	if err != nil{
+		panic(err)
 		log.Error("VerifyFastHeader error")
 	}else{
 		err = bc.Validator().ValidateBody(fb)
@@ -575,6 +583,7 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block)
 	fastBlocks	:= []*types.Block{fb}
 	_,err :=self.fastChain.InsertChain(fastBlocks)
 	if err != nil{
+		panic(err)
 		return err
 	}
 	if fb.SnailNumber() !=nil{
