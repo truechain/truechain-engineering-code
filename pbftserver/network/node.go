@@ -269,7 +269,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		CurrentState.MsgLogs.ReqMsg.SequenceID != prepareMsg.SequenceID {
 		return nil
 	}
-	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
+	commitMsg, err := CurrentState.Prepare(prepareMsg, f, node.NodeID)
 	if err != nil {
 		return err
 	}
@@ -295,7 +295,7 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	if node.GetStatus(commitMsg.Height) == nil {
 		return nil
 	}
-	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
+	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f, node.NodeID)
 
 	if err != nil {
 		return err
