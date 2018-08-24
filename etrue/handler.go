@@ -755,7 +755,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if sign == nil {
 				return errResp(ErrDecode, "sign %d is nil", i)
 			}
-			p.MarkTransaction(sign.Hash())
+			p.MarkSign(sign.Hash())
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
