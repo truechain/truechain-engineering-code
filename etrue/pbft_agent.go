@@ -724,12 +724,11 @@ func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool,strin
 		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
 		if err != nil{
 			log.Error("SigToPub error.")
-			panic(err)
+			return false, ""
 		}
 		for _,member := range self.CommitteeInfo.Members {
 			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 				return true,hex.EncodeToString(crypto.FromECDSAPub(pubKey))
-				break;
 			}
 		}
 	}
