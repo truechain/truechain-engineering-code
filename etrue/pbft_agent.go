@@ -41,32 +41,27 @@ const (
 )
 
 var testCommittee = []*types.CommitteeNode{
-	{//1
+	{
 		IP:        "192.168.46.33",
 		Port:      10080,
 		Coinbase:  common.HexToAddress("76ea2f3a002431fede1141b660dbb75c26ba6d97"),
 		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
 	},
-	{//8
+	{
 		IP:        "192.168.46.8",
 		Port:      10080,
 		Coinbase:  common.HexToAddress("831151b7eb8e650dc442cd623fbc6ae20279df85"),
 		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
 	},
 
-	{//3
+	{
 		IP:        "192.168.46.24",
 		Port:      10080,
 		Coinbase:  common.HexToAddress("1074f7deccf8c66efcd0106e034d3356b7db3f2c"),
 		Publickey: common.Hex2Bytes("04013151837b19e4b0e7402ac576e4352091892d82504450864fc9fd156ddf15d22014a0f6bf3c8f9c12d03e75f628736f0c76b72322be28e7b6f0220cf7f4f5fb"),
 	},
-	/*{//6
-		IP:        "192.168.40.2",
-		Port:      10080,
-		Coinbase:  common.HexToAddress("1f38eb62ade64bd50d6736dcc3192de5e697a269"),
-		Publickey: common.Hex2Bytes("04e00652521b9db26847ceb195eeaff31050299b91d0190e343637681da57afeac2aea91c0c1a03c419e35a57c8c052c6a950662b3cc26c94418430630f0641302"),
-	},*/
-	{//4
+
+	{
 		IP:        "192.168.46.4",
 		Port:      10080,
 		Coinbase:  common.HexToAddress("d985e9871d1be109af5a7f6407b1d6b686901fff"),
@@ -89,12 +84,12 @@ type PbftAgent struct {
 	server types.PbftServerProxy
 	election	*Election
 
-	//currentMu sync.Mutex //verifyBlock mutex
 	mu *sync.Mutex //generateBlock mutex
-	committeeMu  sync.Mutex //generateBlock mutex
+	committeeMu  *sync.Mutex //generateBlock mutex
+	currentMu	*sync.Mutex	//tx mutex
 
 	mux          *event.TypeMux
-	eventMux     *event.TypeMux
+	//eventMux     *event.TypeMux
 
 	signFeed       event.Feed
 	nodeInfoFeed 	event.Feed
@@ -157,7 +152,7 @@ type  CryNodeInfo struct {
 }
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
-	log.Trace("into NewPbftAgent...")
+	log.Info("into NewPbftAgent...")
 	self := &PbftAgent{
 		config:         	config,
 		engine:         	engine,
@@ -169,6 +164,8 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		ChainHeadCh:	make(chan core.ChainHeadEvent, 3),
 		election: election,
 		mu:	new(sync.Mutex),
+		committeeMu:	new(sync.Mutex),
+		currentMu:	new(sync.Mutex),
 	}
 	self.InitNodeInfo(eth.Config())
 	self.SetCurrentRewardNumber()
@@ -176,19 +173,8 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent)	SetCurrentRewardNumber() {
-	/*currentFastBlock := self.fastChain.CurrentBlock()
-	snailHegiht := common.Big0
-	for i:=currentFastBlock.Number().Uint64(); i>0; i--{
-		blockReward :=self.fastChain.GetSnailHeightByFastHeight(currentFastBlock.Hash(),currentFastBlock.Number().Uint64())
-		if blockReward != nil{
-			snailHegiht =blockReward.SnailNumber
-		}
-	}
-	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
-	self.rewardNumber =snailHegiht*/
-
 	currentSnailBlock := self.snailChain.CurrentBlock()
-	snailHegiht := common.Big0
+	snailHegiht := new(big.Int).Set(common.Big0)
 	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
 		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
 		if blockReward != nil{
@@ -197,7 +183,7 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 		}
 	}
 	self.rewardNumber =snailHegiht
-	log.Info("rewardNumber:",self.rewardNumber.Int64())
+	log.Info("new CurrentRewardNumber:",self.rewardNumber.Int64())
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
@@ -240,13 +226,13 @@ func (self *PbftAgent) loop(){
 		//TODO   committeeInfo set
 		case ch := <-self.ElectionCh:
 			if ch.Option ==types.CommitteeStart{
-				log.Info("CommitteeStart:")
+				log.Info("CommitteeStart...")
 				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo,CurrentCommittee)
 				self.committeeMu.Unlock()
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}else if ch.Option ==types.CommitteeStop{
-				log.Info("CommitteeStop:")
+				log.Info("CommitteeStop..")
 				ticker.Stop()
 				self.committeeMu.Lock()
 				self.cacheSign =[]Sign{}
@@ -255,6 +241,7 @@ func (self *PbftAgent) loop(){
 				self.server.Notify(self.CommitteeInfo.Id,int(ch.Option))
 			}
 		case ch := <-self.CommitteeCh:
+			log.Info("CommitteeCh...")
 			fmt.Println(ch.CommitteeInfo.Id)
 			self.committeeMu.Lock()
 			self.SetCommitteeInfo(ch.CommitteeInfo,NextCommittee)
@@ -266,7 +253,7 @@ func (self *PbftAgent) loop(){
 					for{
 						select {
 						case <-ticker.C:
-							log.Info("94")
+							log.Info("ticker send CommitteeInfo...")
 							self.SendPbftNode(ch.CommitteeInfo)
 						}
 					}
@@ -276,35 +263,36 @@ func (self *PbftAgent) loop(){
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			log.Info("receive nodeInfo.")
-			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo}) //TODO jduge the nodeInfo is in committee
-			if  self.IsCommitteeMember(self.NextCommitteeInfo) {
-				flag :=false
-				for _,sign := range self.cacheSign{
-					if bytes.Equal(sign,cryNodeInfo.Sign){
-						flag =true
-						break
-					}
-				}
-				if !flag{
-					log.Info("ReceivePbftNode method.")
-					self.ReceivePbftNode(cryNodeInfo)
-					self.cacheSign =append(self.cacheSign,cryNodeInfo.Sign)
-				}
+			go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+			// if  the node  is in committee  and the sign is not received
+			if  self.IsCommitteeMember(self.NextCommitteeInfo) && !self.cryNodeInfoInCachSign(cryNodeInfo.Sign){
+				log.Info("ReceivePbftNode method.")
+				self.ReceivePbftNode(cryNodeInfo)
+				self.cacheSign =append(self.cacheSign,cryNodeInfo.Sign)
 			}
 		case ch := <- self.ChainHeadCh:
-			log.Info("RewardNumberCh.")
-			if ch.Block.Header().SnailNumber != nil &&
-				self.rewardNumber.Cmp(ch.Block.Header().SnailNumber) == -1{
+			log.Info("ChainHeadCh update RewardNumber.")
+			currentSnailNumber :=ch.Block.Header().SnailNumber
+			if currentSnailNumber != nil && self.rewardNumber.Cmp(currentSnailNumber) == -1{
 				self.rewardNumber =ch.Block.Header().SnailNumber
 			}
 		}
 	}
 }
 
+func  (self *PbftAgent) cryNodeInfoInCachSign(sign Sign) bool{
+	for _,cachesign := range self.cacheSign{
+		if bytes.Equal(cachesign,sign){
+			return 	true
+		}
+	}
+	return false
+}
+
 func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo{
 	log.Info("into SendPbftNode.")
 	if committeeInfo == nil && len(committeeInfo.Members) <= 0{
-		log.Info("committeeInfo is nil")
+		log.Error("committeeInfo is nil")
 		return nil
 	}
 	cryNodeInfo := &CryNodeInfo{
@@ -312,22 +300,20 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	}
 
 	nodeByte,_ :=rlp.EncodeToBytes(pbftAgent.CommitteeNode)
+	var encryptNodes []EncryptCommitteeNode
 	for _,member := range committeeInfo.Members{
-		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,
-			ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
+		EncryptCommitteeNode,err :=ecies.Encrypt(rand.Reader,ecies.ImportECDSAPublic(member.Publickey),nodeByte, nil, nil)
 		if err != nil{
-			log.Info("encrypt error,pub:",ecies.ImportECDSAPublic(member.Publickey),
-					", coinbase:",member.Coinbase)
-			panic(err)
-			return nil
+			log.Error("encrypt error,pub:",ecies.ImportECDSAPublic(member.Publickey),", coinbase:",member.Coinbase)
 		}
-		cryNodeInfo.Nodes =append(cryNodeInfo.Nodes,EncryptCommitteeNode)
+		encryptNodes=append(encryptNodes,EncryptCommitteeNode)
 	}
+	cryNodeInfo.Nodes =encryptNodes
+
 	hash:=RlpHash([]interface{}{cryNodeInfo.Nodes,committeeInfo.Id,})
 	sigInfo,err :=crypto.Sign(hash[:], pbftAgent.PrivateKey)
 	if err != nil{
-		log.Info("sign error")
-		panic(err)
+		log.Error("sign error")
 	}
 	cryNodeInfo.Sign=sigInfo
 
@@ -342,18 +328,16 @@ func (pbftAgent *PbftAgent)  AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error{
 }
 
 func (pbftAgent *PbftAgent)  ReceivePbftNode(cryNodeInfo *CryNodeInfo) *types.CommitteeNode {
-	fmt.Println("ReceivePbftNode ...")
+	log.Info("ReceivePbftNode ...")
 	hash :=RlpHash([]interface{}{cryNodeInfo.Nodes,cryNodeInfo.CommitteeId,})
 	pubKey,err :=crypto.SigToPub(hash[:],cryNodeInfo.Sign)
 	if err != nil{
-		log.Info("SigToPub error.")
-		panic(err)
-		return nil
+		log.Error("SigToPub error.")
 	}
-	pks :=pbftAgent.election.GetByCommitteeId(cryNodeInfo.CommitteeId)
+	members :=pbftAgent.election.GetComitteeById(cryNodeInfo.CommitteeId)
 	verifyFlag := false
-	for _, pk:= range  pks{
-		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(pk)) {
+	for _, member:= range  members{
+		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			verifyFlag = true
 			break
 		}
@@ -439,10 +423,11 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	snailHegiht = snailHegiht.Add(snailHegiht,common.Big1)
 	*/
 
-	snailHegiht := self.rewardNumber.Add(self.rewardNumber,common.Big1)
-	if temp :=snailHegiht; temp.Sub(self.snailChain.CurrentBlock().Number(),temp).Int64()>=BlockRewordSpace{
-		fastBlock.Header().SnailNumber = snailHegiht
-		sb :=self.snailChain.GetBlockByNumber(snailHegiht.Uint64())
+	rewardSnailHegiht := new(big.Int).Add(self.rewardNumber,common.Big1)
+	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(),rewardSnailHegiht).Int64()
+	if space>=BlockRewordSpace{
+		fastBlock.Header().SnailNumber = rewardSnailHegiht
+		sb :=self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
 	}
 	fmt.Println("fastBlockHeight:",fastBlock.Header().Number)
@@ -721,7 +706,7 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	}
 	pubKey,err :=crypto.UnmarshalPubkey(self.CommitteeNode.Publickey)
 	if err != nil{
-		panic(err)
+		log.Error("UnmarshalPubkey error...")
 	}
 	for _,member := range committeeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
@@ -763,10 +748,10 @@ func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool{
 	for _,sign := range signs{
 		pubKey,err :=crypto.SigToPub(GetSignHash(sign),sign.Sign)
 		if err != nil{
-			log.Info("SigToPub error.")
+			log.Error("SigToPub error.")
 			panic(err)
 		}
-		for _,member := range self.CommitteeInfo.Members { // TODO  self.CommitteeInfo is nil
+		for _,member := range self.CommitteeInfo.Members {
 			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 				break;
 				return true

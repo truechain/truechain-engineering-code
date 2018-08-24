@@ -230,6 +230,10 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		return err
 	}
 
+	if !node.Verify.InsertBlock(prePrepareMsg) {
+		fmt.Println("[BlockInsertError]", node.NodeID, prePrepareMsg.Height)
+	}
+
 	prePareMsg, err := node.GetStatus(prePrepareMsg.Height).PrePrepare(prePrepareMsg)
 	if err != nil {
 		return err
@@ -493,7 +497,7 @@ func sendSameHightMessage(node *Node) {
 		len(node.MsgBuffer.PrePrepareMsgs) +
 		len(node.MsgBuffer.PrepareMsgs) +
 		len(node.MsgBuffer.CommitMsgs)) > 0 {
-		fmt.Printf("[have]")
+		//fmt.Printf("[have]")
 	}
 
 	msgVote := make([]*consensus.VoteMsg, 0)
@@ -533,11 +537,11 @@ func sendSameHightMessage(node *Node) {
 		if status != nil && status.CurrentStage == consensus.Idle {
 			msgPrePrepare = append(msgPrePrepare, node.MsgBuffer.PrePrepareMsgs[i])
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
-		} else if status.CurrentStage > consensus.Idle {
-			msg := make([]*consensus.PrePrepareMsg, 0)
-			msg = append(msg, node.MsgBuffer.PrePrepareMsgs[i])
-			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
-			node.MsgBackward <- msg
+			//} else if status.CurrentStage > consensus.Idle {
+			//	msg := make([]*consensus.PrePrepareMsg, 0)
+			//	msg = append(msg, node.MsgBuffer.PrePrepareMsgs[i])
+			//	node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
+			//	node.MsgBackward <- msg
 		}
 	}
 	if len(msgPrePrepare) > 0 {
@@ -550,11 +554,11 @@ func sendSameHightMessage(node *Node) {
 		if status != nil && status.CurrentStage == consensus.Idle {
 			msgRequest = append(msgRequest, node.MsgBuffer.ReqMsgs[i])
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs[:i], node.MsgBuffer.ReqMsgs[i+1:]...)
-		} else if status.CurrentStage > consensus.Idle {
-			msg := make([]*consensus.RequestMsg, 0)
-			msg = append(msg, node.MsgBuffer.ReqMsgs[i])
-			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs[:i], node.MsgBuffer.ReqMsgs[i+1:]...)
-			node.MsgBackward <- msg
+			//} else if status.CurrentStage > consensus.Idle {
+			//	msg := make([]*consensus.RequestMsg, 0)
+			//	msg = append(msg, node.MsgBuffer.ReqMsgs[i])
+			//	node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs[:i], node.MsgBuffer.ReqMsgs[i+1:]...)
+			//	node.MsgBackward <- msg
 		}
 	}
 	if len(msgRequest) > 0 {
