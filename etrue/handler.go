@@ -876,7 +876,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, pbSign := range pbSigns {
-		peers := pm.peers.PeersWithoutTx(pbSign.Hash())
+		peers := pm.peers.PeersWithoutSign(pbSign.Hash())
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
