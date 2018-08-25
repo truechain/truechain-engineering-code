@@ -760,7 +760,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 	}
 
-	verifySign := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}); !ok {
 			log.Debug("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
@@ -768,10 +767,8 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			break
 		}
 
-		verifySign = append(verifySign, sign)
-
 		// Run the import on a new thread
-		log.Debug("Importing propagated sign", "peer", peer, "number", number, "hash", hash.String())
+		log.Debug("Verify propagated sign", "peer", peer, "number", number, "hash", hash.String())
 
 		// Schedule the sign for future importing
 		if _, ok := f.queuedSign[sign.Hash()]; !ok {
@@ -786,13 +783,10 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 		}
 	}
-
-	if len(verifySign) > 0 {
-		f.broadcastSigns(verifySign)
-	}
-
-	if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight), int32(len(f.signMultiHash[number]))) {
+	committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
+	if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 		if ok, _ := f.agreeAtSameHeight(number, hash); ok {
+			log.Info("Agree at same height", "number", number, "sign length", len(f.signMultiHash[number]), "committee number", committeeNumber)
 			f.queueSign.Push(f.signMultiHash[number], -float32(number))
 			if f.queueChangeHook != nil {
 				f.queueChangeHook(hash, true)
@@ -899,10 +893,12 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 }
 
 func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
+	log.Info("Verify come agreement", "sign number", len(hashs), "number", height)
 	go func() {
 		if blockHashs, ok := f.blockMultiHash[height.Uint64()]; ok {
 			for _, hash := range blockHashs {
 				if find, blockSignHash := f.agreeAtSameHeight(height.Uint64(), hash); find {
+					log.Info("Agreement insert block", "same block", len(blockHashs), "number", height)
 					find = f.insert(f.queuedSign[hash].origin, f.queued[hash].block, blockSignHash)
 					signs := []*types.PbftSign{}
 					for _, signHash := range blockSignHash {
@@ -910,6 +906,7 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 							signs = append(signs, sign.sign)
 						}
 					}
+					log.Info("Propagated agree sign", "sign number", len(signs), "number", height)
 					f.broadcastSigns(signs)
 					if find {
 						f.forgetBlockHeight(height)
