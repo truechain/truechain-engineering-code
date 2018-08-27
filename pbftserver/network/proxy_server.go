@@ -90,8 +90,8 @@ func (server *Server) Stop() {
 	}
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFinish,
-		ID:     common.Big0,
-		Height: common.Big0,
+		ID:     new(big.Int).Set(common.Big0),
+		Height: new(big.Int).Set(common.Big0),
 	}
 	server.ActionChan <- ac
 }
@@ -179,7 +179,7 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionBroadcast,
-		ID:     server.ID,
+		ID:     new(big.Int).Set(server.ID),
 		Height: height,
 	}
 	go func() {
@@ -190,8 +190,8 @@ func (server *Server) ConsensusFinish() {
 	// start to fetch
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFecth,
-		ID:     server.ID,
-		Height: common.Big0,
+		ID:     new(big.Int).Set(server.ID),
+		Height: new(big.Int).Set(common.Big0),
 	}
 	server.ActionChan <- ac
 }
