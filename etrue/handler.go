@@ -784,7 +784,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		if pm.blockchain.GetBlock(signs[0].FastHash, signs[0].FastHeight.Uint64()) == nil {
+		if !pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
