@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	VoteAgree        = iota //vote agree
-	VoteAgreeAgainst        //vote against
+	VoteAgreeAgainst = iota //vote against
+	VoteAgree               //vote agree
 
 	electionChanSize = 10
 
