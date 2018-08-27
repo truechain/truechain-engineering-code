@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	VoteAgree        = iota //vote agree
-	VoteAgreeAgainst        //vote against
+	VoteAgreeAgainst = iota //vote against
+	VoteAgree               //vote agree
 
 	electionChanSize = 10
 
@@ -802,6 +802,11 @@ func (self *PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
 		return 0
 	}
 	return int32(len(committees))
+}
+
+// AcquireCommitteeAuth check current node whether committee.
+func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
+	return false
 }
 
 func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo, CommitteeType int) error {

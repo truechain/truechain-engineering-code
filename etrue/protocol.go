@@ -141,6 +141,8 @@ type AgentNetworkProxy interface {
 	SubscribeNodeInfoEvent(chan<- NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*CryNodeInfo) error
+	// AcquireCommitteeAuth check current node whether committee.
+	AcquireCommitteeAuth(*big.Int) bool
 }
 
 // statusData is the network packet for the status message.
