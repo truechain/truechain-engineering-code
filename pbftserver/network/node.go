@@ -18,6 +18,7 @@ type Node struct {
 	View          *View
 	States        map[int64]*consensus.State
 	CommittedMsgs []*consensus.RequestMsg // kinda block.
+	CommitWaitMsg map[int64]*consensus.VoteMsg
 	MsgBuffer     *MsgBuffer
 	MsgEntrance   chan interface{}
 	MsgDelivery   chan interface{}
@@ -29,7 +30,6 @@ type Node struct {
 	ID            *big.Int
 	lock          sync.Mutex
 	Count         int64
-	Count2        int64
 }
 
 type MsgBuffer struct {
@@ -71,6 +71,7 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 		ID:            id,
 		States:        make(map[int64]*consensus.State),
 		CommittedMsgs: make([]*consensus.RequestMsg, 0),
+		CommitWaitMsg: make(map[int64]*consensus.VoteMsg),
 		MsgBuffer: &MsgBuffer{
 			ReqMsgs:        make([]*consensus.RequestMsg, 0),
 			PrePrepareMsgs: make([]*consensus.PrePrepareMsg, 0),
@@ -95,6 +96,9 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 
 	//start backward message dispatcher
 	go node.dispatchMsgBackward()
+
+	//start Process message commit wait
+	go node.processCommitWaitMessage()
 
 	return node
 }
@@ -284,17 +288,54 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
+
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
-		var result uint = 0
-		if !res {
-			result = 1
+
+		if res != nil && res == types.ErrHeightNotYet {
+			node.CommitWaitMsg[commitMsg.Height] = commitMsg
+		} else {
+			var result uint = 0
+			if res != nil {
+				result = 1
+			}
+			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
+			LogStage("Prepare", true)
+			node.Broadcast(commitMsg, "/commit")
+			LogStage("Commit", false)
 		}
-		commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
-		LogStage("Prepare", true)
-		node.Broadcast(commitMsg, "/commit")
-		LogStage("Commit", false)
 	}
 	return nil
+}
+
+func (node *Node) processCommitWaitMessage() {
+	for {
+		for k, v := range node.CommitWaitMsg {
+			state := node.GetStatus(v.Height)
+			if state == nil {
+				return
+			}
+			res := node.Verify.CheckMsg(state.MsgLogs.ReqMsg)
+
+			if state.CurrentStage == consensus.Committed {
+				delete(node.CommitWaitMsg, k)
+				return
+			}
+
+			if res != nil && res != types.ErrHeightNotYet {
+				var result uint = 0
+				if res != nil {
+					result = 1
+				}
+				v.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, result)
+				LogStage("Prepare", true)
+				node.Broadcast(v, "/commit")
+				LogStage("Commit", false)
+
+				delete(node.CommitWaitMsg, k)
+			}
+		}
+		time.Sleep(time.Second * 5)
+	}
 }
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {

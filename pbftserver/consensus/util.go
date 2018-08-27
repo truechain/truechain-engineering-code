@@ -34,7 +34,7 @@ type ConsensusHelp interface {
 }
 type ConsensusVerify interface {
 	SignMsg(h int64, res uint) *SignedVoteMsg
-	CheckMsg(msg *RequestMsg) bool
+	CheckMsg(msg *RequestMsg) error
 	ReplyResult(msg *RequestMsg, res uint) bool
 	InsertBlock(msg *PrePrepareMsg) bool
 }

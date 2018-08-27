@@ -185,18 +185,18 @@ func (ss *PbftServerMgr) InsertBlock(msg *consensus.PrePrepareMsg) bool {
 	return true
 }
 
-func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) bool {
+func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
 	height := big.NewInt(msg.Height)
 	block, ok := ss.blocks[height.Uint64()]
 	if !ok {
-		return false
+		return errors.New("block not have")
 	}
 	err := ss.Agent.VerifyFastBlock(block)
 	if err != nil {
-		return false
+		return err
 	}
 	ss.blocks[height.Uint64()] = block
-	return true
+	return nil
 }
 
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
