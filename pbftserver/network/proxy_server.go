@@ -15,7 +15,7 @@ import (
 
 type Server struct {
 	url        string
-	node       *Node
+	Node       *Node
 	ID         *big.Int
 	help       consensus.ConsensusHelp
 	server     *http.Server
@@ -64,14 +64,14 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	//server := &Server{ID: id, help: help}
 	server := &Server{ID: new(big.Int).Set(id), help: help}
 	node := NewNode(nodeID, verify, server, addrs, id)
-	server.node = node
+	server.Node = node
 	server.url = node.NodeTable[nodeID]
 	server.server = &http.Server{
 		Addr: server.url,
 	}
 	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
-	// go PrintNode(server.node)
+	go PrintNode(server.Node)
 	return server
 }
 func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.ActionIn)) {
@@ -112,8 +112,9 @@ func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) 
 		fmt.Println(err)
 		return
 	}
-
-	server.node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "In")
+	server.Node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Request) {
@@ -123,8 +124,9 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 		fmt.Println(err)
 		return
 	}
-
-	server.node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "In")
+	server.Node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Request) {
@@ -139,7 +141,9 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
 	msg.Height = tmp.Height
-	server.node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "In")
+	server.Node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getCommit(writer http.ResponseWriter, request *http.Request) {
@@ -151,7 +155,9 @@ func (server *Server) getCommit(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 
-	server.node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "In")
+	server.Node.MsgEntrance <- &msg
+	fmt.Println("[Chan]", "MsgEntrance", "Out")
 	//fmt.Println("proxy commit end")
 }
 
@@ -162,12 +168,14 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 		fmt.Println(err)
 		return
 	}
-	server.node.GetReply(&msg)
+	server.Node.GetReply(&msg)
 }
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	fmt.Println("[ServerID]", server.node.NodeID)
-	server.node.MsgEntrance <- msg
+	fmt.Println("[ServerID]", server.Node.NodeID)
+	fmt.Println("[Chan]", "MsgEntrance", "In")
+	server.Node.MsgEntrance <- msg
+	fmt.Println("[Chan]", "MsgEntrance", "Out")
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionBroadcast,

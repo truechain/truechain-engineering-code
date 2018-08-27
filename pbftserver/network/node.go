@@ -185,7 +185,9 @@ func (node *Node) ReplyResult(msgHeight int64) {
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	node.handleResult(msg)
 	go func() {
+		fmt.Println("[Chan]", "FinishChan", "In")
 		node.FinishChan <- msg.Height
+		fmt.Println("[Chan]", "FinishChan", "Out")
 		//node.ReplyResult(msg.Height)
 	}()
 	return nil
@@ -330,7 +332,7 @@ func (node *Node) GetReply(msg *consensus.ReplyMsg) {
 
 func (node *Node) createStateForNewConsensus(height int64) error {
 	// Check if there is an ongoing consensus process.
-	if node.GetStatus(height) != nil {
+	if node.GetStatus(height) != nil && node.GetStatus(height).CurrentStage != consensus.Committed {
 		return errors.New("another consensus is ongoing")
 	}
 
@@ -495,6 +497,15 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 					node.BroadcastOne(v, "/commit", v.NodeID)
 				}
 
+				msg := &consensus.VoteMsg{
+					ViewID:     state.ViewID,
+					SequenceID: v.SequenceID,
+					Digest:     v.Digest,
+					MsgType:    consensus.CommitMsg,
+					Height:     v.Height,
+				}
+
+				node.Broadcast(msg, "/commit")
 				//for _, msg := range state.MsgLogs.CommitMsgs {
 				//	if msg.NodeID == node.NodeID{
 				//		return nil
@@ -701,7 +712,9 @@ func (node *Node) alarmToDispatcher() {
 	for {
 		node.Count += 1
 		time.Sleep(ResolvingTimeDuration)
+		fmt.Println("[Chan]", "FinishChan", "In")
 		node.Alarm <- true
+		fmt.Println("[Chan]", "FinishChan", "Out")
 	}
 }
 
