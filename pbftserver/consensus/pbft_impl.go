@@ -212,7 +212,14 @@ func (state *State) committed(f int) bool {
 		return false
 	}
 
-	return true
+	var passCount = 0
+	for _, v := range state.MsgLogs.CommitMsgs {
+		if v.Pass.Result == 0 {
+			passCount += 1
+		}
+	}
+
+	return passCount > 2*f
 }
 
 func digest(object interface{}) (string, error) {
