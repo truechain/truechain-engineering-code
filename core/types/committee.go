@@ -67,7 +67,7 @@ type PbftAgentProxy interface {
 	FetchFastBlock() (*Block, error)
 	VerifyFastBlock(*Block) error
 	BroadcastFastBlock(*Block) error
-	BroadcastSign(sign *PbftSign, block *Block) error
+	BroadcastConsensus(block *Block) error
 }
 
 type PbftServerProxy interface {
@@ -103,7 +103,7 @@ func IntToHex(num interface{}) []byte {
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
 // RLP encoding.
 func (h *PbftSign) Hash() common.Hash {
-	return h.HashWithNoSign()
+	return rlpHash(h)
 }
 
 func (h *PbftSign) HashWithNoSign() common.Hash {

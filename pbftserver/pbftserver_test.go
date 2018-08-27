@@ -54,6 +54,10 @@ func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.B
 	println("[AGENT]", "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
+func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {
+	println("[AGENT]", "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
+	return nil
+}
 
 func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 	pub := ecdsa.PublicKey{

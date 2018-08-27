@@ -357,7 +357,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Debug("Truechain peer connected", "name", p.Name())
+	p.Log().Info("Truechain peer connected", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 
 	// Execute the Truechain handshake
 	var (
@@ -371,6 +371,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Debug("Truechain handshake failed", "err", err)
 		return err
 	}
+	p.Log().Info("Peer connected success", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
 		rw.Init(p.version)
 	}
@@ -713,11 +714,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		request.Block.ReceivedAt = msg.ReceivedAt
 		request.Block.ReceivedFrom = p
 
-		// TODO: downloader sync func
 		// Mark the peer as owning the block and schedule it for import
-		//p.MarkFastBlock(request.Block.Hash())
-		//pm.fetcherFast.Enqueue(p.id, request.Block)
-		//
+		p.MarkFastBlock(request.Block.Hash())
+		pm.fetcherFast.Enqueue(p.id, request.Block)
+
+		// TODO: downloader sync func
 		//// Assuming the block is importable by the peer, but possibly not yet done so,
 		//// calculate the head hash and TD that the peer truly must have.
 		//var (
@@ -782,6 +783,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "sign %d is nil", i)
 			}
 			p.MarkSign(sign.Hash())
+		}
+		if !pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
@@ -855,7 +858,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
 		}
-		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Info("Propagated handle block", "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
@@ -863,7 +866,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Info("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -874,11 +877,11 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, pbSign := range pbSigns {
-		peers := pm.peers.PeersWithoutTx(pbSign.Hash())
+		peers := pm.peers.PeersWithoutSign(pbSign.Hash())
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Trace("Broadcast sign", "hash", pbSign.Hash(), "recipients", len(peers))
+		log.Info("Broadcast sign", "hash", pbSign.Hash().String(), "number", pbSign.FastHeight, "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
@@ -897,7 +900,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
 	for _, peer := range peers {
 		nodeInfoSet[peer] = NodeInfoEvent{nodeInfo}
 	}
-	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers))
+	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers))
 	for peer, nodeInfo := range nodeInfoSet {
 		peer.AsyncSendNodeInfo(nodeInfo.nodeInfo)
 	}
@@ -982,7 +985,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		for _, peer := range peers {
 			txset[peer] = append(txset[peer], tx)
 		}
-		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
+		log.Info("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
@@ -1045,6 +1048,8 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		select {
 		case event := <-pm.pbSignsCh:
 			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
+			pm.BroadcastFastBlock(pm.blockchain.GetBlock(event.PbftSign.FastHash,
+				event.PbftSign.FastHeight.Uint64()), false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():

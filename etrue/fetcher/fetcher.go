@@ -98,7 +98,7 @@ type headerFilterTask struct {
 // PbftAgentFetcher encapsulates functions required to interact with PbftAgent.
 type PbftAgentFetcher interface {
 	// a  type to verify a leader's fast block for fast propagation.
-	VerifyCommitteeSign(signs []*types.PbftSign) bool
+	VerifyCommitteeSign(signs []*types.PbftSign) (bool, string)
 	// when check evil Leader, changeLeader
 	ChangeCommitteeLeader(height *big.Int) bool
 	//  according height require committee number
@@ -760,15 +760,17 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 	}
 
+	verifySign := []*types.PbftSign{}
 	for _, sign := range signs {
-		if !f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}) {
-			log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", number, "hash", hash)
+		if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}); !ok {
+			log.Info("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
 			propSignInvaildMeter.Mark(1)
-			return
+			break
 		}
 
+		verifySign = append(verifySign, sign)
 		// Run the import on a new thread
-		log.Debug("Importing propagated sign", "peer", peer, "number", number, "hash", hash.String())
+		log.Info("Verify propagated sign", "peer", peer, "number", number, "hash", hash.String())
 
 		// Schedule the sign for future importing
 		if _, ok := f.queuedSign[sign.Hash()]; !ok {
@@ -784,13 +786,20 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 	}
 
-	if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight), int32(len(f.signMultiHash[number]))) {
-		if ok, _ := f.agreeAtSameHeight(number, hash); ok {
+	if len(verifySign) > 0 {
+		f.broadcastSigns(verifySign)
+	}
+
+	committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
+	log.Info("Reached two third", "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
+	if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
+		if ok, _ := f.agreeAtSameHeight(number, signs[0].FastHash); ok {
+			log.Info("Agree at same height", "number", number, "sign length", len(f.signMultiHash[number]))
 			f.queueSign.Push(f.signMultiHash[number], -float32(number))
 			if f.queueChangeHook != nil {
 				f.queueChangeHook(hash, true)
 			}
-			log.Debug("Queued propagated sign", "peer", peer, "number", number, "hash", hash, "queued", f.queueSign.Size())
+			log.Info("Queued propagated sign", "peer", peer, "number", number, "hash", hash, "queued", f.queueSign.Size())
 		}
 	}
 }
@@ -817,8 +826,8 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 
-	if f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}) {
-		log.Debug("Discarded propagated sign leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
+	if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}); !ok {
+		log.Debug("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
 		propSignInvaildMeter.Mark(1)
 		return
 	}
@@ -853,7 +862,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
+		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
 	}
 }
 
@@ -861,7 +870,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 	hash := block.Hash()
 	f.sendBlockHash[block.NumberU64()] = append(f.sendBlockHash[block.NumberU64()], hash)
 	// Run the import on a new thread
-	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
+	log.Info("Broadcast propagated block", "peer", peer, "number", block.Number(), "hash", hash.String())
 	go func() {
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
@@ -892,17 +901,20 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 }
 
 func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
+	log.Info("Verify come agreement", "sign number", len(hashs), "number", height)
 	go func() {
 		if blockHashs, ok := f.blockMultiHash[height.Uint64()]; ok {
 			for _, hash := range blockHashs {
 				if find, blockSignHash := f.agreeAtSameHeight(height.Uint64(), hash); find {
-					find = f.insert(f.queuedSign[hash].origin, f.queued[hash].block, blockSignHash)
+					log.Info("Agreement insert block", "same block", len(blockHashs), "number", height)
+					find = f.insert(f.queuedSign[hashs[0]].origin, f.queued[hash].block, blockSignHash)
 					signs := []*types.PbftSign{}
 					for _, signHash := range blockSignHash {
 						if sign, ok := f.queuedSign[signHash]; ok {
 							signs = append(signs, sign.sign)
 						}
 					}
+					log.Info("Propagated agree sign", "sign number", len(signs), "number", height)
 					f.broadcastSigns(signs)
 					if find {
 						f.forgetBlockHeight(height)
@@ -934,7 +946,7 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 		f.importedHook(block)
 	}
 
-	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", block.Hash())
+	log.Info("Importing propagated block", "peer", peer, "number", block.Number(), "hash", block.Hash())
 	return true
 }
 

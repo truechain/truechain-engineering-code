@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -197,29 +198,31 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) bool {
 	ss.blocks[height.Uint64()] = block
 	return true
 }
+
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	height := big.NewInt(msg.Height)
 	block, ok := ss.blocks[height.Uint64()]
 	if !ok {
 		return false
 	}
-	hash := rlpHash([]interface{}{
-		block.Hash(),
-		block.Number(),
-		res,
-	})
-	sig, err := crypto.Sign(hash[:], ss.priv)
-	if err != nil {
-		return false
-	}
-	sign := types.PbftSign{
-		FastHeight: block.Number(),
-		FastHash:   block.Hash(),
-		Result:     res,
-		Sign:       sig,
-	}
-	err = ss.Agent.BroadcastSign(&sign, block)
-	ss.removeBlock(height)
+	//hash := rlpHash([]interface{}{
+	//	block.Hash(),
+	//	block.Number(),
+	//	res,
+	//})
+	//sig, err := crypto.Sign(hash[:], ss.priv)
+	//if err != nil {
+	//	return false
+	//}
+	//sign := types.PbftSign{
+	//	FastHeight: block.Number(),
+	//	FastHash:   block.Hash(),
+	//	Result:     res,
+	//	Sign:       sig,
+	//}
+
+	err := ss.Agent.BroadcastConsensus(block)
+	//ss.removeBlock(height)
 	if err != nil {
 		return false
 	}
@@ -311,8 +314,16 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 	for _, v := range nodes {
 		server.insertNode(v)
 	}
-	server.server = network.NewServer(server.nodeid, id, ss, ss, server.info)
 
+	if server.server == nil {
+		server.server = network.NewServer(server.nodeid, id, ss, ss, server.info)
+	} else {
+		//update node table
+		for _, v := range server.info {
+			name := common.ToHex(v.Publickey)
+			server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+		}
+	}
 	return nil
 }
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
