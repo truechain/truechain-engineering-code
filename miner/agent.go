@@ -20,13 +20,10 @@ import (
 	"sync"
 
 	"sync/atomic"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/eth/truechain"
-	"fmt"
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 type CpuAgent struct {
@@ -37,21 +34,18 @@ type CpuAgent struct {
 	quitCurrentOp chan struct{}
 	returnCh      chan<- *Result
 
-	chain  consensus.ChainReader
+	chain  consensus.SnailChainReader
 	engine consensus.Engine
-	tc 	*truechain.TrueHybrid
+
 	isMining int32 // isMining indicates whether the agent is currently mining
-	eth Backend
 }
 
-func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine,tc *truechain.TrueHybrid,eth Backend) *CpuAgent {
+func NewCpuAgent(chain consensus.SnailChainReader, engine consensus.Engine) *CpuAgent {
 	miner := &CpuAgent{
 		chain:  chain,
 		engine: engine,
 		stop:   make(chan struct{}, 1),
 		workCh: make(chan *Work, 1),
-		tc:tc,
-		eth:eth,
 	}
 	return miner
 }
@@ -65,7 +59,7 @@ func (self *CpuAgent) Stop() {
 	}
 	self.stop <- struct{}{}
 done:
-// Empty work channel
+	// Empty work channel
 	for {
 		select {
 		case <-self.workCh:
@@ -107,64 +101,49 @@ out:
 }
 
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
+	//Neo for test
+	log.Info("start to mine and to be consensus", " difficulty ", work.header.Difficulty)
+	// the mine with consensus
+
+	// old ethereum code neo 20180624
+	/*
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
 		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
-		self.MakeSigned(work)
 		self.returnCh <- &Result{work, result}
-
 	} else {
 		if err != nil {
 			log.Warn("Block sealing failed", "err", err)
 		}
 		self.returnCh <- nil
 	}
-}
+	*/
 
-func (self *CpuAgent) MakeSigned(work *Work){
+	// the new flow for fruit and block 20180624
+	send := make(chan *types.SnailBlock, 10)
+	abort := make(chan struct{})
+	go self.engine.ConSnailSeal(self.chain, work.Block, abort, send)
 
-
-	//添加当前节点到预选委员会队列
-	fmt.Print("Add to the candidate committee。。。")
-	//获取节点信息
-	ip,pub,_ := work.tc.GetNodeID()
-
-	//构建候选节点的信息
-	cm := truechain.CdMember{}
-	cm.Height=work.Block.Number()
-	cm.Addr = ip
-	cm.Nodeid = pub
-	cm.Coinbase	= string(work.Block.Coinbase().Bytes())				//挖矿奖励地址)
-	cm.Comfire	= false
-	cm.Port	= 16745
-
-
-	//创建候选的消息
-	cem := &truechain.CdEncryptionMsg{}
-
-	//Height		*big.Int
-	//Msg			[]byte		上一个结构体的字节码
-	//Sig 			[]byte		Coinbase 私钥签名后
-	//use			bool		默认值：false
-	coninbase :=work.Block.Coinbase().Bytes()
-	account := accounts.Account{Address: common.BytesToAddress(coninbase)}
-	wallet,_ := self.eth.AccountManager().Find(account)
-	signed, _ := wallet.SignHash(account,cem.Msg)
-
-	//wallet
-	cem.Height = work.Block.Number()
-	byt ,_ := truechain.ToByte(cm)
-	cem.Msg = byt
-	cem.Sig = signed
-	//work.Block.Coinbase().
-	//cem.Height = work.Block.Number()
-	//cem.Height = work.Block.Number()
-	//cem.Msg = cem.ToByte()
-	//Add to the candidate committee
-	work.tc.ReceiveSdmMsg(cem)
-
+	var result *types.SnailBlock
+	mineloop:
+	for {
+		select {
+		case <-stop:
+			// Outside abort, stop all miner threads
+			close(abort)
+			break mineloop
+		case result = <-send:
+			// One of the threads found a block or fruit return it
+			self.returnCh <- &Result{work, result}
+			// when get a fruit, to stop or continue
+			if !result.IsFruit() {
+				break mineloop
+			}
+			break
+		}
+	}
+	 
 
 }
-
 
 func (self *CpuAgent) GetHashRate() int64 {
 	if pow, ok := self.engine.(consensus.PoW); ok {

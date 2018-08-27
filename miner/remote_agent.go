@@ -23,11 +23,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 type hashrate struct {
@@ -43,6 +43,7 @@ type RemoteAgent struct {
 	returnCh chan<- *Result
 
 	chain       consensus.ChainReader
+	snailchain  consensus.SnailChainReader
 	engine      consensus.Engine
 	currentWork *Work
 	work        map[common.Hash]*Work
@@ -53,13 +54,17 @@ type RemoteAgent struct {
 	running int32 // running indicates whether the agent is active. Call atomically
 }
 
-func NewRemoteAgent(chain consensus.ChainReader, engine consensus.Engine) *RemoteAgent {
+func NewRemoteAgent(chain consensus.ChainReader, snailchain consensus.SnailChainReader, engine consensus.Engine) *RemoteAgent {
+
 	return &RemoteAgent{
 		chain:    chain,
+		snailchain: snailchain,
 		engine:   engine,
 		work:     make(map[common.Hash]*Work),
 		hashrate: make(map[common.Hash]hashrate),
 	}
+
+	//return nil
 }
 
 func (a *RemoteAgent) SubmitHashrate(id common.Hash, rate uint64) {
@@ -149,14 +154,21 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
 
-	if err := a.engine.VerifySeal(a.chain, result); err != nil {
+	if err := a.engine.VerifySnailSeal(a.snailchain, result); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
 	}
 	block := work.Block.WithSeal(result)
 
+	//neo for result struct add fruit result with to change the fun
+	//fruit :=work.Block.WithSeal(result)
+
 	// Solutions seems to be valid, return to the miner and notify acceptance
+	//a.returnCh <- &Result{work, block}
+
+	//Neo 20180624
 	a.returnCh <- &Result{work, block}
+
 	delete(a.work, hash)
 
 	return true

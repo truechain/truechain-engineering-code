@@ -15,7 +15,6 @@
 // along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 //
 
-
 package storage
 
 import (

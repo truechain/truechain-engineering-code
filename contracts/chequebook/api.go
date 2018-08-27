@@ -1,12 +1,12 @@
 
-package chequebook
 
+package chequebook
 
 import (
 	"errors"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 const Version = "1.0"

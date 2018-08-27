@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-
 package event
 
 import (
@@ -22,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/truechain/truechain-engineering-code/common/mclock"
 )
 
 // Subscription represents a stream of events. The carrier of the events is typically a

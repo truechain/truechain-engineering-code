@@ -15,32 +15,33 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package miner implements Ethereum block creation and mining.
-
 package miner
 
 import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/downloader"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/eth/truechain"
+	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etrue/downloader"
+	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 // Backend wraps all methods required for mining.
 type Backend interface {
 	AccountManager() *accounts.Manager
-	BlockChain() *core.BlockChain
+	SnailBlockChain() *snailchain.SnailBlockChain
+	//BlockChain() *chain.BlockChain
 	TxPool() *core.TxPool
+	SnailPool() *core.SnailPool
 	ChainDb() ethdb.Database
 }
 
@@ -50,24 +51,27 @@ type Miner struct {
 
 	worker *worker
 
-	coinbase common.Address
-	mining   int32
-	eth      Backend
-	engine   consensus.Engine
+	toElect   bool // for elect
+	publickey   []byte// for publickey
+
+	coinbase  common.Address
+	mining    int32
+	truechain Backend
+	engine    consensus.Engine
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,tc *truechain.TrueHybrid) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
-		eth:      eth,
-		mux:      mux,
-		engine:   engine,
-		worker:   newWorker(config, engine, common.Address{}, eth, mux,tc),
-		canStart: 1,
+		truechain: truechain,
+		mux:       mux,
+		engine:    engine,
+		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
+		canStart:  1,
 	}
-	miner.Register(NewCpuAgent(eth.BlockChain(), engine,tc,eth))
+	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
 	go miner.update()
 
 	return miner
@@ -169,6 +173,10 @@ func (self *Miner) Pending() (*types.Block, *state.StateDB) {
 	return self.worker.pending()
 }
 
+func (self *Miner) PendingSnail() (*types.SnailBlock, *state.StateDB) {
+	return self.worker.pendingSnail()
+}
+
 // PendingBlock returns the currently pending block.
 //
 // Note, to access both the pending block and the pending state
@@ -177,8 +185,19 @@ func (self *Miner) Pending() (*types.Block, *state.StateDB) {
 func (self *Miner) PendingBlock() *types.Block {
 	return self.worker.pendingBlock()
 }
+func (self *Miner) PendingSnailBlock() *types.SnailBlock {
+	return self.worker.pendingSnailBlock()
+}
 
 func (self *Miner) SetEtherbase(addr common.Address) {
 	self.coinbase = addr
 	self.worker.setEtherbase(addr)
+}
+
+func (self *Miner) SetElection(toElect bool, pubkey []byte) {
+	self.toElect = toElect
+	self.publickey = make([]byte, len(pubkey))
+
+	copy(self.publickey, pubkey)
+	self.worker.setElection(toElect, pubkey)
 }

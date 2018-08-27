@@ -23,10 +23,10 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -34,15 +34,6 @@ import (
 var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
 )
-
-// deriveSigner makes a *best* guess about which signer to use.
-func deriveSigner(V *big.Int) Signer {
-	if V.Sign() != 0 && isProtectedV(V) {
-		return NewEIP155Signer(deriveChainId(V))
-	} else {
-		return HomesteadSigner{}
-	}
-}
 
 type Transaction struct {
 	data txdata
@@ -273,6 +264,24 @@ func (s Transactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s Transactions) GetRlp(i int) []byte {
 	enc, _ := rlp.EncodeToBytes(s[i])
 	return enc
+}
+
+// TxDifference returns a new set t which is the difference between a to b.
+func FtDifference(a, b Fruits) (keep Fruits) {
+	keep = make(Fruits, 0, len(a))
+
+	remove := make(map[common.Hash]struct{})
+	for _, ft := range b {
+		remove[ft.Hash()] = struct{}{}
+	}
+
+	for _, ft := range a {
+		if _, ok := remove[ft.Hash()]; !ok {
+			keep = append(keep, ft)
+		}
+	}
+
+	return keep
 }
 
 // TxDifference returns a new set t which is the difference between a to b.

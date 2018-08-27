@@ -1,3 +1,18 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package asm
 
@@ -7,8 +22,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 )
 
 // Compiler contains information about the parsed source
@@ -36,7 +51,7 @@ func NewCompiler(debug bool) *Compiler {
 // the compiler.
 //
 // feed is the first pass in the compile stage as it
-// collect the used labels in the program and keeps a
+// collects the used labels in the program and keeps a
 // program counter which is used to determine the locations
 // of the jump dests. The labels can than be used in the
 // second stage to push labels and determine the right
@@ -105,7 +120,7 @@ func (c *Compiler) next() token {
 	return token
 }
 
-// compile line compiles a single line instruction e.g.
+// compileLine compiles a single line instruction e.g.
 // "push 1", "jump @label".
 func (c *Compiler) compileLine() error {
 	n := c.next()

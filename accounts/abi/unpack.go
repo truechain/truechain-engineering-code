@@ -1,5 +1,4 @@
 
-
 package abi
 
 import (
@@ -8,7 +7,7 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 // reads the integer based on its kind
