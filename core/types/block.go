@@ -123,6 +123,9 @@ func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], sel
 
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
 
+func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // fast chain block structure
@@ -446,9 +449,6 @@ type SnailHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`
-	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
-	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
 	PointerHash common.Hash    `json:"PointerHash"      gencodec:"required"`
 	FruitsHash  common.Hash    `json:"fruitsHash"       gencodec:"required"`
 	FastHash    common.Hash    `json:"fastHash"         gencodec:"required"`
@@ -527,8 +527,6 @@ func (self snailBlockSorter) Swap(i, j int) {
 }
 func (self snailBlockSorter) Less(i, j int) bool { return self.by(self.snailBlocks[i], self.snailBlocks[j]) }
 
-func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // Hash returns the block hash of the header, which is simply the keccak256 hash of its
@@ -543,9 +541,6 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 		h.ParentHash,
 		h.UncleHash,
 		h.Coinbase,
-		h.Root,
-		h.TxHash,
-		h.ReceiptHash,
 		h.PointerHash,
 		h.FruitsHash,
 		h.FastHash,
@@ -615,6 +610,10 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 // header data is copied, changes to header and to the field values
 // will not affect the block.
 func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
+	return &SnailBlock{header: CopySnailHeader(header)}
+}
+
+func NewFruitWithHeader(header *SnailHeader) *SnailBlock {
 	return &SnailBlock{header: CopySnailHeader(header)}
 }
 
@@ -711,10 +710,7 @@ func (b *SnailBlock) MixDigest() common.Hash   { return b.header.MixDigest }
 func (b *SnailBlock) Nonce() uint64            { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
 func (b *SnailBlock) Bloom() Bloom             { return b.header.Bloom }
 func (b *SnailBlock) Coinbase() common.Address { return b.header.Coinbase }
-func (b *SnailBlock) Root() common.Hash        { return b.header.Root }
 func (b *SnailBlock) ParentHash() common.Hash  { return b.header.ParentHash }
-func (b *SnailBlock) TxHash() common.Hash      { return b.header.TxHash }
-func (b *SnailBlock) ReceiptHash() common.Hash { return b.header.ReceiptHash }
 func (b *SnailBlock) UncleHash() common.Hash   { return b.header.UncleHash }
 func (b *SnailBlock) PointerHash() common.Hash { return b.header.PointerHash }
 func (b *SnailBlock) FruitsHash() common.Hash  { return b.header.FruitsHash }
