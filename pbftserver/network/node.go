@@ -159,7 +159,7 @@ func (node *Node) GetStatus(height int64) *consensus.State {
 
 func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 	var res uint = 0
-	if msg.NodeID == "Executed" {
+	if msg.Result == "Executed" {
 		res = 1
 	}
 	CurrentState := node.GetStatus(msg.Height)
@@ -185,9 +185,9 @@ func (node *Node) ReplyResult(msgHeight int64) {
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	node.handleResult(msg)
 	go func() {
-		fmt.Println("[Chan]", "FinishChan", "In")
+		//fmt.Println("[Chan]", "FinishChan", "In")
 		node.FinishChan <- msg.Height
-		fmt.Println("[Chan]", "FinishChan", "Out")
+		//fmt.Println("[Chan]", "FinishChan", "Out")
 		//node.ReplyResult(msg.Height)
 	}()
 	return nil
@@ -712,9 +712,9 @@ func (node *Node) alarmToDispatcher() {
 	for {
 		node.Count += 1
 		time.Sleep(ResolvingTimeDuration)
-		fmt.Println("[Chan]", "FinishChan", "In")
+		//fmt.Println("[Chan]", "FinishChan", "In")
 		node.Alarm <- true
-		fmt.Println("[Chan]", "FinishChan", "Out")
+		//fmt.Println("[Chan]", "FinishChan", "Out")
 	}
 }
 

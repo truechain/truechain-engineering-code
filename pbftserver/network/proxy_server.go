@@ -112,9 +112,9 @@ func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) 
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("[Chan]", "MsgEntrance", "In")
+	//fmt.Println("[Chan]", "MsgEntrance", "In")
 	server.Node.MsgEntrance <- &msg
-	fmt.Println("[Chan]", "MsgEntrance", "Out")
+	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Request) {
@@ -124,9 +124,9 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("[Chan]", "MsgEntrance", "In")
+	//fmt.Println("[Chan]", "MsgEntrance", "In")
 	server.Node.MsgEntrance <- &msg
-	fmt.Println("[Chan]", "MsgEntrance", "Out")
+	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Request) {
@@ -141,9 +141,9 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
 	msg.Height = tmp.Height
-	fmt.Println("[Chan]", "MsgEntrance", "In")
+	//fmt.Println("[Chan]", "MsgEntrance", "In")
 	server.Node.MsgEntrance <- &msg
-	fmt.Println("[Chan]", "MsgEntrance", "Out")
+	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getCommit(writer http.ResponseWriter, request *http.Request) {
@@ -155,9 +155,9 @@ func (server *Server) getCommit(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 
-	fmt.Println("[Chan]", "MsgEntrance", "In")
+	//fmt.Println("[Chan]", "MsgEntrance", "In")
 	server.Node.MsgEntrance <- &msg
-	fmt.Println("[Chan]", "MsgEntrance", "Out")
+	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 	//fmt.Println("proxy commit end")
 }
 
@@ -173,9 +173,9 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 	fmt.Println("[ServerID]", server.Node.NodeID)
-	fmt.Println("[Chan]", "MsgEntrance", "In")
+	//fmt.Println("[Chan]", "MsgEntrance", "In")
 	server.Node.MsgEntrance <- msg
-	fmt.Println("[Chan]", "MsgEntrance", "Out")
+	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionBroadcast,

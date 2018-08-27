@@ -67,7 +67,7 @@ type PbftAgentProxy interface {
 	FetchFastBlock() (*Block, error)
 	VerifyFastBlock(*Block) error
 	BroadcastFastBlock(*Block) error
-	BroadcastSign(sign *PbftSign, block *Block) error
+	BroadcastConsensus(block *Block) error
 }
 
 type PbftServerProxy interface {
