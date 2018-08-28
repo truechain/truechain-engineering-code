@@ -63,7 +63,7 @@ var testCommittee = []*types.CommitteeNode{
 	},
 
 	{
-		IP:        "192.168.46.4",
+		IP:        "192.168.46.9",
 		Port:      10080,
 		Coinbase:  common.HexToAddress("d985e9871d1be109af5a7f6407b1d6b686901fff"),
 		Publickey: common.Hex2Bytes("04e3e59c07b320b5d35d65917d50806e1ee99e3d5ed062ed24d3435f61a47d29fb2f2ebb322011c1d2941b4853ce2dc71e8c4af57b59bbf40db66f76c3c740d41b"),
