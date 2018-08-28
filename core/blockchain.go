@@ -43,6 +43,7 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 var (
@@ -93,6 +94,7 @@ type BlockChain struct {
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
+	sc            *snailchain.SnailBlockChain
 	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
@@ -109,6 +111,7 @@ type BlockChain struct {
 	checkpoint       int          // checkpoint counts towards the new checkpoint
 	currentBlock     atomic.Value // Current head of the block chain
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
+	currentReward    atomic.Value // Current head of the currentReward
 
 	stateCache   state.Database // State database to reuse between imports (contains state cache)
 	bodyCache    *lru.Cache     // Cache for the most recent block bodies
@@ -135,7 +138,7 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config,sc *snailchain.SnailBlockChain) (*BlockChain, error) {
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
@@ -167,6 +170,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
+		sc:			  sc,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -271,6 +275,21 @@ func (bc *BlockChain) loadLastState() error {
 	return nil
 }
 
+func (bc *BlockChain)  GetLastRow() *types.BlockReward {
+
+	sNumber := bc.CurrentBlock().NumberU64()
+	for i:=sNumber; i>=0 ; i-- {
+
+		sBlock := bc.sc.GetBlockByNumber(i)
+		reward := bc.GetFastHeightBySnailHeight(sBlock.Hash(),sBlock.NumberU64())
+		if reward != nil {
+			return reward
+		}
+	}
+	return nil
+}
+
+
 // SetHead rewinds the local chain to a new head. In the case of headers, everything
 // above the new head will be deleted and the new one set. In the case of blocks
 // though, the head may be further rewound if block bodies are missing (non-archive
@@ -346,6 +365,11 @@ func (bc *BlockChain) GasLimit() uint64 {
 func (bc *BlockChain) CurrentBlock() *types.Block {
 	return bc.currentBlock.Load().(*types.Block)
 }
+
+func (bc *BlockChain) CurrentReward() *types.BlockReward {
+	return bc.currentReward.Load().(*types.BlockReward)
+}
+
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
