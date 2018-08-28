@@ -526,6 +526,8 @@ func (bc *BlockChain) insert(block *types.Block) {
 
 	bc.currentBlock.Store(block)
 
+
+
 	// If the block is better than our head or is on a different chain, force update heads
 	if updateHeads {
 		bc.hc.SetCurrentHeader(block.Header())
@@ -961,6 +963,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 		//insert BlockReward to db
 		rawdb.WriteBlockReward(batch,br)
+		bc.currentReward.Store(br)
 	}
 
 
