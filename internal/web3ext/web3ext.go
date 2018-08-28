@@ -22,7 +22,7 @@ var Modules = map[string]string{
 	"chequebook": Chequebook_JS,
 	"clique":     Clique_JS,
 	"debug":      Debug_JS,
-	"true":       True_JS,
+	"true":       Etrue_JS,
 	"miner":      Miner_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
@@ -390,7 +390,7 @@ web3._extend({
 });
 `
 
-const True_JS = `
+const Etrue_JS = `
 web3._extend({
 	property: 'eth',
 	methods: [
