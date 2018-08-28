@@ -100,7 +100,6 @@ type PbftAgent struct {
 	ElectionCh  chan core.ElectionEvent
 	CommitteeCh  chan core.CommitteeEvent
 	CryNodeInfoCh 	chan *CryNodeInfo
-	//RewardNumberCh  chan core.RewardNumberEvent
 	ChainHeadCh 	chan core.ChainHeadEvent
 
 	electionSub event.Subscription
@@ -112,7 +111,6 @@ type PbftAgent struct {
 	PrivateKey *ecdsa.PrivateKey
 
 	cacheSign    []Sign
-	rewardNumber  *big.Int
 	cacheBlock   map[*big.Int]*types.Block
 }
 
@@ -164,30 +162,16 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		CommitteeCh:	make(chan core.CommitteeEvent),
 		ElectionCh: 	make(chan core.ElectionEvent, electionChanSize),
 		ChainHeadCh:	make(chan core.ChainHeadEvent, 3),
+		CryNodeInfoCh:	make(chan *CryNodeInfo, 20),
 		election: election,
 		mu:	new(sync.Mutex),
 		committeeMu:	new(sync.Mutex),
 		currentMu:	new(sync.Mutex),
-
 		cacheBlock: make(map[*big.Int]*types.Block),
 	}
 	self.InitNodeInfo(eth.Config())
-	self.SetCurrentRewardNumber()
+	//self.SetCurrentRewardNumber()
 	return self
-}
-
-func (self *PbftAgent)	SetCurrentRewardNumber() {
-	currentSnailBlock := self.snailChain.CurrentBlock()
-	snailHegiht := new(big.Int).Set(common.Big0)
-	for i:=currentSnailBlock.Number().Uint64(); i>0; i--{
-		blockReward :=self.fastChain.GetFastHeightBySnailHeight(currentSnailBlock.Hash(),currentSnailBlock.Number().Uint64())
-		if blockReward != nil{
-			snailHegiht =new(big.Int).Set(blockReward.SnailNumber)
-			break
-		}
-	}
-	self.rewardNumber =snailHegiht
-	log.Info("new CurrentRewardNumber:",self.rewardNumber.Int64())
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
@@ -304,10 +288,6 @@ func (self *PbftAgent) loop(){
 			}
 		case ch := <- self.ChainHeadCh:
 			log.Info("ChainHeadCh update RewardNumber.")
-			/*currentSnailNumber :=ch.Block.Header().SnailNumber //current FastBlock reward SnailBlock
-			if currentSnailNumber != nil && self.rewardNumber.Cmp(currentSnailNumber) == -1{
-				self.rewardNumber =currentSnailNumber
-			}*/
 			self.mu.Lock()
 			defer self.mu.Unlock()
 			err :=self.PutCacheIntoChain(ch.Block)
@@ -507,13 +487,15 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	}
 	fastBlock = work.Block
 
-	rewardSnailHegiht := new(big.Int).Add(self.rewardNumber,common.Big1)
+	//generate rewardSnailHegiht  //zanshi not used
+	/*BlockReward :=self.fastChain.CurrentReward()
+	rewardSnailHegiht := new(big.Int).Add(BlockReward.SnailNumber,common.Big1)
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(),rewardSnailHegiht).Int64()
-	if space>=BlockRewordSpace{
+	if space >= BlockRewordSpace{
 		fastBlock.Header().SnailNumber = rewardSnailHegiht
 		sb :=self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
-	}
+	}*/
 	fmt.Println("fastBlockHeight:",fastBlock.Header().Number)
 	return	fastBlock,nil
 }
@@ -547,36 +529,6 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block:fb,})
 	//self.broadCastChainEvent(fb)
 	return err
-}
-
-func (self * PbftAgent) broadCastChainEvent(fb *types.Block){
-	work := self.current
-
-	// Update the block hash in all logs since it is now available and not when the
-	// receipt/log of individual transactions were created.
-	for _, r := range work.receipts {
-		for _, l := range r.Logs {
-			l.BlockHash = fb.Hash()
-		}
-	}
-	for _, log := range work.state.Logs() {
-		log.BlockHash = fb.Hash()
-	}
-	stat, err := self.fastChain.WriteBlockWithState(fb, work.receipts, work.state)
-	if err != nil {
-		log.Error("Failed writing block to chain", "err", err)
-	}
-	// Broadcast the block and announce chain insertion event
-
-	var (
-		events []interface{}
-		logs   = work.state.Logs()
-	)
-	events = append(events, core.ChainEvent{Block: fb, Hash: fb.Hash(), Logs: logs})
-	if stat == core.CanonStatTy {
-		events = append(events, core.ChainHeadEvent{Block: fb})
-	}
-	self.fastChain.PostChainEvents(events, logs)
 }
 
 func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
@@ -620,38 +572,6 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	return nil
 }
 
-//verify the sign , insert chain  and  broadcast the signs
-/*func  (self *PbftAgent)  BroadcastSign(voteSigns []*types.PbftSign,fb *types.FastBlock){
-	 voteNum := 0
-	//get committee list  by height and hash
-	_,members :=self.election.GetCommittee(fb.Header().Number,fb.Header().Hash())//dd
-	for _,voteSign := range voteSigns{
-		if voteSign.Result == VoteAgreeAgainst{
-			continue
-		}
-		msg :=voteSign.PrepareData()
-		pubKey,err :=crypto.SigToPub(msg,voteSign.Sign)
-		if err != nil{
-			log.Info("SigToPub error.")
-			panic(err)
-		}
-		for _,member := range members {
-			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-				voteNum++
-				break;
-			}
-		}
-	}
-	if 	voteNum > 2*len(members)/3 {
-		fastBlocks	:= []*types.FastBlock{fb}
-		_,err :=self.fastChain.InsertChain(fastBlocks)
-		if err != nil{
-
-		}
-		self.signFeed.Send(core.PbftSignEvent{voteSigns})
-	}
-}*/
-
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	log.Info("into BroadcastSign.")
 	//generate sign
@@ -666,10 +586,6 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	err =self.PutCacheIntoChain(fb)
 	if err != nil{
 		return err
-	}
-
-	if fb.SnailNumber() !=nil{
-		self.rewardNumber = fb.SnailNumber()
 	}
 	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
 	return nil
@@ -956,6 +872,9 @@ func PrintNode(node *types.CommitteeNode){
 }
 
 func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
+	if !self.nodeInfoIsExist(){
+		return	false
+	}
 	committeeMembers :=self.election.GetCommittee(height)
 	for _,member := range committeeMembers {
 		if bytes.Equal(self.CommitteeNode.Publickey, crypto.FromECDSAPub(member.Publickey)) {
@@ -964,8 +883,8 @@ func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
 	}
 	return false
 }
-
-/*func  SendBlock(agent *PbftAgent)  {
+/*
+func  SendBlock(agent *PbftAgent)  {
 	for{
 		//获取区块
 		block,_ := agent.FetchFastBlock()
