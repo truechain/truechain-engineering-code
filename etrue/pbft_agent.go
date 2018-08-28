@@ -39,7 +39,6 @@ const (
 
 	BlockRewordSpace = 12
 	sendNodeTime = 5
-
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -70,8 +69,6 @@ var testCommittee = []*types.CommitteeNode{
 		Publickey: common.Hex2Bytes("04e3e59c07b320b5d35d65917d50806e1ee99e3d5ed062ed24d3435f61a47d29fb2f2ebb322011c1d2941b4853ce2dc71e8c4af57b59bbf40db66f76c3c740d41b"),
 	},
 }
-
-var ErrUnSyncParentBlock = errors.New("unsync parentBlock.")
 
 type PbftAgent struct {
 	config *params.ChainConfig
@@ -116,7 +113,7 @@ type PbftAgent struct {
 
 	cacheSign    []Sign
 	rewardNumber  *big.Int
-	cacheBlock   []*types.Block
+	cacheBlock   map[*big.Int]*types.Block
 }
 
 type AgentWork struct {
@@ -285,20 +282,50 @@ func (self *PbftAgent) loop(){
 			if currentSnailNumber != nil && self.rewardNumber.Cmp(currentSnailNumber) == -1{
 				self.rewardNumber =currentSnailNumber
 			}*/
-
 			self.mu.Lock()
-			currentFBNumber :=self.fastChain.CurrentBlock().Number()
-			self.mu.Unlock()
-			newFBNumber :=ch.Block.Header().Number
-			if currentFBNumber.Cmp(newFBNumber) !=-1 {
-				log.Error("newBlock is out")
+			defer self.mu.Unlock()
+			err :=self.PutCacheIntoChain(ch.Block)
+			if err != nil{
+				log.Error("PutCacheIntoChain err")
+				panic(err)
 			}
-			if new(big.Int).Add(currentFBNumber,common.Big1).Cmp(newFBNumber) ==-1 {
-				self.cacheBlock =append(self.cacheBlock,ch.Block)
-			}
-
 		}
 	}
+}
+
+
+func  (self * PbftAgent) PutCacheIntoChain(receiveBlock *types.Block) error{
+	receiveBlockHeight :=receiveBlock.Number()
+	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight)>=0 {
+		return nil
+	}
+	if _, ok := self.cacheBlock[receiveBlock.Number()]; ok {
+		return	nil
+	}
+	var fastBlocks  []*types.Block
+	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
+	if parent !=nil{
+		fastBlocks = append(fastBlocks,receiveBlock)
+		for i:=receiveBlockHeight.Uint64()+1;  ;i++{
+			if block, ok := self.cacheBlock[big.NewInt(int64(i))]; ok {
+				fastBlocks = append(fastBlocks,block)
+			}else{
+				break
+			}
+		}
+	}else{
+		self.cacheBlock[receiveBlockHeight] =receiveBlock
+	}
+	if fastBlocks !=nil && len(fastBlocks) >0{
+		_,err :=self.fastChain.InsertChain(fastBlocks)
+		if err != nil{
+			return err
+		}
+		for _,fb := range fastBlocks{
+			delete(self.cacheBlock, fb.Number())
+		}
+	}
+	return nil
 }
 
 func (self * PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool{
@@ -529,7 +556,7 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	if parent ==nil{ //if cannot find parent return ErrUnSyncParentBlock
-		return  ErrUnSyncParentBlock
+		return  types.ErrHeightNotYet
 	}
 	err :=self.engine.VerifyFastHeader(bc, fb.Header(),true)
 	if err != nil{
@@ -591,18 +618,60 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 	}
 }*/
 
-func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block) error{
-	var fastBlocks	 []*types.Block
+func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
+	log.Info("into BroadcastSign.")
+	var err  error
+	//generate sign
+	voteSign := types.PbftSign{
+		FastHeight: fb.Number(),
+		FastHash:   fb.Hash(),
+		Result:     VoteAgree,
+	}
+	hash :=GetSignHash(&voteSign)
+	voteSign.Sign, err = crypto.Sign(hash[:], self.PrivateKey)
+	if err != nil {
+		return err
+	}
+	//insert bockchain
+	self.mu.Lock()
+	defer self.mu.Unlock()
+	err =self.PutCacheIntoChain(fb)
+	if err != nil{
+		return err
+	}
+
+	if fb.SnailNumber() !=nil{
+		self.rewardNumber = fb.SnailNumber()
+	}
+	self.signFeed.Send(core.PbftSignEvent{PbftSign:&voteSign})
+	return nil
+}
+
+/*func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block) error{
+	//var fastBlocks	 []*types.Block
 	log.Info("into BroadcastSign.")
 	self.mu.Lock()
 	defer self.mu.Unlock()
+	err :=self.PutCacheIntoChain(fb)
+	if err != nil{
+		return err
+	}
+
 	if len(self.cacheBlock) !=0{
-		fastBlocks =append(fastBlocks,self.cacheBlock...)
+		var maxHeight =common.Big0
+		for height,block :=range self.cacheBlock{
+			if maxHeight.Cmp(height) ==-1{
+				maxHeight =height
+			}
+			fastBlocks =append(fastBlocks,block)
+		}
+
 		currentchainBlockNumber :=self.current.Block.Number()
 		distance :=fb.Number().Uint64() -currentchainBlockNumber.Uint64()-1
 		if distance == uint64(len(self.cacheBlock)){
 			fastBlocks	=append(fastBlocks,fb)
 		}
+
 	}else{
 		fastBlocks	=append(fastBlocks,fb)
 	}
@@ -616,7 +685,7 @@ func (self *PbftAgent)  BroadcastSign(voteSign *types.PbftSign, fb *types.Block)
 	}
 	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
 	return nil
-}
+}*/
 
 func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := self.fastChain.StateAt(parent.Root())
@@ -859,9 +928,12 @@ func PrintNode(node *types.CommitteeNode){
 	fmt.Println("Publickey:",node.Publickey)
 }
 
-func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	return nil
-}
 func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
+	committeeMembers :=self.election.GetCommittee(height)
+	for _,member := range committeeMembers {
+		if bytes.Equal(self.CommitteeNode.Publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
 	return false
 }

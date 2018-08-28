@@ -47,7 +47,7 @@ type Genesis struct {
 	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
 	Mixhash    common.Hash         `json:"mixHash"`
 	Coinbase   common.Address      `json:"coinbase"`
-	// Alloc      types.GenesisAlloc  `json:"alloc"      gencodec:"required"`
+	Alloc      types.GenesisAlloc  `json:"alloc"      gencodec:"required"`
 	//committee info
 	Committee []*types.CommitteeMember `json:"committee"      gencodec:"required"`
 
@@ -163,16 +163,11 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.SnailBlock {
 		Time:       new(big.Int).SetUint64(g.Timestamp),
 		ParentHash: g.ParentHash,
 		Extra:      g.ExtraData,
-		//GasLimit:   g.GasLimit,
-		//GasUsed:    g.GasUsed,
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
-		Root:       common.Hash{},
 	}
-	if g.GasLimit == 0 {
-		//head.GasLimit = params.GenesisGasLimit
-	}
+
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}

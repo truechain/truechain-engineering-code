@@ -167,15 +167,16 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	eth.snailblockchain, err = chain.NewSnailBlockChain(chainDb, snailCacheConfig, eth.chainConfig, eth.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
+
+	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig,eth.snailblockchain)
+	if err != nil {
+		return nil, err
+	}
+
 
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
@@ -475,6 +476,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.startPbftServer()
 	s.agent.server =s.pbftServer
 	s.agent.Start()
+	defer s.agent.Stop()
 
 	s.election.Start()
 
