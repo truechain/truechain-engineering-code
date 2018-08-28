@@ -168,6 +168,8 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		mu:	new(sync.Mutex),
 		committeeMu:	new(sync.Mutex),
 		currentMu:	new(sync.Mutex),
+
+		cacheBlock: make(map[*big.Int]*types.Block),
 	}
 	self.InitNodeInfo(eth.Config())
 	self.SetCurrentRewardNumber()
@@ -189,6 +191,11 @@ func (self *PbftAgent)	SetCurrentRewardNumber() {
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
+	//TODO when IP or Port is nil
+	/*if  config.Host =="" ||  config.Port ==0{
+		self.CommitteeNode = nil
+		return
+	}*/
 	acc1Key, err := crypto.ToECDSA(config.CommitteeKey)
 	if err != nil {
 		log.Error("InitNodeInfo PrivateKey error ")
@@ -201,11 +208,12 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Coinbase:crypto.PubkeyToAddress(acc1Key.PublicKey),
 		Publickey:pubBytes,
 	}
-	//TODO when IP or Port is nil
-	//if self.CommitteeNode.IP == "" || self.CommitteeNode.Port == 0 ||
 }
 
 func (self *PbftAgent) Start() {
+	if self.CommitteeNode == nil || self.CommitteeNode.IP=="" || self.CommitteeNode.Port==0{
+		return
+	}
 	go self.loop()
 }
 
@@ -222,7 +230,7 @@ func (self *PbftAgent) loop(){
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
 	self.RewardNumberSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
-
+	defer self.Stop()
 	ticker := time.NewTicker(time.Minute * sendNodeTime)
 	for {
 		select {
@@ -493,10 +501,8 @@ func (self * PbftAgent)  FetchFastBlock() (*types.Block,error){
 	return	fastBlock,nil
 }
 
-//broadcast blockAndSign
-func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
-	log.Info("into BroadcastFastBlock.")
 
+func (self * PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign,error) {
 	voteSign := &types.PbftSign{
 		Result: VoteAgree,
 		FastHeight:fb.Header().Number,
@@ -505,6 +511,13 @@ func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
 	var err error
 	signHash :=GetSignHash(voteSign)
 	voteSign.Sign,err =crypto.Sign(signHash, self.PrivateKey)
+	return voteSign,err
+}
+//broadcast blockAndSign
+func (self * PbftAgent) BroadcastFastBlock(fb *types.Block) error{
+	log.Info("into BroadcastFastBlock.")
+
+	voteSign ,err :=self.GenerateSign(fb)
 	if err != nil{
 		panic(err)
 		log.Info("sign error")
@@ -620,8 +633,8 @@ func (self * PbftAgent) VerifyFastBlock(fb *types.Block) error{
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	log.Info("into BroadcastSign.")
-	var err  error
-	//generate sign
+	/*	var err  error
+
 	voteSign := types.PbftSign{
 		FastHeight: fb.Number(),
 		FastHash:   fb.Hash(),
@@ -631,6 +644,13 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	voteSign.Sign, err = crypto.Sign(hash[:], self.PrivateKey)
 	if err != nil {
 		return err
+	}*/
+
+	//generate sign
+	voteSign ,err :=self.GenerateSign(fb)
+	if err != nil{
+		panic(err)
+		log.Info("sign error")
 	}
 	//insert bockchain
 	self.mu.Lock()
@@ -643,7 +663,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if fb.SnailNumber() !=nil{
 		self.rewardNumber = fb.SnailNumber()
 	}
-	self.signFeed.Send(core.PbftSignEvent{PbftSign:&voteSign})
+	self.signFeed.Send(core.PbftSignEvent{PbftSign:voteSign})
 	return nil
 }
 
@@ -823,10 +843,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 		fmt.Println("IsCommitteeMember committeeInfo :",len(committeeInfo.Members))
 		return false
 	}
-	/*pubKey,err :=crypto.UnmarshalPubkey(self.CommitteeNode.Publickey)
-	if err != nil{
-		log.Error("UnmarshalPubkey error...")
-	}*/
 	for _,member := range committeeInfo.Members {
 		if bytes.Equal(self.CommitteeNode.Publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return true
@@ -936,4 +952,24 @@ func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
 		}
 	}
 	return false
+}
+
+func SendBlock(agent *PbftAgent)  {
+	for{
+		//获取区块
+		block,_ := agent.FetchFastBlock()
+		//验证区块
+		err :=agent.VerifyFastBlock(block)
+		if err != nil{
+			panic(err)
+		}else{
+			fmt.Println("validate true")
+		}
+		time.Sleep(time.Second * 5)
+
+		//发出区块
+		agent.BroadcastFastBlock(block)
+		agent.BroadcastConsensus(block)
+	}
+
 }
