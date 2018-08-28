@@ -164,6 +164,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("local node must be leader...")
 	}
 	fb, err := ss.Agent.FetchFastBlock()
+	fmt.Println("[LOG]", "FetchFastBlock", err == nil)
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +224,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
 		return errors.New("block not have")
 	}
 	err := ss.Agent.VerifyFastBlock(block)
+	fmt.Println("[LOG]", "VerifyFastBlock", err == nil)
 	if err != nil {
 		return err
 	}
@@ -239,8 +241,8 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	}
 
 	err := ss.Agent.BroadcastConsensus(block)
+	fmt.Println("[LOG]", "BroadcastConsensus", err == nil)
 	ss.removeBlock(height)
-
 	if err != nil {
 		return false
 	}
@@ -248,9 +250,9 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 }
 
 func (ss *PbftServerMgr) Broadcast(height *big.Int) {
-
 	if fb := ss.getBlock(height.Uint64()); fb != nil {
 		ss.Agent.BroadcastFastBlock(fb)
+		fmt.Println("[LOG]", "BroadcastFastBlock")
 	}
 }
 func (ss *PbftServerMgr) SignMsg(h int64, res uint) *consensus.SignedVoteMsg {
