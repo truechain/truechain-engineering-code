@@ -15,6 +15,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -34,11 +35,12 @@ type serverInfo struct {
 }
 
 type PbftServerMgr struct {
-	servers map[uint64]*serverInfo
-	blocks  map[uint64]*types.Block
-	pk      *ecdsa.PublicKey
-	priv    *ecdsa.PrivateKey
-	Agent   types.PbftAgentProxy
+	servers   map[uint64]*serverInfo
+	blocks    map[uint64]*types.Block
+	pk        *ecdsa.PublicKey
+	priv      *ecdsa.PrivateKey
+	Agent     types.PbftAgentProxy
+	blockLock sync.Mutex
 }
 
 func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.PbftAgentProxy) *PbftServerMgr {
@@ -93,7 +95,31 @@ func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
 		ss.info = append(ss.info, n)
 	}
 }
+
+func (ss *PbftServerMgr) getBlock(h uint64) *types.Block {
+	ss.blockLock.Lock()
+	defer ss.blockLock.Unlock()
+	if fb, ok := ss.blocks[h]; ok {
+		return fb
+	}
+	return nil
+}
+
+func (ss *PbftServerMgr) getBlockLen() int {
+	ss.blockLock.Lock()
+	defer ss.blockLock.Unlock()
+	return len(ss.blocks)
+}
+
+func (ss *PbftServerMgr) putBlock(h uint64, block *types.Block) {
+	ss.blockLock.Lock()
+	defer ss.blockLock.Unlock()
+	ss.blocks[h] = block
+}
+
 func (ss *PbftServerMgr) getLastBlock() *types.Block {
+	ss.blockLock.Lock()
+	defer ss.blockLock.Unlock()
 	cur := big.NewInt(0)
 	var fb *types.Block = nil
 	for _, v := range ss.blocks {
@@ -108,6 +134,8 @@ func (ss *PbftServerMgr) getLastBlock() *types.Block {
 	return fb
 }
 func (ss *PbftServerMgr) removeBlock(height *big.Int) {
+	ss.blockLock.Lock()
+	defer ss.blockLock.Unlock()
 	delete(ss.blocks, height.Uint64())
 }
 func (ss *PbftServerMgr) clear(id *big.Int) {
@@ -139,10 +167,12 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := ss.blocks[fb.NumberU64()]; ok {
+
+	if fb := ss.getBlock(fb.NumberU64()); fb != nil {
 		return nil, errors.New("same height:" + fb.Number().String())
 	}
-	sum := len(ss.blocks)
+
+	sum := ss.getBlockLen()
 	if sum > 0 {
 		last := ss.getLastBlock()
 		if last != nil {
@@ -153,7 +183,8 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 			}
 		}
 	}
-	ss.blocks[fb.NumberU64()] = fb
+
+	ss.putBlock(fb.NumberU64(), fb)
 	data, err := rlp.EncodeToBytes(fb)
 	if err != nil {
 		return nil, err
@@ -180,49 +211,36 @@ func (ss *PbftServerMgr) InsertBlock(msg *consensus.PrePrepareMsg) bool {
 	if err != nil {
 		return false
 	}
-
-	ss.blocks[fb.Number().Uint64()] = fb
+	ss.putBlock(fb.NumberU64(), fb)
 	return true
 }
 
 func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
 	height := big.NewInt(msg.Height)
-	block, ok := ss.blocks[height.Uint64()]
-	if !ok {
+
+	block := ss.getBlock(height.Uint64())
+	if block == nil {
 		return errors.New("block not have")
 	}
 	err := ss.Agent.VerifyFastBlock(block)
 	if err != nil {
 		return err
 	}
-	ss.blocks[height.Uint64()] = block
+	ss.putBlock(height.Uint64(), block)
 	return nil
 }
 
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	height := big.NewInt(msg.Height)
-	block, ok := ss.blocks[height.Uint64()]
-	if !ok {
+
+	block := ss.getBlock(height.Uint64())
+	if block == nil {
 		return false
 	}
-	//hash := rlpHash([]interface{}{
-	//	block.Hash(),
-	//	block.Number(),
-	//	res,
-	//})
-	//sig, err := crypto.Sign(hash[:], ss.priv)
-	//if err != nil {
-	//	return false
-	//}
-	//sign := types.PbftSign{
-	//	FastHeight: block.Number(),
-	//	FastHash:   block.Hash(),
-	//	Result:     res,
-	//	Sign:       sig,
-	//}
 
 	err := ss.Agent.BroadcastConsensus(block)
-	//ss.removeBlock(height)
+	ss.removeBlock(height)
+
 	if err != nil {
 		return false
 	}
@@ -230,16 +248,19 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 }
 
 func (ss *PbftServerMgr) Broadcast(height *big.Int) {
-	if v, ok := ss.blocks[height.Uint64()]; ok {
-		ss.Agent.BroadcastFastBlock(v)
+
+	if fb := ss.getBlock(height.Uint64()); fb != nil {
+		ss.Agent.BroadcastFastBlock(fb)
 	}
 }
 func (ss *PbftServerMgr) SignMsg(h int64, res uint) *consensus.SignedVoteMsg {
 	height := big.NewInt(h)
-	block, ok := ss.blocks[height.Uint64()]
-	if !ok {
+
+	block := ss.getBlock(height.Uint64())
+	if block == nil {
 		return nil
 	}
+
 	hash := rlpHash([]interface{}{
 		block.Hash(),
 		height,

@@ -184,7 +184,7 @@ func (node *Node) ReplyResult(msgHeight int64) {
 	//	node.MsgBuffer.PrepareMsgs = make([]*consensus.VoteMsg, 0)
 	//	node.MsgBuffer.CommitMsgs = make([]*consensus.VoteMsg, 0)
 	//}
-	node.Finish.ConsensusFinish()
+	go node.Finish.ConsensusFinish()
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	node.handleResult(msg)
@@ -520,7 +520,14 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 			state := node.GetStatus(v.Height)
 			if v.MsgType == consensus.CommitMsg {
 				if v, ok := state.MsgLogs.CommitMsgs[node.NodeID]; ok {
-					node.BroadcastOne(v, "/commit", v.NodeID)
+					msg := &consensus.VoteMsg{
+						ViewID:     state.ViewID,
+						SequenceID: v.SequenceID,
+						Digest:     v.Digest,
+						MsgType:    consensus.PrepareMsg,
+						Height:     v.Height,
+					}
+					node.BroadcastOne(msg, "/commit", v.NodeID)
 				}
 				//for _, msg := range state.MsgLogs.CommitMsgs {
 				//	if msg.NodeID == v.NodeID{
@@ -532,21 +539,26 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 				//}
 			} else if v.MsgType == consensus.PrepareMsg {
 				if v, ok := state.MsgLogs.PrepareMsgs[node.NodeID]; ok {
-					node.BroadcastOne(v, "/prepare", v.NodeID)
+					msg := &consensus.VoteMsg{
+						ViewID:     state.ViewID,
+						SequenceID: v.SequenceID,
+						Digest:     v.Digest,
+						MsgType:    consensus.PrepareMsg,
+						Height:     v.Height,
+					}
+					node.BroadcastOne(msg, "/prepare", v.NodeID)
 				}
 				if v, ok := state.MsgLogs.CommitMsgs[node.NodeID]; ok {
-					node.BroadcastOne(v, "/commit", v.NodeID)
+					msg := &consensus.VoteMsg{
+						ViewID:     state.ViewID,
+						SequenceID: v.SequenceID,
+						Digest:     v.Digest,
+						MsgType:    consensus.CommitMsg,
+						Height:     v.Height,
+					}
+					node.BroadcastOne(msg, "/commit", v.NodeID)
 				}
 
-				msg := &consensus.VoteMsg{
-					ViewID:     state.ViewID,
-					SequenceID: v.SequenceID,
-					Digest:     v.Digest,
-					MsgType:    consensus.CommitMsg,
-					Height:     v.Height,
-				}
-
-				node.Broadcast(msg, "/commit")
 				//for _, msg := range state.MsgLogs.CommitMsgs {
 				//	if msg.NodeID == node.NodeID{
 				//		return nil
