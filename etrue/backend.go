@@ -475,6 +475,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.startPbftServer()
 	s.agent.server =s.pbftServer
 	s.agent.Start()
+	defer s.agent.Stop()
 
 	s.election.Start()
 
