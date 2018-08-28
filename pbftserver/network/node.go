@@ -44,7 +44,10 @@ type View struct {
 	Primary string
 }
 
-const ResolvingTimeDuration = time.Millisecond * 1000 // 1 second.
+const (
+	ResolvingTimeDuration = time.Second // 1 second.
+	StateMax              = 1000        //max size for status
+)
 
 func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
 	addrs []*types.CommitteeNode, id *big.Int) *Node {
@@ -146,7 +149,7 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 func (node *Node) PutStatus(height int64, state *consensus.State) {
 	node.lock.Lock()
 	defer node.lock.Unlock()
-	id := height % 1000
+	id := height % StateMax
 	node.States[id] = state
 }
 
@@ -154,7 +157,7 @@ func (node *Node) GetStatus(height int64) *consensus.State {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 
-	id := height % 1000
+	id := height % StateMax
 	if state, ok := node.States[id]; ok {
 		return state
 	}
@@ -373,6 +376,8 @@ func (node *Node) GetReply(msg *consensus.ReplyMsg) {
 
 func (node *Node) createStateForNewConsensus(height int64) error {
 	// Check if there is an ongoing consensus process.
+
+	LogFmt("[create]", "height", height)
 	if node.GetStatus(height) != nil && node.GetStatus(height).CurrentStage != consensus.Committed {
 		return errors.New("another consensus is ongoing")
 	}
@@ -386,7 +391,7 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 	}
 
 	// Create a new state for this new consensus process in the Primary
-	fmt.Println("[create]", node.NodeID, lastSequenceID)
+	fmt.Println("[create]", node.NodeID, lastSequenceID, height)
 
 	node.PutStatus(height, consensus.CreateState(node.View.ID, lastSequenceID))
 
@@ -654,7 +659,7 @@ func sendSameHightMessage(node *Node) {
 
 	msgRequest := make([]*consensus.RequestMsg, 0)
 	for i := len(node.MsgBuffer.ReqMsgs) - 1; i >= 0; i-- {
-		status := node.GetStatus(node.MsgBuffer.PrepareMsgs[i].Height)
+		status := node.GetStatus(node.MsgBuffer.ReqMsgs[i].Height)
 		if status != nil && status.CurrentStage == consensus.Idle {
 			msgRequest = append(msgRequest, node.MsgBuffer.ReqMsgs[i])
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs[:i], node.MsgBuffer.ReqMsgs[i+1:]...)

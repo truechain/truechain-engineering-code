@@ -75,6 +75,13 @@ func addServer(pap *PbftAgentProxyImp) *PbftServerMgr {
 }
 
 func TestPbftServerTemp(t *testing.T) {
+	a := 0
+	for i := 49; i >= 0; i-- {
+		a += i
+	}
+	fmt.Println(a)
+	return
+
 	s := []int{1, 2, 3}
 
 	fmt.Println(s[1:])
@@ -92,7 +99,6 @@ func TestPbftServerTemp(t *testing.T) {
 }
 
 func TestPbftServerStart(t *testing.T) {
-
 	start := make(chan bool)
 
 	pa1 := NewPbftAgent("Agent1")
