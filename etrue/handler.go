@@ -357,7 +357,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Info("Truechain peer connected", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
+	p.Log().Debug("Truechain peer connected", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 
 	// Execute the Truechain handshake
 	var (
@@ -784,7 +784,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		if !pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
+		if pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
+			pm.BroadcastPbSign(signs)
+		} else {
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
