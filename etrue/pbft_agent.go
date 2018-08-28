@@ -170,7 +170,9 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		cacheBlock:    make(map[*big.Int]*types.Block),
 	}
 	self.InitNodeInfo(eth.Config())
-	//self.SetCurrentRewardNumber()
+	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
+	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
+	self.RewardNumberSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
 	return self
 }
 
@@ -226,11 +228,9 @@ func (self *PbftAgent) Stop() {
 }
 
 func (self *PbftAgent) loop() {
-	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
-	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	self.RewardNumberSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
+
 	defer self.Stop()
-	ticker := time.NewTicker(time.Minute * sendNodeTime)
+	ticker := time.NewTicker(time.Second * sendNodeTime)
 	for {
 		select {
 		case ch := <-self.ElectionCh:
