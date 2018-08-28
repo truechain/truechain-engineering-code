@@ -257,6 +257,12 @@ func (bc *BlockChain) loadLastState() error {
 			bc.currentFastBlock.Store(block)
 		}
 	}
+	// Restore the last known currentReward
+
+	currentReward := bc.GetLastRow()
+	if currentReward !=nil{
+		bc.currentReward.Store(currentReward)
+	}
 
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
@@ -278,9 +284,14 @@ func (bc *BlockChain) loadLastState() error {
 func (bc *BlockChain)  GetLastRow() *types.BlockReward {
 
 	sNumber := bc.CurrentBlock().NumberU64()
-	for i:=sNumber; i>=0 ; i-- {
+
+	fmt.Println(sNumber)
+	for i:=sNumber; i>0 ; i-- {
 
 		sBlock := bc.sc.GetBlockByNumber(i)
+		if sBlock == nil{
+			continue
+		}
 		reward := bc.GetFastHeightBySnailHeight(sBlock.Hash(),sBlock.NumberU64())
 		if reward != nil {
 			return reward
@@ -327,6 +338,12 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	// If either blocks reached nil, reset to the genesis state
 	if currentBlock := bc.CurrentBlock(); currentBlock == nil {
 		bc.currentBlock.Store(bc.genesisBlock)
+	}
+
+	// Restore the last known currentReward
+	currentReward := bc.GetLastRow()
+	if currentReward != nil {
+		bc.currentReward.Store(currentReward)
 	}
 
 	currentBlock := bc.CurrentBlock()
@@ -1122,8 +1139,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	}
 	abort, results := bc.engine.VerifyFastHeaders(bc, headers, seals)
 	defer close(abort)
-
-
 
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
