@@ -779,7 +779,6 @@ func (node *Node) alarmToDispatcher() {
 
 func (node *Node) resolveRequestMsg(msgs []*consensus.RequestMsg) []error {
 	errs := make([]error, 0)
-
 	// Resolve messages
 	for _, reqMsg := range msgs {
 		//if node.CurrentState.MsgLogs.ReqMsg.Height != reqMsg.Height{

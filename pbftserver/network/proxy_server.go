@@ -142,7 +142,7 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
 	msg.Height = tmp.Height
-	PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
+	PSLog("getPrepare msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
 }
 
