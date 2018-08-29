@@ -253,7 +253,8 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		myPrepareMsg := prePareMsg
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
 	}
-	PSLog("node GetPrePrepare", "PrepareMsgs Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs))
+	PSLog("node GetPrePrepare", "Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs),
+		len(node.GetStatus(prePrepareMsg.Height).MsgLogs.CommitMsgs))
 	if prePareMsg != nil {
 		// Attach node ID to the message
 		prePareMsg.NodeID = node.NodeID
@@ -289,7 +290,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		return err
 	}
 
-	PSLog("node GetPrepare", "CommitMsgs Len", len(node.GetStatus(prepareMsg.Height).MsgLogs.CommitMsgs))
+	PSLog("node GetPrepare", "Len", len(CurrentState.MsgLogs.PrepareMsgs), len(CurrentState.MsgLogs.CommitMsgs))
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
