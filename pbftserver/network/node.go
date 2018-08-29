@@ -297,12 +297,14 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
 		if res != nil && res == types.ErrHeightNotYet {
+			PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error())
 			node.CommitWaitMsg[commitMsg.Height] = commitMsg
 		} else {
 			var result uint = 0
 			if res != nil {
 				result = 1
 			}
+			PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 			LogStage("Prepare", true)
 			node.Broadcast(commitMsg, "/commit")
