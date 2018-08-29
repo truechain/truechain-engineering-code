@@ -321,12 +321,13 @@ func (node *Node) processCommitWaitMessage() {
 			if state == nil {
 				return
 			}
-			res := node.Verify.CheckMsg(state.MsgLogs.ReqMsg)
 
 			if state.CurrentStage == consensus.Committed {
 				delete(node.CommitWaitMsg, k)
 				return
 			}
+
+			res := node.Verify.CheckMsg(state.MsgLogs.ReqMsg)
 
 			if res != nil && res != types.ErrHeightNotYet {
 				var result uint = 0
