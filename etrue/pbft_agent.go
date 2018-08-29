@@ -552,6 +552,17 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.Header().SnailHash =sb.Hash()
 	}*/
 	fmt.Println("fastBlockHeight:", fastBlock.Header().Number)
+	voteSign, err := self.GenerateSign(fastBlock)
+	if err != nil {
+		panic(err)
+		log.Info("sign error")
+	}
+	if voteSign == nil{
+		fmt.Println("leader sign nil ")
+	}
+	fmt.Println("leader sign:",voteSign)
+	fastBlock.AppendSign(voteSign)
+
 	return fastBlock, nil
 }
 
@@ -968,8 +979,8 @@ func  SendBlock(agent *PbftAgent)  {
 		}
 	}
 }
-
-/*func (agent *PbftAgent) SendRequest(t1 time.Time) (*types.Block,error){
+/*
+func (agent *PbftAgent) SendRequest(t1 time.Time) (*types.Block,error){
 	block,err := agent.FetchFastBlock()
 	if err != nil{
 		return nil,err
