@@ -75,6 +75,7 @@ func addServer(pap *PbftAgentProxyImp) *PbftServerMgr {
 }
 
 func TestPbftServerTemp(t *testing.T) {
+
 	a := 0
 	for i := 49; i >= 0; i-- {
 		a += i

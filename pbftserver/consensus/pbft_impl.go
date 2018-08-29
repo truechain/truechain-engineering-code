@@ -118,6 +118,8 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 
 	fmt.Println("[LOG]", "Prepare", "start", f)
 
+	PSLog()
+
 	if state.prepared(f) {
 		// Change the stage to prepared.
 		state.CurrentStage = Prepared

@@ -53,6 +53,10 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.P
 	}
 	return ss
 }
+
+func PSLog(a ...interface{}) {
+	fmt.Println("[PSLog]", a)
+}
 func (ss *PbftServerMgr) Finish() error {
 	// sleep 1s
 	for _, v := range ss.servers {
@@ -163,8 +167,9 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	if !bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		return nil, errors.New("local node must be leader...")
 	}
+	PSLog("AGENT", "FetchFastBlock", "start")
 	fb, err := ss.Agent.FetchFastBlock()
-	fmt.Println("[LOG]", "FetchFastBlock", err == nil)
+	PSLog("AGENT", "FetchFastBlock", err == nil, "end")
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +228,9 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
 	if block == nil {
 		return errors.New("block not have")
 	}
+	PSLog("AGENT", "VerifyFastBlock", "start")
 	err := ss.Agent.VerifyFastBlock(block)
-	fmt.Println("[LOG]", "VerifyFastBlock", err == nil)
+	PSLog("AGENT", "VerifyFastBlock", err == nil, "end")
 	if err != nil {
 		return err
 	}
@@ -239,9 +245,9 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	if block == nil {
 		return false
 	}
-
+	PSLog("[Agent]", "BroadcastConsensus", "start")
 	err := ss.Agent.BroadcastConsensus(block)
-	fmt.Println("[LOG]", "BroadcastConsensus", err == nil)
+	PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	ss.removeBlock(height)
 	if err != nil {
 		return false
@@ -251,8 +257,9 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 
 func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 	if fb := ss.getBlock(height.Uint64()); fb != nil {
+		PSLog("[Agent]", "BroadcastFastBlock", "start")
 		ss.Agent.BroadcastFastBlock(fb)
-		fmt.Println("[LOG]", "BroadcastFastBlock")
+		PSLog("[Agent]", "BroadcastFastBlock", "end")
 	}
 }
 func (ss *PbftServerMgr) SignMsg(h int64, res uint) *consensus.SignedVoteMsg {
@@ -303,6 +310,7 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 }
 
 func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error {
+	PSLog("PutCommittee", fmt.Sprintf("%+v", committeeInfo))
 	id := committeeInfo.Id
 	members := committeeInfo.Members
 	if id == nil || len(members) <= 0 {
@@ -327,6 +335,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 	return nil
 }
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
+	PSLog("PutNodes", id, fmt.Sprintf("%+v", nodes))
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
@@ -350,6 +359,7 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 	return nil
 }
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
+	PSLog("PutNodes", id, action)
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
