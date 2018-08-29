@@ -846,7 +846,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 // BroadcastFastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool) {
-	fmt.Println("BroadcastFastBlock=====",block)
+	fmt.Println("BroadcastFastBlock=====", block)
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
@@ -903,7 +903,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
 	for _, peer := range peers {
 		nodeInfoSet[peer] = NodeInfoEvent{nodeInfo}
 	}
-	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers))
+	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
 		peer.AsyncSendNodeInfo(nodeInfo.nodeInfo)
 	}
@@ -1050,6 +1050,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.pbSignsCh:
+			log.Info("Committee sign", "hash", event.PbftSign.Hash().String(), "number", event.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
 			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
 			pm.BroadcastFastBlock(pm.blockchain.GetBlock(event.PbftSign.FastHash,
 				event.PbftSign.FastHeight.Uint64()), false) // Only then announce to the rest
