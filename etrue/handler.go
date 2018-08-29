@@ -357,7 +357,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.peers.Len() >= pm.maxPeers && !p.Peer.Info().Network.Trusted {
 		return p2p.DiscTooManyPeers
 	}
-	p.Log().Info("Truechain peer connected", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
+	p.Log().Debug("Truechain peer connected", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 
 	// Execute the Truechain handshake
 	var (
@@ -685,12 +685,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == NewFastBlockHashesMsg:
+		log.Info("NewFastBlockHashesMsg")
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
+			log.Info("NewFastBlockHashesMsg", "block", block)
 			p.MarkFastBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
@@ -702,7 +704,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		for _, block := range unknown {
-			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
+			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
 		}
 
 	case msg.Code == NewFastBlockMsg:
@@ -784,7 +786,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		if !pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
+		if pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
+			pm.BroadcastPbSign(signs)
+		} else {
 			pm.fetcherFast.EnqueueSign(p.id, signs)
 		}
 
@@ -844,6 +848,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 // BroadcastFastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool) {
+	fmt.Println("BroadcastFastBlock=====", block)
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
@@ -900,7 +905,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
 	for _, peer := range peers {
 		nodeInfoSet[peer] = NodeInfoEvent{nodeInfo}
 	}
-	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers))
+	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
 		peer.AsyncSendNodeInfo(nodeInfo.nodeInfo)
 	}
@@ -1047,9 +1052,9 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.pbSignsCh:
+			log.Info("Committee sign", "hash", event.PbftSign.Hash().String(), "number", event.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
 			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
-			pm.BroadcastFastBlock(pm.blockchain.GetBlock(event.PbftSign.FastHash,
-				event.PbftSign.FastHeight.Uint64()), false) // Only then announce to the rest
+			pm.BroadcastFastBlock(event.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():

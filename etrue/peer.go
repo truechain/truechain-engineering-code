@@ -221,7 +221,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Propagated fast block", "number", prop.block.Number(), "hash", prop.block.Hash())
 
 		case block := <-p.queuedFastAnns:
-			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}); err != nil {
+			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}, []types.PbftSign{*block.GetLeaderSign()}); err != nil {
 				return
 			}
 			p.Log().Trace("Announced fast block", "number", block.Number(), "hash", block.Hash())
@@ -426,7 +426,7 @@ func (p *peer) AsyncSendSnailBlocks(snailBlocks []*types.SnailBlock) {
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
-func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64) error {
+func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, signs []types.PbftSign) error {
 	for _, hash := range hashes {
 		p.knownFastBlocks.Add(hash)
 	}
@@ -434,6 +434,7 @@ func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64) er
 	for i := 0; i < len(hashes); i++ {
 		request[i].Hash = hashes[i]
 		request[i].Number = numbers[i]
+		request[i].Sign = signs[i]
 	}
 	return p2p.Send(p.rw, NewFastBlockHashesMsg, request)
 }

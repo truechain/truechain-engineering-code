@@ -207,6 +207,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	ethash.SetElection(eth.election)
 	ethash.SetSnailChainReader(eth.snailblockchain)
 
+	eth.election.SetEngine(eth.engine)
+
 	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
 
 	if eth.protocolManager, err = NewProtocolManager(

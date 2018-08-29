@@ -38,15 +38,11 @@ type PendingStateEvent struct{}
 
 type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
 
-
-
 // NewMinedFruitEvent is posted when a block has been imported.
 type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 
-
 // RemovedLogsEvent is posted when a reorg happens
 type RemovedLogsEvent struct{ Logs []*types.Log }
-
 
 type ChainEvent struct {
 	Block *types.Block
@@ -67,10 +63,9 @@ type FruitEvent struct {
 	Logs  []*types.Log
 }
 
-
 type ElectionEvent struct {
-	Option 	uint
-	Fastnumber	*big.Int
+	Option      uint
+	Fastnumber  *big.Int
 	Snailnumber *big.Int
 }
 
@@ -78,9 +73,12 @@ type CommitteeEvent struct {
 	CommitteeInfo *types.CommitteeInfo
 }
 
-type PbftSignEvent struct{ PbftSign *types.PbftSign }
+type PbftSignEvent struct {
+	Block    *types.Block
+	PbftSign *types.PbftSign
+}
 
 // NewBlockEvent is posted when a block has been generate .
-type NewBlockEvent struct{ Block *types.Block}
+type NewBlockEvent struct{ Block *types.Block }
 
-type RewardNumberEvent struct{ RewardNumber *big.Int}
+type RewardNumberEvent struct{ RewardNumber *big.Int }
