@@ -298,7 +298,7 @@ func (self *PbftAgent) loop() {
 			}
 		case ch := <-self.ChainHeadCh:
 			log.Info("ChainHeadCh update RewardNumber.")
-			err := self.PutCacheIntoChain(ch.Block)
+			err := self.AddCacheIntoChain(ch.Block)
 			if err != nil {
 				log.Error("PutCacheIntoChain err")
 				panic(err)
@@ -307,7 +307,7 @@ func (self *PbftAgent) loop() {
 	}
 }
 // put cacheBlock into fastchain
-func (self *PbftAgent) PutCacheIntoChain(receiveBlock *types.Block) error {
+func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 	var fastBlocks []*types.Block
 	receiveBlockHeight := receiveBlock.Number()
 	self.cacheBlockMu.Lock()
@@ -338,13 +338,12 @@ func (self *PbftAgent) PutCacheIntoChain(receiveBlock *types.Block) error {
 }
 
 //committeeNode braodcat:if parentBlock is not in fastChain,put block  into cacheblock
-func (self *PbftAgent) PutBlockIntoCache(receiveBlock *types.Block) error {
+func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 	receiveBlockHeight := receiveBlock.Number()
 	//receivedBlock has been into fashchain
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
 		return nil
 	}
-
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
 	if parent != nil {
 		//TODO isNeed find height+1
@@ -614,11 +613,10 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	//insert bockchain
-	err := self.PutBlockIntoCache(fb)
+	err := self.OperateCommitteeBlock(fb)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -825,6 +823,10 @@ func (self *PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool, strin
 	}
 
 	for _, sign := range signs {
+		if sign == nil{
+			fmt.Println("cnm")
+		}
+		fmt.Println("sign:",sign)
 		pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
 		if err != nil {
 			log.Error("SigToPub error.")
