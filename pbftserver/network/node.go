@@ -118,7 +118,7 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 			errorMap[nodeID] = err
 			continue
 		}
-
+		PSLog("Broadcast", url+path, string(jsonMsg))
 		go send(url+path, jsonMsg)
 
 	}
@@ -140,7 +140,7 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 		if err != nil {
 			break
 		}
-
+		PSLog("Broadcast One", url+path, string(jsonMsg))
 		go send(url+path, jsonMsg)
 	}
 	return
@@ -190,6 +190,7 @@ func (node *Node) ReplyResult(msgHeight int64) {
 	go node.Finish.ConsensusFinish()
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
+	PSLog("node Reply", fmt.Sprintf("%+v", msg))
 	node.handleResult(msg)
 	go func() {
 		//fmt.Println("[Chan]", "FinishChan", "In")
@@ -203,7 +204,7 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 // GetReq can be called when the node's CurrentState is nil.
 // Consensus start procedure for the Primary.
 func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
-	LogMsg(reqMsg)
+	PSLog("node GetReq", fmt.Sprintf("%+v", reqMsg))
 
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(reqMsg.Height)
@@ -231,8 +232,7 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 // GetPrePrepare can be called when the node's CurrentState is nil.
 // Consensus start procedure for normal participants.
 func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
-	LogMsg(prePrepareMsg)
-
+	PSLog("node GetPrePrepare", fmt.Sprintf("%+v", prePrepareMsg))
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(prePrepareMsg.Height)
 	if err != nil {
@@ -253,7 +253,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		myPrepareMsg := prePareMsg
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
 	}
-
+	PSLog("node GetPrePrepare", "PrepareMsgs Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs))
 	if prePareMsg != nil {
 		// Attach node ID to the message
 		prePareMsg.NodeID = node.NodeID
@@ -275,7 +275,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 }
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
-	LogMsg(prepareMsg)
+	PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
 	f := len(node.NodeTable) / 3
 
 	CurrentState := node.GetStatus(prepareMsg.Height)
@@ -288,6 +288,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	if err != nil {
 		return err
 	}
+
+	PSLog("node GetPrepare", "CommitMsgs Len", len(node.GetStatus(prepareMsg.Height).MsgLogs.CommitMsgs))
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
@@ -342,7 +344,7 @@ func (node *Node) processCommitWaitMessage() {
 }
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
-	LogMsg(commitMsg)
+	PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))
 	f := len(node.NodeTable) / 3
 	if node.GetStatus(commitMsg.Height) == nil {
 		return nil
@@ -377,7 +379,7 @@ func (node *Node) GetReply(msg *consensus.ReplyMsg) {
 func (node *Node) createStateForNewConsensus(height int64) error {
 	// Check if there is an ongoing consensus process.
 
-	LogFmt("[create]", "height", height)
+	PSLog("[create]", "height", height)
 	if node.GetStatus(height) != nil && node.GetStatus(height).CurrentStage != consensus.Committed {
 		return errors.New("another consensus is ongoing")
 	}
@@ -720,7 +722,6 @@ func (node *Node) routeMsgWhenAlarmed() []error {
 func (node *Node) resolveMsg() {
 	for {
 		// Get buffered messages from the dispatcher.
-
 		msgs := <-node.MsgDelivery
 		switch msgs.(type) {
 		case []*consensus.RequestMsg:
