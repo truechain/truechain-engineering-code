@@ -23,16 +23,16 @@ import (
 )
 
 var (
-	propBroadcastInMeter   = metrics.NewRegisteredMeter("eth/snailfetcher/prop/broadcasts/in", nil)
-	propBroadcastOutTimer  = metrics.NewRegisteredTimer("eth/snailfetcher/prop/broadcasts/out", nil)
-	propBroadcastDropMeter = metrics.NewRegisteredMeter("eth/snailfetcher/prop/broadcasts/drop", nil)
-	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("eth/snailfetcher/prop/broadcasts/dos", nil)
+	propBroadcastInMeter   = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/in", nil)
+	propBroadcastOutTimer  = metrics.NewRegisteredTimer("etrue/snailfetcher/prop/broadcasts/out", nil)
+	propBroadcastDropMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/drop", nil)
+	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/dos", nil)
 
-	headerFetchMeter = metrics.NewRegisteredMeter("eth/snailfetcher/fetch/headers", nil)
-	bodyFetchMeter   = metrics.NewRegisteredMeter("eth/snailfetcher/fetch/bodies", nil)
+	headerFetchMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/fetch/headers", nil)
+	bodyFetchMeter   = metrics.NewRegisteredMeter("etrue/snailfetcher/fetch/bodies", nil)
 
-	headerFilterInMeter  = metrics.NewRegisteredMeter("eth/snailfetcher/filter/headers/in", nil)
-	headerFilterOutMeter = metrics.NewRegisteredMeter("eth/snailfetcher/filter/headers/out", nil)
-	bodyFilterInMeter    = metrics.NewRegisteredMeter("eth/snailfetcher/filter/bodies/in", nil)
-	bodyFilterOutMeter   = metrics.NewRegisteredMeter("eth/snailfetcher/filter/bodies/out", nil)
+	headerFilterInMeter  = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/headers/in", nil)
+	headerFilterOutMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/headers/out", nil)
+	bodyFilterInMeter    = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/bodies/in", nil)
+	bodyFilterOutMeter   = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/bodies/out", nil)
 )
