@@ -521,8 +521,14 @@ func (e *Election) loop() {
 				//Record Numbers to open elections
 				if e.committee.switchSnailNumber.Cmp(se.Block.Number()) == 0 {
 					// get end fast block number
+					var snailStartNumber *big.Int
 					snailEndNumber := new(big.Int).Sub(se.Block.Number(), big.NewInt(lamada))
-					snailStartNumber := new(big.Int).Sub(snailEndNumber, big.NewInt(z))
+					if snailEndNumber.Cmp(big.NewInt(z)) < 0 {
+						snailStartNumber = new(big.Int).Set(common.Big1)
+					} else {
+						snailStartNumber = new(big.Int).Sub(snailEndNumber, big.NewInt(z))
+					}
+
 					members := e.electCommittee(snailStartNumber, snailEndNumber)
 
 					sb := e.snailchain.GetBlockByNumber(snailEndNumber.Uint64())
@@ -573,4 +579,9 @@ func (e *Election) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Su
 
 func (e *Election) SubscribeCommitteeEvent(ch chan<- core.CommitteeEvent) event.Subscription {
 	return e.scope.Track(e.committeeFeed.Subscribe(ch))
+}
+
+
+func (e *Election)SetEngine(engine consensus.Engine) {
+	e.engine = engine
 }
