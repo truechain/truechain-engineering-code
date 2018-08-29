@@ -534,6 +534,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 			if v.MsgType == consensus.CommitMsg {
 				if v, ok := state.MsgLogs.CommitMsgs[node.NodeID]; ok {
 					msg := &consensus.VoteMsg{
+						NodeID:     node.NodeID,
 						ViewID:     state.ViewID,
 						SequenceID: v.SequenceID,
 						Digest:     v.Digest,
@@ -553,6 +554,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 			} else if v.MsgType == consensus.PrepareMsg {
 				if v, ok := state.MsgLogs.PrepareMsgs[node.NodeID]; ok {
 					msg := &consensus.VoteMsg{
+						NodeID:     node.NodeID,
 						ViewID:     state.ViewID,
 						SequenceID: v.SequenceID,
 						Digest:     v.Digest,
@@ -563,6 +565,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 				}
 				if v, ok := state.MsgLogs.CommitMsgs[node.NodeID]; ok {
 					msg := &consensus.VoteMsg{
+						NodeID:     node.NodeID,
 						ViewID:     state.ViewID,
 						SequenceID: v.SequenceID,
 						Digest:     v.Digest,
