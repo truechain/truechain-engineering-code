@@ -2508,7 +2508,7 @@ module.exports={
 
 var RequestManager = require('./web3/requestmanager');
 var Iban = require('./web3/iban');
-var Etrue = require('./web3/methods/true');
+var Etrue = require('./web3/methods/etrue');
 var DB = require('./web3/methods/db');
 var Shh = require('./web3/methods/shh');
 var Net = require('./web3/methods/net');
@@ -2632,7 +2632,7 @@ Web3.prototype.createBatch = function () {
 module.exports = Web3;
 
 
-},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/true":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
+},{"./utils/sha3":19,"./utils/utils":20,"./version.json":21,"./web3/batch":24,"./web3/extend":28,"./web3/httpprovider":32,"./web3/iban":33,"./web3/ipcprovider":34,"./web3/methods/db":37,"./web3/methods/etrue":38,"./web3/methods/net":39,"./web3/methods/personal":40,"./web3/methods/shh":41,"./web3/methods/swarm":42,"./web3/property":45,"./web3/requestmanager":46,"./web3/settings":47,"bignumber.js":"bignumber.js"}],23:[function(require,module,exports){
 /*
     This file is part of web3.js.
 
@@ -2711,7 +2711,7 @@ AllSolidityEvents.prototype.execute = function (options, callback) {
 
     var o = this.encode(options);
     var formatter = this.decode.bind(this);
-    return new Filter(o, 'true', this._requestManager, watches.etrue(), formatter, callback);
+    return new Filter(o, 'etrue', this._requestManager, watches.etrue(), formatter, callback);
 };
 
 AllSolidityEvents.prototype.attachToContract = function (contract) {
@@ -3336,7 +3336,7 @@ SolidityEvent.prototype.execute = function (indexed, options, callback) {
 
     var o = this.encode(indexed, options);
     var formatter = this.decode.bind(this);
-    return new Filter(o, 'true', this._requestManager, watches.etrue(), formatter, callback);
+    return new Filter(o, 'etrue', this._requestManager, watches.etrue(), formatter, callback);
 };
 
 /**
@@ -3470,7 +3470,7 @@ var getOptions = function (options, type) {
 
 
     switch(type) {
-        case 'true':
+        case 'etrue':
 
             // make sure topics, get converted to hex
             options.topics = options.topics || [];
@@ -5506,7 +5506,7 @@ Etrue.prototype.contract = function (abi) {
 };
 
 Etrue.prototype.filter = function (options, callback, filterCreationErrorCallback) {
-    return new Filter(options, 'true', this._requestManager, watches.etrue(), formatters.outputLogFormatter, callback, filterCreationErrorCallback);
+    return new Filter(options, 'etrue', this._requestManager, watches.etrue(), formatters.outputLogFormatter, callback, filterCreationErrorCallback);
 };
 
 Etrue.prototype.namereg = function () {
