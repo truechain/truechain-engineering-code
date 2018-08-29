@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -20,6 +21,16 @@ const (
 	lamada             = 12
 
 	fruitThreshold		= 10	// fruit size threshold for committee election
+
+	maxCommitteeNumber  = 40
+	minCommitteeNumber  = 7
+
+	powUnit				= 1
+)
+
+var (
+	// maxUint256 is a big integer representing 2^256-1
+	maxUint256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
 )
 
 var (
@@ -30,11 +41,13 @@ var (
 )
 
 
-type VoteuUse struct {
-	wi   int64 //Local value
-	seed string
-	b    bool
-	j    int
+type candidateMember struct {
+	coinbase   common.Address
+	address    common.Address
+	publickey  *ecdsa.PublicKey
+	difficulty *big.Int //
+	upper      *big.Int //
+	lower      *big.Int
 }
 
 type committee struct {
@@ -70,6 +83,8 @@ type Election struct {
 
 	fastchain  *core.BlockChain
 	snailchain *snailchain.SnailBlockChain
+
+	engine   consensus.Engine
 }
 
 func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain) *Election {
@@ -91,48 +106,6 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	return election
 }
 
-//Calculate your own force unit locally
-func (v VoteuUse) localForce() int64 {
-	w := v.wi
-	//w_i=(D_pf-〖[h]〗_(-k))/u
-	return w
-}
-
-//The power function used by the draw function
-func powerf(x float64, n int) float64 {
-
-	ans := 1.0
-	for n != 0 {
-		if n%2 == 1 {
-			ans *= x
-		}
-		x *= x
-		n /= 2
-	}
-	return ans
-}
-
-//Factorial function
-func factorial() {
-}
-
-//The sum function
-func sigma(j int, k int, wi int, P int64) {
-
-}
-
-// the draw function is calculated locally for each miner
-// the parameters seed, w_i, W, P are required
-func sortition() bool {
-	//j := 0;
-	//for (seed / powerf(2,seedlen)) ^ [Sigma(j,0,wi,P) , Sigma(j+1,0,wi,P)]{
-	//j++;
-	//if  j > N {
-	//return j,true;
-	//	}
-	//}
-	return false
-}
 
 //VerifySigns verify a batch of sings the fast chain committee signatures in batches
 func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
@@ -169,6 +142,7 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 
 	return members, errs
 }
+
 
 func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.Int) *committee {
 	var ids []*big.Int
@@ -342,40 +316,41 @@ func (e *Election) GetByCommitteeId(id *big.Int) []*ecdsa.PublicKey {
 	return nil
 }
 
-//elect
-func (e *Election) elect(snailBeginNumber *big.Int, snailEndNumber *big.Int, committeeId *big.Int) {
-	var members []*types.CommitteeMember
-	committee := committee{
-		id:      committeeId,
-		members: members,
-	}
-	// get all fruits from all snail blocks
-	sortition()
-	e.committeeList[committeeId] = &committee
-	go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, committeeId, nil})
-	go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{committeeId, members}})
-}
 
-
-// getCandinate get candinate miners from given snail blocks
-func (e *Election) getCandinate(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.SnailHeader {
-
+// getCandinates get candinate miners and seed from given snail blocks
+func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
 	var fruitsCount map[common.Address]uint
-	var fruitsHead []*types.SnailHeader
+	var members []*candidateMember
 
-	// get all fruits want to be elected
+	var seed []byte
+
+	// get all fruits want to be elected and their pubic key is valid
 	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) < 0; {
 		block := e.snailchain.GetBlockByNumber(blockNumber.Uint64())
 		if block == nil {
-			return nil
+			return common.Hash{}, nil
 		}
+
+		seed = append(seed, block.Hash().Bytes()...)
 
 		fruits := block.Fruits()
 		for _, f := range fruits {
 			if f.ToElect() {
-				pubBytes := f.PublicKey()
-				addr := common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[12:])
-				fruitsHead = append(fruitsHead, types.CopySnailHeader(f.Header()))
+				pubkey, err := f.GetPubKey()
+				if err != nil {
+					continue
+				}
+				addr := crypto.PubkeyToAddress(*pubkey)
+
+				act, diff := e.engine.GetDifficulty(f.Header())
+				member := &candidateMember{
+					coinbase: f.Coinbase(),
+					publickey: pubkey,
+					address: addr,
+					difficulty: new(big.Int).Sub(act, diff),
+				}
+
+				members = append(members, member)
 				if _, ok :=fruitsCount[addr]; ok {
 					fruitsCount[addr] += 1
 				} else {
@@ -385,34 +360,92 @@ func (e *Election) getCandinate(snailBeginNumber *big.Int, snailEndNumber *big.I
 		}
 	}
 
-	// remove fruits whose count below threshold
+	// remove miner whose fruits count below threshold
 	for addr, cnt := range fruitsCount {
 		if cnt < fruitThreshold {
 			delete(fruitsCount, addr)
 		}
 	}
-	var headers []*types.SnailHeader
-	for _, header := range fruitsHead {
-		pubBytes := header.Publickey
-		addr := common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[12:])
-		if _, ok := fruitsCount[addr]; ok {
-			headers = append(headers, header)
+	var candidates []*candidateMember
+	var td *big.Int
+	for _, member := range members {
+		if _, ok := fruitsCount[member.address]; ok {
+
+			td.Add(td, member.difficulty)
+
+			candidates = append(candidates, member)
 		}
 	}
 
-	return headers
+	dd := big.NewInt(0)
+	rate := new(big.Int).Div(maxUint256, td)
+	for i, member := range candidates {
+		member.lower = new(big.Int).Mul(rate, dd)
+
+		dd = new(big.Int).Add(dd, member.difficulty)
+
+		if i == len(candidates) - 1 {
+			member.upper = new(big.Int).Set(maxUint256)
+		} else {
+			member.upper = new(big.Int).Mul(rate, dd)
+		}
+	}
+
+	return crypto.Keccak256Hash(seed), candidates
+}
+
+
+// elect is a lottery function that select committee members from candidates miners
+func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
+	var addrs map[common.Address]uint
+	var members []*types.CommitteeMember
+
+	round := new(big.Int).Set(common.Big0)
+	for {
+		seedNumber := new(big.Int).Add(seed.Big(), round)
+		hash := crypto.Keccak256Hash(seedNumber.Bytes())
+		prop := new(big.Int).Div(hash.Big(), maxUint256)
+
+		for _, cm := range candidates {
+			if prop.Cmp(cm.lower) < 0 {
+				continue
+			}
+			if prop.Cmp(cm.upper) >= 0 {
+				continue
+			}
+			if _, ok := addrs[cm.address]; ok {
+				continue
+			}
+			addrs[cm.address] = 1
+			member := &types.CommitteeMember{
+				Coinbase: cm.coinbase,
+				Publickey: cm.publickey,
+			}
+			members = append(members, member)
+
+			break
+		}
+
+		round = new(big.Int).Add(round, common.Big1)
+		if round.Cmp(big.NewInt(maxCommitteeNumber)) >= 0 {
+			if (len(members) >= minCommitteeNumber) {
+				break
+			}
+		}
+	}
+
+	return members
 }
 
 
 // electCommittee elect committee members from snail block.
 func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.CommitteeMember {
+	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
+	if candidates == nil {
+		return nil
+	}
 
-
-
-	// elect committee member
-
-
-	return nil
+	return e.elect(candidates, seed)
 }
 
 func (e *Election) Start() error {
