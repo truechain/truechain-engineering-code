@@ -81,7 +81,7 @@ type announce struct {
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
 	header *types.Header // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
-	sign   *types.PbftSign
+	sign   types.PbftSign
 
 	origin string // Identifier of the peer originating the notification
 
@@ -245,7 +245,7 @@ func (f *Fetcher) Stop() {
 
 // Notify announces the fetcher of the potential availability of a new block in
 // the network.
-func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *types.PbftSign, time time.Time,
+func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign types.PbftSign, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
 	block := &announce{
 		hash:        hash,
@@ -605,7 +605,7 @@ func (f *Fetcher) loop() {
 
 							block := types.NewBlockWithHeader(header)
 							block.ReceivedAt = task.time
-							block.AppendSign(announce.sign)
+							block.AppendSign(&announce.sign)
 
 							complete = append(complete, block)
 							f.completing[hash] = announce
@@ -673,7 +673,7 @@ func (f *Fetcher) loop() {
 								// mecMark
 								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], nil, nil)
 								block.ReceivedAt = task.time
-								block.AppendSign(announce.sign)
+								block.AppendSign(&announce.sign)
 
 								blocks = append(blocks, block)
 							} else {
