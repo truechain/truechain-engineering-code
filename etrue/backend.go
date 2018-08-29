@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package eth implements the Truechain protocol.
+// Package etrue implements the Truechain protocol.
 package etrue
 
 import (
@@ -115,7 +115,7 @@ func (s *Truechain) AddLesServer(ls LesServer) {
 // initialisation of the common Truechain object)
 func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.SyncMode == downloader.LightSync {
-		return nil, errors.New("can't run eth.Truechain in light sync mode, use les.LightEthereum")
+		return nil, errors.New("can't run etrue.Truechain in light sync mode, use les.LightEthereum")
 	}
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
@@ -136,7 +136,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	log.Info("Initialised chain configuration", "config", chainConfig)
 	log.Info("Initialised chain configuration", "config", snailConfig)
 
-	eth := &Truechain{
+	etrue := &Truechain{
 		config:         config,
 		chainDb:        chainDb,
 		chainConfig:    chainConfig,
@@ -167,12 +167,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 
-	eth.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	etrue.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, etrue.chainConfig, etrue.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	eth.snailblockchain, err = chain.NewSnailBlockChain(chainDb, snailCacheConfig, eth.chainConfig, eth.engine, vmConfig)
+	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, snailCacheConfig, etrue.chainConfig, etrue.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -180,55 +180,55 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-		eth.blockchain.SetHead(compat.RewindTo)
+		etrue.blockchain.SetHead(compat.RewindTo)
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
 	if compat, ok := snailErr.(*params.ConfigCompatError); ok {
 		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-		eth.snailblockchain.SetHead(compat.RewindTo)
+		etrue.snailblockchain.SetHead(compat.RewindTo)
 		rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
 	}
 	// TODO: start bloom indexer
-	//eth.bloomIndexer.Start(eth.blockchain)
+	//etrue.bloomIndexer.Start(etrue.blockchain)
 
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
-	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
+	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	eth.snailPool = core.NewSnailPool(eth.chainConfig, eth.blockchain, eth.snailblockchain, eth.engine)
+	etrue.snailPool = core.NewSnailPool(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 
-	eth.election = NewElction(eth.blockchain, eth.snailblockchain)
+	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain)
 
-	eth.snailblockchain.Validator().SetElection(eth.election)
+	etrue.snailblockchain.Validator().SetElection(etrue.election)
 
-	ethash.SetElection(eth.election)
-	ethash.SetSnailChainReader(eth.snailblockchain)
+	ethash.SetElection(etrue.election)
+	ethash.SetSnailChainReader(etrue.snailblockchain)
 
-	eth.agent = NewPbftAgent(eth, eth.chainConfig, eth.engine, eth.election)
+	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election)
 
-	if eth.protocolManager, err = NewProtocolManager(
-		eth.chainConfig, config.SyncMode, config.NetworkId,
-		eth.eventMux, eth.txPool, eth.snailPool, eth.engine,
-		eth.blockchain, eth.snailblockchain,
-		chainDb, eth.agent); err != nil {
+	if etrue.protocolManager, err = NewProtocolManager(
+		etrue.chainConfig, config.SyncMode, config.NetworkId,
+		etrue.eventMux, etrue.txPool, etrue.snailPool, etrue.engine,
+		etrue.blockchain, etrue.snailblockchain,
+		chainDb, etrue.agent); err != nil {
 		return nil, err
 	}
 
-	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
-	eth.miner.SetExtra(makeExtraData(config.ExtraData))
+	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine)
+	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
-	eth.miner.SetElection(eth.config.EnableElection, eth.config.CommitteeKey)
+	etrue.miner.SetElection(etrue.config.EnableElection, etrue.config.CommitteeKey)
 
-	eth.APIBackend = &EthAPIBackend{eth, nil}
+	etrue.APIBackend = &EthAPIBackend{etrue, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
 	}
-	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
+	etrue.APIBackend.gpo = gasprice.NewOracle(etrue.APIBackend, gpoParams)
 
-	return eth, nil
+	return etrue, nil
 }
 
 func makeExtraData(extra []byte) []byte {
@@ -255,7 +255,7 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 		return nil, err
 	}
 	if db, ok := db.(*ethdb.LDBDatabase); ok {
-		db.Meter("eth/db/chaindata/")
+		db.Meter("etrue/db/chaindata/")
 	}
 	return db, nil
 }
