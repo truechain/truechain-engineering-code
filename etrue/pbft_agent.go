@@ -117,7 +117,6 @@ type PbftAgent struct {
 
 	cacheSign       []Sign	//prevent receive same sign
 	cacheBlock      map[*big.Int]*types.Block	//prevent receive same block
-	NodeType		string
 }
 
 type AgentWork struct {
@@ -184,7 +183,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	self.NodeType = config.NodeType
+	//self.NodeType = config.NodeType
 	//TODO when IP or Port is nil
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
 		if config.Host != "" || config.Port != 0 {
@@ -224,10 +223,10 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	if self.NodeType == singleNode {
+	/*if self.NodeType == singleNode {
 		self.StartSingleNode()
 		return
-	}
+	}*/
 	go self.loop()
 }
 
@@ -345,10 +344,11 @@ func (self *PbftAgent) PutBlockIntoCache(receiveBlock *types.Block) error {
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
 		return nil
 	}
-	var fastBlocks []*types.Block
+
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
 	if parent != nil {
 		//TODO isNeed find height+1
+		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
@@ -363,7 +363,6 @@ func (self *PbftAgent) PutBlockIntoCache(receiveBlock *types.Block) error {
 		}
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
-
 	} else {
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
