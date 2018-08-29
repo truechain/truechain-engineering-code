@@ -126,7 +126,7 @@ type worker struct {
 	agents map[Agent]struct{}
 	recv   chan *Result
 
-	eth     Backend
+	etrue     Backend
 	chain   *chain.SnailBlockChain
 	snailchain  *chain.SnailBlockChain
 	proc    chain.Validator
@@ -154,35 +154,35 @@ type worker struct {
 	atWork int32
 } 
  
-func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
+func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, etrue Backend, mux *event.TypeMux) *worker {
 	worker := &worker{
 		config:         config,
 		engine:         engine,
-		eth:            eth,
+		etrue:          etrue,
 		mux:            mux,	
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
 		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
 		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
-		chainDb:        eth.ChainDb(),
+		chainDb:        etrue.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
-		chain:          eth.SnailBlockChain(),
-		snailchain:     eth.SnailBlockChain(),
-		proc:           eth.SnailBlockChain().Validator(),
+		chain:          etrue.SnailBlockChain(),
+		snailchain:     etrue.SnailBlockChain(),
+		proc:           etrue.SnailBlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.SnailBlock),
 		coinbase:       coinbase,
 		agents:         make(map[Agent]struct{}),
-		unconfirmed:    newUnconfirmedBlocks(eth.SnailBlockChain(), miningLogAtDepth),
+		unconfirmed:    newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
 	}
-	//worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
+	//worker.txsSub = etrue.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
-	worker.chainHeadSub = eth.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
-	worker.chainSideSub = eth.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
+	worker.chainSideSub = etrue.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
 
-	worker.fruitSub = eth.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
-	worker.fastBlockSub = eth.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
+	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
+	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
 
 	go worker.update()
 
@@ -375,7 +375,7 @@ func (self *worker) wait() {
 				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
-				self.eth.SnailPool().AddRemoteFruits(newFruits)
+				self.etrue.SnailPool().AddRemoteFruits(newFruits)
 			} else {
 
 				stat, err := self.chain.WriteCanonicalBlock(block)
@@ -525,7 +525,7 @@ func (self *worker) commitNewWork() {
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
 	}
-	fastblock, err := self.eth.SnailPool().PendingFastBlocks()
+	fastblock, err := self.etrue.SnailPool().PendingFastBlocks()
 	if err != nil {
 		return
 	}
@@ -540,7 +540,7 @@ func (self *worker) commitNewWork() {
 		}
 	}
 
-	fruits, err := self.eth.SnailPool().PendingFruits()
+	fruits, err := self.etrue.SnailPool().PendingFruits()
 	if err != nil {
 		log.Error("Failed to fetch pending fruits", "err", err)
 		return
