@@ -31,6 +31,10 @@ func LogStage(stage string, isDone bool) {
 	}
 }
 
-func LogFmt(a ...interface{}) {
-	fmt.Println(a)
+//func LogFmt(a ...interface{}) {
+//	fmt.Println(a)
+//}
+
+func PSLog(a ...interface{}) {
+	fmt.Println("[PSLog]", a)
 }
