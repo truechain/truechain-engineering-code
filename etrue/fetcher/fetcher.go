@@ -751,15 +751,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		return
 	}
 
-	// If we have a valid block number, check that it's potentially useful
-	if number > 0 {
-		if dist := int64(number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
-			log.Debug("Peer discarded sign", "peer", peer, "number", number, "hash", hash, "distance", dist)
-			propSignFarDropMeter.Mark(1)
-			return
-		}
-	}
-
 	verifySign := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{sign}); !ok {
@@ -787,6 +778,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	}
 
 	if len(verifySign) > 0 {
+		propSignOutTimer.Mark(int64(len(verifySign)))
 		f.broadcastSigns(verifySign)
 	}
 
@@ -828,7 +820,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 
 	if ok, _ := f.agentFetcher.VerifyCommitteeSign([]*types.PbftSign{block.GetLeaderSign()}); !ok {
 		log.Debug("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
-		propSignInvaildMeter.Mark(1)
+		propBroadcastInvaildMeter.Mark(1)
 		return
 	}
 

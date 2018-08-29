@@ -28,18 +28,17 @@ var (
 	propAnnounceDropMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/announces/drop", nil)
 	propAnnounceDOSMeter  = metrics.NewRegisteredMeter("eth/fetcher/prop/announces/dos", nil)
 
-	propBroadcastInMeter   = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/in", nil)
-	propBroadcastOutTimer  = metrics.NewRegisteredTimer("eth/fetcher/prop/broadcasts/out", nil)
-	propBroadcastDropMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/drop", nil)
-	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/dos", nil)
+	propBroadcastInMeter      = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/in", nil)
+	propBroadcastOutTimer     = metrics.NewRegisteredTimer("eth/fetcher/prop/broadcasts/out", nil)
+	propBroadcastDropMeter    = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/drop", nil)
+	propBroadcastInvaildMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/invaild", nil)
+	propBroadcastDOSMeter     = metrics.NewRegisteredMeter("eth/fetcher/prop/broadcasts/dos", nil)
 
-	propSignInMeter   = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/in", nil)
-	propSignDropMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/drop", nil)
+	propSignInMeter      = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/in", nil)
+	propSignOutTimer     = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/out", nil)
+	propSignDropMeter    = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/drop", nil)
 	propSignInvaildMeter = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/invaild", nil)
-	propSignDOSMeter  = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/dos", nil)
-	propSignFarDropMeter = metrics.NewRegisteredMeter("eth/fetcher/signs/far", nil)
-
-	propReadyInMeter   = metrics.NewRegisteredMeter("eth/fetcher/prop/ready/in", nil)
+	propSignDOSMeter     = metrics.NewRegisteredMeter("eth/fetcher/prop/signs/dos", nil)
 
 	headerFetchMeter = metrics.NewRegisteredMeter("eth/fetcher/fetch/headers", nil)
 	bodyFetchMeter   = metrics.NewRegisteredMeter("eth/fetcher/fetch/bodies", nil)
