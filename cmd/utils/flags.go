@@ -1202,7 +1202,7 @@ func RegisterShhService(stack *node.Node, cfg *whisper.Config) {
 // th egiven node.
 func RegisterEthStatsService(stack *node.Node, url string) {
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		// Retrieve both eth and les services
+		// Retrieve both etrue and les services
 		var ethServ *etrue.Truechain
 		ctx.Service(&ethServ)
 
