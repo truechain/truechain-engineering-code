@@ -588,7 +588,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 
 		}
 	default:
-		LogFmt()
+		//LogFmt()
 	}
 	return nil
 }
