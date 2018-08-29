@@ -54,9 +54,9 @@ const (
 	maxQueuedSigns = 128
 	// contain a single transaction, or thousands.
 	maxQueuedFruits = 128
+	maxQueuedSnailBlocks = 128
 	//for fruitEvent
 	maxQueuedFruit = 4
-
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
@@ -142,17 +142,20 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		knownTxs:        set.New(),
 		knownSign:       set.New(),
 		knownNodeInfos:  set.New(),
-		knownFastBlocks: set.New(),
 		knownFruits:     set.New(),
-
+		knownSnailBlocks:     set.New(),
+		knownFastBlocks: set.New(),
 		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
 		queuedSign:      make(chan []*types.PbftSign, maxQueuedSigns),
-		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 		queuedNodeInfo:  make(chan *CryNodeInfo, maxQueuedNodeInfo),
-		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
+		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
+		queuedSnailBlcoks: make(chan []*types.SnailBlock, maxQueuedSnailBlocks),
+		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 
 		queuedFruit:  make(chan *fruitEvent, maxQueuedFruit),
-		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
+		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedFruit),
+
+		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
 		term:         make(chan struct{}),
 	}
 }

@@ -288,8 +288,8 @@ func (self *PbftAgent) loop(){
 			}
 		case ch := <- self.ChainHeadCh:
 			log.Info("ChainHeadCh update RewardNumber.")
-			self.mu.Lock()
-			defer self.mu.Unlock()
+			//self.mu.Lock()
+			//defer self.mu.Unlock()
 			err :=self.PutCacheIntoChain(ch.Block)
 			if err != nil{
 				log.Error("PutCacheIntoChain err")
