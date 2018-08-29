@@ -498,6 +498,29 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
+
+func (m *Minerva)GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
+	number := header.Number.Uint64()
+
+	cache := m.cache(number)
+	size := datasetSize(number)
+	if m.config.PowMode == ModeTest {
+		size = 32 * 1024
+	}
+	_, result := hashimotoLight(size, cache.cache, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+
+	if header.Fruit {
+		last := result[16:]
+		actDiff := new(big.Int).Div(maxUint256, new(big.Int).SetBytes(last))
+		fruitDiff := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+
+		return actDiff, fruitDiff
+	} else {
+		actDiff := new(big.Int).Div(maxUint256, new(big.Int).SetBytes(result))
+		return actDiff, header.Difficulty
+	}
+}
+
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.

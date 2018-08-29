@@ -178,6 +178,8 @@ type Engine interface {
 	CalcDifficulty(chain ChainReader, time uint64, parent *types.Header) *big.Int
 	CalcSnailDifficulty(chain SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int
 
+	GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int)
+
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
 }
