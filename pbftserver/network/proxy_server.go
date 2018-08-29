@@ -106,30 +106,31 @@ func (server *Server) setRoute() {
 }
 
 func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) {
+	PSLog("getReq in")
 	var msg consensus.RequestMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	//fmt.Println("[Chan]", "MsgEntrance", "In")
+	PSLog("getReq msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
-	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Request) {
+	PSLog("getPrePrepare in")
 	var msg consensus.PrePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	//fmt.Println("[Chan]", "MsgEntrance", "In")
+	PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
-	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Request) {
+	PSLog("getPrepare in")
 	var msg consensus.VoteMsg
 	var tmp consensus.StorgePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&tmp)
@@ -141,41 +142,37 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
 	msg.Height = tmp.Height
-	//fmt.Println("[Chan]", "MsgEntrance", "In")
+	PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
-	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 }
 
 func (server *Server) getCommit(writer http.ResponseWriter, request *http.Request) {
-	//fmt.Println("proxy commit start")
+	PSLog("getCommit in")
 	var msg consensus.VoteMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	//fmt.Println("[Chan]", "MsgEntrance", "In")
+	PSLog("getCommit msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
-	//fmt.Println("[Chan]", "MsgEntrance", "Out")
-	//fmt.Println("proxy commit end")
 }
 
 func (server *Server) getReply(writer http.ResponseWriter, request *http.Request) {
+	PSLog("getReply in")
 	var msg consensus.ReplyMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	PSLog("getReply msg:", fmt.Sprintf("%+v", msg))
 	server.Node.GetReply(&msg)
 }
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	fmt.Println("[ServerID]", server.Node.NodeID)
-	//fmt.Println("[Chan]", "MsgEntrance", "In")
+	PSLog("PutRequest in", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- msg
-	//fmt.Println("[Chan]", "MsgEntrance", "Out")
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionBroadcast,
@@ -188,6 +185,7 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 }
 func (server *Server) ConsensusFinish() {
 	// start to fetch
+	PSLog("ConsensusFinish in")
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFecth,
 		ID:     new(big.Int).Set(server.ID),
@@ -201,7 +199,7 @@ func send(url string, msg []byte) {
 	for i := 0; i < 3; i++ {
 		_, e := http.Post("http://"+url, "application/json", buff)
 		if e != nil {
-			LogFmt("[POSTERROR]", e.Error())
+			PSLog("[POSTERROR]", e.Error())
 			time.Sleep(time.Second * 1)
 		} else {
 			return
