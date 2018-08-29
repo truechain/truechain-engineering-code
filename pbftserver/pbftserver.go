@@ -310,6 +310,7 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 }
 
 func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error {
+	PSLog("PutCommittee", fmt.Sprintf("%+v", committeeInfo))
 	id := committeeInfo.Id
 	members := committeeInfo.Members
 	if id == nil || len(members) <= 0 {
@@ -334,6 +335,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 	return nil
 }
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
+	PSLog("PutNodes", id, fmt.Sprintf("%+v", nodes))
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
@@ -357,6 +359,7 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 	return nil
 }
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
+	PSLog("PutNodes", id, action)
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
