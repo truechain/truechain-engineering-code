@@ -39,6 +39,7 @@ const (
 
 	BlockRewordSpace = 12
 	sendNodeTime     = 30
+	FetchBlockTime   =5
 
 	CryNodeInfoSize  =20
 	ChainHeadSize =3
@@ -90,10 +91,10 @@ type PbftAgent struct {
 	server   types.PbftServerProxy
 	election *Election
 
-	mu          *sync.Mutex //generateBlock mutex
-	committeeMu *sync.Mutex //committee mutex
-	currentMu   *sync.Mutex //tx mutex
-	cacheBlockMu   *sync.Mutex //tx mutex
+	mu         		*sync.Mutex //generateBlock mutex
+	committeeMu 	*sync.Mutex //committee mutex
+	currentMu   	*sync.Mutex //tx mutex
+	cacheBlockMu    *sync.Mutex //tx mutex
 
 	mux *event.TypeMux
 
@@ -110,7 +111,7 @@ type PbftAgent struct {
 	electionSub     event.Subscription
 	committeeSub    event.Subscription
 	PbftNodeSub     *event.TypeMuxSubscription
-	RewardNumberSub event.Subscription
+	ChainHeadAgentSub event.Subscription
 
 	CommitteeNode   *types.CommitteeNode
 	PrivateKey      *ecdsa.PrivateKey
@@ -178,7 +179,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 	self.InitNodeInfo(eth.Config())
 	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
 	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	self.RewardNumberSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
+	self.ChainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
 	return self
 }
 
@@ -235,7 +236,7 @@ func (self *PbftAgent) Stop() {
 	// Unsubscribe all subscriptions registered from agent
 	self.committeeSub.Unsubscribe()
 	self.electionSub.Unsubscribe()
-	self.RewardNumberSub.Unsubscribe()
+	self.ChainHeadAgentSub.Unsubscribe()
 	self.scope.Close()
 }
 
@@ -332,7 +333,16 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-		go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
+		if voteSign ==nil{
+			fmt.Println("AddCacheIntoChain voteSign nil")
+		}
+		if fb ==nil{
+			fmt.Println("AddCacheIntoChain fb nil")
+		}
+		fmt.Println("AddCacheIntoChain")
+		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
+		go self.signFeed.Send(core.PbftSignEvent{Block:fb,PbftSign: voteSign})
+
 	}
 	return  nil
 }
@@ -360,8 +370,16 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
+
+		if voteSign ==nil{
+			fmt.Println("OperateCommitteeBlock voteSign nil")
+		}
+		if receiveBlock ==nil{
+			fmt.Println("OperateCommitteeBlock receiveBlock nil")
+		}
+		fmt.Println("OperateCommitteeBlock")
 		//braodcast sign and block
-		self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
+		self.signFeed.Send(core.PbftSignEvent{Block:receiveBlock,PbftSign: voteSign})
 	} else {
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
@@ -534,6 +552,17 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.Header().SnailHash =sb.Hash()
 	}*/
 	fmt.Println("fastBlockHeight:", fastBlock.Header().Number)
+	voteSign, err := self.GenerateSign(fastBlock)
+	if err != nil {
+		panic(err)
+		log.Info("sign error")
+	}
+	if voteSign == nil{
+		fmt.Println("leader sign nil ")
+	}
+	fmt.Println("leader sign:",voteSign)
+	fastBlock.AppendSign(voteSign)
+
 	return fastBlock, nil
 }
 
@@ -563,6 +592,10 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 		panic(err)
 		log.Info("sign error")
 	}
+	if voteSign == nil{
+		fmt.Println("leader sign nil ")
+	}
+	fmt.Println("leader sign:",voteSign)
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 	return err
@@ -946,11 +979,29 @@ func  SendBlock(agent *PbftAgent)  {
 		}
 	}
 }
-
+/*
+func (agent *PbftAgent) SendRequest(t1 time.Time) (*types.Block,error){
+	block,err := agent.FetchFastBlock()
+	if err != nil{
+		return nil,err
+		panic(err)
+	}
+	if len(block.Transactions())==0{
+		sub :=time.Now().Sub(t1)
+		if sub >FetchBlockTime*4{
+			return block,nil
+		}
+		time.Sleep(time.Second*FetchBlockTime)
+		agent.sendRequest(t1)
+	}
+	return nil,nil
+}
 func (agent *PbftAgent) StartSingleNode()  {
 	for{
 		//获取区块
-		block,err := agent.FetchFastBlock()
+		t1 :=time.Now()
+		block,err :=agent.sendRequest(t1)
+
 		if err != nil{
 			panic(err)
 		}
@@ -974,4 +1025,4 @@ func (agent *PbftAgent) StartSingleNode()  {
 			panic(err)
 		}
 	}
-}
+}*/

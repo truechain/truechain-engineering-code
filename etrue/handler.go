@@ -685,12 +685,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == NewFastBlockHashesMsg:
+		log.Info("NewFastBlockHashesMsg")
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
+			log.Info("NewFastBlockHashesMsg", "block", block)
 			p.MarkFastBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
@@ -1052,8 +1054,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		case event := <-pm.pbSignsCh:
 			log.Info("Committee sign", "hash", event.PbftSign.Hash().String(), "number", event.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
 			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
-			pm.BroadcastFastBlock(pm.blockchain.GetBlock(event.PbftSign.FastHash,
-				event.PbftSign.FastHeight.Uint64()), false) // Only then announce to the rest
+			pm.BroadcastFastBlock(event.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():
