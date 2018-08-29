@@ -340,7 +340,8 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 			fmt.Println("AddCacheIntoChain fb nil")
 		}
 		fmt.Println("AddCacheIntoChain")
-		go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
+		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
+		go self.signFeed.Send(core.PbftSignEvent{Block:fb,PbftSign: voteSign})
 
 	}
 	return  nil
@@ -378,7 +379,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 		}
 		fmt.Println("OperateCommitteeBlock")
 		//braodcast sign and block
-		self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
+		self.signFeed.Send(core.PbftSignEvent{Block:receiveBlock,PbftSign: voteSign})
 	} else {
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
@@ -968,7 +969,7 @@ func  SendBlock(agent *PbftAgent)  {
 	}
 }
 
-func (agent *PbftAgent) sendRequest(t1 time.Time) (*types.Block,error){
+/*func (agent *PbftAgent) SendRequest(t1 time.Time) (*types.Block,error){
 	block,err := agent.FetchFastBlock()
 	if err != nil{
 		return nil,err
@@ -1013,4 +1014,4 @@ func (agent *PbftAgent) StartSingleNode()  {
 			panic(err)
 		}
 	}
-}
+}*/
