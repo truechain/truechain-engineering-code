@@ -14,10 +14,12 @@ import (
 
 const (
 	fastChainHeadSize  = 256
-	snailchainHeadSize = 4096
+	snailchainHeadSize = 64
 	z                  = 100
 	k                  = 10000
 	lamada             = 12
+
+	fruitThreshold		= 10	// fruit size threshold for committee election
 )
 
 var (
@@ -354,7 +356,61 @@ func (e *Election) elect(snailBeginNumber *big.Int, snailEndNumber *big.Int, com
 	go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{committeeId, members}})
 }
 
+
+// getCandinate get candinate miners from given snail blocks
+func (e *Election) getCandinate(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.SnailHeader {
+
+	var fruitsCount map[common.Address]uint
+	var fruitsHead []*types.SnailHeader
+
+	// get all fruits want to be elected
+	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) < 0; {
+		block := e.snailchain.GetBlockByNumber(blockNumber.Uint64())
+		if block == nil {
+			return nil
+		}
+
+		fruits := block.Fruits()
+		for _, f := range fruits {
+			if f.ToElect() {
+				pubBytes := f.PublicKey()
+				addr := common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[12:])
+				fruitsHead = append(fruitsHead, types.CopySnailHeader(f.Header()))
+				if _, ok :=fruitsCount[addr]; ok {
+					fruitsCount[addr] += 1
+				} else {
+					fruitsCount[addr] = 1
+				}
+			}
+		}
+	}
+
+	// remove fruits whose count below threshold
+	for addr, cnt := range fruitsCount {
+		if cnt < fruitThreshold {
+			delete(fruitsCount, addr)
+		}
+	}
+	var headers []*types.SnailHeader
+	for _, header := range fruitsHead {
+		pubBytes := header.Publickey
+		addr := common.BytesToAddress(crypto.Keccak256(pubBytes[1:])[12:])
+		if _, ok := fruitsCount[addr]; ok {
+			headers = append(headers, header)
+		}
+	}
+
+	return headers
+}
+
+
+// electCommittee elect committee members from snail block.
 func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.CommitteeMember {
+
+
+
+	// elect committee member
+
 
 	return nil
 }

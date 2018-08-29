@@ -703,6 +703,7 @@ func (b *SnailBlock) Number() *big.Int { return new(big.Int).Set(b.header.Number
 func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey, error) {
 	return crypto.UnmarshalPubkey(b.header.Publickey)
 }
+func (b *SnailBlock) PublicKey() []byte {return b.header.Publickey}
 func (b *SnailBlock) Difficulty() *big.Int     { return new(big.Int).Set(b.header.Difficulty) }
 func (b *SnailBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
 func (b *SnailBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
