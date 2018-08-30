@@ -61,7 +61,7 @@ type ethstatsConfig struct {
 }
 
 type gethConfig struct {
-	Etrue       etrue.Config
+	Etrue     etrue.Config
 	Shh       whisper.Config
 	Node      node.Config
 	Ethstats  ethstatsConfig
