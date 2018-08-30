@@ -423,7 +423,7 @@ func (self *PbftAgent) cryNodeInfoInCachSign(sign Sign) bool {
 }
 
 func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo {
-	log.Info("into SendPbftNode.")
+	log.Info("into SendPbftNode.", committeeInfo.Id)
 	if committeeInfo == nil && len(committeeInfo.Members) == 0 {
 		log.Error("committeeInfo is nil,len(committeeInfo.Members):", len(committeeInfo.Members))
 		return nil

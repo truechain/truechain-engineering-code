@@ -44,7 +44,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-)
+	)
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
@@ -384,6 +384,9 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 }
 
 func (bc *BlockChain) CurrentReward() *types.BlockReward {
+	if bc.currentReward.Load() == nil {
+		return nil
+	}
 	return bc.currentReward.Load().(*types.BlockReward)
 }
 
