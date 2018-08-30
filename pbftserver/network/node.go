@@ -251,8 +251,10 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	//Add self
 	if _, ok := node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID]; !ok {
 		myPrepareMsg := prePareMsg
+		myPrepareMsg.NodeID = node.NodeID
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
 	}
+
 	PSLog("node GetPrePrepare", "Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs),
 		len(node.GetStatus(prePrepareMsg.Height).MsgLogs.CommitMsgs))
 	if prePareMsg != nil {
@@ -289,6 +291,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	if err != nil {
 		return err
 	}
+
+	PSLog("Prepare PrepareMsgs cnt2", len(CurrentState.MsgLogs.PrepareMsgs))
 
 	PSLog("node GetPrepare", "Len", len(CurrentState.MsgLogs.PrepareMsgs), len(CurrentState.MsgLogs.CommitMsgs))
 	if commitMsg != nil {

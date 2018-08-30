@@ -108,6 +108,7 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 }
 
 func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
+	PSLog("Prepare in")
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
 	}
@@ -115,12 +116,8 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	// Append msg to its logs
 	state.MsgLogs.PrepareMsgs[prepareMsg.NodeID] = prepareMsg
 
+	PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
-	fmt.Printf("[Prepare-Vote]: %d\n", len(state.MsgLogs.PrepareMsgs))
-
-	fmt.Println("[LOG]", "Prepare", "start", f)
-
-	PSLog()
 
 	if state.prepared(f) {
 		// Change the stage to prepared.
@@ -133,10 +130,10 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 			MsgType:    CommitMsg,
 			Height:     prepareMsg.Height,
 		}, nil
-		fmt.Println("[LOG]", "Prepare", "end", f, "Return")
+		PSLog("Prepare", "end", f, "Return")
 	}
 
-	fmt.Println("[LOG]", "Prepare", "end", f, "notReturn")
+	PSLog("Prepare", "end", f, "notReturn")
 	return nil, nil
 }
 
