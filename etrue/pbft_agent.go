@@ -546,10 +546,9 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	//fastBlock = work.Block
 
 	//generate rewardSnailHegiht  //TODO zanshi not used
-	var rewardSnailHegiht *big.Int
+	/*var rewardSnailHegiht *big.Int
 	BlockReward :=self.fastChain.CurrentReward()
 	if BlockReward == nil{
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
@@ -563,7 +562,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.Header().SnailNumber = rewardSnailHegiht
 		sb :=self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
-	}
+	}*/
+
 	fmt.Println("fastBlockHeight:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
 	if err != nil {
