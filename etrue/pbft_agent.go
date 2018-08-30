@@ -156,6 +156,7 @@ type EncryptCommitteeNode []byte
 type Sign []byte
 
 type CryNodeInfo struct {
+
 	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
@@ -524,6 +525,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
+	fmt.Println("num:",num)
+	fmt.Println("common.Big1:",common.Big1)
 
 	if err := self.engine.PrepareFast(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
