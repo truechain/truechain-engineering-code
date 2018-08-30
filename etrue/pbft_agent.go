@@ -368,6 +368,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
 		fmt.Println("receiveBlockNumber:",receiveBlock.Number())
+		fmt.Println("fastBlocks:",len(fastBlocks))
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
 		if err != nil {
