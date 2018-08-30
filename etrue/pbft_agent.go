@@ -362,6 +362,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
 		return nil
 	}
+	self.fastChain.CurrentBlock()
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
 	if parent != nil {
 		//TODO isNeed find height+1
@@ -508,7 +509,9 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	var fastBlock *types.Block
 
 	tstart := time.Now()
-	parent := self.fastChain.CurrentBlock()
+	ph := self.fastChain.CurrentHeader()
+	parent := self.fastChain.GetBlock(ph.Hash(), ph.Number.Uint64())
+
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
@@ -522,7 +525,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 	num := parent.Number()
 	fmt.Println("parentNum:",num)
-	fmt.Println("currentNumber:",self.fastChain.CurrentHeader().Number)
+	fmt.Println("currentNumber_block:",self.fastChain.CurrentBlock().Number)
+	fmt.Println("currentNumber_header:",self.fastChain.CurrentHeader().Number)
 
 	header := &types.Header{
 		ParentHash: parent.Hash(),
@@ -978,16 +982,16 @@ func (agent *PbftAgent) SendBlock() {
 	for {
 		//获取区块
 		block, err := agent.FetchFastBlock()
+		cb :=agent.fastChain.CurrentBlock()
+		fmt.Println(cb.Number())
 		if err != nil {
 			panic(err)
 		}
-		time.Sleep(time.Second * 2)
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
 		if err != nil {
 			panic(err)
 		}
-		time.Sleep(time.Second * 2)
 		//验证区块
 		err = agent.VerifyFastBlock(block)
 		if err != nil {
