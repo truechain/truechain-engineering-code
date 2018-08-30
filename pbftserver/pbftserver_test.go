@@ -27,7 +27,7 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-var ID = big.NewInt(0)
+var ID = big.NewInt(1)
 
 func getID() *big.Int {
 	ID = new(big.Int).Add(ID, big.NewInt(1))
@@ -147,7 +147,7 @@ func TestPbftServerStart(t *testing.T) {
 
 	node4 := new(types.CommitteeNode)
 	node4.IP = "127.0.0.1"
-	node4.Port = 1001411
+	node4.Port = 10014
 	node4.Publickey = crypto.FromECDSAPub(m4.Publickey)
 
 	var nodes []*types.CommitteeNode
