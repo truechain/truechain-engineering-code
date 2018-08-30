@@ -98,7 +98,7 @@ func WriteHeadBlockHash(db DatabaseWriter, hash common.Hash) {
 func ReadHeadRewardNumber(db DatabaseReader) uint64 {
 	data, _ := db.Get(headRewardKey)
 	if len(data) == 0 {
-		return -1
+		return 0
 	}
 	return new(big.Int).SetBytes(data).Uint64()
 }
