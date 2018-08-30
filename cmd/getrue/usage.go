@@ -1,4 +1,4 @@
-// Contains the geth command usage template and generator.
+// Contains the getrue command usage template and generator.
 
 package main
 
