@@ -13,6 +13,7 @@ type State struct {
 	LastSequenceID int64
 	CurrentStage   Stage
 	FastStage      Stage
+	BlockResults   *SignedVoteMsg
 }
 
 type MsgLogs struct {
@@ -46,6 +47,7 @@ func CreateState(viewID int64, lastSequenceID int64) *State {
 		},
 		LastSequenceID: lastSequenceID,
 		CurrentStage:   Idle,
+		BlockResults:   nil,
 	}
 }
 
@@ -212,21 +214,22 @@ func (state *State) prepared(f int) bool {
 }
 
 func (state *State) committed(f int) bool {
+	PSLog("committed in")
 	if !state.prepared(f) {
 		return false
 	}
-
+	PSLog("committed prepared")
 	if len(state.MsgLogs.CommitMsgs) < 2*f {
 		return false
 	}
-
+	PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	var passCount = 0
 	for _, v := range state.MsgLogs.CommitMsgs {
 		if v.Pass != nil && v.Pass.Result == 0 {
 			passCount += 1
 		}
 	}
-
+	PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
 	return passCount >= 2*f
 }
 
