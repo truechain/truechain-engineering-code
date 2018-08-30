@@ -579,6 +579,10 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Height:     msg.Height,
 						Pass:       state.BlockResults,
 					}
+					if msgSend.Pass == nil {
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						state.BlockResults = msgSend.Pass
+					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					break
 				}
@@ -603,6 +607,10 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						MsgType:    consensus.CommitMsg,
 						Height:     msg.Height,
 						Pass:       state.BlockResults,
+					}
+					if msgSend.Pass == nil {
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						state.BlockResults = msgSend.Pass
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					break
