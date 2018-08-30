@@ -140,7 +140,7 @@ type BlockChain struct {
 // Processor.
 func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 	chainConfig *params.ChainConfig, engine consensus.Engine,
-	vmConfig vm.Config,sc *snailchain.SnailBlockChain) (*BlockChain, error) {
+	vmConfig vm.Config) (*BlockChain, error) {
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
@@ -172,7 +172,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
-		sc:			  sc,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -530,12 +529,13 @@ func (bc *BlockChain) insert(block *types.Block) {
 	// Add the block to the canonical chain number scheme and mark as the head
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(bc.db, block.Hash())
-
+	bc.currentBlock.Store(block)
 
 	// If the block is better than our head or is on a different chain, force update heads
 	if updateHeads {
 		bc.hc.SetCurrentHeader(block.Header())
 		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
+
 		bc.currentFastBlock.Store(block)
 	}
 }
