@@ -39,13 +39,13 @@ const (
 
 	BlockRewordSpace = 12
 	sendNodeTime     = 30
-	FetchBlockTime   =5
+	FetchBlockTime   = 5
 
-	CryNodeInfoSize  =20
-	ChainHeadSize =3
+	CryNodeInfoSize = 20
+	ChainHeadSize   = 3
 )
 
-const singleNode ="single"
+const singleNode = "single"
 
 var testCommittee = []*types.CommitteeNode{
 	{
@@ -91,10 +91,10 @@ type PbftAgent struct {
 	server   types.PbftServerProxy
 	election *Election
 
-	mu         		*sync.Mutex //generateBlock mutex
-	committeeMu 	*sync.Mutex //committee mutex
-	currentMu   	*sync.Mutex //tx mutex
-	cacheBlockMu    *sync.Mutex //tx mutex
+	mu           *sync.Mutex //generateBlock mutex
+	committeeMu  *sync.Mutex //committee mutex
+	currentMu    *sync.Mutex //tx mutex
+	cacheBlockMu *sync.Mutex //tx mutex
 
 	mux *event.TypeMux
 
@@ -108,16 +108,16 @@ type PbftAgent struct {
 	CryNodeInfoCh chan *CryNodeInfo
 	ChainHeadCh   chan core.ChainHeadEvent
 
-	electionSub     event.Subscription
-	committeeSub    event.Subscription
-	PbftNodeSub     *event.TypeMuxSubscription
+	electionSub       event.Subscription
+	committeeSub      event.Subscription
+	PbftNodeSub       *event.TypeMuxSubscription
 	ChainHeadAgentSub event.Subscription
 
-	CommitteeNode   *types.CommitteeNode
-	PrivateKey      *ecdsa.PrivateKey
+	CommitteeNode *types.CommitteeNode
+	PrivateKey    *ecdsa.PrivateKey
 
-	cacheSign       []Sign	//prevent receive same sign
-	cacheBlock      map[*big.Int]*types.Block	//prevent receive same block
+	cacheSign  []Sign                    //prevent receive same sign
+	cacheBlock map[*big.Int]*types.Block //prevent receive same block
 }
 
 type AgentWork struct {
@@ -173,7 +173,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		mu:            new(sync.Mutex),
 		committeeMu:   new(sync.Mutex),
 		currentMu:     new(sync.Mutex),
-		cacheBlockMu:	new(sync.Mutex),
+		cacheBlockMu:  new(sync.Mutex),
 		cacheBlock:    make(map[*big.Int]*types.Block),
 	}
 	self.InitNodeInfo(eth.Config())
@@ -247,6 +247,7 @@ func (self *PbftAgent) loop() {
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option == types.CommitteeStart {
+				time.Sleep(time.Second * 30)
 				log.Info("CommitteeStart...")
 				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo, CurrentCommittee)
@@ -281,7 +282,7 @@ func (self *PbftAgent) loop() {
 					}
 				}()
 			}
-		//receive nodeInfo
+			//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
 			//transpond  cryNodeInfo
 			log.Info("receive nodeInfo.")
@@ -307,6 +308,7 @@ func (self *PbftAgent) loop() {
 		}
 	}
 }
+
 // put cacheBlock into fastchain
 func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 	var fastBlocks []*types.Block
@@ -321,7 +323,7 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 		}
 	}
 	//insertBlock
-	for _,fb := range fastBlocks{
+	for _, fb := range fastBlocks {
 		_, err := self.fastChain.InsertChain([]*types.Block{fb})
 		if err != nil {
 			return err
@@ -333,18 +335,18 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-		if voteSign ==nil{
+		if voteSign == nil {
 			fmt.Println("AddCacheIntoChain voteSign nil")
 		}
-		if fb ==nil{
+		if fb == nil {
 			fmt.Println("AddCacheIntoChain fb nil")
 		}
 		fmt.Println("AddCacheIntoChain")
 		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
-		go self.signFeed.Send(core.PbftSignEvent{Block:fb,PbftSign: voteSign})
+		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
 
 	}
-	return  nil
+	return nil
 }
 
 //committeeNode braodcat:if parentBlock is not in fastChain,put block  into cacheblock
@@ -371,15 +373,15 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 			log.Info("sign error")
 		}
 
-		if voteSign ==nil{
+		if voteSign == nil {
 			fmt.Println("OperateCommitteeBlock voteSign nil")
 		}
-		if receiveBlock ==nil{
+		if receiveBlock == nil {
 			fmt.Println("OperateCommitteeBlock receiveBlock nil")
 		}
 		fmt.Println("OperateCommitteeBlock")
 		//braodcast sign and block
-		self.signFeed.Send(core.PbftSignEvent{Block:receiveBlock,PbftSign: voteSign})
+		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
@@ -389,7 +391,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 }
 
 func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
-	if self.NextCommitteeInfo!=nil && len(self.NextCommitteeInfo.Members) == 0 {
+	if self.NextCommitteeInfo != nil && len(self.NextCommitteeInfo.Members) == 0 {
 		log.Error("NextCommitteeInfo.Members is nil ...")
 		return false
 	}
@@ -557,10 +559,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil{
+	if voteSign == nil {
 		fmt.Println("leader sign nil ")
 	}
-	fmt.Println("leader sign:",voteSign)
+	fmt.Println("leader sign:", voteSign)
 	fastBlock.AppendSign(voteSign)
 
 	return fastBlock, nil
@@ -592,10 +594,10 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil{
+	if voteSign == nil {
 		fmt.Println("leader sign nil ")
 	}
-	fmt.Println("leader sign:",voteSign)
+	fmt.Println("leader sign:", voteSign)
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 	return err
@@ -851,15 +853,15 @@ func GetSignHash(sign *types.PbftSign) []byte {
 
 // verify sign of node is in committee
 func (self *PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool, string) {
-	if self.CommitteeInfo ==nil || len(self.CommitteeInfo.Members) == 0 {
+	if self.CommitteeInfo == nil || len(self.CommitteeInfo.Members) == 0 {
 		log.Error("CommitteeInfo.Members is nil ...")
 	}
 
 	for _, sign := range signs {
-		if sign == nil{
+		if sign == nil {
 			fmt.Println("cnm")
 		}
-		fmt.Println("sign:",sign)
+		fmt.Println("sign:", sign)
 		pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
 		if err != nil {
 			log.Error("SigToPub error.")
@@ -950,35 +952,35 @@ func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
 	return false
 }
 
-
-func  SendBlock(agent *PbftAgent)  {
-	for{
+func SendBlock(agent *PbftAgent) {
+	for {
 		//获取区块
-		block,err := agent.FetchFastBlock()
-		if err != nil{
+		block, err := agent.FetchFastBlock()
+		if err != nil {
 			panic(err)
 		}
 		time.Sleep(time.Second * 2)
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 		time.Sleep(time.Second * 2)
 		//验证区块
-		err =agent.VerifyFastBlock(block)
-		if err != nil{
+		err = agent.VerifyFastBlock(block)
+		if err != nil {
 			panic(err)
 		}
 		fmt.Println("validate true")
 		time.Sleep(time.Second * 5)
 
 		err = agent.BroadcastConsensus(block)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 	}
 }
+
 /*
 func (agent *PbftAgent) SendRequest(t1 time.Time) (*types.Block,error){
 	block,err := agent.FetchFastBlock()
