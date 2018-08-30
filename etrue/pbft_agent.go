@@ -247,7 +247,7 @@ func (self *PbftAgent) loop() {
 		select {
 		case ch := <-self.ElectionCh:
 			if ch.Option == types.CommitteeStart {
-				time.Sleep(time.Second * 30)
+				//time.Sleep(time.Second * 30)
 				log.Info("CommitteeStart...")
 				self.committeeMu.Lock()
 				self.SetCommitteeInfo(self.NextCommitteeInfo, CurrentCommittee)
