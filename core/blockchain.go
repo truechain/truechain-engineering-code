@@ -44,7 +44,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-)
+	)
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
@@ -138,7 +138,9 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config,sc *snailchain.SnailBlockChain) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
+	chainConfig *params.ChainConfig, engine consensus.Engine,
+	vmConfig vm.Config,sc *snailchain.SnailBlockChain) (*BlockChain, error) {
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
@@ -384,6 +386,9 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 }
 
 func (bc *BlockChain) CurrentReward() *types.BlockReward {
+	if bc.currentReward.Load() == nil {
+		return nil
+	}
 	return bc.currentReward.Load().(*types.BlockReward)
 }
 

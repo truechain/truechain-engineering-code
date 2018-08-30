@@ -361,7 +361,6 @@ func (b *Block) AppendSign(sign *PbftSign) {
 }
 
 func (b *Block) AppendSigns(signs []*PbftSign) {
-
 	if len(b.signs) <=0{
 		b.signs = signs
 		return

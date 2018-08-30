@@ -57,7 +57,7 @@ var testCommittee = []*types.CommitteeNode{
 		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
 	},
 	{
-		IP:        "192.168.46.11",
+		IP:        "192.168.46.19",
 		Port:      10080,
 		Coinbase:  common.HexToAddress("7a9c020ed8a621435546da01c544be50efef6b852b0fec4f50489b539f845938"),
 		Publickey: common.Hex2Bytes("041dece78c15b3ee2fe035e226b7e6384985adccbde3a9bc26ea7737beb93389ed01b75848c1b4fd276d291c04d523eb616a573809647377bb4ff398284a983ccc"),
@@ -266,6 +266,8 @@ func (self *PbftAgent) loop() {
 				self.SetCommitteeInfo(nil, CurrentCommittee)
 				self.committeeMu.Unlock()
 				self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
+			}else{
+				log.Info("unknown Electionch:",ch.Option)
 			}
 		case ch := <-self.CommitteeCh:
 			log.Info("CommitteeCh...")
@@ -544,13 +546,12 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	//fastBlock = work.Block
 
 	//generate rewardSnailHegiht  //TODO zanshi not used
-	var rewardSnailHegiht *big.Int
+	/*var rewardSnailHegiht *big.Int
 	BlockReward :=self.fastChain.CurrentReward()
 	if BlockReward == nil{
-		rewardSnailHegiht = new(big.Int).Set(common.Big0)
+		rewardSnailHegiht = new(big.Int).Set(common.Big1)
 	}else{
 		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber,common.Big1)
 	}
@@ -561,7 +562,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.Header().SnailNumber = rewardSnailHegiht
 		sb :=self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
-	}
+	}*/
+
 	fmt.Println("fastBlockHeight:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
 	if err != nil {
