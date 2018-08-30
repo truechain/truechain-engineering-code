@@ -262,7 +262,7 @@ func (bc *BlockChain) loadLastState() error {
 	// Restore the last known currentReward
 
 	rewardHead := rawdb.ReadHeadRewardNumber(bc.db)
-	if rewardHead != -1 {
+	if rewardHead != 0 {
 		rawdb.ReadBlockReward(bc.db,rewardHead)
 		reward := bc.GetFastHeightBySnailHeight(rewardHead)
 		bc.currentReward.Store(reward)
