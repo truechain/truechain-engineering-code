@@ -93,6 +93,24 @@ func WriteHeadBlockHash(db DatabaseWriter, hash common.Hash) {
 	}
 }
 
+
+// ReadHeadBlockHash retrieves the hash of the current canonical head block.
+func ReadHeadRewardNumber(db DatabaseReader) uint64 {
+	data, _ := db.Get(headRewardKey)
+	if len(data) == 0 {
+		return -1
+	}
+	return new(big.Int).SetBytes(data).Uint64()
+}
+
+// WriteHeadBlockHash stores the head block's hash.
+func WriteHeadRewardNumber(db DatabaseWriter, number uint64) {
+	if err := db.Put(headRewardKey, big.NewInt(int64(number)).Bytes()); err != nil {
+		log.Crit("Failed to store last block's hash", "err", err)
+	}
+}
+
+
 // ReadHeadFastBlockHash retrieves the hash of the current fast-sync head block.
 func ReadHeadFastBlockHash(db DatabaseReader) common.Hash {
 	data, _ := db.Get(headFastBlockKey)
@@ -358,21 +376,21 @@ func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 
 
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
-func ReadBlockRewardRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawValue {
-	data, _ := db.Get(blockRewardKey(number, hash))
+func ReadBlockRewardRLP(db DatabaseReader,number uint64) rlp.RawValue {
+	data, _ := db.Get(blockRewardKey(number))
 	return data
 }
 
 
-func ReadBlockReward(db DatabaseReader, hash common.Hash, number uint64) *types.BlockReward {
+func ReadBlockReward(db DatabaseReader, number uint64) *types.BlockReward {
 
-	data := ReadBlockRewardRLP(db, hash, number)
+	data := ReadBlockRewardRLP(db, number)
 	if len(data) == 0 {
 		return nil
 	}
 	header := new(types.BlockReward)
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
-		log.Error("Invalid block BlockReward RLP", "hash", hash, "err", err)
+		log.Error("Invalid block BlockReward RLP",  "err", err)
 		return nil
 	}
 	return header
@@ -384,7 +402,7 @@ func ReadBlockReward(db DatabaseReader, hash common.Hash, number uint64) *types.
 func WriteBlockReward(db DatabaseWriter, block *types.BlockReward) {
 
 
-	key := blockRewardKey(block.SnailNumber.Uint64(),block.SnailHash)
+	key := blockRewardKey(block.SnailNumber.Uint64())
 	// Write the encoded BlockReward
 	data, err := rlp.EncodeToBytes(block)
 	if err != nil {
@@ -398,7 +416,7 @@ func WriteBlockReward(db DatabaseWriter, block *types.BlockReward) {
 
 // DeleteReceipts removes all receipt data associated with a block hash.
 func DeleteBlockReward(db DatabaseDeleter, hash common.Hash, number uint64) {
-	if err := db.Delete(blockRewardKey(number, hash)); err != nil {
+	if err := db.Delete(blockRewardKey(number)); err != nil {
 		log.Crit("Failed to delete block BlockReward", "err", err)
 	}
 }

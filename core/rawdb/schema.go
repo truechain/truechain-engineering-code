@@ -35,6 +35,8 @@ var (
 	// headBlockKey tracks the latest know full block's hash.
 	headBlockKey = []byte("LastBlock")
 
+	headRewardKey = []byte("LastReward")
+
 	// headFastBlockKey tracks the latest known incomplete block's hash duirng fast sync.
 	headFastBlockKey = []byte("LastFast")
 
@@ -101,8 +103,8 @@ func headerNumberKey(hash common.Hash) []byte {
 }
 
 // headerNumberKey = headerNumberPrefix + hash
-func blockRewardKey(number uint64 , hash common.Hash) []byte {
-	return append(append(blockRewardPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
+func blockRewardKey(number uint64) []byte {
+	return append(append(blockRewardPrefix, encodeBlockNumber(number)...),blockRewardPrefix...)
 }
 
 // blockBodyKey = blockBodyPrefix + num (uint64 big endian) + hash
