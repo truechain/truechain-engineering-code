@@ -57,10 +57,10 @@ var testCommittee = []*types.CommitteeNode{
 		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
 	},
 	{
-		IP:        "192.168.46.6",
+		IP:        "192.168.46.11",
 		Port:      10080,
-		Coinbase:  common.HexToAddress("831151b7eb8e650dc442cd623fbc6ae20279df85"),
-		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
+		Coinbase:  common.HexToAddress("7a9c020ed8a621435546da01c544be50efef6b852b0fec4f50489b539f845938"),
+		Publickey: common.Hex2Bytes("041dece78c15b3ee2fe035e226b7e6384985adccbde3a9bc26ea7737beb93389ed01b75848c1b4fd276d291c04d523eb616a573809647377bb4ff398284a983ccc"),
 	},
 
 	{
@@ -150,7 +150,6 @@ type Backend interface {
 
 // NodeInfoEvent is posted when nodeInfo send
 type NodeInfoEvent struct{ nodeInfo *CryNodeInfo }
-
 
 type EncryptCommitteeNode []byte
 
@@ -548,14 +547,21 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	//fastBlock = work.Block
 
 	//generate rewardSnailHegiht  //TODO zanshi not used
-	/*BlockReward :=self.fastChain.CurrentReward()
-	rewardSnailHegiht := new(big.Int).Add(BlockReward.SnailNumber,common.Big1)
+	var rewardSnailHegiht *big.Int
+	BlockReward :=self.fastChain.CurrentReward()
+	if BlockReward == nil{
+		rewardSnailHegiht = new(big.Int).Set(common.Big0)
+	}else{
+		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber,common.Big1)
+	}
+
+
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(),rewardSnailHegiht).Int64()
 	if space >= BlockRewordSpace{
 		fastBlock.Header().SnailNumber = rewardSnailHegiht
 		sb :=self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
-	}*/
+	}
 	fmt.Println("fastBlockHeight:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
 	if err != nil {
