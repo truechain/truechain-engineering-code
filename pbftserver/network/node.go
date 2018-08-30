@@ -307,6 +307,10 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			}
 			PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
+
+			//save Pass
+			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
+
 			LogStage("Prepare", true)
 			node.Broadcast(commitMsg, "/commit")
 			LogStage("Commit", false)
@@ -333,6 +337,7 @@ func (node *Node) processCommitWaitMessage() {
 						Digest:     msg.Digest,
 						MsgType:    consensus.CommitMsg,
 						Height:     msg.Height,
+						Pass:       state.BlockResults,
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
@@ -563,6 +568,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Digest:     msg.Digest,
 						MsgType:    consensus.CommitMsg,
 						Height:     msg.Height,
+						Pass:       state.BlockResults,
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					break
@@ -587,6 +593,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Digest:     msg.Digest,
 						MsgType:    consensus.CommitMsg,
 						Height:     msg.Height,
+						Pass:       state.BlockResults,
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					break
