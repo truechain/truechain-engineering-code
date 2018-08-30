@@ -1,15 +1,15 @@
 package etrue
 
 import (
-	"math/big"
-	"sync"
-	"time"
 	"bytes"
-	"errors"
-	"fmt"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+	"sync"
+	"time"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -33,20 +33,20 @@ const (
 	VoteAgree        = iota //vote agree
 	VoteAgreeAgainst        //vote against
 
-	CurrentCommittee 		//current running committee
-	NextCommittee			//next committee
+	CurrentCommittee //current running committee
+	NextCommittee    //next committee
 
 )
 const (
 	BlockRewordSpace = 12
 	sendNodeTime     = 30
-	FetchBlockTime   =5
+	FetchBlockTime   = 5
 
-	CryNodeInfoSize  =20
-	ChainHeadSize =3
+	CryNodeInfoSize  = 20
+	ChainHeadSize    = 3
 	electionChanSize = 2
 
-	singleNode ="single"
+	singleNode = "single"
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -59,8 +59,8 @@ var testCommittee = []*types.CommitteeNode{
 	{
 		IP:        "192.168.46.19",
 		Port:      10080,
-		Coinbase:  common.HexToAddress("7a9c020ed8a621435546da01c544be50efef6b852b0fec4f50489b539f845938"),
-		Publickey: common.Hex2Bytes("041dece78c15b3ee2fe035e226b7e6384985adccbde3a9bc26ea7737beb93389ed01b75848c1b4fd276d291c04d523eb616a573809647377bb4ff398284a983ccc"),
+		Coinbase:  common.HexToAddress("831151b7eb8e650dc442cd623fbc6ae20279df85"),
+		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
 	},
 
 	{
@@ -93,10 +93,10 @@ type PbftAgent struct {
 	server   types.PbftServerProxy
 	election *Election
 
-	mu         		*sync.Mutex //generateBlock mutex
-	committeeMu 	*sync.Mutex //committee mutex
-	currentMu   	*sync.Mutex //tx mutex
-	cacheBlockMu    *sync.Mutex
+	mu           *sync.Mutex //generateBlock mutex
+	committeeMu  *sync.Mutex //committee mutex
+	currentMu    *sync.Mutex //tx mutex
+	cacheBlockMu *sync.Mutex
 
 	mux *event.TypeMux
 
@@ -110,16 +110,16 @@ type PbftAgent struct {
 	CryNodeInfoCh chan *CryNodeInfo
 	ChainHeadCh   chan core.ChainHeadEvent
 
-	electionSub     event.Subscription
-	committeeSub    event.Subscription
-	PbftNodeSub     *event.TypeMuxSubscription
+	electionSub       event.Subscription
+	committeeSub      event.Subscription
+	PbftNodeSub       *event.TypeMuxSubscription
 	ChainHeadAgentSub event.Subscription
 
-	CommitteeNode   *types.CommitteeNode
-	PrivateKey      *ecdsa.PrivateKey
+	CommitteeNode *types.CommitteeNode
+	PrivateKey    *ecdsa.PrivateKey
 
-	cacheSign       []Sign	//prevent receive same sign
-	cacheBlock      map[*big.Int]*types.Block	//prevent receive same block
+	cacheSign  []Sign                    //prevent receive same sign
+	cacheBlock map[*big.Int]*types.Block //prevent receive same block
 }
 
 type AgentWork struct {
@@ -266,8 +266,8 @@ func (self *PbftAgent) loop() {
 				self.SetCommitteeInfo(nil, CurrentCommittee)
 				self.committeeMu.Unlock()
 				self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
-			}else{
-				log.Info("unknown Electionch:",ch.Option)
+			} else {
+				log.Info("unknown Electionch:", ch.Option)
 			}
 		case ch := <-self.CommitteeCh:
 			log.Info("CommitteeCh...")
@@ -313,6 +313,7 @@ func (self *PbftAgent) loop() {
 		}
 	}
 }
+
 // put cacheBlock into fastchain
 func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 	var fastBlocks []*types.Block
@@ -327,7 +328,7 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 		}
 	}
 	//insertBlock
-	for _,fb := range fastBlocks{
+	for _, fb := range fastBlocks {
 		_, err := self.fastChain.InsertChain([]*types.Block{fb})
 		if err != nil {
 			return err
@@ -339,18 +340,18 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-		if voteSign ==nil{
+		if voteSign == nil {
 			fmt.Println("AddCacheIntoChain voteSign nil")
 		}
-		if fb ==nil{
+		if fb == nil {
 			fmt.Println("AddCacheIntoChain fb nil")
 		}
 		fmt.Println("AddCacheIntoChain")
 		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
-		go self.signFeed.Send(core.PbftSignEvent{Block:fb,PbftSign: voteSign})
+		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
 
 	}
-	return  nil
+	return nil
 }
 
 //committeeNode braodcat:if parentBlock is not in fastChain,put block  into cacheblock
@@ -377,15 +378,15 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 			log.Info("sign error")
 		}
 
-		if voteSign ==nil{
+		if voteSign == nil {
 			fmt.Println("OperateCommitteeBlock voteSign nil")
 		}
-		if receiveBlock ==nil{
+		if receiveBlock == nil {
 			fmt.Println("OperateCommitteeBlock receiveBlock nil")
 		}
 		fmt.Println("OperateCommitteeBlock")
 		//braodcast sign and block
-		self.signFeed.Send(core.PbftSignEvent{Block:receiveBlock,PbftSign: voteSign})
+		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
@@ -395,7 +396,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 }
 
 func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
-	if self.NextCommitteeInfo!=nil && len(self.NextCommitteeInfo.Members) == 0 {
+	if self.NextCommitteeInfo != nil && len(self.NextCommitteeInfo.Members) == 0 {
 		log.Error("NextCommitteeInfo.Members is nil ...")
 		return false
 	}
@@ -570,10 +571,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil{
+	if voteSign == nil {
 		fmt.Println("leader sign nil ")
 	}
-	fmt.Println("leader sign:",voteSign)
+	fmt.Println("leader sign:", voteSign)
 	fastBlock.AppendSign(voteSign)
 
 	return fastBlock, nil
@@ -605,10 +606,10 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil{
+	if voteSign == nil {
 		fmt.Println("leader sign nil ")
 	}
-	fmt.Println("leader sign:",voteSign)
+	fmt.Println("leader sign:", voteSign)
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 	return err
@@ -866,15 +867,15 @@ func GetSignHash(sign *types.PbftSign) []byte {
 
 // verify sign of node is in committee
 func (self *PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool, string) {
-	if self.CommitteeInfo ==nil || len(self.CommitteeInfo.Members) == 0 {
+	if self.CommitteeInfo == nil || len(self.CommitteeInfo.Members) == 0 {
 		log.Error("CommitteeInfo.Members is nil ...")
 	}
 
 	for _, sign := range signs {
-		if sign == nil{
+		if sign == nil {
 			fmt.Println("cnm")
 		}
-		fmt.Println("sign:",sign)
+		fmt.Println("sign:", sign)
 		pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
 		if err != nil {
 			log.Error("SigToPub error.")
@@ -965,70 +966,70 @@ func (self *PbftAgent) AcquireCommitteeAuth(height *big.Int) bool {
 	return false
 }
 
-func (agent *PbftAgent) SendBlock()  {
-	for{
+func (agent *PbftAgent) SendBlock() {
+	for {
 		//获取区块
-		block,err := agent.FetchFastBlock()
-		if err != nil{
+		block, err := agent.FetchFastBlock()
+		if err != nil {
 			panic(err)
 		}
 		time.Sleep(time.Second * 2)
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 		time.Sleep(time.Second * 2)
 		//验证区块
-		err =agent.VerifyFastBlock(block)
-		if err != nil{
+		err = agent.VerifyFastBlock(block)
+		if err != nil {
 			panic(err)
 		}
 		fmt.Println("validate true")
 		time.Sleep(time.Second * 3)
 
 		err = agent.BroadcastConsensus(block)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 	}
 }
 
-func (agent *PbftAgent) StartSingleNode()  {
-	for{
+func (agent *PbftAgent) StartSingleNode() {
+	for {
 		//获取区块
-		t1 :=time.Now()
+		t1 := time.Now()
 		var block *types.Block
-		var err  error
+		var err error
 		for {
-			block,err =agent.FetchFastBlock()
-			if err !=nil{
+			block, err = agent.FetchFastBlock()
+			if err != nil {
 				return
 			}
-			sub :=time.Now().Sub(t1)
-			if  len(block.Transactions())==0 && sub <time.Second*FetchBlockTime*60{
-				time.Sleep(time.Second*FetchBlockTime)
-			}else{
+			sub := time.Now().Sub(t1)
+			if len(block.Transactions()) == 0 && sub < time.Second*FetchBlockTime*60 {
+				time.Sleep(time.Second * FetchBlockTime)
+			} else {
 				break
 			}
 		}
 		time.Sleep(time.Second * 1)
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 		time.Sleep(time.Second * 1)
 		//验证区块
-		err =agent.VerifyFastBlock(block)
-		if err != nil{
+		err = agent.VerifyFastBlock(block)
+		if err != nil {
 			panic(err)
 		}
 		fmt.Println("validate true")
 		time.Sleep(time.Second * 2)
 
 		err = agent.BroadcastConsensus(block)
-		if err != nil{
+		if err != nil {
 			panic(err)
 		}
 	}
