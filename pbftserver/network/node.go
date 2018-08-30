@@ -318,18 +318,30 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 func (node *Node) processCommitWaitMessage() {
 	for {
 		for k, v := range node.CommitWaitMsg {
+			PSLog("CommitWaitMsg in")
 			state := node.GetStatus(v.Height)
 			if state == nil {
 				return
 			}
 
 			if state.CurrentStage == consensus.Committed {
+				for _, msg := range state.MsgLogs.CommitMsgs {
+					msgSend := &consensus.VoteMsg{
+						NodeID:     node.NodeID,
+						ViewID:     state.ViewID,
+						SequenceID: msg.SequenceID,
+						Digest:     msg.Digest,
+						MsgType:    consensus.CommitMsg,
+						Height:     msg.Height,
+					}
+					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
+				}
 				delete(node.CommitWaitMsg, k)
 				return
 			}
 
 			res := node.Verify.CheckMsg(state.MsgLogs.ReqMsg)
-
+			PSLog("CommitWaitMsg res", res)
 			if res != nil && res != types.ErrHeightNotYet {
 				var result uint = 0
 				if res != nil {
@@ -343,7 +355,7 @@ func (node *Node) processCommitWaitMessage() {
 				delete(node.CommitWaitMsg, k)
 			}
 		}
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 1)
 	}
 }
 
@@ -549,7 +561,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						ViewID:     state.ViewID,
 						SequenceID: msg.SequenceID,
 						Digest:     msg.Digest,
-						MsgType:    consensus.PrepareMsg,
+						MsgType:    consensus.CommitMsg,
 						Height:     msg.Height,
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
@@ -573,7 +585,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						ViewID:     state.ViewID,
 						SequenceID: msg.SequenceID,
 						Digest:     msg.Digest,
-						MsgType:    consensus.PrepareMsg,
+						MsgType:    consensus.CommitMsg,
 						Height:     msg.Height,
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
