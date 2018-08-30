@@ -512,6 +512,7 @@ func (self *worker) commitNewWork() {
 		Extra:       self.extra,
 		Time:        big.NewInt(tstamp),
 	}
+
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
@@ -569,6 +570,14 @@ func (self *worker) commitNewWork() {
 		work.commitFruits(fruits, self.snailchain, self.coinbase)
 	}
 	
+	// set work block
+	work.Block = types.NewSnailBlock(
+		self.current.header,
+		self.current.fruits,
+		self.current.signs,
+		nil, 
+	)
+
 	// compute uncles for the new block.
 	var (
 		uncles    []*types.SnailHeader

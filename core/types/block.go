@@ -703,6 +703,7 @@ func (b *SnailBlock) Number() *big.Int { return new(big.Int).Set(b.header.Number
 func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey, error) {
 	return crypto.UnmarshalPubkey(b.header.Publickey)
 }
+func (b *SnailBlock) PublicKey() []byte {return b.header.Publickey}
 func (b *SnailBlock) Difficulty() *big.Int     { return new(big.Int).Set(b.header.Difficulty) }
 func (b *SnailBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
 func (b *SnailBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
@@ -747,11 +748,20 @@ func (b *SnailBlock) Size() common.StorageSize {
 // the sealed one.
 func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 	cpy := *header
-	return &SnailBlock{
-		header: &cpy,
-		fruits: b.fruits,
-		signs:  b.signs,
+	if cpy.Fruit {
+		return &SnailBlock{
+			header: &cpy,
+			fruits: nil,
+			signs:  b.signs,
+		}
+	}else{
+		return &SnailBlock{
+			header: &cpy,
+			fruits: b.fruits,
+			signs:  nil,
+		}
 	}
+	
 }
 
 // WithBody returns a new snailblock with the given transaction and uncle contents.
