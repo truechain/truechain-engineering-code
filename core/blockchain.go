@@ -261,9 +261,11 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	// Restore the last known currentReward
 
-	currentReward := bc.GetLastRow()
-	if currentReward !=nil{
-		bc.currentReward.Store(currentReward)
+	rewardHead := rawdb.ReadHeadRewardNumber(bc.db)
+	if rewardHead != -1 {
+		rawdb.ReadBlockReward(bc.db,rewardHead)
+		reward := bc.GetFastHeightBySnailHeight(rewardHead)
+		bc.currentReward.Store(reward)
 	}
 
 	// Issue a status log for the user
@@ -294,7 +296,7 @@ func (bc *BlockChain)  GetLastRow() *types.BlockReward {
 		if sBlock == nil{
 			continue
 		}
-		reward := bc.GetFastHeightBySnailHeight(sBlock.Hash(),sBlock.NumberU64())
+		reward := bc.GetFastHeightBySnailHeight(sBlock.NumberU64())
 		if reward != nil {
 			return reward
 		}
@@ -529,15 +531,11 @@ func (bc *BlockChain) insert(block *types.Block) {
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(bc.db, block.Hash())
 
-	bc.currentBlock.Store(block)
-
-
 
 	// If the block is better than our head or is on a different chain, force update heads
 	if updateHeads {
 		bc.hc.SetCurrentHeader(block.Header())
 		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
-
 		bc.currentFastBlock.Store(block)
 	}
 }
@@ -965,10 +963,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			SnailHash:block.SnailHash(),
 			SnailNumber:block.SnailNumber(),
 		}
-
 		//insert BlockReward to db
 		rawdb.WriteBlockReward(batch,br)
-		bc.currentReward.Store(br)
+		rawdb.WriteHeadRewardNumber(bc.db,block.SnailNumber().Uint64())
 	}
 
 
@@ -1710,36 +1707,14 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetSnailHeightByFastHeight(hash common.Hash, number uint64) *types.BlockReward{
+func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward{
 
 
 	if signs, ok := bc.rewardCache.Get(number); ok {
-
 		sign := signs.(*types.BlockReward)
 		return sign
 	}
-
-	signs := rawdb.ReadBlockReward(bc.db,hash,number)
-
-	if signs == nil {
-		return nil
-	}
-	// Cache the found sign for next time and return
-	bc.signCache.Add(number, signs)
-	return signs
-}
-
-
-func (bc *BlockChain) GetFastHeightBySnailHeight(hash common.Hash, number uint64) *types.BlockReward{
-
-
-	if signs, ok := bc.rewardCache.Get(number); ok {
-
-		sign := signs.(*types.BlockReward)
-		return sign
-	}
-
-	signs := rawdb.ReadBlockReward(bc.db,hash,number)
+	signs := rawdb.ReadBlockReward(bc.db,number)
 
 	if signs == nil {
 		return nil
