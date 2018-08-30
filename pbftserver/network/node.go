@@ -339,6 +339,12 @@ func (node *Node) processCommitWaitMessage() {
 						Height:     msg.Height,
 						Pass:       state.BlockResults,
 					}
+
+					if msgSend.Pass == nil {
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						state.BlockResults = msgSend.Pass
+					}
+
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
 				delete(node.CommitWaitMsg, k)
@@ -353,6 +359,9 @@ func (node *Node) processCommitWaitMessage() {
 					result = 1
 				}
 				v.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, result)
+
+				state.BlockResults = v.Pass
+
 				LogStage("Prepare", true)
 				node.Broadcast(v, "/commit")
 				LogStage("Commit", false)
