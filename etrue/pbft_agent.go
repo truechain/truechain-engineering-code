@@ -367,6 +367,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 		//TODO isNeed find height+1
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
+		fmt.Println("receiveBlockNumber:",receiveBlock.Number())
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
 		if err != nil {
@@ -519,13 +520,16 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 
 	num := parent.Number()
+	fmt.Println("parentNum:",num)
+	fmt.Println("currentNumber:",self.fastChain.CurrentHeader().Number)
+
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-	fmt.Println("num:",num)
+	fmt.Println("HeaderNum:",num)
 	fmt.Println("common.Big1:",common.Big1)
 
 	if err := self.engine.PrepareFast(self.fastChain, header); err != nil {
