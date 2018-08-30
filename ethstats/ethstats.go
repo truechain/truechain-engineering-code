@@ -70,7 +70,7 @@ type blockChain interface {
 // chain statistics up to a monitoring server.
 type Service struct {
 	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
-	eth    *etrue.Truechain   // Full Truechain service if monitoring a full node
+	etrue    *etrue.Truechain   // Full Truechain service if monitoring a full node
 	les    *les.LightEthereum // Light Truechain service if monitoring a light node
 	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
 
@@ -98,7 +98,7 @@ func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEthereum) (*Ser
 		engine = lesServ.Engine()
 	}
 	return &Service{
-		eth:    ethServ,
+		etrue:    ethServ,
 		les:    lesServ,
 		engine: engine,
 		node:   parts[1],
@@ -138,9 +138,9 @@ func (s *Service) loop() {
 	// Subscribe to chain events to execute updates on
 	var blockchain blockChain
 	var txpool txPool
-	if s.eth != nil {
-		blockchain = s.eth.BlockChain()
-		txpool = s.eth.TxPool()
+	if s.etrue != nil {
+		blockchain = s.etrue.BlockChain()
+		txpool = s.etrue.TxPool()
 	} else {
 		blockchain = s.les.BlockChain()
 		txpool = s.les.TxPool()
@@ -373,9 +373,9 @@ func (s *Service) login(conn *websocket.Conn) error {
 	infos := s.server.NodeInfo()
 
 	var network, protocol string
-	if info := infos.Protocols["eth"]; info != nil {
+	if info := infos.Protocols["etrue"]; info != nil {
 		network = fmt.Sprintf("%d", info.(*etrue.NodeInfo).Network)
-		protocol = fmt.Sprintf("eth/%d", etrue.ProtocolVersions[0])
+		protocol = fmt.Sprintf("etrue/%d", etrue.ProtocolVersions[0])
 	} else {
 		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
 		protocol = fmt.Sprintf("les/%d", les.ClientProtocolVersions[0])
@@ -527,13 +527,13 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		txs    []txStats
 		uncles []*types.Header
 	)
-	if s.eth != nil {
+	if s.etrue != nil {
 		// Full nodes have all needed information available
 		if block == nil {
-			block = s.eth.BlockChain().CurrentBlock()
+			block = s.etrue.BlockChain().CurrentBlock()
 		}
 		header = block.Header()
-		td = s.eth.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
+		td = s.etrue.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 
 		txs = make([]txStats, len(block.Transactions()))
 		for i, tx := range block.Transactions() {
@@ -581,8 +581,8 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 	} else {
 		// No indexes requested, send back the top ones
 		var head int64
-		if s.eth != nil {
-			head = s.eth.BlockChain().CurrentHeader().Number.Int64()
+		if s.etrue != nil {
+			head = s.etrue.BlockChain().CurrentHeader().Number.Int64()
 		} else {
 			head = s.les.BlockChain().CurrentHeader().Number.Int64()
 		}
@@ -599,8 +599,8 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 	for i, number := range indexes {
 		// Retrieve the next block if it's known to us
 		var block *types.Block
-		if s.eth != nil {
-			block = s.eth.BlockChain().GetBlockByNumber(number)
+		if s.etrue != nil {
+			block = s.etrue.BlockChain().GetBlockByNumber(number)
 		} else {
 			if header := s.les.BlockChain().GetHeaderByNumber(number); header != nil {
 				block = types.NewBlockWithHeader(header)
@@ -641,8 +641,8 @@ type pendStats struct {
 func (s *Service) reportPending(conn *websocket.Conn) error {
 	// Retrieve the pending count from the local blockchain
 	var pending int
-	if s.eth != nil {
-		pending, _ = s.eth.TxPool().Stats()
+	if s.etrue != nil {
+		pending, _ = s.etrue.TxPool().Stats()
 	} else {
 		pending = s.les.TxPool().Stats()
 	}
@@ -682,14 +682,14 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		syncing  bool
 		gasprice int
 	)
-	if s.eth != nil {
-		mining = s.eth.Miner().Mining()
-		hashrate = int(s.eth.Miner().HashRate())
+	if s.etrue != nil {
+		mining = s.etrue.Miner().Mining()
+		hashrate = int(s.etrue.Miner().HashRate())
 
-		sync := s.eth.Downloader().Progress()
-		syncing = s.eth.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
+		sync := s.etrue.Downloader().Progress()
+		syncing = s.etrue.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
 
-		price, _ := s.eth.APIBackend.SuggestPrice(context.Background())
+		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
 	} else {
 		sync := s.les.Downloader().Progress()
