@@ -358,17 +358,17 @@ func doArchive(cmdline []string) {
 	var (
 		env      = build.Env()
 		base     = archiveBasename(*arch, env)
-		geth     = "getrue-" + base + ext
+		getrue   = "getrue-" + base + ext
 		alltools = "getrue-alltools-" + base + ext
 	)
 	maybeSkipArchive(env)
-	if err := build.WriteArchive(geth, gethArchiveFiles); err != nil {
+	if err := build.WriteArchive(getrue, gethArchiveFiles); err != nil {
 		log.Fatal(err)
 	}
 	if err := build.WriteArchive(alltools, allToolsArchiveFiles); err != nil {
 		log.Fatal(err)
 	}
-	for _, archive := range []string{geth, alltools} {
+	for _, archive := range []string{getrue, alltools} {
 		if err := archiveUpload(archive, *upload, *signer); err != nil {
 			log.Fatal(err)
 		}
@@ -662,7 +662,7 @@ func doWindowsInstaller(cmdline []string) {
 	// first section contains the getrue binary, second section holds the dev tools.
 	templateData := map[string]interface{}{
 		"License":  "COPYING",
-		"Geth":     gethTool,
+		"Getrue":   gethTool,
 		"DevTools": devTools,
 	}
 	build.Render("build/nsis.getrue.nsi", filepath.Join(*workdir, "getrue.nsi"), 0644, nil)
@@ -870,8 +870,8 @@ func doXCodeFramework(cmdline []string) {
 	// Prepare and upload a PodSpec to CocoaPods
 	if *deploy != "" {
 		meta := newPodMetadata(env, archive)
-		build.Render("build/pod.podspec", "Geth.podspec", 0755, meta)
-		build.MustRunCommand("pod", *deploy, "push", "Geth.podspec", "--allow-warnings", "--verbose")
+		build.Render("build/pod.podspec", "Getrue.podspec", 0755, meta)
+		build.MustRunCommand("pod", *deploy, "push", "Getrue.podspec", "--allow-warnings", "--verbose")
 	}
 }
 

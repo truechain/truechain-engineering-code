@@ -1,6 +1,6 @@
 ## Go Ethereum Dashboard
 
-The dashboard is a data visualizer integrated into geth, intended to collect and visualize useful information of an Ethereum node. It consists of two parts:
+The dashboard is a data visualizer integrated into getrue, intended to collect and visualize useful information of an Ethereum node. It consists of two parts:
 
 * The client visualizes the collected data.
 * The server collects the data, and updates the clients.
@@ -15,14 +15,14 @@ As the dashboard depends on certain NPM packages (which are not included in the 
 $ (cd dashboard/assets && yarn install && yarn flow)
 ```
 
-Normally the dashboard assets are bundled into Geth via `go-bindata` to avoid external dependencies. Rebuilding Geth after each UI modification however is not feasible from a developer perspective. Instead, we can run `yarn dev` to watch for file system changes and refresh the browser automatically.
+Normally the dashboard assets are bundled into Getrue via `go-bindata` to avoid external dependencies. Rebuilding Getrue after each UI modification however is not feasible from a developer perspective. Instead, we can run `yarn dev` to watch for file system changes and refresh the browser automatically.
 
 ```
-$ geth --dashboard --vmodule=dashboard=5
+$ getrue --dashboard --vmodule=dashboard=5
 $ (cd dashboard/assets && yarn dev)
 ```
 
-To bundle up the final UI into Geth, run `go generate`:
+To bundle up the final UI into Getrue, run `go generate`:
 
 ```
 $ (cd dashboard && go generate)
