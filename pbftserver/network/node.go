@@ -30,6 +30,7 @@ type Node struct {
 	ID            *big.Int
 	lock          sync.Mutex
 	Count         int64
+	Count2        int64
 }
 
 type MsgBuffer struct {
@@ -46,7 +47,7 @@ type View struct {
 
 const (
 	ResolvingTimeDuration = time.Second // 1 second.
-	StateMax              = 1000        //max size for status
+	StateMax              = 10000       //max size for status
 )
 
 func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
@@ -302,19 +303,22 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
 		if res != nil && res == types.ErrHeightNotYet {
-			PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error())
-			node.CommitWaitMsg[commitMsg.Height] = commitMsg
+			PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
+			node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 		} else {
 			var result uint = 0
 			if res != nil {
 				result = 1
 			}
+
 			PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 
 			//save Pass
 			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 
+			// Change the stage to prepared.
+			node.GetStatus(commitMsg.Height).CurrentStage = consensus.Prepared
 			LogStage("Prepare", true)
 			node.Broadcast(commitMsg, "/commit")
 			LogStage("Commit", false)
@@ -325,14 +329,18 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 func (node *Node) processCommitWaitMessage() {
 	for {
+		node.Count2 += 1
+		var msgSend = make([]*consensus.VoteMsg, 0)
 		for k, v := range node.CommitWaitMsg {
 			PSLog("CommitWaitMsg in")
 			state := node.GetStatus(v.Height)
 			if state == nil {
-				return
+				continue
 			}
 
+			PSLog("CommitWaitMsg in2")
 			if state.CurrentStage == consensus.Committed {
+				PSLog("CommitWaitMsg committed")
 				for _, msg := range state.MsgLogs.CommitMsgs {
 					msgSend := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -343,7 +351,7 @@ func (node *Node) processCommitWaitMessage() {
 						Height:     msg.Height,
 						Pass:       state.BlockResults,
 					}
-
+					PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
 					if msgSend.Pass == nil {
 						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
 						state.BlockResults = msgSend.Pass
@@ -352,27 +360,32 @@ func (node *Node) processCommitWaitMessage() {
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
 				delete(node.CommitWaitMsg, k)
-				return
+				continue
 			}
 
-			res := node.Verify.CheckMsg(state.MsgLogs.ReqMsg)
-			PSLog("CommitWaitMsg res", res)
-			if res != nil && res != types.ErrHeightNotYet {
-				var result uint = 0
-				if res != nil {
-					result = 1
-				}
-				v.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, result)
+			//send back
+			msgSend = append(msgSend, v)
 
-				state.BlockResults = v.Pass
-
-				LogStage("Prepare", true)
-				node.Broadcast(v, "/commit")
-				LogStage("Commit", false)
-
-				delete(node.CommitWaitMsg, k)
-			}
+			//res := node.Verify.CheckMsg(state.MsgLogs.ReqMsg)
+			//PSLog("CommitWaitMsg res", res)
+			//if res != nil && res != types.ErrHeightNotYet {
+			//	var result uint = 0
+			//	if res != nil {
+			//		result = 1
+			//	}
+			//	v.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, result)
+			//
+			//	state.BlockResults = v.Pass
+			//	state.CurrentStage = consensus.Prepared
+			//
+			//	LogStage("Prepare", true)
+			//	node.Broadcast(v, "/commit")
+			//	LogStage("Commit", false)
+			//
+			//	delete(node.CommitWaitMsg, k)
+			//}
 		}
+		node.MsgDelivery <- msgSend
 		time.Sleep(time.Second * 1)
 	}
 }
