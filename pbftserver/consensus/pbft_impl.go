@@ -120,8 +120,8 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	// Print current voting status
 
 	if state.prepared(f) {
-		// Change the stage to prepared.
-		state.CurrentStage = Prepared
+		//// Change the stage to prepared.
+		//state.CurrentStage = Prepared
 
 		return &VoteMsg{
 			ViewID:     state.ViewID,
