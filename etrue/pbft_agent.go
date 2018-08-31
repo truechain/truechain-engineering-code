@@ -888,8 +888,14 @@ func GetSignHash(sign *types.PbftSign) []byte {
 func (self *PbftAgent) GetCommitteInfo(committeeType int64) int{
 	switch committeeType {
 		case CurrentCommittee:
+			if self.CommitteeInfo ==nil{
+				return 0
+			}
 			return len(self.CommitteeInfo.Members)
 		case NextCommittee:
+			if self.NextCommitteeInfo ==nil{
+				return 0
+			}
 			return len(self.NextCommitteeInfo.Members)
 		case PreCommittee:
 			if self.PreCommitteeInfo ==nil{
@@ -904,14 +910,6 @@ func (self *PbftAgent) GetCommitteInfo(committeeType int64) int{
 
 // verify sign of node is in committee
 func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) {
-	if self.GetCommitteInfo(CurrentCommittee)== 0  {
-		log.Error("CurrentCommittee is nil ...")
-		return false,""
-	}
-	if self.GetCommitteInfo(PreCommittee)== 0  {
-		log.Error("PreCommittee is nil ...")
-		return false,""
-	}
 	if sign == nil {
 		fmt.Println("cnm")
 		return false, ""
@@ -922,10 +920,19 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) 
 		return false, ""
 	}
 	pubKeyBytes := crypto.FromECDSAPub(pubKey)
+	if self.GetCommitteInfo(CurrentCommittee)== 0  {
+		log.Error("CurrentCommittee is nil ...")
+		return false,""
+	}
 	for _, member := range self.CommitteeInfo.Members {
 		if bytes.Equal(pubKeyBytes, crypto.FromECDSAPub(member.Publickey)) {
 			return true, hex.EncodeToString(pubKeyBytes)
 		}
+	}
+
+	if self.GetCommitteInfo(PreCommittee)== 0  {
+		log.Error("PreCommittee is nil ...")
+		return false,""
 	}
 	for _, member := range self.PreCommitteeInfo.Members {
 		if bytes.Equal(pubKeyBytes, crypto.FromECDSAPub(member.Publickey)) {
