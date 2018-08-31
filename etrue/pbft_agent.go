@@ -34,6 +34,7 @@ const (
 	VoteAgree        = iota //vote agree
 	VoteAgreeAgainst        //vote against
 
+	PreCommittee
 	CurrentCommittee //current running committee
 	NextCommittee    //next committee
 
@@ -88,6 +89,7 @@ type PbftAgent struct {
 	signer     types.Signer
 	current    *AgentWork
 
+	PreCommitteeInfo     *types.CommitteeInfo
 	CommitteeInfo     *types.CommitteeInfo
 	NextCommitteeInfo *types.CommitteeInfo
 
@@ -263,6 +265,7 @@ func (self *PbftAgent) loop() {
 			} else if ch.Option == types.CommitteeStop {
 				log.Info("CommitteeStop..")
 				self.committeeMu.Lock()
+				self.SetCommitteeInfo(self.CommitteeInfo, PreCommittee)
 				self.SetCommitteeInfo(nil, CurrentCommittee)
 				self.committeeMu.Unlock()
 				self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
@@ -903,6 +906,11 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) 
 			return true, hex.EncodeToString(pubKeyBytes)
 		}
 	}
+	for _, member := range self.PreCommitteeInfo.Members {
+		if bytes.Equal(pubKeyBytes, crypto.FromECDSAPub(member.Publickey)) {
+			return true, hex.EncodeToString(pubKeyBytes)
+		}
+	}
 	return false, hex.EncodeToString(pubKeyBytes)
 }
 
@@ -938,14 +946,18 @@ func (self *PbftAgent) GetCommitteeNumber(height *big.Int) int32 {
 
 func (self *PbftAgent) SetCommitteeInfo(newCommitteeInfo *types.CommitteeInfo, CommitteeType int) error {
 	if newCommitteeInfo == nil {
+		log.Info("SetCommitteeInfo method newCommitteeInfo is nil.")
 		newCommitteeInfo = &types.CommitteeInfo{}
 	}
-	if CommitteeType == CurrentCommittee {
-		self.CommitteeInfo = newCommitteeInfo
-	} else if CommitteeType == NextCommittee {
+	switch CommitteeType {
+	case CurrentCommittee:
+		self.CommitteeInfo = 	newCommitteeInfo
+	case NextCommittee:
 		self.NextCommitteeInfo = newCommitteeInfo
-	} else {
-		return errors.New("CommitteeType is nil")
+	case PreCommittee:
+		self.PreCommitteeInfo = newCommitteeInfo
+	default:
+		return errors.New("CommitteeType is error ")
 	}
 	return nil
 }
