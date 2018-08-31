@@ -27,6 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"unsafe"
 )
 
 const (
@@ -118,7 +119,7 @@ type PbftAgent struct {
 	CommitteeNode *types.CommitteeNode
 	PrivateKey    *ecdsa.PrivateKey
 
-	cacheSign  []Sign                    //prevent receive same sign
+	cacheSign  map[string]Sign                    //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
 }
 
@@ -156,7 +157,7 @@ type EncryptCommitteeNode []byte
 type Sign []byte
 
 type CryNodeInfo struct {
-
+	createdAt time.Time
 	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
@@ -173,7 +174,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		CommitteeCh:   make(chan core.CommitteeEvent),
 		ElectionCh:    make(chan core.ElectionEvent, electionChanSize),
 		ChainHeadCh:   make(chan core.ChainHeadEvent, ChainHeadSize),
-		CryNodeInfoCh: make(chan *CryNodeInfo, CryNodeInfoSize),
+		CryNodeInfoCh: make(chan *CryNodeInfo ),
 		election:      election,
 		mu:            new(sync.Mutex),
 		committeeMu:   new(sync.Mutex),
@@ -261,9 +262,7 @@ func (self *PbftAgent) loop() {
 				}
 			} else if ch.Option == types.CommitteeStop {
 				log.Info("CommitteeStop..")
-				ticker.Stop()
 				self.committeeMu.Lock()
-				self.cacheSign = []Sign{}
 				self.SetCommitteeInfo(nil, CurrentCommittee)
 				self.committeeMu.Unlock()
 				self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
@@ -275,22 +274,24 @@ func (self *PbftAgent) loop() {
 			self.committeeMu.Lock()
 			self.SetCommitteeInfo(ch.CommitteeInfo, NextCommittee)
 			self.committeeMu.Unlock()
-			if self.IsCommitteeMember(ch.CommitteeInfo) {
-				self.server.PutCommittee(ch.CommitteeInfo)
+			ticker.Stop() //stop ticker send nodeInfo
+			self.cacheSign =make(map[string]Sign) //clear cacheSign map
+			committeeInfo :=ch.CommitteeInfo
+			if self.IsCommitteeMember(committeeInfo) {
+				self.server.PutCommittee(committeeInfo)
 				self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee)
 				go func() {
 					for {
 						select {
 						case <-ticker.C:
 							log.Info("ticker send CommitteeInfo...")
-							self.SendPbftNode(ch.CommitteeInfo)
+							self.SendPbftNode(committeeInfo)
 						}
 					}
 				}()
 			}
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
-			//transpond  cryNodeInfo
 			log.Info("receive nodeInfo.")
 			//if cryNodeInfo of  node in Committee
 			if self.cryNodeInfoInCommittee(*cryNodeInfo) {
@@ -299,9 +300,10 @@ func (self *PbftAgent) loop() {
 				fmt.Println("cryNodeInfo of  node not in Committee.")
 			}
 			// if  node  is in committee  and the sign is not received
-			if self.IsCommitteeMember(self.NextCommitteeInfo) && !self.cryNodeInfoInCachSign(cryNodeInfo.Sign) {
+			signString := BytesString(cryNodeInfo.Sign)
+			if self.IsCommitteeMember(self.NextCommitteeInfo) && bytes.Equal(self.cacheSign[signString],[]byte{}) {
 				log.Info("ReceivePbftNode method.")
-				self.cacheSign = append(self.cacheSign, cryNodeInfo.Sign)
+				self.cacheSign[signString] =cryNodeInfo.Sign
 				self.ReceivePbftNode(cryNodeInfo)
 			}
 		case ch := <-self.ChainHeadCh:
@@ -313,6 +315,11 @@ func (self *PbftAgent) loop() {
 			}
 		}
 	}
+}
+
+//convert []byte to string
+func BytesString(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 // put cacheBlock into fastchain
@@ -400,10 +407,16 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 }
 
 func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
-	if self.NextCommitteeInfo != nil && len(self.NextCommitteeInfo.Members) == 0 {
+	nextCommitteeInfo := self.NextCommitteeInfo
+	if  nextCommitteeInfo!= nil && len(nextCommitteeInfo.Members) == 0 {
 		log.Error("NextCommitteeInfo.Members is nil ...")
 		return false
 	}
+	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) !=0{
+		log.Error("CommitteeId not consistence  ...")
+		return false
+	}
+
 	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
 	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
@@ -411,7 +424,7 @@ func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
 		panic(err)
 		return false
 	}
-	for _, member := range self.NextCommitteeInfo.Members {
+	for _, member := range nextCommitteeInfo.Members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
 			return true
 		}
@@ -419,14 +432,6 @@ func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
 	return false
 }
 
-func (self *PbftAgent) cryNodeInfoInCachSign(sign Sign) bool {
-	for _, cachesign := range self.cacheSign {
-		if bytes.Equal(cachesign, sign) {
-			return true
-		}
-	}
-	return false
-}
 
 func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo {
 	log.Info("into SendPbftNode.")
@@ -436,6 +441,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 	}
 	cryNodeInfo := &CryNodeInfo{
 		CommitteeId: committeeInfo.Id,
+		createdAt:time.Now(),
 	}
 
 	nodeByte, _ := rlp.EncodeToBytes(pbftAgent.CommitteeNode)
@@ -878,28 +884,26 @@ func GetSignHash(sign *types.PbftSign) []byte {
 }
 
 // verify sign of node is in committee
-func (self *PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) (bool, string) {
+func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) {
 	if self.CommitteeInfo == nil || len(self.CommitteeInfo.Members) == 0 {
 		log.Error("CommitteeInfo.Members is nil ...")
 	}
-
-	for _, sign := range signs {
-		if sign == nil {
-			fmt.Println("cnm")
-		}
-		fmt.Println("sign:", sign)
-		pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
-		if err != nil {
-			log.Error("SigToPub error.")
-			return false, ""
-		}
-		for _, member := range self.CommitteeInfo.Members {
-			if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-				return true, hex.EncodeToString(crypto.FromECDSAPub(pubKey))
-			}
+	if sign == nil {
+		fmt.Println("cnm")
+		return false, ""
+	}
+	pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
+	if err != nil {
+		log.Error("SigToPub error.")
+		return false, ""
+	}
+	pubKeyBytes := crypto.FromECDSAPub(pubKey)
+	for _, member := range self.CommitteeInfo.Members {
+		if bytes.Equal(pubKeyBytes, crypto.FromECDSAPub(member.Publickey)) {
+			return true, hex.EncodeToString(pubKeyBytes)
 		}
 	}
-	return false, ""
+	return false, hex.EncodeToString(pubKeyBytes)
 }
 
 /*func (self * PbftAgent) VerifyCommitteeSign(signs []*types.PbftSign) bool{
