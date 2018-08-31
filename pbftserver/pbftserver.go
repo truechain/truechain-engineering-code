@@ -370,6 +370,9 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
+			if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
+				time.Sleep(time.Minute)
+			}
 			server.server.Start(ss.work)
 			// start to fetch
 			ac := &consensus.ActionIn{

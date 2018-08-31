@@ -28,7 +28,7 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-var ID = big.NewInt(1)
+var ID = big.NewInt(0)
 
 func getID() *big.Int {
 	ID = new(big.Int).Add(ID, big.NewInt(1))
@@ -42,9 +42,9 @@ func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
-	if rand.Intn(100) > 60 {
-		return types.ErrHeightNotYet
-	}
+	//if rand.Intn(100) > 30 {
+	//	return types.ErrHeightNotYet
+	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
 	return nil
 }
@@ -155,7 +155,7 @@ func TestPbftServerStart(t *testing.T) {
 
 	node4 := new(types.CommitteeNode)
 	node4.IP = "127.0.0.1"
-	node4.Port = 10014
+	node4.Port = 1001411
 	node4.Publickey = crypto.FromECDSAPub(m4.Publickey)
 
 	var nodes []*types.CommitteeNode
