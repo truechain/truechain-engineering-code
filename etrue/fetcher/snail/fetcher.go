@@ -200,7 +200,7 @@ func (f *Fetcher) loop() {
 						continue
 					}
 					if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
-						log.Debug("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
+						log.Warn("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 						f.done <- hash
 						break
 					}
@@ -222,7 +222,7 @@ func (f *Fetcher) loop() {
 			// A direct block insertion was requested, try and fill any pending gaps
 			propBroadcastInMeter.Mark(1)
 			f.enqueue(op.origin, op.block)
-
+			break
 		case hash := <-f.done:
 			// A pending import finished, remove all traces of the notification
 			f.forgetBlock(hash)
@@ -243,6 +243,7 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 		propBroadcastDOSMeter.Mark(1)
 		return
 	}
+	log.Info("number", block.Number())
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
 		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)

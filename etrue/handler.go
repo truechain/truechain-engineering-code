@@ -214,8 +214,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
-		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		atomic.StoreUint32(&manager.acceptFruits, 1) // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptTxs, 1)         // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptFruits, 1)      // Mark initial sync done on any fetcher import
 		atomic.StoreUint32(&manager.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
@@ -819,18 +819,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
 		//var snailBlocks []*types.SnailBlock
-		var snailBlock *types.SnailBlock
-		if err := msg.Decode(&snailBlock); err != nil {
+		var request newSnailBlockData
+		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		var snailBlock = request.Block
 		// for i, snailBlock := range snailBlocks {
 		// 	// Validate and mark the remote snailBlock
 		if snailBlock == nil {
 			return errResp(ErrDecode, "snailBlock  is nil")
 		}
+
 		p.MarkSnailBlock(snailBlock.Hash())
 		// }
-
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
 		// TODO: send snail block to snail blockchain
