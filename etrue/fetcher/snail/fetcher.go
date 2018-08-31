@@ -199,12 +199,13 @@ func (f *Fetcher) loop() {
 						f.forgetBlock(hash)
 						continue
 					}
+					f.verifyBlockBroadcast(peer, block, true)
 					if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
 						log.Warn("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 						f.done <- hash
 						break
 					}
-					f.verifyBlockBroadcast(peer, block)
+					f.verifyBlockBroadcast(peer, block, false)
 				}
 			}
 			if finished {
@@ -282,7 +283,7 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 	}
 }
 
-func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock) {
+func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock, propagate bool) {
 	hash := block.Hash()
 
 	// Run the import on a new thread
@@ -295,29 +296,31 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock) {
 			f.done <- hash
 			return
 		}
+		if propagate {
+			// Quickly validate the header and propagate the block if it passes
+			switch err := f.verifyHeader(block.Header()); err {
+			case nil:
+				// All ok, quickly propagate to our peers
+				propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
+				go f.broadcastFastBlock(block, propagate)
 
-		// Quickly validate the header and propagate the block if it passes
-		switch err := f.verifyHeader(block.Header()); err {
-		case nil:
-			// All ok, quickly propagate to our peers
-			propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
-			go f.broadcastFastBlock(block, true)
+			case consensus.ErrFutureBlock:
+				// Weird future block, don't fail, but neither propagate
 
-		case consensus.ErrFutureBlock:
-			// Weird future block, don't fail, but neither propagate
+			default:
+				// Something went very wrong, drop the peer
+				// log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
+				// f.done <- hash
+				return
+			}
+		} else {
+			// If import succeeded, broadcast the block
+			go f.broadcastFastBlock(block, propagate)
 
-		default:
-			// Something went very wrong, drop the peer
-			log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-			f.done <- hash
-			return
-		}
-		// If import succeeded, broadcast the block
-		go f.broadcastFastBlock(block, false)
-
-		// Invoke the testing hook if needed
-		if f.importedHook != nil {
-			f.importedHook(block)
+			// Invoke the testing hook if needed
+			if f.importedHook != nil {
+				f.importedHook(block)
+			}
 		}
 	}()
 }
