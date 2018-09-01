@@ -244,7 +244,6 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 		propBroadcastDOSMeter.Mark(1)
 		return
 	}
-	log.Info("number", block.Number())
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
 		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
