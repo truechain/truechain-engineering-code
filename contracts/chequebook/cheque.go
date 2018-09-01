@@ -29,7 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/swarm/services/swap/swap"
+	//"github.com/truechain/truechain-engineering-code/swarm/services/swap/swap"
 )
 
 // TODO(zelig): watch peer solvency and notify of bouncing cheques
@@ -395,7 +395,8 @@ func NewOutbox(chbook *Chequebook, beneficiary common.Address) *Outbox {
 }
 
 // Issue creates cheque.
-func (self *Outbox) Issue(amount *big.Int) (swap.Promise, error) {
+// TODO: remove swap.Promise
+func (self *Outbox) Issue(amount *big.Int) (*Cheque, error) {
 	return self.chequeBook.Issue(self.beneficiary, amount)
 }
 
@@ -531,8 +532,9 @@ func (self *Inbox) autoCash(cashInterval time.Duration) {
 
 // Receive is called to deposit the latest cheque to the incoming Inbox.
 // The given promise must be a *Cheque.
-func (self *Inbox) Receive(promise swap.Promise) (*big.Int, error) {
-	ch := promise.(*Cheque)
+// TODO: *Cheque instead of swap.Promise
+func (self *Inbox) Receive(promise *Cheque) (*big.Int, error) {
+	ch := promise
 
 	defer self.lock.Unlock()
 	self.lock.Lock()
