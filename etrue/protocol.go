@@ -36,9 +36,9 @@ const (
 )
 
 // ProtocolName is the official short name of the protocol used during capability negotiation.
-var ProtocolName = "eth"
+var ProtocolName = "etrue"
 
-// ProtocolVersions are the upported versions of the eth protocol (first is primary).
+// ProtocolVersions are the upported versions of the etrue protocol (first is primary).
 var ProtocolVersions = []uint{eth63, eth62}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
@@ -46,7 +46,7 @@ var ProtocolLengths = []uint64{17, 8}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
-// eth protocol message codes
+// etrue protocol message codes
 const (
 	// Protocol messages belonging to eth/62
 	StatusMsg              = 0x00

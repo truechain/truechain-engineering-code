@@ -118,6 +118,7 @@ func (ss *PbftServerMgr) getBlockLen() int {
 func (ss *PbftServerMgr) putBlock(h uint64, block *types.Block) {
 	ss.blockLock.Lock()
 	defer ss.blockLock.Unlock()
+	//TODO make size 1000
 	ss.blocks[h] = block
 }
 
@@ -178,7 +179,9 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("same height:" + fb.Number().String())
 	}
 
+	fmt.Println(len(ss.blocks))
 	sum := ss.getBlockLen()
+
 	if sum > 0 {
 		last := ss.getLastBlock()
 		if last != nil {
@@ -190,7 +193,9 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		}
 	}
 
+	fmt.Println(len(ss.blocks))
 	ss.putBlock(fb.NumberU64(), fb)
+	fmt.Println(len(ss.blocks))
 	data, err := rlp.EncodeToBytes(fb)
 	if err != nil {
 		return nil, err
@@ -248,7 +253,7 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	PSLog("[Agent]", "BroadcastConsensus", "start")
 	err := ss.Agent.BroadcastConsensus(block)
 	PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
-	ss.removeBlock(height)
+	//ss.removeBlock(height)
 	if err != nil {
 		return false
 	}
@@ -298,6 +303,8 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 					if server, ok := ss.servers[cid.Uint64()]; ok {
 						server.Height = big.NewInt(req.Height)
 						server.server.PutRequest(req)
+					} else {
+						fmt.Println(err.Error())
 					}
 				}
 			} else if ac.AC == consensus.ActionBroadcast {
@@ -363,6 +370,9 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
+			if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
+				time.Sleep(time.Minute)
+			}
 			server.server.Start(ss.work)
 			// start to fetch
 			ac := &consensus.ActionIn{

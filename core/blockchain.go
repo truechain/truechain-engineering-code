@@ -44,7 +44,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-)
+	)
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
@@ -138,7 +138,9 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config,sc *snailchain.SnailBlockChain) (*BlockChain, error) {
+func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
+	chainConfig *params.ChainConfig, engine consensus.Engine,
+	vmConfig vm.Config) (*BlockChain, error) {
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
@@ -170,7 +172,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
-		sc:			  sc,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -259,9 +260,11 @@ func (bc *BlockChain) loadLastState() error {
 	}
 	// Restore the last known currentReward
 
-	currentReward := bc.GetLastRow()
-	if currentReward !=nil{
-		bc.currentReward.Store(currentReward)
+	rewardHead := rawdb.ReadHeadRewardNumber(bc.db)
+	if rewardHead != 0 {
+		rawdb.ReadBlockReward(bc.db,rewardHead)
+		reward := bc.GetFastHeightBySnailHeight(rewardHead)
+		bc.currentReward.Store(reward)
 	}
 
 	// Issue a status log for the user
@@ -292,7 +295,7 @@ func (bc *BlockChain)  GetLastRow() *types.BlockReward {
 		if sBlock == nil{
 			continue
 		}
-		reward := bc.GetFastHeightBySnailHeight(sBlock.Hash(),sBlock.NumberU64())
+		reward := bc.GetFastHeightBySnailHeight(sBlock.NumberU64())
 		if reward != nil {
 			return reward
 		}
@@ -384,6 +387,9 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 }
 
 func (bc *BlockChain) CurrentReward() *types.BlockReward {
+	if bc.currentReward.Load() == nil {
+		return nil
+	}
 	return bc.currentReward.Load().(*types.BlockReward)
 }
 
@@ -523,10 +529,7 @@ func (bc *BlockChain) insert(block *types.Block) {
 	// Add the block to the canonical chain number scheme and mark as the head
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(bc.db, block.Hash())
-
 	bc.currentBlock.Store(block)
-
-
 
 	// If the block is better than our head or is on a different chain, force update heads
 	if updateHeads {
@@ -960,10 +963,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			SnailHash:block.SnailHash(),
 			SnailNumber:block.SnailNumber(),
 		}
-
 		//insert BlockReward to db
 		rawdb.WriteBlockReward(batch,br)
-		bc.currentReward.Store(br)
+		rawdb.WriteHeadRewardNumber(bc.db,block.SnailNumber().Uint64())
 	}
 
 
@@ -1705,36 +1707,14 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetSnailHeightByFastHeight(hash common.Hash, number uint64) *types.BlockReward{
+func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward{
 
 
 	if signs, ok := bc.rewardCache.Get(number); ok {
-
 		sign := signs.(*types.BlockReward)
 		return sign
 	}
-
-	signs := rawdb.ReadBlockReward(bc.db,hash,number)
-
-	if signs == nil {
-		return nil
-	}
-	// Cache the found sign for next time and return
-	bc.signCache.Add(number, signs)
-	return signs
-}
-
-
-func (bc *BlockChain) GetFastHeightBySnailHeight(hash common.Hash, number uint64) *types.BlockReward{
-
-
-	if signs, ok := bc.rewardCache.Get(number); ok {
-
-		sign := signs.(*types.BlockReward)
-		return sign
-	}
-
-	signs := rawdb.ReadBlockReward(bc.db,hash,number)
+	signs := rawdb.ReadBlockReward(bc.db,number)
 
 	if signs == nil {
 		return nil

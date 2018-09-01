@@ -1,6 +1,8 @@
 package consensus
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type PBFT interface {
 	StartConsensus(request *RequestMsg) (*PrePrepareMsg, error)
