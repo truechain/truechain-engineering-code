@@ -419,7 +419,7 @@ func (s *Truechain) StartMining(local bool) error {
 		// will ensure that private networks work in single miner mode too.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
 		atomic.StoreUint32(&s.protocolManager.acceptFruits, 1)
-		atomic.StoreUint32(&s.protocolManager.acceptSnailBlocks, 1)
+		//atomic.StoreUint32(&s.protocolManager.acceptSnailBlocks, 1)
 
 	}
 	go s.miner.Start(eb)

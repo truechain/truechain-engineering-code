@@ -74,7 +74,7 @@ type ProtocolManager struct {
 	fastSync          uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs         uint32 // Flag whether we're considered synchronised (enables transaction processing)
 	acceptFruits      uint32
-	acceptSnailBlocks uint32
+	//acceptSnailBlocks uint32
 	txpool            txPool
 	SnailPool         SnailPool
 	blockchain        *core.BlockChain
@@ -216,7 +216,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		}
 		atomic.StoreUint32(&manager.acceptTxs, 1)         // Mark initial sync done on any fetcher import
 		atomic.StoreUint32(&manager.acceptFruits, 1)      // Mark initial sync done on any fetcher import
-		atomic.StoreUint32(&manager.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
+		//atomic.StoreUint32(&manager.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
 
@@ -818,10 +818,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	//snailBlock structure
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
-		if atomic.LoadUint32(&pm.acceptSnailBlocks) == 0 {
-			break
-		}
-		// Transactions can be processed, parse all of them and deliver to the pool
 		//var snailBlocks []*types.SnailBlock
 		var request newSnailBlockData
 		if err := msg.Decode(&request); err != nil {
