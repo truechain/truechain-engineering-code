@@ -134,7 +134,9 @@ func (pm *ProtocolManager) txsyncLoop() {
 func (pm *ProtocolManager) syncer() {
 	// Start and ensure cleanup of sync mechanisms
 	pm.fetcherFast.Start()
+	pm.fetcherSnail.Start()
 	defer pm.fetcherFast.Stop()
+	defer pm.fetcherSnail.Stop()
 	defer pm.downloader.Terminate()
 
 	// Wait for different events to fire synchronisation operations
@@ -204,7 +206,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Info("Fast sync complete, auto disabling")
 		atomic.StoreUint32(&pm.fastSync, 0)
 	}
-	atomic.StoreUint32(&pm.acceptTxs, 1) // Mark initial sync done
+	atomic.StoreUint32(&pm.acceptTxs, 1)         // Mark initial sync done
+	atomic.StoreUint32(&pm.acceptFruits, 1)      // Mark initial sync done on any fetcher import
+	atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
 	if head := pm.blockchain.CurrentBlock(); head.NumberU64() > 0 {
 		// We've completed a sync cycle, notify all peers of new state. This path is
 		// essential in star-topology networks where a gateway node needs to notify

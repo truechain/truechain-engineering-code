@@ -418,6 +418,9 @@ func (s *Truechain) StartMining(local bool) error {
 		// so none will ever hit this path, whereas marking sync done on CPU mining
 		// will ensure that private networks work in single miner mode too.
 		atomic.StoreUint32(&s.protocolManager.acceptTxs, 1)
+		atomic.StoreUint32(&s.protocolManager.acceptFruits, 1)
+		atomic.StoreUint32(&s.protocolManager.acceptSnailBlocks, 1)
+
 	}
 	go s.miner.Start(eb)
 	return nil

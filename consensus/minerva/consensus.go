@@ -735,15 +735,18 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 
-	//if header.Fruit {
-	// TODO need know how to get fruits
-	if header.Number.Uint64() > 0 {
-		last := result[16:]
-		if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
+	if header.Fruit {
+		// TODO need know how to get fruits
+		if header.Number.Uint64() > 0 {
+			last := result[16:]
+			if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
+				// fmt.Printf("last is  %v", new(big.Int).SetBytes(last))
+				// fmt.Printf("fruitTarget is %v", fruitTarget)
+				return errInvalidPoW
+			}
+		} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
 			return errInvalidPoW
 		}
-	} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
-		return errInvalidPoW
 	}
 
 	return nil
