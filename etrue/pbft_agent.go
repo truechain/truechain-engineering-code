@@ -39,7 +39,7 @@ const (
 )
 const (
 	BlockRewordSpace = 12
-	sendNodeTime     = 30
+	sendNodeTime     = 5
 	FetchBlockTime   = 5
 
 	ChainHeadSize    = 3
@@ -309,7 +309,6 @@ func (self *PbftAgent) loop() {
 			// if  node  is in committee  and the sign is not received
 			signStr := hex.EncodeToString(cryNodeInfo.Sign)
 			if self.IsCommitteeMember(self.NextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr],[]byte{}) {
-				log.Info("ReceivePbftNode method.")
 				self.cacheSign[signStr] =cryNodeInfo.Sign
 				self.ReceivePbftNode(cryNodeInfo)
 			}
@@ -476,7 +475,7 @@ func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error {
 }
 
 func (self *PbftAgent) ReceivePbftNode(cryNodeInfo *CryNodeInfo) {
-	log.Info("ReceivePbftNode ...")
+	log.Info("into ReceivePbftNode ...")
 	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
 	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
