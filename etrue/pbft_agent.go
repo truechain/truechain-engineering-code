@@ -194,7 +194,6 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 
 	//TODO when IP or Port is nil
 	fmt.Println("config.SyncMode：",config.NodeType)
-	//fmt.Println(config.NodeType)
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
 		if config.Host != "" || config.Port != 0 {
 			self.CommitteeNode = &types.CommitteeNode{
@@ -337,6 +336,7 @@ func PrintCryptNode(node *CryNodeInfo) {
 
 // put cacheBlock into fastchain
 func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
+	fmt.Println("into AddCacheIntoChain.")
 	var fastBlocks []*types.Block
 	receiveBlockHeight := receiveBlock.Number()
 	self.cacheBlockMu.Lock()
@@ -361,13 +361,6 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-		if voteSign == nil {
-			fmt.Println("AddCacheIntoChain voteSign nil")
-		}
-		if fb == nil {
-			fmt.Println("AddCacheIntoChain fb nil")
-		}
-		fmt.Println("AddCacheIntoChain")
 		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
 		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
 
@@ -377,6 +370,7 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 
 //committeeNode braodcat:if parentBlock is not in fastChain,put block  into cacheblock
 func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
+	fmt.Println(" into OperateCommitteeBlock")
 	receiveBlockHeight := receiveBlock.Number()
 	//receivedBlock has been into fashchain
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
@@ -400,14 +394,6 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-
-		if voteSign == nil {
-			fmt.Println("OperateCommitteeBlock voteSign nil")
-		}
-		if receiveBlock == nil {
-			fmt.Println("OperateCommitteeBlock receiveBlock nil")
-		}
-		fmt.Println("OperateCommitteeBlock")
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
@@ -541,18 +527,12 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 
 	num := parent.Number()
-	fmt.Println("parentNum:",num)
-	fmt.Println("currentNumber_block:",self.fastChain.CurrentBlock().Number)
-	fmt.Println("currentNumber_header:",self.fastChain.CurrentHeader().Number)
-
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-	fmt.Println("HeaderNum:",num)
-	fmt.Println("common.Big1:",common.Big1)
 
 	if err := self.engine.PrepareFast(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
@@ -599,12 +579,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil {
-		fmt.Println("leader sign nil ")
-	}
-	fmt.Println("leader sign:", voteSign)
 	fastBlock.AppendSign(voteSign)
-
 	return fastBlock, nil
 }
 
@@ -631,10 +606,6 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil {
-		fmt.Println("leader sign nil ")
-	}
-	fmt.Println("leader sign:", voteSign)
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 	return err
@@ -644,9 +615,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	log.Info("into VerifyFastBlock.")
 	/*self.mu.Lock()
 	defer self.mu.Unlock()*/
-	fmt.Println("hash:", fb.Hash(), "number:", fb.Header().Number)
-	fmt.Println("parentHash:", fb.ParentHash())
-
+	fmt.Println("hash:", fb.Hash(), "number:", fb.Header().Number,"parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -916,7 +885,6 @@ func (self *PbftAgent) GetCommitteInfo(committeeType int64) int{
 // verify sign of node is in committee
 func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) {
 	if sign == nil {
-		fmt.Println("cnm")
 		return false, ""
 	}
 	pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
