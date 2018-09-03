@@ -36,14 +36,12 @@ const (
 	PreCommittee
 	CurrentCommittee //current running committee
 	NextCommittee    //next committee
-
 )
 const (
 	BlockRewordSpace = 12
 	sendNodeTime     = 30
 	FetchBlockTime   = 5
 
-	CryNodeInfoSize  = 20
 	ChainHeadSize    = 3
 	electionChanSize = 2
 
@@ -97,8 +95,7 @@ type PbftAgent struct {
 
 	mu           *sync.Mutex //generateBlock mutex
 	committeeMu  *sync.Mutex //committee mutex
-	currentMu    *sync.Mutex //tx mutex
-	cacheBlockMu *sync.Mutex
+	cacheBlockMu *sync.Mutex	//PbftAgent.cacheBlock mutex
 
 	mux *event.TypeMux
 
@@ -182,7 +179,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		mux:		   new(event.TypeMux),
 		mu:            new(sync.Mutex),
 		committeeMu:   new(sync.Mutex),
-		currentMu:     new(sync.Mutex),
 		cacheBlockMu:  new(sync.Mutex),
 		cacheBlock:    make(map[*big.Int]*types.Block),
 	}
@@ -289,7 +285,7 @@ func (self *PbftAgent) loop() {
 			receivedCommitteeInfo :=ch.CommitteeInfo //received committeeInfo
 			if self.IsCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
-				self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
+				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
 				go func() {
 					for {
 						select {
@@ -302,7 +298,7 @@ func (self *PbftAgent) loop() {
 			}
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
-			log.Info("receive nodeInfo.",)
+			log.Info("receive nodeInfo.")
 			PrintCryptNode(cryNodeInfo)
 			//if cryNodeInfo of  node in Committee
 			if self.cryNodeInfoInCommittee(*cryNodeInfo) {
@@ -389,7 +385,6 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 	//self.fastChain.CurrentBlock()
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
 	if parent != nil {
-		//TODO isNeed find height+1
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
 		fmt.Println("receiveBlockNumber:",receiveBlock.Number())
@@ -822,7 +817,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		}
 	}
 
-	/*if len(coalescedLogs) > 0 || env.tcount > 0 {
+	if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can
 		// cause a race condition if a log was "upgraded" before the PendingLogsEvent is processed.
@@ -836,10 +831,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 				mux.Post(core.PendingLogsEvent{Logs: logs})
 			}
 			if tcount > 0 {
-				mux.Post(core.PendingStateEvent{})//TODO
+				mux.Post(core.PendingStateEvent{})
 			}
 		}(cpy, env.tcount)
-	}*/
+	}
 }
 
 func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (error, []*types.Log) {
@@ -898,17 +893,17 @@ func GetSignHash(sign *types.PbftSign) []byte {
 func (self *PbftAgent) GetCommitteInfo(committeeType int64) int{
 	switch committeeType {
 		case CurrentCommittee:
-			if self.CommitteeInfo ==nil{
+			if self.CommitteeInfo == nil{
 				return 0
 			}
 			return len(self.CommitteeInfo.Members)
 		case NextCommittee:
-			if self.NextCommitteeInfo ==nil{
+			if self.NextCommitteeInfo == nil{
 				return 0
 			}
 			return len(self.NextCommitteeInfo.Members)
 		case PreCommittee:
-			if self.PreCommitteeInfo ==nil{
+			if self.PreCommitteeInfo == nil{
 				return 0
 			}
 			return len(self.PreCommitteeInfo.Members)
