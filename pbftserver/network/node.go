@@ -48,7 +48,7 @@ type View struct {
 
 const (
 	ResolvingTimeDuration = time.Second // 1 second.
-	StateMax              = 10000       //max size for status
+	StateMax              = 1000        //max size for status
 )
 
 func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
@@ -115,6 +115,10 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 			continue
 		}
 
+		if url == ":0" {
+			continue
+		}
+
 		jsonMsg, err := json.Marshal(msg)
 		if err != nil {
 			errorMap[nodeID] = err
@@ -138,6 +142,10 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 			continue
 		}
 
+		if url == ":0" {
+			continue
+		}
+
 		jsonMsg, err := json.Marshal(msg)
 		if err != nil {
 			break
@@ -149,7 +157,7 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 }
 
 func (node *Node) ClearStatus(height int64) {
-	dHeight := height - 50
+	dHeight := height - 500
 	if dHeight < 0 {
 		dHeight += 1000
 	}
