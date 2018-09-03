@@ -319,7 +319,7 @@ func (e *Election) GetByCommitteeId(id *big.Int) []*ecdsa.PublicKey {
 
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
-	var fruitsCount map[common.Address]uint
+	var fruitsCount map[common.Address]uint = make(map[common.Address]uint)
 	var members []*candidateMember
 
 	var seed []byte
@@ -343,6 +343,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 				addr := crypto.PubkeyToAddress(*pubkey)
 
 				act, diff := e.engine.GetDifficulty(f.Header())
+
 				member := &candidateMember{
 					coinbase: f.Coinbase(),
 					publickey: pubkey,
@@ -358,6 +359,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 				}
 			}
 		}
+		blockNumber = new(big.Int).Add(blockNumber, big.NewInt(1))
 	}
 
 	// remove miner whose fruits count below threshold
@@ -367,7 +369,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 		}
 	}
 	var candidates []*candidateMember
-	var td *big.Int
+	td := big.NewInt(0)
 	for _, member := range members {
 		if _, ok := fruitsCount[member.address]; ok {
 
