@@ -18,6 +18,7 @@ package minerva
 
 import (
 	crand "crypto/rand"
+	"github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"math/big"
 	"math/rand"
@@ -276,11 +277,16 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		header          = block.Header()
 		hash            = header.HashNoNonce().Bytes()
 		target          = new(big.Int).Div(maxUint256, header.Difficulty)
-		fruitDifficulty = new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-		fruitTarget     = new(big.Int).Div(maxUint128, fruitDifficulty)
+
 		number          = header.Number.Uint64()
 		dataset         = m.dataset(number)
 	)
+	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+
+	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
+		fruitDifficulty.Set(params.MinimumFruitDifficulty)
+	}
+	fruitTarget     := new(big.Int).Div(maxUint128, fruitDifficulty)
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
@@ -307,7 +313,6 @@ search:
 			// Compute the PoW value of this nonce
 			digest, result := hashimotoFull(dataset.dataset, hash, nonce)
 
-			
 			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
 				if block.Fruits() != nil{

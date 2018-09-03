@@ -766,6 +766,9 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 
 	target := new(big.Int).Div(maxUint256, header.Difficulty)
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
+		fruitDifficulty.Set(params.MinimumFruitDifficulty)
+	}
 	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 
 	if header.Fruit {
