@@ -7,6 +7,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
+	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"math/big"
 	"sync"
 	"time"
@@ -119,7 +120,7 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 			errorMap[nodeID] = err
 			continue
 		}
-		PSLog("Broadcast", url+path, string(jsonMsg))
+		lock.PSLog("Broadcast", url+path, string(jsonMsg))
 		go send(url+path, jsonMsg)
 
 	}
@@ -141,7 +142,7 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 		if err != nil {
 			break
 		}
-		PSLog("Broadcast One", url+path, string(jsonMsg))
+		lock.PSLog("Broadcast One", url+path, string(jsonMsg))
 		go send(url+path, jsonMsg)
 	}
 	return
@@ -191,7 +192,7 @@ func (node *Node) ReplyResult(msgHeight int64) {
 	go node.Finish.ConsensusFinish()
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
-	PSLog("node Reply", fmt.Sprintf("%+v", msg))
+	lock.PSLog("node Reply", fmt.Sprintf("%+v", msg))
 	node.handleResult(msg)
 	go func() {
 		//fmt.Println("[Chan]", "FinishChan", "In")
@@ -205,7 +206,7 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 // GetReq can be called when the node's CurrentState is nil.
 // Consensus start procedure for the Primary.
 func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
-	PSLog("node GetReq", fmt.Sprintf("%+v", reqMsg))
+	lock.PSLog("node GetReq", fmt.Sprintf("%+v", reqMsg))
 
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(reqMsg.Height)
@@ -233,7 +234,7 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 // GetPrePrepare can be called when the node's CurrentState is nil.
 // Consensus start procedure for normal participants.
 func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
-	PSLog("node GetPrePrepare", fmt.Sprintf("%+v", prePrepareMsg))
+	lock.PSLog("node GetPrePrepare", fmt.Sprintf("%+v", prePrepareMsg))
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(prePrepareMsg.Height)
 	if err != nil {
@@ -256,7 +257,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
 	}
 
-	PSLog("node GetPrePrepare", "Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs),
+	lock.PSLog("node GetPrePrepare", "Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs),
 		len(node.GetStatus(prePrepareMsg.Height).MsgLogs.CommitMsgs))
 	if prePareMsg != nil {
 		// Attach node ID to the message
@@ -279,7 +280,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 }
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
-	PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
+	lock.PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
 	f := len(node.NodeTable) / 3
 
 	CurrentState := node.GetStatus(prepareMsg.Height)
@@ -293,9 +294,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		return err
 	}
 
-	PSLog("Prepare PrepareMsgs cnt2", len(CurrentState.MsgLogs.PrepareMsgs))
+	lock.PSLog("Prepare PrepareMsgs cnt2", len(CurrentState.MsgLogs.PrepareMsgs))
 
-	PSLog("node GetPrepare", "Len", len(CurrentState.MsgLogs.PrepareMsgs), len(CurrentState.MsgLogs.CommitMsgs))
+	lock.PSLog("node GetPrepare", "Len", len(CurrentState.MsgLogs.PrepareMsgs), len(CurrentState.MsgLogs.CommitMsgs))
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
@@ -303,7 +304,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
 		if res != nil && res == types.ErrHeightNotYet {
-			PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
+			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 		} else {
 			var result uint = 0
@@ -311,7 +312,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 				result = 1
 			}
 
-			PSLog("CheckMsg Result ", result)
+			lock.PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 
 			//save Pass
@@ -332,15 +333,15 @@ func (node *Node) processCommitWaitMessage() {
 		node.Count2 += 1
 		var msgSend = make([]*consensus.VoteMsg, 0)
 		for k, v := range node.CommitWaitMsg {
-			PSLog("CommitWaitMsg in")
+			lock.PSLog("CommitWaitMsg in")
 			state := node.GetStatus(v.Height)
 			if state == nil {
 				continue
 			}
 
-			PSLog("CommitWaitMsg in2")
+			lock.PSLog("CommitWaitMsg in2")
 			if state.CurrentStage == consensus.Committed {
-				PSLog("CommitWaitMsg committed")
+				lock.PSLog("CommitWaitMsg committed")
 				for _, msg := range state.MsgLogs.CommitMsgs {
 					msgSend := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -351,7 +352,7 @@ func (node *Node) processCommitWaitMessage() {
 						Height:     msg.Height,
 						Pass:       state.BlockResults,
 					}
-					PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
+					lock.PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
 					if msgSend.Pass == nil {
 						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
 						state.BlockResults = msgSend.Pass
@@ -391,7 +392,7 @@ func (node *Node) processCommitWaitMessage() {
 }
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
-	PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))
+	lock.PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))
 	f := len(node.NodeTable) / 3
 	if node.GetStatus(commitMsg.Height) == nil {
 		return nil
@@ -426,7 +427,7 @@ func (node *Node) GetReply(msg *consensus.ReplyMsg) {
 func (node *Node) createStateForNewConsensus(height int64) error {
 	// Check if there is an ongoing consensus process.
 
-	PSLog("[create]", "height", height)
+	lock.PSLog("[create]", "height", height)
 	if node.GetStatus(height) != nil && node.GetStatus(height).CurrentStage != consensus.Committed {
 		return errors.New("another consensus is ongoing")
 	}
@@ -473,7 +474,7 @@ func (node *Node) dispatchMsg() {
 func (node *Node) routeMsg(msg interface{}) []error {
 	switch msg.(type) {
 	case *consensus.RequestMsg:
-		PSLog("node routeMsg", fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
+		lock.PSLog("node routeMsg", fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 			// Copy buffered messages first.
@@ -491,7 +492,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs, msg.(*consensus.RequestMsg))
 		}
 	case *consensus.PrePrepareMsg:
-		PSLog("node PrePrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.PrePrepareMsg)))
+		lock.PSLog("node PrePrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.PrePrepareMsg)))
 		CurrentStage := node.GetStatus(msg.(*consensus.PrePrepareMsg).Height)
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 
@@ -512,7 +513,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		}
 	case *consensus.VoteMsg:
 		if msg.(*consensus.VoteMsg).MsgType == consensus.PrepareMsg {
-			PSLog("node VoteMsg_PrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
+			lock.PSLog("node VoteMsg_PrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
 			CurrentStage := node.GetStatus(msg.(*consensus.VoteMsg).Height)
 			if CurrentStage == nil || CurrentStage.CurrentStage != consensus.PrePrepared {
 				node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs, msg.(*consensus.VoteMsg))
@@ -531,7 +532,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 				node.MsgDelivery <- msgs
 			}
 		} else if msg.(*consensus.VoteMsg).MsgType == consensus.CommitMsg {
-			PSLog("node VoteMsg_CommitMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
+			lock.PSLog("node VoteMsg_CommitMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
 			CurrentStage := node.GetStatus(msg.(*consensus.VoteMsg).Height)
 
 			if CurrentStage == nil || CurrentStage.CurrentStage != consensus.Prepared {
@@ -850,7 +851,7 @@ func (node *Node) resolveRequestMsg(msgs []*consensus.RequestMsg) []error {
 		//	LogFmt("[ErrorHeight]","State",node.CurrentState.MsgLogs.ReqMsg.Height,"msgHeight",reqMsg.Height)
 		//	return nil
 		//}
-		PSLog("node resolveRequestMsg", fmt.Sprintf("%+v", reqMsg))
+		lock.PSLog("node resolveRequestMsg", fmt.Sprintf("%+v", reqMsg))
 		err := node.GetReq(reqMsg)
 		if err != nil {
 			errs = append(errs, err)
@@ -872,7 +873,7 @@ func (node *Node) resolvePrePrepareMsg(msgs []*consensus.PrePrepareMsg) []error 
 		//	LogFmt("[ErrorHeight]","State",node.CurrentState.MsgLogs.ReqMsg.Height,"msgHeight",prePrepareMsg.Height)
 		//	return nil
 		//}
-		PSLog("node resolvePrePrepareMsg", fmt.Sprintf("%+v", prePrepareMsg))
+		lock.PSLog("node resolvePrePrepareMsg", fmt.Sprintf("%+v", prePrepareMsg))
 		err := node.GetPrePrepare(prePrepareMsg)
 		if err != nil {
 			errs = append(errs, err)
@@ -894,7 +895,7 @@ func (node *Node) resolvePrepareMsg(msgs []*consensus.VoteMsg) []error {
 		//	LogFmt("[ErrorHeight]","State",node.CurrentState.MsgLogs.ReqMsg.Height,"msgHeight",prepareMsg.Height)
 		//	return nil
 		//}
-		PSLog("node resolvePrepareMsg", fmt.Sprintf("%+v", prepareMsg))
+		lock.PSLog("node resolvePrepareMsg", fmt.Sprintf("%+v", prepareMsg))
 		err := node.GetPrepare(prepareMsg)
 		if err != nil {
 			errs = append(errs, err)
@@ -916,7 +917,7 @@ func (node *Node) resolveCommitMsg(msgs []*consensus.VoteMsg) []error {
 		//	LogFmt("[ErrorHeight]","State",node.CurrentState.MsgLogs.ReqMsg.Height,"msgHeight",commitMsg.Height)
 		//	return nil
 		//}
-		PSLog("node resolveCommitMsg", fmt.Sprintf("%+v", commitMsg))
+		lock.PSLog("node resolveCommitMsg", fmt.Sprintf("%+v", commitMsg))
 		err := node.GetCommit(commitMsg)
 		if err != nil {
 			errs = append(errs, err)

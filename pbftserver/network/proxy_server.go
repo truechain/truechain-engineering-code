@@ -25,32 +25,32 @@ type Server struct {
 func PrintNode(node *Node) {
 start:
 	lock.Lock.Lock()
-	fmt.Println("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, len(node.CommitWaitMsg))
-	fmt.Println("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
+	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, len(node.CommitWaitMsg))
+	lock.PSLog("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
 		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
 		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
 		"len(node.MsgBuffer.CommitMsgs):", len(node.MsgBuffer.CommitMsgs))
 
 	for i := 0; i < len(node.MsgBuffer.ReqMsgs); i++ {
-		fmt.Print("ReqMsgs: %+v \n", *node.MsgBuffer.ReqMsgs[i])
+		lock.PSLog("ReqMsgs:", fmt.Sprintf("%+v \n", *node.MsgBuffer.ReqMsgs[i]))
 	}
 
 	for i := 0; i < len(node.MsgBuffer.PrePrepareMsgs); i++ {
-		fmt.Printf("PrePrepareMsgs: %+v  \n", *node.MsgBuffer.PrePrepareMsgs[i])
+		lock.PSLog("PrePrepareMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.PrePrepareMsgs[i]))
 	}
 
 	for i := 0; i < len(node.MsgBuffer.PrepareMsgs); i++ {
-		fmt.Printf("PrepareMsgs: %+v  \n", *node.MsgBuffer.PrepareMsgs[i])
+		lock.PSLog("PrepareMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.PrepareMsgs[i]))
 	}
 	for i := 0; i < len(node.MsgBuffer.CommitMsgs); i++ {
-		fmt.Printf("CommitMsgs: %+v  \n", *node.MsgBuffer.CommitMsgs[i])
+		lock.PSLog("CommitMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.CommitMsgs[i]))
 	}
 
-	fmt.Println("states count:", len(node.States))
+	lock.PSLog("states count:", len(node.States))
 	for k, v := range node.States {
-		fmt.Println("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
+		lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
 	}
-	fmt.Println("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
+	lock.PSLog("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
 	lock.Lock.Unlock()
 	time.Sleep(time.Second * 10)
 	goto start
@@ -106,31 +106,31 @@ func (server *Server) setRoute() {
 }
 
 func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) {
-	PSLog("getReq in")
+	lock.PSLog("getReq in")
 	var msg consensus.RequestMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	PSLog("getReq msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getReq msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
 }
 
 func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Request) {
-	PSLog("getPrePrepare in")
+	lock.PSLog("getPrePrepare in")
 	var msg consensus.PrePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
 }
 
 func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Request) {
-	PSLog("getPrepare in")
+	lock.PSLog("getPrepare in")
 	var msg consensus.VoteMsg
 	var tmp consensus.StorgePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&tmp)
@@ -142,36 +142,36 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
 	msg.Height = tmp.Height
-	PSLog("getPrepare msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getPrepare msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
 }
 
 func (server *Server) getCommit(writer http.ResponseWriter, request *http.Request) {
-	PSLog("getCommit in")
+	lock.PSLog("getCommit in")
 	var msg consensus.VoteMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	PSLog("getCommit msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getCommit msg:", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- &msg
 }
 
 func (server *Server) getReply(writer http.ResponseWriter, request *http.Request) {
-	PSLog("getReply in")
+	lock.PSLog("getReply in")
 	var msg consensus.ReplyMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	PSLog("getReply msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getReply msg:", fmt.Sprintf("%+v", msg))
 	server.Node.GetReply(&msg)
 }
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	PSLog("PutRequest in", fmt.Sprintf("%+v", msg))
+	lock.PSLog("PutRequest in", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- msg
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
@@ -185,7 +185,7 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 }
 func (server *Server) ConsensusFinish() {
 	// start to fetch
-	PSLog("ConsensusFinish in")
+	lock.PSLog("ConsensusFinish in")
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFecth,
 		ID:     new(big.Int).Set(server.ID),
@@ -199,7 +199,7 @@ func send(url string, msg []byte) {
 	for i := 0; i < 3; i++ {
 		_, e := http.Post("http://"+url, "application/json", buff)
 		if e != nil {
-			PSLog("[POSTERROR]", e.Error())
+			lock.PSLog("[POSTERROR]", e.Error())
 			time.Sleep(time.Second * 1)
 		} else {
 			return
