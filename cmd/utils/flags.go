@@ -167,9 +167,9 @@ var (
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}
 	SingleNodeFlag = cli.Uint64Flag{
-		Name: "singnode",
+		Name: "singlenode",
 		Usage: "sing node model",
-		Value: 0,
+		Value: 1,
 	}
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
@@ -1087,7 +1087,6 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
 
-	//SHUXUN
 	if ctx.GlobalIsSet(SingleNodeFlag.Name) {
 		cfg.NodeType = ctx.GlobalUint64(SingleNodeFlag.Name)
 	}
