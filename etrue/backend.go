@@ -222,7 +222,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine)
 	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
-	etrue.miner.SetElection(etrue.config.EnableElection, etrue.config.CommitteeKey)
+	committeeKey, err := crypto.ToECDSA(etrue.config.CommitteeKey)
+	if err == nil {
+		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
+	}
 
 	etrue.APIBackend = &EthAPIBackend{etrue, nil}
 	gpoParams := config.GPO

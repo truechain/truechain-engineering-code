@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	VoteAgree        = iota //vote agree
-	VoteAgreeAgainst        //vote against
+	VoteAgreeAgainst     = iota //vote agree
+	VoteAgree       //vote against
 
 	PreCommittee
 	CurrentCommittee //current running committee
@@ -47,7 +47,7 @@ const (
 	ChainHeadSize    = 3
 	electionChanSize = 2
 
-	singleNode = "single"
+	singleNode = 1
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -122,6 +122,7 @@ type PbftAgent struct {
 
 	cacheSign  map[string]Sign                    //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
+	NodeType uint64
 }
 
 type AgentWork struct {
@@ -178,6 +179,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		ChainHeadCh:   make(chan core.ChainHeadEvent, ChainHeadSize),
 		CryNodeInfoCh: make(chan *CryNodeInfo ),
 		election:      election,
+		mux:		   new(event.TypeMux),
 		mu:            new(sync.Mutex),
 		committeeMu:   new(sync.Mutex),
 		currentMu:     new(sync.Mutex),
@@ -192,8 +194,11 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	//self.NodeType = config.NodeType
+	 self.NodeType =config.NodeType
+
 	//TODO when IP or Port is nil
+	fmt.Println("config.SyncMode：",config.NodeType)
+	//fmt.Println(config.NodeType)
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
 		if config.Host != "" || config.Port != 0 {
 			self.CommitteeNode = &types.CommitteeNode{
@@ -232,11 +237,12 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	/*if self.NodeType == singleNode {
-		self.StartSingleNode()
-		return
-	}*/
-	go self.loop()
+	if self.NodeType == singleNode {
+		go self.StartSingleNode()
+	}else{
+		go self.loop()
+	}
+
 }
 
 // Stop terminates the PbftAgent.
@@ -380,7 +386,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
 		return nil
 	}
-	self.fastChain.CurrentBlock()
+	//self.fastChain.CurrentBlock()
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
 	if parent != nil {
 		//TODO isNeed find height+1
@@ -524,8 +530,9 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	var fastBlock *types.Block
 
 	tstart := time.Now()
-	ph := self.fastChain.CurrentHeader()
-	parent := self.fastChain.GetBlock(ph.Hash(), ph.Number.Uint64())
+	/*ph := self.fastChain.CurrentHeader()
+	parent := self.fastChain.GetBlock(ph.Hash(), ph.Number.Uint64())*/
+	parent := self.fastChain.CurrentBlock()
 
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
@@ -567,7 +574,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain)
-
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
 	if fastBlock, err = self.engine.FinalizeFast(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
@@ -625,9 +631,6 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 //broadcast blockAndSign
 func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 	log.Info("into BroadcastFastBlock.")
-	if !self.nodeInfoIsExist() {
-		return errors.New("nodeInfo is not exist ,cannot generateSign.")
-	}
 	voteSign, err := self.GenerateSign(fb)
 	if err != nil {
 		panic(err)
@@ -643,9 +646,9 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
-	self.mu.Lock()
-	defer self.mu.Unlock()
 	log.Info("into VerifyFastBlock.")
+	/*self.mu.Lock()
+	defer self.mu.Unlock()*/
 	fmt.Println("hash:", fb.Hash(), "number:", fb.Header().Number)
 	fmt.Println("parentHash:", fb.ParentHash())
 
@@ -819,7 +822,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		}
 	}
 
-	if len(coalescedLogs) > 0 || env.tcount > 0 {
+	/*if len(coalescedLogs) > 0 || env.tcount > 0 {
 		// make a copy, the state caches the logs and these logs get "upgraded" from pending to mined
 		// logs by filling in the block hash when the block was mined by the local miner. This can
 		// cause a race condition if a log was "upgraded" before the PendingLogsEvent is processed.
@@ -833,10 +836,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 				mux.Post(core.PendingLogsEvent{Logs: logs})
 			}
 			if tcount > 0 {
-				mux.Post(core.PendingStateEvent{})
+				mux.Post(core.PendingStateEvent{})//TODO
 			}
 		}(cpy, env.tcount)
-	}
+	}*/
 }
 
 func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (error, []*types.Log) {
@@ -1035,8 +1038,6 @@ func (agent *PbftAgent) SendBlock() {
 	for {
 		//获取区块
 		block, err := agent.FetchFastBlock()
-		cb :=agent.fastChain.CurrentBlock()
-		fmt.Println(cb.Number())
 		if err != nil {
 			panic(err)
 		}

@@ -319,13 +319,13 @@ func (e *Election) GetByCommitteeId(id *big.Int) []*ecdsa.PublicKey {
 
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
-	var fruitsCount map[common.Address]uint
+	var fruitsCount map[common.Address]uint = make(map[common.Address]uint)
 	var members []*candidateMember
 
 	var seed []byte
 
 	// get all fruits want to be elected and their pubic key is valid
-	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) < 0; {
+	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) <= 0; {
 		block := e.snailchain.GetBlockByNumber(blockNumber.Uint64())
 		if block == nil {
 			return common.Hash{}, nil
@@ -343,6 +343,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 				addr := crypto.PubkeyToAddress(*pubkey)
 
 				act, diff := e.engine.GetDifficulty(f.Header())
+
 				member := &candidateMember{
 					coinbase: f.Coinbase(),
 					publickey: pubkey,
@@ -358,6 +359,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 				}
 			}
 		}
+		blockNumber = new(big.Int).Add(blockNumber, big.NewInt(1))
 	}
 
 	// remove miner whose fruits count below threshold
@@ -367,7 +369,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 		}
 	}
 	var candidates []*candidateMember
-	var td *big.Int
+	td := big.NewInt(0)
 	for _, member := range members {
 		if _, ok := fruitsCount[member.address]; ok {
 
@@ -397,7 +399,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 // elect is a lottery function that select committee members from candidates miners
 func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
-	var addrs map[common.Address]uint
+	var addrs map[common.Address]uint = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 
 	round := new(big.Int).Set(common.Big0)
@@ -414,7 +416,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 				continue
 			}
 			if _, ok := addrs[cm.address]; ok {
-				continue
+				break
 			}
 			addrs[cm.address] = 1
 			member := &types.CommitteeMember{
