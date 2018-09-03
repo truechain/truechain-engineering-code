@@ -289,6 +289,13 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		CurrentState.MsgLogs.ReqMsg.SequenceID != prepareMsg.SequenceID {
 		return nil
 	}
+	////Add self
+	//if _, ok := CurrentState.MsgLogs.PrepareMsgs[node.NodeID]; !ok {
+	//	myPrepareMsg := prepareMsg
+	//	myPrepareMsg.NodeID = node.NodeID
+	//	CurrentState.MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
+	//}
+
 	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
 		return err
@@ -683,6 +690,7 @@ func sendSameHightMessage(node *Node) {
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
 			if _, ok := status.MsgLogs.CommitMsgs[msgVoteBackward[0].NodeID]; !ok {
 				status.MsgLogs.CommitMsgs[msgVoteBackward[0].NodeID] = msgVoteBackward[0]
+
 				node.MsgBackward <- msgVoteBackward
 			}
 		}

@@ -191,9 +191,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		}
 	}
 
-	fmt.Println(len(ss.blocks))
 	ss.putBlock(fb.NumberU64(), fb)
-	fmt.Println(len(ss.blocks))
 	data, err := rlp.EncodeToBytes(fb)
 	if err != nil {
 		return nil, err
@@ -304,6 +302,8 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 					} else {
 						fmt.Println(err.Error())
 					}
+				} else {
+					lock.PSLog(err.Error())
 				}
 			} else if ac.AC == consensus.ActionBroadcast {
 				ss.Broadcast(ac.Height)
@@ -363,13 +363,32 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 	}
 	return nil
 }
+
+func serverCheck(server *serverInfo) bool {
+	serverCompleteCnt := 0
+	for _, v := range server.info {
+		if v.IP != "" && v.Port != 0 {
+			serverCompleteCnt += 1
+		}
+	}
+	if serverCompleteCnt < 3 {
+		return false
+	}
+	var successPre float64 = float64(serverCompleteCnt) / float64(len(server.info))
+	return successPre > (float64(2) / float64(3))
+}
+
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 	lock.PSLog("PutNodes", id, action)
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
 			if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
-				//time.Sleep(time.Minute)
+				for {
+					if serverCheck(server) {
+						break
+					}
+				}
 			}
 			server.server.Start(ss.work)
 			// start to fetch
