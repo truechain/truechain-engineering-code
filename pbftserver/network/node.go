@@ -697,6 +697,7 @@ func sendSameHightMessage(node *Node) {
 	}
 
 	for i := len(node.MsgBuffer.PrepareMsgs) - 1; i >= 0; i-- {
+		lock.PSLog("PrepareMsgs in")
 		status := node.GetStatus(node.MsgBuffer.PrepareMsgs[i].Height)
 		if status != nil && status.CurrentStage == consensus.PrePrepared {
 			msgVote = append(msgVote, node.MsgBuffer.PrepareMsgs[i])
@@ -709,11 +710,13 @@ func sendSameHightMessage(node *Node) {
 			if _, ok := status.MsgLogs.PrepareMsgs[msgVoteBackward[0].NodeID]; !ok {
 				status.MsgLogs.PrepareMsgs[msgVoteBackward[0].NodeID] = msgVoteBackward[0]
 				node.MsgBackward <- msgVoteBackward
+				lock.PSLog("PrepareMsgs out MsgBackward", msgVoteBackward)
 			}
 		}
 	}
 	if len(msgVote) > 0 {
 		node.MsgDelivery <- msgVote
+		lock.PSLog("PrepareMsgs out MsgDelivery", msgVote)
 	}
 
 	msgPrePrepare := make([]*consensus.PrePrepareMsg, 0)
