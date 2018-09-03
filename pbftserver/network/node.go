@@ -148,17 +148,25 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 	return
 }
 
+func (node *Node) ClearStatus(height int64) {
+	dHeight := height - 50
+	if dHeight < 0 {
+		dHeight += 1000
+	}
+	delete(node.States, dHeight)
+}
+
 func (node *Node) PutStatus(height int64, state *consensus.State) {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 	id := height % StateMax
 	node.States[id] = state
+	node.ClearStatus(height)
 }
 
 func (node *Node) GetStatus(height int64) *consensus.State {
 	node.lock.Lock()
 	defer node.lock.Unlock()
-
 	id := height % StateMax
 	if state, ok := node.States[id]; ok {
 		return state
