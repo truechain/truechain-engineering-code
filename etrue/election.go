@@ -325,7 +325,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	var seed []byte
 
 	// get all fruits want to be elected and their pubic key is valid
-	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) < 0; {
+	for blockNumber := snailBeginNumber; blockNumber.Cmp(snailEndNumber) <= 0; {
 		block := e.snailchain.GetBlockByNumber(blockNumber.Uint64())
 		if block == nil {
 			return common.Hash{}, nil
@@ -399,7 +399,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 // elect is a lottery function that select committee members from candidates miners
 func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
-	var addrs map[common.Address]uint
+	var addrs map[common.Address]uint = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 
 	round := new(big.Int).Set(common.Big0)
@@ -416,7 +416,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 				continue
 			}
 			if _, ok := addrs[cm.address]; ok {
-				continue
+				break
 			}
 			addrs[cm.address] = 1
 			member := &types.CommitteeMember{

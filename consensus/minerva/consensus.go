@@ -511,7 +511,7 @@ func (m *Minerva)GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
 
 	if header.Fruit {
 		last := result[16:]
-		actDiff := new(big.Int).Div(maxUint256, new(big.Int).SetBytes(last))
+		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
 		fruitDiff := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 
 		return actDiff, fruitDiff
