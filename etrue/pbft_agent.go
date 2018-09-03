@@ -285,6 +285,7 @@ func (self *PbftAgent) loop() {
 			if self.IsCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
 				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
+				self.server.PutNodes(ch.CommitteeInfo.Id, []*types.CommitteeNode{self.CommitteeNode})
 				go func() {
 					for {
 						select {
@@ -326,8 +327,10 @@ func (self *PbftAgent) loop() {
 
 func PrintCryptNode(node *CryNodeInfo) {
 	fmt.Println("*********************")
-	fmt.Println("IP:", node.CommitteeId)
-	fmt.Println("Port:", len(node.Nodes))
+	fmt.Println("createdAt:", node.createdAt)
+	fmt.Println("Id:", node.CommitteeId)
+	fmt.Println("Nodes.len:", len(node.Nodes))
+	fmt.Println("Sign:", node.Sign)
 }
 //convert []byte to string
 /*func BytesString(b []byte) string {
@@ -461,6 +464,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		panic(err)
 		log.Error("sign error")
 	}
+	PrintCryptNode(cryNodeInfo)
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
 	return cryNodeInfo
 }
