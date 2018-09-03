@@ -131,6 +131,8 @@ type Config struct {
 
 	// Miscellaneous options
 	DocRoot string `toml:"-"`
+
+	NodeType uint64 `toml:",omitempty"`
 }
 
 type configMarshaling struct {

@@ -5,7 +5,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
-const IfPrint = true
+const IfPrint = false
 
 func PSLog(a ...interface{}) {
 	if IfPrint {

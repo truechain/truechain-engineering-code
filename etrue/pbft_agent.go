@@ -30,24 +30,22 @@ import (
 )
 
 const (
-	VoteAgree        = iota //vote agree
-	VoteAgreeAgainst        //vote against
+	VoteAgreeAgainst     = iota //vote agree
+	VoteAgree       //vote against
 
 	PreCommittee
 	CurrentCommittee //current running committee
 	NextCommittee    //next committee
-
 )
 const (
 	BlockRewordSpace = 12
 	sendNodeTime     = 30
 	FetchBlockTime   = 5
 
-	CryNodeInfoSize  = 20
 	ChainHeadSize    = 3
 	electionChanSize = 2
 
-	singleNode = "single"
+	singleNode = 1
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -97,8 +95,7 @@ type PbftAgent struct {
 
 	mu           *sync.Mutex //generateBlock mutex
 	committeeMu  *sync.Mutex //committee mutex
-	currentMu    *sync.Mutex //tx mutex
-	cacheBlockMu *sync.Mutex
+	cacheBlockMu *sync.Mutex	//PbftAgent.cacheBlock mutex
 
 	mux *event.TypeMux
 
@@ -122,6 +119,7 @@ type PbftAgent struct {
 
 	cacheSign  map[string]Sign                    //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
+	NodeType uint64
 }
 
 type AgentWork struct {
@@ -178,9 +176,9 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		ChainHeadCh:   make(chan core.ChainHeadEvent, ChainHeadSize),
 		CryNodeInfoCh: make(chan *CryNodeInfo ),
 		election:      election,
+		mux:		   new(event.TypeMux),
 		mu:            new(sync.Mutex),
 		committeeMu:   new(sync.Mutex),
-		currentMu:     new(sync.Mutex),
 		cacheBlockMu:  new(sync.Mutex),
 		cacheBlock:    make(map[*big.Int]*types.Block),
 	}
@@ -192,8 +190,10 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	//self.NodeType = config.NodeType
+	 self.NodeType =config.NodeType
+
 	//TODO when IP or Port is nil
+	fmt.Println("config.SyncMode：",config.NodeType)
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
 		if config.Host != "" || config.Port != 0 {
 			self.CommitteeNode = &types.CommitteeNode{
@@ -232,11 +232,12 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	/*if self.NodeType == singleNode {
-		self.StartSingleNode()
-		return
-	}*/
-	go self.loop()
+	if self.NodeType == singleNode {
+		go self.StartSingleNode()
+	}else{
+		go self.loop()
+	}
+
 }
 
 // Stop terminates the PbftAgent.
@@ -283,7 +284,8 @@ func (self *PbftAgent) loop() {
 			receivedCommitteeInfo :=ch.CommitteeInfo //received committeeInfo
 			if self.IsCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
-				self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
+				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
+				self.server.PutNodes(ch.CommitteeInfo.Id, []*types.CommitteeNode{self.CommitteeNode})
 				go func() {
 					for {
 						select {
@@ -296,7 +298,7 @@ func (self *PbftAgent) loop() {
 			}
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
-			log.Info("receive nodeInfo.",)
+			log.Info("receive nodeInfo.")
 			PrintCryptNode(cryNodeInfo)
 			//if cryNodeInfo of  node in Committee
 			if self.cryNodeInfoInCommittee(*cryNodeInfo) {
@@ -325,8 +327,10 @@ func (self *PbftAgent) loop() {
 
 func PrintCryptNode(node *CryNodeInfo) {
 	fmt.Println("*********************")
-	fmt.Println("IP:", node.CommitteeId)
-	fmt.Println("Port:", len(node.Nodes))
+	fmt.Println("createdAt:", node.createdAt)
+	fmt.Println("Id:", node.CommitteeId)
+	fmt.Println("Nodes.len:", len(node.Nodes))
+	fmt.Println("Sign:", node.Sign)
 }
 //convert []byte to string
 /*func BytesString(b []byte) string {
@@ -335,6 +339,7 @@ func PrintCryptNode(node *CryNodeInfo) {
 
 // put cacheBlock into fastchain
 func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
+	fmt.Println("into AddCacheIntoChain.")
 	var fastBlocks []*types.Block
 	receiveBlockHeight := receiveBlock.Number()
 	self.cacheBlockMu.Lock()
@@ -359,13 +364,6 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-		if voteSign == nil {
-			fmt.Println("AddCacheIntoChain voteSign nil")
-		}
-		if fb == nil {
-			fmt.Println("AddCacheIntoChain fb nil")
-		}
-		fmt.Println("AddCacheIntoChain")
 		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
 		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
 
@@ -375,15 +373,15 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 
 //committeeNode braodcat:if parentBlock is not in fastChain,put block  into cacheblock
 func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
+	fmt.Println(" into OperateCommitteeBlock")
 	receiveBlockHeight := receiveBlock.Number()
 	//receivedBlock has been into fashchain
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
 		return nil
 	}
-	self.fastChain.CurrentBlock()
+	//self.fastChain.CurrentBlock()
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
 	if parent != nil {
-		//TODO isNeed find height+1
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
 		fmt.Println("receiveBlockNumber:",receiveBlock.Number())
@@ -399,14 +397,6 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 			panic(err)
 			log.Info("sign error")
 		}
-
-		if voteSign == nil {
-			fmt.Println("OperateCommitteeBlock voteSign nil")
-		}
-		if receiveBlock == nil {
-			fmt.Println("OperateCommitteeBlock receiveBlock nil")
-		}
-		fmt.Println("OperateCommitteeBlock")
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
@@ -474,6 +464,7 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		panic(err)
 		log.Error("sign error")
 	}
+	PrintCryptNode(cryNodeInfo)
 	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
 	return cryNodeInfo
 }
@@ -524,8 +515,9 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	var fastBlock *types.Block
 
 	tstart := time.Now()
-	ph := self.fastChain.CurrentHeader()
-	parent := self.fastChain.GetBlock(ph.Hash(), ph.Number.Uint64())
+	/*ph := self.fastChain.CurrentHeader()
+	parent := self.fastChain.GetBlock(ph.Hash(), ph.Number.Uint64())*/
+	parent := self.fastChain.CurrentBlock()
 
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
@@ -539,18 +531,12 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 
 	num := parent.Number()
-	fmt.Println("parentNum:",num)
-	fmt.Println("currentNumber_block:",self.fastChain.CurrentBlock().Number)
-	fmt.Println("currentNumber_header:",self.fastChain.CurrentHeader().Number)
-
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-	fmt.Println("HeaderNum:",num)
-	fmt.Println("common.Big1:",common.Big1)
 
 	if err := self.engine.PrepareFast(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
@@ -567,7 +553,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain)
-
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
 	if fastBlock, err = self.engine.FinalizeFast(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
@@ -598,12 +583,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil {
-		fmt.Println("leader sign nil ")
-	}
-	fmt.Println("leader sign:", voteSign)
 	fastBlock.AppendSign(voteSign)
-
 	return fastBlock, nil
 }
 
@@ -625,30 +605,21 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 //broadcast blockAndSign
 func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 	log.Info("into BroadcastFastBlock.")
-	if !self.nodeInfoIsExist() {
-		return errors.New("nodeInfo is not exist ,cannot generateSign.")
-	}
 	voteSign, err := self.GenerateSign(fb)
 	if err != nil {
 		panic(err)
 		log.Info("sign error")
 	}
-	if voteSign == nil {
-		fmt.Println("leader sign nil ")
-	}
-	fmt.Println("leader sign:", voteSign)
 	fb.AppendSign(voteSign)
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 	return err
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
-	self.mu.Lock()
-	defer self.mu.Unlock()
 	log.Info("into VerifyFastBlock.")
-	fmt.Println("hash:", fb.Hash(), "number:", fb.Header().Number)
-	fmt.Println("parentHash:", fb.ParentHash())
-
+	/*self.mu.Lock()
+	defer self.mu.Unlock()*/
+	fmt.Println("hash:", fb.Hash(), "number:", fb.Header().Number,"parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -895,17 +866,17 @@ func GetSignHash(sign *types.PbftSign) []byte {
 func (self *PbftAgent) GetCommitteInfo(committeeType int64) int{
 	switch committeeType {
 		case CurrentCommittee:
-			if self.CommitteeInfo ==nil{
+			if self.CommitteeInfo == nil{
 				return 0
 			}
 			return len(self.CommitteeInfo.Members)
 		case NextCommittee:
-			if self.NextCommitteeInfo ==nil{
+			if self.NextCommitteeInfo == nil{
 				return 0
 			}
 			return len(self.NextCommitteeInfo.Members)
 		case PreCommittee:
-			if self.PreCommitteeInfo ==nil{
+			if self.PreCommitteeInfo == nil{
 				return 0
 			}
 			return len(self.PreCommitteeInfo.Members)
@@ -918,7 +889,6 @@ func (self *PbftAgent) GetCommitteInfo(committeeType int64) int{
 // verify sign of node is in committee
 func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) {
 	if sign == nil {
-		fmt.Println("cnm")
 		return false, ""
 	}
 	pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
@@ -1035,8 +1005,6 @@ func (agent *PbftAgent) SendBlock() {
 	for {
 		//获取区块
 		block, err := agent.FetchFastBlock()
-		cb :=agent.fastChain.CurrentBlock()
-		fmt.Println(cb.Number())
 		if err != nil {
 			panic(err)
 		}
