@@ -286,6 +286,7 @@ func (self *PbftAgent) loop() {
 				self.server.PutCommittee(receivedCommitteeInfo)
 				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
 				self.server.PutNodes(ch.CommitteeInfo.Id, []*types.CommitteeNode{self.CommitteeNode})
+				self.SendPbftNode(receivedCommitteeInfo)
 				go func() {
 					for {
 						select {
