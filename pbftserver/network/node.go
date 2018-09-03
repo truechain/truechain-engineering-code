@@ -460,9 +460,6 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			// Append a newly arrived message.
 			msgs = append(msgs, msg.(*consensus.RequestMsg))
 
-			//// Empty the buffer.
-			//node.MsgBuffer.ReqMsgs = make([]*consensus.RequestMsg, 0)
-
 			// Send messages.
 			node.MsgDelivery <- msgs
 		} else {
@@ -599,12 +596,6 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 }
 
 func sendSameHightMessage(node *Node) {
-	if (len(node.MsgBuffer.ReqMsgs) +
-		len(node.MsgBuffer.PrePrepareMsgs) +
-		len(node.MsgBuffer.PrepareMsgs) +
-		len(node.MsgBuffer.CommitMsgs)) > 0 {
-		fmt.Printf("")
-	}
 
 	msgVote := make([]*consensus.VoteMsg, 0)
 
@@ -739,9 +730,7 @@ func (node *Node) alarmToDispatcher() {
 	for {
 		node.Count += 1
 		time.Sleep(ResolvingTimeDuration)
-		//fmt.Println("[Chan]", "FinishChan", "In")
 		node.Alarm <- true
-		//fmt.Println("[Chan]", "FinishChan", "Out")
 	}
 }
 
