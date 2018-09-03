@@ -391,6 +391,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 					time.Sleep(time.Second)
 				}
 			}
+
 			server.server.Start(ss.work)
 			// start to fetch
 			ac := &consensus.ActionIn{
