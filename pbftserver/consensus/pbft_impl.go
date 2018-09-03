@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"time"
 )
 
@@ -108,7 +109,7 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 }
 
 func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
-	PSLog("Prepare in")
+	lock.PSLog("Prepare in")
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
 	}
@@ -116,7 +117,7 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	// Append msg to its logs
 	state.MsgLogs.PrepareMsgs[prepareMsg.NodeID] = prepareMsg
 
-	PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
+	lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
 
 	if state.prepared(f) {
@@ -130,10 +131,10 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 			MsgType:    CommitMsg,
 			Height:     prepareMsg.Height,
 		}, nil
-		PSLog("Prepare", "end", f, "Return")
+		lock.PSLog("Prepare", "end", f, "Return")
 	}
 
-	PSLog("Prepare", "end", f, "notReturn")
+	lock.PSLog("Prepare", "end", f, "notReturn")
 	return nil, nil
 }
 
@@ -211,22 +212,22 @@ func (state *State) prepared(f int) bool {
 }
 
 func (state *State) committed(f int) bool {
-	PSLog("committed in")
+	lock.PSLog("committed in")
 	if !state.prepared(f) {
 		return false
 	}
-	PSLog("committed prepared")
+	lock.PSLog("committed prepared")
 	if len(state.MsgLogs.CommitMsgs) < 2*f {
 		return false
 	}
-	PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
+	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	var passCount = 0
 	for _, v := range state.MsgLogs.CommitMsgs {
 		if v.Pass != nil && v.Pass.Result == 0 {
 			passCount += 1
 		}
 	}
-	PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
+	lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
 	return passCount >= 2*f
 }
 
