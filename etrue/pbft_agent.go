@@ -289,6 +289,7 @@ func (self *PbftAgent) loop() {
 				self.SendPbftNode(receivedCommitteeInfo)
 				go  func() {
 					for {
+						fmt.Println("haha")
 						time.Sleep(time.Second*5)
 						self.SendPbftNode(receivedCommitteeInfo)
 					}
@@ -442,6 +443,7 @@ func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
 //send committeeNode to p2p,make other committeeNode receive and decrypt
 func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo {
 	log.Info("into SendPbftNode.")
+
 	if committeeInfo == nil || len(committeeInfo.Members) == 0 {
 		log.Error("committeeInfo is nil,len(committeeInfo.Members):", len(committeeInfo.Members))
 		return nil
@@ -450,7 +452,8 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		CommitteeId: committeeInfo.Id,
 		createdAt:time.Now(),
 	}
-
+	fmt.Println("send before...")
+	PrintNode(pbftAgent.CommitteeNode)
 	nodeByte, _ := rlp.EncodeToBytes(pbftAgent.CommitteeNode)
 	var encryptNodes []EncryptCommitteeNode
 	for _, member := range committeeInfo.Members {
@@ -507,6 +510,7 @@ func (self *PbftAgent) ReceivePbftNode(cryNodeInfo *CryNodeInfo) {
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
+			fmt.Println("receive node ... ")
 			PrintNode(node)
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
@@ -1008,12 +1012,29 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 }
 
 func (agent *PbftAgent) SendBlock() {
+	committeeInfo := new(types.CommitteeInfo)
+	committeeInfo.Id =common.Big0
+	for _,c := range 	testCommittee{
+		var member *types.CommitteeMember
+		p,err:=crypto.UnmarshalPubkey(c.Publickey)
+		if err != nil{
+			panic(err)
+		}
+		member.Publickey =	p
+		member.Coinbase =c.Coinbase
+		committeeInfo.Members =append(committeeInfo.Members,member)
+	}
+	cryNodeInfo :=agent.SendPbftNode(committeeInfo)
+	agent.ReceivePbftNode(cryNodeInfo)
+
 	for {
 		//获取区块
 		block, err := agent.FetchFastBlock()
 		if err != nil {
 			panic(err)
 		}
+
+
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
 		if err != nil {
