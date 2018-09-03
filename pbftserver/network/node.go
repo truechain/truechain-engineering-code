@@ -649,11 +649,6 @@ func sendSameHightMessage(node *Node) {
 		if status != nil && status.CurrentStage == consensus.Idle {
 			msgPrePrepare = append(msgPrePrepare, node.MsgBuffer.PrePrepareMsgs[i])
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
-			//} else if status.CurrentStage > consensus.Idle {
-			//	msg := make([]*consensus.PrePrepareMsg, 0)
-			//	msg = append(msg, node.MsgBuffer.PrePrepareMsgs[i])
-			//	node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
-			//	node.MsgBackward <- msg
 		}
 	}
 	if len(msgPrePrepare) > 0 {
