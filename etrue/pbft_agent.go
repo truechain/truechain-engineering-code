@@ -44,8 +44,6 @@ const (
 
 	ChainHeadSize    = 3
 	electionChanSize = 2
-
-	singleNode = 1
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -119,7 +117,7 @@ type PbftAgent struct {
 
 	cacheSign  map[string]Sign           //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
-	NodeType   uint64
+	NodeType   bool
 }
 
 type AgentWork struct {
@@ -191,7 +189,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.NodeType = config.NodeType
-
 	//TODO when IP or Port is nil
 	fmt.Println("config.SyncMode：", config.NodeType)
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
@@ -232,12 +229,11 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	if self.NodeType == singleNode {
+	if self.NodeType{
 		go self.StartSingleNode()
 	} else {
 		go self.loop()
 	}
-
 }
 
 // Stop terminates the PbftAgent.
@@ -279,21 +275,21 @@ func (self *PbftAgent) loop() {
 			self.committeeMu.Lock()
 			self.setCommitteeInfo(ch.CommitteeInfo, NextCommittee)
 			self.committeeMu.Unlock()
-			ticker.Stop()                             //stop ticker send nodeInfo
+			ticker.Stop()            //stop ticker send nodeInfo
+			ticker = time.NewTicker(time.Second * sendNodeTime)
 			self.cacheSign = make(map[string]Sign)    //clear cacheSign map
 			receivedCommitteeInfo := ch.CommitteeInfo //received committeeInfo
 			if self.IsCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
 				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
 				self.server.PutNodes(ch.CommitteeInfo.Id, []*types.CommitteeNode{self.CommitteeNode})
-				self.SendPbftNode(receivedCommitteeInfo)
-				go func() {
+				/*go func() {
 					for {
 						fmt.Println("haha")
 						time.Sleep(time.Second * 5)
 						self.SendPbftNode(receivedCommitteeInfo)
 					}
-				}()
+				}()*/
 				go func() {
 					for {
 						select {
