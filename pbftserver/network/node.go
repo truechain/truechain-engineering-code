@@ -49,6 +49,7 @@ type View struct {
 const (
 	ResolvingTimeDuration = time.Second // 1 second.
 	StateMax              = 1000        //max size for status
+	StateClear            = 500
 )
 
 func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
@@ -157,10 +158,12 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 }
 
 func (node *Node) ClearStatus(height int64) {
-	dHeight := height - 500
+	dHeight := height % StateMax
+	dHeight = dHeight - StateClear
 	if dHeight < 0 {
-		dHeight += 1000
+		dHeight += StateMax
 	}
+	fmt.Println("[status]", "delete", dHeight)
 	delete(node.States, dHeight)
 }
 
@@ -170,6 +173,7 @@ func (node *Node) PutStatus(height int64, state *consensus.State) {
 	id := height % StateMax
 	node.States[id] = state
 	node.ClearStatus(height)
+	fmt.Println("[status]", "put", id)
 }
 
 func (node *Node) GetStatus(height int64) *consensus.State {
@@ -293,12 +297,6 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		CurrentState.MsgLogs.ReqMsg.SequenceID != prepareMsg.SequenceID {
 		return nil
 	}
-	////Add self
-	//if _, ok := CurrentState.MsgLogs.PrepareMsgs[node.NodeID]; !ok {
-	//	myPrepareMsg := prepareMsg
-	//	myPrepareMsg.NodeID = node.NodeID
-	//	CurrentState.MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
-	//}
 
 	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
