@@ -153,8 +153,8 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 
 		queuedFruit:  make(chan *fruitEvent, maxQueuedFruit),
+		//queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedFruit),
 		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedFruit),
-
 		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
 		term:         make(chan struct{}),
 	}
@@ -193,12 +193,6 @@ func (p *peer) broadcast() {
 			}
 			p.Log().Trace("Broadcast fruits", "count", len(fruits))
 
-		//add for mined fruit
-		case fruit := <-p.queuedFruit:
-			if err := p.SendNewFruit(fruit.block, fruit.td); err != nil {
-				return
-			}
-			p.Log().Trace("Propagated fruit", "number", fruit.block.Number(), "hash", fruit.block.Hash(), "td", fruit.td)
 
 			//add for snailBlock
 		case snailBlocks := <-p.queuedSnailBlcoks:
@@ -206,13 +200,6 @@ func (p *peer) broadcast() {
 				return
 			}
 			p.Log().Trace("Broadcast snailBlocks", "count", len(snailBlocks))
-
-			//add for mined snailBlock
-		case snailBlock := <-p.queuedSnailBlock:
-			if err := p.SendNewSnailBlock(snailBlock.block, snailBlock.td); err != nil {
-				return
-			}
-			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 
 		case prop := <-p.queuedFastProps:
 			if err := p.SendNewFastBlock(prop.block); err != nil {
