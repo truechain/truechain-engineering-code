@@ -117,7 +117,7 @@ type PbftAgent struct {
 
 	cacheSign  map[string]Sign           //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
-	NodeType   bool
+	SingleNode   bool
 }
 
 type AgentWork struct {
@@ -181,16 +181,18 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		cacheBlock:       make(map[*big.Int]*types.Block),
 	}
 	self.InitNodeInfo(eth.Config())
-	self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
-	self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
-	self.ChainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
+	if !self.SingleNode{
+		self.committeeSub = self.election.SubscribeCommitteeEvent(self.CommitteeCh)
+		self.electionSub = self.election.SubscribeElectionEvent(self.ElectionCh)
+		self.ChainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.ChainHeadCh)
+	}
 	return self
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
-	self.NodeType = config.NodeType
+	self.SingleNode = config.NodeType
 	//TODO when IP or Port is nil
-	log.Info("NodeType is singleNode :", self.NodeType)
+	log.Info("NodeType is singleNode :", self.SingleNode)
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
 		if config.Host != "" || config.Port != 0 {
 			self.CommitteeNode = &types.CommitteeNode{
@@ -229,9 +231,9 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	if self.NodeType {
+	if self.SingleNode {
 		go self.StartSingleNode()
-	} else {
+	}else {
 		go self.loop()
 	}
 }
@@ -311,7 +313,7 @@ func (self *PbftAgent) loop() {
 			}
 		case ch := <-self.ChainHeadCh:
 			log.Info("ChainHeadCh update RewardNumber.")
-			err := self.AddCacheIntoChain(ch.Block)
+			err := self.PutCacheIntoChain(ch.Block)
 			if err != nil {
 				log.Error("PutCacheIntoChain err")
 				panic(err)
@@ -334,7 +336,7 @@ func PrintCryptNode(node *CryNodeInfo) {
 }*/
 
 // put cacheBlock into fastchain
-func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
+func (self *PbftAgent) PutCacheIntoChain(receiveBlock *types.Block) error {
 	fmt.Println("into AddCacheIntoChain.")
 	var fastBlocks []*types.Block
 	receiveBlockHeight := receiveBlock.Number()
@@ -383,6 +385,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
 		if err != nil {
+			log.Error("self.fastChain.InsertChain error ")
 			return err
 		}
 		fmt.Println("fastblock insert chain ")
