@@ -42,8 +42,8 @@ const (
 	sendNodeTime     = 40
 	FetchBlockTime   = 5
 
-	ChainHeadSize    = 3
-	electionChanSize = 2
+	ChainHeadSize    = 300
+	electionChanSize = 100
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -1045,22 +1045,22 @@ func (agent *PbftAgent) SendBlock() {
 func (agent *PbftAgent) StartSingleNode() {
 	for {
 		//获取区块
-		//t1 := time.Now()
+		t1 := time.Now()
 		var block *types.Block
 		var err error
 		block, err = agent.FetchFastBlock()
-		/*for {
+		for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
 				return
 			}
 			sub := time.Now().Sub(t1)
-			if len(block.Transactions()) == 0 && sub < time.Second*FetchBlockTime*3 {
-				time.Sleep(time.Second * FetchBlockTime)
+			if len(block.Transactions()) == 0 && sub < time.Second*FetchBlockTime {
+				time.Sleep(time.Second)
 			} else {
 				break
 			}
-		}*/
+		}
 		time.Sleep(time.Second * 1)
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
