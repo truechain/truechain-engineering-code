@@ -478,11 +478,11 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	}
 	// Start the networking layer and the light server if requested
 	s.protocolManager.Start(maxPeers)
-	//if s.lesServer != nil {
-	//	s.lesServer.Start(srvr)
-	//}
-	//s.startPbftServer()
-	//s.agent.server =s.pbftServer
+	if s.lesServer != nil {
+		s.lesServer.Start(srvr)
+	}
+	s.startPbftServer()
+	s.agent.server =s.pbftServer
 	//s.agent.Start()
 
 	//s.election.Start()

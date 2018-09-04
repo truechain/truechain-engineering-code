@@ -42,7 +42,7 @@ const (
 	sendNodeTime     = 5
 	FetchBlockTime   = 5
 
-	ChainHeadSize    = 3
+	ChainHeadSize    = 300
 	electionChanSize = 2
 )
 
@@ -1026,7 +1026,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 }
 
 func (agent *PbftAgent) SendBlock() {
-	committeeInfo := new(types.CommitteeInfo)
+	/*committeeInfo := new(types.CommitteeInfo)
 	committeeInfo.Id = common.Big0
 	for _, c := range testCommittee {
 		var member *types.CommitteeMember
@@ -1039,7 +1039,7 @@ func (agent *PbftAgent) SendBlock() {
 		committeeInfo.Members = append(committeeInfo.Members, member)
 	}
 	cryNodeInfo := agent.SendPbftNode(committeeInfo)
-	agent.ReceivePbftNode(cryNodeInfo)
+	agent.ReceivePbftNode(cryNodeInfo)*/
 
 	for {
 		//获取区块

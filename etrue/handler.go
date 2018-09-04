@@ -363,11 +363,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// Execute the Truechain handshake
 	var (
-		genesis = pm.blockchain.Genesis()
-		head    = pm.blockchain.CurrentHeader()
+		genesis = pm.snailchain.Genesis()
+		head    = pm.snailchain.CurrentHeader()
 		hash    = head.Hash()
 		number  = head.Number.Uint64()
-		td      = pm.blockchain.GetTd(hash, number)
+		td      = pm.snailchain.GetTd(hash, number)
 	)
 	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash()); err != nil {
 		p.Log().Debug("Truechain handshake failed", "err", err)
@@ -385,10 +385,10 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	defer pm.removePeer(p.id)
 
 	// TODO: downloader.RegisterPeer
-	//// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	//if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
-	//	return err
-	//}
+	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
+	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+		return err
+	}
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
