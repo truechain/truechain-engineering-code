@@ -26,7 +26,7 @@ const (
 	Switch
 
 	BlockCacheMax = 1000
-	BlockSleepMax = 10
+	BlockSleepMax = 5
 )
 
 type serverInfo struct {
