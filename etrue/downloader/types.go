@@ -35,7 +35,7 @@ type dataPack interface {
 // headerPack is a batch of block headers returned by a peer.
 type headerPack struct {
 	peerID  string
-	headers []*types.Header
+	headers []*types.SnailHeader
 }
 
 func (p *headerPack) PeerId() string { return p.peerID }
@@ -45,18 +45,18 @@ func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) 
 // bodyPack is a batch of block bodies returned by a peer.
 type bodyPack struct {
 	peerID       string
-	transactions [][]*types.Transaction
-	uncles       [][]*types.Header
+	fruit 		 [][]*types.SnailBlock
+	uncles       [][]*types.SnailHeader
 }
 
 func (p *bodyPack) PeerId() string { return p.peerID }
 func (p *bodyPack) Items() int {
-	if len(p.transactions) <= len(p.uncles) {
-		return len(p.transactions)
+	if len(p.fruit) <= len(p.uncles) {
+		return len(p.fruit)
 	}
 	return len(p.uncles)
 }
-func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d", len(p.transactions), len(p.uncles)) }
+func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d", len(p.fruit), len(p.uncles)) }
 
 // receiptPack is a batch of receipts returned by a peer.
 type receiptPack struct {

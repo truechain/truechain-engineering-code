@@ -525,15 +525,7 @@ func (m *Minerva)GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.SnailHeader) *big.Int {
-	next := new(big.Int).Add(parent.Number, big1)
-	switch {
-	case config.IsByzantium(next):
-		return calcDifficultyByzantium(time, parent)
-	case config.IsHomestead(next):
-		return calcDifficultyHomestead(time, parent)
-	default:
-		return calcDifficultyFrontier(time, parent)
-	}
+	return calcDifficulty(time, parent)
 }
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -545,9 +537,50 @@ var (
 	big9          = big.NewInt(9)
 	big10         = big.NewInt(10)
 	big32         = big.NewInt(32)
+	bigMinus1    = big.NewInt(-1)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 )
+
+
+
+// calcDifficulty is the difficulty adjustment algorithm. It returns
+// the difficulty that a new block should have when created at time given the
+// parent block's time and difficulty.
+func calcDifficulty(time uint64, parent *types.SnailHeader) *big.Int {
+	// algorithm:
+	// diff = (parent_diff +
+	//         (parent_diff / 32 * max(1 - (block_timestamp - parent_timestamp) // 600, -1))
+	//        )
+
+	bigTime := new(big.Int).SetUint64(time)
+	bigParentTime := new(big.Int).Set(parent.Time)
+
+	// holds intermediate values to make the algo easier to read & audit
+	x := new(big.Int)
+	y := new(big.Int)
+
+	// 1 - (block_timestamp - parent_timestamp) // 600
+	x.Sub(bigTime, bigParentTime)
+	x.Div(x, params.DurationLimit)
+	x.Sub(big1, x)
+
+	// max(1 - (block_timestamp - parent_timestamp) // 10, -1)
+	if x.Cmp(bigMinus1) < 0 {
+		x.Set(bigMinus1)
+	}
+	// (parent_diff + parent_diff // 32 * max(1 - (block_timestamp - parent_timestamp) // 600, -1))
+	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
+	x.Mul(y, x)
+	x.Add(parent.Difficulty, x)
+
+	// minimum difficulty can ever be (before exponential factor)
+	if x.Cmp(params.MinimumDifficulty) < 0 {
+		x.Set(params.MinimumDifficulty)
+	}
+
+	return x
+}
 
 // calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
@@ -733,6 +766,9 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 
 	target := new(big.Int).Div(maxUint256, header.Difficulty)
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
+		fruitDifficulty.Set(params.MinimumFruitDifficulty)
+	}
 	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 
 	if header.Fruit {
@@ -809,14 +845,14 @@ func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.He
 
 //gas allocation
 func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	committee := m.election.GetCommittee(fastNumber)
-	committeeGas := big.NewInt(0)
-	if len(committee) != 0 {
-		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
-	}
-	for _, v := range committee {
-		state.AddBalance(v.Coinbase, committeeGas)
-	}
+	//committee := m.election.GetCommittee(fastNumber)
+	//committeeGas := big.NewInt(0)
+	//if len(committee) != 0 {
+	//	committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+	//}
+	//for _, v := range committee {
+	//	state.AddBalance(v.Coinbase, committeeGas)
+	//}
 	return nil
 }
 

@@ -49,27 +49,27 @@ const (
 var testCommittee = []*types.CommitteeNode{
 	{
 		IP:        "192.168.46.88",
-		Port:      10080,
+		Port:      10081,
 		Coinbase:  common.HexToAddress("76ea2f3a002431fede1141b660dbb75c26ba6d97"),
 		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
 	},
 	{
 		IP:        "192.168.46.6",
-		Port:      10080,
+		Port:      10081,
 		Coinbase:  common.HexToAddress("831151b7eb8e650dc442cd623fbc6ae20279df85"),
 		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
 	},
 
 	{
 		IP:        "192.168.46.24",
-		Port:      10080,
+		Port:      10081,
 		Coinbase:  common.HexToAddress("1074f7deccf8c66efcd0106e034d3356b7db3f2c"),
 		Publickey: common.Hex2Bytes("04013151837b19e4b0e7402ac576e4352091892d82504450864fc9fd156ddf15d22014a0f6bf3c8f9c12d03e75f628736f0c76b72322be28e7b6f0220cf7f4f5fb"),
 	},
 
 	{
 		IP:        "192.168.46.9",
-		Port:      10080,
+		Port:      10081,
 		Coinbase:  common.HexToAddress("d985e9871d1be109af5a7f6407b1d6b686901fff"),
 		Publickey: common.Hex2Bytes("04e3e59c07b320b5d35d65917d50806e1ee99e3d5ed062ed24d3435f61a47d29fb2f2ebb322011c1d2941b4853ce2dc71e8c4af57b59bbf40db66f76c3c740d41b"),
 	},
@@ -229,11 +229,19 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
+
 	if self.NodeType{
 		go self.StartSingleNode()
 	} else {
 		go self.loop()
 	}
+
+	/*if self.NodeType == singleNode {
+		self.StartSingleNode()
+		return
+	}*/
+	//go self.loop()
+
 }
 
 // Stop terminates the PbftAgent.
@@ -257,16 +265,24 @@ func (self *PbftAgent) loop() {
 				self.committeeMu.Lock()
 				self.setCommitteeInfo(self.NextCommitteeInfo, CurrentCommittee)
 				self.committeeMu.Unlock()
+
 				if self.IsCommitteeMember(self.CommitteeInfo) {
 					go self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
 				}
+
+				//if self.IsCommitteeMember(self.CommitteeInfo) {
+				//	self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
+				//}
+
 			case types.CommitteeStop:
 				log.Info("CommitteeStop..")
 				self.committeeMu.Lock()
 				self.setCommitteeInfo(self.CommitteeInfo, PreCommittee)
 				self.setCommitteeInfo(nil, CurrentCommittee)
 				self.committeeMu.Unlock()
+
 				go self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
+//self.server.Notify(self.CommitteeInfo.Id, int(ch.Option))
 			default:
 				log.Info("unknown electionch:", ch.Option)
 			}
@@ -290,6 +306,9 @@ func (self *PbftAgent) loop() {
 						self.SendPbftNode(receivedCommitteeInfo)
 					}
 				}()*/
+				//self.server.PutCommittee(receivedCommitteeInfo)
+				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
+
 				go func() {
 					for {
 						select {
@@ -508,7 +527,7 @@ func (self *PbftAgent) ReceivePbftNode(cryNodeInfo *CryNodeInfo) {
 			rlp.DecodeBytes(decryptNode, node)
 			fmt.Println("receive node ... ")
 			PrintNode(node)
-			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
+			//self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
 }

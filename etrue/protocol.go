@@ -213,7 +213,7 @@ type newBlockData struct {
 // newFastBlockData is the network packet for the block propagation message.
 type newSnailBlockData struct {
 	Block *types.SnailBlock
-	td    int
+	td    *big.Int
 }
 
 // blockBody represents the data content of a single block.

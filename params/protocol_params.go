@@ -80,8 +80,11 @@ const (
 )
 
 var (
-	DifficultyBoundDivisor = big.NewInt(2048)   // The bound divisor of the difficulty, used in the update calculations.
+	DifficultyBoundDivisor = big.NewInt(32)   // The bound divisor of the difficulty, used in the update calculations.
 	GenesisDifficulty      = big.NewInt(131072) // Difficulty of the Genesis block.
-	MinimumDifficulty      = big.NewInt(131072) // The minimum that the difficulty may ever be.
-	DurationLimit          = big.NewInt(13)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+	MinimumDifficulty      = big.NewInt(256) // The minimum that the difficulty may ever be.
+	MinimumFruitDifficulty = big.NewInt(1)
+	DurationLimit          = big.NewInt(600)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+
+	FruitBlockRatio *big.Int = big.NewInt(600) // difficulty ratio between fruit and snail block
 )

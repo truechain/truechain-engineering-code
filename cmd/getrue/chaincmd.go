@@ -14,8 +14,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/console"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/state"
-	"github.com/truechain/truechain-engineering-code/core/types"
+		"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -24,7 +23,7 @@ import (
 	"gopkg.in/urfave/cli.v1"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
-)
+	)
 
 var (
 	initCommand = cli.Command{
@@ -201,7 +200,7 @@ func importChain(ctx *cli.Context) error {
 		utils.Fatalf("This command requires an argument.")
 	}
 	stack := makeFullNode(ctx)
-	chain, chainDb := utils.MakeChain(ctx, stack)
+	fchain,schain, chainDb := utils.MakeChain(ctx, stack)
 	defer chainDb.Close()
 
 	// Start periodically gathering memory profiles
@@ -223,17 +222,26 @@ func importChain(ctx *cli.Context) error {
 	start := time.Now()
 
 	if len(ctx.Args()) == 1 {
-		if err := utils.ImportChain(chain, ctx.Args().First()); err != nil {
-			log.Error("Import error", "err", err)
+		if err := utils.ImportChain(fchain, ctx.Args().First()); err != nil {
+			log.Error("Import fast error", "err", err)
 		}
+		if err := utils.ImportSnailChain(schain, ctx.Args().First()); err != nil {
+			log.Error("Import snail error", "err", err)
+		}
+
 	} else {
 		for _, arg := range ctx.Args() {
-			if err := utils.ImportChain(chain, arg); err != nil {
-				log.Error("Import error", "file", arg, "err", err)
+			if err := utils.ImportChain(fchain, arg); err != nil {
+				log.Error("Import fast error", "file", arg, "err", err)
+			}
+			if err := utils.ImportSnailChain(schain, arg); err != nil {
+				log.Error("Import snail error", "file", arg, "err", err)
 			}
 		}
 	}
-	chain.Stop()
+	fchain.Stop()
+	schain.Stop()
+
 	fmt.Printf("Import done in %v.\n\n", time.Since(start))
 
 	// Output pre-compaction stats mostly to see the import trashing
@@ -295,13 +303,14 @@ func exportChain(ctx *cli.Context) error {
 		utils.Fatalf("This command requires an argument.")
 	}
 	stack := makeFullNode(ctx)
-	chain, _ := utils.MakeChain(ctx, stack)
+	fchain,schain, _ := utils.MakeChain(ctx, stack)
 	start := time.Now()
 
 	var err error
 	fp := ctx.Args().First()
 	if len(ctx.Args()) < 3 {
-		err = utils.ExportChain(chain, fp)
+		err = utils.ExportChain(fchain, fp)
+		err = utils.ExportSnailChain(schain, fp)
 	} else {
 		// This can be improved to allow for numbers larger than 9223372036854775807
 		first, ferr := strconv.ParseInt(ctx.Args().Get(1), 10, 64)
@@ -312,7 +321,8 @@ func exportChain(ctx *cli.Context) error {
 		if first < 0 || last < 0 {
 			utils.Fatalf("Export error: block number must be greater than 0\n")
 		}
-		err = utils.ExportAppendChain(chain, fp, uint64(first), uint64(last))
+		err = utils.ExportAppendChain(fchain, fp, uint64(first), uint64(last))
+		err = utils.ExportAppendSnailChain(schain, fp, uint64(first), uint64(last))
 	}
 
 	if err != nil {
@@ -361,32 +371,51 @@ func copyDb(ctx *cli.Context) error {
 	}
 	// Initialize a new chain for the running node to sync into
 	stack := makeFullNode(ctx)
-	chain, chainDb := utils.MakeChain(ctx, stack)
+	fchain,schain, chainDb := utils.MakeChain(ctx, stack)
 
 	syncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*downloader.SyncMode)
-	dl := downloader.New(syncmode, chainDb, new(event.TypeMux), chain, nil, nil)
+	//fsyncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*fastdownloader.SyncMode)
+
+
+	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil)
+	//fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
 
 	// Create a source peer to satisfy downloader requests from
 	db, err := ethdb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256)
 	if err != nil {
 		return err
 	}
-	hc, err := core.NewHeaderChain(db, chain.Config(), chain.Engine(), func() bool { return false })
+
+	hc, err := core.NewHeaderChain(db, fchain.Config(), fchain.Engine(), func() bool { return false })
+	shc, err := snailchain.NewHeaderChain(db, schain.Config(), schain.Engine(), func() bool { return false })
+
 	if err != nil {
 		return err
 	}
-	peer := downloader.NewFakePeer("local", db, hc, dl)
-	if err = dl.RegisterPeer("local", 63, peer); err != nil {
+
+	speer := downloader.NewFakePeer("local", db, shc, sdl)
+	//fpeer := fastdownloader.NewFakePeer("local", db, hc, fdl)
+
+
+	if err = sdl.RegisterPeer("local", 63, speer); err != nil {
 		return err
 	}
+	//if err = fdl.RegisterPeer("local", 63, fpeer); err != nil {
+	//	return err
+	//}
 	// Synchronise with the simulated peer
 	start := time.Now()
 
 	currentHeader := hc.CurrentHeader()
-	if err = dl.Synchronise("local", currentHeader.Hash(), hc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), syncmode); err != nil {
+	//if err = fdl.Synchronise("local", currentHeader.Hash(), hc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), fsyncmode); err != nil {
+	//	return err
+	//}
+	if err = sdl.Synchronise("local", currentHeader.Hash(), hc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), syncmode); err != nil {
 		return err
 	}
-	for dl.Synchronising() {
+
+
+	for sdl.Synchronising() {
 		time.Sleep(10 * time.Millisecond)
 	}
 	fmt.Printf("Database copy done in %v\n", time.Since(start))
@@ -433,24 +462,24 @@ func removeDB(ctx *cli.Context) error {
 
 func dump(ctx *cli.Context) error {
 	stack := makeFullNode(ctx)
-	chain, chainDb := utils.MakeChain(ctx, stack)
+	_,schain, chainDb := utils.MakeChain(ctx, stack)
 	for _, arg := range ctx.Args() {
-		var block *types.Block
+		var block *types.SnailBlock
 		if hashish(arg) {
-			block = chain.GetBlockByHash(common.HexToHash(arg))
+			block = schain.GetBlockByHash(common.HexToHash(arg))
 		} else {
 			num, _ := strconv.Atoi(arg)
-			block = chain.GetBlockByNumber(uint64(num))
+			block = schain.GetBlockByNumber(uint64(num))
 		}
 		if block == nil {
 			fmt.Println("{}")
 			utils.Fatalf("block not found")
 		} else {
-			state, err := state.New(block.Root(), state.NewDatabase(chainDb))
-			if err != nil {
-				utils.Fatalf("could not create new state: %v", err)
-			}
-			fmt.Printf("%s\n", state.Dump())
+			//state, err := state.New(block.Root(), state.NewDatabase(chainDb))
+			//if err != nil {
+			//	utils.Fatalf("could not create new state: %v", err)
+			//}
+			//fmt.Printf("%s\n", state.Dump())
 		}
 	}
 	chainDb.Close()

@@ -201,16 +201,16 @@ func NewProtocolManager(chainConfig *params.ChainConfig, lightSync bool, protoco
 		return nil, errIncompatibleConfig
 	}
 
-	removePeer := manager.removePeer
-	if disableClientRemovePeer {
-		removePeer = func(id string) {}
-	}
+	//removePeer := manager.removePeer
+	//if disableClientRemovePeer {
+	//	removePeer = func(id string) {}
+	//}
 
-	if lightSync {
-		manager.downloader = downloader.New(downloader.LightSync, chainDb, manager.eventMux, nil, blockchain, removePeer)
-		manager.peers.notify((*downloaderPeerNotify)(manager))
-		manager.fetcher = newLightFetcher(manager)
-	}
+	//if lightSync {
+	//	manager.downloader = downloader.New(downloader.LightSync, chainDb, manager.eventMux, blockchain, nil, removePeer)
+	//	manager.peers.notify((*downloaderPeerNotify)(manager))
+	//	manager.fetcher = newLightFetcher(manager)
+	//}
 
 	return manager, nil
 }
@@ -511,14 +511,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Headers   []*types.Header
+			Headers   []*types.SnailHeader
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
-			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+			//pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
 		} else {
 			err := pm.downloader.DeliverHeaders(p.id, resp.Headers)
 			if err != nil {

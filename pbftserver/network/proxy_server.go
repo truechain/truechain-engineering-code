@@ -25,11 +25,11 @@ type Server struct {
 func PrintNode(node *Node) {
 start:
 	lock.Lock.Lock()
-	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, len(node.CommitWaitMsg))
-	lock.PSLog("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
-		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
-		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
-		"len(node.MsgBuffer.CommitMsgs):", len(node.MsgBuffer.CommitMsgs))
+	//lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, len(node.CommitWaitMsg))
+	//lock.PSLog("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
+	//	"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
+	//	"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
+	//	"len(node.MsgBuffer.CommitMsgs):", len(node.MsgBuffer.CommitMsgs))
 
 	for i := 0; i < len(node.MsgBuffer.ReqMsgs); i++ {
 		lock.PSLog("ReqMsgs:", fmt.Sprintf("%+v \n", *node.MsgBuffer.ReqMsgs[i]))
@@ -46,11 +46,11 @@ start:
 		lock.PSLog("CommitMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.CommitMsgs[i]))
 	}
 
-	lock.PSLog("states count:", len(node.States))
+	//lock.PSLog("states count:", len(node.States))
 	for k, v := range node.States {
 		lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
 	}
-	lock.PSLog("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
+	//lock.PSLog("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
 	lock.Lock.Unlock()
 	time.Sleep(time.Second * 10)
 	goto start
@@ -71,7 +71,7 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	}
 	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
-	go PrintNode(server.Node)
+	//go PrintNode(server.Node)
 	return server
 }
 func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.ActionIn)) {

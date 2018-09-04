@@ -29,7 +29,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/bitutil"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	//	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/log"
 )
@@ -46,7 +46,26 @@ const (
 	datasetParents     = 256     // Number of parents of each dataset element
 	cacheRounds        = 3       // Number of rounds in cache production
 	loopAccesses       = 64      // Number of accesses in hashimoto loop
+	dataBytes          = 256     // Number of absorbing data in mining loop
 )
+
+var trueInit int = 0;
+var tableLookup [16 * 2048 * 32 * 4]uint64
+func trunMiningTableInit(){
+	var table [TBLSIZE*DATALENGTH*PMTSIZE]uint32
+
+	for k := 0; k < TBLSIZE; k++	{
+		for x := 0; x < DATALENGTH*PMTSIZE; x++	{
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
+		}
+		//fmt.Printf("%d,", k+1)
+	}
+
+	genLookupTable(tableLookup[:], table[:]);
+
+	trueInit = 1
+
+}
 
 // cacheSize returns the size of the ethash verification cache that belongs to a certain
 // block number.
@@ -94,25 +113,14 @@ func calcDatasetSize(epoch int) uint64 {
 // reused between hash runs instead of requiring new ones to be created.
 type hasher func(dest []byte, data []byte)
 
-// makeHasher creates a repetitive hasher, allowing the same hash data structures to
-// be reused between hash runs instead of requiring new ones to be created. The returned
-// function is not thread safe!
+// makeHasher creates a repetitive hasher, allowing the same hash data structures
+// to be reused between hash runs instead of requiring new ones to be created.
+// The returned function is not thread safe!
 func makeHasher(h hash.Hash) hasher {
-	// sha3.state supports Read to get the sum, use it to avoid the overhead of Sum.
-	// Read alters the state but we reset the hash before every operation.
-	type readerHash interface {
-		hash.Hash
-		Read([]byte) (int, error)
-	}
-	rh, ok := h.(readerHash)
-	if !ok {
-		panic("can't find Read method on hash")
-	}
-	outputLen := rh.Size()
 	return func(dest []byte, data []byte) {
-		rh.Reset()
-		rh.Write(data)
-		rh.Read(dest[:outputLen])
+		h.Write(data)
+		h.Sum(dest[:0])
+		h.Reset()
 	}
 }
 
@@ -123,9 +131,9 @@ func seedHash(block uint64) []byte {
 	if block < epochLength {
 		return seed
 	}
-	keccak256 := makeHasher(sha3.NewKeccak256())
+	sha256 := makeHasher(sha3.New256())
 	for i := 0; i < int(block/epochLength); i++ {
-		keccak256(seed, seed)
+		sha256(seed, seed)
 	}
 	return seed
 }
@@ -177,12 +185,12 @@ func generateCache(dest []uint32, epoch uint64, seed []byte) {
 		}
 	}()
 	// Create a hasher to reuse between invocations
-	keccak512 := makeHasher(sha3.NewKeccak512())
+	sha512 := makeHasher(sha3.New512())
 
 	// Sequentially produce the initial dataset
-	keccak512(cache, seed)
+	sha512(cache, seed)
 	for offset := uint64(hashBytes); offset < size; offset += hashBytes {
-		keccak512(cache[offset:], cache[offset-hashBytes:offset])
+		sha512(cache[offset:], cache[offset-hashBytes:offset])
 		atomic.AddUint32(&progress, 1)
 	}
 	// Use a low-round version of randmemohash
@@ -196,7 +204,7 @@ func generateCache(dest []uint32, epoch uint64, seed []byte) {
 				xorOff = (binary.LittleEndian.Uint32(cache[dstOff:]) % uint32(rows)) * hashBytes
 			)
 			bitutil.XORBytes(temp, cache[srcOff:srcOff+hashBytes], cache[xorOff:xorOff+hashBytes])
-			keccak512(cache[dstOff:], temp)
+			sha512(cache[dstOff:], temp)
 
 			atomic.AddUint32(&progress, 1)
 		}
@@ -240,7 +248,7 @@ func fnvHash(mix []uint32, data []uint32) {
 
 // generateDatasetItem combines data from 256 pseudorandomly selected cache nodes,
 // and hashes that to compute a single dataset node.
-func generateDatasetItem(cache []uint32, index uint32, keccak512 hasher) []byte {
+func generateDatasetItem(cache []uint32, index uint32, sha512 hasher) []byte {
 	// Calculate the number of theoretical rows (we use one buffer nonetheless)
 	rows := uint32(len(cache) / hashWords)
 
@@ -251,7 +259,7 @@ func generateDatasetItem(cache []uint32, index uint32, keccak512 hasher) []byte 
 	for i := 1; i < hashWords; i++ {
 		binary.LittleEndian.PutUint32(mix[i*4:], cache[(index%rows)*hashWords+uint32(i)])
 	}
-	keccak512(mix, mix)
+	sha512(mix, mix)
 
 	// Convert the mix to uint32s to avoid constant bit shifting
 	intMix := make([]uint32, hashWords)
@@ -267,7 +275,7 @@ func generateDatasetItem(cache []uint32, index uint32, keccak512 hasher) []byte 
 	for i, val := range intMix {
 		binary.LittleEndian.PutUint32(mix[i*4:], val)
 	}
-	keccak512(mix, mix)
+	sha512(mix, mix)
 	return mix
 }
 
@@ -310,7 +318,7 @@ func generateDataset(dest []uint32, epoch uint64, cache []uint32) {
 			defer pend.Done()
 
 			// Create a hasher to reuse between invocations
-			keccak512 := makeHasher(sha3.NewKeccak512())
+			sha512 := makeHasher(sha3.New512())
 
 			// Calculate the data segment this thread should generate
 			batch := uint32((size + hashBytes*uint64(threads) - 1) / (hashBytes * uint64(threads)))
@@ -322,7 +330,7 @@ func generateDataset(dest []uint32, epoch uint64, cache []uint32) {
 			// Calculate the dataset segment
 			percent := uint32(size / hashBytes / 100)
 			for index := first; index < limit; index++ {
-				item := generateDatasetItem(cache, index, keccak512)
+				item := generateDatasetItem(cache, index, sha512)
 				if swapped {
 					swap(item)
 				}
@@ -340,74 +348,43 @@ func generateDataset(dest []uint32, epoch uint64, cache []uint32) {
 
 // hashimoto aggregates data from the full dataset in order to produce our final
 // value for a particular header hash and nonce.
-func hashimoto(hash []byte, nonce uint64, size uint64, lookup func(index uint32) []uint32) ([]byte, []byte) {
+func hashimoto(plookup []uint64, hash []byte, nonce uint64, size uint64, ) ([]byte, []byte) {
 	// Calculate the number of theoretical rows (we use one buffer nonetheless)
-	rows := uint32(size / mixBytes)
+	return fchainmining(plookup[:], hash[:], nonce)
 
-	// Combine header+nonce into a 64 byte seed
-	seed := make([]byte, 40)
-	copy(seed, hash)
-	binary.LittleEndian.PutUint64(seed[32:], nonce)
-
-	seed = crypto.Keccak512(seed)
-	seedHead := binary.LittleEndian.Uint32(seed)
-
-	// Start the mix with replicated seed
-	mix := make([]uint32, mixBytes/4)
-	for i := 0; i < len(mix); i++ {
-		mix[i] = binary.LittleEndian.Uint32(seed[i%16*4:])
-	}
-	// Mix in random dataset nodes
-	temp := make([]uint32, len(mix))
-
-	for i := 0; i < loopAccesses; i++ {
-		parent := fnv(uint32(i)^seedHead, mix[i%len(mix)]) % rows
-		for j := uint32(0); j < mixBytes/hashBytes; j++ {
-			copy(temp[j*hashWords:], lookup(2*parent+j))
-		}
-		fnvHash(mix, temp)
-	}
-	// Compress mix
-	for i := 0; i < len(mix); i += 4 {
-		mix[i/4] = fnv(fnv(fnv(mix[i], mix[i+1]), mix[i+2]), mix[i+3])
-	}
-	mix = mix[:len(mix)/4]
-
-	digest := make([]byte, common.HashLength)
-	for i, val := range mix {
-		binary.LittleEndian.PutUint32(digest[i*4:], val)
-	}
-	return digest, crypto.Keccak256(append(seed, digest...))
 }
 
 // hashimotoLight aggregates data from the full dataset (using only a small
 // in-memory cache) in order to produce our final value for a particular header
 // hash and nonce.
 func hashimotoLight(size uint64, cache []uint32, hash []byte, nonce uint64) ([]byte, []byte) {
-	keccak512 := makeHasher(sha3.NewKeccak512())
 
-	lookup := func(index uint32) []uint32 {
-		rawData := generateDatasetItem(cache, index, keccak512)
-
-		data := make([]uint32, len(rawData)/4)
-		for i := 0; i < len(data); i++ {
-			data[i] = binary.LittleEndian.Uint32(rawData[i*4:])
+	var table [TBLSIZE*DATALENGTH*PMTSIZE]uint32
+	var plookup [16 * 2048 * 32 * 4]uint64
+	for k := 0; k < TBLSIZE; k++	{
+		for x := 0; x < DATALENGTH*PMTSIZE; x++	{
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
 		}
-		return data
+		//fmt.Printf("%d,", k+1)
 	}
-	return hashimoto(hash, nonce, size, lookup)
+	genLookupTable(plookup[:], table[:]);
+	return hashimoto(plookup[:], hash[:], nonce, size)
 }
 
 // hashimotoFull aggregates data from the full dataset (using the full in-memory
 // dataset) in order to produce our final value for a particular header hash and
 // nonce.
+
 func hashimotoFull(dataset []uint32, hash []byte, nonce uint64) ([]byte, []byte) {
-	lookup := func(index uint32) []uint32 {
-		offset := index * hashWords
-		return dataset[offset : offset+hashWords]
+
+	if trueInit == 0{
+		trunMiningTableInit()
 	}
-	return hashimoto(hash, nonce, uint64(len(dataset))*4, lookup)
+	return hashimoto(tableLookup[:], hash[:], nonce, uint64(len(dataset))*4)
 }
+
+
+
 
 const maxEpoch = 2048
 
