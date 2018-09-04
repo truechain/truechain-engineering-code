@@ -197,6 +197,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 	go p.readLoop(readErr)
 	go p.pingLoop()
 
+	fmt.Println("peer》》》》》》》》》》》",p.Info().ID)
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
 	p.startProtocols(writeStart, writeErr)
