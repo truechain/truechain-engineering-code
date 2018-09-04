@@ -27,6 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+	osMath "math"
 )
 
 type diffTest struct {
@@ -95,5 +96,22 @@ func TestAccountDiv(t *testing.T) {
 	println(r.Uint64(), FrontierBlockReward.Uint64(), SnailBlockRewardsInitial.Bytes())
 	fmt.Printf("%v", new(big.Int).Exp(new(big.Int).SetInt64(2),
 		new(big.Int).Div(new(big.Int).Add(new(big.Int).SetInt64(5000), new(big.Int).SetInt64(12)), new(big.Int).SetInt64(5000)), nil))
+}
 
+type ConstSqrt struct {
+	Num  int     `json:"num"`
+	Sqrt float64 `json:"sqrt"`
+}
+
+func TestOutSqrt(t *testing.T) {
+	var AConstSqrt []ConstSqrt
+	for i := 1; i <= 10000; i++ {
+		tmp := osMath.Sqrt(float64(i)) / (osMath.Sqrt(float64(i)) + 20)
+		if tmp > 0.8 {
+			break
+		}
+		AConstSqrt = append(AConstSqrt, ConstSqrt{Num: i, Sqrt: tmp})
+	}
+	b, _ := json.Marshal(AConstSqrt)
+	fmt.Println(string(b))
 }
