@@ -44,8 +44,6 @@ const (
 
 	ChainHeadSize    = 3
 	electionChanSize = 2
-
-	singleNode = 1
 )
 
 var testCommittee = []*types.CommitteeNode{
@@ -119,7 +117,7 @@ type PbftAgent struct {
 
 	cacheSign  map[string]Sign           //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
-	NodeType   uint64
+	NodeType   bool
 }
 
 type AgentWork struct {
@@ -191,9 +189,8 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.NodeType = config.NodeType
-
 	//TODO when IP or Port is nil
-	fmt.Println("config.SyncMode：", config.NodeType)
+	log.Info("NodeType is singleNode :", self.NodeType)
 	if bytes.Equal(config.CommitteeKey, []byte{}) {
 		if config.Host != "" || config.Port != 0 {
 			self.CommitteeNode = &types.CommitteeNode{
@@ -232,12 +229,11 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	if self.NodeType == singleNode {
+	if self.NodeType{
 		go self.StartSingleNode()
 	} else {
 		go self.loop()
 	}
-
 }
 
 // Stop terminates the PbftAgent.
@@ -279,21 +275,14 @@ func (self *PbftAgent) loop() {
 			self.committeeMu.Lock()
 			self.setCommitteeInfo(ch.CommitteeInfo, NextCommittee)
 			self.committeeMu.Unlock()
-			ticker.Stop()                             //stop ticker send nodeInfo
+			ticker.Stop()            //stop ticker send nodeInfo
+			ticker = time.NewTicker(time.Second * sendNodeTime)
 			self.cacheSign = make(map[string]Sign)    //clear cacheSign map
 			receivedCommitteeInfo := ch.CommitteeInfo //received committeeInfo
 			if self.IsCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
 				//self.server.PutNodes(ch.CommitteeInfo.Id, testCommittee) //TODO delete
 				self.server.PutNodes(ch.CommitteeInfo.Id, []*types.CommitteeNode{self.CommitteeNode})
-				self.SendPbftNode(receivedCommitteeInfo)
-				go func() {
-					for {
-						fmt.Println("haha")
-						time.Sleep(time.Second * 5)
-						self.SendPbftNode(receivedCommitteeInfo)
-					}
-				}()
 				go func() {
 					for {
 						select {
@@ -312,7 +301,7 @@ func (self *PbftAgent) loop() {
 			if self.cryNodeInfoInCommittee(*cryNodeInfo) {
 				go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
 			} else {
-				fmt.Println("cryNodeInfo of  node not in Committee.")
+				log.Info("cryNodeInfo of  node not in Committee.")
 			}
 			// if  node  is in committee  and the sign is not received
 			signStr := hex.EncodeToString(cryNodeInfo.Sign)
@@ -373,7 +362,6 @@ func (self *PbftAgent) AddCacheIntoChain(receiveBlock *types.Block) error {
 		}
 		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
 		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
-
 	}
 	return nil
 }
@@ -392,12 +380,12 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
 		fmt.Println("receiveBlockNumber:", receiveBlock.Number())
-		fmt.Println("fastBlocks:", len(fastBlocks))
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
 		if err != nil {
 			return err
 		}
+		fmt.Println("fastblock insert chain ")
 		//generate sign
 		voteSign, err := self.GenerateSign(receiveBlock)
 		if err != nil {
@@ -407,6 +395,7 @@ func (self *PbftAgent) OperateCommitteeBlock(receiveBlock *types.Block) error {
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
+		log.Info("OperateCommitteeBlock parent is nil.")
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
 		self.cacheBlockMu.Unlock()
@@ -429,7 +418,6 @@ func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo CryNodeInfo) bool {
 	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
 		log.Error("SigToPub error.")
-		panic(err)
 		return false
 	}
 	for _, member := range nextCommitteeInfo.Members {
@@ -525,8 +513,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	var fastBlock *types.Block
 
 	tstart := time.Now()
-	/*ph := self.fastChain.CurrentHeader()
-	parent := self.fastChain.GetBlock(ph.Hash(), ph.Number.Uint64())*/
 	parent := self.fastChain.CurrentBlock()
 
 	tstamp := tstart.Unix()
@@ -578,8 +564,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}else{
 		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber,common.Big1)
 	}
-
-
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(),rewardSnailHegiht).Int64()
 	if space >= BlockRewordSpace{
 		fastBlock.Header().SnailNumber = rewardSnailHegiht
@@ -615,12 +599,13 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 //broadcast blockAndSign
 func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
 	log.Info("into BroadcastFastBlock.")
-	voteSign, err := self.GenerateSign(fb)
+	var err error
+	/*voteSign, err := self.GenerateSign(fb)
 	if err != nil {
 		panic(err)
 		log.Info("sign error")
 	}
-	fb.AppendSign(voteSign)
+	fb.AppendSign(voteSign)*/
 	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 	return err
 }
@@ -1011,7 +996,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 }
 
 func (agent *PbftAgent) SendBlock() {
-	committeeInfo := new(types.CommitteeInfo)
+	/*committeeInfo := new(types.CommitteeInfo)
 	committeeInfo.Id = common.Big0
 	for _, c := range testCommittee {
 		var member *types.CommitteeMember
@@ -1024,7 +1009,7 @@ func (agent *PbftAgent) SendBlock() {
 		committeeInfo.Members = append(committeeInfo.Members, member)
 	}
 	cryNodeInfo := agent.SendPbftNode(committeeInfo)
-	agent.ReceivePbftNode(cryNodeInfo)
+	agent.ReceivePbftNode(cryNodeInfo)*/
 
 	for {
 		//获取区块
@@ -1048,6 +1033,7 @@ func (agent *PbftAgent) SendBlock() {
 
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
+			log.Info("BroadcastConsensus error ")
 			panic(err)
 		}
 	}
@@ -1056,21 +1042,22 @@ func (agent *PbftAgent) SendBlock() {
 func (agent *PbftAgent) StartSingleNode() {
 	for {
 		//获取区块
-		t1 := time.Now()
+		//t1 := time.Now()
 		var block *types.Block
 		var err error
-		for {
+		block, err = agent.FetchFastBlock()
+		/*for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
 				return
 			}
 			sub := time.Now().Sub(t1)
-			if len(block.Transactions()) == 0 && sub < time.Second*FetchBlockTime*60 {
+			if len(block.Transactions()) == 0 && sub < time.Second*FetchBlockTime*3 {
 				time.Sleep(time.Second * FetchBlockTime)
 			} else {
 				break
 			}
-		}
+		}*/
 		time.Sleep(time.Second * 1)
 		//发出区块
 		err = agent.BroadcastFastBlock(block)
@@ -1084,10 +1071,9 @@ func (agent *PbftAgent) StartSingleNode() {
 			panic(err)
 		}
 		fmt.Println("validate true")
-		time.Sleep(time.Second * 2)
-
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
+			log.Info("BroadcastConsensus error ")
 			panic(err)
 		}
 	}

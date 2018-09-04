@@ -24,6 +24,9 @@ const (
 	Start int = iota
 	Stop
 	Switch
+
+	BlockCacheMax = 1000
+	BlockSleepMax = 0
 )
 
 type serverInfo struct {
@@ -36,12 +39,14 @@ type serverInfo struct {
 }
 
 type PbftServerMgr struct {
-	servers   map[uint64]*serverInfo
-	blocks    map[uint64]*types.Block
-	pk        *ecdsa.PublicKey
-	priv      *ecdsa.PrivateKey
-	Agent     types.PbftAgentProxy
-	blockLock sync.Mutex
+	servers    map[uint64]*serverInfo
+	blocks     map[uint64]*types.Block
+	pk         *ecdsa.PublicKey
+	priv       *ecdsa.PrivateKey
+	Agent      types.PbftAgentProxy
+	blockLock  sync.Mutex
+	blockMax   uint64
+	blockSleep time.Duration
 }
 
 func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.PbftAgentProxy) *PbftServerMgr {
@@ -101,6 +106,7 @@ func (ss *serverInfo) insertNode(n *types.CommitteeNode) {
 func (ss *PbftServerMgr) getBlock(h uint64) *types.Block {
 	ss.blockLock.Lock()
 	defer ss.blockLock.Unlock()
+
 	if fb, ok := ss.blocks[h]; ok {
 		return fb
 	}
@@ -117,6 +123,9 @@ func (ss *PbftServerMgr) putBlock(h uint64, block *types.Block) {
 	ss.blockLock.Lock()
 	defer ss.blockLock.Unlock()
 	//TODO make size 1000
+	if ss.blockMax < h {
+		ss.blockMax = h
+	}
 	ss.blocks[h] = block
 }
 
@@ -166,8 +175,23 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	if !bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		return nil, errors.New("local node must be leader...")
 	}
+
 	lock.PSLog("AGENT", "FetchFastBlock", "start")
+
+	if ss.blockSleep != 0 {
+		time.Sleep(ss.blockSleep * time.Second)
+		lock.PSLog("FetchFastBlock wait", ss.blockSleep, "second")
+	}
 	fb, err := ss.Agent.FetchFastBlock()
+
+	if len(fb.Body().Transactions) == 0 {
+		if ss.blockSleep < BlockSleepMax {
+			ss.blockSleep += 1
+		}
+	} else {
+		ss.blockSleep = 0
+	}
+
 	lock.PSLog("AGENT", "FetchFastBlock", err == nil, "end")
 	if err != nil {
 		return nil, err
@@ -391,6 +415,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 					time.Sleep(time.Second)
 				}
 			}
+
 			server.server.Start(ss.work)
 			// start to fetch
 			ac := &consensus.ActionIn{

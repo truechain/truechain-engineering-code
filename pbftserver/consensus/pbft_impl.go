@@ -15,6 +15,7 @@ type State struct {
 	CurrentStage   Stage
 	FastStage      Stage
 	BlockResults   *SignedVoteMsg
+	Clear          bool
 }
 
 type MsgLogs struct {
