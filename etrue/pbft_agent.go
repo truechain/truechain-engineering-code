@@ -39,7 +39,7 @@ const (
 )
 const (
 	BlockRewordSpace = 12
-	sendNodeTime     = 5
+	sendNodeTime     = 40
 	FetchBlockTime   = 5
 
 	ChainHeadSize    = 3
@@ -229,7 +229,7 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 }
 
 func (self *PbftAgent) Start() {
-	if self.NodeType{
+	if self.NodeType {
 		go self.StartSingleNode()
 	} else {
 		go self.loop()
@@ -275,7 +275,7 @@ func (self *PbftAgent) loop() {
 			self.committeeMu.Lock()
 			self.setCommitteeInfo(ch.CommitteeInfo, NextCommittee)
 			self.committeeMu.Unlock()
-			ticker.Stop()            //stop ticker send nodeInfo
+			ticker.Stop() //stop ticker send nodeInfo
 			ticker = time.NewTicker(time.Second * sendNodeTime)
 			self.cacheSign = make(map[string]Sign)    //clear cacheSign map
 			receivedCommitteeInfo := ch.CommitteeInfo //received committeeInfo
