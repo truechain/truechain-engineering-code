@@ -108,22 +108,12 @@ type Engine interface {
 	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
 	VerifySnailHeader(chain SnailChainReader, header *types.SnailHeader, seal bool) error
 
-	// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of a
-	// given engine. Verifying the seal may be done optionally here, or explicitly
-	VerifyFastHeader(chain ChainFastReader, header *types.Header, seal bool) error
-
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
 	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
-
-	// VerifyFastHeaders is similar to VerifyFastHeader, but verifies a batch of fast headers
-	// concurrently. The method returns a quit channel to abort the operations and
-	// a results channel to retrieve the async verifications (the order is that of
-	// the input slice).
-	VerifyFastHeaders(chain ChainFastReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.

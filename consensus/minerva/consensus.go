@@ -76,7 +76,19 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum m engine.
 func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
-	return nil
+	// Short circuit if the header is known, or it's parent not
+	number := header.Number.Uint64()
+
+	parent := chain.GetHeader(header.ParentHash, number-1)
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+
+	if chain.GetHeader(header.Hash(), number) != nil {
+		return nil
+	}
+
+	return m.verifyFastHeader(chain, header, parent)
 }
 
 func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *types.SnailHeader, seal bool) error {
@@ -107,30 +119,70 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *ty
 	return m.verifySnailHeader(chain, header, parent, false, seal)
 }
 
-// VerifyFastHeader checks whether a fast chain header conforms to the consensus rules of the
-// stock Ethereum ethash engine.
-func (m *Minerva) VerifyFastHeader(chain consensus.ChainFastReader, header *types.Header, seal bool) error {
-	// Short circuit if the header is known, or it's parent not
-	number := header.Number.Uint64()
-
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-
-	if chain.GetHeader(header.Hash(), number) != nil {
-		return nil
-	}
-
-	return m.verifyFastHeader(chain, header, parent)
-}
-
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
 func (m *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.Header,
 	seals []bool) (chan<- struct{}, <-chan error) {
-	return nil, nil
+	// If we're running a full engine faking, accept any input as valid
+	if m.config.PowMode == ModeFullFake || len(headers) == 0 {
+		abort, results := make(chan struct{}), make(chan error, len(headers))
+		for i := 0; i < len(headers); i++ {
+			results <- nil
+		}
+		return abort, results
+	}
+
+	// Spawn as many workers as allowed threads
+	workers := runtime.GOMAXPROCS(0)
+	if len(headers) < workers {
+		workers = len(headers)
+	}
+
+	// Create a task channel and spawn the verifiers
+	var (
+		inputs = make(chan int)
+		done   = make(chan int, workers)
+		errors = make([]error, len(headers))
+		abort  = make(chan struct{})
+	)
+	for i := 0; i < workers; i++ {
+		go func() {
+			for index := range inputs {
+				errors[index] = m.verifySnailHeaderWorker(chain, headers, seals, index)
+				done <- index
+			}
+		}()
+	}
+
+	errorsOut := make(chan error, len(headers))
+	go func() {
+		defer close(inputs)
+		var (
+			in, out = 0, 0
+			checked = make([]bool, len(headers))
+			inputs  = inputs
+		)
+		for {
+			select {
+			case inputs <- in:
+				if in++; in == len(headers) {
+					// Reached end of headers. Stop sending to workers.
+					inputs = nil
+				}
+			case index := <-done:
+				for checked[index] = true; checked[out]; out++ {
+					errorsOut <- errors[out]
+					if out == len(headers)-1 {
+						return
+					}
+				}
+			case <-abort:
+				return
+			}
+		}
+	}()
+	return abort, errorsOut
 }
 func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader,
 	seals []bool) (chan<- struct{}, <-chan error) {
