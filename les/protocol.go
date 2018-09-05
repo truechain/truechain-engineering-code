@@ -81,6 +81,8 @@ const (
 	SendTxV2Msg            = 0x13
 	GetTxStatusMsg         = 0x14
 	TxStatusMsg            = 0x15
+
+	GetSnailFastBlockHeadersMsg  = 0x16
 )
 
 type errCode int
