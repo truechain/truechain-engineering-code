@@ -82,3 +82,5 @@ type PbftSignEvent struct {
 type NewBlockEvent struct{ Block *types.Block }
 
 type RewardNumberEvent struct{ RewardNumber *big.Int }
+
+type NodeInfoEvent struct{ NodeInfo *types.EncrptoNodeMessage }

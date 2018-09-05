@@ -106,7 +106,7 @@ type ProtocolManager struct {
 
 	pbSignsCh     chan core.PbftSignEvent
 	pbSignsSub    event.Subscription
-	pbNodeInfoCh  chan NodeInfoEvent
+	pbNodeInfoCh  chan core.NodeInfoEvent
 	pbNodeInfoSub event.Subscription
 
 	//fruit
@@ -298,7 +298,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.pbSignBroadcastLoop()
 
 	// broadcast node info
-	pm.pbNodeInfoCh = make(chan NodeInfoEvent, nodeChanSize)
+	pm.pbNodeInfoCh = make(chan core.NodeInfoEvent, nodeChanSize)
 	pm.pbNodeInfoSub = pm.agentProxy.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
 	go pm.pbNodeInfoBroadcastLoop()
 
@@ -762,8 +762,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
-		// CryNodeInfo can be processed, parse all of them and deliver to the queue
-		var nodeInfo *CryNodeInfo
+		// EncrptoNodeMessage can be processed, parse all of them and deliver to the queue
+		var nodeInfo *types.EncrptoNodeMessage
 		if err := msg.Decode(&nodeInfo); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -893,19 +893,19 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 	}
 }
 
-// BroadcastPbNodeInfo will propagate a batch of CryNodeInfo to all peers which are not known to
+// BroadcastPbNodeInfo will propagate a batch of EncrptoNodeMessage to all peers which are not known to
 // already have the given CryNodeInfo.
-func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
-	var nodeInfoSet = make(map[*peer]NodeInfoEvent)
+func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncrptoNodeMessage) {
+	var nodeInfoSet = make(map[*peer]core.NodeInfoEvent)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
 	for _, peer := range peers {
-		nodeInfoSet[peer] = NodeInfoEvent{nodeInfo}
+		nodeInfoSet[peer] = core.NodeInfoEvent{nodeInfo}
 	}
 	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
-		peer.AsyncSendNodeInfo(nodeInfo.nodeInfo)
+		peer.AsyncSendNodeInfo(nodeInfo.NodeInfo)
 	}
 }
 
@@ -1065,7 +1065,7 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 	for {
 		select {
 		case nodeInfoEvent := <-pm.pbNodeInfoCh:
-			pm.BroadcastPbNodeInfo(nodeInfoEvent.nodeInfo)
+			pm.BroadcastPbNodeInfo(nodeInfoEvent.NodeInfo)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():

@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	voteAgreeAgainst = iota //vote agree
-	voteAgree               //vote against
+	voteAgreeAgainst = iota //vote against
+	voteAgree               //vote  agree
 
-	preCommittee
+	preCommittee		//previous committee
 	currentCommittee  //current running committee
 	nextCommittee     //next committee
 )
@@ -74,7 +74,7 @@ type PbftAgent struct {
 
 	electionCh    chan core.ElectionEvent
 	committeeCh   chan core.CommitteeEvent
-	cryNodeInfoCh chan *CryNodeInfo
+	cryNodeInfoCh chan *types.EncrptoNodeMessage
 	chainHeadCh   chan core.ChainHeadEvent
 
 	electionSub       event.Subscription
@@ -85,7 +85,7 @@ type PbftAgent struct {
 	committeeNode *types.CommitteeNode
 	privateKey    *ecdsa.PrivateKey
 
-	cacheSign          map[string]sign           //prevent receive same sign
+	cacheSign          map[string]types.Sign           //prevent receive same sign
 	cacheBlock         map[*big.Int]*types.Block //prevent receive same block
 	singleNode         bool
 	nodeInfoIsComplete bool
@@ -117,17 +117,6 @@ type Backend interface {
 
 // NodeInfoEvent is posted when nodeInfo send
 
-type encryptCommitteeNode []byte
-type sign []byte
-
-type CryNodeInfo struct {
-	createdAt   time.Time
-	committeeId *big.Int
-	nodes       []encryptCommitteeNode
-	sign //sign msg
-}
-
-type NodeInfoEvent struct{ nodeInfo *CryNodeInfo }
 
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
@@ -140,7 +129,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		committeeCh:      make(chan core.CommitteeEvent),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadSize),
-		cryNodeInfoCh:    make(chan *CryNodeInfo),
+		cryNodeInfoCh:    make(chan *types.EncrptoNodeMessage),
 		election:         election,
 		mux:              new(event.TypeMux),
 		mu:               new(sync.Mutex),
@@ -239,7 +228,7 @@ func (self *PbftAgent) loop() {
 			self.setCommitteeInfo(ch.CommitteeInfo, nextCommittee)
 			self.committeeMu.Unlock()
 			ticker.Stop()                          //stop ticker send nodeInfo
-			self.cacheSign = make(map[string]sign) //clear cacheSign map
+			self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 			ticker = time.NewTicker(sendNodeTime)
 			if self.isCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
@@ -257,14 +246,14 @@ func (self *PbftAgent) loop() {
 		case cryNodeInfo := <-self.cryNodeInfoCh:
 			//if cryNodeInfo of  node in Committee
 			if self.cryNodeInfoInCommittee(cryNodeInfo) {
-				go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 			} else {
 				printWarn("cryNodeInfo of  node not in Committee.")
 			}
-			signStr := hex.EncodeToString(cryNodeInfo.sign)
+			signStr := hex.EncodeToString(cryNodeInfo.Sign)
 			// if  node  is in committee  and the sign is not received
 			if self.isCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
-				self.cacheSign[signStr] = cryNodeInfo.sign
+				self.cacheSign[signStr] = cryNodeInfo.Sign
 				self.receivePbftNode(cryNodeInfo)
 			}
 		case ch := <-self.chainHeadCh:
@@ -340,19 +329,19 @@ func (self *PbftAgent) operateCommitteeBlock(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo *CryNodeInfo) bool {
+func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo *types.EncrptoNodeMessage) bool {
 	nextCommitteeInfo := self.nextCommitteeInfo
 	if nextCommitteeInfo == nil || len(nextCommitteeInfo.Members) == 0 {
 		printStr("NextCommitteeInfo.Members is nil ...")
 		return false
 	}
-	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.committeeId) != 0 {
+	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
 		printWarn("CommitteeId not consistence  ...")
 		return false
 	}
 
-	hash := RlpHash([]interface{}{cryNodeInfo.nodes, cryNodeInfo.committeeId})
-	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.sign)
+	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
+	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
 		printStrAndError("SigToPub error.", err)
 		return false
@@ -367,20 +356,20 @@ func (self *PbftAgent) cryNodeInfoInCommittee(cryNodeInfo *CryNodeInfo) bool {
 }
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
-func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) *CryNodeInfo {
+func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) *types.EncrptoNodeMessage {
 	log.Info("into sendPbftNode.")
 
 	if committeeInfo == nil || len(committeeInfo.Members) == 0 {
 		printStr("committeeInfo is nil")
 		return nil
 	}
-	cryNodeInfo := &CryNodeInfo{
-		committeeId: committeeInfo.Id,
-		createdAt:   time.Now(),
+	cryNodeInfo := &types.EncrptoNodeMessage{
+		CommitteeId: committeeInfo.Id,
+		CreatedAt:   time.Now(),
 	}
 	PrintNode(pbftAgent.committeeNode)
 	nodeByte, _ := rlp.EncodeToBytes(pbftAgent.committeeNode)
-	var encryptNodes []encryptCommitteeNode
+	var encryptNodes []types.EncryptCommitteeNode
 	for _, member := range committeeInfo.Members {
 		EncryptCommitteeNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
 		if err != nil {
@@ -389,32 +378,32 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		}
 		encryptNodes = append(encryptNodes, EncryptCommitteeNode)
 	}
-	cryNodeInfo.nodes = encryptNodes
+	cryNodeInfo.Nodes = encryptNodes
 
-	hash := RlpHash([]interface{}{cryNodeInfo.nodes, committeeInfo.Id})
+	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, committeeInfo.Id})
 	var err error
-	cryNodeInfo.sign, err = crypto.Sign(hash[:], pbftAgent.privateKey)
+	cryNodeInfo.Sign, err = crypto.Sign(hash[:], pbftAgent.privateKey)
 	if err != nil {
 		printStrAndError("sign error", err)
 	}
-	pbftAgent.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
+	pbftAgent.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 	return cryNodeInfo
 }
 
-func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *CryNodeInfo) error {
+func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncrptoNodeMessage) error {
 	log.Info("into AddRemoteNodeInfo.")
 	pbftAgent.cryNodeInfoCh <- cryNodeInfo
 	return nil
 }
 
-func (self *PbftAgent) receivePbftNode(cryNodeInfo *CryNodeInfo) {
+func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncrptoNodeMessage) {
 	log.Info("into ReceivePbftNode ...")
-	hash := RlpHash([]interface{}{cryNodeInfo.nodes, cryNodeInfo.committeeId})
-	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.sign)
+	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
+	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
 		printStrAndError("SigToPub error.", err)
 	}
-	members := self.election.GetComitteeById(cryNodeInfo.committeeId)
+	members := self.election.GetComitteeById(cryNodeInfo.CommitteeId)
 	verifyFlag := false
 	for _, member := range members {
 		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
@@ -427,12 +416,12 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *CryNodeInfo) {
 		return
 	}
 	priKey := ecies.ImportECDSA(self.privateKey) //ecdsa-->ecies
-	for _, encryptNode := range cryNodeInfo.nodes {
+	for _, encryptNode := range cryNodeInfo.Nodes {
 		decryptNode, err := priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
-			self.server.PutNodes(cryNodeInfo.committeeId, []*types.CommitteeNode{node})
+			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
 }
@@ -707,7 +696,7 @@ func (self *PbftAgent) SubscribeNewPbftSignEvent(ch chan<- core.PbftSignEvent) e
 	return self.scope.Track(self.signFeed.Subscribe(ch))
 }
 
-func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- NodeInfoEvent) event.Subscription {
+func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- core.NodeInfoEvent) event.Subscription {
 	return self.scope.Track(self.nodeInfoFeed.Subscribe(ch))
 }
 
@@ -830,11 +819,9 @@ func RlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-func (c *CryNodeInfo) Hash() common.Hash {
-	return RlpHash(c)
-}
 
-/*func PrintCryptNode(node *CryNodeInfo) {
+
+/*func PrintCryptNode(node *EncrptoNodeMessage) {
 	fmt.Println("*********************")
 	fmt.Println("createdAt:", node.createdAt)
 	fmt.Println("Id:", node.committeeId)

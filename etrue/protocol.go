@@ -138,9 +138,9 @@ type AgentNetworkProxy interface {
 	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
 	// SubscribeNodeInfoEvent should return an event subscription of
 	// NodeInfoEvent and send events to the given channel.
-	SubscribeNodeInfoEvent(chan<- NodeInfoEvent) event.Subscription
+	SubscribeNodeInfoEvent(chan<- core.NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
-	AddRemoteNodeInfo(*CryNodeInfo) error
+	AddRemoteNodeInfo(*types.EncrptoNodeMessage) error
 	// AcquireCommitteeAuth check current node whether committee.
 	AcquireCommitteeAuth(*big.Int) bool
 }

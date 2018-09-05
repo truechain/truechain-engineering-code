@@ -10,6 +10,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"log"
 	"math/big"
+	"time"
+	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 const (
@@ -117,4 +120,25 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 type CommitteeInfo struct {
 	Id      *big.Int
 	Members []*CommitteeMember
+}
+
+type EncryptCommitteeNode []byte
+type Sign []byte
+
+type EncrptoNodeMessage struct {
+	CreatedAt   time.Time
+	CommitteeId *big.Int
+	Nodes       []EncryptCommitteeNode
+	Sign //sign msg
+}
+
+func (c *EncrptoNodeMessage) Hash() common.Hash {
+	return RlpHash(c)
+}
+
+func RlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
