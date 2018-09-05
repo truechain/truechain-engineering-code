@@ -130,9 +130,6 @@ type Engine interface {
 	ConSeal(chain ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block)
 	ConSnailSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
 
-	// CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
-	// that a new block should have.
-	CalcDifficulty(chain ChainReader, time uint64, parent *types.Header) *big.Int
 	CalcSnailDifficulty(chain SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int
 
 	GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int)

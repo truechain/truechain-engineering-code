@@ -249,7 +249,22 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 
 func (m *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header,
 	seals []bool, index int) error {
-	return nil
+	var parent *types.Header
+
+	if index == 0 {
+		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
+	} else if headers[index-1].Hash() == headers[index].ParentHash {
+		parent = headers[index-1]
+	}
+	if parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
+	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
+		return nil // known block
+	}
+
+	return m.verifyHeader(chain, headers[index], parent)
+	//return nil
 }
 func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers []*types.SnailHeader,
 	seals []bool, index int) error {
@@ -272,9 +287,6 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum ethash engine.
-func (m *Minerva) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
-	return nil
-}
 func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *types.SnailBlock) error {
 
 	// If we're running a full engine faking, accept any input as valid
@@ -454,9 +466,6 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (m *Minerva) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
-	return nil
-}
 func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int {
 	return CalcDifficulty(chain.Config(), time, parent)
 }
@@ -685,9 +694,6 @@ func calcDifficultyFrontier(time uint64, parent *types.SnailHeader) *big.Int {
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
-func (m *Minerva) VerifySeal(chain consensus.ChainReader, header *types.Header) error {
-	return nil
-}
 func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
 	// If we're running a fake PoW, accept any seal as valid
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
