@@ -396,8 +396,9 @@ func (ps *peerSet) Register(p *peerConnection) error {
 	// Register the new peer with some meaningful defaults
 	ps.lock.Lock()
 	if _, ok := ps.peers[p.id]; ok {
-		ps.lock.Unlock()
-		return errAlreadyRegistered
+		//ps.lock.Unlock()
+		delete(ps.peers,p.id)
+		//return errAlreadyRegistered
 	}
 	if len(ps.peers) > 0 {
 		p.headerThroughput, p.blockThroughput, p.receiptThroughput, p.stateThroughput = 0, 0, 0, 0

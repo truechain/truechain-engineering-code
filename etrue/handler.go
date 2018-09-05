@@ -147,11 +147,11 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
 
-	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
+	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")
 		mode = downloader.FullSync
 	}
-	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
+	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")
 		mode = downloader.FullSync
 	}
@@ -199,7 +199,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	// Construct the different synchronisation mechanisms
 	// TODO: support downloader func.
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, nil, nil, manager.removePeer)
+	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer)
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
