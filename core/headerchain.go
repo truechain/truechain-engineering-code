@@ -26,14 +26,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/hashicorp/golang-lru"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
 )
 
 const (
@@ -41,6 +41,7 @@ const (
 	tdCacheLimit     = 1024
 	numberCacheLimit = 2048
 )
+
 // HeaderChain implements the basic block header chain logic that is shared by
 // core.BlockChain and light.LightChain. It is not usable in itself, only as
 // a part of either structure.
@@ -109,7 +110,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 
 // GetBlockNumber retrieves the block number belonging to the given hash
 // from the cache or database
-func (fhc *HeaderChain)GetBlockNumber(hash common.Hash) *uint64 {
+func (fhc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 	if cached, ok := fhc.numberCache.Get(hash); ok {
 		number := cached.(uint64)
 		return &number
@@ -130,7 +131,7 @@ func (fhc *HeaderChain)GetBlockNumber(hash common.Hash) *uint64 {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-func (fhc *HeaderChain)WriteHeader(header *types.Header) (status WriteStatus, err error) {
+func (fhc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, err error) {
 	// Cache some values to prevent constant recalculation
 	var (
 		hash   = header.Hash()
@@ -204,7 +205,7 @@ func (fhc *HeaderChain)WriteHeader(header *types.Header) (status WriteStatus, er
 // header writes should be protected by the parent chain mutex individually.
 type FastWhCallback func(*types.Header) error
 
-func (fhc *HeaderChain)ValidateHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
+func (fhc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].Number.Uint64() != chain[i-1].Number.Uint64()+1 || chain[i].ParentHash != chain[i-1].Hash() {
@@ -228,7 +229,7 @@ func (fhc *HeaderChain)ValidateHeaderChain(chain []*types.Header, checkFreq int)
 	}
 	seals[len(seals)-1] = true // Last should always be verified to avoid junk
 
-	abort, results := fhc.engine.VerifyFastHeaders(fhc, chain, seals)
+	abort, results := fhc.engine.VerifyHeaders(fhc, chain, seals)
 	defer close(abort)
 
 	// Iterate over the headers and ensure they all check out
@@ -259,7 +260,7 @@ func (fhc *HeaderChain)ValidateHeaderChain(chain []*types.Header, checkFreq int)
 // should be done or not. The reason behind the optional check is because some
 // of the header retrieval mechanisms already need to verfy nonces, as well as
 // because nonces can be verified sparsely, not needing to check each.
-func (fhc *HeaderChain)InsertHeaderChain(chain []*types.Header, writeHeader FastWhCallback, start time.Time) (int, error) {
+func (fhc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader FastWhCallback, start time.Time) (int, error) {
 	// Collect some import statistics to report on
 	stats := struct{ processed, ignored int }{}
 	// All headers passed verification, import them into the database
@@ -289,7 +290,7 @@ func (fhc *HeaderChain)InsertHeaderChain(chain []*types.Header, writeHeader Fast
 
 // GetBlockHashesFromHash retrieves a number of block hashes starting at a given
 // hash, fetching towards the genesis block.
-func (fhc *HeaderChain)GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
+func (fhc *HeaderChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []common.Hash {
 	// Get the origin header from which to fetch
 	header := fhc.GetHeaderByHash(hash)
 	if header == nil {
@@ -315,7 +316,7 @@ func (fhc *HeaderChain)GetBlockHashesFromHash(hash common.Hash, max uint64) []co
 // number of blocks to be individually checked before we reach the canonical chain.
 //
 // Note: ancestor == 0 returns the same block, 1 returns its parent and so on.
-func (fhc *HeaderChain)GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
+func (fhc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64) {
 	if ancestor > number {
 		return common.Hash{}, 0
 	}
@@ -349,7 +350,7 @@ func (fhc *HeaderChain)GetAncestor(hash common.Hash, number, ancestor uint64, ma
 
 // GetTd retrieves a block's total difficulty in the canonical chain from the
 // database by hash and number, caching it if found.
-func (fhc *HeaderChain)GetTd(hash common.Hash, number uint64) *big.Int {
+func (fhc *HeaderChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	// Short circuit if the td's already in the cache, retrieve otherwise
 	if cached, ok := fhc.tdCache.Get(hash); ok {
 		return cached.(*big.Int)
@@ -365,7 +366,7 @@ func (fhc *HeaderChain)GetTd(hash common.Hash, number uint64) *big.Int {
 
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the
 // database by hash, caching it if found.
-func (fhc *HeaderChain)GetTdByHash(hash common.Hash) *big.Int {
+func (fhc *HeaderChain) GetTdByHash(hash common.Hash) *big.Int {
 	number := fhc.GetBlockNumber(hash)
 	if number == nil {
 		return nil
@@ -375,7 +376,7 @@ func (fhc *HeaderChain)GetTdByHash(hash common.Hash) *big.Int {
 
 // WriteTd stores a block's total difficulty into the database, also caching it
 // along the way.
-func (fhc *HeaderChain)WriteTd(hash common.Hash, number uint64, td *big.Int) error {
+func (fhc *HeaderChain) WriteTd(hash common.Hash, number uint64, td *big.Int) error {
 	rawdb.WriteTd(fhc.chainDb, hash, number, td)
 	fhc.tdCache.Add(hash, new(big.Int).Set(td))
 	return nil
@@ -383,7 +384,7 @@ func (fhc *HeaderChain)WriteTd(hash common.Hash, number uint64, td *big.Int) err
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (fhc *HeaderChain)GetHeader(hash common.Hash, number uint64) *types.Header {
+func (fhc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header {
 	// Short circuit if the header's already in the cache, retrieve otherwise
 	if header, ok := fhc.headerCache.Get(hash); ok {
 		return header.(*types.Header)
@@ -399,7 +400,7 @@ func (fhc *HeaderChain)GetHeader(hash common.Hash, number uint64) *types.Header 
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if
 // found.
-func (fhc *HeaderChain)GetHeaderByHash(hash common.Hash) *types.Header {
+func (fhc *HeaderChain) GetHeaderByHash(hash common.Hash) *types.Header {
 	number := fhc.GetBlockNumber(hash)
 	if number == nil {
 		return nil
@@ -408,7 +409,7 @@ func (fhc *HeaderChain)GetHeaderByHash(hash common.Hash) *types.Header {
 }
 
 // HasHeader checks if a block header is present in the database or not.
-func (fhc *HeaderChain)HasHeader(hash common.Hash, number uint64) bool {
+func (fhc *HeaderChain) HasHeader(hash common.Hash, number uint64) bool {
 	if fhc.numberCache.Contains(hash) || fhc.headerCache.Contains(hash) {
 		return true
 	}
@@ -417,7 +418,7 @@ func (fhc *HeaderChain)HasHeader(hash common.Hash, number uint64) bool {
 
 // GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
-func (fhc *HeaderChain)GetHeaderByNumber(number uint64) *types.Header {
+func (fhc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	hash := rawdb.ReadCanonicalHash(fhc.chainDb, number)
 	if hash == (common.Hash{}) {
 		return nil
@@ -427,12 +428,12 @@ func (fhc *HeaderChain)GetHeaderByNumber(number uint64) *types.Header {
 
 // CurrentHeader retrieves the current head header of the canonical chain. The
 // header is retrieved from the HeaderChain's internal cache.
-func (fhc *HeaderChain)CurrentHeader() *types.Header {
+func (fhc *HeaderChain) CurrentHeader() *types.Header {
 	return fhc.currentHeader.Load().(*types.Header)
 }
 
 // SetCurrentHeader sets the current head header of the canonical chain.
-func (fhc *HeaderChain)SetCurrentHeader(head *types.Header) {
+func (fhc *HeaderChain) SetCurrentHeader(head *types.Header) {
 	rawdb.WriteHeadHeaderHash(fhc.chainDb, head.Hash())
 
 	fhc.currentHeader.Store(head)
@@ -445,7 +446,7 @@ type FastDeleteCallback func(rawdb.DatabaseDeleter, common.Hash, uint64)
 
 // SetHead rewinds the local chain to a new head. Everything above the new head
 // will be deleted and the new one set.
-func (fhc *HeaderChain)SetHead(head uint64, delFn FastDeleteCallback) {
+func (fhc *HeaderChain) SetHead(head uint64, delFn FastDeleteCallback) {
 	height := uint64(0)
 
 	if hdr := fhc.CurrentHeader(); hdr != nil {
@@ -483,18 +484,18 @@ func (fhc *HeaderChain)SetHead(head uint64, delFn FastDeleteCallback) {
 }
 
 // SetGenesis sets a new genesis block header for the chain
-func (fhc *HeaderChain)SetGenesis(head *types.Header) {
+func (fhc *HeaderChain) SetGenesis(head *types.Header) {
 	fhc.genesisHeader = head
 }
 
 // Config retrieves the header chain's chain configuration.
-func (fhc *HeaderChain)Config() *params.ChainConfig { return fhc.config }
+func (fhc *HeaderChain) Config() *params.ChainConfig { return fhc.config }
 
 // Engine retrieves the header chain's consensus engine.
-func (fhc *HeaderChain)Engine() consensus.Engine { return fhc.engine }
+func (fhc *HeaderChain) Engine() consensus.Engine { return fhc.engine }
 
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.
-func (fhc *HeaderChain)GetBlock(hash common.Hash, number uint64) *types.Block {
+func (fhc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	return nil
 }
