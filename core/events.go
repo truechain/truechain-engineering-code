@@ -81,6 +81,5 @@ type PbftSignEvent struct {
 // NewBlockEvent is posted when a block has been generate .
 type NewBlockEvent struct{ Block *types.Block }
 
-type RewardNumberEvent struct{ RewardNumber *big.Int }
-
+// NodeInfoEvent is posted when nodeInfo send
 type NodeInfoEvent struct{ NodeInfo *types.EncrptoNodeMessage }

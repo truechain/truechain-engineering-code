@@ -1473,10 +1473,6 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 	}
 }
 
-func (bc *BlockChain) SubscribeRewardNumberEvent(ch chan<- RewardNumberEvent) event.Subscription {
-	return bc.scope.Track(bc.RewardNumberFeed.Subscribe(ch))
-}
-
 func (bc *BlockChain) update() {
 	futureTimer := time.NewTicker(5 * time.Second)
 	defer futureTimer.Stop()
