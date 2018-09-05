@@ -95,12 +95,10 @@ type Engine interface {
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
 	// rules of a given engine.
-	VerifyUncles(chain ChainReader, block *types.Block) error
 	VerifySnailUncles(chain SnailChainReader, block *types.SnailBlock) error
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySeal(chain ChainReader, header *types.Header) error
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
 
 	// Prepare initializes the consensus fields of a block header according to the
