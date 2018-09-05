@@ -172,18 +172,18 @@ var (
 		Usage: "sing node model",
 	}
 	BFTPortFlag = cli.IntFlag{
-		Name: "bftPort",
+		Name: "bftport",
 		Usage: "committee node port ",
 		Value:	10080,
 	}
 	BFTIPFlag = cli.StringFlag{
-		Name: "bftIP",
-		Usage: "sing node model",
+		Name: "bftip",
+		Usage: "committee node ip",
 		//Value: "127.0.0.1",
 	}
 	CommitteeKeyFlag = cli.StringFlag{
-		Name: "CommitteeKey",
-		Usage: "sing node model",
+		Name: "bftkey",
+		Usage: "generate privatekey.",
 	}
 
 
