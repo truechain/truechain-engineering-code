@@ -840,6 +840,9 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	if parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
+		return consensus.ErrUnknownAncestor
+	}
 	return nil
 }
 func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.SnailHeader) error {
@@ -848,15 +851,6 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 		return consensus.ErrUnknownAncestor
 	}
 	header.Difficulty = m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-	return nil
-}
-
-// PrepareFast implements consensus.Engine, initializing the difficulty field of a
-// header to conform to the ethash protocol. The changes are done inline.
-func (m *Minerva) PrepareFast(chain consensus.ChainFastReader, header *types.Header) error {
-	if parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
 	return nil
 }
 

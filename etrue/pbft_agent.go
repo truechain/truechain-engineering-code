@@ -499,7 +499,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		Time:       big.NewInt(tstamp),
 	}
 
-	if err := self.engine.PrepareFast(self.fastChain, header); err != nil {
+	if err := self.engine.Prepare(self.fastChain, header); err != nil {
 		printStrAndError("Failed to prepare header for generateFastBlock", err)
 		return fastBlock, err
 	}
