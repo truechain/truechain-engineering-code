@@ -246,6 +246,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(prePrepareMsg.Height)
 	if err != nil {
+		lock.PSLog("node GetPrePrepare1", err.Error())
 		return err
 	}
 
@@ -255,11 +256,13 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 
 	prePareMsg, err := node.GetStatus(prePrepareMsg.Height).PrePrepare(prePrepareMsg)
 	if err != nil {
+		lock.PSLog("node GetPrePrepare2", err.Error())
 		return err
 	}
 
 	//Add self
 	if _, ok := node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID]; !ok {
+		lock.PSLog("node GetPrePrepare3", err.Error())
 		myPrepareMsg := prePareMsg
 		myPrepareMsg.NodeID = node.NodeID
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
