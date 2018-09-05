@@ -794,7 +794,7 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
-	txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
+	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
@@ -812,23 +812,6 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	// Header seems complete, assemble into a block and return
 	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
-}
-
-// FinalizeFast implements consensus.Engine, accumulating the block fruit and uncle rewards,
-// setting the final state and assembling the block.
-// Please pass in the parameter block when reward distribution is required.
-func (m *Minerva) FinalizeFast(chain consensus.ChainFastReader, header *types.Header, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
-
-	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
-		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
-		if sBlock == nil {
-			return nil, consensus.ErrInvalidNumber
-		}
-		accumulateRewardsFast(state, header, sBlock)
-	}
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewBlock(header, txs, receipts, nil), nil
 }
 
 //gas allocation

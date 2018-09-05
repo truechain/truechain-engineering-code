@@ -17,15 +17,15 @@
 package core
 
 import (
-		"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 
-	"math/big"
 	"log"
+	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -56,13 +56,12 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // transactions failed to execute due to insufficient gas it will return an error.
 func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
-		receipts types.Receipts
-		usedGas  = new(uint64)
+		receipts  types.Receipts
+		usedGas   = new(uint64)
 		feeAmount = big.NewInt(0)
-		header   = block.Header()
-		allLogs  []*types.Log
-		gp       = new(GasPool).AddGas(block.GasLimit())
-
+		header    = block.Header()
+		allLogs   []*types.Log
+		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
 	// Mutate the the block and state according to any hard-fork specs
 	/*if fp.config.DAOForkSupport && fp.config.DAOForkBlock != nil && fp.config.DAOForkBlock.Cmp(block.Number()) == 0 {
@@ -71,7 +70,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
-		receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas,feeAmount, cfg)
+		receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -79,14 +78,14 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	_,err := fp.engine.FinalizeFast(fp.bc, header, statedb, block.Transactions(), receipts)
-	if err != nil{
+	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts)
+	if err != nil {
 		panic(err)
 	}
 
 	//Commission allocation
-	err = fp.engine.FinalizeFastGas(statedb,block.Number(),block.Hash(),feeAmount)
-	if err != nil{
+	err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
+	if err != nil {
 		log.Panic(err)
 	}
 
@@ -97,7 +96,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64,feeAmount *big.Int, cfg vm.Config) (*types.Receipt, uint64, error) {
+func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, uint64, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err

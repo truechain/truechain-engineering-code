@@ -532,7 +532,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
-	if fastBlock, err = self.engine.FinalizeFast(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
+	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
 		printStrAndError("Failed to finalize block for sealing", err)
 		return fastBlock, err
 	}

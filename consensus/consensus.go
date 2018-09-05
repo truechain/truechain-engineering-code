@@ -134,17 +134,10 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
-	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
-		uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error)
+	Finalize(chain ChainReader, header *types.Header, state *state.StateDB,
+		txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error)
 	FinalizeSnail(chain SnailChainReader, header *types.SnailHeader,
 		uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error)
-
-	// FinalizeFast runs any post-transaction state modifications (e.g. block rewards)
-	// and assembles the final block.
-	// Note: The block header and state database might be updated to reflect any
-	// consensus rules that happen at finalization (e.g. block rewards).
-	FinalizeFast(chain ChainFastReader, header *types.Header, state *state.StateDB,
-		txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error)
 
 	//Call allocation gas before FinalizeFast
 	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
