@@ -860,12 +860,24 @@ func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *t
 
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
 
+	if e != nil {
+		return e
+	}
+
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
 
-	//committee's award
+	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
 	blockFruitsLen := big.NewInt(int64(len(blockFruits)))
+	if len(blockFruits) > 0 {
+		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
+		for _, v := range sBlock.Body().Fruits {
+			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
+		}
+	}
+
+	//committee's award
 	committeeCoinFruit := new(big.Int).Div(committeeCoin, blockFruitsLen)
 
 	//all fail committee coinBase
@@ -905,10 +917,6 @@ func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *t
 		}
 	}
 
-	//miners add all fruit 10%
-	state.AddBalance(sBlock.Coinbase(),
-		new(big.Int).Div(new(big.Int).SetInt64(int64(len(sBlock.Body().Fruits))),
-			big10))
 	return nil
 }
 
