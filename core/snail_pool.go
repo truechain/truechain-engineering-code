@@ -439,7 +439,7 @@ func (pool *SnailPool) loop() {
 	}
 }
 
-// TxDifference returns a new set t which is the difference between a to b.
+//get the old snailchian's fruits which need to be remined
 func fruitsDifference(a, b []*types.SnailBlock) []*types.SnailBlock {
 	keep := make([]*types.SnailBlock, 0, len(a))
 
@@ -479,7 +479,7 @@ func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash co
 	}
 }
 
-// remove all the fruits and fastBlocks included in the new block
+// remove all the fruits and fastBlocks included in the new snailblock
 func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	for _, fruit := range fruits {
 		delete(pool.fruitPending, fruit.FastHash())
@@ -517,9 +517,9 @@ func (pool *SnailPool) resetFastBlocksWithLock() {
 }
 
 // reset retrieves the current state of the blockchain and ensures the content
-// of the transaction pool is valid with regard to the chain state.
+// of the fastblock pool is valid with regard to the chain state.
 func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
-	// If we're reorging an old state, reinject all dropped transactions
+	// If we're reorging an old state, reinject all dropped fastblocks
 	var reinject []*types.SnailBlock
 
 	if oldHead != nil && oldHead.Hash() != newHead.ParentHash() {
@@ -530,7 +530,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 		if depth := uint64(math.Abs(float64(oldNum) - float64(newNum))); depth > 64 {
 			log.Debug("Skipping deep transaction reorg", "depth", depth)
 		} else {
-			// Reorg seems shallow enough to pull in all transactions into memory
+			// Reorg seems shallow enough to pull in all fastblocks into memory
 			var discarded, included []*types.SnailBlock
 
 			var (
@@ -540,30 +540,32 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 			for rem.NumberU64() > add.NumberU64() {
 				discarded = append(discarded, rem.Fruits()...)
 				if rem = pool.chain.GetBlock(rem.ParentHash(), rem.NumberU64()-1); rem == nil {
-					log.Error("Unrooted old chain seen by tx pool", "block", oldHead.Number(), "hash", oldHead.Hash())
+					log.Error("Unrooted old chain seen by snail pool", "block", oldHead.Number(), "hash", oldHead.Hash())
 					return
 				}
 			}
 			for add.NumberU64() > rem.NumberU64() {
 				included = append(included, add.Fruits()...)
 				if add = pool.chain.GetBlock(add.ParentHash(), add.NumberU64()-1); add == nil {
-					log.Error("Unrooted new chain seen by tx pool", "block", newHead.Number(), "hash", newHead.Hash())
+					log.Error("Unrooted new chain seen by snail pool", "block", newHead.Number(), "hash", newHead.Hash())
 					return
 				}
 			}
 			for rem.Hash() != add.Hash() {
 				discarded = append(discarded, rem.Fruits()...)
 				if rem = pool.chain.GetBlock(rem.ParentHash(), rem.NumberU64()-1); rem == nil {
-					log.Error("Unrooted old chain seen by tx pool", "block", oldHead.Number(), "hash", oldHead.Hash())
+					log.Error("Unrooted old chain seen by snail pool", "block", oldHead.Number(), "hash", oldHead.Hash())
 					return
 				}
 				included = append(included, add.Fruits()...)
 				if add = pool.chain.GetBlock(add.ParentHash(), add.NumberU64()-1); add == nil {
-					log.Error("Unrooted new chain seen by tx pool", "block", newHead.Number(), "hash", newHead.Hash())
+					log.Error("Unrooted new chain seen by snail pool", "block", newHead.Number(), "hash", newHead.Hash())
 					return
 				}
 			}
+			//get the old snailchian's fruits which need to be remined
 			reinject = fruitsDifference(discarded, included)
+			pool.insertRestFruits(reinject)
 		}
 	}
 	// Initialize the internal state to the current head
@@ -571,28 +573,32 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
 	}
 
-	// Inject any transactions discarded due to reorgs
+	// Inject any fastblocks discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
 
-	// validate the pool of pending transactions, this will remove
-	// any transactions that have been included in the block or
-	// have been invalidated because of another transaction (e.g.
-	// higher gas price)
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
-
+	//remove all the fruits and fastBlocks included in the new snailblock
 	pool.removeWithLock(newHead.Fruits())
+}
 
-	// reset pool state by re-verify all the records, including pending records
-	// TODO: reset pool state using pendingState, refer to tx_pool
-	//pool.resetFastBlocksWithLock()
+// Insert rest old fruit into allfruits and fruitPending
+func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 
-	// Check the queue and move transactions over to the pending if possible
-	// or remove those that have become invalid
-	//pool.updateFastBlocksWithLock(common.Big0, false)
+	for _, fruit := range reinject {
+		pool.allFruits[fruit.FastHash()] = fruit
+		pool.fruitPending[fruit.FastHash()] = fruit
+		fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
+		if fb == nil {
+			continue
+		}
+		pool.allFastBlocks[fruit.FastHash()] = fb
+	}
+
+	return nil
 }
 
 // Stop terminates the transaction pool.
