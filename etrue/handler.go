@@ -441,6 +441,94 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	// Block header query, collect the requested headers and reply
+	case msg.Code == GetSnailFastBlockHeadersMsg:
+		// Decode the complex header query
+		var query getBlockHeadersData
+		if err := msg.Decode(&query); err != nil {
+			return errResp(ErrDecode, "%v: %v", msg, err)
+		}
+		hashMode := query.Origin.Hash != (common.Hash{})
+		first := true
+		maxNonCanonical := uint64(100)
+
+		// Gather headers until the fetch or network limits is reached
+		var (
+			bytes   common.StorageSize
+			headers []*types.SnailHeader
+			unknown bool
+		)
+		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
+			// Retrieve the next header satisfying the query
+			var origin *types.SnailHeader
+			if hashMode {
+				if first {
+					first = false
+					origin = pm.snailchain.GetHeaderByHash(query.Origin.Hash)
+					if origin != nil {
+						query.Origin.Number = origin.Number.Uint64()
+					}
+				} else {
+					origin = pm.snailchain.GetHeader(query.Origin.Hash, query.Origin.Number)
+				}
+			} else {
+				origin = pm.snailchain.GetHeaderByNumber(query.Origin.Number)
+			}
+			if origin == nil {
+				break
+			}
+			headers = append(headers, origin)
+			bytes += estHeaderRlpSize
+
+			// Advance to the next header of the query
+			switch {
+			case hashMode && query.Reverse:
+				// Hash based traversal towards the genesis block
+				ancestor := query.Skip + 1
+				if ancestor == 0 {
+					unknown = true
+				} else {
+					query.Origin.Hash, query.Origin.Number = pm.snailchain.GetAncestor(query.Origin.Hash, query.Origin.Number, ancestor, &maxNonCanonical)
+					unknown = (query.Origin.Hash == common.Hash{})
+				}
+			case hashMode && !query.Reverse:
+				// Hash based traversal towards the leaf block
+				var (
+					current = origin.Number.Uint64()
+					next    = current + query.Skip + 1
+				)
+				if next <= current {
+					infos, _ := json.MarshalIndent(p.Peer.Info(), "", "  ")
+					p.Log().Warn("GetBlockHeaders skip overflow attack", "current", current, "skip", query.Skip, "next", next, "attacker", infos)
+					unknown = true
+				} else {
+					if header := pm.snailchain.GetHeaderByNumber(next); header != nil {
+						nextHash := header.Hash()
+						expOldHash, _ := pm.snailchain.GetAncestor(nextHash, next, query.Skip+1, &maxNonCanonical)
+						if expOldHash == query.Origin.Hash {
+							query.Origin.Hash, query.Origin.Number = nextHash, next
+						} else {
+							unknown = true
+						}
+					} else {
+						unknown = true
+					}
+				}
+			case query.Reverse:
+				// Number based traversal towards the genesis block
+				if query.Origin.Number >= query.Skip+1 {
+					query.Origin.Number -= query.Skip + 1
+				} else {
+					unknown = true
+				}
+
+			case !query.Reverse:
+				// Number based traversal towards the leaf block
+				query.Origin.Number += query.Skip + 1
+			}
+		}
+		return p.SendSnailFastBlockHeaders(headers)
+
+
 	case msg.Code == GetFastBlockHeadersMsg:
 		// Decode the complex header query
 		var query getBlockHeadersData

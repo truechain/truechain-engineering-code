@@ -550,7 +550,7 @@ func (d *Downloader) fetchHeight(p *peerConnection) (*types.SnailHeader, error) 
 
 	// Request the advertised remote head block and wait for the response
 	head, _ := p.peer.Head()
-	go p.peer.RequestHeadersByHash(head, 1, 0, false)
+	go p.peer.RequestSnailHeadersByHash(head, 1, 0, false)
 
 	ttl := d.requestTTL()
 	timeout := time.After(ttl)

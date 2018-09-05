@@ -58,6 +58,13 @@ const (
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
 
+	//snail sync
+	GetSnailFastBlockHeadersMsg = 0x11
+	SnailFastBlockHeadersMsg = 0x12
+	GetSnailFastBlockBodiesMsg  = 0x13
+	SnailFastBlockBodiesMsg     = 0x14
+
+
 	BlockSignMsg    = 0x08
 	PbftNodeInfoMsg = 0x09
 
