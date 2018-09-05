@@ -1259,7 +1259,7 @@ func (pc *peerConnection) RequestSnailHeadersByHash(origin common.Hash, amount i
 			peer := dp.(*peer)
 			cost := peer.GetRequestCost(GetBlockHeadersMsg, amount)
 			peer.fcServer.QueueRequest(reqID, cost)
-			return func() { peer.RequestHeadersByHash(reqID, cost, origin, amount, skip, reverse) }
+			return func() { peer.RequestSnailHeadersByHash(reqID, cost, origin, amount, skip, reverse) }
 		},
 	}
 	_, ok := <-pc.manager.reqDist.queue(rq)

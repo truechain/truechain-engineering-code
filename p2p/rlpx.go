@@ -602,6 +602,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 
 	// if snappy is enabled, compress message now
 	if rw.snappy {
+		fmt.Println("maxUint24>>>>>>>>>",maxUint24)
 		if msg.Size > maxUint24 {
 			return errPlainMessageTooLarge
 		}

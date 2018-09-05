@@ -528,6 +528,26 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		return p.SendSnailFastBlockHeaders(headers)
 
+	case msg.Code == SnailFastBlockHeadersMsg:
+		// A batch of headers arrived to one of our previous requests
+		var headers []*types.SnailHeader
+		if err := msg.Decode(&headers); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// Filter out any explicitly requested headers, deliver the rest to the downloader
+		//filter := len(headers) == 1
+		//if filter {
+		//	// Irrelevant of the fork checks, send the header to the fetcher just in case
+		//	headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
+		//}
+		// mecMark
+		if len(headers) > 0{
+			err := pm.downloader.DeliverHeaders(p.id, headers)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
+			}
+		}
+
 
 	case msg.Code == GetFastBlockHeadersMsg:
 		// Decode the complex header query
