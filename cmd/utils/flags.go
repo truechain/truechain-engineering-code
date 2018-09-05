@@ -59,6 +59,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
+	"encoding/hex"
 )
 
 var (
@@ -170,6 +171,21 @@ var (
 		Name: "singlenode",
 		Usage: "sing node model",
 	}
+	BFTPortFlag = cli.IntFlag{
+		Name: "bftPort",
+		Usage: "committee node port ",
+		Value:	10080,
+	}
+	BFTIPFlag = cli.StringFlag{
+		Name: "bftIP",
+		Usage: "sing node model",
+		//Value: "127.0.0.1",
+	}
+	CommitteeKeyFlag = cli.StringFlag{
+		Name: "CommitteeKey",
+		Usage: "sing node model",
+	}
+
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
@@ -1089,6 +1105,21 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
+	}
+	if ctx.GlobalIsSet(BFTPortFlag.Name) {
+		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
+	}
+	if ctx.GlobalIsSet(BFTIPFlag.Name) {
+		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
+	}
+	if ctx.GlobalIsSet(CommitteeKeyFlag.Name) {
+		var err error
+		key :=ctx.GlobalString(CommitteeKeyFlag.Name)
+		fmt.Println("key:",key)
+		cfg.CommitteeKey,err= hex.DecodeString(key)
+		if err != nil{
+			log.Info(" CommitteeKeyFlag DecodeString error ")
+		}
 	}
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
