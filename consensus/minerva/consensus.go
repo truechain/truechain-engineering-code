@@ -498,8 +498,7 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
-
-func (m *Minerva)GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
+func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
 	number := header.Number.Uint64()
 
 	cache := m.cache(number)
@@ -537,12 +536,10 @@ var (
 	big9          = big.NewInt(9)
 	big10         = big.NewInt(10)
 	big32         = big.NewInt(32)
-	bigMinus1    = big.NewInt(-1)
+	bigMinus1     = big.NewInt(-1)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 )
-
-
 
 // calcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
@@ -860,13 +857,8 @@ func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
-	//get snail block
-	//if sc == nil {
-	//	return nil
-	//}
 
-	//Get snailBlock current -12
-	minerCoin, committeeCoin := getCurrentBlockCoin(sBlock.Number())
+	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
@@ -920,18 +912,47 @@ func accumulateRewardsFast(state *state.StateDB, header *types.Header, sBlock *t
 	return nil
 }
 
-//Get current revenue value for miner or committee
-//Committee miners distribution method  Committee a/a+n  miners  n/a+n
-//parameter num:  snail chain header number
-func getCurrentBlockCoin(num *big.Int) (minerCoin, committeeCoin *big.Int) {
-	currentBlockCoinCount := new(big.Int).Div(SnailBlockRewardsInitial,
-		new(big.Int).Exp(new(big.Int).SetInt64(2),
-			new(big.Int).Div(num, new(big.Int).SetInt64(5000)),
-			nil))
+//Reward for block allocation
+func getBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e error) {
+	base := new(big.Int).Div(getCurrentCoin(num), Big1e13).Int64()
+	m, c, e := getDistributionRatio(NetworkFragmentsNuber)
+	if e != nil {
+		return
+	}
 
-	currentBlockCoinMean := new(big.Int).Div(currentBlockCoinCount, new(big.Int).Add(MinerCount, CommitteesCount))
-
-	minerCoin = new(big.Int).Mul(currentBlockCoinMean, MinerCount)
-	committeeCoin = new(big.Int).Mul(currentBlockCoinMean, CommitteesCount)
+	committee = new(big.Int).Mul(big.NewInt(int64(c*float64(base))), Big1e13)
+	minerBlock = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/2)), Big1e13)
+	minerFruit = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/2)), Big1e13)
 	return
+}
+
+// get Distribution ratio for miner and committee
+func getDistributionRatio(fragmentation int) (miner, committee float64, e error) {
+	if fragmentation <= SqrtMin {
+		return 0.8, 0.2, nil
+	}
+
+	if fragmentation >= SqrtMax {
+		return 0.2, 0.8, nil
+	}
+
+	committee, ok := SqrtMap[fragmentation]
+	if !ok {
+		return 0, 0, errors.New("SqrtMap init fail")
+	}
+	return 1 - committee, committee, nil
+}
+
+func powerf(x float64, n int64) float64 {
+	if n == 0 {
+		return 1
+	} else {
+		return x * powerf(x, n-1)
+	}
+}
+
+func getCurrentCoin(h *big.Int) *big.Int {
+	d := h.Int64() / int64(SnailBlockRewardsChangeInterval)
+	ratio := big.NewInt(int64(powerf(0.98, d) * float64(SnailBlockRewardsBase)))
+	return new(big.Int).Mul(ratio, Big1e13)
 }

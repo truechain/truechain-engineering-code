@@ -98,20 +98,32 @@ func TestAccountDiv(t *testing.T) {
 		new(big.Int).Div(new(big.Int).Add(new(big.Int).SetInt64(5000), new(big.Int).SetInt64(12)), new(big.Int).SetInt64(5000)), nil))
 }
 
-type ConstSqrt struct {
-	Num  int     `json:"num"`
-	Sqrt float64 `json:"sqrt"`
-}
-
 func TestOutSqrt(t *testing.T) {
 	var AConstSqrt []ConstSqrt
 	for i := 1; i <= 10000; i++ {
-		tmp := osMath.Sqrt(float64(i)) / (osMath.Sqrt(float64(i)) + 20)
+
+		tmp := osMath.Sqrt(float64(i)) / (osMath.Sqrt(float64(i)) + float64(MiningConstant))
+
 		if tmp > 0.8 {
 			break
 		}
+
+		if tmp < 0.2 {
+			continue
+		}
+
 		AConstSqrt = append(AConstSqrt, ConstSqrt{Num: i, Sqrt: tmp})
 	}
 	b, _ := json.Marshal(AConstSqrt)
 	fmt.Println(string(b))
+}
+
+func TestSqrtString(t *testing.T) {
+	var a []ConstSqrt
+	json.Unmarshal([]byte(SqrtString), &a)
+	for _, v := range a {
+		SqrtMap[v.Num] = v.Sqrt
+	}
+
+	fmt.Println(fmt.Sprintf("%+v", SqrtMap))
 }

@@ -24,7 +24,9 @@ import (
 	"sync"
 	"testing"
 
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
 )
 
 // Tests that ethash works correctly in test mode.
@@ -92,4 +94,13 @@ func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 		//head := &types.Header{Number: big.NewInt(block), Difficulty: big.NewInt(100)}
 		//e.VerifySeal(nil, head)
 	}
+}
+
+func TestAwardTest(t *testing.T) {
+	//getCurrentBlockCoins(big.NewInt(5000));
+	fmt.Println(getCurrentCoin(big.NewInt(1)))
+	fmt.Println(getCurrentCoin(big.NewInt(5000)))
+	fmt.Println(getCurrentCoin(big.NewInt(9000)))
+
+	fmt.Println(getBlockReward(big.NewInt(9000)))
 }
