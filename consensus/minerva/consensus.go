@@ -88,7 +88,7 @@ func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header
 		return nil
 	}
 
-	return m.verifyFastHeader(chain, header, parent)
+	return m.verifyHeader(chain, header, parent)
 }
 
 func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *types.SnailHeader, seal bool) error {
@@ -149,7 +149,7 @@ func (m *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.He
 	for i := 0; i < workers; i++ {
 		go func() {
 			for index := range inputs {
-				errors[index] = m.verifySnailHeaderWorker(chain, headers, seals, index)
+				errors[index] = m.verifyHeaderWorker(chain, headers, seals, index)
 				done <- index
 			}
 		}()
@@ -270,23 +270,6 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	return m.verifySnailHeader(chain, headers[index], parent, false, seals[index])
 }
 
-func (m *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
-	headers []*types.Header, seals []bool, index int) error {
-	var parent *types.Header
-	if index == 0 {
-		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
-	} else if headers[index-1].Hash() == headers[index].ParentHash {
-		parent = headers[index-1]
-	}
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
-		return nil // known block
-	}
-	return m.verifyFastHeader(chain, headers[index], parent)
-}
-
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum ethash engine.
 func (m *Minerva) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
@@ -355,8 +338,45 @@ func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *typ
 // verifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 // See YP section 4.3.4. "Block Header Validity"
-func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header,
-	uncle bool, seal bool) error {
+func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header) error {
+	// Ensure that the header's extra-data section is of a reasonable size
+	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
+		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
+	}
+	// Verify the header's timestamp
+	if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+		return consensus.ErrFutureBlock
+	}
+
+	if header.Time.Cmp(parent.Time) <= 0 {
+		return errZeroBlockTime
+	}
+
+	// Verify that the gas limit is <= 2^63-1
+	cap := uint64(0x7fffffffffffffff)
+	if header.GasLimit > cap {
+		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
+	}
+	// Verify that the gasUsed is <= gasLimit
+	if header.GasUsed > header.GasLimit {
+		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
+	}
+
+	// Verify that the gas limit remains within allowed bounds
+	diff := int64(parent.GasLimit) - int64(header.GasLimit)
+	if diff < 0 {
+		diff *= -1
+	}
+	limit := parent.GasLimit / params.GasLimitBoundDivisor
+
+	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
+		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
+	}
+	// Verify that the block number is parent's +1
+	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
+		return consensus.ErrInvalidNumber
+	}
+
 	return nil
 }
 func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader,
@@ -428,52 +448,6 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 	if err := misc.VerifySnailForkHashes(chain.Config(), header, uncle); err != nil {
 		return err
 	}
-	return nil
-}
-
-// verifyFastHeader checks whether a header conforms to the consensus rules of the
-// stock Ethereum ethash engine.
-// See YP section 4.3.4. "Fast Block Header Validity"
-func (m *Minerva) verifyFastHeader(chain consensus.ChainFastReader,
-	header, parent *types.Header) error {
-	// Ensure that the header's extra-data section is of a reasonable size
-	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
-		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
-	}
-	// Verify the header's timestamp
-	if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-		return consensus.ErrFutureBlock
-	}
-
-	if header.Time.Cmp(parent.Time) <= 0 {
-		return errZeroBlockTime
-	}
-
-	// Verify that the gas limit is <= 2^63-1
-	cap := uint64(0x7fffffffffffffff)
-	if header.GasLimit > cap {
-		return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
-	}
-	// Verify that the gasUsed is <= gasLimit
-	if header.GasUsed > header.GasLimit {
-		return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
-	}
-
-	// Verify that the gas limit remains within allowed bounds
-	diff := int64(parent.GasLimit) - int64(header.GasLimit)
-	if diff < 0 {
-		diff *= -1
-	}
-	limit := parent.GasLimit / params.GasLimitBoundDivisor
-
-	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
-	}
-	// Verify that the block number is parent's +1
-	if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
-		return consensus.ErrInvalidNumber
-	}
-
 	return nil
 }
 

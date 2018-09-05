@@ -72,28 +72,6 @@ type SnailChainReader interface {
 	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
 }
 
-// ChainFastReader defines a small collection of methods needed to access the local
-// fast blockChain during header and/or uncle verification.
-type ChainFastReader interface {
-	// Config retrieves the fast blockChain's chain configuration.
-	Config() *params.ChainConfig
-
-	// CurrentHeader retrieves the current fast header from the local chain.
-	CurrentHeader() *types.Header
-
-	// GetHeader retrieves a fast block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.Header
-
-	// GetHeaderByNumber retrieves a fast block header from the database by number.
-	GetHeaderByNumber(number uint64) *types.Header
-
-	// GetHeaderByHash retrieves a fast block header from the database by its hash.
-	GetHeaderByHash(hash common.Hash) *types.Header
-
-	// GetBlock retrieves a fast block from the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.Block
-}
-
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
 	// Author retrieves the Ethereum address of the account that minted the given
