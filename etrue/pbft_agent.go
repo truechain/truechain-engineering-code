@@ -232,7 +232,7 @@ func (self *PbftAgent) nodeInfoIsExist() bool {
 
 func (self *PbftAgent) Start() {
 	if self.SingleNode {
-		go self.StartSingleNode()
+		go self.singleloop()
 	}else {
 		go self.loop()
 	}
@@ -297,8 +297,8 @@ func (self *PbftAgent) loop() {
 			}
 		//receive nodeInfo
 		case cryNodeInfo := <-self.CryNodeInfoCh:
-			log.Info("receive nodeInfo.")
-			PrintCryptNode(cryNodeInfo)
+			//log.Info("receive nodeInfo.")
+			//PrintCryptNode(cryNodeInfo)
 			//if cryNodeInfo of  node in Committee
 			if self.cryNodeInfoInCommittee(*cryNodeInfo) {
 				go self.nodeInfoFeed.Send(NodeInfoEvent{cryNodeInfo})
@@ -443,8 +443,8 @@ func (pbftAgent *PbftAgent) SendPbftNode(committeeInfo *types.CommitteeInfo) *Cr
 		CommitteeId: committeeInfo.Id,
 		createdAt:   time.Now(),
 	}
-	fmt.Println("send before...")
-	PrintNode(pbftAgent.CommitteeNode)
+	//fmt.Println("send before...")
+	//PrintNode(pbftAgent.CommitteeNode)
 	nodeByte, _ := rlp.EncodeToBytes(pbftAgent.CommitteeNode)
 	var encryptNodes []EncryptCommitteeNode
 	for _, member := range committeeInfo.Members {
@@ -480,7 +480,6 @@ func (self *PbftAgent) ReceivePbftNode(cryNodeInfo *CryNodeInfo) {
 	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
 	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
-		panic(err)
 		log.Error("SigToPub error.")
 	}
 	members := self.election.GetComitteeById(cryNodeInfo.CommitteeId)
@@ -501,8 +500,8 @@ func (self *PbftAgent) ReceivePbftNode(cryNodeInfo *CryNodeInfo) {
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
-			fmt.Println("receive node ... ")
-			PrintNode(node)
+			//fmt.Println("receive node ... ")
+			//PrintNode(node)
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
@@ -552,15 +551,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain)
-	//  padding Header.Root, TxHash, ReceiptHash.
-	// Create the new block to seal with the consensus engine
-	if fastBlock, err = self.engine.FinalizeFast(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
-		log.Error("Failed to finalize block for sealing", "err", err)
-		return fastBlock, err
-	}
 
-	//generate rewardSnailHegiht  //TODO zanshi not used
-	/*var rewardSnailHegiht *big.Int
+
+	//generate rewardSnailHegiht
+	var rewardSnailHegiht *big.Int
 	BlockReward :=self.fastChain.CurrentReward()
 	if BlockReward == nil{
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
@@ -572,7 +566,14 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.Header().SnailNumber = rewardSnailHegiht
 		sb :=self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		fastBlock.Header().SnailHash =sb.Hash()
-	}*/
+	}
+
+	//  padding Header.Root, TxHash, ReceiptHash.
+	// Create the new block to seal with the consensus engine
+	if fastBlock, err = self.engine.FinalizeFast(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
+		log.Error("Failed to finalize block for sealing", "err", err)
+		return fastBlock, err
+	}
 
 	fmt.Println("fastBlockHeight:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -601,16 +602,10 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 
 //broadcast blockAndSign
 func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
-	log.Info("into BroadcastFastBlock.")
-	var err error
-	/*voteSign, err := self.GenerateSign(fb)
-	if err != nil {
-		panic(err)
-		log.Info("sign error")
-	}
-	fb.AppendSign(voteSign)*/
-	self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
-	return err
+
+	go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
+
+	return nil
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
@@ -627,7 +622,6 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	}
 	err := self.engine.VerifyFastHeader(bc, fb.Header(), true)
 	if err != nil {
-		panic(err)
 		log.Error("VerifyFastHeader error")
 	} else {
 		err = bc.Validator().ValidateBody(fb)
@@ -998,86 +992,35 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 	return false
 }
 
-func (agent *PbftAgent) SendBlock() {
-	/*committeeInfo := new(types.CommitteeInfo)
-	committeeInfo.Id = common.Big0
-	for _, c := range testCommittee {
-		var member *types.CommitteeMember
-		p, err := crypto.UnmarshalPubkey(c.Publickey)
-		if err != nil {
-			panic(err)
-		}
-		member.Publickey = p
-		member.Coinbase = c.Coinbase
-		committeeInfo.Members = append(committeeInfo.Members, member)
-	}
-	cryNodeInfo := agent.SendPbftNode(committeeInfo)
-	agent.ReceivePbftNode(cryNodeInfo)*/
-
+func (agent *PbftAgent) singleloop() {
 	for {
-		//获取区块
-		block, err := agent.FetchFastBlock()
-		if err != nil {
-			panic(err)
-		}
-
-		//发出区块
-		err = agent.BroadcastFastBlock(block)
-		if err != nil {
-			panic(err)
-		}
-		//验证区块
-		err = agent.VerifyFastBlock(block)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println("validate true")
-		time.Sleep(time.Second * 3)
-
-		err = agent.BroadcastConsensus(block)
-		if err != nil {
-			log.Info("BroadcastConsensus error ")
-			panic(err)
-		}
-	}
-}
-
-func (agent *PbftAgent) StartSingleNode() {
-	for {
-		//获取区块
-		t1 := time.Now()
+		// fetch block
 		var block *types.Block
 		var err error
-		block, err = agent.FetchFastBlock()
+		cnt := 0
+		//block, err = agent.FetchFastBlock()
 		for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
-				return
-			}
-			sub := time.Now().Sub(t1)
-			if len(block.Transactions()) == 0 && sub < time.Second*FetchBlockTime {
 				time.Sleep(time.Second)
+				continue
+			}
+			if len(block.Transactions()) == 0 && cnt < FetchBlockTime {
+				cnt ++
+				time.Sleep(time.Second)
+				continue
 			} else {
 				break
 			}
 		}
-		time.Sleep(time.Second * 1)
-		//发出区块
+		// broadcast fast block
 		err = agent.BroadcastFastBlock(block)
 		if err != nil {
-			panic(err)
+			continue
 		}
-		time.Sleep(time.Second * 1)
-		//验证区块
-		err = agent.VerifyFastBlock(block)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println("validate true")
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Info("BroadcastConsensus error ")
-			panic(err)
 		}
 	}
 }
