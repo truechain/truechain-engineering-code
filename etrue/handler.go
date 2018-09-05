@@ -71,16 +71,16 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type ProtocolManager struct {
 	networkID uint64
 
-	fastSync          uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs         uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFruits      uint32
+	fastSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptFruits uint32
 	//acceptSnailBlocks uint32
-	txpool            txPool
-	SnailPool         SnailPool
-	blockchain        *core.BlockChain
-	snailchain        *snailchain.SnailBlockChain
-	chainconfig       *params.ChainConfig
-	maxPeers          int
+	txpool      txPool
+	SnailPool   SnailPool
+	blockchain  *core.BlockChain
+	snailchain  *snailchain.SnailBlockChain
+	chainconfig *params.ChainConfig
+	maxPeers    int
 
 	downloader   *downloader.Downloader
 	fetcherFast  *fetcher.Fetcher
@@ -214,8 +214,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
-		atomic.StoreUint32(&manager.acceptTxs, 1)         // Mark initial sync done on any fetcher import
-		atomic.StoreUint32(&manager.acceptFruits, 1)      // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptTxs, 1)    // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		//atomic.StoreUint32(&manager.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
@@ -847,7 +847,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 // BroadcastFastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool) {
-	fmt.Println("BroadcastFastBlock=====", block)
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
@@ -1037,8 +1036,8 @@ func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks *types.SnailBlock) {
 func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.minedFastCh:
-			pm.BroadcastFastBlock(event.Block, true) // First propagate fast block to peers
+		case blockEvent := <-pm.minedFastCh:
+			pm.BroadcastFastBlock(blockEvent.Block, true) // First propagate fast block to peers
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.minedFastSub.Err():
@@ -1050,10 +1049,10 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.pbSignsCh:
-			log.Info("Committee sign", "hash", event.PbftSign.Hash().String(), "number", event.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
-			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
-			pm.BroadcastFastBlock(event.Block, false) // Only then announce to the rest
+		case signEvent := <-pm.pbSignsCh:
+			log.Info("Committee sign", "hash", signEvent.PbftSign.Hash().String(), "number", signEvent.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
+			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
+			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():
@@ -1065,8 +1064,8 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.pbNodeInfoCh:
-			pm.BroadcastPbNodeInfo(event.nodeInfo)
+		case nodeInfoEvent := <-pm.pbNodeInfoCh:
+			pm.BroadcastPbNodeInfo(nodeInfoEvent.nodeInfo)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():
@@ -1115,8 +1114,8 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.fruitsch:
-			pm.BroadcastFruits(event.Fruits)
+		case fruitsEvent := <-pm.fruitsch:
+			pm.BroadcastFruits(fruitsEvent.Fruits)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():
@@ -1129,9 +1128,9 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 func (pm *ProtocolManager) snailBlockBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.snailBlocksch:
-			//pm.BroadcastSnailBlocks(event.SnailBlocks)
-			pm.BroadcastSnailBlocks(event.Block)
+		case snailEvent := <-pm.snailBlocksch:
+			//pm.BroadcastSnailBlocks(snailEvent.SnailBlocks)
+			pm.BroadcastSnailBlocks(snailEvent.Block)
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.snailBlocksSub.Err():
 			return

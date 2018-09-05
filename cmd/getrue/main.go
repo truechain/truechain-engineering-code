@@ -69,7 +69,12 @@ var (
 		utils.FastSyncFlag,
 		utils.LightModeFlag,
 		utils.SyncModeFlag,
+
 		utils.SingleNodeFlag,
+		utils.BFTPortFlag,
+		utils.BFTIPFlag,
+		utils.CommitteeKeyFlag,
+
 		utils.GCModeFlag,
 		utils.LightServFlag,
 		utils.LightPeersFlag,
