@@ -1054,33 +1054,18 @@ func (f *Fetcher) forgetSign(hash common.Hash) {
 }
 
 func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool, []common.Hash) {
-
-	find := false
-	if blockHashs, ok := f.blockMultiHash[height]; ok {
-		for _, hash := range blockHashs {
-			if hash == blockHash {
-				find = true
-				break
+	voteCount := 0
+	blockSignHash := []common.Hash{}
+	if hashs, ok := f.signMultiHash[height]; ok {
+		for _, hash := range hashs {
+			sign := f.queuedSign[hash].sign
+			if sign.Result == 1 && blockHash == sign.FastHash {
+				voteCount++
+				blockSignHash = append(blockSignHash, hash)
 			}
-		}
-	}
 
-	if find {
-		if inject, ok := f.queued[blockHash]; ok {
-			voteCount := 0
-			blockSignHash := []common.Hash{}
-			if hashs, ok := f.signMultiHash[height]; ok {
-				for _, hash := range hashs {
-					sign := f.queuedSign[hash].sign
-					if sign.Result == 1 && inject.block.Hash() == sign.FastHash {
-						voteCount++
-						blockSignHash = append(blockSignHash, hash)
-					}
-
-					if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
-						return find, blockSignHash
-					}
-				}
+			if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
+				return true, blockSignHash
 			}
 		}
 	}

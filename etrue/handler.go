@@ -687,7 +687,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == NewFastBlockHashesMsg:
-		log.Info("NewFastBlockHashesMsg")
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
@@ -788,11 +787,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		if pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
-			pm.BroadcastPbSign(signs)
-		} else {
-			pm.fetcherFast.EnqueueSign(p.id, signs)
-		}
+		log.Info("BlockSign", "CommitteeAuth", pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight))
+		// committee no current block
+		pm.fetcherFast.EnqueueSign(p.id, signs)
 
 	//fruit structure
 	case msg.Code == FruitMsg:
