@@ -53,7 +53,6 @@ const (
 	signChanSize       = 256
 	nodeChanSize       = 256
 	fruitChanSize      = 256
-	snailBlockChanSize = 256
 )
 
 var (
@@ -97,9 +96,6 @@ type ProtocolManager struct {
 	fruitsch  chan snailchain.NewFruitsEvent
 	fruitsSub event.Subscription
 
-	snailBlocksch  chan snailchain.ChainEvent
-	snailBlocksSub event.Subscription
-
 	//fast block
 	minedFastCh  chan core.NewBlockEvent
 	minedFastSub event.Subscription
@@ -109,8 +105,6 @@ type ProtocolManager struct {
 	pbNodeInfoCh  chan core.NodeInfoEvent
 	pbNodeInfoSub event.Subscription
 
-	//fruit
-	minedFruitSub *event.TypeMuxSubscription
 	//minedsnailBlock
 	minedSnailBlockSub *event.TypeMuxSubscription
 	// channels for fetcher, syncer, txsyncLoop
@@ -281,12 +275,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
 
-	//broadcast snailblock
-	pm.snailBlocksch = make(chan snailchain.ChainEvent, snailBlockChanSize)
-	// TODO: modify snailblock broadcast
-	pm.snailBlocksSub = pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
-	go pm.snailBlockBroadcastLoop()
-
 	// broadcast mined fastBlocks
 	pm.minedFastCh = make(chan core.NewBlockEvent, txChanSize)
 	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
@@ -302,12 +290,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.pbNodeInfoSub = pm.agentProxy.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
 	go pm.pbNodeInfoBroadcastLoop()
 
-	// broadcast mined fruits
-	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
-	go pm.minedFruitLoop()
-
 	//broadcast mined snailblock
-	pm.minedSnailBlockSub = pm.eventMux.Subscribe(core.NewMinedSnailBlockEvent{})
+	pm.minedSnailBlockSub = pm.eventMux.Subscribe(snailchain.NewMinedBlockEvent{})
 	go pm.minedSnailBlockLoop()
 
 	// start sync handlers
@@ -324,9 +308,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
 	pm.fruitsSub.Unsubscribe()     // quits fruitBroadcastLoop
-	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
-	//snailblock and minedSnailBlock
-	pm.snailBlocksSub.Unsubscribe()     // quits snailBlockBroadcastLoop
+	//minedSnailBlock
 	pm.minedSnailBlockSub.Unsubscribe() // quits minedSnailBlockBroadcastLoop
 
 	// Quit the sync loop.
@@ -906,40 +888,6 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncrptoNodeMessag
 	}
 }
 
-// Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
-// will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastFruit(fruit *types.SnailBlock, propagate bool) {
-	hash := fruit.Hash()
-	peers := pm.peers.PeersWithoutFruit(hash)
-
-	// If propagation is requested, send to a subset of the peer
-	if propagate {
-		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
-		var td *big.Int
-		/*if parent := pm.fruitchain.GetBlock(fruit.ParentHash(), fruit.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(fruit.Difficulty(), pm.blockchain.GetTd(fruit.ParentHash(), fruit.NumberU64()-1))
-		} else {
-			log.Error("Propagating dangling fruit", "number", fruit.Number(), "hash", hash)
-			return
-		}*/
-		// Send the fruit to a subset of our peers
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
-		for _, peer := range transfer {
-			peer.AsyncSendNewFruit(fruit, td)
-		}
-		log.Trace("Propagated fruit", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(fruit.ReceivedAt)))
-		return
-	}
-	//fruit not exist the follow situation
-	/*// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, fruit.NumberU64()) {
-		for _, peer := range peers {
-			peer.AsyncSendNewBlockHash(block)
-		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
-	}*/
-}
-
 // BroadcastSnailBlock will either propagate a snailBlock to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, propagate bool) {
@@ -1011,24 +959,6 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 	}
 }
 
-//for snailBlocks
-func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks *types.SnailBlock) {
-	var snailBlcokset = make(map[*peer]types.SnailBlocks)
-
-	// Broadcast records to a batch of peers not knowing about it
-	//for _, snailBlcok := range snailBlocks {
-	peers := pm.peers.PeersWithoutSnailBlock(snailBlocks.Hash())
-	for _, peer := range peers {
-		snailBlcokset[peer] = append(snailBlcokset[peer], snailBlocks)
-		//}
-		log.Trace("Broadcast snailBlcoks", "hash", snailBlocks.Hash(), "recipients", len(peers))
-	}
-	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, snailBlocks := range snailBlcokset {
-		peer.AsyncSendSnailBlocks(snailBlocks)
-	}
-}
-
 // Mined broadcast loop
 func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
@@ -1071,17 +1001,6 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 	}
 }
 
-// Mined fruit loop
-func (pm *ProtocolManager) minedFruitLoop() {
-	// automatically stops if unsubscribe
-	for obj := range pm.minedFruitSub.Chan() {
-		switch ev := obj.Data.(type) {
-		case core.NewMinedFruitEvent:
-			pm.BroadcastFruit(ev.Block, true)  // First propagate fruit to peers
-			pm.BroadcastFruit(ev.Block, false) // Only then announce to the rest
-		}
-	}
-}
 
 // Mined snailBlock loop
 func (pm *ProtocolManager) minedSnailBlockLoop() {
@@ -1116,20 +1035,6 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():
-			return
-		}
-	}
-}
-
-//  snailBlocks
-func (pm *ProtocolManager) snailBlockBroadcastLoop() {
-	for {
-		select {
-		case snailEvent := <-pm.snailBlocksch:
-			//pm.BroadcastSnailBlocks(snailEvent.SnailBlocks)
-			pm.BroadcastSnailBlocks(snailEvent.Block)
-			// Err() channel will be closed when unsubscribing.
-		case <-pm.snailBlocksSub.Err():
 			return
 		}
 	}

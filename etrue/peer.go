@@ -54,9 +54,7 @@ const (
 	maxQueuedSigns = 128
 	// contain a single transaction, or thousands.
 	maxQueuedFruits = 128
-	maxQueuedSnailBlocks = 128
-	//for fruitEvent
-	maxQueuedFruit = 4
+	maxQueuedSnailBlock = 4
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
@@ -123,10 +121,8 @@ type peer struct {
 	queuedSign        chan []*types.PbftSign    // Queue of sign to broadcast to the peer
 	queuedNodeInfo    chan *types.EncrptoNodeMessage         // a node info to broadcast to the peer
 	queuedFruits      chan []*types.SnailBlock  // Queue of fruits to broadcast to the peer
-	queuedSnailBlcoks chan []*types.SnailBlock  // Queue of snailBlocks to broadcast to the peer
 	queuedFastProps   chan *propFastEvent       // Queue of fast blocks to broadcast to the peer
 
-	queuedFruit      chan *fruitEvent      // Queue of newFruits to broadcast to the peer
 	queuedSnailBlock chan *snailBlockEvent // Queue of newSnailBlock to broadcast to the peer
 
 	queuedFastAnns chan *types.Block // Queue of fastBlocks to announce to the peer
@@ -149,12 +145,9 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedSign:      make(chan []*types.PbftSign, maxQueuedSigns),
 		queuedNodeInfo:  make(chan *types.EncrptoNodeMessage, maxQueuedNodeInfo),
 		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
-		queuedSnailBlcoks: make(chan []*types.SnailBlock, maxQueuedSnailBlocks),
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 
-		queuedFruit:  make(chan *fruitEvent, maxQueuedFruit),
-		//queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedFruit),
-		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedFruit),
+		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedSnailBlock),
 		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
 		term:         make(chan struct{}),
 	}
@@ -193,13 +186,11 @@ func (p *peer) broadcast() {
 			}
 			p.Log().Trace("Broadcast fruits", "count", len(fruits))
 
-
-			//add for snailBlock
-		case snailBlocks := <-p.queuedSnailBlcoks:
-			if err := p.SendsnailBlocks(snailBlocks); err != nil {
+		case snailBlock := <-p.queuedSnailBlock:
+			if err := p.SendNewSnailBlock(snailBlock.block, snailBlock.td); err != nil {
 				return
 			}
-			p.Log().Trace("Broadcast snailBlocks", "count", len(snailBlocks))
+			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 
 		case prop := <-p.queuedFastProps:
 			if err := p.SendNewFastBlock(prop.block); err != nil {
@@ -381,13 +372,6 @@ func (p *peer) Sendfruits(fruits types.Fruits) error {
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
-func (p *peer) SendsnailBlocks(snailBlocks types.SnailBlocks) error {
-	for _, snailBlock := range snailBlocks {
-		p.knownSnailBlocks.Add(snailBlock.Hash())
-	}
-	return p2p.Send(p.rw, SnailBlockMsg, snailBlocks)
-}
-
 //for record;the same as transactions
 func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {
@@ -400,16 +384,6 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	}
 }
 
-func (p *peer) AsyncSendSnailBlocks(snailBlocks []*types.SnailBlock) {
-	select {
-	case p.queuedSnailBlcoks <- snailBlocks:
-		for _, snailBlock := range snailBlocks {
-			p.knownSnailBlocks.Add(snailBlock.Hash())
-		}
-	default:
-		p.Log().Debug("Dropping snailBlocks propagation", "count", len(snailBlocks))
-	}
-}
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
@@ -464,17 +438,6 @@ func (p *peer) SendNewFruit(fruit *types.SnailBlock, td *big.Int) error {
 func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
 	p.knownSnailBlocks.Add(snailBlock.Hash())
 	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock, td})
-}
-
-// AsyncSendNewFruit queues an entire fruit for propagation to a remote peer. If
-// the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendNewFruit(fruit *types.SnailBlock, td *big.Int) {
-	select {
-	case p.queuedFruit <- &fruitEvent{block: fruit, td: td}:
-		p.knownFruits.Add(fruit.Hash())
-	default:
-		p.Log().Debug("Dropping fruit propagation", "number", fruit.NumberU64(), "hash", fruit.Hash())
-	}
 }
 
 // AsyncSendNewSnailBlock queues an entire snailBlock for propagation to a remote peer. If
