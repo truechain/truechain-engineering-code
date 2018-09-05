@@ -37,8 +37,8 @@ and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`)
         "eip158Block": 0
     },
   "alloc"      : {
-	  "0x970e8128ab834e8eac17ab8e3812f010678cf791" : { "balance" : "90000000000000000000000"},
-	  "0x68f2517b6c597ede0ae7c0559cdd4a84fd08c928" : { "balance" : "10000000000000000000000"}
+	  "0x970e8128ab834e8eac17ab8e3812f010678cf791" : { "balance" : 90000000000000000000000},
+	  "0x68f2517b6c597ede0ae7c0559cdd4a84fd08c928" : { "balance" : 10000000000000000000000}
 	  },
   "coinbase"   : "0x0000000000000000000000000000000000000000",
   "difficulty" : "0x200",
