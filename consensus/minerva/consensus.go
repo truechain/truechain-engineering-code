@@ -270,69 +270,6 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	return m.verifySnailHeader(chain, headers[index], parent, false, seals[index])
 }
 
-func (m *Minerva) VerifyFastHeaders(chain consensus.ChainFastReader, headers []*types.Header,
-	seals []bool) (chan<- struct{}, <-chan error) {
-	// If we're running a full engine faking, accept any input as valid
-	if m.config.PowMode == ModeFullFake || len(headers) == 0 {
-		abort, results := make(chan struct{}), make(chan error, len(headers))
-		for i := 0; i < len(headers); i++ {
-			results <- nil
-		}
-		return abort, results
-	}
-
-	// Spawn as many workers as allowed threads
-	workers := runtime.GOMAXPROCS(0)
-	if len(headers) < workers {
-		workers = len(headers)
-	}
-
-	// Create a task channel and spawn the verifiers
-	var (
-		inputs = make(chan int)
-		done   = make(chan int, workers)
-		errors = make([]error, len(headers))
-		abort  = make(chan struct{})
-	)
-	for i := 0; i < workers; i++ {
-		go func() {
-			for index := range inputs {
-				errors[index] = m.verifyFastHeaderWorker(chain, headers, seals, index)
-				done <- index
-			}
-		}()
-	}
-
-	errorsOut := make(chan error, len(headers))
-	go func() {
-		defer close(inputs)
-		var (
-			in, out = 0, 0
-			checked = make([]bool, len(headers))
-			inputs  = inputs
-		)
-		for {
-			select {
-			case inputs <- in:
-				if in++; in == len(headers) {
-					// Reached end of headers. Stop sending to workers.
-					inputs = nil
-				}
-			case index := <-done:
-				for checked[index] = true; checked[out]; out++ {
-					errorsOut <- errors[out]
-					if out == len(headers)-1 {
-						return
-					}
-				}
-			case <-abort:
-				return
-			}
-		}
-	}()
-	return abort, errorsOut
-}
-
 func (m *Minerva) verifyFastHeaderWorker(chain consensus.ChainFastReader,
 	headers []*types.Header, seals []bool, index int) error {
 	var parent *types.Header
@@ -858,7 +795,15 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, fruits []*types.Block) (*types.Block, error) {
-	return nil, nil
+	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
+		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
+		if sBlock == nil {
+			return nil, consensus.ErrInvalidNumber
+		}
+		accumulateRewardsFast(state, header, sBlock)
+	}
+	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	return types.NewBlock(header, txs, receipts, nil), nil
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
