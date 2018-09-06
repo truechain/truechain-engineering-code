@@ -410,6 +410,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 			if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 				for {
 					if serverCheck(server) {
+						time.Sleep(time.Second * 30)
 						break
 					}
 					time.Sleep(time.Second)
