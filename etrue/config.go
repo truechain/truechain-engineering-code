@@ -27,11 +27,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -77,8 +78,8 @@ func init() {
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
-	Genesis *core.Genesis
-	FastGenesis *core.Genesis
+	Genesis      *core.Genesis
+	FastGenesis  *fastchain.Genesis
 	SnailGenesis *snailchain.Genesis
 
 	// Protocol options
@@ -95,7 +96,7 @@ type Config struct {
 	EnableElection bool `toml:",omitempty"`
 	// CommitteeKey is the ECDSA private key for committee member.
 	// If this filed is empty, can't be a committee member.
-	CommitteeKey  []byte `toml:",omitempty"`
+	CommitteeKey []byte `toml:",omitempty"`
 
 	// Host is the host interface on which to start the pbft server. If this
 	// field is empty, can't be a committee member.
