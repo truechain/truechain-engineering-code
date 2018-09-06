@@ -146,23 +146,15 @@ type SnailPool struct {
 	fastchainHeadCh chan ChainHeadEvent
 	fastchainHeadSub event.Subscription
 
-	//signer types.Signer
-
-	//currentState  *state.StateDB      // Current state in the blockchain head
-	//pendingState  *state.ManagedState // Pending state tracking virtual nonces
-	//currentMaxGas uint64              // Current gas limit for transaction caps
-
 	engine consensus.Engine // Consensus engine used for validating
 
 	muFruit  sync.RWMutex
-	//muRecord sync.RWMutex
 	muFastBlock sync.RWMutex
 
-	//allRecords    map[common.Hash]*types.PbftRecord
 	allFastBlocks    map[common.Hash]*types.Block
 
 	fruitFastBlocks  map[common.Hash]*types.Block // the fastBlocks have fruit
-	//recordList    *list.List
+
 	fastBlockList    *list.List
 	fastBlockPending *list.List
 
@@ -268,13 +260,12 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	if f == nil {
 		return ErrNotExist
 	} else {
-		if err := pool.validateFruit(f); err != nil {
+		if err := pool.chain.Validator().ValidateFruit(f); err != nil {
+			log.Info("Validate fruit error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
 			delete(pool.allFruits, fastBlock.Hash())
 			delete(pool.fruitPending, fastBlock.Hash())
 			return ErrInvalidHash
 		}
-
-		// TODO: verify signatures
 
 		pool.fruitPending[fastBlock.Hash()] = f
 	}
@@ -286,18 +277,12 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	//fruit validation
-	if err := pool.validateFruit(fruit); err != nil {
-		return err
-	}
-
 	//check number(fb)
 	currentNumber := pool.fastchain.CurrentBlock().Number()
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
-		//go pool.fruitFeed.Send(NewFruitsEvent{types.SnailBlocks{fruit}})
 		return nil
 	}
 	//judge is the fb exist
@@ -307,6 +292,11 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	}
 
 	// TODO: check signature
+	//fruit validation
+	if err := pool.chain.Validator().ValidateFruit(fruit); err != nil {
+		log.Info("Validate fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+		return err
+	}
 
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
@@ -633,7 +623,6 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 	errs := make([]error, len(fruits))
 
-	// TODO: check fruits
 	for i, fruit := range fruits {
 		if err := pool.validateFruit(fruit); err != nil {
 			errs[i] = err
@@ -760,13 +749,6 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	if err := pool.engine.VerifySnailHeader(pool.chain, header, true); err != nil {
 		return err
 	}
-
-	// TODO: check sign hash
-	//if hash := types.CalcSignHash(fruit.Signs()); hash != header.SignHash {
-	//	return ErrInvalidHash
-	//}
-
-	// validate the signatures of this fruit
 
 	return nil
 }

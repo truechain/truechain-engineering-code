@@ -31,4 +31,7 @@ type Validator interface {
 
 	// ValidateBody validates the given block's content.
 	ValidateBody(block *types.SnailBlock) error
+
+	// ValidateFruit validates the given fruit's content
+	ValidateFruit(fruit *types.SnailBlock) error
 }
