@@ -541,12 +541,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//	headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
 		//}
 		// mecMark
-		if len(headers) > 0{
-			err := pm.downloader.DeliverHeaders(p.id, headers)
-			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
-			}
+
+		err := pm.downloader.DeliverHeaders(p.id, headers)
+		if err != nil {
+			log.Debug("Failed to deliver headers", "err", err)
 		}
+
 
 	case msg.Code == GetFastBlockHeadersMsg:
 		// Decode the complex header query
