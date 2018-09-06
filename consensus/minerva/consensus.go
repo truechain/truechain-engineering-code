@@ -844,16 +844,14 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 		if len(addr) != len(err) {
 			return consensus.ErrInvalidSingsLength
 		}
-		for i := 0; i < len(addr); i++ {
-			if err[i] != nil {
-				failAddr[addr[i].Coinbase] = false
-			}
-		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
 		for i := 0; i < len(addr); i++ {
 			v := addr[i]
+			if v == nil || err[i] != nil {
+				continue
+			}
 			if signs[i].Result == 0 {
 				if _, ok := failAddr[v.Coinbase]; !ok {
 					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
