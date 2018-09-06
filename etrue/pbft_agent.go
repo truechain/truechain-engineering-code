@@ -30,10 +30,7 @@ import (
 )
 
 const (
-	voteAgreeAgainst = iota //vote against
-	voteAgree               //vote  agree
-
-	preCommittee      //previous committee
+	preCommittee = iota     //previous committee
 	currentCommittee  //current running committee
 	nextCommittee     //next committee
 )
@@ -498,7 +495,7 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 		return nil, errors.New("nodeInfo is not exist ,cannot generateSign.")
 	}
 	voteSign := &types.PbftSign{
-		Result:     voteAgree,
+		Result:     types.VoteAgree,
 		FastHeight: fb.Header().Number,
 		FastHash:   fb.Hash(),
 	}

@@ -829,6 +829,8 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
 		}
+	} else {
+		return consensus.ErrInvalidBlock
 	}
 
 	//committee's award
@@ -842,7 +844,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 		addr, err := election.VerifySigns(signs)
 		if len(addr) != len(err) {
-			return consensus.ErrInvalidSingsLength
+			return consensus.ErrInvalidSignsLength
 		}
 
 		//Effective and not evil
@@ -852,13 +854,17 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 			if v == nil || err[i] != nil {
 				continue
 			}
-			if signs[i].Result == 0 {
+			if signs[i].Result == types.VoteAgreeAgainst {
 				if _, ok := failAddr[v.Coinbase]; !ok {
 					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
 				}
 			} else {
 				failAddr[v.Coinbase] = false
 			}
+		}
+
+		if len(fruitOkAddr) == 0 {
+			return consensus.ErrInvalidSignsLength
 		}
 
 		// Equal by fruit

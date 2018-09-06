@@ -1062,7 +1062,7 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool,
 		for _, hash := range hashs {
 			if injectSingleSign, ok := f.queuedSign[hash]; ok {
 				sign := injectSingleSign.sign
-				if sign.Result == 1 && blockHash == sign.FastHash {
+				if sign.Result == types.VoteAgree && blockHash == sign.FastHash {
 					voteCount++
 					blockSignHash = append(blockSignHash, hash)
 				}

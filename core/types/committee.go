@@ -21,6 +21,11 @@ const (
 	CommitteeSwitchover        //switch pbft committee
 )
 
+const (
+	VoteAgreeAgainst = iota //vote against
+	VoteAgree               //vote  agree
+)
+
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
