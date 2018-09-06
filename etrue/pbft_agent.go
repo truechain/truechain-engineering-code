@@ -487,7 +487,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	log.Info("generateFastBlock", "Height:", fastBlock.Header().Number)
+	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
 	fastBlock.AppendSign(voteSign)
 	return fastBlock, err
@@ -503,7 +503,7 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 		FastHash:   fb.Hash(),
 	}
 	var err error
-	signHash := GetSignHash(voteSign)
+	signHash := voteSign.HashWithNoSign().Bytes()
 	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
@@ -707,14 +707,6 @@ func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	return false
 }
 
-func GetSignHash(sign *types.PbftSign) []byte {
-	hash := RlpHash([]interface{}{
-		sign.FastHash,
-		sign.FastHeight,
-		sign.Result,
-	})
-	return hash[:]
-}
 
 func (self *PbftAgent) GetCommitteInfo(committeeType int64) int {
 	switch committeeType {
@@ -744,7 +736,7 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) 
 	if sign == nil {
 		return false, ""
 	}
-	pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
+	pubKey, err := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 	if err != nil {
 		log.Error("VerifyCommitteeSign SigToPub error.", "err", err)
 		return false, ""
