@@ -14,24 +14,26 @@ import (
 )
 
 type Node struct {
-	NodeID        string
-	NodeTable     map[string]string // key=nodeID, value=url
-	View          *View
-	States        map[int64]*consensus.State
-	CommittedMsgs []*consensus.RequestMsg // kinda block.
-	CommitWaitMsg map[int64]*consensus.VoteMsg
-	MsgBuffer     *MsgBuffer
-	MsgEntrance   chan interface{}
-	MsgDelivery   chan interface{}
-	MsgBackward   chan interface{}
-	Alarm         chan bool
-	FinishChan    chan int64
-	Verify        consensus.ConsensusVerify
-	Finish        consensus.ConsensusFinish
-	ID            *big.Int
-	lock          sync.Mutex
-	Count         int64
-	Count2        int64
+	NodeID             string
+	NodeTable          map[string]string // key=nodeID, value=url
+	View               *View
+	States             map[int64]*consensus.State
+	CommittedMsgs      []*consensus.RequestMsg // kinda block.
+	CommitWaitMsg      map[int64]*consensus.VoteMsg
+	MsgBuffer          *MsgBuffer
+	MsgEntrance        chan interface{}
+	MsgDelivery        chan interface{}
+	MsgBackward        chan interface{}
+	Alarm              chan bool
+	FinishChan         chan int64
+	Verify             consensus.ConsensusVerify
+	Finish             consensus.ConsensusFinish
+	ID                 *big.Int
+	lock               sync.Mutex
+	CurrentHeight      int64
+	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
+	Count              int64
+	Count2             int64
 }
 
 type MsgBuffer struct {
@@ -84,11 +86,12 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 			PrepareMsgs:    make([]*consensus.VoteMsg, 0),
 			CommitMsgs:     make([]*consensus.VoteMsg, 0),
 		},
-		MsgEntrance: make(chan interface{}),
-		MsgDelivery: make(chan interface{}),
-		MsgBackward: make(chan interface{}),
-		Alarm:       make(chan bool),
-		FinishChan:  make(chan int64),
+		MsgEntrance:        make(chan interface{}),
+		MsgDelivery:        make(chan interface{}),
+		MsgBackward:        make(chan interface{}),
+		Alarm:              make(chan bool),
+		FinishChan:         make(chan int64),
+		RetryPrePrepareMsg: make(map[int64]*consensus.PrePrepareMsg),
 	}
 
 	// Start message dispatcher
@@ -168,6 +171,7 @@ func (node *Node) ClearStatus(height int64) {
 }
 
 func (node *Node) PutStatus(height int64, state *consensus.State) {
+	node.CurrentHeight = height
 	node.lock.Lock()
 	defer node.lock.Unlock()
 	id := height % StateMax
@@ -230,13 +234,27 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 
 	LogStage(fmt.Sprintf("Consensus Process (ViewID:%d)", node.GetStatus(reqMsg.Height).ViewID), false)
 
+	//// Send getPrePrepare message
+	//if prePrepareMsg != nil {
+	//	node.Broadcast(prePrepareMsg, "/preprepare")
+	//	node.RetryPrePrepareMsg[prePrepareMsg.Height] = prePrepareMsg
+	//	LogStage("Pre-prepare", true)
+	//}
 	// Send getPrePrepare message
 	if prePrepareMsg != nil {
-		node.Broadcast(prePrepareMsg, "/preprepare")
-		LogStage("Pre-prepare", true)
+		go node.delayPrePrepareMessage(prePrepareMsg)
 	}
 
 	return nil
+}
+
+//Delay detection retransmission prePrepareMessage
+func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg) {
+	if prePrepareMsg.Height == node.CurrentHeight {
+		node.Broadcast(prePrepareMsg, "/preprepare")
+		time.Sleep(time.Second * 10)
+		node.delayPrePrepareMessage(prePrepareMsg)
+	}
 }
 
 // GetPrePrepare can be called when the node's CurrentState is nil.
@@ -262,7 +280,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 
 	//Add self
 	if _, ok := node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID]; !ok {
-		lock.PSLog("node GetPrePrepare3", err.Error())
+		lock.PSLog("node GetPrePrepare3")
 		myPrepareMsg := prePareMsg
 		myPrepareMsg.NodeID = node.NodeID
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
@@ -422,9 +440,9 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 	// Check if there is an ongoing consensus process.
 
 	lock.PSLog("[create]", "height", height)
-	if node.GetStatus(height) != nil && node.GetStatus(height).CurrentStage != consensus.Committed {
-		return errors.New("another consensus is ongoing")
-	}
+	//if node.GetStatus(height) != nil  {
+	//	return errors.New("another consensus is ongoing")
+	//}
 
 	// Get the last sequence ID
 	var lastSequenceID int64
