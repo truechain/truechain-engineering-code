@@ -514,6 +514,11 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			// Send messages.
 			node.MsgDelivery <- msgs
 		} else {
+			for _, v := range node.MsgBuffer.PrePrepareMsgs {
+				if v == msg.(*consensus.PrePrepareMsg) {
+					return nil
+				}
+			}
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs, msg.(*consensus.PrePrepareMsg))
 		}
 	case *consensus.VoteMsg:
