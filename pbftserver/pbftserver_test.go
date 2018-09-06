@@ -16,7 +16,7 @@ import (
 type PbftAgentProxy interface {
 	FetchFastBlock() (*FastBlock, error)
 	VerifyFastBlock(*FastBlock) error
-	BroadcastFastBlock(*FastBlock) error
+	BroadcastFastBlock(*FastBlock)
 	BroadcastSign(sign *PbftSign,block *FastBlock) error
 }
 */
@@ -51,9 +51,8 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
 	return nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) error {
+func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block)  {
 	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {

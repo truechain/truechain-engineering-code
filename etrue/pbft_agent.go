@@ -165,7 +165,8 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	//generate privateKey
 	acc1Key, err := crypto.ToECDSA(config.CommitteeKey)
 	if err != nil {
-		log.Error("InitNodeInfo PrivateKey error ", "err", err)
+		log.Error("InitNodeInfo PrivateKey error,CommitteeKey is wrong ", "err", err)
+		return
 	}
 	self.privateKey = acc1Key
 	pubBytes := crypto.FromECDSAPub(&acc1Key.PublicKey)
@@ -245,7 +246,7 @@ func (self *PbftAgent) loop() {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
 					self.receivePbftNode(cryNodeInfo)
 				} else {
-					log.Info("not received pbftnode.")
+					log.Debug("not received pbftnode.")
 				}
 			} else {
 				log.Warn("receive cryNodeInfo of node not in Committee.")
@@ -505,17 +506,14 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 	signHash := GetSignHash(voteSign)
 	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
 	if err != nil {
-		log.Error("generate voteSign.Sign", "err", err)
+		log.Error("fb GenerateSign error ", "err", err)
 	}
 	return voteSign, err
 }
 
 //broadcast blockAndSign
-func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) error {
-
+func (self *PbftAgent) BroadcastFastBlock(fb *types.Block){
 	go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
-
-	return nil
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
@@ -748,12 +746,12 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) 
 	}
 	pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
 	if err != nil {
-		log.Error("SigToPub error.", "err", err)
+		log.Error("VerifyCommitteeSign SigToPub error.", "err", err)
 		return false, ""
 	}
 	pubKeyBytes := crypto.FromECDSAPub(pubKey)
 	if self.GetCommitteInfo(currentCommittee) == 0 {
-		log.Warn("CurrentCommittee is nil ...")
+		log.Error("CurrentCommittee is nil ...")
 		return false, ""
 	}
 	for _, member := range self.currentCommitteeInfo.Members {
@@ -853,6 +851,7 @@ func (agent *PbftAgent) singleloop() {
 		for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
+				log.Error("singleloop FetchFastBlock error","err",err)
 				time.Sleep(time.Second)
 				continue
 			}
@@ -863,11 +862,6 @@ func (agent *PbftAgent) singleloop() {
 			} else {
 				break
 			}
-		}
-		// broadcast fast block
-		err = agent.BroadcastFastBlock(block)
-		if err != nil {
-			continue
 		}
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
