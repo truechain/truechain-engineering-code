@@ -546,6 +546,12 @@ func (p *peer) RequestSnailHeadersByHash(origin common.Hash, amount int, skip in
 	return p2p.Send(p.rw, GetSnailFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 }
 
+// RequestSnailHeadersByNumber fetches a batch of blocks' headers corresponding to the
+// specified header query, based on the number of an origin block.
+func (p *peer) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
+	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+}
 
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
@@ -561,6 +567,7 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 }
+
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.

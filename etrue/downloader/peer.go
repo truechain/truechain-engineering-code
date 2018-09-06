@@ -81,6 +81,7 @@ type LightPeer interface {
 	RequestHeadersByHash(common.Hash, int, int, bool) error
 	RequestSnailHeadersByHash(common.Hash, int, int, bool) error
 	RequestHeadersByNumber(uint64, int, int, bool) error
+	RequestSnailHeadersByNumber(uint64, int, int, bool) error
 }
 
 // Peer encapsulates the methods required to synchronise with a remote full peer.
@@ -108,6 +109,10 @@ func (w *lightPeerWrapper) RequestSnailHeadersByHash(h common.Hash, amount int, 
 func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool) error {
 	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse)
 }
+func (w *lightPeerWrapper) RequestSnailHeadersByNumber(i uint64, amount int, skip int, reverse bool) error {
+	return w.peer.RequestSnailHeadersByNumber(i, amount, skip, reverse)
+}
+
 func (w *lightPeerWrapper) RequestBodies([]common.Hash) error {
 	panic("RequestBodies not supported in light client mode sync")
 }

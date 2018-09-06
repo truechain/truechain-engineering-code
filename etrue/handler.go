@@ -548,7 +548,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-
 	case msg.Code == GetFastBlockHeadersMsg:
 		// Decode the complex header query
 		var query getBlockHeadersData
@@ -816,7 +815,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range unknown {
 			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
 		}
-
 	case msg.Code == NewFastBlockMsg:
 		// Retrieve and decode the propagated block
 		var request newBlockData
@@ -849,7 +847,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//		go pm.synchronise(p)
 		//	}
 		//}
-
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -868,7 +865,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)
-
 	case msg.Code == PbftNodeInfoMsg:
 		// CryNodeInfo can be processed, parse all of them and deliver to the queue
 		var nodeInfo *CryNodeInfo
@@ -881,7 +877,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		p.MarkNodeInfo(nodeInfo.Hash())
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
-
 	case msg.Code == BlockSignMsg:
 		// PbftSign can be processed, parse all of them and deliver to the queue
 		var signs []*types.PbftSign
