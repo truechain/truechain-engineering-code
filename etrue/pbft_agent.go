@@ -62,7 +62,6 @@ type PbftAgent struct {
 	election *Election
 
 	mu           *sync.Mutex //generateBlock mutex
-	committeeMu  *sync.Mutex //committee mutex
 	cacheBlockMu *sync.Mutex //PbftAgent.cacheBlock mutex
 
 	mux *event.TypeMux
@@ -132,7 +131,6 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		election:         election,
 		mux:              new(event.TypeMux),
 		mu:               new(sync.Mutex),
-		committeeMu:      new(sync.Mutex),
 		cacheBlockMu:     new(sync.Mutex),
 		cacheBlock:       make(map[*big.Int]*types.Block),
 	}
@@ -205,18 +203,14 @@ func (self *PbftAgent) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				log.Info("CommitteeStart...")
-				self.committeeMu.Lock()
 				self.setCommitteeInfo(self.nextCommitteeInfo, currentCommittee)
-				self.committeeMu.Unlock()
 				if self.isCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(self.currentCommitteeInfo.Id, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Info("CommitteeStop..")
-				self.committeeMu.Lock()
 				self.setCommitteeInfo(self.currentCommitteeInfo, preCommittee)
 				self.setCommitteeInfo(nil, currentCommittee)
-				self.committeeMu.Unlock()
 				go self.server.Notify(self.currentCommitteeInfo.Id, int(ch.Option))
 			default:
 				log.Info("unknown electionch:", ch.Option)
@@ -224,10 +218,8 @@ func (self *PbftAgent) loop() {
 		case ch := <-self.committeeCh:
 			log.Info("CommitteeCh...")
 			receivedCommitteeInfo := ch.CommitteeInfo //received committeeInfo
-			self.committeeMu.Lock()
 			self.setCommitteeInfo(receivedCommitteeInfo, nextCommittee)
-			self.committeeMu.Unlock()
-			ticker.Stop()                                //stop ticker send nodeInfo
+			ticker.Stop()                             //stop ticker send nodeInfo
 			self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 			ticker = time.NewTicker(sendNodeTime)
 			if self.isCommitteeMember(receivedCommitteeInfo) {
@@ -285,22 +277,21 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 			return err
 		}
 		delete(self.cacheBlock, fb.Number())
+		log.Info("delete from cacheBlock,number:",fb.Number())
 		//braodcast sign
 		voteSign, err := self.GenerateSign(fb)
 		if err != nil {
 			continue
 		}
-		//go self.signFeed.Send(core.PbftSignEvent{PbftSign: voteSign})
 		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
 	}
 	return nil
 }
 
 //committeeNode braodcat:if parentBlock is not in fastChain,put block  into cacheblock
-func (self *PbftAgent) hanleConsensusBlock(receiveBlock *types.Block) error {
+func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	receiveBlockHeight := receiveBlock.Number()
-	//receivedBlock has been into fashchain
-	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
+	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {//TODO currentBlock mutex
 		return nil
 	}
 	//self.fastChain.CurrentBlock()
@@ -567,7 +558,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	//insert bockchain
-	err := self.hanleConsensusBlock(fb)
+	err := self.handleConsensusBlock(fb)
 	if err != nil {
 		return err
 	}
@@ -894,6 +885,7 @@ func printWarn(str string) {
 func printError(err error) {
 	log.Error("error infomation:", err)
 }
+
 func printStrAndError(str string, err error) {
 	log.Error("error infomation:", str, err)
 }
