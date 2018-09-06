@@ -441,7 +441,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	// Block header query, collect the requested headers and reply
-	case msg.Code == GetSnailFastBlockHeadersMsg:
+	case msg.Code == GetSnailBlockHeadersMsg:
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -526,9 +526,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		return p.SendSnailFastBlockHeaders(headers)
+		return p.SendSnailBlockHeaders(headers)
 
-	case msg.Code == SnailFastBlockHeadersMsg:
+	case msg.Code == SnailBlockHeadersMsg:
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.SnailHeader
 		if err := msg.Decode(&headers); err != nil {
@@ -546,7 +546,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err != nil {
 			log.Debug("Failed to deliver headers", "err", err)
 		}
-
 
 	case msg.Code == GetFastBlockHeadersMsg:
 		// Decode the complex header query
@@ -708,6 +707,61 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//	}
 		//}
 
+
+	case msg.Code == GetSnailBlockBodiesMsg:
+		// Decode the retrieval message
+		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
+		if _, err := msgStream.List(); err != nil {
+			return err
+		}
+		// Gather blocks until the fetch or network limits is reached
+		var (
+			hash   common.Hash
+			bytes  int
+			bodies []rlp.RawValue
+		)
+		for bytes < softResponseLimit && len(bodies) < downloader.MaxBlockFetch {
+			// Retrieve the hash of the next block
+			if err := msgStream.Decode(&hash); err == rlp.EOL {
+				break
+			} else if err != nil {
+				return errResp(ErrDecode, "msg %v: %v", msg, err)
+			}
+			// Retrieve the requested block body, stopping if enough was found
+			if data := pm.snailchain.GetBodyRLP(hash); len(data) != 0 {
+				bodies = append(bodies, data)
+				bytes += len(data)
+			}
+		}
+		return p.SendSnailBlockBodiesRLP(bodies)
+
+	case msg.Code == SnailBlockBodiesMsg:
+		// A batch of block bodies arrived to one of our previous requests
+		var request blockBodiesData
+		if err := msg.Decode(&request); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+		// Deliver them all to the downloader for queuing
+		transactions := make([][]*types.Transaction, len(request))
+
+		for i, body := range request {
+			transactions[i] = body.Transactions
+		}
+		// Filter out any explicitly requested bodies, deliver the rest to the downloader
+		filter := len(transactions) > 0
+		if filter {
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
+		}
+		// mecMark
+		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
+		//	err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
+		//	if err != nil {
+		//		log.Debug("Failed to deliver bodies", "err", err)
+		//	}
+		//}
+
+
+
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
@@ -815,6 +869,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, block := range unknown {
 			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
 		}
+
 	case msg.Code == NewFastBlockMsg:
 		// Retrieve and decode the propagated block
 		var request newBlockData
@@ -847,6 +902,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//		go pm.synchronise(p)
 		//	}
 		//}
+
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
@@ -865,6 +921,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(tx.Hash())
 		}
 		pm.txpool.AddRemotes(txs)
+
 	case msg.Code == PbftNodeInfoMsg:
 		// CryNodeInfo can be processed, parse all of them and deliver to the queue
 		var nodeInfo *CryNodeInfo
@@ -877,6 +934,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		p.MarkNodeInfo(nodeInfo.Hash())
 		pm.agentProxy.AddRemoteNodeInfo(nodeInfo)
+
 	case msg.Code == BlockSignMsg:
 		// PbftSign can be processed, parse all of them and deliver to the queue
 		var signs []*types.PbftSign
@@ -898,6 +956,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	//fruit structure
+
 	case msg.Code == FruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
@@ -919,6 +978,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.SnailPool.AddRemoteFruits(fruits)
 
 	//snailBlock structure
+
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
 		//var snailBlocks []*types.SnailBlock
@@ -958,6 +1018,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
+
+
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)

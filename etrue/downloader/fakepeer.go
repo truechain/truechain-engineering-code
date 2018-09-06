@@ -211,6 +211,21 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 	return nil
 }
 
+// RequestBodies implements downloader.Peer, returning a batch of block bodies
+// corresponding to the specified block hashes.
+func (p *FakePeer) RequestSnailBodies(hashes []common.Hash) error {
+	var (
+		fruits    [][]*types.SnailBlock
+		//uncles [][]*types.Header
+	)
+	for _, hash := range hashes {
+		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
+		fruits = append(fruits, block.Fruits())
+	}
+	p.dl.DeliverBodies(p.id, fruits, nil)
+	return nil
+}
+
 // RequestReceipts implements downloader.Peer, returning a batch of transaction
 // receipts corresponding to the specified block hashes.
 func (p *FakePeer) RequestReceipts(hashes []common.Hash) error {

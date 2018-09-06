@@ -71,10 +71,14 @@ const (
 	ReceiptsMsg    = 0x10
 
 	//snail sync
-	GetSnailFastBlockHeadersMsg = 0x11
-	SnailFastBlockHeadersMsg = 0x12
-	GetSnailFastBlockBodiesMsg  = 0x13
-	SnailFastBlockBodiesMsg     = 0x14
+	GetSnailBlockHeadersMsg = 0x11
+	SnailBlockHeadersMsg = 0x12
+	GetSnailBlockBodiesMsg  = 0x13
+	SnailBlockBodiesMsg     = 0x14
+
+
+
+
 )
 
 type errCode int
@@ -231,3 +235,15 @@ type blockBody struct {
 
 // blockBodiesData is the network packet for block content distribution.
 type blockBodiesData []*blockBody
+
+
+// blockBody represents the data content of a single block.
+type snailBlockBody struct {
+	Fruits []*types.SnailBlock
+	Signs  []*types.PbftSign
+}
+
+// blockBodiesData is the network packet for block content distribution.
+type snailBlockBodiesData []*snailBlockBody
+
+

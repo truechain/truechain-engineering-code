@@ -188,7 +188,7 @@ func (p *peer) broadcast() {
 
 		//add for fruit
 		case fruits := <-p.queuedFruits:
-			if err := p.Sendfruits(fruits); err != nil {
+			if err := p.SendFruits(fruits); err != nil {
 				return
 			}
 			p.Log().Trace("Broadcast fruits", "count", len(fruits))
@@ -202,7 +202,7 @@ func (p *peer) broadcast() {
 
 			//add for snailBlock
 		case snailBlocks := <-p.queuedSnailBlcoks:
-			if err := p.SendsnailBlocks(snailBlocks); err != nil {
+			if err := p.SendSnailBlocks(snailBlocks); err != nil {
 				return
 			}
 			p.Log().Trace("Broadcast snailBlocks", "count", len(snailBlocks))
@@ -387,14 +387,14 @@ func (p *peer) AsyncSendNodeInfo(nodeInfo *CryNodeInfo) {
 
 //Sendfruits sends fruits to the peer and includes the hashes
 // in its fruit hash set for future reference.
-func (p *peer) Sendfruits(fruits types.Fruits) error {
+func (p *peer) SendFruits(fruits types.Fruits) error {
 	for _, fruit := range fruits {
 		p.knownFruits.Add(fruit.Hash())
 	}
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
-func (p *peer) SendsnailBlocks(snailBlocks types.SnailBlocks) error {
+func (p *peer) SendSnailBlocks(snailBlocks types.SnailBlocks) error {
 	for _, snailBlock := range snailBlocks {
 		p.knownSnailBlocks.Add(snailBlock.Hash())
 	}
@@ -503,8 +503,37 @@ func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int)
 
 
 // SendSnailFastBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendSnailFastBlockHeaders(headers []*types.SnailHeader) error {
-	return p2p.Send(p.rw, SnailFastBlockHeadersMsg, headers)
+func (p *peer) SendSnailBlockHeaders(headers []*types.SnailHeader) error {
+	return p2p.Send(p.rw, SnailBlockHeadersMsg, headers)
+}
+
+// RequestOneFastHeader is a wrapper around the header query functions to fetch a
+// single fast header. It is used solely by the fetcher fast.
+func (p *peer) RequestOneSnailHeader(hash common.Hash) error {
+	p.Log().Debug("Fetching single header", "hash", hash)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
+}
+
+// RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
+// specified header query, based on the hash of an origin block.
+func (p *peer) RequestSnailHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
+	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+}
+
+// RequestSnailHeadersByNumber fetches a batch of blocks' headers corresponding to the
+// specified header query, based on the number of an origin block.
+func (p *peer) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
+	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+}
+
+
+// RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
+// specified.
+func (p *peer) RequestSnailBodies(hashes []common.Hash) error {
+	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, hashes)
 }
 
 
@@ -518,6 +547,13 @@ func (p *peer) SendFastBlockHeaders(headers []*types.Header) error {
 func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {
 	return p2p.Send(p.rw, FastBlockBodiesMsg, bodies)
 }
+
+// SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
+// an already RLP encoded format.
+func (p *peer) SendSnailBlockBodiesRLP(bodies []rlp.RawValue) error {
+	return p2p.Send(p.rw, SnailBlockBodiesMsg, bodies)
+}
+
 
 // SendNodeDataRLP sends a batch of arbitrary internal data, corresponding to the
 // hashes requested.
@@ -538,20 +574,6 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
-
-// RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
-// specified header query, based on the hash of an origin block.
-func (p *peer) RequestSnailHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-	return p2p.Send(p.rw, GetSnailFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
-}
-
-// RequestSnailHeadersByNumber fetches a batch of blocks' headers corresponding to the
-// specified header query, based on the number of an origin block.
-func (p *peer) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
-	return p2p.Send(p.rw, GetSnailFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
-}
 
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
