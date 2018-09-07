@@ -139,6 +139,7 @@ type worker struct {
 	coinbase common.Address
 	extra    []byte
 	toElect   bool // for elect
+	FruitOnly  bool // only miner fruit
 	publickey   []byte// for publickey	
 
 	currentMu sync.Mutex
@@ -216,6 +217,14 @@ func (self *worker) setElection(toElect bool, pubkey []byte) {
 	self.publickey = make([]byte, len(pubkey))
 	copy(self.publickey, pubkey)
 }
+
+func (self *worker) SetFruitOnly(FruitOnly bool) {
+	self.mu.Lock()
+	defer  self.mu.Unlock()
+
+	self.FruitOnly = FruitOnly
+}
+
 
 func (self *worker) setExtra(extra []byte) {
 	self.mu.Lock()
@@ -345,16 +354,17 @@ func (self *worker) update() {
 
 		//TODO　fruit event
 		case <-self.fruitCh:
-			if !self.atCommintNewwWokr && atomic.LoadInt32(&self.mining)==1 {
+			if !self.atCommintNewwWokr {
 				// after get the fruit event should star mining if have not mining
 				self.commitNewWork()	
 			}
 		case  <-self.fastBlockCh:
-			if !self.atCommintNewwWokr && atomic.LoadInt32(&self.mining)==1 {
+			if !self.atCommintNewwWokr {
+				log.Info("star commit new work")
 				self.commitNewWork()	
 			}
 		case <-self.fruitChainCh:
-			self.commitNewWork()
+			//self.commitNewWork()
 
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
@@ -393,22 +403,25 @@ func (self *worker) wait() {
 					continue
 				}
 
-				log.Info("—mined fruit"," FB NUMBER",block.FastNumber())
+				log.Info("🔨 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
 				self.etrue.SnailPool().AddRemoteFruits(newFruits)
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil{
+					self.atCommintNewwWokr = false
+					/*
 					self.mux.Post(chain.NewMinedFruitEvent{Block: block})
 					var (
 						events []interface{}
 					)
 					events = append(events, chain.NewMinedFruitEvent{Block: block})
 					self.chain.PostChainEvents(events)
+					*/
 				}
 			} else {
-				log.Info("_++++   —mined block  ---  "," FB NUMBER",block.FastNumber(),"block number",block.Number())
+				log.Info("+++++ mined block  ---  "," FB NUMBER",block.FastNumber(),"block number",block.Number())
 				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
@@ -494,6 +507,7 @@ func (self *worker) commitNewWork() {
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
 	self.atCommintNewwWokr  = true
+
 	//can not start miner when  fruits and fast block 
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
@@ -584,9 +598,9 @@ func (self *worker) commitNewWork() {
 		self.FastBlockNumber.SetUint64(fastblock.NumberU64()) 		
 		}else{
 			if self.FastBlockNumber.Cmp(fastblock.Number()) == 0{
-				log.Info(" commint new work fast block not updata yet   ")
-				self.atCommintNewwWokr  = false
-				return
+				//log.Info(" commint new work fast block not updata yet   ")
+				//self.atCommintNewwWokr  = false
+				//return
 			}else{
 				self.FastBlockNumber.SetUint64(fastblock.NumberU64()) 
 			}
@@ -602,8 +616,14 @@ func (self *worker) commitNewWork() {
 	}
 
 	// commit fruits make sure it is correct
-	if fruits != nil{	
+	if fruits != nil{
 		work.commitFruits(fruits, self.snailchain, self.coinbase)
+	}else{
+		if self.FastBlockNumber.Cmp(fastblock.Number()) == 0{
+			//log.Info(" commint new work fast block not updata yet  and the fruit is nil  ")
+			//self.atCommintNewwWokr  = false
+			//return
+		}
 	}
 	
 	// set work block
@@ -617,7 +637,7 @@ func (self *worker) commitNewWork() {
 
 
 	if self.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && self.current.Block.Fruits() == nil{
-		log.Info("__commit new work no fruits and fast block not start miner  again")
+		log.Info("__commit new work have not fruits and fast block do not start miner  again")
 		self.atCommintNewwWokr  = false
 		return
 	} 
@@ -701,6 +721,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 	//TODO should add pointer 
 	pointer := bc.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
+		log.Info("   22  commit fruit","fast num",fruit.FastNumber())
 		return core.ErrInvalidPointer
 	}
 
@@ -720,18 +741,17 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	var lastFastNumber *big.Int
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
-	
 	if len(fs) > 0 {
+
 		lastFastNumber = fs[len(fs) - 1].FastNumber()
+		}
 	} else {
 		lastFastNumber = new(big.Int).Set(common.Big0)
 	}
-
 	for _, fruit := range fruits {
 		err := env.commitFruit(fruit, bc, lastFastNumber)
 		if err == nil {
 			env.fruits = append(env.fruits, fruit)
 		}
 	}
-
 }
