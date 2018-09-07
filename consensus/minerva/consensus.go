@@ -780,7 +780,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
 		}
-		accumulateRewardsFast(m, state, header, sBlock)
+		accumulateRewardsFast(m.election, state, header, sBlock)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	return types.NewBlock(header, txs, receipts, nil), nil
@@ -810,7 +810,7 @@ func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
+func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
 
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
 
@@ -829,6 +829,8 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
 		}
+	} else {
+		return consensus.ErrInvalidBlock
 	}
 
 	//committee's award
@@ -840,27 +842,29 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr, err := m.election.VerifySigns(signs)
+		addr, err := election.VerifySigns(signs)
 		if len(addr) != len(err) {
-			return consensus.ErrInvalidSingsLength
-		}
-		for i := 0; i < len(addr); i++ {
-			if err[i] != nil {
-				failAddr[addr[i].Coinbase] = false
-			}
+			return consensus.ErrInvalidSignsLength
 		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
 		for i := 0; i < len(addr); i++ {
 			v := addr[i]
-			if signs[i].Result == 0 {
+			if v == nil || err[i] != nil {
+				continue
+			}
+			if signs[i].Result == types.VoteAgreeAgainst {
 				if _, ok := failAddr[v.Coinbase]; !ok {
 					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
 				}
 			} else {
 				failAddr[v.Coinbase] = false
 			}
+		}
+
+		if len(fruitOkAddr) == 0 {
+			return consensus.ErrInvalidSignsLength
 		}
 
 		// Equal by fruit

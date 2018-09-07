@@ -21,6 +21,11 @@ const (
 	CommitteeSwitchover        //switch pbft committee
 )
 
+const (
+	VoteAgreeAgainst = iota //vote against
+	VoteAgree               //vote  agree
+)
+
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
@@ -69,7 +74,7 @@ type PbftSign struct {
 type PbftAgentProxy interface {
 	FetchFastBlock() (*Block, error)
 	VerifyFastBlock(*Block) error
-	BroadcastFastBlock(*Block) error
+	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 }
 
