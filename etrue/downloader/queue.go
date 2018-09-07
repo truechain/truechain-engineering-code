@@ -458,15 +458,15 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 // previously failed downloads. Beside the next batch of needed fetches, it also
 // returns a flag whether empty blocks were queued requiring processing.
 func (q *queue) ReserveBodies(p *peerConnection, count int) (*fetchRequest, bool, error) {
-	//isNoop := func(header *types.SnailHeader) bool {
-	//	// TODO:
-	//	//return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
-	//	return header.TxHash == types.EmptyRootHash
-	//}
+	isNoop := func(header *types.SnailHeader) bool {
+		// TODO:
+		//return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
+		return header.FruitsHash == types.EmptyRootHash
+	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	return q.reserveHeaders(p, count, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, nil)
+	return q.reserveHeaders(p, count, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, isNoop)
 }
 
 // ReserveReceipts reserves a set of receipt fetches for the given peer, skipping
