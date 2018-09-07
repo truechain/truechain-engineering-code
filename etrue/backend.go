@@ -482,7 +482,12 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		s.lesServer.Start(srvr)
 	}
 	s.startPbftServer()
+	if s.pbftServer == nil {
+		log.Error("start pbft server failed.")
+		return errors.New("start pbft server failed.")
+	}
 	s.agent.server = s.pbftServer
+	log.Info("","server",s.agent.server)
 	s.agent.Start()
 
 	s.election.Start()

@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"fmt"
 )
 
 const (
@@ -43,7 +44,8 @@ const (
 )
 
 var (
-	txSum = 0
+	txSum  = 0
+	tpsArr []float32
 )
 
 type PbftAgent struct {
@@ -500,15 +502,24 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 }
 
 func GetTps(currentBlock, parentBlock *types.Block, bType int) {
+	/*r.Seed(time.Now().Unix())
+	txNum := r.Intn(10)*/
 	var (
 		interval = currentBlock.Time().Uint64() - parentBlock.Time().Uint64()
 		txNum    = len(currentBlock.Transactions())
-		tps      = float32(txNum) / float32(interval)
 	)
 	txSum += txNum
-	if bType == eachBlock {
-		log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
-	} else {
+	log.Info("showSum:", "txSum", txSum)
+
+	tps := float32(txNum) / float32(interval)
+	tpsArr = append(tpsArr, tps)
+	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
+
+	if bType == intervalBlock {
+		tps := float32(txSum) / float32(interval)
+		for _, tps := range tpsArr {
+			fmt.Print("tps:", tps, "; ")
+		}
 		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
 		txSum = 0
 	}
@@ -715,8 +726,12 @@ func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	if !self.nodeInfoIsComplete {
 		return false
 	}
-	if committeeInfo == nil || len(committeeInfo.Members) == 0 {
-		log.Error("received committeeInfo is nil or len(committeeInfo.Members) == 0 ")
+	if committeeInfo == nil {
+		log.Error("received committeeInfo is nil ")
+		return false
+	}
+	if	len(committeeInfo.Members) == 0 {
+		log.Error("len(committeeInfo.Members) == 0 ")
 		return false
 	}
 	for _, member := range committeeInfo.Members {
@@ -859,10 +874,9 @@ func (agent *PbftAgent) singleloop() {
 		var (
 			block *types.Block
 			err   error
-			//cnt   = 0
+			cnt   = 0
 		)
-		block, err = agent.FetchFastBlock()
-		/*for {
+		for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
@@ -876,7 +890,7 @@ func (agent *PbftAgent) singleloop() {
 			} else {
 				break
 			}
-		}*/
+		}
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
