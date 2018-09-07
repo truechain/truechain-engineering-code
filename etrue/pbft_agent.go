@@ -30,6 +30,9 @@ const (
 	preCommittee     = iota //previous committee
 	currentCommittee        //current running committee
 	nextCommittee           //next committee
+
+	eachBlock
+	intervalBlock
 )
 const (
 	blockRewordSpace = 12
@@ -37,6 +40,10 @@ const (
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
+)
+
+var (
+	txSum = 0
 )
 
 type PbftAgent struct {
@@ -278,6 +285,13 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	if parent != nil {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
+		//test tps
+		GetTps(receiveBlock, parent, eachBlock)
+		if receiveBlock.NumberU64()%100 == 0 {
+			b := self.fastChain.GetBlockByNumber(receiveBlock.NumberU64() - 100)
+			GetTps(receiveBlock, b, intervalBlock)
+		}
+
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
 		if err != nil {
@@ -334,11 +348,11 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	var (
 		err         error
 		cryNodeInfo = &types.EncryptNodeMessage{
-			CommitteeId: committeeInfo.Id,
 			CreatedAt:   time.Now(),
+			CommitteeId: committeeInfo.Id,
 		}
 	)
-	//PrintNode(pbftAgent.committeeNode)
+	//DebugNode(pbftAgent.committeeNode)
 	nodeByte, err := rlp.EncodeToBytes(pbftAgent.committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
@@ -347,7 +361,7 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	for _, member := range committeeInfo.Members {
 		EncryptCommitteeNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
 		if err != nil {
-			log.Error("publickey encrypt error ", "member.Publickey:", member.Publickey, "err", err)
+			log.Error("publickey encrypt node error ", "member.Publickey:", member.Publickey, "err", err)
 		}
 		encryptNodes = append(encryptNodes, EncryptCommitteeNode)
 	}
@@ -356,13 +370,17 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, committeeInfo.Id})
 	cryNodeInfo.Sign, err = crypto.Sign(hash[:], pbftAgent.privateKey)
 	if err != nil {
-		log.Error("sign error", "err", err)
+		log.Error("sign node error", "err", err)
 	}
 	pbftAgent.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 }
 
 func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
 	log.Debug("into AddRemoteNodeInfo.")
+	if cryNodeInfo == nil {
+		log.Error("AddRemoteNodeInfo cryNodeInfo nil")
+		return errors.New("AddRemoteNodeInfo cryNodeInfo nil")
+	}
 	pbftAgent.cryNodeInfoCh <- cryNodeInfo
 	return nil
 }
@@ -386,12 +404,14 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 		printWarn("publicKey of send node is not in committee.")
 		return
 	}*/
-	priKey := ecies.ImportECDSA(self.privateKey) //ecdsa-->ecies
+	//ecdsa.PrivateKey convert to ecies.PrivateKey
+	priKey := ecies.ImportECDSA(self.privateKey)
 	for _, encryptNode := range cryNodeInfo.Nodes {
 		decryptNode, err := priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
+			DebugNode(node)
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
@@ -468,6 +488,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		return fastBlock, err
 	}
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
+
 	voteSign, err := self.GenerateSign(fastBlock)
 	if err != nil {
 		log.Error("generateBlock with sign error.", "err", err)
@@ -476,6 +497,22 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.AppendSign(voteSign)
 	}
 	return fastBlock, err
+}
+
+func GetTps(currentBlock, parentBlock *types.Block, bType int) {
+	var (
+		interval = currentBlock.Time().Uint64() - parentBlock.Time().Uint64()
+		txNum    = len(currentBlock.Transactions())
+		tps      = float32(txNum) / float32(interval)
+	)
+	txSum += txNum
+	if bType == eachBlock {
+		log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
+	} else {
+		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
+		txSum = 0
+	}
+
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
@@ -785,21 +822,21 @@ func RlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-/*func PrintCryptNode(node *EncryptNodeMessage) {
-	fmt.Println("*********************")
-	fmt.Println("createdAt:", node.createdAt)
-	fmt.Println("Id:", node.committeeId)
-	fmt.Println("Nodes.len:", len(node.nodes))
-	fmt.Println("Sign:", node.sign)
+func DebugCryptNode(node *types.EncryptNodeMessage) {
+	log.Debug("*********************")
+	log.Debug("createdAt:", node.CreatedAt)
+	log.Debug("Id:", node.CommitteeId)
+	log.Debug("Nodes.len:", len(node.Nodes))
+	log.Debug("Sign:", node.Sign)
 }
 
-func PrintNode(node *types.CommitteeNode) {
-	fmt.Println("*********************")
-	fmt.Println("IP:", node.IP)
-	fmt.Println("Port:", node.Port)
-	fmt.Println("Coinbase:", node.Coinbase)
-	fmt.Println("Publickey:", node.Publickey)
-}*/
+func DebugNode(node *types.CommitteeNode) {
+	log.Debug("*********************")
+	log.Debug("IP:", node.IP)
+	log.Debug("Port:", node.Port)
+	log.Debug("Coinbase:", node.Coinbase)
+	log.Debug("Publickey:", node.Publickey)
+}
 
 //Determine whether the node pubKey  is in the specified committee
 func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
@@ -822,9 +859,10 @@ func (agent *PbftAgent) singleloop() {
 		var (
 			block *types.Block
 			err   error
-			cnt   = 0
+			//cnt   = 0
 		)
-		for {
+		block, err = agent.FetchFastBlock()
+		/*for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
@@ -838,7 +876,7 @@ func (agent *PbftAgent) singleloop() {
 			} else {
 				break
 			}
-		}
+		}*/
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
