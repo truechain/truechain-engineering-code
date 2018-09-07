@@ -726,8 +726,12 @@ func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	if !self.nodeInfoIsComplete {
 		return false
 	}
-	if committeeInfo == nil || len(committeeInfo.Members) == 0 {
-		log.Error("received committeeInfo is nil or len(committeeInfo.Members) == 0 ")
+	if committeeInfo == nil {
+		log.Error("received committeeInfo is nil ")
+		return false
+	}
+	if	len(committeeInfo.Members) == 0 {
+		log.Error("len(committeeInfo.Members) == 0 ")
 		return false
 	}
 	for _, member := range committeeInfo.Members {
