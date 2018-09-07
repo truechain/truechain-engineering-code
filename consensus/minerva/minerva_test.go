@@ -29,14 +29,14 @@ import (
 	"math/big"
 )
 
-// Tests that ethash works correctly in test mode.
+// Tests that minerva works correctly in test mode.
 func TestTestMode(t *testing.T) {
 	//head := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
 
-	//ethash := NewTester()
+	//minerva := NewTester()
 	send := make(chan *types.Block, 10)
 	stop := make(chan struct{})
-	//go ethash.ConSeal(nil, types.NewBlockWithHeader(head), stop, send)
+	//go minerva.ConSeal(nil, types.NewBlockWithHeader(head), stop, send)
 
 	for block := range send {
 		if block == nil {
@@ -50,7 +50,7 @@ func TestTestMode(t *testing.T) {
 		//head.MixDigest = block.MixDigest()
 
 		//t.Log("%v", head)
-		//if err := ethash.VerifySeal(nil, head); err != nil {
+		//if err := minerva.VerifySeal(nil, head); err != nil {
 		//	t.Fatalf("unexpected verification error: %v", err)
 		//}
 
@@ -64,7 +64,7 @@ func TestTestMode(t *testing.T) {
 // This test checks that cache lru logic doesn't crash under load.
 // It reproduces https://github.com/truechain/truechain-engineering-code/issues/14943
 func TestCacheFileEvict(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "ethash-test")
+	tmpdir, err := ioutil.TempDir("", "minerva-test")
 	if err != nil {
 		t.Fatal(err)
 	}

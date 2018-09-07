@@ -34,7 +34,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-// Ethash proof-of-work protocol constants.
+// Minerva protocol constants.
 var (
 	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
 	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
@@ -286,7 +286,7 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
-// rules of the stock Ethereum ethash engine.
+// rules of the stock Truechain minerva engine.
 func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *types.SnailBlock) error {
 
 	// If we're running a full engine faking, accept any input as valid
@@ -323,33 +323,12 @@ func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *typ
 
 	// Verify each of the uncles that it's recent, but not an ancestor
 	//TODO Snail chain not uncles
-	/*
-		for _, uncle := range block.Uncles() {
-			// Make sure every uncle is rewarded only once
-			hash := uncle.Hash()
-			if uncles.Has(hash) {
-				return errDuplicateUncle
-			}
-			uncles.Add(hash)
 
-			// Make sure the uncle has a valid ancestry
-			if ancestors[hash] != nil {
-				return errUncleIsAncestor
-			}
-			if ancestors[uncle.ParentHash] == nil || uncle.ParentHash == block.ParentHash() {
-				return errDanglingUncle
-			}
-			if err := ethash.verifyHeader(chain, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
-				return err
-			}
-		}
-	*/
 	return nil
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules of the
-// stock Ethereum ethash engine.
-// See YP section 4.3.4. "Block Header Validity"
+// stock Truechain minerva engine.
 func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
@@ -471,14 +450,14 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 }
 
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
-	number := header.Number.Uint64()
+	//number := header.Number.Uint64()
 
-	cache := m.cache(number)
-	size := datasetSize(number)
-	if m.config.PowMode == ModeTest {
-		size = 32 * 1024
-	}
-	_, result := hashimotoLight(size, cache.cache, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	//cache := m.cache(number)
+	//size := datasetSize(number)
+	//if m.config.PowMode == ModeTest {
+	//	size = 32 * 1024
+	//}
+	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
 		last := result[16:]
@@ -712,17 +691,17 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 		return errInvalidDifficulty
 	}
 	// Recompute the digest and PoW value and verify against the header
-	number := header.Number.Uint64()
+	//number := header.Number.Uint64()
 
-	cache := m.cache(number)
-	size := datasetSize(number)
-	if m.config.PowMode == ModeTest {
-		size = 32 * 1024
-	}
-	digest, result := hashimotoLight(size, cache.cache, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	//cache := m.cache(number)
+	//size := datasetSize(number)
+	//if m.config.PowMode == ModeTest {
+	//	size = 32 * 1024
+	//}
+	digest, result := truehashLight(m.dataset.dataset,header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 	// Caches are unmapped in a finalizer. Ensure that the cache stays live
 	// until after the call to hashimotoLight so it's not unmapped while being used.
-	runtime.KeepAlive(cache)
+	//runtime.KeepAlive(cache)
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest
@@ -755,7 +734,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 }
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
-// header to conform to the ethash protocol. The changes are done inline.
+// header to conform to the minerva protocol. The changes are done inline.
 func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	if parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
 		return consensus.ErrUnknownAncestor

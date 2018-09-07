@@ -34,7 +34,7 @@ func genLookupTable(plookup []uint64, ptable []uint32 ) int {
 	lktSz := uint32(DATALENGTH)*lktWz
 	
 	//idx := 0
-	for k := 0; k < 16; k++ {
+	for k := 0; k < TBLSIZE; k++ {
 
 		plkt := uint32(k)*lktSz
 
