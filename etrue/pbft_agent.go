@@ -27,7 +27,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/node"
 )
 
 const (
@@ -114,7 +113,7 @@ type Backend interface {
 
 // NodeInfoEvent is posted when nodeInfo send
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election,nodeConfig *node.Config) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
 		config:           config,
 		engine:           engine,
