@@ -49,10 +49,10 @@ const (
 
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize         = 4096
-	signChanSize       = 256
-	nodeChanSize       = 256
-	fruitChanSize      = 256
+	txChanSize    = 4096
+	signChanSize  = 256
+	nodeChanSize  = 256
+	fruitChanSize = 256
 )
 
 var (
@@ -309,7 +309,7 @@ func (pm *ProtocolManager) Stop() {
 	pm.pbSignsSub.Unsubscribe()
 	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
-	pm.fruitsSub.Unsubscribe()     // quits fruitBroadcastLoop
+	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
 	//minedSnailBlock
 	pm.minedSnailBlockSub.Unsubscribe() // quits minedSnailBlockBroadcastLoop
 
@@ -677,7 +677,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
-			log.Info("NewFastBlockHashesMsg", "block", block)
+			log.Debug("NewFastBlockHashesMsg", "block", block)
 			p.MarkFastBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
@@ -771,7 +771,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		log.Info("BlockSign", "CommitteeAuth", pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight))
+		log.Debug("BlockSign", "CommitteeAuth", pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight))
 		// committee no current block
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 
@@ -842,7 +842,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
 		}
-		log.Info("Propagated handle block", "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Propagated handle block", "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
@@ -850,7 +850,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Info("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -865,7 +865,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Info("Broadcast sign", "hash", pbSign.Hash().String(), "number", pbSign.FastHeight, "recipients", len(peers))
+		log.Debug("Broadcast sign", "hash", pbSign.Hash().String(), "number", pbSign.FastHeight, "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
@@ -884,7 +884,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessag
 	for _, peer := range peers {
 		nodeInfoSet[peer] = core.NodeInfoEvent{nodeInfo}
 	}
-	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
+	log.Debug("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
 		peer.AsyncSendNodeInfo(nodeInfo.NodeInfo)
 	}
@@ -935,7 +935,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		for _, peer := range peers {
 			txset[peer] = append(txset[peer], tx)
 		}
-		log.Info("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
+		log.Debug("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
@@ -979,7 +979,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case signEvent := <-pm.pbSignsCh:
-			log.Info("Committee sign", "hash", signEvent.PbftSign.Hash().String(), "number", signEvent.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
+			log.Debug("Committee sign", "hash", signEvent.PbftSign.Hash().String(), "number", signEvent.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
 			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
@@ -1002,7 +1002,6 @@ func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 		}
 	}
 }
-
 
 // Mined snailBlock loop
 func (pm *ProtocolManager) minedSnailBlockLoop() {
