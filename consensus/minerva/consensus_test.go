@@ -121,13 +121,3 @@ func TestOutSqrt(t *testing.T) {
 	fmt.Println(ARR)
 	fmt.Println(string(b))
 }
-
-func TestSqrtString(t *testing.T) {
-	var a []ConstSqrt
-	json.Unmarshal([]byte(SqrtString), &a)
-	for _, v := range a {
-		SqrtMap[v.Num] = v.Sqrt
-	}
-
-	fmt.Println(fmt.Sprintf("%+v", SqrtMap))
-}

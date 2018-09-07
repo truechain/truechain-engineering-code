@@ -896,13 +896,10 @@ func getDistributionRatio(fragmentation int) (miner, committee float64, e error)
 	if fragmentation <= SqrtMin {
 		return 0.8, 0.2, nil
 	}
-
 	if fragmentation >= SqrtMax {
 		return 0.2, 0.8, nil
 	}
-
 	committee = SqrtArray[fragmentation]
-
 	return 1 - committee, committee, nil
 }
 
@@ -914,6 +911,7 @@ func powerf(x float64, n int64) float64 {
 	}
 }
 
+//Get the total reward for the current block
 func getCurrentCoin(h *big.Int) *big.Int {
 	d := h.Int64() / int64(SnailBlockRewardsChangeInterval)
 	ratio := big.NewInt(int64(powerf(0.98, d) * float64(SnailBlockRewardsBase)))
