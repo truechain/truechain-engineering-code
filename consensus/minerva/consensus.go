@@ -895,10 +895,8 @@ func getDistributionRatio(fragmentation int) (miner, committee float64, e error)
 		return 0.2, 0.8, nil
 	}
 
-	committee, ok := SqrtMap[fragmentation]
-	if !ok {
-		return 0, 0, errors.New("SqrtMap init fail")
-	}
+	committee = SqrtArray[fragmentation]
+
 	return 1 - committee, committee, nil
 }
 
