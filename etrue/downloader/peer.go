@@ -107,6 +107,13 @@ func (w *lightPeerWrapper) RequestSnailHeadersByNumber(i uint64, amount int, ski
 	return w.peer.RequestSnailHeadersByNumber(i, amount, skip, reverse)
 }
 
+func (w *lightPeerWrapper) RequestReceipts([]common.Hash) error {
+	panic("RequestReceipts not supported in light client mode sync")
+}
+
+func (w *lightPeerWrapper) RequestSnailBodies([]common.Hash) error {
+	panic("RequestReceipts not supported in light client mode sync")
+}
 
 func (w *lightPeerWrapper) RequestNodeData([]common.Hash) error {
 	panic("RequestNodeData not supported in light client mode sync")
@@ -200,7 +207,6 @@ func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 
 	return nil
 }
-
 
 
 // SetHeadersIdle sets the peer to idle, allowing it to execute new header retrieval

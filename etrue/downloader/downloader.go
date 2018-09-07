@@ -953,22 +953,22 @@ func (d *Downloader) fetchBodies(from uint64) error {
 func (d *Downloader) fetchReceipts(from uint64) error {
 	log.Debug("Downloading transaction receipts", "origin", from)
 
-	var (
-		deliver = func(packet dataPack) (int, error) {
-			pack := packet.(*receiptPack)
-			return d.queue.DeliverReceipts(pack.peerID, pack.receipts)
-		}
-		expire   = func() map[string]int { return d.queue.ExpireReceipts(d.requestTTL()) }
-		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchReceipts(req) }
-		capacity = func(p *peerConnection) int { return p.ReceiptCapacity(d.requestRTT()) }
-		setIdle  = func(p *peerConnection, accepted int) { p.SetReceiptsIdle(accepted) }
-	)
-	err := d.fetchParts(errCancelReceiptFetch, d.receiptCh, deliver, d.receiptWakeCh, expire,
-		d.queue.PendingReceipts, d.queue.InFlightReceipts, d.queue.ShouldThrottleReceipts, d.queue.ReserveReceipts,
-		d.receiptFetchHook, fetch, d.queue.CancelReceipts, capacity, d.peers.ReceiptIdlePeers, setIdle, "receipts")
-
-	log.Debug("Transaction receipt download terminated", "err", err)
-	return err
+	//var (
+	//	deliver = func(packet dataPack) (int, error) {
+	//		pack := packet.(*receiptPack)
+	//		return d.queue.DeliverReceipts(pack.peerID, pack.receipts)
+	//	}
+	//	expire   = func() map[string]int { return d.queue.ExpireReceipts(d.requestTTL()) }
+	//	fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchReceipts(req) }
+	//	capacity = func(p *peerConnection) int { return p.ReceiptCapacity(d.requestRTT()) }
+	//	setIdle  = func(p *peerConnection, accepted int) { p.SetReceiptsIdle(accepted) }
+	//)
+	//err := d.fetchParts(errCancelReceiptFetch, d.receiptCh, deliver, d.receiptWakeCh, expire,
+	//	d.queue.PendingReceipts, d.queue.InFlightReceipts, d.queue.ShouldThrottleReceipts, d.queue.ReserveReceipts,
+	//	d.receiptFetchHook, fetch, d.queue.CancelReceipts, capacity, d.peers.ReceiptIdlePeers, setIdle, "receipts")
+	//
+	//log.Debug("Transaction receipt download terminated", "err", err)
+	//return err
 }
 
 // fetchParts iteratively downloads scheduled block parts, taking any available

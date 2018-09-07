@@ -441,6 +441,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	// Block header query, collect the requested headers and reply
+
 	case msg.Code == GetSnailBlockHeadersMsg:
 		// Decode the complex header query
 		var query getBlockHeadersData
@@ -707,7 +708,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//	}
 		//}
 
-
 	case msg.Code == GetSnailBlockBodiesMsg:
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
@@ -728,7 +728,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "msg %v: %v", msg, err)
 			}
 			// Retrieve the requested block body, stopping if enough was found
-			if data := pm.snailchain.GetBodyRLP(hash); len(data) != 0 {
+			if data := pm.blockchain.GetBodyRLP(hash); len(data) != 0 {
 				bodies = append(bodies, data)
 				bytes += len(data)
 			}
@@ -737,30 +737,28 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == SnailBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
-		var request blockBodiesData
+		var request snailBlockBodiesData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver them all to the downloader for queuing
-		transactions := make([][]*types.Transaction, len(request))
+		fruits := make([][]*types.SnailBlock, len(request))
 
 		for i, body := range request {
-			transactions[i] = body.Transactions
+			fruits[i] = body.Fruits
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0
-		if filter {
-			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
-		}
+		//filter := len(fruits) > 0
+		//if filter {
+		//	fruits = pm.fetcherFast.FilterBodies(p.id, fruits, time.Now())
+		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		//	err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
-		//	if err != nil {
-		//		log.Debug("Failed to deliver bodies", "err", err)
-		//	}
+		err := pm.downloader.DeliverBodies(p.id, fruits, nil)
+		if err != nil {
+			log.Debug("Failed to deliver bodies", "err", err)
+		}
 		//}
-
-
 
 	case p.version >= eth63 && msg.Code == GetNodeDataMsg:
 		// Decode the retrieval message
@@ -1018,7 +1016,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-
 
 
 	default:
