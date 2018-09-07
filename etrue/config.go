@@ -142,39 +142,3 @@ type Config struct {
 type configMarshaling struct {
 	ExtraData hexutil.Bytes
 }
-/*
-func (cfg *Config)	BftCommitteeKey(node *node.Node) *ecdsa.PrivateKey {
-
-	// Use any specifically configured key.
-	if cfg.PrivateKey != nil {
-		return cfg.PrivateKey
-	}
-	// Generate ephemeral key if no datadir is being used.
-	if c.DataDir == "" {
-		key, err := crypto.GenerateKey()
-		if err != nil {
-			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
-		}
-		return key
-	}
-
-	keyfile := c.resolvePath(datadirPrivateKey)
-	if key, err := crypto.LoadECDSA(keyfile); err == nil {
-		return key
-	}
-	// No persistent key found, generate and store a new one.
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
-	}
-	instanceDir := filepath.Join(c.DataDir, c.name())
-	if err := os.MkdirAll(instanceDir, 0700); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-		return key
-	}
-	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
-	if err := crypto.SaveECDSA(keyfile, key); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-	}
-	return key
-}*/
