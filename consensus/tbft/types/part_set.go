@@ -13,11 +13,10 @@ var (
 	ErrPartSetUnexpectedIndex = errors.New("Error part set unexpected index")
 	ErrPartSetInvalidProof    = errors.New("Error part set invalid proof")
 )
-type HexBytes []byte
 
 type Part struct {
-	Index int                `json:"index"`
-	Bytes HexBytes       	 `json:"bytes"`
+	Index int                		`json:"index"`
+	Bytes help.HexBytes       	 	`json:"bytes"`
 	// Proof merkle.SimpleProof `json:"proof"`
 
 	// Cache
@@ -56,8 +55,8 @@ func (part *Part) StringIndented(indent string) string {
 //-------------------------------------
 
 type PartSetHeader struct {
-	Total int          	`json:"total"`
-	Hash  HexBytes 		`json:"hash"`
+	Total int          			`json:"total"`
+	Hash  help.HexBytes 		`json:"hash"`
 }
 
 func (psh PartSetHeader) String() string {
@@ -217,8 +216,7 @@ func (ps *PartSet) IsComplete() bool {
 
 func (ps *PartSet) GetReader() io.Reader {
 	if !ps.IsComplete() {
-		// cmn.PanicSanity("Cannot GetReader() on incomplete PartSet")
-		panic(0)
+		help.PanicSanity("Cannot GetReader() on incomplete PartSet")
 	}
 	return NewPartSetReader(ps.parts)
 }
