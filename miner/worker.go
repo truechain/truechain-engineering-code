@@ -744,7 +744,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	if len(fs) > 0 {
 
 		lastFastNumber = fs[len(fs) - 1].FastNumber()
-		}
+		
 	} else {
 		lastFastNumber = new(big.Int).Set(common.Big0)
 	}
