@@ -71,9 +71,11 @@ var (
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
+		utils.EnableElectionFlag,
 		utils.BFTPortFlag,
 		utils.BFTIPFlag,
-		utils.CommitteeKeyFlag,
+		utils.BftKeyFileFlag,
+		utils.BftKeyHexFlag,
 
 		utils.GCModeFlag,
 		utils.LightServFlag,

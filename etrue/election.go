@@ -107,13 +107,12 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 }
 
 
-//VerifySigns verify a batch of sings the fast chain committee signatures in batches
+//VerifySigns verify signatures of bft committee in batches
 func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
 	members := make([]*types.CommitteeMember, len(signs))
 	errs := make([]error, len(signs))
 
 	for i, sign := range signs {
-
 		hash := sign.HashWithNoSign()
 		pubkey, err := crypto.SigToPub(hash.Bytes(), sign.Sign)
 		if err != nil {

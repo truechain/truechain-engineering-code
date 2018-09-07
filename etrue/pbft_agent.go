@@ -30,10 +30,7 @@ import (
 )
 
 const (
-	voteAgreeAgainst = iota //vote against
-	voteAgree               //vote  agree
-
-	preCommittee      //previous committee
+	preCommittee = iota     //previous committee
 	currentCommittee  //current running committee
 	nextCommittee     //next committee
 )
@@ -145,35 +142,18 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.singleNode = config.NodeType
-	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port,
-		", Host:", config.Host, ", CommitteeKey:", config.CommitteeKey)
-	if bytes.Equal(config.CommitteeKey, []byte{}) {
-		log.Debug("config.CommitteeKey  is nil.")
-		if config.Host != "" || config.Port != 0 {
-			self.committeeNode = &types.CommitteeNode{
-				IP:   config.Host,
-				Port: uint(config.Port),
-			}
-		}
+	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port,", Host:", config.Host)
+	if config.Host == "" || config.Port == 0  {
+		log.Debug("host or IP is not complete .")
 		return
 	}
-	if config.Host == "" || config.Port == 0 || bytes.Equal(config.CommitteeKey, []byte{}) {
-		log.Debug("config is not complete .")
-		return
-	}
-
-	//generate privateKey
-	acc1Key, err := crypto.ToECDSA(config.CommitteeKey)
-	if err != nil {
-		log.Error("InitNodeInfo PrivateKey error,CommitteeKey is wrong ", "err", err)
-		return
-	}
-	self.privateKey = acc1Key
-	pubBytes := crypto.FromECDSAPub(&acc1Key.PublicKey)
+	self.privateKey =config.PrivateKey
+	pubKey := self.privateKey.PublicKey
+	pubBytes := crypto.FromECDSAPub(&pubKey)
 	self.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
 		Port:      uint(config.Port),
-		Coinbase:  crypto.PubkeyToAddress(acc1Key.PublicKey),
+		Coinbase:  crypto.PubkeyToAddress(pubKey),
 		Publickey: pubBytes,
 	}
 	self.nodeInfoIsComplete = true
@@ -487,9 +467,14 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	log.Info("generateFastBlock", "Height:", fastBlock.Header().Number)
+	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
-	fastBlock.AppendSign(voteSign)
+	if err != nil{
+		log.Error("generateBlock with sign error.","err",err)
+	}
+	if voteSign != nil{
+		fastBlock.AppendSign(voteSign)
+	}
 	return fastBlock, err
 }
 
@@ -498,12 +483,12 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 		return nil, errors.New("nodeInfo is not exist ,cannot generateSign.")
 	}
 	voteSign := &types.PbftSign{
-		Result:     voteAgree,
+		Result:     types.VoteAgree,
 		FastHeight: fb.Header().Number,
 		FastHash:   fb.Hash(),
 	}
 	var err error
-	signHash := GetSignHash(voteSign)
+	signHash := voteSign.HashWithNoSign().Bytes()
 	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
@@ -707,14 +692,6 @@ func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	return false
 }
 
-func GetSignHash(sign *types.PbftSign) []byte {
-	hash := RlpHash([]interface{}{
-		sign.FastHash,
-		sign.FastHeight,
-		sign.Result,
-	})
-	return hash[:]
-}
 
 func (self *PbftAgent) GetCommitteInfo(committeeType int64) int {
 	switch committeeType {
@@ -744,7 +721,7 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) (bool, string) 
 	if sign == nil {
 		return false, ""
 	}
-	pubKey, err := crypto.SigToPub(GetSignHash(sign), sign.Sign)
+	pubKey, err := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 	if err != nil {
 		log.Error("VerifyCommitteeSign SigToPub error.", "err", err)
 		return false, ""

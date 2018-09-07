@@ -35,6 +35,8 @@ var (
 	// plus one.
 	ErrInvalidNumber = errors.New("invalid block number")
 
-	//If the number of returned committees and the results are inconsistent, return ErrInvalidSingsLength
-	ErrInvalidSingsLength = errors.New("invalid sings length")
+	//If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
+	ErrInvalidSignsLength = errors.New("invalid signs length")
+
+	ErrInvalidBlock = errors.New("invalid snail block")
 )
