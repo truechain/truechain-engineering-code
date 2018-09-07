@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"fmt"
 )
 
 const (
@@ -43,7 +44,8 @@ const (
 )
 
 var (
-	txSum = 0
+	txSum  = 0
+	tpsArr []float32
 )
 
 type PbftAgent struct {
@@ -501,19 +503,23 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 func GetTps(currentBlock, parentBlock *types.Block, bType int) {
 	/*r.Seed(time.Now().Unix())
-	txNum := r.Intn(3)*/
+	txNum := r.Intn(10)*/
 	var (
 		interval = currentBlock.Time().Uint64() - parentBlock.Time().Uint64()
 		txNum    = len(currentBlock.Transactions())
 	)
 	txSum += txNum
-	log.Info("showSum:","txSum",txSum)
+	log.Info("showSum:", "txSum", txSum)
 
-	if bType == eachBlock {
-		tps    := float32(txNum) / float32(interval)
-		log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
-	} else {
-		tps    := float32(txSum) / float32(interval)
+	tps := float32(txNum) / float32(interval)
+	tpsArr = append(tpsArr, tps)
+	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
+
+	if bType == intervalBlock {
+		tps := float32(txSum) / float32(interval)
+		for _, tps := range tpsArr {
+			fmt.Print("tps:", tps, "; ")
+		}
 		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
 		txSum = 0
 	}
