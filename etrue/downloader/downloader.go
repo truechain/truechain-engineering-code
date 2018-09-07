@@ -442,20 +442,20 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 
 	// Ensure our origin point is below any fast sync pivot point
 	pivot := uint64(0)
-	if d.mode == FastSync {
-		if height <= uint64(fsMinFullBlocks) {
-			origin = 0
-		} else {
-			pivot = height - uint64(fsMinFullBlocks)
-			if pivot <= origin {
-				origin = pivot - 1
-			}
-		}
-	}
+	//if d.mode == FastSync {
+	//	if height <= uint64(fsMinFullBlocks) {
+	//		origin = 0
+	//	} else {
+	//		pivot = height - uint64(fsMinFullBlocks)
+	//		if pivot <= origin {
+	//			origin = pivot - 1
+	//		}
+	//	}
+	//}
 	d.committed = 1
-	if d.mode == FastSync && pivot != 0 {
-		d.committed = 0
-	}
+	//if d.mode == FastSync && pivot != 0 {
+	//	d.committed = 0
+	//}
 	// Initiate the sync using a concurrent header and content retrieval algorithm
 	d.queue.Prepare(origin+1, d.mode)
 	if d.syncInitHook != nil {
@@ -468,11 +468,13 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 		//func() error { return d.fetchReceipts(origin + 1) },        // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
-	if d.mode == FastSync {
-		fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
-	} else if d.mode == FullSync {
-		fetchers = append(fetchers, d.processFullSyncContent)
-	}
+
+	fetchers = append(fetchers, d.processFullSyncContent)
+	//if d.mode == FastSync {
+	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
+	//} else if d.mode == FullSync {
+	//	fetchers = append(fetchers, d.processFullSyncContent)
+	//}
 	return d.spawnSync(fetchers)
 }
 
@@ -1358,7 +1360,7 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	)
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
-		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, nil,nil)
+		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs,nil)
 	}
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
@@ -1503,8 +1505,8 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult) error {
 	blocks := make([]*types.SnailBlock, len(results))
 	receipts := make([]types.Receipts, len(results))
 	for i, result := range results {
-		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, nil, nil)
-		receipts[i] = result.Receipts
+		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs, nil)
+		//receipts[i] = result.Receipts
 	}
 	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
@@ -1516,9 +1518,9 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult) error {
 func (d *Downloader) commitPivotBlock(result *fetchResult) error {
 	block := types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, nil, nil)
 	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
-	if _, err := d.blockchain.InsertReceiptChain([]*types.SnailBlock{block}, []types.Receipts{result.Receipts}); err != nil {
-		return err
-	}
+	//if _, err := d.blockchain.InsertReceiptChain([]*types.SnailBlock{block}, []types.Receipts{result.Receipts}); err != nil {
+	//	return err
+	//}
 	if err := d.blockchain.FastSyncCommitHead(block.Hash()); err != nil {
 		return err
 	}

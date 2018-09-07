@@ -57,12 +57,12 @@ type fetchResult struct {
 	Pending int         // Number of data fetches still pending
 	Hash    common.Hash // Hash of the header to prevent recalculating
 
-
+	signs   	 []*types.PbftSign
 	Header       *types.SnailHeader
 	//Uncles       []*types.SnailHeader
 	fruits 		 types.SnailBlocks
-	Transactions types.Transactions
-	Receipts     types.Receipts
+	//Transactions types.Transactions
+	//Receipts     types.Receipts
 }
 
 
@@ -392,12 +392,12 @@ func (q *queue) Results(block bool) []*fetchResult {
 			for _, fruit := range result.fruits {
 				size += fruit.Size()
 			}
-			for _, receipt := range result.Receipts {
-				size += receipt.Size()
-			}
-			for _, tx := range result.Transactions {
-				size += tx.Size()
-			}
+			//for _, receipt := range result.Receipts {
+			//	size += receipt.Size()
+			//}
+			//for _, tx := range result.Transactions {
+			//	size += tx.Size()
+			//}
 			q.resultSize = common.StorageSize(blockCacheSizeWeight)*size + (1-common.StorageSize(blockCacheSizeWeight))*q.resultSize
 		}
 	}
@@ -520,9 +520,9 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 		}
 		if q.resultCache[index] == nil {
 			components := 1
-			if q.mode == FastSync {
-				components = 2
-			}
+			//if q.mode == FastSync {
+			//	components = 2
+			//}
 			q.resultCache[index] = &fetchResult{
 				Pending: components,
 				Hash:    hash,
@@ -798,7 +798,7 @@ func (q *queue) DeliverReceipts(id string, receiptList [][]*types.Receipt) (int,
 		//if types.DeriveSha(types.Receipts(receiptList[index])) != header.ReceiptHash {
 		//	return errInvalidReceipt
 		//}
-		result.Receipts = receiptList[index]
+		//result.Receipts = receiptList[index]
 		return nil
 	}
 	return q.deliver(id, q.receiptTaskPool, q.receiptTaskQueue, q.receiptPendPool, q.receiptDonePool, receiptReqTimer, len(receiptList), reconstruct)
