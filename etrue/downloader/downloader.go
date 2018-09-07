@@ -968,7 +968,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 	//	d.receiptFetchHook, fetch, d.queue.CancelReceipts, capacity, d.peers.ReceiptIdlePeers, setIdle, "receipts")
 	//
 	//log.Debug("Transaction receipt download terminated", "err", err)
-	//return err
+	return nil
 }
 
 // fetchParts iteratively downloads scheduled block parts, taking any available
