@@ -27,12 +27,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"crypto/ecdsa"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -78,8 +78,8 @@ func init() {
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
-	Genesis      *core.Genesis
-	FastGenesis  *fastchain.Genesis
+	Genesis *core.Genesis
+	FastGenesis *core.Genesis
 	SnailGenesis *snailchain.Genesis
 
 	// Protocol options
@@ -96,7 +96,9 @@ type Config struct {
 	EnableElection bool `toml:",omitempty"`
 	// CommitteeKey is the ECDSA private key for committee member.
 	// If this filed is empty, can't be a committee member.
-	CommitteeKey []byte `toml:",omitempty"`
+	CommitteeKey  []byte `toml:",omitempty"`
+
+	PrivateKey *ecdsa.PrivateKey `toml:"-"`
 
 	// Host is the host interface on which to start the pbft server. If this
 	// field is empty, can't be a committee member.
@@ -139,3 +141,39 @@ type Config struct {
 type configMarshaling struct {
 	ExtraData hexutil.Bytes
 }
+/*
+func (cfg *Config)	BftCommitteeKey(node *node.Node) *ecdsa.PrivateKey {
+
+	// Use any specifically configured key.
+	if cfg.PrivateKey != nil {
+		return cfg.PrivateKey
+	}
+	// Generate ephemeral key if no datadir is being used.
+	if c.DataDir == "" {
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+		}
+		return key
+	}
+
+	keyfile := c.resolvePath(datadirPrivateKey)
+	if key, err := crypto.LoadECDSA(keyfile); err == nil {
+		return key
+	}
+	// No persistent key found, generate and store a new one.
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
+	}
+	instanceDir := filepath.Join(c.DataDir, c.name())
+	if err := os.MkdirAll(instanceDir, 0700); err != nil {
+		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+		return key
+	}
+	keyfile = filepath.Join(instanceDir, datadirPrivateKey)
+	if err := crypto.SaveECDSA(keyfile, key); err != nil {
+		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+	}
+	return key
+}*/

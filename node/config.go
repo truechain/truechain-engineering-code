@@ -37,6 +37,7 @@ import (
 
 const (
 	datadirPrivateKey      = "nodekey"            // Path within the datadir to the node's private key
+	bftCommitteePrivateKey = "bftkey"             // Path within the datadir to the bftCommittee's private key
 	datadirDefaultKeyStore = "keystore"           // Path within the datadir to the keystore
 	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list
 	datadirTrustedNodes    = "trusted-nodes.json" // Path within the datadir to the trusted node list
@@ -434,4 +435,36 @@ func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 		}
 	}
 	return accounts.NewManager(backends...), ephemeral, nil
+}
+
+
+func (c *Config) BftCommitteeKey() *ecdsa.PrivateKey {
+	// Generate ephemeral key if no datadir is being used.
+	if c.DataDir == "" {
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			log.Crit(fmt.Sprintf("Failed to generate ephemeral node key: %v", err))
+		}
+		return key
+	}
+
+	keyfile := c.resolvePath(bftCommitteePrivateKey)
+	if key, err := crypto.LoadECDSA(keyfile); err == nil {
+		return key
+	}
+	// No persistent key found, generate and store a new one.
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		log.Crit(fmt.Sprintf("Failed to generate node key: %v", err))
+	}
+	instanceDir := filepath.Join(c.DataDir, c.name())
+	if err := os.MkdirAll(instanceDir, 0700); err != nil {
+		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+		return key
+	}
+	keyfile = filepath.Join(instanceDir, bftCommitteePrivateKey)
+	if err := crypto.SaveECDSA(keyfile, key); err != nil {
+		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
+	}
+	return key
 }

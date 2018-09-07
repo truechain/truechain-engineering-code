@@ -59,7 +59,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
-	"encoding/hex"
 )
 
 var (
@@ -168,24 +167,31 @@ var (
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}
 	SingleNodeFlag = cli.BoolFlag{
-		Name: "singlenode",
+		Name:  "singlenode",
 		Usage: "sing node model",
 	}
+	EnableElectionFlag = cli.BoolFlag{
+		Name:  "enableelection",
+		Usage: "enable election",
+	}
 	BFTPortFlag = cli.IntFlag{
-		Name: "bftport",
+		Name:  "bftport",
 		Usage: "committee node port ",
-		Value:	10080,
+		Value: 10080,
 	}
 	BFTIPFlag = cli.StringFlag{
-		Name: "bftip",
+		Name:  "bftip",
 		Usage: "committee node ip",
 		//Value: "127.0.0.1",
 	}
-	CommitteeKeyFlag = cli.StringFlag{
-		Name: "bftkey",
-		Usage: "generate privatekey.",
+	BftKeyFileFlag = cli.StringFlag{
+		Name:  "bftkey",
+		Usage: "committee generate privatekey",
 	}
-
+	BftKeyHexFlag = cli.StringFlag{
+		Name:  "bftkeyhex",
+		Usage: "committee generate privatekey as hex (for testing)",
+	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
@@ -590,8 +596,6 @@ var (
 		Usage: "InfluxDB `host` tag attached to all measurements",
 		Value: "localhost",
 	}
-
-
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -632,6 +636,30 @@ func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
 	case hex != "":
 		if key, err = crypto.HexToECDSA(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
+		}
+		cfg.PrivateKey = key
+	}
+}
+
+func setBftCommitteeKey(ctx *cli.Context, cfg *etrue.Config) {
+	var (
+		hex  = ctx.GlobalString(BftKeyHexFlag.Name)
+		file = ctx.GlobalString(BftKeyFileFlag.Name)
+		key  *ecdsa.PrivateKey
+		err  error
+	)
+	log.Debug("","file:",file,"hex:",hex)
+	switch {
+	case file != "" && hex != "":
+		Fatalf("Options %q and %q are mutually exclusive", BftKeyFileFlag.Name, BftKeyHexFlag.Name)
+	case file != "":
+		if key, err = crypto.LoadECDSA(file); err != nil {
+			Fatalf("Option %q: %v", BftKeyFileFlag.Name, err)
+		}
+		cfg.PrivateKey = key
+	case hex != "":
+		if key, err = crypto.HexToECDSA(hex); err != nil {
+			Fatalf("Option %q: %v", BftKeyHexFlag.Name, err)
 		}
 		cfg.PrivateKey = key
 	}
@@ -947,7 +975,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "rinkeby")
 	}
 
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
@@ -1112,14 +1139,20 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(BFTIPFlag.Name) {
 		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
 	}
-	if ctx.GlobalIsSet(CommitteeKeyFlag.Name) {
-		var err error
-		key :=ctx.GlobalString(CommitteeKeyFlag.Name)
-		fmt.Println("key:",key)
-		cfg.CommitteeKey,err= hex.DecodeString(key)
-		if err != nil{
-			log.Info(" CommitteeKeyFlag DecodeString error ")
+	setBftCommitteeKey(ctx,cfg) //set PrivateKey by config
+	fmt.Println("cfg.PrivateKey ",cfg.PrivateKey )
+	if cfg.PrivateKey == nil {
+		log.Debug("jinru")
+		cfg.PrivateKey = stack.Config().BftCommitteeKey()//set PrivateKey by default
+	}
+	log.Debug("committee node privateKey", "cfg.PrivateKey:",cfg.PrivateKey)
+
+	if ctx.GlobalBool(EnableElectionFlag.Name) {
+		cfg.EnableElection = true
+		if cfg.Port == 0 || cfg.Host == "" {
+			Fatalf("%v", "EnableElection  set true,but port or host is not complete.")
 		}
+		return
 	}
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {

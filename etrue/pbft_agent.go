@@ -27,6 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/node"
 )
 
 const (
@@ -113,7 +114,7 @@ type Backend interface {
 
 // NodeInfoEvent is posted when nodeInfo send
 
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election,nodeConfig *node.Config) *PbftAgent {
 	self := &PbftAgent{
 		config:           config,
 		engine:           engine,
@@ -142,35 +143,18 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.singleNode = config.NodeType
-	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port,
-		", Host:", config.Host, ", CommitteeKey:", config.CommitteeKey)
-	if bytes.Equal(config.CommitteeKey, []byte{}) {
-		log.Debug("config.CommitteeKey  is nil.")
-		if config.Host != "" || config.Port != 0 {
-			self.committeeNode = &types.CommitteeNode{
-				IP:   config.Host,
-				Port: uint(config.Port),
-			}
-		}
+	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port,", Host:", config.Host)
+	if config.Host == "" || config.Port == 0  {
+		log.Debug("host or IP is not complete .")
 		return
 	}
-	if config.Host == "" || config.Port == 0 || bytes.Equal(config.CommitteeKey, []byte{}) {
-		log.Debug("config is not complete .")
-		return
-	}
-
-	//generate privateKey
-	acc1Key, err := crypto.ToECDSA(config.CommitteeKey)
-	if err != nil {
-		log.Error("InitNodeInfo PrivateKey error,CommitteeKey is wrong ", "err", err)
-		return
-	}
-	self.privateKey = acc1Key
-	pubBytes := crypto.FromECDSAPub(&acc1Key.PublicKey)
+	self.privateKey =config.PrivateKey
+	pubKey := self.privateKey.PublicKey
+	pubBytes := crypto.FromECDSAPub(&pubKey)
 	self.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
 		Port:      uint(config.Port),
-		Coinbase:  crypto.PubkeyToAddress(acc1Key.PublicKey),
+		Coinbase:  crypto.PubkeyToAddress(pubKey),
 		Publickey: pubBytes,
 	}
 	self.nodeInfoIsComplete = true
@@ -486,7 +470,12 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
-	fastBlock.AppendSign(voteSign)
+	if err != nil{
+		log.Error("generateBlock with sign error.","err",err)
+	}
+	if voteSign != nil{
+		fastBlock.AppendSign(voteSign)
+	}
 	return fastBlock, err
 }
 

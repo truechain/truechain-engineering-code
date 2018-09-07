@@ -96,3 +96,7 @@ type Service interface {
 	// are all terminated.
 	Stop() error
 }
+
+func (ctx *ServiceContext) GetConfig() *Config {
+	return ctx.config
+}

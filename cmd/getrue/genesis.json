@@ -6,8 +6,8 @@
     "eip158Block": 0
   },
   "alloc":{
-    "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a" : { "balance" : 90000000000000000000000},
-    "0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9" : { "balance" : 10000000000000000000000}
+    "0x1c9fbbeeb5d7c39e3f91cbb3b074d78ab9e45aaa" : { "balance" : 90000000000000000000000},
+    "0x958590dc4bebb724b7589e280a89e0fa25cef658" : { "balance" : 10000000000000000000000}
   },
   "committee":[
     {
