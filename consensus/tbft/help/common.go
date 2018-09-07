@@ -1,11 +1,14 @@
 package help
 
 import (
+	"fmt"
 	"bytes"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/common"
 )
+
+type HexBytes []byte
 
 // Fingerprint returns the first 6 bytes of a byte slice.
 // If the slice is less than 6 bytes, the fingerprint
@@ -100,4 +103,8 @@ func RlpHash(x interface{}) (h common.Hash) {
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
+}
+//-----------------------------------------------------------------------------
+func PanicSanity(v interface{}) {
+	panic(fmt.Sprintf("Panicked on a Sanity Check: %v", v))
 }
