@@ -1118,7 +1118,6 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.SyncMode = downloader.FastSync
 	case ctx.GlobalBool(LightModeFlag.Name):
 		cfg.SyncMode = downloader.LightSync
-
 	}
 	if ctx.GlobalIsSet(LightServFlag.Name) {
 		cfg.LightServ = ctx.GlobalInt(LightServFlag.Name)
@@ -1133,26 +1132,27 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
-	if ctx.GlobalIsSet(BFTPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
-	}
 	if ctx.GlobalIsSet(BFTIPFlag.Name) {
 		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
 	}
-	setBftCommitteeKey(ctx,cfg) //set PrivateKey by config
-	fmt.Println("cfg.PrivateKey ",cfg.PrivateKey )
-	if cfg.PrivateKey == nil {
-		log.Debug("jinru")
-		cfg.PrivateKey = stack.Config().BftCommitteeKey()//set PrivateKey by default
+	if ctx.GlobalIsSet(BFTPortFlag.Name) {
+		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
 	}
-	log.Debug("committee node privateKey", "cfg.PrivateKey:",cfg.PrivateKey)
-
+	//set PrivateKey by config
+	setBftCommitteeKey(ctx,cfg)
+	if cfg.PrivateKey == nil {
+		//set PrivateKey by default file
+		cfg.PrivateKey = stack.Config().BftCommitteeKey()
+	}
+	log.Info("generate committee pubkey", "pubkey=",cfg.PrivateKey.PublicKey)
 	if ctx.GlobalBool(EnableElectionFlag.Name) {
-		cfg.EnableElection = true
-		if cfg.Port == 0 || cfg.Host == "" {
-			Fatalf("%v", "EnableElection  set true,but port or host is not complete.")
+		if cfg.Host == "" {
+			Fatalf("enableelection set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
-		return
+		if cfg.Port  == 0 {
+			Fatalf("enableelection set true,Option %q  must be exist.", BFTPortFlag.Name)
+		}
+		cfg.EnableElection = true
 	}
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
