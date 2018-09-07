@@ -500,15 +500,20 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 }
 
 func GetTps(currentBlock, parentBlock *types.Block, bType int) {
+	/*r.Seed(time.Now().Unix())
+	txNum := r.Intn(3)*/
 	var (
 		interval = currentBlock.Time().Uint64() - parentBlock.Time().Uint64()
 		txNum    = len(currentBlock.Transactions())
-		tps      = float32(txNum) / float32(interval)
 	)
 	txSum += txNum
+	log.Info("showSum:","txSum",txSum)
+
 	if bType == eachBlock {
+		tps    := float32(txNum) / float32(interval)
 		log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
 	} else {
+		tps    := float32(txSum) / float32(interval)
 		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
 		txSum = 0
 	}
@@ -859,10 +864,9 @@ func (agent *PbftAgent) singleloop() {
 		var (
 			block *types.Block
 			err   error
-			//cnt   = 0
+			cnt   = 0
 		)
-		block, err = agent.FetchFastBlock()
-		/*for {
+		for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
@@ -876,7 +880,7 @@ func (agent *PbftAgent) singleloop() {
 			} else {
 				break
 			}
-		}*/
+		}
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
