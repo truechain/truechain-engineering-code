@@ -745,8 +745,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
-		// EncrptoNodeMessage can be processed, parse all of them and deliver to the queue
-		var nodeInfo *types.EncrptoNodeMessage
+		// EncryptNodeMessage can be processed, parse all of them and deliver to the queue
+		var nodeInfo *types.EncryptNodeMessage
 		if err := msg.Decode(&nodeInfo); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -874,9 +874,9 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 	}
 }
 
-// BroadcastPbNodeInfo will propagate a batch of EncrptoNodeMessage to all peers which are not known to
+// BroadcastPbNodeInfo will propagate a batch of EncryptNodeMessage to all peers which are not known to
 // already have the given CryNodeInfo.
-func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncrptoNodeMessage) {
+func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	var nodeInfoSet = make(map[*peer]core.NodeInfoEvent)
 
 	// Broadcast transactions to a batch of peers not knowing about it

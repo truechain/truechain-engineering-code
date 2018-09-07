@@ -82,4 +82,4 @@ type PbftSignEvent struct {
 type NewBlockEvent struct{ Block *types.Block }
 
 // NodeInfoEvent is posted when nodeInfo send
-type NodeInfoEvent struct{ NodeInfo *types.EncrptoNodeMessage }
+type NodeInfoEvent struct{ NodeInfo *types.EncryptNodeMessage }

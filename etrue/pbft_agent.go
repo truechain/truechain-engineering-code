@@ -6,12 +6,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -22,7 +20,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -30,16 +27,16 @@ import (
 )
 
 const (
-	preCommittee = iota     //previous committee
-	currentCommittee  //current running committee
-	nextCommittee     //next committee
+	preCommittee     = iota //previous committee
+	currentCommittee        //current running committee
+	nextCommittee           //next committee
 )
 const (
 	blockRewordSpace = 12
 	fetchBlockTime   = 5
 	chainHeadSize    = 256
 	electionChanSize = 64
-	sendNodeTime     = 40 * time.Second
+	sendNodeTime     = 30 * time.Second
 )
 
 type PbftAgent struct {
@@ -70,7 +67,7 @@ type PbftAgent struct {
 
 	electionCh    chan core.ElectionEvent
 	committeeCh   chan core.CommitteeEvent
-	cryNodeInfoCh chan *types.EncrptoNodeMessage
+	cryNodeInfoCh chan *types.EncryptNodeMessage
 	chainHeadCh   chan core.ChainHeadEvent
 
 	electionSub       event.Subscription
@@ -103,16 +100,15 @@ type AgentWork struct {
 }
 
 type Backend interface {
-	AccountManager() *accounts.Manager
+	//AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
 	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
-	ChainDb() ethdb.Database
+	//ChainDb() ethdb.Database
 	Config() *Config
 }
 
 // NodeInfoEvent is posted when nodeInfo send
-
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
 		config:           config,
@@ -124,7 +120,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		committeeCh:      make(chan core.CommitteeEvent),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadSize),
-		cryNodeInfoCh:    make(chan *types.EncrptoNodeMessage),
+		cryNodeInfoCh:    make(chan *types.EncryptNodeMessage),
 		election:         election,
 		mux:              new(event.TypeMux),
 		mu:               new(sync.Mutex),
@@ -142,12 +138,12 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.singleNode = config.NodeType
-	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port,", Host:", config.Host)
-	if config.Host == "" || config.Port == 0  {
+	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port, ", Host:", config.Host)
+	if config.Host == "" || config.Port == 0 {
 		log.Debug("host or IP is not complete .")
 		return
 	}
-	self.privateKey =config.PrivateKey
+	self.privateKey = config.PrivateKey
 	pubKey := self.privateKey.PublicKey
 	pubBytes := crypto.FromECDSAPub(&pubKey)
 	self.committeeNode = &types.CommitteeNode{
@@ -240,8 +236,10 @@ func (self *PbftAgent) loop() {
 
 //  when receive block insert chain event ,put cacheBlock into fastchain
 func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
-	var fastBlocks []*types.Block
-	receiveBlockHeight := receiveBlock.Number()
+	var (
+		fastBlocks         []*types.Block
+		receiveBlockHeight = receiveBlock.Number()
+	)
 	self.cacheBlockMu.Lock()
 	defer self.cacheBlockMu.Unlock()
 	for i := receiveBlockHeight.Uint64() + 1; ; i++ {
@@ -286,7 +284,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 			log.Error("self.fastChain.InsertChain error ", "err", err)
 			return err
 		}
-		log.Debug("fastblock insert chain:", " num:", receiveBlock.Header().Number.Uint64())
+		log.Debug("fastblock insert chain", " num:", receiveBlock.Header().Number.Uint64())
 		//generate sign
 		voteSign, err := self.GenerateSign(receiveBlock)
 		if err != nil {
@@ -295,7 +293,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
-		log.Info("handleConsensusBlock parent is nil.")
+		log.Info("handleConsensusBlock parent not in fastchain.")
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
 		self.cacheBlockMu.Unlock()
@@ -303,7 +301,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncrptoNodeMessage) bool {
+func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMessage) bool {
 	hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
 	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
 	if err != nil {
@@ -333,11 +331,13 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncrptoNodeMes
 //send committeeNode to p2p,make other committeeNode receive and decrypt
 func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	log.Debug("into sendPbftNode.")
-	var err error
-	cryNodeInfo := &types.EncrptoNodeMessage{
-		CommitteeId: committeeInfo.Id,
-		CreatedAt:   time.Now(),
-	}
+	var (
+		err         error
+		cryNodeInfo = &types.EncryptNodeMessage{
+			CommitteeId: committeeInfo.Id,
+			CreatedAt:   time.Now(),
+		}
+	)
 	//PrintNode(pbftAgent.committeeNode)
 	nodeByte, err := rlp.EncodeToBytes(pbftAgent.committeeNode)
 	if err != nil {
@@ -361,13 +361,13 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	pbftAgent.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 }
 
-func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncrptoNodeMessage) error {
+func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
 	log.Debug("into AddRemoteNodeInfo.")
 	pbftAgent.cryNodeInfoCh <- cryNodeInfo
 	return nil
 }
 
-func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncrptoNodeMessage) {
+func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
 	/*hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
 	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
@@ -406,8 +406,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
-
 	tstamp := tstart.Unix()
+
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
@@ -469,10 +469,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 	voteSign, err := self.GenerateSign(fastBlock)
-	if err != nil{
-		log.Error("generateBlock with sign error.","err",err)
+	if err != nil {
+		log.Error("generateBlock with sign error.", "err", err)
 	}
-	if voteSign != nil{
+	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
 	return fastBlock, err
@@ -497,7 +497,7 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 }
 
 //broadcast blockAndSign
-func (self *PbftAgent) BroadcastFastBlock(fb *types.Block){
+func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 	go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 }
 
@@ -567,9 +567,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
-
 	var coalescedLogs []*types.Log
-
 	for {
 		// If we don't have enough gas for any further transactions then we're done
 		if env.gasPool.Gas() < params.TxGas {
@@ -692,7 +690,6 @@ func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	return false
 }
 
-
 func (self *PbftAgent) GetCommitteInfo(committeeType int64) int {
 	switch committeeType {
 	case currentCommittee:
@@ -788,13 +785,13 @@ func RlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-/*func PrintCryptNode(node *EncrptoNodeMessage) {
+/*func PrintCryptNode(node *EncryptNodeMessage) {
 	fmt.Println("*********************")
 	fmt.Println("createdAt:", node.createdAt)
 	fmt.Println("Id:", node.committeeId)
 	fmt.Println("Nodes.len:", len(node.nodes))
 	fmt.Println("Sign:", node.sign)
-}*/
+}
 
 func PrintNode(node *types.CommitteeNode) {
 	fmt.Println("*********************")
@@ -802,7 +799,7 @@ func PrintNode(node *types.CommitteeNode) {
 	fmt.Println("Port:", node.Port)
 	fmt.Println("Coinbase:", node.Coinbase)
 	fmt.Println("Publickey:", node.Publickey)
-}
+}*/
 
 //Determine whether the node pubKey  is in the specified committee
 func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
@@ -822,13 +819,15 @@ func (agent *PbftAgent) singleloop() {
 	log.Debug("singleloop test.")
 	for {
 		// fetch block
-		var block *types.Block
-		var err error
-		cnt := 0
+		var (
+			block *types.Block
+			err   error
+			cnt   = 0
+		)
 		for {
 			block, err = agent.FetchFastBlock()
 			if err != nil {
-				log.Error("singleloop FetchFastBlock error","err",err)
+				log.Error("singleloop FetchFastBlock error", "err", err)
 				time.Sleep(time.Second)
 				continue
 			}

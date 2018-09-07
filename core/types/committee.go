@@ -130,14 +130,14 @@ type CommitteeInfo struct {
 type EncryptCommitteeNode []byte
 type Sign []byte
 
-type EncrptoNodeMessage struct {
+type EncryptNodeMessage struct {
 	CreatedAt   time.Time
 	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign //sign msg
 }
 
-func (c *EncrptoNodeMessage) Hash() common.Hash {
+func (c *EncryptNodeMessage) Hash() common.Hash {
 	return RlpHash(c)
 }
 
