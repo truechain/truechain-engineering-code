@@ -119,7 +119,7 @@ type peer struct {
 	knownFastBlocks   *set.Set                  // Set of fast block hashes known to be known by this peer
 	queuedTxs         chan []*types.Transaction // Queue of transactions to broadcast to the peer
 	queuedSign        chan []*types.PbftSign    // Queue of sign to broadcast to the peer
-	queuedNodeInfo    chan *types.EncrptoNodeMessage         // a node info to broadcast to the peer
+	queuedNodeInfo    chan *types.EncryptNodeMessage         // a node info to broadcast to the peer
 	queuedFruits      chan []*types.SnailBlock  // Queue of fruits to broadcast to the peer
 	queuedFastProps   chan *propFastEvent       // Queue of fast blocks to broadcast to the peer
 
@@ -143,7 +143,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		knownFastBlocks: set.New(),
 		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
 		queuedSign:      make(chan []*types.PbftSign, maxQueuedSigns),
-		queuedNodeInfo:  make(chan *types.EncrptoNodeMessage, maxQueuedNodeInfo),
+		queuedNodeInfo:  make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
 		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
 		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
 
@@ -349,12 +349,12 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 
 //SendNodeInfo sends node info to the peer and includes the hashes
 // in its signs hash set for future reference.
-func (p *peer) SendNodeInfo(nodeInfo *types.EncrptoNodeMessage) error {
+func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
 
-func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncrptoNodeMessage) {
+func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	select {
 	case p.queuedNodeInfo <- nodeInfo:
 		p.knownNodeInfos.Add(nodeInfo.Hash())

@@ -53,6 +53,7 @@ type Miner struct {
 
 	toElect   bool // for elect
 	publickey   []byte// for publickey
+	FruitOnly  bool // only for miner fruit
 
 	coinbase  common.Address
 	mining    int32
@@ -200,4 +201,9 @@ func (self *Miner) SetElection(toElect bool, pubkey []byte) {
 
 	copy(self.publickey, pubkey)
 	self.worker.setElection(toElect, pubkey)
+}
+
+func (self *Miner) SetFruitOnly(FruitOnly bool) {
+	self.FruitOnly = FruitOnly
+	self.worker.SetFruitOnly(FruitOnly)
 }

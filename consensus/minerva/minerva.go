@@ -29,7 +29,6 @@ import (
 	"time"
 	"unsafe"
 
-	"encoding/json"
 	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -82,8 +81,6 @@ var (
 	//Generating formula :TestOutSqrt
 	SqrtMin = 25
 	SqrtMax = 6400
-
-	SqrtMap = make(map[int]float64)
 
 	//Snail block body fruit initial 30*10^15
 	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
@@ -315,15 +312,6 @@ type Minerva struct {
 
 var MinervaLocal *Minerva
 
-//Init sqrt const
-func InitSqrt() {
-	var a []ConstSqrt
-	json.Unmarshal([]byte(SqrtString), &a)
-	for _, v := range a {
-		SqrtMap[v.Num] = v.Sqrt
-	}
-}
-
 // New creates a full sized minerva hybrid consensus scheme.
 func New(config Config) *Minerva {
 	if config.CachesInMem <= 0 {
@@ -336,8 +324,6 @@ func New(config Config) *Minerva {
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
 		//log.Info("Disk storage enabled for minerva DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
-
-	InitSqrt()
 
 	MinervaLocal = &Minerva{
 		config:   config,

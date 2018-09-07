@@ -161,15 +161,15 @@ mineloop:
 			// One of the threads found a block or fruit return it
 			send <- result
 			// TODO snail need a flag to distinguish furit and block
-			
-			if block.Fruits() != nil{
+
+			if block.Fruits() != nil {
 				if !result.IsFruit() {
 					// stop threads when get a block, wait for outside abort when result is fruit
 					close(abort)
 					pend.Wait()
 					break mineloop
 				}
-			}else{
+			} else {
 				close(abort)
 				pend.Wait()
 				break mineloop
@@ -193,9 +193,9 @@ mineloop:
 func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort chan struct{}, found chan *types.SnailBlock) {
 	// Extract some data from the header
 	var (
-		header          = block.Header()
-		hash            = header.HashNoNonce().Bytes()
-		target          = new(big.Int).Div(maxUint256, header.Difficulty)
+		header = block.Header()
+		hash   = header.HashNoNonce().Bytes()
+		target = new(big.Int).Div(maxUint256, header.Difficulty)
 
 		//number          = header.Number.Uint64()
 		//dataset         = m.dataset(number)
@@ -205,7 +205,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
 		fruitDifficulty.Set(params.MinimumFruitDifficulty)
 	}
-	fruitTarget     := new(big.Int).Div(maxUint128, fruitDifficulty)
+	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
@@ -234,7 +234,7 @@ search:
 
 			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
-				if block.Fruits() != nil{
+				if block.Fruits() != nil {
 					header = types.CopySnailHeader(header)
 					header.Nonce = types.EncodeNonce(nonce)
 					header.MixDigest = common.BytesToHash(digest)
@@ -250,10 +250,10 @@ search:
 					}
 					break search
 				}
-				
+
 			} else {
 				lastResult := result[16:]
-				if header.FastNumber.Uint64() !=0 {
+				if header.FastNumber.Uint64() != 0 {
 					if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
 						// last 128 bit < Dpf, get a fruit
 						header = types.CopySnailHeader(header)
