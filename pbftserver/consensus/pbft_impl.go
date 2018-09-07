@@ -149,8 +149,8 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 
 	// Print current voting status
-	fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
-	fmt.Println("[LOG]", "Commit", "start", f)
+	//fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
+	//fmt.Println("[LOG]", "Commit", "start", f)
 	if state.committed(f) {
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
@@ -158,7 +158,7 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 		// Change the stage to prepared.
 		state.CurrentStage = Committed
 
-		fmt.Println("[LOG]", "Commit", "end", f, "Return")
+		//fmt.Println("[LOG]", "Commit", "end", f, "Return")
 
 		return &ReplyMsg{
 			ViewID:    state.ViewID,
@@ -168,7 +168,7 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 			Height:    state.MsgLogs.ReqMsg.Height,
 		}, state.MsgLogs.ReqMsg, nil
 	}
-	fmt.Println("[LOG]", "Commit", "end", f, "notReturn")
+	//fmt.Println("[LOG]", "Commit", "end", f, "notReturn")
 	return nil, nil, nil
 }
 

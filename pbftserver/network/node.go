@@ -166,7 +166,7 @@ func (node *Node) ClearStatus(height int64) {
 	if dHeight < 0 {
 		dHeight += StateMax
 	}
-	fmt.Println("[status]", "delete", dHeight)
+	//fmt.Println("[status]", "delete", dHeight)
 	delete(node.States, dHeight)
 }
 
@@ -177,7 +177,7 @@ func (node *Node) PutStatus(height int64, state *consensus.State) {
 	id := height % StateMax
 	node.States[id] = state
 	node.ClearStatus(height)
-	fmt.Println("[status]", "put", id)
+	//fmt.Println("[status]", "put", id)
 }
 
 func (node *Node) GetStatus(height int64) *consensus.State {
@@ -453,7 +453,7 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 	}
 
 	// Create a new state for this new consensus process in the Primary
-	fmt.Println("[create]", node.NodeID, lastSequenceID, height)
+	//fmt.Println("[create]", node.NodeID, lastSequenceID, height)
 
 	node.PutStatus(height, consensus.CreateState(node.View.ID, lastSequenceID))
 
