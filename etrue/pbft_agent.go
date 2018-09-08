@@ -42,7 +42,6 @@ const (
 
 var (
 	txSum     uint64 = 0
-	lastTime  uint64
 	timeSlice []uint64
 	txSlice   []uint64
 )
@@ -506,9 +505,13 @@ func GetTps(currentBlock *types.Block) {
 			txInterval := txSum - txSlice[len(txSlice)-1-blockInterval]
 			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
 			log.Info("average tps test ", "blockNumber:", currentBlock.NumberU64(), "txInterval", txInterval, "timeInterval", timeInterval, "averageTps", averageTps)
+		}else{
+			timeInterval := nowTime - timeSlice[0]
+			txInterval := txSum - txSlice[0]
+			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
+			log.Info("average tps test ", "blockNumber:", currentBlock.NumberU64(), "txInterval", txInterval, "timeInterval", timeInterval, "averageTps", averageTps)
 		}
 	}
-
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
