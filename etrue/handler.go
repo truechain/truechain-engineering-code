@@ -771,7 +771,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		log.Debug("BlockSign", "CommitteeAuth", pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight))
 		// committee no current block
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 
