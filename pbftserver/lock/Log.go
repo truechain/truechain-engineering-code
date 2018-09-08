@@ -12,5 +12,5 @@ func PSLog(a ...interface{}) {
 		fmt.Println("[PSLog]", a)
 		return
 	}
-	log.Debug("[PSLog]", a)
+	log.Debug("[PbftServer]", "[PSLog]", a)
 }
