@@ -44,6 +44,8 @@ var (
 	txSum    = 0
 	initTime = time.Now().UnixNano() / 1000000
 	lastTime = initTime
+	blockInterval =100
+	timeSlice []int64
 )
 
 type PbftAgent struct {
@@ -355,7 +357,7 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 			CommitteeId: committeeInfo.Id,
 		}
 	)
-	//DebugNode(pbftAgent.committeeNode)
+	DebugNode(pbftAgent.committeeNode,"send")
 	nodeByte, err := rlp.EncodeToBytes(pbftAgent.committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
@@ -397,7 +399,7 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
-			DebugNode(node)
+			DebugNode(node,"receive")
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
@@ -819,19 +821,12 @@ func RlpHash(x interface{}) (h common.Hash) {
 }
 
 func DebugCryptNode(node *types.EncryptNodeMessage) {
-	log.Debug("*********************")
-	log.Debug("createdAt:", node.CreatedAt)
-	log.Debug("Id:", node.CommitteeId)
-	log.Debug("Nodes.len:", len(node.Nodes))
-	log.Debug("Sign:", node.Sign)
+	log.Debug("DebugCryptNode ","createdAt:", node.CreatedAt,"Id:", node.CommitteeId,"Nodes.len:",
+		len(node.Nodes))
 }
 
-func DebugNode(node *types.CommitteeNode) {
-	log.Debug("*********************")
-	log.Debug("IP:", node.IP)
-	log.Debug("Port:", node.Port)
-	log.Debug("Coinbase:", node.Coinbase)
-	log.Debug("Publickey:", node.Publickey)
+func DebugNode(node *types.CommitteeNode,str string) {
+	log.Debug(str+" CommitteeNode","IP:", node.IP,"Port:", node.Port,"Coinbase:", node.Coinbase,"Publickey:", node.Publickey)
 }
 
 //Determine whether the node pubKey  is in the specified committee
