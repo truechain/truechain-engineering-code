@@ -30,11 +30,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
 
 var (
@@ -123,11 +123,11 @@ type Downloader struct {
 	committed       int32
 
 	// Channels
-	headerCh      chan DataPack        // [eth/62] Channel receiving inbound block headers
-	bodyCh        chan DataPack        // [eth/62] Channel receiving inbound block bodies
-	receiptCh     chan DataPack        // [eth/63] Channel receiving inbound receipts
-	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks
-	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks
+	headerCh      chan DataPack             // [eth/62] Channel receiving inbound block headers
+	bodyCh        chan DataPack             // [eth/62] Channel receiving inbound block bodies
+	receiptCh     chan DataPack             // [eth/63] Channel receiving inbound receipts
+	bodyWakeCh    chan bool                 // [eth/62] Channel to signal the block body fetcher of new tasks
+	receiptWakeCh chan bool                 // [eth/63] Channel to signal the receipt fetcher of new tasks
 	headerProcCh  chan []*types.SnailHeader // [eth/62] Channel to feed the header processor new tasks
 
 	// for stateFetcher
@@ -145,11 +145,10 @@ type Downloader struct {
 	quitLock sync.RWMutex  // Lock to prevent double closes
 
 	// Testing hooks
-	syncInitHook     func(uint64, uint64)  // Method to call upon initiating a new sync run
+	syncInitHook     func(uint64, uint64)       // Method to call upon initiating a new sync run
 	bodyFetchHook    func([]*types.SnailHeader) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.SnailHeader) // Method to call upon starting a receipt fetch
-	chainInsertHook  func([]*FetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
-
+	chainInsertHook  func([]*FetchResult)       // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
 	fastDown fastdownloader.Downloader
 }
@@ -202,7 +201,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer PeerDropFn,fdown fastdownloader.Downloader) *Downloader {
+func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer PeerDropFn, fdown fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -231,16 +230,14 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 			processed: rawdb.ReadFastTrieProgress(stateDb),
 		},
 		trackStateReq: make(chan *stateReq),
-		fastDown:fdown,
+		fastDown:      fdown,
 	}
 
-	dl.fastDown.
-
+	dl.fastDown.SetPeers(dl.peers)
 
 	go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
-
 
 }
 
@@ -478,7 +475,6 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
-
 	//if d.mode == FastSync {
 	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 	//} else if d.mode == FullSync {
@@ -486,7 +482,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	//}
 
 	//p *peerConnection, hash common.Hash, td *big.Int mode SyncMode,origin uint64, height uint64
-	fetchers = append(fetchers, func() error { return d.processFullSyncContent(p,hash,td) })
+	fetchers = append(fetchers, func() error { return d.processFullSyncContent(p, hash, td) })
 	//fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 
 	return d.spawnSync(fetchers)
@@ -566,7 +562,7 @@ func (d *Downloader) fetchHeight(p *peerConnection) (*types.SnailHeader, error) 
 
 	// Request the advertised remote head block and wait for the response
 	head, _ := p.peer.Head()
-	go p.peer.RequestSnailHeadersByHash(head, 1, 0, false)
+	go p.peer.RequestHeadersByHash(head, 1, 0, false)
 
 	ttl := d.requestTTL()
 	timeout := time.After(ttl)
@@ -636,7 +632,7 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 	if count > limit {
 		count = limit
 	}
-	go p.peer.RequestSnailHeadersByNumber(uint64(from), count, 15, false)
+	go p.peer.RequestHeadersByNumber(uint64(from), count, 15, false)
 
 	// Wait for the remote response to the head fetch
 	number, hash := uint64(0), common.Hash{}
@@ -718,7 +714,7 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 		ttl := d.requestTTL()
 		timeout := time.After(ttl)
 
-		go p.peer.RequestSnailHeadersByNumber(check, 1, 0, false)
+		go p.peer.RequestHeadersByNumber(check, 1, 0, false)
 
 		// Wait until a reply arrives to this request
 		for arrived := false; !arrived; {
@@ -799,10 +795,10 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64, pivot uint64) 
 
 		if skeleton {
 			p.log.Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
-			go p.peer.RequestSnailHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false)
+			go p.peer.RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false)
 		} else {
 			p.log.Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
-			go p.peer.RequestSnailHeadersByNumber(from, MaxHeaderFetch, 0, false)
+			go p.peer.RequestHeadersByNumber(from, MaxHeaderFetch, 0, false)
 		}
 	}
 	// Start pulling the header chain skeleton until all is done
@@ -922,10 +918,10 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHead
 		}
 		expire   = func() map[string]int { return d.queue.ExpireHeaders(d.requestTTL()) }
 		throttle = func() bool { return false }
-		reserve  = func(p *peerConnection, count int) (*fetchRequest, bool, error) {
+		reserve  = func(p *peerConnection, count int) (*FetchRequest, bool, error) {
 			return d.queue.ReserveHeaders(p, count), false, nil
 		}
-		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
+		fetch    = func(p *peerConnection, req *FetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
 		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
 		setIdle  = func(p *peerConnection, accepted int) { p.SetHeadersIdle(accepted) }
 	)
@@ -1350,7 +1346,7 @@ func (d *Downloader) processFullSyncContent(p *peerConnection, hash common.Hash,
 		if d.chainInsertHook != nil {
 			d.chainInsertHook(results)
 		}
-		if err := d.importBlockResults(results,p,hash,td); err != nil {
+		if err := d.importBlockResults(results, p, hash, td); err != nil {
 			return err
 		}
 	}
@@ -1374,11 +1370,10 @@ func (d *Downloader) importBlockResults(results []*fetchResult, p *peerConnectio
 	)
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
-		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs,nil)
+		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs, nil)
 
 		//origin := result.fruits[0].NumberU64()-1;
 		//height := result.fruits[len(result.fruits)-1].NumberU64();
-
 
 		//d.fastDown.RegisterPeer(p.id,p.version,p.peer)
 		//
@@ -1489,9 +1484,6 @@ func (d *Downloader) processFastSyncContent(latest *types.SnailHeader) error {
 		//	return err
 		//}
 
-
-
-
 	}
 }
 
@@ -1563,7 +1555,7 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.SnailHeader) (er
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string,fruit [][]*types.SnailBlock, uncles [][]*types.SnailHeader) (err error) {
+func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock, uncles [][]*types.SnailHeader) (err error) {
 	return d.deliver(id, d.bodyCh, &bodyPack{id, fruit, uncles}, bodyInMeter, bodyDropMeter)
 }
 

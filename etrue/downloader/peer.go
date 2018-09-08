@@ -32,7 +32,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
-
 )
 
 const (
@@ -46,7 +45,7 @@ var (
 	errNotRegistered     = errors.New("peer is not registered")
 )
 
-type PeerConnection interface{
+type PeerConnection interface {
 	BlockCapacity(targetRTT time.Duration) int
 	FetchHeaders(from uint64, count int) error
 	FetchBodies(request *FetchRequest) error
@@ -63,13 +62,11 @@ type PeerConnection interface{
 	SetNodeDataIdle(delivered int)
 	SetReceiptsIdle(delivered int)
 	GetID() string
-
 }
-
-
 
 // peerConnection represents an active peer from which hashes and blocks are retrieved.
 type peerConnection struct {
+	PeerConnection
 	id string // Unique identifier of the peer
 
 	headerIdle  int32 // Current header activity state of the peer (idle = 0, active = 1)
@@ -121,11 +118,9 @@ type lightPeerWrapper struct {
 
 func (w *lightPeerWrapper) Head() (common.Hash, *big.Int) { return w.peer.Head() }
 
-
 func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool) error {
 	return w.peer.RequestHeadersByHash(h, amount, skip, reverse)
 }
-
 
 func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool) error {
 	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse)
@@ -148,13 +143,11 @@ func newPeerConnection(id string, version int, peer Peer, logger log.Logger) *pe
 	return &peerConnection{
 		id:      id,
 		lacking: make(map[common.Hash]struct{}),
-		peer: peer,
+		peer:    peer,
 		version: version,
 		log:     logger,
 	}
 }
-
-
 
 // Reset clears the internal state of a peer entity.
 func (p *peerConnection) Reset() {
@@ -172,6 +165,14 @@ func (p *peerConnection) Reset() {
 	p.stateThroughput = 0
 
 	p.lacking = make(map[common.Hash]struct{})
+}
+
+func (p *peerConnection) GetLock() sync.RWMutex {
+	return p.lock
+}
+
+func (p *peerConnection) GetHeaderIdle() int32 {
+	return p.headerIdle
 }
 
 func (p *peerConnection) GetID() string {
@@ -218,7 +219,6 @@ func (p *peerConnection) FetchBodies(request *FetchRequest) error {
 	return nil
 }
 
-
 // FetchNodeData sends a node state data retrieval request to the remote peer.
 func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	// Sanity check the protocol version
@@ -235,7 +235,6 @@ func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 
 	return nil
 }
-
 
 // SetHeadersIdle sets the peer to idle, allowing it to execute new header retrieval
 // requests. Its estimated header retrieval throughput is updated with that measured
@@ -412,7 +411,7 @@ func (ps *PeerSet) Register(p *peerConnection) error {
 	ps.lock.Lock()
 	if _, ok := ps.peers[p.id]; ok {
 		//ps.lock.Unlock()
-		delete(ps.peers,p.id)
+		delete(ps.peers, p.id)
 		//return errAlreadyRegistered
 	}
 	if len(ps.peers) > 0 {
@@ -484,11 +483,11 @@ func (ps *PeerSet) AllPeers() []*peerConnection {
 
 // HeaderIdlePeers retrieves a flat list of all the currently header-idle peers
 // within the active peer set, ordered by their reputation.
-func (ps *PeerSet) HeaderIdlePeers() ([]*peerConnection, int) {
-	idle := func(p *peerConnection) bool {
+func (ps *PeerSet) HeaderIdlePeers() ([]PeerConnection, int) {
+	idle := func(p PeerConnection) bool {
 		return atomic.LoadInt32(&p.headerIdle) == 0
 	}
-	throughput := func(p *peerConnection) float64 {
+	throughput := func(p PeerConnection) float64 {
 		p.lock.RLock()
 		defer p.lock.RUnlock()
 		return p.headerThroughput
@@ -498,11 +497,11 @@ func (ps *PeerSet) HeaderIdlePeers() ([]*peerConnection, int) {
 
 // BodyIdlePeers retrieves a flat list of all the currently body-idle peers within
 // the active peer set, ordered by their reputation.
-func (ps *PeerSet) BodyIdlePeers() ([]*peerConnection, int) {
-	idle := func(p *peerConnection) bool {
+func (ps *PeerSet) BodyIdlePeers() ([]PeerConnection, int) {
+	idle := func(p PeerConnection) bool {
 		return atomic.LoadInt32(&p.blockIdle) == 0
 	}
-	throughput := func(p *peerConnection) float64 {
+	throughput := func(p PeerConnection) float64 {
 		p.lock.RLock()
 		defer p.lock.RUnlock()
 		return p.blockThroughput
@@ -512,11 +511,11 @@ func (ps *PeerSet) BodyIdlePeers() ([]*peerConnection, int) {
 
 // ReceiptIdlePeers retrieves a flat list of all the currently receipt-idle peers
 // within the active peer set, ordered by their reputation.
-func (ps *PeerSet) ReceiptIdlePeers() ([]*peerConnection, int) {
-	idle := func(p *peerConnection) bool {
+func (ps *PeerSet) ReceiptIdlePeers() ([]PeerConnection, int) {
+	idle := func(p PeerConnection) bool {
 		return atomic.LoadInt32(&p.receiptIdle) == 0
 	}
-	throughput := func(p *peerConnection) float64 {
+	throughput := func(p PeerConnection) float64 {
 		p.lock.RLock()
 		defer p.lock.RUnlock()
 		return p.receiptThroughput
@@ -526,11 +525,11 @@ func (ps *PeerSet) ReceiptIdlePeers() ([]*peerConnection, int) {
 
 // NodeDataIdlePeers retrieves a flat list of all the currently node-data-idle
 // peers within the active peer set, ordered by their reputation.
-func (ps *PeerSet) NodeDataIdlePeers() ([]*peerConnection, int) {
-	idle := func(p *peerConnection) bool {
+func (ps *PeerSet) NodeDataIdlePeers() ([]PeerConnection, int) {
+	idle := func(p PeerConnection) bool {
 		return atomic.LoadInt32(&p.stateIdle) == 0
 	}
-	throughput := func(p *peerConnection) float64 {
+	throughput := func(p PeerConnection) float64 {
 		p.lock.RLock()
 		defer p.lock.RUnlock()
 		return p.stateThroughput
@@ -541,11 +540,11 @@ func (ps *PeerSet) NodeDataIdlePeers() ([]*peerConnection, int) {
 // idlePeers retrieves a flat list of all currently idle peers satisfying the
 // protocol version constraints, using the provided function to check idleness.
 // The resulting set of peers are sorted by their measure throughput.
-func (ps *PeerSet) idlePeers(minProtocol, maxProtocol int, idleCheck func(*peerConnection) bool, throughput func(*peerConnection) float64) ([]*peerConnection, int) {
+func (ps *PeerSet) idlePeers(minProtocol, maxProtocol int, idleCheck func(PeerConnection) bool, throughput func(PeerConnection) float64) ([]PeerConnection, int) {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	idle, total := make([]*peerConnection, 0, len(ps.peers)), 0
+	idle, total := make([]PeerConnection, 0, len(ps.peers)), 0
 	for _, p := range ps.peers {
 		if p.version >= minProtocol && p.version <= maxProtocol {
 			if idleCheck(p) {

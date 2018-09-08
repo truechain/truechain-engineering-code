@@ -30,11 +30,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 )
 
 var (
@@ -97,7 +97,7 @@ type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
-	queue   *queue   // Scheduler for selecting the hashes to download
+	queue   *queue              // Scheduler for selecting the hashes to download
 	peers   *downloader.PeerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
 
@@ -116,7 +116,6 @@ type Downloader struct {
 	// Callbacks
 	dropPeer downloader.PeerDropFn // Drops a peer for misbehaving
 
-
 	// Status
 	synchroniseMock func(id string, hash common.Hash) error // Replacement for synchronise during testing
 	synchronising   int32
@@ -124,12 +123,12 @@ type Downloader struct {
 	committed       int32
 
 	// Channels
-	headerCh      chan downloader.DataPack        // [eth/62] Channel receiving inbound block headers
-	bodyCh        chan downloader.DataPack        // [eth/62] Channel receiving inbound block bodies
-	receiptCh     chan downloader.DataPack        // [eth/63] Channel receiving inbound receipts
-	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks
-	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks
-	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks
+	headerCh      chan downloader.DataPack // [eth/62] Channel receiving inbound block headers
+	bodyCh        chan downloader.DataPack // [eth/62] Channel receiving inbound block bodies
+	receiptCh     chan downloader.DataPack // [eth/63] Channel receiving inbound receipts
+	bodyWakeCh    chan bool                // [eth/62] Channel to signal the block body fetcher of new tasks
+	receiptWakeCh chan bool                // [eth/63] Channel to signal the receipt fetcher of new tasks
+	headerProcCh  chan []*types.Header     // [eth/62] Channel to feed the header processor new tasks
 
 	// for stateFetcher
 	stateSyncStart chan *stateSync
@@ -146,10 +145,10 @@ type Downloader struct {
 	quitLock sync.RWMutex  // Lock to prevent double closes
 
 	// Testing hooks
-	syncInitHook     func(uint64, uint64)  // Method to call upon initiating a new sync run
-	bodyFetchHook    func([]*types.Header) // Method to call upon starting a block body fetch
-	receiptFetchHook func([]*types.Header) // Method to call upon starting a receipt fetch
-	chainInsertHook  func([]*downloader.FetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+	syncInitHook     func(uint64, uint64)            // Method to call upon initiating a new sync run
+	bodyFetchHook    func([]*types.Header)           // Method to call upon starting a block body fetch
+	receiptFetchHook func([]*types.Header)           // Method to call upon starting a receipt fetch
+	chainInsertHook  func([]*downloader.FetchResult) // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -235,6 +234,10 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	return dl
 }
 
+func (d *Downloader) SetPeers(peers *downloader.PeerSet) {
+	d.peers = peers
+}
+
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
 // or header sync is currently at; and the latest known block which the sync targets.
@@ -270,7 +273,6 @@ func (d *Downloader) Synchronising() bool {
 	return atomic.LoadInt32(&d.synchronising) > 0
 }
 
-
 // UnregisterPeer remove a peer from the known list, preventing any action from
 // the specified peer. An effort is also made to return any pending fetches into
 // the queue.
@@ -297,8 +299,8 @@ func (d *Downloader) UnregisterPeer(id string) error {
 
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
-func (d *Downloader) Synchronise(p *peerConnection, head common.Hash, td *big.Int, mode SyncMode,origin uint64, height uint64) error {
-	err := d.synchronise(p, head, td, mode,origin,height)
+func (d *Downloader) Synchronise(p *peerConnection, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
+	err := d.synchronise(p, head, td, mode, origin, height)
 
 	switch err {
 	case nil:
@@ -324,7 +326,7 @@ func (d *Downloader) Synchronise(p *peerConnection, head common.Hash, td *big.In
 // synchronise will select the peer and use it for synchronising. If an empty string is given
 // it will use the best peer possible and synchronize if its TD is higher than our own. If any of the
 // checks fail an error will be returned. This method is synchronous
-func (d *Downloader) synchronise(p *peerConnection, hash common.Hash, td *big.Int, mode SyncMode,origin uint64, height uint64) error {
+func (d *Downloader) synchronise(p *peerConnection, hash common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	//// Mock out the synchronisation if testing
 	//if d.synchroniseMock != nil {
 	//	return d.synchroniseMock(id, hash)
@@ -383,12 +385,12 @@ func (d *Downloader) synchronise(p *peerConnection, hash common.Hash, td *big.In
 	if p == nil {
 		return errUnknownPeer
 	}
-	return d.syncWithPeer(p, hash, td,origin, height)
+	return d.syncWithPeer(p, hash, td, origin, height)
 }
 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
-func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.Int,origin uint64, height uint64) (err error) {
+func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.Int, origin uint64, height uint64) (err error) {
 	d.mux.Post(StartEvent{})
 	defer func() {
 		// reset on error
@@ -886,16 +888,18 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 	d.queue.ScheduleSkeleton(from, skeleton)
 
 	var (
-		deliver = func(packet dataPack) (int, error) {
+		deliver = func(packet downloader.DataPack) (int, error) {
 			pack := packet.(*headerPack)
 			return d.queue.DeliverHeaders(pack.peerID, pack.headers, d.headerProcCh)
 		}
 		expire   = func() map[string]int { return d.queue.ExpireHeaders(d.requestTTL()) }
 		throttle = func() bool { return false }
-		reserve  = func(p *peerConnection, count int) (*fetchRequest, bool, error) {
+		reserve  = func(p *peerConnection, count int) (*downloader.FetchRequest, bool, error) {
 			return d.queue.ReserveHeaders(p, count), false, nil
 		}
-		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
+		fetch = func(p *peerConnection, req *downloader.FetchRequest) error {
+			return p.FetchHeaders(req.From, MaxHeaderFetch)
+		}
 		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
 		setIdle  = func(p *peerConnection, accepted int) { p.SetHeadersIdle(accepted) }
 	)
@@ -916,12 +920,12 @@ func (d *Downloader) fetchBodies(from uint64) error {
 	log.Debug("Downloading block bodies", "origin", from)
 
 	var (
-		deliver = func(packet dataPack) (int, error) {
+		deliver = func(packet downloader.DataPack) (int, error) {
 			pack := packet.(*bodyPack)
 			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.uncles)
 		}
 		expire   = func() map[string]int { return d.queue.ExpireBodies(d.requestTTL()) }
-		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchBodies(req) }
+		fetch    = func(p *peerConnection, req *downloader.FetchRequest) error { return p.FetchBodies(req) }
 		capacity = func(p *peerConnection) int { return p.BlockCapacity(d.requestRTT()) }
 		setIdle  = func(p *peerConnection, accepted int) { p.SetBodiesIdle(accepted) }
 	)
