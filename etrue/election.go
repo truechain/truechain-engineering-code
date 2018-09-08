@@ -20,10 +20,10 @@ const (
 	k                  = 10000
 	lamada             = 12
 
-	fruitThreshold		= 10	// fruit size threshold for committee election
+	fruitThreshold		= 1		// fruit size threshold for committee election
 
 	maxCommitteeNumber  = 40
-	minCommitteeNumber  = 7
+	minCommitteeNumber  = 1
 
 	powUnit				= 1
 )
