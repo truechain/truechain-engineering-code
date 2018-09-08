@@ -649,7 +649,9 @@ func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 	for _, fruit := range pool.fruitPending {
 		fruits=append(fruits,types.CopyFruit(fruit))
 	}
-	types.SnailBlockBy(types.SnailNumber).Sort(fruits)
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
 
 	var number *big.Int
 	for k, v := range fruits {

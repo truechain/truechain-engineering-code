@@ -123,8 +123,6 @@ func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], sel
 
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
 
-func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -269,6 +267,7 @@ func (b *Body) GetLeaderSign() *PbftSign {
 	}
 	return nil
 }
+
 
 // NewFastBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
@@ -525,6 +524,10 @@ func (self snailBlockSorter) Swap(i, j int) {
 	self.snailBlocks[i], self.snailBlocks[j] = self.snailBlocks[j], self.snailBlocks[i]
 }
 func (self snailBlockSorter) Less(i, j int) bool { return self.by(self.snailBlocks[i], self.snailBlocks[j]) }
+
+func SnailNumber(b1, b2 *SnailBlock) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
+
+func FruitNumber(b1, b2 *SnailBlock) bool { return b1.header.FastNumber.Cmp(b2.header.FastNumber) < 0 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
