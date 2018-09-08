@@ -29,6 +29,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math"
 	"math/big"
+	"sync"
 )
 
 const (
@@ -186,6 +187,7 @@ type Fetcher struct {
 	sendBlockHash  map[uint64][]common.Hash //mark already send block in same height
 	signMultiHash  map[uint64][]common.Hash //solve same height more sign question
 	agentFetcher   PbftAgentFetcher
+	blockMutex     *sync.Mutex //block mutex
 
 	// Testing hooks
 	announceChangeHook func(common.Hash, bool) // Method to call upon adding or deleting a hash from the announce list
@@ -230,6 +232,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		signMultiHash:      make(map[uint64][]common.Hash),
 		agentFetcher:       agentFetcher,
 		broadcastSigns:     broadcastSigns,
+		blockMutex:         new(sync.Mutex),
 	}
 }
 
@@ -445,6 +448,13 @@ func (f *Fetcher) loop() {
 					if number+maxUncleDist < height || f.getBlock(sign.FastHash) != nil {
 						f.forgetBlockHeight(big.NewInt(int64(height)))
 						continue
+					}
+
+					// If block not receive, wait it
+					if _, ok := f.queued[sign.FastHash]; !ok {
+						log.Info("Wait block receive ", "block height", height, "number", number)
+						f.queueSign.Push(hashs, -float32(number))
+						break
 					}
 
 					f.verifyComeAgreement(hashs, sign.FastHeight)
@@ -755,13 +765,13 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
 	if count > signLimit {
-		log.Debug("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit)
+		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit)
 		propSignDOSMeter.Mark(1)
 		return
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
-		log.Debug("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
+		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
 		propSignDropMeter.Mark(1)
 		return
 	}
@@ -774,9 +784,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			break
 		}
 
-		// Run the import on a new thread
-		log.Debug("Verify propagated sign", "peer", peer, "number", number, "hash", hash.String())
-
 		// Schedule the sign for future importing
 		if _, ok := f.queuedSign[sign.Hash()]; !ok {
 			op := &injectSingleSign{
@@ -786,6 +793,9 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 			f.queuesSign[peer] = count
 			f.queuedSign[sign.Hash()] = op
+
+			// Run the import on a new thread
+			log.Debug("Verify propagated sign", "peer", peer, "queues sign", f.queuesSign[peer], "number", number, "hash", hash.String())
 
 			verifySign = append(verifySign, sign)
 			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
@@ -824,21 +834,21 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
 	if count > blockLimit {
-		log.Debug("Discarded propagated block, exceeded allowance", "peer", peer, "number", block.Number(), "hash", hash, "limit", blockLimit)
+		log.Info("Discarded propagated block, exceeded allowance", "peer", peer, "number", block.Number(), "hash", hash, "limit", blockLimit)
 		propBroadcastDOSMeter.Mark(1)
 		f.forgetHash(hash)
 		return
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
-		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
+		log.Info("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
 		return
 	}
 
 	if ok, _ := f.agentFetcher.VerifyCommitteeSign(block.GetLeaderSign()); !ok {
-		log.Debug("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
+		log.Info("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
 		propBroadcastInvaildMeter.Mark(1)
 		return
 	}
@@ -918,8 +928,8 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 		if blockHashs, ok := f.blockMultiHash[height.Uint64()]; ok {
 			for _, hash := range blockHashs {
 				if find, blockSignHash := f.agreeAtSameHeight(height.Uint64(), hash); find {
-					log.Debug("Agreement insert block", "same block", len(blockHashs), "number", height)
 					find = f.insert(f.queuedSign[hashs[0]].origin, f.queued[hash].block, blockSignHash)
+					log.Info("Agreement insert block", "same block", len(blockHashs), "number", height, "insert result", find)
 					signs := []*types.PbftSign{}
 					for _, signHash := range blockSignHash {
 						if sign, ok := f.queuedSign[signHash]; ok {
@@ -932,8 +942,12 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 						f.forgetBlockHeight(height)
 					}
 					break
+				} else {
+					log.Info("Verify consensus failed", "height", height, "length sign", len(hashs))
 				}
 			}
+		} else {
+			log.Info("Verify consensus no block", "height", height, "length sign", len(hashs))
 		}
 	}()
 }
@@ -964,6 +978,8 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
+	f.blockMutex.Lock()
+	defer f.blockMutex.Unlock()
 	if _, ok := f.queued[hash]; !ok {
 		return nil
 	} else {
@@ -1040,7 +1056,7 @@ func (f *Fetcher) forgetBlockHeight(height *big.Int) {
 			f.forgetSign(hash)
 		}
 	}
-	delete(f.blockMultiHash, number)
+	delete(f.signMultiHash, number)
 }
 
 // forgetBlock removes all traces of a queued block from the fetcher's internal

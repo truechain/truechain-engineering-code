@@ -338,7 +338,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 		} else {
 			var result uint = types.VoteAgreeAgainst
-			if res != nil {
+			if res == nil {
 				result = types.VoteAgree
 			}
 
@@ -686,7 +686,7 @@ func sendSameHightMessage(node *Node) {
 	msgPrePrepare := make([]*consensus.PrePrepareMsg, 0)
 	for i := len(node.MsgBuffer.PrePrepareMsgs) - 1; i >= 0; i-- {
 		status := node.GetStatus(node.MsgBuffer.PrePrepareMsgs[i].Height)
-		if status != nil && status.CurrentStage == consensus.Idle {
+		if status != nil && (status.CurrentStage == consensus.Idle || status.CurrentStage == consensus.PrePrepared) {
 			msgPrePrepare = append(msgPrePrepare, node.MsgBuffer.PrePrepareMsgs[i])
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
 		}
