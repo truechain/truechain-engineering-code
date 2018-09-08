@@ -39,7 +39,7 @@ const (
 	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
 	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit    = 64                     // Maximum number of unique blocks a peer may have delivered
-	signLimit     = 64                     // Maximum number of unique sign a peer may have delivered
+	signLimit     = 128                    // Maximum number of unique sign a peer may have delivered
 	maxChanelSign = 64                     // Maximum number of unique sign a peer may have cache
 )
 
@@ -104,6 +104,8 @@ type PbftAgentFetcher interface {
 	ChangeCommitteeLeader(height *big.Int) bool
 	//  according height require committee number
 	GetCommitteeNumber(height *big.Int) int32
+	// AcquireCommitteeAuth check current node whether committee.
+	AcquireCommitteeAuth(*big.Int) bool
 }
 
 // bodyFilterTask represents a batch of block bodies (transactions and uncles)
@@ -394,7 +396,7 @@ func (f *Fetcher) loop() {
 					}
 					// Otherwise if fresh and still unknown, try and import
 					if number+maxUncleDist < height || f.getBlock(hash) != nil {
-						f.forgetBlock(hash)
+						f.forgetBlockHeight(big.NewInt(int64(number)))
 						continue
 					}
 					find := false
@@ -794,16 +796,20 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		propSignOutTimer.Mark(int64(len(verifySign)))
 		f.broadcastSigns(verifySign)
 
-		committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
-		log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
-		if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
-			if ok, _ := f.agreeAtSameHeight(number, verifySign[0].FastHash); ok {
-				log.Debug("Agree at same height", "number", number, "sign length", len(f.signMultiHash[number]))
-				f.queueSign.Push(f.signMultiHash[number], -float32(number))
-				if f.queueChangeHook != nil {
-					f.queueChangeHook(hash, true)
+		if f.agentFetcher.AcquireCommitteeAuth(verifySign[0].FastHeight) && f.getBlock(verifySign[0].FastHash) != nil {
+			f.forgetBlockHeight(verifySign[0].FastHeight)
+		} else {
+			committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
+			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
+			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
+				if ok, _ := f.agreeAtSameHeight(number, verifySign[0].FastHash); ok {
+					log.Debug("Agree at same height", "number", number, "sign length", len(f.signMultiHash[number]))
+					f.queueSign.Push(f.signMultiHash[number], -float32(number))
+					if f.queueChangeHook != nil {
+						f.queueChangeHook(hash, true)
+					}
+					log.Debug("Queued propagated sign", "peer", peer, "number", number, "hash", hash, "queued", f.queueSign.Size())
 				}
-				log.Debug("Queued propagated sign", "peer", peer, "number", number, "hash", hash, "queued", f.queueSign.Size())
 			}
 		}
 	}
