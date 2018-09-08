@@ -1145,7 +1145,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey =crypto.FromECDSA(cfg.PrivateKey)
-	log.Info("generate committee privatekey", "privatekey=",cfg.PrivateKey.PublicKey,"cfg.CommitteeKey",cfg.CommitteeKey)
+	log.Info("print pubkey", "publicKey",cfg.PrivateKey.PublicKey)
 	if ctx.GlobalBool(EnableElectionFlag.Name) {
 		if cfg.Host == "" {
 			Fatalf("enableelection set true,Option %q  must be exist.", BFTIPFlag.Name)
