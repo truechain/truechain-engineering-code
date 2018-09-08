@@ -481,8 +481,8 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	//	fetchers = append(fetchers, d.processFullSyncContent)
 	//}
 
-
-	fetchers = append(fetchers, d.processFullSyncContent)
+	//p *peerConnection, hash common.Hash, td *big.Int mode SyncMode,origin uint64, height uint64
+	fetchers = append(fetchers, func() error { return d.processFullSyncContent(p,hash,td) })
 	//fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 
 	return d.spawnSync(fetchers)
@@ -1337,7 +1337,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 }
 
 // processFullSyncContent takes fetch results from the queue and imports them into the chain.
-func (d *Downloader) processFullSyncContent() error {
+func (d *Downloader) processFullSyncContent(p *peerConnection, hash common.Hash, td *big.Int) error {
 	for {
 		results := d.queue.Results(true)
 		if len(results) == 0 {
@@ -1346,13 +1346,13 @@ func (d *Downloader) processFullSyncContent() error {
 		if d.chainInsertHook != nil {
 			d.chainInsertHook(results)
 		}
-		if err := d.importBlockResults(results); err != nil {
+		if err := d.importBlockResults(results,p,hash,td); err != nil {
 			return err
 		}
 	}
 }
 
-func (d *Downloader) importBlockResults(results []*fetchResult) error {
+func (d *Downloader) importBlockResults(results []*fetchResult, p *peerConnection, hash common.Hash, td *big.Int) error {
 	// Check for any early termination requests
 	if len(results) == 0 {
 		return nil
@@ -1371,7 +1371,11 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs,nil)
-		//d.fastDown.
+
+		origin := result.fruits[0].NumberU64();
+		height := result.fruits[len(result.fruits)-1].NumberU64();
+		d.fastDown.Synchronise(p.id,hash,td,-1,origin,height)
+
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
@@ -1473,9 +1477,9 @@ func (d *Downloader) processFastSyncContent(latest *types.SnailHeader) error {
 			}
 		}
 		// Fast sync done, pivot commit done, full import
-		if err := d.importBlockResults(afterP); err != nil {
-			return err
-		}
+		//if err := d.importBlockResults(afterP); err != nil {
+		//	return err
+		//}
 
 
 
