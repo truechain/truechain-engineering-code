@@ -784,9 +784,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			break
 		}
 
-		// Run the import on a new thread
-		log.Debug("Verify propagated sign", "peer", peer, "number", number, "hash", hash.String())
-
 		// Schedule the sign for future importing
 		if _, ok := f.queuedSign[sign.Hash()]; !ok {
 			op := &injectSingleSign{
@@ -796,6 +793,9 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 			f.queuesSign[peer] = count
 			f.queuedSign[sign.Hash()] = op
+
+			// Run the import on a new thread
+			log.Debug("Verify propagated sign", "peer", peer, "queues sign", f.queuesSign[peer], "number", number, "hash", hash.String())
 
 			verifySign = append(verifySign, sign)
 			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
@@ -1056,7 +1056,7 @@ func (f *Fetcher) forgetBlockHeight(height *big.Int) {
 			f.forgetSign(hash)
 		}
 	}
-	delete(f.blockMultiHash, number)
+	delete(f.signMultiHash, number)
 }
 
 // forgetBlock removes all traces of a queued block from the fetcher's internal
