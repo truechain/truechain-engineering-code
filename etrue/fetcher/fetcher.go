@@ -431,6 +431,7 @@ func (f *Fetcher) loop() {
 					// If too high up the chain or phase, continue later
 					number := sign.FastHeight.Uint64()
 					if number > height+1 {
+						log.Info("Queue sign push back", "block height", height, "number", number)
 						f.queueSign.Push(hashs, -float32(number))
 						if f.queueChangeHook != nil {
 							f.queueChangeHook(hash, true)
@@ -794,7 +795,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		f.broadcastSigns(verifySign)
 
 		committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
-		log.Info("Consensus estimates", "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
+		log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 		if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 			if ok, _ := f.agreeAtSameHeight(number, verifySign[0].FastHash); ok {
 				log.Debug("Agree at same height", "number", number, "sign length", len(f.signMultiHash[number]))
