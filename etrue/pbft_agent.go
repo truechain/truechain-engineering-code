@@ -305,7 +305,8 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		if err != nil {
 			return err
 		}
-		log.Info("handleConsensusBlock generate sign ", "voteSign", voteSign)
+		log.Info("handleConsensusBlock generate sign ", "FastHeight", voteSign.FastHeight,
+			"FastHash", voteSign.FastHash,"Result",voteSign.Result)
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
@@ -478,7 +479,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if err != nil {
 		log.Error("generateBlock with sign error.", "err", err)
 	}
-	log.Info("FetchFastBlock generate sign ", "voteSign", voteSign)
+	log.Info("FetchFastBlock generate sign ", "FastHeight", voteSign.FastHeight,
+		"FastHash", voteSign.FastHash,"Result",voteSign.Result)
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
