@@ -417,31 +417,37 @@ func (f *Fetcher) loop() {
 		}
 
 		for !f.queueSign.Empty() {
-			hashs := f.queueSign.PopItem().([]common.Hash)
+			item, num := f.queueSign.Pop()
+			hashs := item.([]common.Hash)
 			if len(hashs) > 0 {
-				sign := f.queuedSign[hashs[0]].sign
-				hash := sign.Hash()
+				if signInject, ok := f.queuedSign[hashs[0]]; ok {
+					sign := signInject.sign
 
-				if f.queueChangeHook != nil {
-					f.queueChangeHook(hash, false)
-				}
-				// If too high up the chain or phase, continue later
-				number := sign.FastHeight.Uint64()
-				if number > height+1 {
-					f.queueSign.Push(hashs, -float32(number))
+					hash := sign.Hash()
+
 					if f.queueChangeHook != nil {
-						f.queueChangeHook(hash, true)
+						f.queueChangeHook(hash, false)
 					}
-					break
-				}
+					// If too high up the chain or phase, continue later
+					number := sign.FastHeight.Uint64()
+					if number > height+1 {
+						f.queueSign.Push(hashs, -float32(number))
+						if f.queueChangeHook != nil {
+							f.queueChangeHook(hash, true)
+						}
+						break
+					}
 
-				// Otherwise if fresh and still unknown, try and import
-				if number+maxUncleDist < height || f.getBlock(sign.FastHash) != nil {
-					f.forgetBlockHeight(big.NewInt(int64(height)))
-					continue
-				}
+					// Otherwise if fresh and still unknown, try and import
+					if number+maxUncleDist < height || f.getBlock(sign.FastHash) != nil {
+						f.forgetBlockHeight(big.NewInt(int64(height)))
+						continue
+					}
 
-				f.verifyComeAgreement(hashs, sign.FastHeight)
+					f.verifyComeAgreement(hashs, sign.FastHeight)
+				} else {
+					log.Info("Queue sign pop", "num", num, "len(hashs)", len(hashs), "hashs[0]", hashs[0])
+				}
 			}
 		}
 
@@ -765,7 +771,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			break
 		}
 
-		verifySign = append(verifySign, sign)
 		// Run the import on a new thread
 		log.Debug("Verify propagated sign", "peer", peer, "number", number, "hash", hash.String())
 
@@ -779,6 +784,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			f.queuesSign[peer] = count
 			f.queuedSign[sign.Hash()] = op
 
+			verifySign = append(verifySign, sign)
 			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 		}
 	}
@@ -1071,11 +1077,11 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool,
 					return true, blockSignHash
 				}
 			} else {
-				log.Debug("Agree at same height", "height", height, "length sign", len(f.signMultiHash[height]), "hash no in queuedSign")
+				log.Info("Agree at same height", "height", height, "length sign", len(f.signMultiHash[height]), "hash no in queuedSign")
 			}
 		}
 	} else {
-		log.Debug("Agree at same height", "height", height, "length sign", len(f.signMultiHash[height]))
+		log.Info("Agree at same height", "height", height, "length sign", len(f.signMultiHash[height]))
 	}
 	return false, nil
 }
