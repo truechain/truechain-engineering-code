@@ -44,8 +44,9 @@ const (
 )
 
 var (
-	txSum  = 0
-	tpsArr []float32
+	txSum    = 0
+	tpsArr   []float32
+	lastTime int = time.Now().Nanosecond() / 1000000
 )
 
 type PbftAgent struct {
@@ -288,10 +289,9 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
 		//test tps
-		GetTps(receiveBlock, parent, eachBlock)
+		GetTps(receiveBlock, eachBlock)
 		if receiveBlock.NumberU64()%100 == 0 {
-			b := self.fastChain.GetBlockByNumber(receiveBlock.NumberU64() - 100)
-			GetTps(receiveBlock, b, intervalBlock)
+			GetTps(receiveBlock, intervalBlock)
 		}
 
 		//insertBlock
@@ -306,6 +306,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		if err != nil {
 			return err
 		}
+		log.Info("handleConsensusBlock generate sign ", "voteSign", voteSign)
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
@@ -495,32 +496,36 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if err != nil {
 		log.Error("generateBlock with sign error.", "err", err)
 	}
+	log.Info("FetchFastBlock generate sign ", "voteSign", voteSign)
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
 	return fastBlock, err
 }
 
-func GetTps(currentBlock, parentBlock *types.Block, bType int) {
+func GetTps(currentBlock *types.Block, bType int) {
 	/*r.Seed(time.Now().Unix())
-	txNum := r.Intn(10)*/
+	txNum := r.Intn(1000)*/
 	var (
-		interval = currentBlock.Time().Uint64() - parentBlock.Time().Uint64()
+		nowTime  = time.Now().Nanosecond() / 1000000
+		interval = nowTime - lastTime
 		txNum    = len(currentBlock.Transactions())
 	)
 	txSum += txNum
 	log.Info("showSum:", "txSum", txSum)
+	lastTime = nowTime
 
-	tps := float32(txNum) / float32(interval)
+	tps := 1000 * float32(txNum) / float32(interval)
 	tpsArr = append(tpsArr, tps)
-	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
+	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "interval", interval, "tps", tps)
 
 	if bType == intervalBlock {
-		tps := float32(txSum) / float32(interval)
+		tps := 1000 * float32(txSum) / float32(interval)
 		for _, tps := range tpsArr {
 			fmt.Print("tps:", tps, "; ")
 		}
-		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "interval", interval, "txNum", txNum, "tps", tps)
+		tpsArr = []float32{}
+		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "interval", interval, "tps", tps)
 		txSum = 0
 	}
 
@@ -730,7 +735,7 @@ func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 		log.Error("received committeeInfo is nil ")
 		return false
 	}
-	if	len(committeeInfo.Members) == 0 {
+	if len(committeeInfo.Members) == 0 {
 		log.Error("len(committeeInfo.Members) == 0 ")
 		return false
 	}
