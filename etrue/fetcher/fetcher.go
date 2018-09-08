@@ -441,6 +441,13 @@ func (f *Fetcher) loop() {
 						break
 					}
 
+					// If block not receive, wait it
+					if _, ok := f.queued[hash]; !ok {
+						log.Info("Wait block receive ", "block height", height, "number", number)
+						f.queueSign.Push(hashs, -float32(number))
+						break
+					}
+
 					// Otherwise if fresh and still unknown, try and import
 					if number+maxUncleDist < height || f.getBlock(sign.FastHash) != nil {
 						f.forgetBlockHeight(big.NewInt(int64(height)))
@@ -926,14 +933,18 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 							signs = append(signs, sign.sign)
 						}
 					}
-					log.Debug("Propagated agree sign", "sign number", len(signs), "number", height)
+					log.Debug("Propagated agree sign", "sign number", len(signs), "number", height, "insert result", find)
 					f.broadcastSigns(signs)
 					if find {
 						f.forgetBlockHeight(height)
 					}
 					break
+				} else {
+					log.Info("Verify consensus failed", "height", height, "length sign", len(hashs))
 				}
 			}
+		} else {
+			log.Info("Verify consensus no block", "height", height, "length sign", len(hashs))
 		}
 	}()
 }
