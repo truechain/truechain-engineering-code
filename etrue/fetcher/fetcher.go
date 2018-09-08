@@ -29,6 +29,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math"
 	"math/big"
+	"sync"
 )
 
 const (
@@ -186,6 +187,7 @@ type Fetcher struct {
 	sendBlockHash  map[uint64][]common.Hash //mark already send block in same height
 	signMultiHash  map[uint64][]common.Hash //solve same height more sign question
 	agentFetcher   PbftAgentFetcher
+	blockMutex     *sync.Mutex //block mutex
 
 	// Testing hooks
 	announceChangeHook func(common.Hash, bool) // Method to call upon adding or deleting a hash from the announce list
@@ -230,6 +232,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		signMultiHash:      make(map[uint64][]common.Hash),
 		agentFetcher:       agentFetcher,
 		broadcastSigns:     broadcastSigns,
+		blockMutex:         new(sync.Mutex),
 	}
 }
 
@@ -438,6 +441,13 @@ func (f *Fetcher) loop() {
 						if f.queueChangeHook != nil {
 							f.queueChangeHook(hash, true)
 						}
+						break
+					}
+
+					// If block not receive, wait it
+					if _, ok := f.queued[hash]; !ok {
+						log.Info("Wait block receive ", "block height", height, "number", number)
+						f.queueSign.Push(hashs, -float32(number))
 						break
 					}
 
@@ -926,14 +936,18 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 							signs = append(signs, sign.sign)
 						}
 					}
-					log.Debug("Propagated agree sign", "sign number", len(signs), "number", height)
+					log.Debug("Propagated agree sign", "sign number", len(signs), "number", height, "insert result", find)
 					f.broadcastSigns(signs)
 					if find {
 						f.forgetBlockHeight(height)
 					}
 					break
+				} else {
+					log.Info("Verify consensus failed", "height", height, "length sign", len(hashs))
 				}
 			}
+		} else {
+			log.Info("Verify consensus no block", "height", height, "length sign", len(hashs))
 		}
 	}()
 }
@@ -964,6 +978,8 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
+	f.blockMutex.Lock()
+	defer f.blockMutex.Unlock()
 	if _, ok := f.queued[hash]; !ok {
 		return nil
 	} else {
