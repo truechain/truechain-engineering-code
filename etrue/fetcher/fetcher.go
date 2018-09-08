@@ -29,6 +29,7 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math"
 	"math/big"
+	"sync"
 )
 
 const (
@@ -186,6 +187,7 @@ type Fetcher struct {
 	sendBlockHash  map[uint64][]common.Hash //mark already send block in same height
 	signMultiHash  map[uint64][]common.Hash //solve same height more sign question
 	agentFetcher   PbftAgentFetcher
+	blockMutex     *sync.Mutex //block mutex
 
 	// Testing hooks
 	announceChangeHook func(common.Hash, bool) // Method to call upon adding or deleting a hash from the announce list
@@ -230,6 +232,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		signMultiHash:      make(map[uint64][]common.Hash),
 		agentFetcher:       agentFetcher,
 		broadcastSigns:     broadcastSigns,
+		blockMutex:         new(sync.Mutex),
 	}
 }
 
@@ -975,6 +978,8 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
+	f.blockMutex.Lock()
+	defer f.blockMutex.Unlock()
 	if _, ok := f.queued[hash]; !ok {
 		return nil
 	} else {
