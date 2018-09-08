@@ -25,7 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	ethereum "github.com/truechain/truechain-engineering-code"
+	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -34,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
 
 var (
@@ -148,6 +149,9 @@ type Downloader struct {
 	bodyFetchHook    func([]*types.SnailHeader) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.SnailHeader) // Method to call upon starting a receipt fetch
 	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+
+
+	fastDown fastdownloader.Downloader
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -198,7 +202,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn) *Downloader {
+func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn,fdown fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -227,6 +231,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 			processed: rawdb.ReadFastTrieProgress(stateDb),
 		},
 		trackStateReq: make(chan *stateReq),
+		fastDown:fdown,
 	}
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -469,12 +474,17 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
-	fetchers = append(fetchers, d.processFullSyncContent)
+
 	//if d.mode == FastSync {
 	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 	//} else if d.mode == FullSync {
 	//	fetchers = append(fetchers, d.processFullSyncContent)
 	//}
+
+
+	fetchers = append(fetchers, d.processFullSyncContent)
+	//fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
+
 	return d.spawnSync(fetchers)
 }
 
@@ -1361,7 +1371,9 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs,nil)
+		//d.fastDown.
 	}
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
 		return errInvalidChain
@@ -1464,6 +1476,10 @@ func (d *Downloader) processFastSyncContent(latest *types.SnailHeader) error {
 		if err := d.importBlockResults(afterP); err != nil {
 			return err
 		}
+
+
+
+
 	}
 }
 
