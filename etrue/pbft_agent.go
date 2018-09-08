@@ -31,9 +31,6 @@ const (
 	preCommittee     = iota //previous committee
 	currentCommittee        //current running committee
 	nextCommittee           //next committee
-
-	eachBlock
-	intervalBlock
 )
 const (
 	blockRewordSpace = 12
@@ -45,8 +42,8 @@ const (
 
 var (
 	txSum    = 0
-	tpsArr   []float32
-	lastTime int = time.Now().Nanosecond() / 1000000
+	initTime = time.Now().UnixNano() / 1000000
+	lastTime = initTime
 )
 
 type PbftAgent struct {
@@ -166,11 +163,14 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 }
 
 func (self *PbftAgent) Start() {
+	initTime = time.Now().UnixNano() / 1000000
+	lastTime = initTime
 	if self.singleNode {
 		go self.singleloop()
 	} else {
 		go self.loop()
 	}
+
 }
 
 // Unsubscribe all subscriptions registered from agent
@@ -288,11 +288,6 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	if parent != nil {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
-		//test tps
-		GetTps(receiveBlock, eachBlock)
-		if receiveBlock.NumberU64()%100 == 0 {
-			GetTps(receiveBlock, intervalBlock)
-		}
 
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
@@ -301,6 +296,10 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 			return err
 		}
 		log.Debug("fastblock insert chain", " num:", receiveBlock.Header().Number.Uint64())
+
+		//test tps
+		GetTps(receiveBlock)
+
 		//generate sign
 		voteSign, err := self.GenerateSign(receiveBlock)
 		if err != nil {
@@ -390,23 +389,6 @@ func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMess
 
 func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
-	/*hash := RlpHash([]interface{}{cryNodeInfo.Nodes, cryNodeInfo.CommitteeId})
-	pubKey, err := crypto.SigToPub(hash[:], cryNodeInfo.Sign)
-	if err != nil {
-		log.Error("SigToPub error.", "err",err)
-	}
-	members := self.election.GetComitteeById(cryNodeInfo.CommitteeId)
-	verifyFlag := false
-	for _, member := range members {
-		if bytes.Equal(crypto.FromECDSAPub(pubKey), crypto.FromECDSAPub(member.Publickey)) {
-			verifyFlag = true
-			break
-		}
-	}
-	if !verifyFlag {
-		printWarn("publicKey of send node is not in committee.")
-		return
-	}*/
 	//ecdsa.PrivateKey convert to ecies.PrivateKey
 	priKey := ecies.ImportECDSA(self.privateKey)
 	for _, encryptNode := range cryNodeInfo.Nodes {
@@ -503,32 +485,24 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	return fastBlock, err
 }
 
-func GetTps(currentBlock *types.Block, bType int) {
+func GetTps(currentBlock *types.Block) {
 	/*r.Seed(time.Now().Unix())
 	txNum := r.Intn(1000)*/
 	var (
-		nowTime  = time.Now().Nanosecond() / 1000000
-		interval = nowTime - lastTime
-		txNum    = len(currentBlock.Transactions())
+		nowTime      = time.Now().UnixNano() / 1000000
+		eachInterval = nowTime - lastTime
+		sumInterval  = nowTime - initTime
+		txNum        = len(currentBlock.Transactions())
 	)
+	fmt.Println("initTime:", initTime, "lastTime:", lastTime)
 	txSum += txNum
 	log.Info("showSum:", "txSum", txSum)
 	lastTime = nowTime
 
-	tps := 1000 * float32(txNum) / float32(interval)
-	tpsArr = append(tpsArr, tps)
-	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "interval", interval, "tps", tps)
-
-	if bType == intervalBlock {
-		tps := 1000 * float32(txSum) / float32(interval)
-		for _, tps := range tpsArr {
-			fmt.Print("tps:", tps, "; ")
-		}
-		tpsArr = []float32{}
-		log.Info("tps test 100 blocks:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "interval", interval, "tps", tps)
-		txSum = 0
-	}
-
+	tps := 1000 * float32(txNum) / float32(eachInterval)
+	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "interval", eachInterval, "tps", tps)
+	averageTps := 1000 * float32(txSum) / float32(sumInterval)
+	log.Info("average tps test ", "blockNumber:", currentBlock.NumberU64(), "txSum", txSum, "interval", sumInterval, "tps", averageTps)
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
