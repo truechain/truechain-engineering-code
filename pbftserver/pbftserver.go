@@ -388,7 +388,7 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 	return nil
 }
 
-func serverCheck(server *serverInfo) bool {
+func serverCheck(server *serverInfo) (bool, int) {
 	serverCompleteCnt := 0
 	for _, v := range server.info {
 		if v.IP != "" && v.Port != 0 {
@@ -396,10 +396,10 @@ func serverCheck(server *serverInfo) bool {
 		}
 	}
 	if serverCompleteCnt < 3 {
-		return false
+		return false, serverCompleteCnt
 	}
 	var successPre float64 = float64(serverCompleteCnt) / float64(len(server.info))
-	return successPre > (float64(2) / float64(3))
+	return successPre > (float64(2) / float64(3)), serverCompleteCnt
 }
 
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
@@ -409,7 +409,9 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 		if server, ok := ss.servers[id.Uint64()]; ok {
 			if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 				for {
-					if serverCheck(server) {
+					b, c := serverCheck(server)
+					fmt.Println("server count:", c)
+					if b {
 						time.Sleep(time.Second * 30)
 						break
 					}
