@@ -24,7 +24,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"fmt"
 )
 
 const (
@@ -38,14 +37,14 @@ const (
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
+	blockInterval    = 100
 )
 
 var (
-	txSum    = 0
-	initTime = time.Now().UnixNano() / 1000000
-	lastTime = initTime
-	blockInterval =100
-	timeSlice []int64
+	txSum     uint64 = 0
+	lastTime  uint64
+	timeSlice []uint64
+	txSlice   []uint64
 )
 
 type PbftAgent struct {
@@ -165,8 +164,6 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 }
 
 func (self *PbftAgent) Start() {
-	initTime = time.Now().UnixNano() / 1000000
-	lastTime = initTime
 	if self.singleNode {
 		go self.singleloop()
 	} else {
@@ -308,7 +305,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 			return err
 		}
 		log.Info("handleConsensusBlock generate sign ", "FastHeight", voteSign.FastHeight,
-			"FastHash", voteSign.FastHash,"Result",voteSign.Result)
+			"FastHash", voteSign.FastHash, "Result", voteSign.Result)
 		//braodcast sign and block
 		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
@@ -357,7 +354,7 @@ func (pbftAgent *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 			CommitteeId: committeeInfo.Id,
 		}
 	)
-	DebugNode(pbftAgent.committeeNode,"send")
+	DebugNode(pbftAgent.committeeNode, "send")
 	nodeByte, err := rlp.EncodeToBytes(pbftAgent.committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
@@ -399,7 +396,7 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
-			DebugNode(node,"receive")
+			DebugNode(node, "receive")
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
@@ -482,7 +479,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("generateBlock with sign error.", "err", err)
 	}
 	log.Info("FetchFastBlock generate sign ", "FastHeight", voteSign.FastHeight,
-		"FastHash", voteSign.FastHash,"Result",voteSign.Result)
+		"FastHash", voteSign.FastHash, "Result", voteSign.Result)
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
@@ -491,22 +488,27 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 func GetTps(currentBlock *types.Block) {
 	/*r.Seed(time.Now().Unix())
-	txNum := r.Intn(1000)*/
-	var (
-		nowTime      = time.Now().UnixNano() / 1000000
-		eachInterval = nowTime - lastTime
-		sumInterval  = nowTime - initTime
-		txNum        = len(currentBlock.Transactions())
-	)
-	fmt.Println("initTime:", initTime, "lastTime:", lastTime)
-	txSum += txNum
-	log.Info("showSum:", "txSum", txSum)
-	lastTime = nowTime
+	txNum := uint64(r.Intn(1000))*/
 
-	tps := 1000 * float32(txNum) / float32(eachInterval)
-	log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "interval", eachInterval, "tps", tps)
-	averageTps := 1000 * float32(txSum) / float32(sumInterval)
-	log.Info("average tps test ", "blockNumber:", currentBlock.NumberU64(), "txSum", txSum, "interval", sumInterval, "tps", averageTps)
+	nowTime := uint64(time.Now().UnixNano() / 1000000)
+	timeSlice = append(timeSlice, nowTime)
+
+	txNum := uint64(len(currentBlock.Transactions()))
+	txSum += txNum
+	txSlice = append(txSlice, txSum)
+	if len(txSlice) > 1 && len(timeSlice) > 1 {
+		eachTimeInterval := nowTime - timeSlice[len(timeSlice)-1-1]
+		tps := 1000 * float32(txNum) / float32(eachTimeInterval)
+		log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "eachTimeInterval", eachTimeInterval, "tps", tps)
+
+		if len(timeSlice)-blockInterval > 0 && len(txSlice)-blockInterval > 0 {
+			timeInterval := nowTime - timeSlice[len(timeSlice)-1-blockInterval]
+			txInterval := txSum - txSlice[len(txSlice)-1-blockInterval]
+			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
+			log.Info("average tps test ", "blockNumber:", currentBlock.NumberU64(), "txInterval", txInterval, "timeInterval", timeInterval, "averageTps", averageTps)
+		}
+	}
+
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
@@ -821,12 +823,13 @@ func RlpHash(x interface{}) (h common.Hash) {
 }
 
 func DebugCryptNode(node *types.EncryptNodeMessage) {
-	log.Debug("DebugCryptNode ","createdAt:", node.CreatedAt,"Id:", node.CommitteeId,"Nodes.len:",
+	log.Debug("DebugCryptNode ", "createdAt:", node.CreatedAt, "Id:", node.CommitteeId, "Nodes.len:",
 		len(node.Nodes))
 }
 
-func DebugNode(node *types.CommitteeNode,str string) {
-	log.Debug(str+" CommitteeNode","IP:", node.IP,"Port:", node.Port,"Coinbase:", node.Coinbase,"Publickey:", node.Publickey)
+func DebugNode(node *types.CommitteeNode, str string) {
+	log.Info(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
+		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey))
 }
 
 //Determine whether the node pubKey  is in the specified committee
