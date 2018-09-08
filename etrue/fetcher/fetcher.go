@@ -445,7 +445,7 @@ func (f *Fetcher) loop() {
 					}
 
 					// If block not receive, wait it
-					if _, ok := f.queued[hash]; !ok {
+					if _, ok := f.queued[sign.FastHash]; !ok {
 						log.Info("Wait block receive ", "block height", height, "number", number)
 						f.queueSign.Push(hashs, -float32(number))
 						break
