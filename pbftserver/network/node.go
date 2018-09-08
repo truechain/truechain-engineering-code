@@ -337,9 +337,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 		} else {
-			var result uint = 0
+			var result uint = types.VoteAgreeAgainst
 			if res != nil {
-				result = 1
+				result = types.VoteAgree
 			}
 
 			lock.PSLog("CheckMsg Result ", result)
@@ -384,7 +384,7 @@ func (node *Node) processCommitWaitMessage() {
 					}
 					lock.PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
 					if msgSend.Pass == nil {
-						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
 
@@ -591,7 +591,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Pass:       state.BlockResults,
 					}
 					if msgSend.Pass == nil {
-						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
@@ -620,7 +620,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Pass:       state.BlockResults,
 					}
 					if msgSend.Pass == nil {
-						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)

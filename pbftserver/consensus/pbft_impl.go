@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"time"
 )
@@ -224,7 +225,7 @@ func (state *State) committed(f int) bool {
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	var passCount = 0
 	for _, v := range state.MsgLogs.CommitMsgs {
-		if v.Pass != nil && v.Pass.Result == 0 {
+		if v.Pass != nil && v.Pass.Result == types.VoteAgree {
 			passCount += 1
 		}
 	}
