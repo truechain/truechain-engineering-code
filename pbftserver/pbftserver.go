@@ -364,7 +364,11 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 	return nil
 }
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
-	lock.PSLog("PutNodes")
+	if nodes[0] != nil {
+		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP)
+	} else {
+		lock.PSLog("PutNodes nodes error")
+	}
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
@@ -414,7 +418,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 					b, c := serverCheck(server)
 					fmt.Println("server count:", c)
 					if b {
-						time.Sleep(time.Second * 60)
+						time.Sleep(time.Second * 1)
 						break
 					}
 					time.Sleep(time.Second)

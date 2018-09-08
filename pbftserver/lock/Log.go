@@ -2,10 +2,9 @@ package lock
 
 import (
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
 )
 
-const IfPrint = false
+const IfPrint = true
 
 func PSLog(a ...interface{}) {
 	if IfPrint {

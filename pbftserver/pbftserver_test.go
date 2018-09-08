@@ -51,7 +51,7 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
 	return nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block)  {
+func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
 	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
 }
 
@@ -286,7 +286,7 @@ func TestPbftServerStart3(t *testing.T) {
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
-	node3.Port = 1001311
+	node3.Port = 10013
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
