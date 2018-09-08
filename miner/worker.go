@@ -344,7 +344,9 @@ func (self *worker) update() {
 		select {
 		// Handle ChainHeadEvent
 		case <-self.chainHeadCh:
-			self.commitNewWork()
+			if self.atCommintNewwWokr == false {
+				self.commitNewWork()
+			}
 
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
@@ -403,7 +405,7 @@ func (self *worker) wait() {
 					continue
 				}
 
-				log.Info("🔨 —-------mined fruit"," FB NUMBER",block.FastNumber())
+				log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
 				var newFruits []*types.SnailBlock
 				newFruits = append(newFruits, block)
