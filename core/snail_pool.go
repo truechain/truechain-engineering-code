@@ -153,9 +153,9 @@ type SnailPool struct {
 
 	allFastBlocks    map[common.Hash]*types.Block
 
-	fruitFastBlocks  map[common.Hash]*types.Block // the fastBlocks have fruit
+	//fruitFastBlocks  map[common.Hash]*types.Block // the fastBlocks have fruit
 
-	fastBlockList    *list.List
+	//fastBlockList    *list.List
 	fastBlockPending *list.List
 
 	newFastBlockCh   chan *types.Block
@@ -194,13 +194,11 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 		chainHeadCh: make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		fastchainHeadCh: make(chan ChainHeadEvent, fastchainHeadChanSize),
 
-		//newRecordCh: make(chan *types.PbftRecord, recordChanSize),
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
-		//allRecords:    make(map[common.Hash]*types.PbftRecord),
 		allFastBlocks:    make(map[common.Hash]*types.Block),
-		//recordList:    list.New(),
-		fastBlockList: 	list.New(),
+
+		//fastBlockList: 	list.New(),
 		fastBlockPending:  list.New(),
 
 		newFruitCh: make(chan *types.SnailBlock, fruitChanSize),
@@ -476,7 +474,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 		delete(pool.allFruits, fruit.FastHash())
 
 		if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
-			pool.removeFastBlockWithLock(pool.fastBlockList, fruit.FastHash())
+			//pool.removeFastBlockWithLock(pool.fastBlockList, fruit.FastHash())
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
 			delete(pool.allFastBlocks, fruit.FastHash())
 		}
@@ -494,17 +492,6 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 		pool.insertFastBlockWithLock(pool.fastBlockList, record)
 	}
 }*/
-
-func (pool *SnailPool) resetFastBlocksWithLock() {
-	pool.fruitPending = make(map[common.Hash]*types.SnailBlock)
-
-	pool.fastBlockList = list.New()
-	pool.fastBlockPending = list.New()
-
-	for _, fastBlock := range pool.allFastBlocks {
-		pool.insertFastBlockWithLock(pool.fastBlockList, fastBlock)
-	}
-}
 
 // reset retrieves the current state of the blockchain and ensures the content
 // of the fastblock pool is valid with regard to the chain state.
@@ -585,6 +572,7 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 		if fb == nil {
 			continue
 		}
+		pool.insertFastBlockWithLock(pool.fastBlockPending, fb)
 		pool.allFastBlocks[fruit.FastHash()] = fb
 	}
 
@@ -679,7 +667,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEven
 // Insert fastblock into list order by fastblock number
 func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlock *types.Block) error {
 
-	log.Info("++insert fastBlock pending", "number", fastBlock.Number(), "hash", fastBlock.Hash(), "count", fastBlockList.Len())
+	log.Debug("snail pool fast block pending", "number", fastBlock.Number(), "hash", fastBlock.Hash(), "count", fastBlockList.Len())
 
 	for lr := fastBlockList.Front(); lr != nil; lr = lr.Next() {
 		f := lr.Value.(*types.Block)
