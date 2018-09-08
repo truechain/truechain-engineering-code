@@ -98,7 +98,7 @@ type Downloader struct {
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	queue   *queue   // Scheduler for selecting the hashes to download
-	peers   *peerSet // Set of active peers from which download can proceed
+	peers   *PeerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
 
 	rttEstimate   uint64 // Round trip time to target for download requests
@@ -114,7 +114,7 @@ type Downloader struct {
 	blockchain BlockChain
 
 	// Callbacks
-	dropPeer peerDropFn // Drops a peer for misbehaving
+	dropPeer PeerDropFn // Drops a peer for misbehaving
 
 	// Status
 	synchroniseMock func(id string, hash common.Hash) error // Replacement for synchronise during testing
@@ -123,9 +123,9 @@ type Downloader struct {
 	committed       int32
 
 	// Channels
-	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers
-	bodyCh        chan dataPack        // [eth/62] Channel receiving inbound block bodies
-	receiptCh     chan dataPack        // [eth/63] Channel receiving inbound receipts
+	headerCh      chan DataPack        // [eth/62] Channel receiving inbound block headers
+	bodyCh        chan DataPack        // [eth/62] Channel receiving inbound block bodies
+	receiptCh     chan DataPack        // [eth/63] Channel receiving inbound receipts
 	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks
 	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks
 	headerProcCh  chan []*types.SnailHeader // [eth/62] Channel to feed the header processor new tasks
@@ -133,7 +133,7 @@ type Downloader struct {
 	// for stateFetcher
 	stateSyncStart chan *stateSync
 	trackStateReq  chan *stateReq
-	stateCh        chan dataPack // [eth/63] Channel receiving inbound node state data
+	stateCh        chan DataPack // [eth/63] Channel receiving inbound node state data
 
 	// Cancellation and termination
 	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
@@ -148,7 +148,7 @@ type Downloader struct {
 	syncInitHook     func(uint64, uint64)  // Method to call upon initiating a new sync run
 	bodyFetchHook    func([]*types.SnailHeader) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.SnailHeader) // Method to call upon starting a receipt fetch
-	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+	chainInsertHook  func([]*FetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
 
 	fastDown fastdownloader.Downloader
@@ -202,7 +202,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn,fdown fastdownloader.Downloader) *Downloader {
+func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer PeerDropFn,fdown fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -212,20 +212,20 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		stateDB:        stateDb,
 		mux:            mux,
 		queue:          newQueue(),
-		peers:          newPeerSet(),
+		peers:          NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
 		rttConfidence:  uint64(1000000),
 		blockchain:     chain,
 		lightchain:     lightchain,
 		dropPeer:       dropPeer,
-		headerCh:       make(chan dataPack, 1),
-		bodyCh:         make(chan dataPack, 1),
-		receiptCh:      make(chan dataPack, 1),
+		headerCh:       make(chan DataPack, 1),
+		bodyCh:         make(chan DataPack, 1),
+		receiptCh:      make(chan DataPack, 1),
 		bodyWakeCh:     make(chan bool, 1),
 		receiptWakeCh:  make(chan bool, 1),
 		headerProcCh:   make(chan []*types.SnailHeader, 1),
 		quitCh:         make(chan struct{}),
-		stateCh:        make(chan dataPack),
+		stateCh:        make(chan DataPack),
 		stateSyncStart: make(chan *stateSync),
 		syncStatsState: stateSyncStats{
 			processed: rawdb.ReadFastTrieProgress(stateDb),
@@ -233,6 +233,10 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		trackStateReq: make(chan *stateReq),
 		fastDown:fdown,
 	}
+
+	dl.fastDown.
+
+
 	go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
@@ -371,7 +375,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 		default:
 		}
 	}
-	for _, ch := range []chan dataPack{d.headerCh, d.bodyCh, d.receiptCh} {
+	for _, ch := range []chan DataPack{d.headerCh, d.bodyCh, d.receiptCh} {
 		for empty := false; !empty; {
 			select {
 			case <-ch:
@@ -912,7 +916,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHead
 	d.queue.ScheduleSkeleton(from, skeleton)
 
 	var (
-		deliver = func(packet dataPack) (int, error) {
+		deliver = func(packet DataPack) (int, error) {
 			pack := packet.(*headerPack)
 			return d.queue.DeliverHeaders(pack.peerID, pack.headers, d.headerProcCh)
 		}
@@ -942,7 +946,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 	log.Debug("Downloading block bodies", "origin", from)
 
 	var (
-		deliver = func(packet dataPack) (int, error) {
+		deliver = func(packet DataPack) (int, error) {
 			pack := packet.(*bodyPack)
 			return d.queue.DeliverBodies(pack.peerID, pack.fruit)
 		}
@@ -1008,7 +1012,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 //  - idle:        network callback to retrieve the currently (type specific) idle peers that can be assigned tasks
 //  - setIdle:     network callback to set a peer back to idle and update its estimated capacity (traffic shaping)
 //  - kind:        textual label of the type being downloaded to display in log mesages
-func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliver func(dataPack) (int, error), wakeCh chan bool,
+func (d *Downloader) fetchParts(errCancel error, deliveryCh chan DataPack, deliver func(DataPack) (int, error), wakeCh chan bool,
 	expire func() map[string]int, pending func() int, inFlight func() bool, throttle func() bool, reserve func(*peerConnection, int) (*fetchRequest, bool, error),
 	fetchHook func([]*types.SnailHeader), fetch func(*peerConnection, *fetchRequest) error, cancel func(*fetchRequest), capacity func(*peerConnection) int,
 	idle func() ([]*peerConnection, int), setIdle func(*peerConnection, int), kind string) error {
@@ -1372,9 +1376,13 @@ func (d *Downloader) importBlockResults(results []*fetchResult, p *peerConnectio
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Header).WithBody(result.fruits, result.signs,nil)
 
-		origin := result.fruits[0].NumberU64();
-		height := result.fruits[len(result.fruits)-1].NumberU64();
-		d.fastDown.Synchronise(p.id,hash,td,-1,origin,height)
+		//origin := result.fruits[0].NumberU64()-1;
+		//height := result.fruits[len(result.fruits)-1].NumberU64();
+
+
+		//d.fastDown.RegisterPeer(p.id,p.version,p.peer)
+		//
+		//d.fastDown.Synchronise(p,hash,td,-1,origin,height)
 
 	}
 
@@ -1570,7 +1578,7 @@ func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
 }
 
 // deliver injects a new batch of data received from a remote node.
-func (d *Downloader) deliver(id string, destCh chan dataPack, packet dataPack, inMeter, dropMeter metrics.Meter) (err error) {
+func (d *Downloader) deliver(id string, destCh chan DataPack, packet DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {

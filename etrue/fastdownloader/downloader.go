@@ -34,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 )
 
 var (
@@ -97,7 +98,7 @@ type Downloader struct {
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	queue   *queue   // Scheduler for selecting the hashes to download
-	peers   *peerSet // Set of active peers from which download can proceed
+	peers   *downloader.PeerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
 
 	rttEstimate   uint64 // Round trip time to target for download requests
@@ -113,7 +114,8 @@ type Downloader struct {
 	blockchain BlockChain
 
 	// Callbacks
-	dropPeer peerDropFn // Drops a peer for misbehaving
+	dropPeer downloader.PeerDropFn // Drops a peer for misbehaving
+
 
 	// Status
 	synchroniseMock func(id string, hash common.Hash) error // Replacement for synchronise during testing
@@ -122,9 +124,9 @@ type Downloader struct {
 	committed       int32
 
 	// Channels
-	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers
-	bodyCh        chan dataPack        // [eth/62] Channel receiving inbound block bodies
-	receiptCh     chan dataPack        // [eth/63] Channel receiving inbound receipts
+	headerCh      chan downloader.DataPack        // [eth/62] Channel receiving inbound block headers
+	bodyCh        chan downloader.DataPack        // [eth/62] Channel receiving inbound block bodies
+	receiptCh     chan downloader.DataPack        // [eth/63] Channel receiving inbound receipts
 	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks
 	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks
 	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks
@@ -132,7 +134,7 @@ type Downloader struct {
 	// for stateFetcher
 	stateSyncStart chan *stateSync
 	trackStateReq  chan *stateReq
-	stateCh        chan dataPack // [eth/63] Channel receiving inbound node state data
+	stateCh        chan downloader.DataPack // [eth/63] Channel receiving inbound node state data
 
 	// Cancellation and termination
 	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
@@ -147,7 +149,7 @@ type Downloader struct {
 	syncInitHook     func(uint64, uint64)  // Method to call upon initiating a new sync run
 	bodyFetchHook    func([]*types.Header) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.Header) // Method to call upon starting a receipt fetch
-	chainInsertHook  func([]*fetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+	chainInsertHook  func([]*downloader.FetchResult)  // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -198,7 +200,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer peerDropFn) *Downloader {
+func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer downloader.PeerDropFn) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -208,20 +210,20 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		stateDB:        stateDb,
 		mux:            mux,
 		queue:          newQueue(),
-		peers:          newPeerSet(),
+		peers:          downloader.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
 		rttConfidence:  uint64(1000000),
 		blockchain:     chain,
 		lightchain:     lightchain,
 		dropPeer:       dropPeer,
-		headerCh:       make(chan dataPack, 1),
-		bodyCh:         make(chan dataPack, 1),
-		receiptCh:      make(chan dataPack, 1),
+		headerCh:       make(chan downloader.DataPack, 1),
+		bodyCh:         make(chan downloader.DataPack, 1),
+		receiptCh:      make(chan downloader.DataPack, 1),
 		bodyWakeCh:     make(chan bool, 1),
 		receiptWakeCh:  make(chan bool, 1),
 		headerProcCh:   make(chan []*types.Header, 1),
 		quitCh:         make(chan struct{}),
-		stateCh:        make(chan dataPack),
+		stateCh:        make(chan downloader.DataPack),
 		stateSyncStart: make(chan *stateSync),
 		syncStatsState: stateSyncStats{
 			processed: rawdb.ReadFastTrieProgress(stateDb),
@@ -268,24 +270,6 @@ func (d *Downloader) Synchronising() bool {
 	return atomic.LoadInt32(&d.synchronising) > 0
 }
 
-// RegisterPeer injects a new download peer into the set of block source to be
-// used for fetching hashes and blocks from.
-func (d *Downloader) RegisterPeer(id string, version int, peer Peer) error {
-	logger := log.New("peer", id)
-	logger.Trace("Registering sync peer")
-	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
-		logger.Error("Failed to register sync peer", "err", err)
-		return err
-	}
-	d.qosReduceConfidence()
-
-	return nil
-}
-
-// RegisterLightPeer injects a light client peer, wrapping it so it appears as a regular peer.
-func (d *Downloader) RegisterLightPeer(id string, version int, peer LightPeer) error {
-	return d.RegisterPeer(id, version, &lightPeerWrapper{peer})
-}
 
 // UnregisterPeer remove a peer from the known list, preventing any action from
 // the specified peer. An effort is also made to return any pending fetches into
@@ -313,8 +297,8 @@ func (d *Downloader) UnregisterPeer(id string) error {
 
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
-func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode,origin uint64, height uint64) error {
-	err := d.synchronise(id, head, td, mode,origin,height)
+func (d *Downloader) Synchronise(p *peerConnection, head common.Hash, td *big.Int, mode SyncMode,origin uint64, height uint64) error {
+	err := d.synchronise(p, head, td, mode,origin,height)
 
 	switch err {
 	case nil:
@@ -323,13 +307,13 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	case errTimeout, errBadPeer, errStallingPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
-		log.Warn("Synchronisation failed, dropping peer", "peer", id, "err", err)
+		log.Warn("Synchronisation failed, dropping peer", "peer", p.id, "err", err)
 		if d.dropPeer == nil {
 			// The dropPeer method is nil when `--copydb` is used for a local copy.
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
-			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
+			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", p.id)
 		} else {
-			d.dropPeer(id)
+			d.dropPeer(p.id)
 		}
 	default:
 		log.Warn("Synchronisation failed, retrying", "err", err)
@@ -340,12 +324,13 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 // synchronise will select the peer and use it for synchronising. If an empty string is given
 // it will use the best peer possible and synchronize if its TD is higher than our own. If any of the
 // checks fail an error will be returned. This method is synchronous
-func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode SyncMode,origin uint64, height uint64) error {
-	// Mock out the synchronisation if testing
-	if d.synchroniseMock != nil {
-		return d.synchroniseMock(id, hash)
-	}
-	// Make sure only one goroutine is ever allowed past this point at once
+func (d *Downloader) synchronise(p *peerConnection, hash common.Hash, td *big.Int, mode SyncMode,origin uint64, height uint64) error {
+	//// Mock out the synchronisation if testing
+	//if d.synchroniseMock != nil {
+	//	return d.synchroniseMock(id, hash)
+	//}
+
+	//// Make sure only one goroutine is ever allowed past this point at once
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
 		return errBusy
 	}
@@ -365,7 +350,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 		default:
 		}
 	}
-	for _, ch := range []chan dataPack{d.headerCh, d.bodyCh, d.receiptCh} {
+	for _, ch := range []chan downloader.DataPack{d.headerCh, d.bodyCh, d.receiptCh} {
 		for empty := false; !empty; {
 			select {
 			case <-ch:
@@ -384,7 +369,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	// Create cancel channel for aborting mid-flight and mark the master peer
 	d.cancelLock.Lock()
 	d.cancelCh = make(chan struct{})
-	d.cancelPeer = id
+	d.cancelPeer = p.id
 	d.cancelLock.Unlock()
 
 	defer d.Cancel() // No matter what, we can't leave the cancel channel open
@@ -393,8 +378,8 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	if mode != -1 {
 		d.mode = mode
 	}
+
 	// Retrieve the origin peer and initiate the downloading process
-	p := d.peers.Peer(id)
 	if p == nil {
 		return errUnknownPeer
 	}
@@ -997,7 +982,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 //  - idle:        network callback to retrieve the currently (type specific) idle peers that can be assigned tasks
 //  - setIdle:     network callback to set a peer back to idle and update its estimated capacity (traffic shaping)
 //  - kind:        textual label of the type being downloaded to display in log mesages
-func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliver func(dataPack) (int, error), wakeCh chan bool,
+func (d *Downloader) fetchParts(errCancel error, deliveryCh chan downloader.DataPack, deliver func(downloader.DataPack) (int, error), wakeCh chan bool,
 	expire func() map[string]int, pending func() int, inFlight func() bool, throttle func() bool, reserve func(*peerConnection, int) (*fetchRequest, bool, error),
 	fetchHook func([]*types.Header), fetch func(*peerConnection, *fetchRequest) error, cancel func(*fetchRequest), capacity func(*peerConnection) int,
 	idle func() ([]*peerConnection, int), setIdle func(*peerConnection, int), kind string) error {

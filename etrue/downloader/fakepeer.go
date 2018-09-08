@@ -139,37 +139,10 @@ func (p *FakePeer) RequestSnailHeadersByHash(hash common.Hash, amount int, skip 
 }
 
 
+
 // RequestHeadersByNumber implements downloader.Peer, returning a batch of headers
 // defined by the origin number and the associated query parameters.
 func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool) error {
-	var (
-		headers []*types.SnailHeader
-		unknown bool
-	)
-	for !unknown && len(headers) < amount {
-		origin := p.hc.GetHeaderByNumber(number)
-		if origin == nil {
-			break
-		}
-		if reverse {
-			if number >= uint64(skip+1) {
-				number -= uint64(skip + 1)
-			} else {
-				unknown = true
-			}
-		} else {
-			number += uint64(skip + 1)
-		}
-		headers = append(headers, origin)
-	}
-	p.dl.DeliverHeaders(p.id, headers)
-	return nil
-}
-
-
-// RequestHeadersByNumber implements downloader.Peer, returning a batch of headers
-// defined by the origin number and the associated query parameters.
-func (p *FakePeer) RequestSnailHeadersByNumber(number uint64, amount int, skip int, reverse bool) error {
 	var (
 		headers []*types.SnailHeader
 		unknown bool
