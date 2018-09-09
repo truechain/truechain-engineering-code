@@ -2,6 +2,7 @@ package help
 
 import (
 	"encoding/binary"
+	"time"
 	"fmt"
 	"regexp"
 	"strings"
@@ -253,7 +254,7 @@ func (bA *BitArray) PickRandom() (int, bool) {
 		return 0, false
 	}
 	// md random tmp by iceming
-	random := rand.New(rand.NewSource(0))
+	random := rand.New(rand.NewSource(time.Now().Unix()))
 	randElemStart := random.Intn(length)
 	for i := 0; i < length; i++ {
 		elemIdx := ((i + randElemStart) % length)

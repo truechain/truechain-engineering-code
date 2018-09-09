@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"github.com/tendermint/tendermint/types"
 )
 
 type RoundVoteSet struct {
