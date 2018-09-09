@@ -410,10 +410,10 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}(time.Now())
 
 	// Look up the sync boundaries: the common ancestor and the target block
-	latest, err := d.fetchHeight(p)
-	if err != nil {
-		return err
-	}
+	//latest, err := d.fetchHeight(p)
+	//if err != nil {
+	//	return err
+	//}
 
 
 	//height := latest.Number.Uint64()
@@ -422,10 +422,12 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	if err != nil {
 		return err
 	}
+
 	d.syncStatsLock.Lock()
 	if d.syncStatsChainHeight <= origin || d.syncStatsChainOrigin > origin {
 		d.syncStatsChainOrigin = origin
 	}
+
 	d.syncStatsChainHeight = height
 	d.syncStatsLock.Unlock()
 
@@ -441,6 +443,8 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 			}
 		}
 	}
+
+
 	d.committed = 1
 	if d.mode == FastSync && pivot != 0 {
 		d.committed = 0
@@ -451,17 +455,24 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		d.syncInitHook(origin, height)
 	}
 
+	height_i := int(height)
+
 	fetchers := []func() error{
-		func() error { return d.fetchHeaders(p, origin+1, pivot) }, // Headers are always retrieved
+		func() error { return d.fetchHeaders(p, origin+1,height_i, pivot) }, // Headers are always retrieved
 		func() error { return d.fetchBodies(origin + 1) },          // Bodies are retrieved during normal and fast sync
 		func() error { return d.fetchReceipts(origin + 1) },        // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
-	if d.mode == FastSync {
-		fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
-	} else if d.mode == FullSync {
-		fetchers = append(fetchers, d.processFullSyncContent)
-	}
+
+
+	//if d.mode == FastSync {
+	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
+	//} else if d.mode == FullSync {
+	//	fetchers = append(fetchers, d.processFullSyncContent)
+	//}
+
+
+	fetchers = append(fetchers, d.processFullSyncContent)
 	return d.spawnSync(fetchers)
 }
 
@@ -752,7 +763,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 // other peers are only accepted if they map cleanly to the skeleton. If no one
 // can fill in the skeleton - not even the origin peer - it's assumed invalid and
 // the origin is dropped.
-func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uint64) error {
+func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64,to int, pivot uint64) error {
 	p.GetLog().Debug("Directing header downloads", "origin", from)
 	defer p.GetLog().Debug("Header download terminated")
 
@@ -764,7 +775,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 	defer timeout.Stop()
 
 	var ttl time.Duration
-	getHeaders := func(from uint64) {
+	getHeaders := func(from uint64,to int) {
 		request = time.Now()
 
 		ttl = d.requestTTL()
@@ -775,11 +786,11 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false,true)
 		} else {
 			p.GetLog().Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
-			go p.GetPeer().RequestHeadersByNumber(from, MaxHeaderFetch, 0, false,true)
+			go p.GetPeer().RequestHeadersByNumber(from, to, 0, false,true)
 		}
 	}
 	// Start pulling the header chain skeleton until all is done
-	getHeaders(from)
+	getHeaders(from,to)
 
 	for {
 		select {
@@ -798,7 +809,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			// If the skeleton's finished, pull any remaining head headers directly from the origin
 			if packet.Items() == 0 && skeleton {
 				skeleton = false
-				getHeaders(from)
+				getHeaders(from,to)
 				continue
 			}
 			// If no more headers are inbound, notify the content fetchers and return
@@ -808,7 +819,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 					p.GetLog().Debug("No headers, waiting for pivot commit")
 					select {
 					case <-time.After(fsHeaderContCheck):
-						getHeaders(from)
+						getHeaders(from,to)
 						continue
 					case <-d.cancelCh:
 						return errCancelHeaderFetch
@@ -845,7 +856,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 				}
 				from += uint64(len(headers))
 			}
-			getHeaders(from)
+			getHeaders(from,to)
 
 		case <-timeout.C:
 			if d.dropPeer == nil {
@@ -1209,8 +1220,9 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// L: Request new headers up from 11 (R's TD was higher, it must have something)
 				// R: Nothing to give
 				if d.mode != LightSync {
-					head := d.blockchain.CurrentBlock()
-					if !gotHeaders && td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0 {
+					//head := d.blockchain.CurrentBlock()
+					//&& td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0
+					if !gotHeaders  {
 						return errStallingPeer
 					}
 				}
@@ -1221,12 +1233,12 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// This check cannot be executed "as is" for full imports, since blocks may still be
 				// queued for processing when the header download completes. However, as long as the
 				// peer gave us something useful, we're already happy/progressed (above check).
-				if d.mode == FastSync || d.mode == LightSync {
-					head := d.lightchain.CurrentHeader()
-					if td.Cmp(d.lightchain.GetTd(head.Hash(), head.Number.Uint64())) > 0 {
-						return errStallingPeer
-					}
-				}
+				//if d.mode == FastSync || d.mode == LightSync {
+				//	head := d.lightchain.CurrentHeader()
+				//	if td.Cmp(d.lightchain.GetTd(head.Hash(), head.Number.Uint64())) > 0 {
+				//		return errStallingPeer
+				//	}
+				//}
 				// Disable any rollback and return
 				rollback = nil
 				return nil

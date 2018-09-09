@@ -1374,12 +1374,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
-
-		origin := result.Fruits[0].NumberU64();
-		height := result.Fruits[len(result.Fruits)-1].NumberU64();
-
+		origin := result.Fruits[0].FastNumber().Uint64()-1;
+		height := result.Fruits[len(result.Fruits)-1].FastNumber().Uint64();
 		d.fastDown.Synchronise(p,hash,td,-1,origin,height)
-
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
