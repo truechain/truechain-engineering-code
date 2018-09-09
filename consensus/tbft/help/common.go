@@ -127,5 +127,5 @@ func MarshalBinaryBare(o interface{}) ([]byte,error) {
 	return rlp.EncodeToBytes(o)
 }
 func MarshalJSON(o interface{}) ([]byte, error) {
-	return json.Marshal(&point)
+	return json.Marshal(&o)
 }
