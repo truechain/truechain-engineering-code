@@ -9,8 +9,8 @@ import (
 )
 
 type RoundVoteSet struct {
-	Prevotes   *types.VoteSet
-	Precommits *types.VoteSet
+	Prevotes   *VoteSet
+	Precommits *VoteSet
 }
 
 var (

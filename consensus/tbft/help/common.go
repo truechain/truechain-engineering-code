@@ -3,6 +3,12 @@ package help
 import (
 	"fmt"
 	"bytes"
+	"encoding/json"
+	"os"
+	// "os/exec"
+	// "os/signal"
+	// "strings"
+	"syscall"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -98,6 +104,17 @@ func MinInt(a, b int) int {
 	return b
 }
 //-----------------------------------------------------------------------------
+func PanicSanity(v interface{}) {
+	panic(fmt.Sprintf("Panicked on a Sanity Check: %v", v))
+}
+// Kill the running process by sending itself SIGTERM.
+func Kill() error {
+	p, err := os.FindProcess(os.Getpid())
+	if err != nil {
+		return err
+	}
+	return p.Signal(syscall.SIGTERM)
+}
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	rlp.Encode(hw, x)
@@ -105,6 +122,10 @@ func RlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 //-----------------------------------------------------------------------------
-func PanicSanity(v interface{}) {
-	panic(fmt.Sprintf("Panicked on a Sanity Check: %v", v))
+
+func MarshalBinaryBare(o interface{}) ([]byte,error) {
+	return rlp.EncodeToBytes(o)
+}
+func MarshalJSON(o interface{}) ([]byte, error) {
+	return json.Marshal(&point)
 }
