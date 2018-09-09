@@ -235,7 +235,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		fastDown:      fdown,
 	}
 
-	dl.fastDown.SetPeers(dl.peers)
+	//dl.fastDown.SetPeers(dl.peers)
 
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -1378,7 +1378,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		height := result.Fruits[len(result.Fruits)-1].FastNumber().Uint64();
 		d.fastDown.Synchronise(p,hash,td,-1,origin,height)
 	}
-
+	fmt.Println("Snail---blocks>>>",blocks)
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
 		return errInvalidChain

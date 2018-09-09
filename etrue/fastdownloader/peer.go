@@ -97,6 +97,7 @@ func (w *lightPeerWrapper) RequestNodeData([]common.Hash,bool) error {
 	panic("RequestNodeData not supported in light client mode sync")
 }
 
+
 // newPeerConnection creates a new downloader peer.
 func newPeerConnection(id string, version int, peer etrue.Peer, logger log.Logger) *peerConnection {
 	return &peerConnection{

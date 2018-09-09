@@ -273,6 +273,30 @@ func (d *Downloader) Synchronising() bool {
 	return atomic.LoadInt32(&d.synchronising) > 0
 }
 
+
+
+// RegisterPeer injects a new download peer into the set of block source to be
+// used for fetching hashes and blocks from.
+func (d *Downloader) RegisterPeer(id string, version int, peer etrue.Peer) error {
+	logger := log.New("peer", id)
+	logger.Trace("Registering sync peer")
+
+	if err := d.peers.Register(newPeerConnection(id, version, peer, logger)); err != nil {
+		logger.Error("Failed to register sync peer", "err", err)
+		return err
+	}
+	d.qosReduceConfidence()
+
+	return nil
+}
+
+// RegisterLightPeer injects a light client peer, wrapping it so it appears as a regular peer.
+func (d *Downloader) RegisterLightPeer(id string, version int, peer etrue.LightPeer) error {
+	return d.RegisterPeer(id, version, &lightPeerWrapper{peer})
+}
+
+
+
 // UnregisterPeer remove a peer from the known list, preventing any action from
 // the specified peer. An effort is also made to return any pending fetches into
 // the queue.

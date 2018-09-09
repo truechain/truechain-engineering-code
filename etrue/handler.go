@@ -398,6 +398,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
 		return err
 	}
+
+	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
+		return err
+	}
+
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
