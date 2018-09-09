@@ -201,7 +201,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("same height:" + fb.Number().String())
 	}
 
-	fmt.Println(len(ss.blocks))
+	//fmt.Println(len(ss.blocks))
 	sum := ss.getBlockLen()
 
 	if sum > 0 {
@@ -418,7 +418,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 					b, c := serverCheck(server)
 					fmt.Println("server count:", c)
 					if b {
-						time.Sleep(time.Second * 1)
+						time.Sleep(time.Second * 60)
 						break
 					}
 					time.Sleep(time.Second)
