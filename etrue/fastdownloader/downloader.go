@@ -234,10 +234,10 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	return dl
 }
 
+
 func (d *Downloader) SetPeers(peers *etrue.PeerSet) {
 	d.peers = peers
 }
-
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
 // or header sync is currently at; and the latest known block which the sync targets.
@@ -310,13 +310,15 @@ func (d *Downloader) Synchronise(p etrue.PeerConnection, head common.Hash, td *b
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
 		log.Warn("Synchronisation failed, dropping peer", "peer", p.GetID(), "err", err)
-		if d.dropPeer == nil {
-			// The dropPeer method is nil when `--copydb` is used for a local copy.
-			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
-			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", p.GetID())
-		} else {
-			d.dropPeer(p.GetID())
-		}
+
+		//if d.dropPeer == nil {
+		//	// The dropPeer method is nil when `--copydb` is used for a local copy.
+		//	// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
+		//	log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", p.GetID())
+		//} else {
+		//	//d.dropPeer(p.GetID())
+		//}
+
 	default:
 		log.Warn("Synchronisation failed, retrying", "err", err)
 	}
@@ -344,7 +346,7 @@ func (d *Downloader) synchronise(p etrue.PeerConnection, hash common.Hash, td *b
 	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
-	d.peers.Reset()
+	//d.peers.Reset()
 
 	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 		select {
@@ -486,6 +488,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 		fn := fn
 		go func() { defer d.cancelWg.Done(); errc <- fn() }()
 	}
+
 	// Wait for the first error, then terminate the others.
 	var err error
 	for i := 0; i < len(fetchers); i++ {
@@ -499,8 +502,10 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			break
 		}
 	}
+
 	d.queue.Close()
 	d.Cancel()
+
 	return err
 }
 
@@ -769,7 +774,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64,to int, pi
 	defer p.GetLog().Debug("Header download terminated")
 
 	// Create a timeout timer, and the associated header fetcher
-	skeleton := true            // Skeleton assembly phase or finishing up
+	//skeleton := false            // Skeleton assembly phase or finishing up
 	request := time.Now()       // time of the last skeleton fetch request
 	timeout := time.NewTimer(0) // timer to dump a non-responsive active peer
 	<-timeout.C                 // timeout channel should be initially empty
@@ -781,14 +786,9 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64,to int, pi
 
 		ttl = d.requestTTL()
 		timeout.Reset(ttl)
+		p.GetLog().Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
+		go p.GetPeer().RequestHeadersByNumber(from, to, 0, false,true)
 
-		if skeleton {
-			p.GetLog().Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
-			go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false,true)
-		} else {
-			p.GetLog().Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
-			go p.GetPeer().RequestHeadersByNumber(from, to, 0, false,true)
-		}
 	}
 	// Start pulling the header chain skeleton until all is done
 	getHeaders(from,to)
@@ -808,11 +808,12 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64,to int, pi
 			timeout.Stop()
 
 			// If the skeleton's finished, pull any remaining head headers directly from the origin
-			if packet.Items() == 0 && skeleton {
-				skeleton = false
-				getHeaders(from,to)
-				continue
-			}
+			//if packet.Items() == 0 && skeleton {
+			//	skeleton = false
+			//	getHeaders(from,to)
+			//	continue
+			//}
+
 			// If no more headers are inbound, notify the content fetchers and return
 			if packet.Items() == 0 {
 				// Don't abort header fetches while the pivot is downloading
@@ -835,18 +836,20 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64,to int, pi
 					return errCancelHeaderFetch
 				}
 			}
+
 			headers := packet.(*headerPack).headers
 
 			// If we received a skeleton batch, resolve internals concurrently
-			if skeleton {
-				filled, proced, err := d.fillHeaderSkeleton(from, headers)
-				if err != nil {
-					p.GetLog().Debug("Skeleton chain invalid", "err", err)
-					return errInvalidChain
-				}
-				headers = filled[proced:]
-				from += uint64(proced)
-			}
+			//if skeleton {
+			//	filled, proced, err := d.fillHeaderSkeleton(from, headers)
+			//	if err != nil {
+			//		p.GetLog().Debug("Skeleton chain invalid", "err", err)
+			//		return errInvalidChain
+			//	}
+			//	headers = filled[proced:]
+			//	from += uint64(proced)
+			//}
+
 			// Insert all the new headers and fetch the next batch
 			if len(headers) > 0 {
 				p.GetLog().Trace("Scheduling new headers", "count", len(headers), "from", from)
@@ -857,7 +860,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64,to int, pi
 				}
 				from += uint64(len(headers))
 			}
-			getHeaders(from,to)
+			//getHeaders(from,to)
 
 		case <-timeout.C:
 			if d.dropPeer == nil {

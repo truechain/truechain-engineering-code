@@ -711,10 +711,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		//	err := pm.downloader.DeliverBodies(p.id, transactions, uncles)
-		//	if err != nil {
-		//		log.Debug("Failed to deliver bodies", "err", err)
-		//	}
+		err := pm.fdownloader.DeliverBodies(p.id, transactions, nil)
+		if err != nil {
+			log.Debug("Failed to deliver bodies", "err", err)
+		}
 		//}
 
 	case msg.Code == GetSnailBlockBodiesMsg:

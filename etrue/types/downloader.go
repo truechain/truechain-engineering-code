@@ -140,9 +140,9 @@ func (ps *PeerSet) Reset() {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	for _, peer := range ps.peers {
-		peer.Reset()
-	}
+	//for _, peer := range ps.peers {
+	//	peer.Reset()
+	//}
 }
 
 // Register injects a new peer into the working set, or returns an error if the
