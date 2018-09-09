@@ -37,12 +37,11 @@ const (
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
-	blockInterval    = 100
+	blockInterval    = 20
 )
 
 var (
 	txSum     uint64 = 0
-	lastTime  uint64
 	timeSlice []uint64
 	txSlice   []uint64
 )
@@ -478,7 +477,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if err != nil {
 		log.Error("generateBlock with sign error.", "err", err)
 	}
-	log.Info("FetchFastBlock generate sign ", "FastHeight", voteSign.FastHeight,
+	log.Debug("FetchFastBlock generate sign ", "FastHeight", voteSign.FastHeight,
 		"FastHash", voteSign.FastHash, "Result", voteSign.Result)
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
@@ -499,16 +498,20 @@ func GetTps(currentBlock *types.Block) {
 	if len(txSlice) > 1 && len(timeSlice) > 1 {
 		eachTimeInterval := nowTime - timeSlice[len(timeSlice)-1-1]
 		tps := 1000 * float32(txNum) / float32(eachTimeInterval)
-		log.Info("tps test each block:", "blockNumber:", currentBlock.NumberU64(), "txNum", txNum, "eachTimeInterval", eachTimeInterval, "tps", tps)
+		log.Info("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx",txNum, "time",  eachTimeInterval)
 
 		if len(timeSlice)-blockInterval > 0 && len(txSlice)-blockInterval > 0 {
 			timeInterval := nowTime - timeSlice[len(timeSlice)-1-blockInterval]
 			txInterval := txSum - txSlice[len(txSlice)-1-blockInterval]
 			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
-			log.Info("average tps test ", "blockNumber:", currentBlock.NumberU64(), "txInterval", txInterval, "timeInterval", timeInterval, "averageTps", averageTps)
+			log.Info("tps average",  "tps", averageTps, "tx",txInterval, "time",  timeInterval)
+		}else{
+			timeInterval := nowTime - timeSlice[0]
+			txInterval := txSum - txSlice[0]
+			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
+			log.Info("tps average",  "tps", averageTps, "tx",txInterval, "time",  timeInterval)
 		}
 	}
-
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
@@ -535,7 +538,7 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
-	log.Debug("hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
+	log.Debug("VerifyFastBlock:","hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block

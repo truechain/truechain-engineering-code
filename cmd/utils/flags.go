@@ -171,7 +171,7 @@ var (
 		Usage: "sing node model",
 	}
 	EnableElectionFlag = cli.BoolFlag{
-		Name:  "enableelection",
+		Name:  "election",
 		Usage: "enable election",
 	}
 	BFTPortFlag = cli.IntFlag{
@@ -1148,10 +1148,10 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	log.Info("print pubkey", "publicKey",cfg.PrivateKey.PublicKey)
 	if ctx.GlobalBool(EnableElectionFlag.Name) {
 		if cfg.Host == "" {
-			Fatalf("enableelection set true,Option %q  must be exist.", BFTIPFlag.Name)
+			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
 		if cfg.Port  == 0 {
-			Fatalf("enableelection set true,Option %q  must be exist.", BFTPortFlag.Name)
+			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
 		cfg.EnableElection = true
 	}
