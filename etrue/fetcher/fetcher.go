@@ -381,6 +381,8 @@ func (f *Fetcher) loop() {
 			blocks := opMulti.blocks
 			peers := opMulti.origins
 
+			log.Debug("Loop", "height", height, "blocks", len(blocks))
+
 			if len(blocks) > 0 {
 				for i, block := range blocks {
 					hash := block.Hash()
@@ -408,6 +410,7 @@ func (f *Fetcher) loop() {
 					if _, ok := f.blockConsensus[number]; ok {
 						signHashs := f.signMultiHash[number]
 						if len(signHashs) > 0 {
+							log.Debug("Loop", "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
 
@@ -822,7 +825,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
 					f.blockConsensus[number] = ok
-					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "queued", "hash", hash.String())
+					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash.String())
 				}
 			}
 		}
