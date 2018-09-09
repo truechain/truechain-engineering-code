@@ -381,6 +381,8 @@ func (f *Fetcher) loop() {
 			blocks := opMulti.blocks
 			peers := opMulti.origins
 
+			log.Debug("Loop", "height", height, "blocks", len(blocks))
+
 			if len(blocks) > 0 {
 				for i, block := range blocks {
 					hash := block.Hash()
@@ -408,6 +410,7 @@ func (f *Fetcher) loop() {
 					if _, ok := f.blockConsensus[number]; ok {
 						signHashs := f.signMultiHash[number]
 						if len(signHashs) > 0 {
+							log.Debug("Loop", "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
 
@@ -761,12 +764,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		return
 	}
 
-	if f.getBlock(signs[0].FastHash) != nil {
-		log.Info("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
-		propSignDropMeter.Mark(1)
-		return
-	}
-
 	verifySigns := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign(sign); !ok {
@@ -783,6 +780,12 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		// Run the import on a new thread
 		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
 		f.broadcastSigns(verifySigns)
+
+		if !f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(signs[0].FastHash) != nil {
+			log.Debug("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
+			propSignDropMeter.Mark(1)
+			return
+		}
 
 		find := false
 		for _, sign := range verifySigns {
@@ -822,7 +825,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
 					f.blockConsensus[number] = ok
-					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "queued", "hash", hash.String())
+					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash.String())
 				}
 			}
 		}
