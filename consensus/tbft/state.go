@@ -109,7 +109,7 @@ type ConsensusState struct {
 
 	// synchronous pubsub between consensus state and reactor.
 	// state only emits EventNewRoundStep, EventVote and EventProposalHeartbeat
-	evsw tmevents.EventSwitch
+	evsw ttypes.EventSwitch
 
 	// for reporting metrics
 	// removed,tmp by iceming
