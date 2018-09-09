@@ -49,7 +49,7 @@ func send(count int, ip string) {
 
 	//解锁账户
 	var result string = ""
-	err = client.Call(&result, "personal_unlockAccount", account[0], "admin")
+	err = client.Call(&result, "personal_unlockAccount", account[0], "admin", true)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
 		return
