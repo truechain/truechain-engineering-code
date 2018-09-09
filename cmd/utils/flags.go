@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/hex"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
@@ -648,7 +649,7 @@ func setBftCommitteeKey(ctx *cli.Context, cfg *etrue.Config) {
 		key  *ecdsa.PrivateKey
 		err  error
 	)
-	log.Debug("","file:",file,"hex:",hex)
+	log.Debug("", "file:", file, "hex:", hex)
 	switch {
 	case file != "" && hex != "":
 		Fatalf("Options %q and %q are mutually exclusive", BftKeyFileFlag.Name, BftKeyHexFlag.Name)
@@ -1139,22 +1140,23 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
 	}
 	//set PrivateKey by config
-	setBftCommitteeKey(ctx,cfg)
+	setBftCommitteeKey(ctx, cfg)
 	if cfg.PrivateKey == nil {
 		//set PrivateKey by default file
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
-	cfg.CommitteeKey =crypto.FromECDSA(cfg.PrivateKey)
-	log.Info("print pubkey", "publicKey",cfg.PrivateKey.PublicKey)
+	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
 	if ctx.GlobalBool(EnableElectionFlag.Name) {
 		if cfg.Host == "" {
 			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
-		if cfg.Port  == 0 {
+		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
 		cfg.EnableElection = true
 	}
+	log.Info("config CommitteeNode info:", "publicKey", hex.EncodeToString(cfg.CommitteeKey),
+		"ip", cfg.Host, "Port", cfg.Port, "enableElection", cfg.EnableElection)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
