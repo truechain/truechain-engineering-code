@@ -761,12 +761,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		return
 	}
 
-	if f.getBlock(signs[0].FastHash) != nil {
-		log.Info("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
-		propSignDropMeter.Mark(1)
-		return
-	}
-
 	verifySigns := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign(sign); !ok {
@@ -783,6 +777,12 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		// Run the import on a new thread
 		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
 		f.broadcastSigns(verifySigns)
+
+		if f.getBlock(signs[0].FastHash) != nil {
+			log.Info("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
+			propSignDropMeter.Mark(1)
+			return
+		}
 
 		find := false
 		for _, sign := range verifySigns {
