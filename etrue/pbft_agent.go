@@ -427,11 +427,11 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		tstamp = parent.Time().Int64() + 1
 	}
 	// this will ensure we're not going off too far in the future
-	if now := time.Now().Unix(); tstamp > now+1 {
-		wait := time.Duration(tstamp-now) * time.Second
-		log.Info("generateFastBlock too far in the future", "wait", common.PrettyDuration(wait))
-		time.Sleep(wait)
-	}
+	//if now := time.Now().Unix(); tstamp > now+1 {
+	//	wait := time.Duration(tstamp-now) * time.Second
+	//	log.Info("generateFastBlock too far in the future", "wait", common.PrettyDuration(wait))
+	//	time.Sleep(wait)
+	//}
 
 	num := parent.Number()
 	header := &types.Header{
