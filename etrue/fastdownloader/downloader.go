@@ -391,15 +391,16 @@ func (d *Downloader) synchronise(p etrue.PeerConnection, hash common.Hash, td *b
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int, origin uint64, height uint64) (err error) {
-	d.mux.Post(StartEvent{})
-	defer func() {
-		// reset on error
-		if err != nil {
-			d.mux.Post(FailedEvent{err})
-		} else {
-			d.mux.Post(DoneEvent{})
-		}
-	}()
+	//d.mux.Post(StartEvent{})
+	//defer func() {
+	//	// reset on error
+	//	if err != nil {
+	//		d.mux.Post(FailedEvent{err})
+	//	} else {
+	//		d.mux.Post(DoneEvent{})
+	//	}
+	//}()
+
 	if p.GetVersion() < 62 {
 		return errTooOld
 	}
@@ -455,6 +456,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		d.syncInitHook(origin, height)
 	}
 
+
 	height_i := int(height)
 
 	fetchers := []func() error{
@@ -470,7 +472,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	//} else if d.mode == FullSync {
 	//	fetchers = append(fetchers, d.processFullSyncContent)
 	//}
-
 
 	fetchers = append(fetchers, d.processFullSyncContent)
 	return d.spawnSync(fetchers)
