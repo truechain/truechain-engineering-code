@@ -206,7 +206,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	fmode := fastdownloader.SyncMode(int(mode))
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux,blockchain, nil, manager.removePeer)
 
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer,*manager.fdownloader)
+	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer)
 
 
 	fastValidator := func(header *types.Header) error {
@@ -404,7 +404,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
 		// Request the peer's DAO fork header for extra-data validation
-		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false); err != nil {
+		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false,false); err != nil {
 			return err
 		}
 		// Start a timer to disconnect if the peer doesn't reply in time
@@ -872,9 +872,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				unknown = append(unknown, block)
 			}
 		}
-		for _, block := range unknown {
-			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
-		}
+		//for _, block := range unknown {
+		//	pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
+		//}
 
 	case msg.Code == NewFastBlockMsg:
 		// Retrieve and decode the propagated block

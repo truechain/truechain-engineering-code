@@ -461,7 +461,7 @@ func (q *queue) ReserveHeaders(p PeerConnection, count int) *FetchRequest {
 // ReserveBodies reserves a set of body fetches for the given peer, skipping any
 // previously failed downloads. Beside the next batch of needed fetches, it also
 // returns a flag whether empty blocks were queued requiring processing.
-func (q *queue) ReserveBodies(p *peerConnection, count int) (*FetchRequest, bool, error) {
+func (q *queue) ReserveBodies(p PeerConnection, count int) (*FetchRequest, bool, error) {
 	isNoop := func(header *types.SnailHeader) bool {
 		// TODO:
 		//return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
@@ -476,7 +476,7 @@ func (q *queue) ReserveBodies(p *peerConnection, count int) (*FetchRequest, bool
 // ReserveReceipts reserves a set of receipt fetches for the given peer, skipping
 // any previously failed downloads. Beside the next batch of needed fetches, it
 // also returns a flag whether empty receipts were queued requiring importing.
-func (q *queue) ReserveReceipts(p *peerConnection, count int) (*FetchRequest, bool, error) {
+func (q *queue) ReserveReceipts(p PeerConnection, count int) (*FetchRequest, bool, error) {
 	isNoop := func(header *types.SnailHeader) bool {
 		//return header.ReceiptHash == types.EmptyRootHash
 		return false
@@ -494,14 +494,14 @@ func (q *queue) ReserveReceipts(p *peerConnection, count int) (*FetchRequest, bo
 // Note, this method expects the queue lock to be already held for writing. The
 // reason the lock is not obtained in here is because the parameters already need
 // to access the queue, so they already need a lock anyway.
-func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common.Hash]*types.SnailHeader, taskQueue *prque.Prque,
+func (q *queue) reserveHeaders(p PeerConnection, count int, taskPool map[common.Hash]*types.SnailHeader, taskQueue *prque.Prque,
 	pendPool map[string]*FetchRequest, donePool map[common.Hash]struct{}, isNoop func(*types.SnailHeader) bool) (*FetchRequest, bool, error) {
 	// Short circuit if the pool has been depleted, or if the peer's already
 	// downloading something (sanity check not to corrupt state)
 	if taskQueue.Empty() {
 		return nil, false, nil
 	}
-	if _, ok := pendPool[p.id]; ok {
+	if _, ok := pendPool[p.GetID()]; ok {
 		return nil, false, nil
 	}
 	// Calculate an upper limit on the items we might fetch (i.e. throttling)
@@ -567,7 +567,7 @@ func (q *queue) reserveHeaders(p *peerConnection, count int, taskPool map[common
 		Sheaders: send,
 		Time:    time.Now(),
 	}
-	pendPool[p.id] = request
+	pendPool[p.GetID()] = request
 
 	return request, progress, nil
 }

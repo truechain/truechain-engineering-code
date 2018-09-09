@@ -1322,12 +1322,12 @@ func (pc *peerConnection) RequestSnailHeadersByNumber(origin uint64, amount int,
 
 
 func (d *downloaderPeerNotify) registerPeer(p *peer) {
-	pm := (*ProtocolManager)(d)
-	pc := &peerConnection{
-		manager: pm,
-		peer:    p,
-	}
-	pm.downloader.RegisterLightPeer(p.id, ethVersion, pc)
+	//pm := (*ProtocolManager)(d)
+	//pc := &peerConnection{
+	//	manager: pm,
+	//	peer:    p,
+	//}
+	//pm.downloader.RegisterLightPeer(p.id, ethVersion, pc)
 }
 
 func (d *downloaderPeerNotify) unregisterPeer(p *peer) {

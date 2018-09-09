@@ -14,7 +14,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/console"
 	"github.com/truechain/truechain-engineering-code/core"
-		"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -23,8 +23,8 @@ import (
 	"gopkg.in/urfave/cli.v1"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
-	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
-)
+
+	)
 
 var (
 	initCommand = cli.Command{
@@ -375,10 +375,12 @@ func copyDb(ctx *cli.Context) error {
 	fchain,schain, chainDb := utils.MakeChain(ctx, stack)
 
 	syncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*downloader.SyncMode)
-	fsyncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*fastdownloader.SyncMode)
 
-	fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
-	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil,*fdl)
+	//fsyncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*fastdownloader.SyncMode)
+
+	//fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
+
+	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil)
 	//
 
 	// Create a source peer to satisfy downloader requests from

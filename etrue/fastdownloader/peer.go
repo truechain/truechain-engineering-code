@@ -81,19 +81,19 @@ type lightPeerWrapper struct {
 }
 
 func (w *lightPeerWrapper) Head() (common.Hash, *big.Int) { return w.peer.Head() }
-func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool) error {
-	return w.peer.RequestHeadersByHash(h, amount, skip, reverse)
+func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
+	return w.peer.RequestHeadersByHash(h, amount, skip, reverse,isFastchain)
 }
-func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool) error {
-	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse)
+func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool,isFastchain bool) error {
+	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse,isFastchain)
 }
-func (w *lightPeerWrapper) RequestBodies([]common.Hash) error {
+func (w *lightPeerWrapper) RequestBodies([]common.Hash,bool) error {
 	panic("RequestBodies not supported in light client mode sync")
 }
-func (w *lightPeerWrapper) RequestReceipts([]common.Hash) error {
+func (w *lightPeerWrapper) RequestReceipts([]common.Hash,bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
-func (w *lightPeerWrapper) RequestNodeData([]common.Hash) error {
+func (w *lightPeerWrapper) RequestNodeData([]common.Hash,bool) error {
 	panic("RequestNodeData not supported in light client mode sync")
 }
 
@@ -108,9 +108,36 @@ func newPeerConnection(id string, version int, peer downloader.Peer, logger log.
 	}
 }
 
-func (p *peerConnection) GetID() string {
-	return p.id
-}
+func (p *peerConnection) GetHeaderIdle() int32 {return p.headerIdle}
+func (p *peerConnection) GetBlockIdle() int32 {return p.blockIdle}
+func (p *peerConnection) GetReceiptIdle() int32 {return p.receiptIdle}
+func (p *peerConnection) GetStateIdle() int32 {return p.stateIdle}
+
+func (p *peerConnection) GetHeaderThroughput() float64 {return p.headerThroughput}
+func (p *peerConnection) GetBlockThroughput() float64 {return p.blockThroughput}
+func (p *peerConnection) GetReceiptThroughput() float64 {return p.receiptThroughput}
+func (p *peerConnection) GetStateThroughput() float64 {return p.stateThroughput}
+
+func (p *peerConnection) SetHeaderThroughput(t float64){ p.headerThroughput=t }
+func (p *peerConnection) SetBlockThroughput(t float64){ p.blockThroughput=t }
+func (p *peerConnection) SetReceiptThroughput(t float64){ p.receiptThroughput=t }
+func (p *peerConnection) SetStateThroughput(t float64){ p.stateThroughput=t }
+
+func (p *peerConnection) GetRtt() time.Duration  {return p.rtt}// Request round trip time to track responsiveness (QoS)
+func (p *peerConnection) SetRtt(d time.Duration )  {p.rtt=d}// Request round trip time to track responsiveness (QoS)
+
+func (p *peerConnection) GetHeaderStarted()  time.Time {return p.headerStarted}
+func (p *peerConnection) GetBlockStarted()  time.Time {return p.blockStarted}
+func (p *peerConnection) GetReceiptStarted()  time.Time {return p.receiptStarted}
+func (p *peerConnection) GetStateStarted()  time.Time {return p.stateStarted}
+
+func (p *peerConnection) GetID() string {return p.id}
+func (p *peerConnection) GetVersion() int {return p.version}
+
+func (p *peerConnection) GetPeer() downloader.Peer {return p.peer}
+func (p *peerConnection) GetLog() log.Logger {return p.log}
+func (p *peerConnection) GetLock() *sync.RWMutex {return &p.lock}
+
 
 // Reset clears the internal state of a peer entity.
 func (p *peerConnection) Reset() {
@@ -143,7 +170,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	p.headerStarted = time.Now()
 
 	// Issue the header retrieval request (absolut upwards without gaps)
-	go p.peer.RequestHeadersByNumber(from, count, 0, false)
+	go p.peer.RequestHeadersByNumber(from, count, 0, false,true)
 
 	return nil
 }
@@ -165,7 +192,7 @@ func (p *peerConnection) FetchBodies(request *downloader.FetchRequest) error {
 	for _, header := range request.Fheaders {
 		hashes = append(hashes, header.Hash())
 	}
-	go p.peer.RequestBodies(hashes)
+	go p.peer.RequestBodies(hashes,true)
 
 	return nil
 }
@@ -187,7 +214,7 @@ func (p *peerConnection) FetchReceipts(request *downloader.FetchRequest) error {
 	for _, header := range request.Fheaders {
 		hashes = append(hashes, header.Hash())
 	}
-	go p.peer.RequestReceipts(hashes)
+	go p.peer.RequestReceipts(hashes,true)
 
 	return nil
 }
@@ -204,7 +231,7 @@ func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	}
 	p.stateStarted = time.Now()
 
-	go p.peer.RequestNodeData(hashes)
+	go p.peer.RequestNodeData(hashes,true)
 
 	return nil
 }

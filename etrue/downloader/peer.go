@@ -32,7 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
-)
+	)
 
 const (
 	maxLackingHashes  = 4096 // Maximum number of entries allowed on the list or lacking items
@@ -50,23 +50,57 @@ type PeerConnection interface {
 	FetchHeaders(from uint64, count int) error
 	FetchBodies(request *FetchRequest) error
 	FetchNodeData(hashes []common.Hash) error
+	FetchReceipts(request *FetchRequest) error
 	HeaderCapacity(targetRTT time.Duration) int
 	Lacks(hash common.Hash) bool
 	MarkLacking(hash common.Hash)
 	NodeDataCapacity(targetRTT time.Duration) int
 	ReceiptCapacity(targetRTT time.Duration) int
 	Reset()
+
 	SetBlocksIdle(delivered int)
 	SetBodiesIdle(delivered int)
 	SetHeadersIdle(delivered int)
 	SetNodeDataIdle(delivered int)
 	SetReceiptsIdle(delivered int)
+
 	GetID() string
+
+
+	GetHeaderIdle() int32
+	GetBlockIdle() int32
+	GetReceiptIdle() int32
+	GetStateIdle() int32
+
+	GetHeaderThroughput() float64
+	GetBlockThroughput() float64
+	GetReceiptThroughput() float64
+	GetStateThroughput() float64
+
+	SetHeaderThroughput(t float64)
+	SetBlockThroughput(t float64)
+	SetReceiptThroughput(t float64)
+	SetStateThroughput(t float64)
+
+	GetRtt() time.Duration // Request round trip time to track responsiveness (QoS)
+	SetRtt(d time.Duration)
+
+	GetHeaderStarted()  time.Time
+	GetBlockStarted()  time.Time
+	GetReceiptStarted()  time.Time
+	GetStateStarted()  time.Time
+
+
+	GetLock() *sync.RWMutex
+	GetVersion() int        // Eth protocol version number to switch strategies
+	GetPeer() Peer
+	GetLog() log.Logger
 }
+
+
 
 // peerConnection represents an active peer from which hashes and blocks are retrieved.
 type peerConnection struct {
-	PeerConnection
 	id string // Unique identifier of the peer
 
 	headerIdle  int32 // Current header activity state of the peer (idle = 0, active = 1)
@@ -98,17 +132,17 @@ type peerConnection struct {
 // LightPeer encapsulates the methods required to synchronise with a remote light peer.
 type LightPeer interface {
 	Head() (common.Hash, *big.Int)
-	RequestHeadersByHash(common.Hash, int, int, bool) error
-	RequestHeadersByNumber(uint64, int, int, bool) error
+	RequestHeadersByHash(common.Hash, int, int, bool, bool) error
+	RequestHeadersByNumber(uint64, int, int, bool, bool) error
 }
 
 // Peer encapsulates the methods required to synchronise with a remote full peer.
 type Peer interface {
 	LightPeer
 
-	RequestBodies([]common.Hash) error
-	RequestReceipts([]common.Hash) error
-	RequestNodeData([]common.Hash) error
+	RequestBodies([]common.Hash,bool) error
+	RequestReceipts([]common.Hash,bool) error
+	RequestNodeData([]common.Hash,bool) error
 }
 
 // lightPeerWrapper wraps a LightPeer struct, stubbing out the Peer-only methods.
@@ -118,23 +152,23 @@ type lightPeerWrapper struct {
 
 func (w *lightPeerWrapper) Head() (common.Hash, *big.Int) { return w.peer.Head() }
 
-func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool) error {
-	return w.peer.RequestHeadersByHash(h, amount, skip, reverse)
+func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
+	return w.peer.RequestHeadersByHash(h, amount, skip, reverse,isFastchain)
 }
 
-func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool) error {
-	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse)
+func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool,isFastchain bool) error {
+	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse,isFastchain)
 }
 
-func (w *lightPeerWrapper) RequestReceipts([]common.Hash) error {
+func (w *lightPeerWrapper) RequestReceipts([]common.Hash,bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
 
-func (w *lightPeerWrapper) RequestBodies([]common.Hash) error {
+func (w *lightPeerWrapper) RequestBodies([]common.Hash,bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
 
-func (w *lightPeerWrapper) RequestNodeData([]common.Hash) error {
+func (w *lightPeerWrapper) RequestNodeData([]common.Hash,bool) error {
 	panic("RequestNodeData not supported in light client mode sync")
 }
 
@@ -167,17 +201,37 @@ func (p *peerConnection) Reset() {
 	p.lacking = make(map[common.Hash]struct{})
 }
 
-func (p *peerConnection) GetLock() sync.RWMutex {
-	return p.lock
-}
 
-func (p *peerConnection) GetHeaderIdle() int32 {
-	return p.headerIdle
-}
+func (p *peerConnection) GetHeaderIdle() int32 {return p.headerIdle}
+func (p *peerConnection) GetBlockIdle() int32 {return p.blockIdle}
+func (p *peerConnection) GetReceiptIdle() int32 {return p.receiptIdle}
+func (p *peerConnection) GetStateIdle() int32 {return p.stateIdle}
 
-func (p *peerConnection) GetID() string {
-	return p.id
-}
+func (p *peerConnection) GetHeaderThroughput() float64 {return p.headerThroughput}
+func (p *peerConnection) GetBlockThroughput() float64 {return p.blockThroughput}
+func (p *peerConnection) GetReceiptThroughput() float64 {return p.receiptThroughput}
+func (p *peerConnection) GetStateThroughput() float64 {return p.stateThroughput}
+
+func (p *peerConnection) SetHeaderThroughput(t float64){ p.headerThroughput=t }
+func (p *peerConnection) SetBlockThroughput(t float64){ p.blockThroughput=t }
+func (p *peerConnection) SetReceiptThroughput(t float64){ p.receiptThroughput=t }
+func (p *peerConnection) SetStateThroughput(t float64){ p.stateThroughput=t }
+
+func (p *peerConnection) GetRtt() time.Duration  {return p.rtt}// Request round trip time to track responsiveness (QoS)
+func (p *peerConnection) SetRtt(d time.Duration )  {p.rtt=d}// Request round trip time to track responsiveness (QoS)
+
+func (p *peerConnection) GetHeaderStarted()  time.Time {return p.headerStarted}
+func (p *peerConnection) GetBlockStarted()  time.Time {return p.blockStarted}
+func (p *peerConnection) GetReceiptStarted()  time.Time {return p.receiptStarted}
+func (p *peerConnection) GetStateStarted()  time.Time {return p.stateStarted}
+
+func (p *peerConnection) GetID() string {return p.id}
+func (p *peerConnection) GetVersion() int {return p.version}
+
+func (p *peerConnection) GetPeer() Peer {return p.peer}
+func (p *peerConnection) GetLog() log.Logger {return p.log}
+func (p *peerConnection) GetLock() *sync.RWMutex {return &p.lock}
+
 
 // FetchHeaders sends a header retrieval request to the remote peer.
 func (p *peerConnection) FetchHeaders(from uint64, count int) error {
@@ -192,10 +246,34 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	p.headerStarted = time.Now()
 
 	// Issue the header retrieval request (absolut upwards without gaps)
-	go p.peer.RequestHeadersByNumber(from, count, 0, false)
+	go p.peer.RequestHeadersByNumber(from, count, 0, false,false)
 
 	return nil
 }
+
+
+// FetchReceipts sends a receipt retrieval request to the remote peer.
+func (p *peerConnection) FetchReceipts(request *FetchRequest) error {
+	// Sanity check the protocol version
+	if p.version < 63 {
+		panic(fmt.Sprintf("body fetch [eth/63+] requested on eth/%d", p.version))
+	}
+	// Short circuit if the peer is already fetching
+	if !atomic.CompareAndSwapInt32(&p.receiptIdle, 0, 1) {
+		return errAlreadyFetching
+	}
+	p.receiptStarted = time.Now()
+
+	// Convert the header set to a retrievable slice
+	hashes := make([]common.Hash, 0, len(request.Sheaders))
+	for _, header := range request.Sheaders {
+		hashes = append(hashes, header.Hash())
+	}
+	go p.peer.RequestReceipts(hashes,false)
+
+	return nil
+}
+
 
 // FetchBodies sends a block body retrieval request to the remote peer.
 func (p *peerConnection) FetchBodies(request *FetchRequest) error {
@@ -214,7 +292,7 @@ func (p *peerConnection) FetchBodies(request *FetchRequest) error {
 	for _, header := range request.Sheaders {
 		hashes = append(hashes, header.Hash())
 	}
-	go p.peer.RequestBodies(hashes)
+	go p.peer.RequestBodies(hashes,false)
 
 	return nil
 }
@@ -231,7 +309,7 @@ func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	}
 	p.stateStarted = time.Now()
 
-	go p.peer.RequestNodeData(hashes)
+	go p.peer.RequestNodeData(hashes,false)
 
 	return nil
 }
@@ -363,7 +441,7 @@ func (p *peerConnection) Lacks(hash common.Hash) bool {
 // peerSet represents the collection of active peer participating in the chain
 // download procedure.
 type PeerSet struct {
-	peers        map[string]*peerConnection
+	peers        map[string]PeerConnection
 	newPeerFeed  event.Feed
 	peerDropFeed event.Feed
 	lock         sync.RWMutex
@@ -372,17 +450,17 @@ type PeerSet struct {
 // newPeerSet creates a new peer set top track the active download sources.
 func NewPeerSet() *PeerSet {
 	return &PeerSet{
-		peers: make(map[string]*peerConnection),
+		peers: make(map[string]PeerConnection),
 	}
 }
 
 // SubscribeNewPeers subscribes to peer arrival events.
-func (ps *PeerSet) SubscribeNewPeers(ch chan<- *peerConnection) event.Subscription {
+func (ps *PeerSet) SubscribeNewPeers(ch chan<- PeerConnection) event.Subscription {
 	return ps.newPeerFeed.Subscribe(ch)
 }
 
 // SubscribePeerDrops subscribes to peer departure events.
-func (ps *PeerSet) SubscribePeerDrops(ch chan<- *peerConnection) event.Subscription {
+func (ps *PeerSet) SubscribePeerDrops(ch chan<- PeerConnection) event.Subscription {
 	return ps.peerDropFeed.Subscribe(ch)
 }
 
@@ -403,34 +481,53 @@ func (ps *PeerSet) Reset() {
 // The method also sets the starting throughput values of the new peer to the
 // average of all existing peers, to give it a realistic chance of being used
 // for data retrievals.
-func (ps *PeerSet) Register(p *peerConnection) error {
+func (ps *PeerSet) Register(p PeerConnection) error {
 	// Retrieve the current median RTT as a sane default
-	p.rtt = ps.medianRTT()
+	p.SetRtt(ps.MedianRTT())
 
 	// Register the new peer with some meaningful defaults
 	ps.lock.Lock()
-	if _, ok := ps.peers[p.id]; ok {
+	if _, ok := ps.peers[p.GetID()]; ok {
 		//ps.lock.Unlock()
-		delete(ps.peers, p.id)
+		delete(ps.peers, p.GetID())
 		//return errAlreadyRegistered
 	}
 	if len(ps.peers) > 0 {
-		p.headerThroughput, p.blockThroughput, p.receiptThroughput, p.stateThroughput = 0, 0, 0, 0
+		//p.headerThroughput, p.blockThroughput, p.receiptThroughput, p.stateThroughput = 0, 0, 0, 0
+		p.SetHeaderThroughput(0)
+		p.SetBlockThroughput(0)
+		p.SetReceiptThroughput(0)
+		p.SetStateThroughput(0)
 
 		for _, peer := range ps.peers {
-			peer.lock.RLock()
-			p.headerThroughput += peer.headerThroughput
-			p.blockThroughput += peer.blockThroughput
-			p.receiptThroughput += peer.receiptThroughput
-			p.stateThroughput += peer.stateThroughput
-			peer.lock.RUnlock()
+			peer.GetLock().RLock()
+
+			//p.headerThroughput += peer.headerThroughput
+			//p.blockThroughput += peer.blockThroughput
+			//p.receiptThroughput += peer.receiptThroughput
+			//p.stateThroughput += peer.stateThroughput
+
+			p.SetHeaderThroughput(p.GetHeaderThroughput() + peer.GetHeaderThroughput())
+			p.SetBlockThroughput(p.GetBlockThroughput() + peer.GetBlockThroughput())
+			p.SetReceiptThroughput(p.GetReceiptThroughput() + peer.GetReceiptThroughput())
+			p.SetStateThroughput(p.GetStateThroughput() + peer.GetStateThroughput())
+
+
+			peer.GetLock().RUnlock()
 		}
-		p.headerThroughput /= float64(len(ps.peers))
-		p.blockThroughput /= float64(len(ps.peers))
-		p.receiptThroughput /= float64(len(ps.peers))
-		p.stateThroughput /= float64(len(ps.peers))
+
+		//p.headerThroughput /= float64(len(ps.peers))
+		//p.blockThroughput /= float64(len(ps.peers))
+		//p.receiptThroughput /= float64(len(ps.peers))
+		//p.stateThroughput /= float64(len(ps.peers))
+
+		p.SetHeaderThroughput(p.GetHeaderThroughput() / float64(len(ps.peers)))
+		p.SetBlockThroughput(p.GetBlockThroughput() / float64(len(ps.peers)))
+		p.SetReceiptThroughput(p.GetReceiptThroughput() / float64(len(ps.peers)))
+		p.SetStateThroughput(p.GetStateThroughput() / float64(len(ps.peers)))
 	}
-	ps.peers[p.id] = p
+
+	ps.peers[p.GetID()] = p
 	ps.lock.Unlock()
 
 	ps.newPeerFeed.Send(p)
@@ -454,7 +551,7 @@ func (ps *PeerSet) Unregister(id string) error {
 }
 
 // Peer retrieves the registered peer with the given id.
-func (ps *PeerSet) Peer(id string) *peerConnection {
+func (ps *PeerSet) Peer(id string) PeerConnection {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
@@ -470,11 +567,11 @@ func (ps *PeerSet) Len() int {
 }
 
 // AllPeers retrieves a flat list of all the peers within the set.
-func (ps *PeerSet) AllPeers() []*peerConnection {
+func (ps *PeerSet) AllPeers() []PeerConnection {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
-	list := make([]*peerConnection, 0, len(ps.peers))
+	list := make([]PeerConnection, 0, len(ps.peers))
 	for _, p := range ps.peers {
 		list = append(list, p)
 	}
@@ -485,12 +582,13 @@ func (ps *PeerSet) AllPeers() []*peerConnection {
 // within the active peer set, ordered by their reputation.
 func (ps *PeerSet) HeaderIdlePeers() ([]PeerConnection, int) {
 	idle := func(p PeerConnection) bool {
-		return atomic.LoadInt32(&p.headerIdle) == 0
+		idle_v := p.GetHeaderIdle()
+		return atomic.LoadInt32(&idle_v) == 0
 	}
 	throughput := func(p PeerConnection) float64 {
-		p.lock.RLock()
-		defer p.lock.RUnlock()
-		return p.headerThroughput
+		p.GetLock().RLock()
+		defer p.GetLock().RUnlock()
+		return p.GetHeaderThroughput()
 	}
 	return ps.idlePeers(62, 64, idle, throughput)
 }
@@ -499,12 +597,13 @@ func (ps *PeerSet) HeaderIdlePeers() ([]PeerConnection, int) {
 // the active peer set, ordered by their reputation.
 func (ps *PeerSet) BodyIdlePeers() ([]PeerConnection, int) {
 	idle := func(p PeerConnection) bool {
-		return atomic.LoadInt32(&p.blockIdle) == 0
+		idle_v := p.GetBlockIdle()
+		return atomic.LoadInt32(&idle_v) == 0
 	}
 	throughput := func(p PeerConnection) float64 {
-		p.lock.RLock()
-		defer p.lock.RUnlock()
-		return p.blockThroughput
+		p.GetLock().RLock()
+		defer p.GetLock().RUnlock()
+		return p.GetBlockThroughput()
 	}
 	return ps.idlePeers(62, 64, idle, throughput)
 }
@@ -513,12 +612,13 @@ func (ps *PeerSet) BodyIdlePeers() ([]PeerConnection, int) {
 // within the active peer set, ordered by their reputation.
 func (ps *PeerSet) ReceiptIdlePeers() ([]PeerConnection, int) {
 	idle := func(p PeerConnection) bool {
-		return atomic.LoadInt32(&p.receiptIdle) == 0
+		idle_v := p.GetReceiptIdle()
+		return atomic.LoadInt32(&idle_v) == 0
 	}
 	throughput := func(p PeerConnection) float64 {
-		p.lock.RLock()
-		defer p.lock.RUnlock()
-		return p.receiptThroughput
+		p.GetLock().RLock()
+		defer p.GetLock().RUnlock()
+		return p.GetReceiptThroughput()
 	}
 	return ps.idlePeers(63, 64, idle, throughput)
 }
@@ -527,12 +627,13 @@ func (ps *PeerSet) ReceiptIdlePeers() ([]PeerConnection, int) {
 // peers within the active peer set, ordered by their reputation.
 func (ps *PeerSet) NodeDataIdlePeers() ([]PeerConnection, int) {
 	idle := func(p PeerConnection) bool {
-		return atomic.LoadInt32(&p.stateIdle) == 0
+		idle_v := p.GetStateIdle()
+		return atomic.LoadInt32(&idle_v) == 0
 	}
 	throughput := func(p PeerConnection) float64 {
-		p.lock.RLock()
-		defer p.lock.RUnlock()
-		return p.stateThroughput
+		p.GetLock().RLock()
+		defer p.GetLock().RUnlock()
+		return p.GetStateThroughput()
 	}
 	return ps.idlePeers(63, 64, idle, throughput)
 }
@@ -546,7 +647,7 @@ func (ps *PeerSet) idlePeers(minProtocol, maxProtocol int, idleCheck func(PeerCo
 
 	idle, total := make([]PeerConnection, 0, len(ps.peers)), 0
 	for _, p := range ps.peers {
-		if p.version >= minProtocol && p.version <= maxProtocol {
+		if p.GetVersion() >= minProtocol && p.GetVersion() <= maxProtocol {
 			if idleCheck(p) {
 				idle = append(idle, p)
 			}
@@ -565,16 +666,16 @@ func (ps *PeerSet) idlePeers(minProtocol, maxProtocol int, idleCheck func(PeerCo
 
 // medianRTT returns the median RTT of the peerset, considering only the tuning
 // peers if there are more peers available.
-func (ps *PeerSet) medianRTT() time.Duration {
+func (ps *PeerSet) MedianRTT() time.Duration {
 	// Gather all the currently measured round trip times
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()
 
 	rtts := make([]float64, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		p.lock.RLock()
-		rtts = append(rtts, float64(p.rtt))
-		p.lock.RUnlock()
+		p.GetLock().RLock()
+		rtts = append(rtts, float64(p.GetRtt()))
+		p.GetLock().RUnlock()
 	}
 	sort.Float64s(rtts)
 

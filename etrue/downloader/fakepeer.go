@@ -50,7 +50,7 @@ func (p *FakePeer) Head() (common.Hash, *big.Int) {
 
 // RequestHeadersByHash implements downloader.Peer, returning a batch of headers
 // defined by the origin hash and the associated query parameters.
-func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, reverse bool) error {
+func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
 	var (
 		headers []*types.SnailHeader
 		unknown bool
@@ -91,58 +91,11 @@ func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, 
 	p.dl.DeliverHeaders(p.id, headers)
 	return nil
 }
-
-
-
-// RequestSnailHeadersByHash implements downloader.Peer, returning a batch of headers
-// defined by the origin hash and the associated query parameters.
-func (p *FakePeer) RequestSnailHeadersByHash(hash common.Hash, amount int, skip int, reverse bool) error {
-	var (
-		headers []*types.SnailHeader
-		unknown bool
-	)
-	for !unknown && len(headers) < amount {
-		origin := p.hc.GetHeaderByHash(hash)
-		if origin == nil {
-			break
-		}
-		number := origin.Number.Uint64()
-		headers = append(headers, origin)
-		if reverse {
-			for i := 0; i <= skip; i++ {
-				if header := p.hc.GetHeader(hash, number); header != nil {
-					hash = header.ParentHash
-					number--
-				} else {
-					unknown = true
-					break
-				}
-			}
-		} else {
-			var (
-				current = origin.Number.Uint64()
-				next    = current + uint64(skip) + 1
-			)
-			if header := p.hc.GetHeaderByNumber(next); header != nil {
-				if p.hc.GetBlockHashesFromHash(header.Hash(), uint64(skip+1))[skip] == hash {
-					hash = header.Hash()
-				} else {
-					unknown = true
-				}
-			} else {
-				unknown = true
-			}
-		}
-	}
-	p.dl.DeliverHeaders(p.id, headers)
-	return nil
-}
-
 
 
 // RequestHeadersByNumber implements downloader.Peer, returning a batch of headers
 // defined by the origin number and the associated query parameters.
-func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool) error {
+func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool,isFastchain bool) error {
 	var (
 		headers []*types.SnailHeader
 		unknown bool
@@ -168,10 +121,9 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 }
 
 
-
 // RequestBodies implements downloader.Peer, returning a batch of block bodies
 // corresponding to the specified block hashes.
-func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
+func (p *FakePeer) RequestBodies(hashes []common.Hash,isFastchain bool) error {
 	var (
 		fruits    [][]*types.SnailBlock
 		//uncles [][]*types.Header
@@ -184,24 +136,10 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 	return nil
 }
 
-// RequestBodies implements downloader.Peer, returning a batch of block bodies
-// corresponding to the specified block hashes.
-func (p *FakePeer) RequestSnailBodies(hashes []common.Hash) error {
-	var (
-		fruits    [][]*types.SnailBlock
-		//uncles [][]*types.Header
-	)
-	for _, hash := range hashes {
-		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
-		fruits = append(fruits, block.Fruits())
-	}
-	p.dl.DeliverBodies(p.id, fruits, nil)
-	return nil
-}
 
 // RequestReceipts implements downloader.Peer, returning a batch of transaction
 // receipts corresponding to the specified block hashes.
-func (p *FakePeer) RequestReceipts(hashes []common.Hash) error {
+func (p *FakePeer) RequestReceipts(hashes []common.Hash,isFastchain bool) error {
 	var receipts [][]*types.Receipt
 	for _, hash := range hashes {
 		receipts = append(receipts, rawdb.ReadReceipts(p.db, hash, *p.hc.GetBlockNumber(hash)))
@@ -210,9 +148,10 @@ func (p *FakePeer) RequestReceipts(hashes []common.Hash) error {
 	return nil
 }
 
+
 // RequestNodeData implements downloader.Peer, returning a batch of state trie
 // nodes corresponding to the specified trie hashes.
-func (p *FakePeer) RequestNodeData(hashes []common.Hash) error {
+func (p *FakePeer) RequestNodeData(hashes []common.Hash,isFastchain bool) error {
 	var data [][]byte
 	for _, hash := range hashes {
 		if entry, err := p.db.Get(hash.Bytes()); err == nil {

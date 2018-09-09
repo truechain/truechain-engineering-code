@@ -50,7 +50,7 @@ func (p *FakePeer) Head() (common.Hash, *big.Int) {
 
 // RequestHeadersByHash implements downloader.Peer, returning a batch of headers
 // defined by the origin hash and the associated query parameters.
-func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, reverse bool) error {
+func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
 	var (
 		headers []*types.Header
 		unknown bool
@@ -94,7 +94,7 @@ func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, 
 
 // RequestHeadersByNumber implements downloader.Peer, returning a batch of headers
 // defined by the origin number and the associated query parameters.
-func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool) error {
+func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool,isFastchain bool) error {
 	var (
 		headers []*types.Header
 		unknown bool
@@ -121,7 +121,7 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 
 // RequestBodies implements downloader.Peer, returning a batch of block bodies
 // corresponding to the specified block hashes.
-func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
+func (p *FakePeer) RequestBodies(hashes []common.Hash,isFastchain bool) error {
 	var (
 		txs    [][]*types.Transaction
 		uncles [][]*types.Header
@@ -138,7 +138,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash) error {
 
 // RequestReceipts implements downloader.Peer, returning a batch of transaction
 // receipts corresponding to the specified block hashes.
-func (p *FakePeer) RequestReceipts(hashes []common.Hash) error {
+func (p *FakePeer) RequestReceipts(hashes []common.Hash,isFastchain bool) error {
 	var receipts [][]*types.Receipt
 	for _, hash := range hashes {
 		receipts = append(receipts, rawdb.ReadReceipts(p.db, hash, *p.hc.GetBlockNumber(hash)))
@@ -149,7 +149,7 @@ func (p *FakePeer) RequestReceipts(hashes []common.Hash) error {
 
 // RequestNodeData implements downloader.Peer, returning a batch of state trie
 // nodes corresponding to the specified trie hashes.
-func (p *FakePeer) RequestNodeData(hashes []common.Hash) error {
+func (p *FakePeer) RequestNodeData(hashes []common.Hash,isFastchain bool) error {
 	var data [][]byte
 	for _, hash := range hashes {
 		if entry, err := p.db.Get(hash.Bytes()); err == nil {
