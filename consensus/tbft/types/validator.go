@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
-	"github.com/tendermint/tendermint/crypto"
-	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -14,14 +12,14 @@ import (
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
-	Address     Address       `json:"address"`
-	PubKey      crypto.PubKey `json:"pub_key"`
-	VotingPower int64         `json:"voting_power"`
+	Address     Address       	`json:"address"`
+	PubKey      PubKey 			`json:"pub_key"`
+	VotingPower int64         	`json:"voting_power"`
 
-	Accum int64 `json:"accum"`
+	Accum 		int64 			`json:"accum"`
 }
 
-func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
+func NewValidator(pubKey PubKey, votingPower int64) *Validator {
 	return &Validator{
 		Address:     pubKey.Address(),
 		PubKey:      pubKey,
@@ -75,7 +73,7 @@ func (v *Validator) String() string {
 func (v *Validator) Hash() []byte {
 	return aminoHash(struct {
 		Address     Address
-		PubKey      crypto.PubKey
+		PubKey      PubKey
 		VotingPower int64
 	}{
 		v.Address,
