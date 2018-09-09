@@ -776,6 +776,12 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		return
 	}
 
+	if f.getBlock(signs[0].FastHash) != nil {
+		log.Info("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
+		propSignDropMeter.Mark(1)
+		return
+	}
+
 	verifySign := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign(sign); !ok {
@@ -795,7 +801,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			f.queuedSign[sign.Hash()] = op
 
 			// Run the import on a new thread
-			log.Debug("Verify propagated sign", "peer", peer, "queues sign", f.queuesSign[peer], "number", number, "hash", hash.String())
+			log.Debug("Verify propagated sign", "peer", peer, "dos count", f.queuesSign[peer], "number", number, "hash", hash.String())
 
 			verifySign = append(verifySign, sign)
 			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
@@ -923,12 +929,12 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 }
 
 func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
-	log.Debug("Verify come agreement", "sign number", len(hashs), "number", height)
+	log.Debug("Verify come agreement", "number", height, "sign number", len(hashs))
 	go func() {
 		if blockHashs, ok := f.blockMultiHash[height.Uint64()]; ok {
 			for _, hash := range blockHashs {
 				if find, blockSignHash := f.agreeAtSameHeight(height.Uint64(), hash); find {
-					find = f.insert(f.queuedSign[hashs[0]].origin, f.queued[hash].block, blockSignHash)
+					find = f.insert(f.queued[hash].origin, f.queued[hash].block, blockSignHash)
 					log.Info("Agreement insert block", "same block", len(blockHashs), "number", height, "insert result", find)
 					signs := []*types.PbftSign{}
 					for _, signHash := range blockSignHash {
@@ -936,12 +942,11 @@ func (f *Fetcher) verifyComeAgreement(hashs []common.Hash, height *big.Int) {
 							signs = append(signs, sign.sign)
 						}
 					}
-					log.Debug("Propagated agree sign", "sign number", len(signs), "number", height)
+					log.Debug("Propagated agree sign", "number", height, "consensus sign number", len(signs))
+
 					f.broadcastSigns(signs)
-					if find {
-						f.forgetBlockHeight(height)
-					}
-					break
+
+					f.forgetBlockHeight(height)
 				} else {
 					log.Info("Verify consensus failed", "height", height, "length sign", len(hashs))
 				}

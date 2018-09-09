@@ -677,15 +677,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
-			log.Debug("NewFastBlockHashesMsg", "block", block)
 			p.MarkFastBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) &&
-				pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
-				unknown = append(unknown, block)
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) {
+				if pm.fetcherFast.GetPendingBlock(block.Hash) != nil {
+					log.Debug("Has pending block", "num", block.Number, "announces", len(announces))
+				} else {
+					unknown = append(unknown, block)
+				}
 			}
 		}
 		for _, block := range unknown {
