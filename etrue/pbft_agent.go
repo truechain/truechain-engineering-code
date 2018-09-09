@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"fmt"
 )
 
 const (
@@ -38,12 +39,15 @@ const (
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
 	blockInterval    = 20
+	subSignStr       = 8
 )
 
 var (
-	txSum     uint64 = 0
-	timeSlice []uint64
-	txSlice   []uint64
+	txSum           uint64 = 0
+	timeSlice       []uint64
+	txSlice         []uint64
+	tpsSlice        []float32
+	averageTpsSlice []float32
 )
 
 type PbftAgent struct {
@@ -224,7 +228,14 @@ func (self *PbftAgent) loop() {
 			//if cryNodeInfo of  node in Committee,
 			if self.encryptoNodeInCommittee(cryNodeInfo) {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
+				if bytes.Equal(cryNodeInfo.Sign, []byte{}) {
+					log.Error("received cryNodeInfo.Sign is nil ")
+					continue
+				}
 				signStr := hex.EncodeToString(cryNodeInfo.Sign)
+				if len(signStr) > subSignStr {
+					signStr = signStr[:subSignStr]
+				}
 				// if  node  is in committee  and the sign is not received
 				if self.isCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
@@ -237,7 +248,7 @@ func (self *PbftAgent) loop() {
 			}
 		case ch := <-self.chainHeadCh:
 			log.Debug("ChainHeadCh putCacheIntoChain.")
-			self.putCacheIntoChain(ch.Block)
+			go self.putCacheIntoChain(ch.Block)
 		}
 	}
 }
@@ -498,18 +509,29 @@ func GetTps(currentBlock *types.Block) {
 	if len(txSlice) > 1 && len(timeSlice) > 1 {
 		eachTimeInterval := nowTime - timeSlice[len(timeSlice)-1-1]
 		tps := 1000 * float32(txNum) / float32(eachTimeInterval)
-		log.Info("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx",txNum, "time",  eachTimeInterval)
+		log.Info("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx", txNum, "time", eachTimeInterval)
+		tpsSlice = append(tpsSlice, tps)
 
+		var timeInterval, txInterval uint64
 		if len(timeSlice)-blockInterval > 0 && len(txSlice)-blockInterval > 0 {
-			timeInterval := nowTime - timeSlice[len(timeSlice)-1-blockInterval]
-			txInterval := txSum - txSlice[len(txSlice)-1-blockInterval]
-			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
-			log.Info("tps average",  "tps", averageTps, "tx",txInterval, "time",  timeInterval)
-		}else{
-			timeInterval := nowTime - timeSlice[0]
-			txInterval := txSum - txSlice[0]
-			averageTps := 1000 * float32(txInterval) / float32(timeInterval)
-			log.Info("tps average",  "tps", averageTps, "tx",txInterval, "time",  timeInterval)
+			timeInterval = nowTime - timeSlice[len(timeSlice)-1-blockInterval]
+			txInterval = txSum - txSlice[len(txSlice)-1-blockInterval]
+		} else {
+			timeInterval = nowTime - timeSlice[0]
+			txInterval = txSum - txSlice[0]
+		}
+		averageTps := 1000 * float32(txInterval) / float32(timeInterval)
+		log.Info("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
+		averageTpsSlice = append(averageTpsSlice, averageTps)
+	}
+	if len(timeSlice)%50 == 0 {
+		fmt.Println("tps statistics:")
+		for _, tps := range tpsSlice {
+			fmt.Print(tps, "; ")
+		}
+		fmt.Printf("\n averageTps statistics:\n")
+		for _, tps := range averageTpsSlice {
+			fmt.Print(tps, "; ")
 		}
 	}
 }
@@ -538,7 +560,7 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
-	log.Debug("VerifyFastBlock:","hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
+	log.Debug("VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -832,7 +854,7 @@ func DebugCryptNode(node *types.EncryptNodeMessage) {
 
 func DebugNode(node *types.CommitteeNode, str string) {
 	log.Info(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
-		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey))
+		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey)[:6]+"***")
 }
 
 //Determine whether the node pubKey  is in the specified committee

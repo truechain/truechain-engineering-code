@@ -564,7 +564,8 @@ func (n *Node) EventMux() *event.TypeMux {
 }
 
 func (n *Node) Config() *Config {
-	return n.config
+	 copy :=*n.config
+	 return &copy
 }
 
 // OpenDatabase opens an existing database with the given name (or creates one if no
