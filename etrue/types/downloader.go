@@ -1,22 +1,22 @@
 package types
 
 import (
-	"time"
-	"sort"
-	"sync"
-	"sync/atomic"
-	"math/big"
+	"errors"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
-	"errors"
+	"math/big"
+	"sort"
+	"sync"
+	"sync/atomic"
+	"time"
 )
 
 var (
-	rttMinEstimate   = 2 * time.Second          // Minimum round-trip time to target for download requests
-	rttMaxEstimate   = 20 * time.Second         // Maximum round-trip time to target for download requests
-	qosTuningPeers   = 5    // Number of peers to tune based on (best peers)
+	rttMinEstimate       = 2 * time.Second  // Minimum round-trip time to target for download requests
+	rttMaxEstimate       = 20 * time.Second // Maximum round-trip time to target for download requests
+	qosTuningPeers       = 5                // Number of peers to tune based on (best peers)
 	errClosed            = errors.New("peer set is closed")
 	errAlreadyRegistered = errors.New("peer is already registered")
 	errNotRegistered     = errors.New("peer is not registered")
@@ -33,13 +33,10 @@ type LightPeer interface {
 type Peer interface {
 	LightPeer
 
-	RequestBodies([]common.Hash,bool) error
-	RequestReceipts([]common.Hash,bool) error
-	RequestNodeData([]common.Hash,bool) error
+	RequestBodies([]common.Hash, bool) error
+	RequestReceipts([]common.Hash, bool) error
+	RequestNodeData([]common.Hash, bool) error
 }
-
-
-
 
 type PeerConnection interface {
 	BlockCapacity(targetRTT time.Duration) int
@@ -62,7 +59,6 @@ type PeerConnection interface {
 
 	GetID() string
 
-
 	GetHeaderIdle() int32
 	GetBlockIdle() int32
 	GetReceiptIdle() int32
@@ -81,21 +77,16 @@ type PeerConnection interface {
 	GetRtt() time.Duration // Request round trip time to track responsiveness (QoS)
 	SetRtt(d time.Duration)
 
-	GetHeaderStarted()  time.Time
-	GetBlockStarted()  time.Time
-	GetReceiptStarted()  time.Time
-	GetStateStarted()  time.Time
-
+	GetHeaderStarted() time.Time
+	GetBlockStarted() time.Time
+	GetReceiptStarted() time.Time
+	GetStateStarted() time.Time
 
 	GetLock() *sync.RWMutex
-	GetVersion() int        // Eth protocol version number to switch strategies
+	GetVersion() int // Eth protocol version number to switch strategies
 	GetPeer() Peer
 	GetLog() log.Logger
 }
-
-
-
-
 
 // dataPack is a data message returned by a peer for some query.
 type DataPack interface {
@@ -104,14 +95,12 @@ type DataPack interface {
 	Stats() string
 }
 
-
 // newPeerSet creates a new peer set top track the active download sources.
 func NewPeerSet() *PeerSet {
 	return &PeerSet{
 		peers: make(map[string]PeerConnection),
 	}
 }
-
 
 // peerSet represents the collection of active peer participating in the chain
 // download procedure.
@@ -121,8 +110,6 @@ type PeerSet struct {
 	peerDropFeed event.Feed
 	lock         sync.RWMutex
 }
-
-
 
 // SubscribeNewPeers subscribes to peer arrival events.
 func (ps *PeerSet) SubscribeNewPeers(ch chan<- PeerConnection) event.Subscription {
@@ -181,7 +168,6 @@ func (ps *PeerSet) Register(p PeerConnection) error {
 			p.SetBlockThroughput(p.GetBlockThroughput() + peer.GetBlockThroughput())
 			p.SetReceiptThroughput(p.GetReceiptThroughput() + peer.GetReceiptThroughput())
 			p.SetStateThroughput(p.GetStateThroughput() + peer.GetStateThroughput())
-
 
 			peer.GetLock().RUnlock()
 		}
@@ -365,14 +351,13 @@ func (ps *PeerSet) MedianRTT() time.Duration {
 	return median
 }
 
-
 // fetchRequest is a currently running data retrieval operation.
 type FetchRequest struct {
-	Peer    PeerConnection // Peer to which the request was sent
-	From    uint64          // [eth/62] Requested chain element index (used for skeleton fills only)
+	Peer     PeerConnection       // Peer to which the request was sent
+	From     uint64               // [eth/62] Requested chain element index (used for skeleton fills only)
 	Sheaders []*types.SnailHeader // [eth/62] Requested headers, sorted by request order
-	Fheaders []*types.Header // [eth/62] Requested headers, sorted by request order
-	Time    time.Time       // Time when the request was made
+	Fheaders []*types.Header      // [eth/62] Requested headers, sorted by request order
+	Time     time.Time            // Time when the request was made
 
 }
 
@@ -382,9 +367,9 @@ type FetchResult struct {
 	Pending int         // Number of data fetches still pending
 	Hash    common.Hash // Hash of the header to prevent recalculating
 
-	Signs   	 []*types.PbftSign
-	Sheader      *types.SnailHeader
-	Fruits 		 types.SnailBlocks
+	Signs   []*types.PbftSign
+	Sheader *types.SnailHeader
+	Fruits  types.SnailBlocks
 
 	Fheader      *types.Header
 	Uncles       []*types.Header
@@ -394,4 +379,3 @@ type FetchResult struct {
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type PeerDropFn func(id string)
-

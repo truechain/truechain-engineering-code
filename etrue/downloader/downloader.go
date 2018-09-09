@@ -30,12 +30,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
+	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
 
 var (
@@ -98,7 +98,7 @@ type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
-	queue   *queue   // Scheduler for selecting the hashes to download
+	queue   *queue         // Scheduler for selecting the hashes to download
 	peers   *etrue.PeerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
 
@@ -124,9 +124,9 @@ type Downloader struct {
 	committed       int32
 
 	// Channels
-	headerCh      chan etrue.DataPack             // [eth/62] Channel receiving inbound block headers
-	bodyCh        chan etrue.DataPack             // [eth/62] Channel receiving inbound block bodies
-	receiptCh     chan etrue.DataPack             // [eth/63] Channel receiving inbound receipts
+	headerCh      chan etrue.DataPack       // [eth/62] Channel receiving inbound block headers
+	bodyCh        chan etrue.DataPack       // [eth/62] Channel receiving inbound block bodies
+	receiptCh     chan etrue.DataPack       // [eth/63] Channel receiving inbound receipts
 	bodyWakeCh    chan bool                 // [eth/62] Channel to signal the block body fetcher of new tasks
 	receiptWakeCh chan bool                 // [eth/63] Channel to signal the receipt fetcher of new tasks
 	headerProcCh  chan []*types.SnailHeader // [eth/62] Channel to feed the header processor new tasks
@@ -149,10 +149,9 @@ type Downloader struct {
 	syncInitHook     func(uint64, uint64)       // Method to call upon initiating a new sync run
 	bodyFetchHook    func([]*types.SnailHeader) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.SnailHeader) // Method to call upon starting a receipt fetch
-	chainInsertHook  func([]*etrue.FetchResult)       // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+	chainInsertHook  func([]*etrue.FetchResult) // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
 	fastDown *fastdownloader.Downloader
-
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -203,7 +202,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn,fdown *fastdownloader.Downloader) *Downloader {
+func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn, fdown *fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -565,7 +564,7 @@ func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.SnailHeader, er
 
 	// Request the advertised remote head block and wait for the response
 	head, _ := p.GetPeer().Head()
-	go p.GetPeer().RequestHeadersByHash(head, 1, 0, false,false)
+	go p.GetPeer().RequestHeadersByHash(head, 1, 0, false, false)
 
 	ttl := d.requestTTL()
 	timeout := time.After(ttl)
@@ -635,7 +634,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 	if count > limit {
 		count = limit
 	}
-	go p.GetPeer().RequestHeadersByNumber(uint64(from), count, 15, false,false)
+	go p.GetPeer().RequestHeadersByNumber(uint64(from), count, 15, false, false)
 
 	// Wait for the remote response to the head fetch
 	number, hash := uint64(0), common.Hash{}
@@ -717,7 +716,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 		ttl := d.requestTTL()
 		timeout := time.After(ttl)
 
-		go p.GetPeer().RequestHeadersByNumber(check, 1, 0, false,false)
+		go p.GetPeer().RequestHeadersByNumber(check, 1, 0, false, false)
 
 		// Wait until a reply arrives to this request
 		for arrived := false; !arrived; {
@@ -798,10 +797,10 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 
 		if skeleton {
 			p.GetLog().Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
-			go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false,false)
+			go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false, false)
 		} else {
 			p.GetLog().Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
-			go p.GetPeer().RequestHeadersByNumber(from, MaxHeaderFetch, 0, false,false)
+			go p.GetPeer().RequestHeadersByNumber(from, MaxHeaderFetch, 0, false, false)
 		}
 	}
 	// Start pulling the header chain skeleton until all is done
@@ -924,7 +923,9 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHead
 		reserve  = func(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 			return d.queue.ReserveHeaders(p, count), false, nil
 		}
-		fetch    = func(p etrue.PeerConnection, req *etrue.FetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
+		fetch = func(p etrue.PeerConnection, req *etrue.FetchRequest) error {
+			return p.FetchHeaders(req.From, MaxHeaderFetch)
+		}
 		capacity = func(p etrue.PeerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
 		setIdle  = func(p etrue.PeerConnection, accepted int) { p.SetHeadersIdle(accepted) }
 	)
@@ -1374,11 +1375,14 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
-		origin := result.Fruits[0].FastNumber().Uint64()-1;
-		height := result.Fruits[len(result.Fruits)-1].FastNumber().Uint64();
-		d.fastDown.Synchronise(p,hash,td,-1,origin,height)
+		origin := result.Fruits[0].FastNumber().Uint64() - 1
+		height := result.Fruits[len(result.Fruits)-1].FastNumber().Uint64()
+
+		d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
+
 	}
-	fmt.Println("Snail---blocks>>>",blocks)
+
+	fmt.Println("Snail---blocks>>>", blocks)
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
 		return errInvalidChain
