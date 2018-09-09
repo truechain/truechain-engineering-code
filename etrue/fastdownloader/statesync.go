@@ -29,7 +29,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/trie"
-	"github.com/truechain/truechain-engineering-code/etrue/downloader"
+
+	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
 // stateReq represents a batch of state fetch requests grouped together into
@@ -39,7 +40,7 @@ type stateReq struct {
 	tasks    map[common.Hash]*stateTask // Download tasks to track previous attempts
 	timeout  time.Duration              // Maximum round trip time for this to complete
 	timer    *time.Timer                // Timer to fire when the RTT timeout expires
-	peer     downloader.PeerConnection            // Peer that we're requesting from
+	peer     etrue.PeerConnection            // Peer that we're requesting from
 	response [][]byte                   // Response data of the peer (nil for timeouts)
 	dropped  bool                       // Flag whether the peer dropped off early
 }
@@ -108,7 +109,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 	defer s.Cancel()
 
 	// Listen for peer departure events to cancel assigned tasks
-	peerDrop := make(chan downloader.PeerConnection, 1024)
+	peerDrop := make(chan etrue.PeerConnection, 1024)
 	peerSub := s.d.peers.SubscribePeerDrops(peerDrop)
 	defer peerSub.Unsubscribe()
 
@@ -277,7 +278,7 @@ func (s *stateSync) Cancel() error {
 // and timeouts.
 func (s *stateSync) loop() (err error) {
 	// Listen for new peer events to assign tasks to them
-	newPeer := make(chan downloader.PeerConnection, 1024)
+	newPeer := make(chan etrue.PeerConnection, 1024)
 	peerSub := s.d.peers.SubscribeNewPeers(newPeer)
 	defer peerSub.Unsubscribe()
 	defer func() {
