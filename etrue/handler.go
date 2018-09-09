@@ -204,9 +204,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// TODO: support downloader func.
 
 
+
 	fmode := fastdownloader.SyncMode(int(mode))
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux,blockchain, nil, manager.removePeer)
-
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer,manager.fdownloader)
 
 
@@ -652,18 +652,18 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
-		filter := len(headers) == 1
-		if filter {
-			// Irrelevant of the fork checks, send the header to the fetcher just in case
-			headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
-		}
-		// mecMark
-		//if len(headers) > 0 || !filter {
-		//	err := pm.downloader.DeliverHeaders(p.id, headers)
-		//	if err != nil {
-		//		log.Debug("Failed to deliver headers", "err", err)
-		//	}
+		//filter := len(headers) == 1
+		//if filter {
+		//	// Irrelevant of the fork checks, send the header to the fetcher just in case
+		//	headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
 		//}
+		// mecMark
+		if len(headers) > 0 {
+			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
+			}
+		}
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		// Decode the retrieval message
