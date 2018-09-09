@@ -153,9 +153,10 @@ type Fetcher struct {
 	headerFilter chan chan *headerFilterTask
 	bodyFilter   chan chan *bodyFilterTask
 
-	done     chan common.Hash
-	doneSign chan common.Hash
-	quit     chan struct{}
+	done       chan common.Hash
+	doneSign   chan common.Hash
+	quit       chan struct{}
+	blockMutex *sync.Mutex //block mutex
 
 	// Announce states
 	announces  map[string]int              // Per peer announce counts to prevent memory exhaustion
@@ -165,14 +166,18 @@ type Fetcher struct {
 	completing map[common.Hash]*announce   // Blocks with headers, currently body-completing
 
 	// Block cache
-	queue  *prque.Prque            // Queue containing the import operations (block number sorted)
-	queues map[string]int          // Per peer block counts to prevent memory exhaustion
-	queued map[common.Hash]*inject // Set of already queued blocks (to dedupe imports)
+	queue          *prque.Prque             // Queue containing the import operations (block number sorted)
+	queues         map[string]int           // Per peer block counts to prevent memory exhaustion
+	queued         map[common.Hash]*inject  // Set of already queued blocks (to dedupe imports)
+	blockMultiHash map[uint64][]common.Hash //solve same height more block question
+	sendBlockHash  map[uint64][]common.Hash //mark already send block in same height
 
 	// sign cache
-	queueSign  *prque.Prque                      // Queue containing the import operations (sign number sorted)
-	queuesSign map[string]int                    // Per peer sign counts to prevent memory exhaustion
-	queuedSign map[common.Hash]*injectSingleSign // Set of already sign blocks (to dedupe imports)
+	queueSign      *prque.Prque                      // Queue containing the import operations (sign number sorted)
+	queuesSign     map[string]int                    // Per peer sign counts to prevent memory exhaustion
+	queuedSign     map[common.Hash]*injectSingleSign // Set of already sign blocks (to dedupe imports)
+	signMultiHash  map[uint64][]common.Hash          //solve same height more sign question
+	blockConsensus map[uint64]bool                   // Per peer sign counts to prevent many times insert block
 
 	// Callbacks
 	getBlock           blockRetrievalFn   // Retrieves a block from the local chain
@@ -180,14 +185,10 @@ type Fetcher struct {
 	broadcastFastBlock blockBroadcasterFn // Broadcasts a block to connected peers
 	broadcastSigns     signBroadcasterFn  // Broadcasts a signs to connected peers
 
-	chainHeight    chainHeightFn            // Retrieves the current chain's height
-	insertChain    chainInsertFn            // Injects a batch of blocks into the chain
-	dropPeer       peerDropFn               // Drops a peer for misbehaving
-	blockMultiHash map[uint64][]common.Hash //solve same height more block question
-	sendBlockHash  map[uint64][]common.Hash //mark already send block in same height
-	signMultiHash  map[uint64][]common.Hash //solve same height more sign question
-	agentFetcher   PbftAgentFetcher
-	blockMutex     *sync.Mutex //block mutex
+	chainHeight  chainHeightFn // Retrieves the current chain's height
+	insertChain  chainInsertFn // Injects a batch of blocks into the chain
+	dropPeer     peerDropFn    // Drops a peer for misbehaving
+	agentFetcher PbftAgentFetcher
 
 	// Testing hooks
 	announceChangeHook func(common.Hash, bool) // Method to call upon adding or deleting a hash from the announce list
@@ -230,6 +231,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		blockMultiHash:     make(map[uint64][]common.Hash),
 		sendBlockHash:      make(map[uint64][]common.Hash),
 		signMultiHash:      make(map[uint64][]common.Hash),
+		blockConsensus:     make(map[uint64]bool),
 		agentFetcher:       agentFetcher,
 		broadcastSigns:     broadcastSigns,
 		blockMutex:         new(sync.Mutex),
@@ -782,7 +784,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		return
 	}
 
-	verifySign := []*types.PbftSign{}
+	verifySigns := []*types.PbftSign{}
 	for _, sign := range signs {
 		if ok, _ := f.agentFetcher.VerifyCommitteeSign(sign); !ok {
 			log.Info("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
@@ -790,41 +792,49 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			break
 		}
 
-		// Schedule the sign for future importing
-		if _, ok := f.queuedSign[sign.Hash()]; !ok {
-			op := &injectSingleSign{
-				origin: peer,
-				sign:   sign,
-			}
-
-			f.queuesSign[peer] = count
-			f.queuedSign[sign.Hash()] = op
-
-			// Run the import on a new thread
-			log.Debug("Verify propagated sign", "peer", peer, "dos count", f.queuesSign[peer], "number", number, "hash", hash.String())
-
-			verifySign = append(verifySign, sign)
-			f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
-		}
+		verifySigns = append(verifySigns, sign)
 	}
 
-	if len(verifySign) > 0 {
-		propSignOutTimer.Mark(int64(len(verifySign)))
-		f.broadcastSigns(verifySign)
+	if len(verifySigns) > 0 {
+		propSignOutTimer.Mark(int64(len(verifySigns)))
+		// Run the import on a new thread
+		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
+		f.broadcastSigns(verifySigns)
 
-		if f.agentFetcher.AcquireCommitteeAuth(verifySign[0].FastHeight) && f.getBlock(verifySign[0].FastHash) != nil {
-			f.forgetBlockHeight(verifySign[0].FastHeight)
+		for _, sign := range verifySigns {
+
+			if _, ok := f.blockConsensus[number]; !ok {
+				// Schedule the sign for future importing
+				if _, ok := f.queuedSign[sign.Hash()]; !ok {
+					op := &injectSingleSign{
+						origin: peer,
+						sign:   sign,
+					}
+
+					f.queuesSign[peer] = count
+					f.queuedSign[sign.Hash()] = op
+
+					// Run the import on a new thread
+					log.Debug("Cache propagated sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
+
+					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
+				}
+			} else {
+				// Run the import on a new thread
+				log.Debug("Discarded propagated sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
+			}
+		}
+
+		if f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
+			f.forgetBlockHeight(verifySigns[0].FastHeight)
 		} else {
 			committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
-				if ok, _ := f.agreeAtSameHeight(number, verifySign[0].FastHash); ok {
-					log.Debug("Agree at same height", "number", number, "sign length", len(f.signMultiHash[number]))
+				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
+					f.blockConsensus[number] = ok
 					f.queueSign.Push(f.signMultiHash[number], -float32(number))
-					if f.queueChangeHook != nil {
-						f.queueChangeHook(hash, true)
-					}
-					log.Debug("Queued propagated sign", "peer", peer, "number", number, "hash", hash, "queued", f.queueSign.Size())
+					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "queued", f.queueSign.Size(), "hash", hash.String())
 				}
 			}
 		}
