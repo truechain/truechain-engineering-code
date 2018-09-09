@@ -85,7 +85,7 @@ type ProtocolManager struct {
 	maxPeers          int
 
 	downloader   *downloader.Downloader
-	fdownloader   *fastdownloader.Downloader
+	fdownloader  *fastdownloader.Downloader
 	fetcherFast  *fetcher.Fetcher
 	fetcherSnail *snailfetcher.Fetcher
 	peers        *peerSet
@@ -207,7 +207,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	fmode := fastdownloader.SyncMode(int(mode))
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux,blockchain, nil, manager.removePeer)
 
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer)
+	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer,manager.fdownloader)
 
 
 	fastValidator := func(header *types.Header) error {

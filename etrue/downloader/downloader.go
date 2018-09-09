@@ -35,7 +35,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	)
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
+)
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
@@ -150,7 +151,7 @@ type Downloader struct {
 	receiptFetchHook func([]*types.SnailHeader) // Method to call upon starting a receipt fetch
 	chainInsertHook  func([]*etrue.FetchResult)       // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
-	//fastDown fastdownloader.Downloader
+	fastDown *fastdownloader.Downloader
 
 }
 
@@ -202,7 +203,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn) *Downloader {
+func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn,fdown *fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
@@ -231,10 +232,10 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 			processed: rawdb.ReadFastTrieProgress(stateDb),
 		},
 		trackStateReq: make(chan *stateReq),
-		//fastDown:      fdown,
+		fastDown:      fdown,
 	}
 
-	//dl.fastDown.SetPeers(dl.peers)
+	dl.fastDown.SetPeers(dl.peers)
 
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -1374,11 +1375,10 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
-		//origin := result.fruits[0].NumberU64()-1;
-		//height := result.fruits[len(result.fruits)-1].NumberU64();
+		origin := result.Fruits[0].NumberU64()-1;
+		height := result.Fruits[len(result.Fruits)-1].NumberU64();
 
-		//d.fastDown.RegisterPeer(p.GetID(),p.version,p.GetPeer())
-		//d.fastDown.Synchronise(p,hash,td,-1,origin,height)
+		d.fastDown.Synchronise(p,hash,td,-1,origin,height)
 
 	}
 

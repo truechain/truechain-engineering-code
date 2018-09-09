@@ -24,7 +24,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/fastchain"
 
-	)
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
+)
 
 var (
 	initCommand = cli.Command{
@@ -376,12 +377,12 @@ func copyDb(ctx *cli.Context) error {
 
 	syncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*downloader.SyncMode)
 
-	//fsyncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*fastdownloader.SyncMode)
+	fsyncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*fastdownloader.SyncMode)
 
-	//fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
+	fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
 
-	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil)
-	//
+	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil,fdl)
+
 
 	// Create a source peer to satisfy downloader requests from
 	db, err := ethdb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256)

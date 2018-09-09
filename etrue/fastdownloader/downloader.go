@@ -414,8 +414,9 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	if err != nil {
 		return err
 	}
-	//height := latest.Number.Uint64()
 
+
+	//height := latest.Number.Uint64()
 	//origin, err := d.findAncestor(p, height)
 
 	if err != nil {
