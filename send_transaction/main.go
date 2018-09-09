@@ -91,8 +91,6 @@ func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup)
 	var result string
 	client.Call(&result, "etrue_sendTransaction", map_data)
 	if result != "" {
-		fmt.Println("sendTransaction result:", result)
-	} else {
 		Count += 1
 	}
 }
