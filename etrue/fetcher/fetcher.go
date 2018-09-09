@@ -778,8 +778,8 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
 		f.broadcastSigns(verifySigns)
 
-		if f.getBlock(signs[0].FastHash) != nil {
-			log.Info("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
+		if !f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(signs[0].FastHash) != nil {
+			log.Debug("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
 			propSignDropMeter.Mark(1)
 			return
 		}
