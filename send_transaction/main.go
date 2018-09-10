@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"math/big"
 	"os"
 	"strconv"
 	"sync"
@@ -13,10 +14,10 @@ import (
 var Count int64 = 0
 
 //Transaction from to account id
-var from, to, frequency int = 0, 1, 1
+var from, to, frequency = 0, 1, 1
 
 //Two transmission intervals
-var interval time.Duration = time.Millisecond * 0
+var interval = time.Millisecond * 0
 
 // get par
 func main() {
@@ -88,17 +89,18 @@ func send(count int, ip string) {
 
 	// get balance
 	var result string = ""
-	err = client.Call(&result, "etrue_getBalance", account[0], "latest")
+	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
 		return
 	} else {
-		fmt.Println("etrue_getBalance Ok:", result)
+		b := new(big.Int).SetBytes([]byte(result))
+		fmt.Println("etrue_getBalance Ok:", b)
 	}
 
 	//unlock account
 	var reBool bool
-	err = client.Call(&reBool, "personal_unlockAccount", account[0], "admin", 90)
+	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
 		return
@@ -118,6 +120,16 @@ func send(count int, ip string) {
 		time.Sleep(interval)
 	}
 	waitMain.Wait()
+
+	// get balance
+	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
+	if err != nil {
+		fmt.Println("etrue_getBalance Error:", err)
+		return
+	} else {
+		b := new(big.Int).SetBytes([]byte(result))
+		fmt.Println("etrue_getBalance Ok:", b)
+	}
 }
 
 //send count transaction
@@ -137,10 +149,10 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 //send one transaction
 func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
 	defer wait.Done()
-	map_data := make(map[string]string)
+	map_data := make(map[string]interface{})
 	map_data["from"] = account[from]
 	map_data["to"] = account[to]
-	map_data["value"] = "0x2100"
+	map_data["value"] = big.NewInt(0x17)
 	var result string
 	client.Call(&result, "etrue_sendTransaction", map_data)
 	if result != "" {
