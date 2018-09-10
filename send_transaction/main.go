@@ -18,6 +18,7 @@ var from, to, frequency int = 0, 1, 1
 //Two transmission intervals
 var interval time.Duration = time.Millisecond * 0
 
+// get par
 func main() {
 	if len(os.Args) < 4 {
 		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to]  [\"ip:port\"]\n", os.Args[0])
@@ -63,12 +64,16 @@ func main() {
 
 }
 
+//send transaction init
 func send(count int, ip string) {
+	//dial etrue
 	client, err := rpc.Dial("http://" + ip)
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
 		return
 	}
+
+	//get all account
 	var account []string
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
@@ -81,11 +86,9 @@ func send(count int, ip string) {
 	}
 	fmt.Println("account:", account)
 
-	//解锁账户
+	// get balance
 	var result string = ""
-
 	err = client.Call(&result, "etrue_getBalance", account[0], "latest")
-
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
 		return
@@ -93,8 +96,8 @@ func send(count int, ip string) {
 		fmt.Println("etrue_getBalance Ok:", result)
 	}
 
+	//unlock account
 	var reBool bool
-
 	err = client.Call(&reBool, "personal_unlockAccount", account[0], "admin", 90)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
@@ -103,15 +106,7 @@ func send(count int, ip string) {
 		fmt.Println("personal_unlockAccount Ok", reBool)
 	}
 
-	//waitGroup := &sync.WaitGroup{}
-	////发送交易
-	//for a := 0; a < count; a++ {
-	//	waitGroup.Add(1)
-	//	go sendTransaction(client, account, waitGroup)
-	//}
-	//
-	//fmt.Println("Complete", count)
-	//waitGroup.Wait()
+	// send
 	waitMain := &sync.WaitGroup{}
 	for {
 		waitMain.Add(1)
@@ -125,6 +120,7 @@ func send(count int, ip string) {
 	waitMain.Wait()
 }
 
+//send count transaction
 func sendTransactions(client *rpc.Client, account []string, count int, wait *sync.WaitGroup) {
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
@@ -138,6 +134,7 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	fmt.Println("Complete", Count)
 }
 
+//send one transaction
 func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
 	defer wait.Done()
 	map_data := make(map[string]string)
