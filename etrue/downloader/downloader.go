@@ -1371,26 +1371,30 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
-	blocks := make([]*types.SnailBlock, len(results))
-	for i, result := range results {
-		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
+	//blocks := make([]*types.SnailBlock, len(results))
+	for _, result := range results {
+
+		blocks := make([]*types.SnailBlock, 1)
+		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
 		if len(result.Fruits)>0{
 			origin := result.Fruits[0].FastNumber().Uint64() - 1
 			height := uint64(len(result.Fruits))
-			fmt.Println("Snail---blocks>>>", blocks[i].NumberU64(),"fruits>>",len(result.Fruits))
+			fmt.Println("Snail---blocks>>>", blocks[0].NumberU64(),"fruits>>",len(result.Fruits))
 
 			d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
 		}else {
-			fmt.Println("Snail---blocks>>>", blocks[i].NumberU64(),"fruits>>",len(result.Fruits))
+			fmt.Println("Snail---blocks>>>", blocks[0].NumberU64(),"fruits>>",len(result.Fruits))
 
+		}
+
+		if index, err := d.blockchain.InsertChain(blocks); err != nil {
+			log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
+			return errInvalidChain
 		}
 	}
 
-	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
-		return errInvalidChain
-	}
+
 	return nil
 }
 

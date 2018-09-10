@@ -573,7 +573,7 @@ func (p *peer) SendReceiptsRLP(receipts []rlp.RawValue) error {
 // RequestOneFastHeader is a wrapper around the header query functions to fetch a
 // single fast header. It is used solely by the fetcher fast.
 func (p *peer) RequestOneFastHeader(hash common.Hash) error {
-	p.Log().Debug("Fetching single header", "hash", hash)
+	p.Log().Debug("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
 	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
@@ -582,10 +582,10 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 // specified header query, based on the hash of an origin block.
 func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
 	if isFastchain {
-		p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		p.Log().Debug("Fetching batch of headers  GetFastBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 }
 
@@ -593,11 +593,12 @@ func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, re
 // specified header query, based on the number of an origin block.
 func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool,isFastchain bool) error {
 
+
 	if isFastchain {
-		p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		p.Log().Debug("Fetching batch of headers GetFastBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 
 }
@@ -608,10 +609,10 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 func (p *peer) RequestBodies(hashes []common.Hash,isFastchain bool) error {
 
 	if isFastchain {
-		p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+		p.Log().Debug("Fetching batch of block bodies  GetFastBlockBodiesMsg", "count", len(hashes))
 		return p2p.Send(p.rw, GetFastBlockBodiesMsg, hashes)
 	}
-	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	p.Log().Debug("Fetching batch of block bodies  GetSnailBlockBodiesMsg", "count", len(hashes))
 	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, hashes)
 }
 
@@ -619,13 +620,13 @@ func (p *peer) RequestBodies(hashes []common.Hash,isFastchain bool) error {
 // data, corresponding to the specified hashes.
 func (p *peer) RequestNodeData(hashes []common.Hash,isFastchain bool) error {
 
-	p.Log().Debug("Fetching batch of state data", "count", len(hashes))
+	p.Log().Debug("Fetching batch of state data  GetNodeDataMsg", "count", len(hashes))
 	return p2p.Send(p.rw, GetNodeDataMsg, hashes)
 }
 
 // RequestReceipts fetches a batch of transaction receipts from a remote node.
 func (p *peer) RequestReceipts(hashes []common.Hash,isFastchain bool) error {
-	p.Log().Debug("Fetching batch of receipts", "count", len(hashes))
+	p.Log().Debug("Fetching batch of receipts  GetReceiptsMsg", "count", len(hashes))
 	return p2p.Send(p.rw, GetReceiptsMsg, hashes)
 }
 

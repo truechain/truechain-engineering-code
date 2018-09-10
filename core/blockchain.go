@@ -1094,8 +1094,8 @@ func (bc *BlockChain) InsertSign(block *types.Block,signs []*types.PbftSign) (in
 //
 // After insertion is done, all accumulated events will be fired.
 func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
-	n, events, logs, err := bc.insertChain(chain)
-	bc.PostChainEvents(events, logs)
+	n, _, _, err := bc.insertChain(chain)
+	//bc.PostChainEvents(events, logs)
 	return n, err
 }
 

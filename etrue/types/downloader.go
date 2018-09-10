@@ -17,9 +17,8 @@ var (
 	rttMinEstimate       = 2 * time.Second  // Minimum round-trip time to target for download requests
 	rttMaxEstimate       = 20 * time.Second // Maximum round-trip time to target for download requests
 	qosTuningPeers       = 5                // Number of peers to tune based on (best peers)
-	errClosed            = errors.New("peer set is closed")
-	errAlreadyRegistered = errors.New("peer is already registered")
 	errNotRegistered     = errors.New("peer is not registered")
+	errAlreadyRegistered = errors.New("peer is already registered")
 )
 
 // LightPeer encapsulates the methods required to synchronise with a remote light peer.
@@ -145,9 +144,9 @@ func (ps *PeerSet) Register(p PeerConnection) error {
 	// Register the new peer with some meaningful defaults
 	ps.lock.Lock()
 	if _, ok := ps.peers[p.GetID()]; ok {
-		//ps.lock.Unlock()
+		ps.lock.Unlock()
 		delete(ps.peers, p.GetID())
-		//return errAlreadyRegistered
+		return errAlreadyRegistered
 	}
 	if len(ps.peers) > 0 {
 		//p.headerThroughput, p.blockThroughput, p.receiptThroughput, p.stateThroughput = 0, 0, 0, 0

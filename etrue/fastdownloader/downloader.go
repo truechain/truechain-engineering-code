@@ -882,7 +882,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, to int, p
 				//from += uint64(len(headers))
 			}
 
-			d.headerProcCh <- nil
+			//d.headerProcCh <- nil
 			return nil
 
 			//getHeaders(from,to)
@@ -1105,7 +1105,6 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					// If a lot of retrieval elements expired, we might have overestimated the remote peer or perhaps
 					// ourselves. Only reset to minimal throughput but don't drop just yet. If even the minimal times
 					// out that sync wise we need to get rid of the peer.
-					//
 					// The reason the minimum threshold is 2 is because the downloader tries to estimate the bandwidth
 					// and latency of a peer separately, which requires pushing the measures capacity a bit and seeing
 					// how response times reacts, to it always requests one more than the minimum (i.e. min 2).
@@ -1120,13 +1119,15 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
 							d.dropPeer(pid)
+							//return errPeersUnavailable
 						}
 					}
 				}
 			}
 			// If there's nothing more to fetch, wait or terminate
 			if pending() == 0 {
-				if !inFlight() && finished {
+				//!inFlight()
+				if finished {
 					log.Debug("Data fetching completed", "type", kind)
 					return nil
 				}
@@ -1352,6 +1353,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				default:
 				}
 			}
+			return nil
 		}
 	}
 }

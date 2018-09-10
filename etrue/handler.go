@@ -41,7 +41,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-
+	etypes "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
 
@@ -88,7 +88,7 @@ type ProtocolManager struct {
 	fdownloader  *fastdownloader.Downloader
 	fetcherFast  *fetcher.Fetcher
 	fetcherSnail *snailfetcher.Fetcher
-	peers        *peerSet
+	peers        *etypes.PeerSet
 
 	SubProtocols []p2p.Protocol
 
@@ -457,6 +457,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Block header query, collect the requested headers and reply
 
 	case msg.Code == GetSnailBlockHeadersMsg:
+
+		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>")
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -544,6 +546,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendSnailBlockHeaders(headers)
 
 	case msg.Code == SnailBlockHeadersMsg:
+		log.Debug("SnailBlockHeadersMsg>>>>>>>>>>>>")
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.SnailHeader
 		if err := msg.Decode(&headers); err != nil {
@@ -563,6 +566,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetFastBlockHeadersMsg:
+
+		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>")
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -650,6 +655,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendFastBlockHeaders(headers)
 
 	case msg.Code == FastBlockHeadersMsg:
+		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>")
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.Header
 		if err := msg.Decode(&headers); err != nil {
@@ -671,6 +677,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 
 	case msg.Code == GetFastBlockBodiesMsg:
+		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -698,6 +705,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendFastBlockBodiesRLP(bodies)
 
 	case msg.Code == FastBlockBodiesMsg:
+		log.Debug("FastBlockBodiesMsg>>>>>>>>>>>>")
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
 		if err := msg.Decode(&request); err != nil {
@@ -723,6 +731,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
+		log.Debug("GetSnailBlockBodiesMsg>>>>>>>>>>>>")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -750,6 +759,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendSnailBlockBodiesRLP(bodies)
 
 	case msg.Code == SnailBlockBodiesMsg:
+		log.Debug("SnailBlockBodiesMsg>>>>>>>>>>>>")
 		// A batch of block bodies arrived to one of our previous requests
 		var request snailBlockBodiesData
 		if err := msg.Decode(&request); err != nil {
