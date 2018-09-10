@@ -373,6 +373,7 @@ func (f *Fetcher) loop() {
 		}
 
 		finished := false
+		var blockFind *types.Block = nil
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
 		for !f.queue.Empty() {
@@ -408,18 +409,10 @@ func (f *Fetcher) loop() {
 					if _, ok := f.blockConsensus[number]; ok {
 						signHashs := f.signMultiHash[number]
 						if len(signHashs) > 0 {
+							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
-
-									log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
-									// Otherwise if fresh and still unknown, try and import
-									if number+maxUncleDist < height || f.getBlock(hash) != nil {
-										f.forgetBlockHeight(big.NewInt(int64(height)))
-										continue
-									}
-
-									f.verifyComeAgreement(signHashs, block.Number(), hash)
+									blockFind = block
 								}
 							} else {
 								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
@@ -439,6 +432,22 @@ func (f *Fetcher) loop() {
 					if !find {
 						f.verifyBlockBroadcast(peer, block)
 					}
+				}
+				if blockFind != nil {
+					number := blockFind.NumberU64()
+					hash := blockFind.Hash()
+					signHashs := f.signMultiHash[number]
+					log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
+
+					// Otherwise if fresh and still unknown, try and import
+					if number+maxUncleDist < height || f.getBlock(hash) != nil {
+						f.forgetBlockHeight(big.NewInt(int64(height)))
+						continue
+					}
+
+					f.verifyComeAgreement(signHashs, blockFind.Number(), hash)
+				} else {
+					f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
 				}
 			}
 			if finished {
@@ -822,7 +831,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
 					f.blockConsensus[number] = ok
-					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "queued", "hash", hash.String())
+					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash.String())
 				}
 			}
 		}
