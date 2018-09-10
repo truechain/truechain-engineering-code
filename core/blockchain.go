@@ -95,6 +95,7 @@ type BlockChain struct {
 
 	hc               *HeaderChain
 	sc               *snailchain.SnailBlockChain
+	rc               *RedisClient // TrueScan dedicated service to push messages to redis message queues
 	rmLogsFeed       event.Feed
 	chainFeed        event.Feed
 	chainSideFeed    event.Feed
@@ -178,6 +179,10 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
+	if err != nil {
+		return nil, err
+	}
+	bc.rc, err = NewRedisClient("127.0.0.1:6379", 0)
 	if err != nil {
 		return nil, err
 	}
