@@ -6,38 +6,57 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 )
 
-var Count int64
+//send complete
+var Count int64 = 0
 
-var from, to int
+//Transaction from to account id
+var from, to, frequency int = 0, 1, 1
+
+//Two transmission intervals
+var interval time.Duration = time.Millisecond * 0
 
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Printf("invalid args : %s [count] [from] [to]  [\"ip:port\"]\n", os.Args[0])
+		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to]  [\"ip:port\"]\n", os.Args[0])
 		return
 	}
-	from = 0
-	to = 1
+
 	count, err := strconv.Atoi(os.Args[1])
 	if err != nil {
 		fmt.Println("count err")
 		return
 	}
 
-	from, err = strconv.Atoi(os.Args[2])
+	frequency, err = strconv.Atoi(os.Args[2])
+	if err != nil {
+		fmt.Println("frequency err")
+		return
+	}
+
+	intervalCount, err := strconv.Atoi(os.Args[3])
+	if err != nil {
+		fmt.Println("interval err")
+		return
+	} else {
+		interval = time.Millisecond * time.Duration(intervalCount)
+	}
+
+	from, err = strconv.Atoi(os.Args[4])
 	if err != nil {
 		fmt.Println("from err default 0")
 	}
 
-	to, err = strconv.Atoi(os.Args[3])
+	to, err = strconv.Atoi(os.Args[5])
 	if err != nil {
 		fmt.Println("from err default 1")
 	}
 
 	ip := "127.0.0.1:8888"
-	if len(os.Args) == 3 {
-		ip = os.Args[4]
+	if len(os.Args) == 7 {
+		ip = os.Args[6]
 	}
 
 	send(count, ip)
@@ -84,15 +103,39 @@ func send(count int, ip string) {
 		fmt.Println("personal_unlockAccount Ok", reBool)
 	}
 
+	//waitGroup := &sync.WaitGroup{}
+	////发送交易
+	//for a := 0; a < count; a++ {
+	//	waitGroup.Add(1)
+	//	go sendTransaction(client, account, waitGroup)
+	//}
+	//
+	//fmt.Println("Complete", count)
+	//waitGroup.Wait()
+	waitMain := &sync.WaitGroup{}
+	for {
+		waitMain.Add(1)
+		go sendTransactions(client, account, count, waitMain)
+		frequency -= 1
+		if frequency <= 0 {
+			break
+		}
+		time.Sleep(interval)
+	}
+	waitMain.Wait()
+}
+
+func sendTransactions(client *rpc.Client, account []string, count int, wait *sync.WaitGroup) {
+	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
 	//发送交易
 	for a := 0; a < count; a++ {
 		waitGroup.Add(1)
 		go sendTransaction(client, account, waitGroup)
 	}
-
-	fmt.Println("Complete", count)
+	fmt.Println("Send in go Complete", count)
 	waitGroup.Wait()
+	fmt.Println("Complete", Count)
 }
 
 func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
