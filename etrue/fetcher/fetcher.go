@@ -373,6 +373,7 @@ func (f *Fetcher) loop() {
 		}
 
 		finished := false
+		var blockFind *types.Block = nil
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
 		for !f.queue.Empty() {
@@ -380,8 +381,6 @@ func (f *Fetcher) loop() {
 			opMulti := f.queue.PopItem().(*injectMulti)
 			blocks := opMulti.blocks
 			peers := opMulti.origins
-
-			log.Debug("Loop", "height", height, "blocks", len(blocks))
 
 			if len(blocks) > 0 {
 				for i, block := range blocks {
@@ -410,19 +409,10 @@ func (f *Fetcher) loop() {
 					if _, ok := f.blockConsensus[number]; ok {
 						signHashs := f.signMultiHash[number]
 						if len(signHashs) > 0 {
-							log.Debug("Loop", "height", height, "sign count", len(signHashs))
+							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
-
-									log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
-									// Otherwise if fresh and still unknown, try and import
-									if number+maxUncleDist < height || f.getBlock(hash) != nil {
-										f.forgetBlockHeight(big.NewInt(int64(height)))
-										continue
-									}
-
-									f.verifyComeAgreement(signHashs, block.Number(), hash)
+									blockFind = block
 								}
 							} else {
 								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
@@ -442,6 +432,22 @@ func (f *Fetcher) loop() {
 					if !find {
 						f.verifyBlockBroadcast(peer, block)
 					}
+				}
+				if blockFind != nil {
+					number := blockFind.NumberU64()
+					hash := blockFind.Hash()
+					signHashs := f.signMultiHash[number]
+					log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
+
+					// Otherwise if fresh and still unknown, try and import
+					if number+maxUncleDist < height || f.getBlock(hash) != nil {
+						f.forgetBlockHeight(big.NewInt(int64(height)))
+						continue
+					}
+
+					f.verifyComeAgreement(signHashs, blockFind.Number(), hash)
+				} else {
+					f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
 				}
 			}
 			if finished {
