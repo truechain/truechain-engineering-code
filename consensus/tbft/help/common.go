@@ -3,7 +3,9 @@ package help
 import (
 	"fmt"
 	"bytes"
+	"time"
 	"encoding/json"
+	"math/rand"
 	"os"
 	// "os/exec"
 	// "os/signal"
@@ -104,6 +106,10 @@ func MinInt(a, b int) int {
 	return b
 }
 //-----------------------------------------------------------------------------
+const (
+	strChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" // 62 characters
+)
+
 func PanicSanity(v interface{}) {
 	panic(fmt.Sprintf("Panicked on a Sanity Check: %v", v))
 }
@@ -121,6 +127,38 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
+func EnsureDir(dir string, mode os.FileMode) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.MkdirAll(dir, mode)
+		if err != nil {
+			return fmt.Errorf("Could not create directory %v. %v", dir, err)
+		}
+	}
+	return nil
+}
+func RandStr(length int) string {
+	// Str constructs a random alphanumeric string of given length.
+	random := rand.New(rand.NewSource(time.Now().Unix()))
+	chars := []byte{}
+MAIN_LOOP:
+	for {
+		val := random.Int63()
+		for i := 0; i < 10; i++ {
+			v := int(val & 0x3f) // rightmost 6 bits
+			if v >= 62 {         // only 62 characters in strChars
+				val >>= 6
+				continue
+			} else {
+				chars = append(chars, strChars[v])
+				if len(chars) == length {
+					break MAIN_LOOP
+				}
+				val >>= 6
+			}
+		}
+	}	
+return string(chars)
+}
 //-----------------------------------------------------------------------------
 
 func MarshalBinaryBare(o interface{}) ([]byte,error) {
@@ -128,4 +166,7 @@ func MarshalBinaryBare(o interface{}) ([]byte,error) {
 }
 func MarshalJSON(o interface{}) ([]byte, error) {
 	return json.Marshal(&o)
+}
+func UnmarshalBinaryBare(bz []byte, ptr interface{}) error {
+	return rlp.DecodeBytes(bz, ptr)
 }
