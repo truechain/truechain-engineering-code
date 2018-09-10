@@ -36,7 +36,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-)
+	)
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
@@ -1242,7 +1242,6 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// If fast or light syncing, ensure promised headers are indeed delivered. This is
 				// needed to detect scenarios where an attacker feeds a bad pivot and then bails out
 				// of delivering the post-pivot blocks that would flag the invalid content.
-				//
 				// This check cannot be executed "as is" for full imports, since blocks may still be
 				// queued for processing when the header download completes. However, as long as the
 				// peer gave us something useful, we're already happy/progressed (above check).
@@ -1375,13 +1374,18 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 	blocks := make([]*types.SnailBlock, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
-		origin := result.Fruits[0].FastNumber().Uint64() - 1
-		height := result.Fruits[len(result.Fruits)-1].FastNumber().Uint64()
-		fmt.Println("Snail---blocks>>>", blocks[i])
-		d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
 
+		if len(result.Fruits)>0{
+			origin := result.Fruits[0].FastNumber().Uint64() - 1
+			height := uint64(len(result.Fruits))
+			fmt.Println("Snail---blocks>>>", blocks[i].NumberU64(),"fruits>>",len(result.Fruits))
+
+			d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
+		}else {
+			fmt.Println("Snail---blocks>>>", blocks[i].NumberU64(),"fruits>>",len(result.Fruits))
+
+		}
 	}
-
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
