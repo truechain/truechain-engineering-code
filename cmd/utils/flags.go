@@ -1098,8 +1098,8 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 	}
 }
 
-// SetEthConfig applies etrue-related command line flags to the config.
-func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
+// SetTruechainConfig applies etrue-related command line flags to the config.
+func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
 	checkExclusive(ctx, DeveloperFlag, TestnetFlag, RinkebyFlag)
 	checkExclusive(ctx, FastSyncFlag, LightModeFlag, SyncModeFlag)
@@ -1155,8 +1155,8 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		}
 		cfg.EnableElection = true
 	}
-	log.Info("config CommitteeNode info:", "publicKey", hex.EncodeToString(cfg.CommitteeKey),
-		"ip", cfg.Host, "Port", cfg.Port, "enableElection", cfg.EnableElection)
+	log.Info("Committee Node info:", "publickey", hex.EncodeToString(cfg.CommitteeKey),
+		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
