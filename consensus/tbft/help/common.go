@@ -57,7 +57,6 @@ func LeftPadBytes(slice []byte, l int) []byte {
 func TrimmedString(b []byte) string {
 	trimSet := string([]byte{0})
 	return string(bytes.TrimLeft(b, trimSet))
-
 }
 
 // PrefixEndBytes returns the end byteslice for a noninclusive range
@@ -169,4 +168,14 @@ func MarshalJSON(o interface{}) ([]byte, error) {
 }
 func UnmarshalBinaryBare(bz []byte, ptr interface{}) error {
 	return rlp.DecodeBytes(bz, ptr)
+}
+
+//-----------------------------------------------------------------------------
+func RandInt() int {
+	random := rand.New(rand.NewSource(time.Now().Unix()))
+	return random.Int()
+}
+func RandIntn(n int) int {
+	random := rand.New(rand.NewSource(time.Now().Unix()))
+	return random.Intn()
 }

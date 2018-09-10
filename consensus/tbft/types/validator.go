@@ -71,7 +71,7 @@ func (v *Validator) String() string {
 // Hash computes the unique ID of a validator with a given voting power.
 // It excludes the Accum value, which changes with every round.
 func (v *Validator) Hash() []byte {
-	return aminoHash(struct {
+	return help.RlpHash(struct {
 		Address     Address
 		PubKey      PubKey
 		VotingPower int64
@@ -79,7 +79,7 @@ func (v *Validator) Hash() []byte {
 		v.Address,
 		v.PubKey,
 		v.VotingPower,
-	})
+	})[:]
 }
 
 //----------------------------------------
