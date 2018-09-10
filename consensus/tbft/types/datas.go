@@ -10,6 +10,11 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+)
+
+var (
+	PeerStateKey = "ConsensusReactor.peerState"
 )
 
 // MakePartSet returns a PartSet containing parts of a serialized block.
@@ -230,3 +235,48 @@ func (blockID BlockID) String() string {
 }
 
 //-------------------------------------------------------
+const (
+	MaxLimitBlockStore = 2000
+)
+
+type BlockMeta struct {
+	Block 			*ctypes.Block
+	BlockID			*BlockID
+	BlockPacks		*PartSet
+}
+type BlockStore struct {
+	blocks 		map[int64]*BlockMeta
+}
+
+func NewBlockStore() *BlockStore {
+	return &BlockStore {
+		blocks:		make(map[int64]*BlockMeta),
+	}
+}
+func (b *BlockStore) LoadBlockMeta(height int64) *BlockMeta {
+	if v,ok := b.blocks[height]; ok{
+		return v
+	}
+	return nil
+}
+func (b *BlockStore) LoadBlockPart(height int64, index int) *Part {
+	if v,ok := b.blocks[height]; ok {
+		return v.BlockPacks.GetPart(index)
+	}
+	return nil
+}
+func (b *BlockStore) MaxBlockHeight() int64 {
+	// ss.blockLock.Lock()
+	// defer ss.blockLock.Unlock()
+	var cur int64 = 0
+	var fb *types.Block = nil
+	for k, _ := range b.blocks {
+		if cur == 0 {
+			cur = k
+		}
+		if cur < k {
+			cur = k
+		}
+	}
+	return cur
+}
