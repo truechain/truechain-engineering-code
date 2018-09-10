@@ -1377,12 +1377,12 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 		origin := result.Fruits[0].FastNumber().Uint64() - 1
 		height := result.Fruits[len(result.Fruits)-1].FastNumber().Uint64()
-
+		fmt.Println("Snail---blocks>>>", blocks[i])
 		d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
 
 	}
 
-	fmt.Println("Snail---blocks>>>", blocks)
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
 		return errInvalidChain

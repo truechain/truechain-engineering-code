@@ -1109,7 +1109,7 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 		if st.ignored > 0 {
 			context = append(context, []interface{}{"ignored", st.ignored}...)
 		}
-		log.Info("Imported new chain segment", context...)
+		log.Info("Imported new snailchain segment", context...)
 
 		*st = insertSnailStats{startTime: now, lastIndex: index + 1}
 	}

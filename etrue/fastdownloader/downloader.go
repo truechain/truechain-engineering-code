@@ -525,7 +525,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	}
 
 	d.queue.Close()
-	d.Cancel()
+	//d.Cancel()
 
 	return err
 }
@@ -879,8 +879,11 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, to int, p
 				case <-d.cancelCh:
 					return errCancelHeaderFetch
 				}
-				from += uint64(len(headers))
+				//from += uint64(len(headers))
 			}
+
+			d.headerProcCh <- nil
+			return nil
 			//getHeaders(from,to)
 
 		case <-timeout.C:
@@ -1387,7 +1390,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, nil, result.Uncles)
-	}
+		fmt.Println("fast install blokc >>> ",blocks[i])
+		}
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain
