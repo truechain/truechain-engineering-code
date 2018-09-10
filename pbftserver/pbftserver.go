@@ -110,6 +110,10 @@ func (ss *PbftServerMgr) getBlock(h uint64) *types.Block {
 	if fb, ok := ss.blocks[h]; ok {
 		return fb
 	}
+
+	if (h - 500) >= 0 {
+		delete(ss.blocks, h-500)
+	}
 	return nil
 }
 

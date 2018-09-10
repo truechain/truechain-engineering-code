@@ -141,6 +141,12 @@ type injectSingleSign struct {
 	sign   *types.PbftSign
 }
 
+// injectDone represents a schedules block sign remove operation.
+type injectDone struct {
+	blockHash common.Hash
+	signs     []common.Hash
+}
+
 // Fetcher is responsible for accumulating block announcements from various peers
 // and scheduling them for retrieval.
 type Fetcher struct {
@@ -153,8 +159,7 @@ type Fetcher struct {
 	headerFilter chan chan *headerFilterTask
 	bodyFilter   chan chan *bodyFilterTask
 
-	done          chan common.Hash
-	doneSign      chan common.Hash
+	doneBlockSign chan *injectDone
 	doneConsensus chan *big.Int
 	quit          chan struct{}
 	blockMutex    *sync.Mutex //block mutex
@@ -207,8 +212,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		blockFilter:   make(chan chan []*types.Block),
 		headerFilter:  make(chan chan *headerFilterTask),
 		bodyFilter:    make(chan chan *bodyFilterTask),
-		done:          make(chan common.Hash),
-		doneSign:      make(chan common.Hash, maxChanelSign),
+		doneBlockSign: make(chan *injectDone),
 		doneConsensus: make(chan *big.Int),
 		quit:          make(chan struct{}),
 		announces:     make(map[string]int),
@@ -504,13 +508,17 @@ func (f *Fetcher) loop() {
 			// A direct block insertion was requested, try and fill any pending gaps
 			propSignInMeter.Mark(1)
 			f.enqueueSign(op.origin, op.signs)
-		case hash := <-f.done:
+
+		case blockSign := <-f.doneBlockSign:
 			// A pending import finished, remove all traces of the notification
+			hash := blockSign.blockHash
 			f.forgetHash(hash)
 			f.forgetBlock(hash)
-
-		case hash := <-f.doneSign:
-			f.forgetSign(hash)
+			if blockSign.signs != nil {
+				for _, signHash := range blockSign.signs {
+					f.forgetSign(signHash)
+				}
+			}
 
 		case number := <-f.doneConsensus:
 			f.forgetBlockHeight(number)
@@ -911,7 +919,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 		parent := f.getBlock(block.ParentHash())
 		if parent == nil {
 			log.Debug("Unknown parent of propagated block", "peer", peer, "number", block.Number(), "hash", hash, "parent", block.ParentHash())
-			f.done <- hash
+			f.doneBlockSign <- &injectDone{hash, nil}
 			return
 		}
 
@@ -929,7 +937,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 			// Something went very wrong, drop the peer
 			log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 			f.agentFetcher.ChangeCommitteeLeader(block.Number())
-			f.done <- hash
+			f.doneBlockSign <- &injectDone{hash, nil}
 			return
 		}
 	}()
@@ -1039,11 +1047,7 @@ func (f *Fetcher) forgetHash(hash common.Hash) {
 // forgetBlockAndSigns removes all traces of a queued block and signs from the fetcher's internal
 // state.
 func (f *Fetcher) forgetBlockAndSigns(hash common.Hash, signHashs []common.Hash) {
-	f.done <- hash
-
-	for _, hash := range signHashs {
-		f.doneSign <- hash
-	}
+	f.doneBlockSign <- &injectDone{hash, signHashs}
 }
 
 // forgetBlockHeight removes all traces of a queued block from the fetcher's internal
