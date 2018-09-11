@@ -178,5 +178,5 @@ func RandInt() int {
 }
 func RandIntn(n int) int {
 	random := rand.New(rand.NewSource(time.Now().Unix()))
-	return random.Intn()
+	return random.Intn(n)
 }
