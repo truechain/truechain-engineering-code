@@ -1,3 +1,20 @@
+// Copyright 2018 The Truechain Authors
+// This file is part of the truechain-engineering-code library.
+//
+// The truechain-engineering-code library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The truechain-engineering-code library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
+
+
 package etrue
 
 import (
@@ -192,7 +209,7 @@ func (self *PbftAgent) loop() {
 			case types.CommitteeStart:
 				log.Debug("CommitteeStart...")
 				self.setCommitteeInfo(self.nextCommitteeInfo, currentCommittee)
-				if self.isCommitteeMember(self.currentCommitteeInfo) {
+				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(self.currentCommitteeInfo.Id, int(ch.Option))
 				}
 			case types.CommitteeStop:
@@ -210,7 +227,7 @@ func (self *PbftAgent) loop() {
 			ticker.Stop()                                //stop ticker send nodeInfo
 			self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 			ticker = time.NewTicker(sendNodeTime)
-			if self.isCommitteeMember(receivedCommitteeInfo) {
+			if self.IsCommitteeMember(receivedCommitteeInfo) {
 				self.server.PutCommittee(receivedCommitteeInfo)
 				self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 				go func() {
@@ -236,7 +253,7 @@ func (self *PbftAgent) loop() {
 					signStr = signStr[:subSignStr]
 				}
 				// if  node  is in committee  and the sign is not received
-				if self.isCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
+				if self.IsCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
 					self.receivePbftNode(cryNodeInfo)
 				} else {
@@ -721,7 +738,7 @@ func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- core.NodeInfoEvent) even
 	return self.scope.Track(self.nodeInfoFeed.Subscribe(ch))
 }
 
-func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
+func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
 	if !self.nodeInfoIsComplete {
 		return false
 	}
