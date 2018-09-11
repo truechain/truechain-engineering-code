@@ -89,7 +89,7 @@ type ConsensusState struct {
 
 	// we use eventBus to trigger msg broadcasts in the reactor,
 	// and to notify external subscribers, eg. through a websocket
-	eventBus *types.EventBus
+	eventBus *ttypes.EventBus
 
 	// a Write-Ahead Log ensures we can recover from any kind of crash
 	// and helps us avoid signing conflicting votes
@@ -164,7 +164,7 @@ func (cs *ConsensusState) SetLogger(l log.Logger) {
 }
 
 // SetEventBus sets event bus.
-func (cs *ConsensusState) SetEventBus(b *types.EventBus) {
+func (cs *ConsensusState) SetEventBus(b *ttypes.EventBus) {
 	cs.eventBus = b
 	cs.blockExec.SetEventBus(b)
 }
