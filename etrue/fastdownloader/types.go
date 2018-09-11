@@ -22,7 +22,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
-
 // headerPack is a batch of block headers returned by a peer.
 type headerPack struct {
 	peerID  string
@@ -37,6 +36,7 @@ func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) 
 type bodyPack struct {
 	peerID       string
 	transactions [][]*types.Transaction
+	signs        [][]*types.PbftSign
 	uncles       [][]*types.Header
 }
 
@@ -47,7 +47,9 @@ func (p *bodyPack) Items() int {
 	}
 	return len(p.uncles)
 }
-func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d", len(p.transactions), len(p.uncles)) }
+func (p *bodyPack) Stats() string {
+	return fmt.Sprintf("%d:%d:%d", len(p.transactions), len(p.signs), len(p.uncles))
+}
 
 // receiptPack is a batch of receipts returned by a peer.
 type receiptPack struct {

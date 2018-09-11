@@ -33,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snail"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -41,7 +42,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-		"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
 
 const (
@@ -72,16 +72,16 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type ProtocolManager struct {
 	networkID uint64
 
-	fastSync          uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs         uint32 // Flag whether we're considered synchronised (enables transaction processing)
-	acceptFruits      uint32
+	fastSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptFruits uint32
 	//acceptSnailBlocks uint32
-	txpool            txPool
-	SnailPool         SnailPool
-	blockchain        *core.BlockChain
-	snailchain        *snailchain.SnailBlockChain
-	chainconfig       *params.ChainConfig
-	maxPeers          int
+	txpool      txPool
+	SnailPool   SnailPool
+	blockchain  *core.BlockChain
+	snailchain  *snailchain.SnailBlockChain
+	chainconfig *params.ChainConfig
+	maxPeers    int
 
 	downloader   *downloader.Downloader
 	fdownloader  *fastdownloader.Downloader
@@ -202,12 +202,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Construct the different synchronisation mechanisms
 	// TODO: support downloader func.
 
-
-
 	fmode := fastdownloader.SyncMode(int(mode))
-	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux,blockchain, nil, manager.removePeer)
-	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer,manager.fdownloader)
-
+	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
+	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
@@ -222,8 +219,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
-		atomic.StoreUint32(&manager.acceptTxs, 1)         // Mark initial sync done on any fetcher import
-		atomic.StoreUint32(&manager.acceptFruits, 1)      // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptTxs, 1)    // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		//atomic.StoreUint32(&manager.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
@@ -410,7 +407,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
 		// Request the peer's DAO fork header for extra-data validation
-		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false,false); err != nil {
+		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false, false); err != nil {
 			return err
 		}
 		// Start a timer to disconnect if the peer doesn't reply in time
@@ -713,9 +710,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
+		signs := make([][]*types.PbftSign, len(request))
 
+		//Signs   []*types.PbftSign
 		for i, body := range request {
 			transactions[i] = body.Transactions
+			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		//filter := len(transactions) > 0
@@ -724,7 +724,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		err := pm.fdownloader.DeliverBodies(p.id, transactions, nil)
+		err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, nil)
 		if err != nil {
 			log.Debug("Failed to deliver bodies", "err", err)
 		}
@@ -796,7 +796,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bytes int
 			data  [][]byte
 		)
-		for bytes < softResponseLimit && len(data) < downloader.MaxStateFetch {
+		for bytes < softResponseLimit && len(data) < fastdownloader.MaxStateFetch {
 			// Retrieve the hash of the next state entry
 			if err := msgStream.Decode(&hash); err == rlp.EOL {
 				break
@@ -818,7 +818,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver all to the downloader
-		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
+		if err := pm.fdownloader.DeliverNodeData(p.id, data); err != nil {
 			log.Debug("Failed to deliver node state data", "err", err)
 		}
 
@@ -834,7 +834,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bytes    int
 			receipts []rlp.RawValue
 		)
-		for bytes < softResponseLimit && len(receipts) < downloader.MaxReceiptFetch {
+		for bytes < softResponseLimit && len(receipts) < fastdownloader.MaxReceiptFetch {
 			// Retrieve the hash of the next block
 			if err := msgStream.Decode(&hash); err == rlp.EOL {
 				break
@@ -865,7 +865,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver all to the downloader
-		if err := pm.downloader.DeliverReceipts(p.id, receipts); err != nil {
+		if err := pm.fdownloader.DeliverReceipts(p.id, receipts); err != nil {
 			log.Debug("Failed to deliver receipts", "err", err)
 		}
 
@@ -1040,7 +1040,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
