@@ -137,6 +137,13 @@ type EncryptNodeMessage struct {
 	Sign //sign msg
 }
 
+func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
+	return RlpHash([]interface{}{
+		c.Nodes,
+		c.CommitteeId,
+	})
+}
+
 func (c *EncryptNodeMessage) Hash() common.Hash {
 	return RlpHash(c)
 }

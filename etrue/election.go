@@ -569,13 +569,13 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
-		e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.committee.id, e.committee.members}})
+		e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
 		//time.Sleep(time.Millisecond*500)
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, nil})
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
-			e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.nextCommittee.id, e.nextCommittee.members}})
+			e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 		}
 	} (e)
 
@@ -623,7 +623,7 @@ func (e *Election) loop() {
 
 					e.startSwitchover = true
 
-					go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.nextCommittee.id, e.nextCommittee.members}})
+					go e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 				}
 
 			}
@@ -654,10 +654,6 @@ func (e *Election) loop() {
 
 func (e *Election) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
 	return e.scope.Track(e.electionFeed.Subscribe(ch))
-}
-
-func (e *Election) SubscribeCommitteeEvent(ch chan<- core.CommitteeEvent) event.Subscription {
-	return e.scope.Track(e.committeeFeed.Subscribe(ch))
 }
 
 

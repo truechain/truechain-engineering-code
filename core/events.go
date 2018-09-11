@@ -65,12 +65,9 @@ type FruitEvent struct {
 
 type ElectionEvent struct {
 	Option      uint
-	Fastnumber  *big.Int
-	Snailnumber *big.Int
-}
-
-type CommitteeEvent struct {
-	CommitteeInfo *types.CommitteeInfo
+	CommitteeId  *big.Int
+	CommitteeMembers []*types.CommitteeMember
+	//CommitteeInfo *types.CommitteeInfo
 }
 
 type PbftSignEvent struct {
