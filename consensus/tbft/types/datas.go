@@ -243,6 +243,7 @@ type BlockMeta struct {
 	Block 			*ctypes.Block
 	BlockID			*BlockID
 	BlockPacks		*PartSet
+	SeenCommit		*Commit
 }
 type BlockStore struct {
 	blocks 		map[int64]*BlockMeta
@@ -279,4 +280,10 @@ func (b *BlockStore) MaxBlockHeight() int64 {
 		}
 	}
 	return cur
+}
+func (b *BlockStore) LoadBlockCommit(height int64) *Commit {
+	if v,ok := b.blocks[height]; ok{
+		return v.SeenCommit
+	}
+	return nil
 }
