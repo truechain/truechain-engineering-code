@@ -183,6 +183,7 @@ type Fetcher struct {
 	queuedSign     map[common.Hash]*injectSingleSign // Set of already sign blocks (to dedupe imports)
 	signMultiHash  map[uint64][]common.Hash          //solve same height more sign question
 	blockConsensus map[uint64]bool                   // Per peer sign counts to prevent many times insert block
+	enterQueue     bool
 
 	// Callbacks
 	getBlock           blockRetrievalFn   // Retrieves a block from the local chain
@@ -236,6 +237,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		sendBlockHash:      make(map[uint64][]common.Hash),
 		signMultiHash:      make(map[uint64][]common.Hash),
 		blockConsensus:     make(map[uint64]bool),
+		enterQueue:         true,
 		agentFetcher:       agentFetcher,
 		broadcastSigns:     broadcastSigns,
 		blockMutex:         new(sync.Mutex),
@@ -380,7 +382,7 @@ func (f *Fetcher) loop() {
 		index := -1
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
-		for !f.queue.Empty() {
+		for !f.queue.Empty() && f.enterQueue {
 
 			opMulti := f.queue.PopItem().(*injectMulti)
 			blocks := opMulti.blocks
@@ -410,6 +412,19 @@ func (f *Fetcher) loop() {
 						continue
 					}
 
+					find := false
+					if f.sendBlockHash[number] != nil {
+						for _, hashOld := range f.sendBlockHash[number] {
+							if hashOld == hash {
+								find = true
+								break
+							}
+						}
+					}
+					if !find {
+						f.verifyBlockBroadcast(peer, block)
+					}
+
 					if _, ok := f.blockConsensus[number]; ok {
 						signHashs := f.signMultiHash[number]
 						if len(signHashs) > 0 {
@@ -422,19 +437,6 @@ func (f *Fetcher) loop() {
 								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
 							}
 						}
-					}
-
-					find := false
-					if f.sendBlockHash[number] != nil {
-						for _, hashOld := range f.sendBlockHash[number] {
-							if hashOld == hash {
-								find = true
-								break
-							}
-						}
-					}
-					if !find {
-						f.verifyBlockBroadcast(peer, block)
 					}
 				}
 
@@ -453,6 +455,7 @@ func (f *Fetcher) loop() {
 					f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
 				} else {
 					f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
+					finished = true
 				}
 			}
 			if finished {
@@ -503,11 +506,13 @@ func (f *Fetcher) loop() {
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
 			propBroadcastInMeter.Mark(1)
+			f.enterQueue = false
 			f.enqueue(op.origin, op.block)
 
 		case op := <-f.injectSign:
 			// A direct block insertion was requested, try and fill any pending gaps
 			propSignInMeter.Mark(1)
+			f.enterQueue = false
 			f.enqueueSign(op.origin, op.signs)
 
 		case blockSign := <-f.doneBlockSign:
@@ -796,7 +801,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
 		f.broadcastSigns(verifySigns)
 
-		if !f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(signs[0].FastHash) != nil {
+		if !f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
 			log.Debug("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
 			propSignDropMeter.Mark(1)
 			return
@@ -839,6 +844,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
+					f.enterQueue = true
 					f.blockConsensus[number] = ok
 					log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash.String())
 				}
@@ -900,7 +906,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			opMulti.origins = append(opMulti.origins, op.origin)
 			opMulti.blocks = append(opMulti.blocks, op.block)
 		}
-
+		f.enterQueue = true
 		f.queue.Push(opMulti, -float32(block.NumberU64()))
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
