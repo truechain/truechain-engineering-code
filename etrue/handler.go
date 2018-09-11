@@ -390,7 +390,8 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Error("Truechain peer registration failed", "err", err)
 		return err
 	}
-	defer pm.removePeer(p.id)
+
+	//defer pm.removePeer(p.id)
 
 	// TODO: downloader.RegisterPeer
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
@@ -717,10 +718,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			transactions[i] = body.Transactions
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0
-		if filter {
-			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
-		}
+		//filter := len(transactions) > 0
+		//if filter {
+		//	transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
+		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
 		err := pm.fdownloader.DeliverBodies(p.id, transactions, nil)

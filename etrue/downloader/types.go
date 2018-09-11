@@ -38,6 +38,7 @@ func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) 
 type bodyPack struct {
 	peerID       string
 	fruit 		 [][]*types.SnailBlock
+	//Signs   	 [][]*types.PbftSign
 	uncles       [][]*types.SnailHeader
 }
 

@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"fmt"
 )
 
 const (
@@ -154,7 +155,7 @@ func (pm *ProtocolManager) syncer() {
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			go pm.synchronise(pm.peers.BestPeer())
+			 pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
 			return
@@ -200,8 +201,10 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
+		fmt.Println(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<")
 		return
 	}
+
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		log.Info("Fast sync complete, auto disabling")
 		atomic.StoreUint32(&pm.fastSync, 0)
