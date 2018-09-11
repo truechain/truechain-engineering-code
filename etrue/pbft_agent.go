@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -523,16 +522,6 @@ func GetTps(currentBlock *types.Block) {
 		averageTps := 1000 * float32(txInterval) / float32(timeInterval)
 		log.Info("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
 		averageTpsSlice = append(averageTpsSlice, averageTps)
-	}
-	if len(timeSlice)%50 == 0 {
-		fmt.Println("tps statistics:")
-		for _, tps := range tpsSlice {
-			fmt.Print(tps, "; ")
-		}
-		fmt.Printf("\n averageTps statistics:\n")
-		for _, tps := range averageTpsSlice {
-			fmt.Print(tps, "; ")
-		}
 	}
 }
 
