@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -24,7 +25,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"fmt"
 )
 
 const (
@@ -820,6 +820,9 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 		log.Error("GetCommitteeNumber method committees is nil")
 		return 0
 	}
+	if self.singleNode {
+		return 1
+	}
 	return int32(len(committees))
 }
 
@@ -888,7 +891,7 @@ func (agent *PbftAgent) singleloop() {
 				continue
 			}
 			if len(block.Transactions()) == 0 && cnt < fetchBlockTime {
-				cnt ++
+				cnt++
 				time.Sleep(time.Second)
 				continue
 			} else {
