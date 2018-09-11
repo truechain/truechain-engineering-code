@@ -28,7 +28,7 @@ const (
 
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {
-	p2p.BaseReactor // BaseService + p2p.Switch
+	BaseReactor // BaseService + p2p.Switch
 
 	conS *ConsensusState
 
@@ -44,7 +44,7 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 		conS:     consensusState,
 		fastSync: fastSync,
 	}
-	conR.BaseReactor = *p2p.NewBaseReactor("ConsensusReactor", conR)
+	conR.BaseReactor = *NewBaseReactor("ConsensusReactor", conR)
 	return conR
 }
 
