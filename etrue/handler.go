@@ -41,8 +41,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	etypes "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
+		"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
 
 const (
@@ -88,7 +87,7 @@ type ProtocolManager struct {
 	fdownloader  *fastdownloader.Downloader
 	fetcherFast  *fetcher.Fetcher
 	fetcherSnail *snailfetcher.Fetcher
-	peers        *etypes.PeerSet
+	peers        *peerSet
 
 	SubProtocols []p2p.Protocol
 
