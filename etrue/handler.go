@@ -910,6 +910,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 		// Send the fruit to a subset of our peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
+			log.Debug("AsyncSendNewSnailBlock begin", "peer", peer.RemoteAddr(), "number", snailBlock.NumberU64(), "hash", snailBlock.Hash())
 			peer.AsyncSendNewSnailBlock(snailBlock, td)
 		}
 		log.Trace("Propagated snailBlock", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
