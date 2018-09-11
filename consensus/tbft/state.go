@@ -79,6 +79,7 @@ type ConsensusState struct {
 	ttypes.RoundState
 	// state sm.State // State until height-1.
 	state StateAgent
+	blockStore *ttypes.BlockMeta
 
 	// state changes may be triggered by: msgs from peers,
 	// msgs from ourself, or by timeouts

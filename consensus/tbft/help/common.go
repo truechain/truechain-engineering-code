@@ -112,6 +112,7 @@ const (
 func PanicSanity(v interface{}) {
 	panic(fmt.Sprintf("Panicked on a Sanity Check: %v", v))
 }
+
 // Kill the running process by sending itself SIGTERM.
 func Kill() error {
 	p, err := os.FindProcess(os.Getpid())
