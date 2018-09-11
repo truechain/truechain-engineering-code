@@ -136,6 +136,7 @@ func send(count int, ip string) {
 func sendTransactions(client *rpc.Client, account []string, count int, wait *sync.WaitGroup) {
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
+
 	//发送交易
 	for a := 0; a < count; a++ {
 		waitGroup.Add(1)
@@ -149,10 +150,10 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 //send one transaction
 func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
 	defer wait.Done()
-	map_data := make(map[string]interface{})
+	map_data := make(map[string]string)
 	map_data["from"] = account[from]
 	map_data["to"] = account[to]
-	map_data["value"] = big.NewInt(0x17)
+	map_data["value"] = "0x2100"
 	var result string
 	client.Call(&result, "etrue_sendTransaction", map_data)
 	if result != "" {
