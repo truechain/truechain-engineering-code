@@ -120,7 +120,7 @@ type Election struct {
 	startSwitchover bool //Flag bit for handling event switching
 
 	electionFeed  event.Feed
-	committeeFeed event.Feed
+	//committeeFeed event.Feed
 	scope         event.SubscriptionScope
 
 	fastChainHeadCh  chan core.ChainHeadEvent
@@ -579,13 +579,13 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
-		e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
+		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
 		//time.Sleep(time.Millisecond*500)
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
-			e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
+			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 		}
 	} (e)
 
@@ -633,7 +633,7 @@ func (e *Election) loop() {
 
 					e.startSwitchover = true
 
-					go e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
+					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 				}
 
 			}
