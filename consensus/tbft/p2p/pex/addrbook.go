@@ -259,7 +259,7 @@ func (a *addrBook) PickAddress(biasTowardsNewAddrs int) *p2p.NetAddress {
 
 	// pick a random peer from a random bucket
 	var bucket map[string]*knownAddress
-	pickFromOldBucket := (newCorrelation+oldCorrelation)*help.Float64() < oldCorrelation
+	pickFromOldBucket := (newCorrelation+oldCorrelation)*help.RandFloat64() < oldCorrelation
 	if (pickFromOldBucket && a.nOld == 0) ||
 		(!pickFromOldBucket && a.nNew == 0) {
 		return nil
@@ -669,7 +669,7 @@ func (a *addrBook) addAddress(addr, src *p2p.NetAddress) error {
 		}
 		// The more entries we have, the less likely we are to add more.
 		factor := int32(2 * len(ka.Buckets))
-		if help.Int31n(factor) != 0 {
+		if help.RandInt31n(factor) != 0 {
 			return nil
 		}
 	} else {
