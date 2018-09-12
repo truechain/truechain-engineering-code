@@ -26,21 +26,24 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"github.com/truechain/truechain-engineering-code/truescan"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes
 type EthAPIBackend struct {
 	etrue *Truechain
-	gpo *gasprice.Oracle
+	gpo   *gasprice.Oracle
+	*truescan.TrueScan
 }
 
 // ChainConfig returns the active chain configuration.
@@ -62,7 +65,7 @@ func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.etrue.miner.PendingBlock()
 		return block.Header(), nil
-	} 
+	}
 	// Otherwise resolve and return the block
 	if blockNr == rpc.LatestBlockNumber {
 		return b.etrue.blockchain.CurrentBlock().Header(), nil
@@ -82,13 +85,13 @@ func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	}
 	return b.etrue.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
- 
+
 func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block, state := b.etrue.miner.Pending()
 		return state, block.Header(), nil
-	} 
+	}
 	// Otherwise resolve the block number and return its state
 	header, err := b.HeaderByNumber(ctx, blockNr)
 	if header == nil || err != nil {
@@ -226,4 +229,25 @@ func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 	for i := 0; i < bloomFilterThreads; i++ {
 		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, b.etrue.bloomRequests)
 	}
+}
+
+func NewEthAPIBackend(etrue *Truechain) *EthAPIBackend {
+	apiBackend := &EthAPIBackend{
+		etrue: etrue,
+		gpo:   nil,
+	}
+	apiBackend.TrueScan = truescan.New(apiBackend)
+	return apiBackend
+}
+
+func (b *EthAPIBackend) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {
+	return b.etrue.SnailBlockChain().SubscribeNewFruitEvent(ch)
+}
+
+func (b *EthAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainHeadEvent) event.Subscription {
+	return b.etrue.SnailBlockChain().SubscribeChainHeadEvent(ch)
+}
+
+func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
+	return b.etrue.election.SubscribeElectionEvent(ch)
 }
