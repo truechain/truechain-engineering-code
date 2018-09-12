@@ -168,7 +168,14 @@ func EqualHashes(hash1,hash2 []byte) bool {
 	return bytes.Equal(hash1, hash2)
 }
 //-----------------------------------------------------------------------------
-
+// Panics if error.
+func MustMarshalBinaryBare(o interface{}) []byte {
+	bz, err := MarshalBinaryBare(o)
+	if err != nil {
+		panic(err)
+	}
+	return bz
+}
 func MarshalBinaryBare(o interface{}) ([]byte,error) {
 	return rlp.EncodeToBytes(o)
 }

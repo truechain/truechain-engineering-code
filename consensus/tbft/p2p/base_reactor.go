@@ -39,7 +39,7 @@ type BaseReactor struct {
 
 func NewBaseReactor(name string, impl Reactor) *BaseReactor {
 	return &BaseReactor{
-		BaseService: *help.NewBaseService(nil, name, impl),
+		BaseService: *help.NewBaseService( name, impl),
 		Switch:      nil,
 	}
 }
