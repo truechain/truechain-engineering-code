@@ -227,7 +227,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
 	}
 
-	etrue.APIBackend = &EthAPIBackend{etrue, nil}
+	etrue.APIBackend = NewEthAPIBackend(etrue)
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -487,10 +487,11 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		return errors.New("start pbft server failed.")
 	}
 	s.agent.server = s.pbftServer
-	log.Info("","server",s.agent.server)
+	log.Info("", "server", s.agent.server)
 	s.agent.Start()
 
 	s.election.Start()
+	s.APIBackend.Start()
 	//go s.agent.SendBlock()
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
@@ -511,6 +512,7 @@ func (s *Truechain) Stop() error {
 	}
 	s.txPool.Stop()
 	s.miner.Stop()
+	s.APIBackend.Stop()
 	s.eventMux.Stop()
 
 	s.chainDb.Close()
