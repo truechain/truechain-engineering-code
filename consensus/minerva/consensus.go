@@ -698,7 +698,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	//if m.config.PowMode == ModeTest {
 	//	size = 32 * 1024
 	//}
-	digest, result := truehashLight(m.dataset.dataset,header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	digest, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 	// Caches are unmapped in a finalizer. Ensure that the cache stays live
 	// until after the call to hashimotoLight so it's not unmapped while being used.
 	//runtime.KeepAlive(cache)
@@ -858,15 +858,15 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 //Reward for block allocation
 func getBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e error) {
-	base := new(big.Int).Div(getCurrentCoin(num), Big1e13).Int64()
+	base := new(big.Int).Div(getCurrentCoin(num), Big1e6).Int64()
 	m, c, e := getDistributionRatio(NetworkFragmentsNuber)
 	if e != nil {
 		return
 	}
 
-	committee = new(big.Int).Mul(big.NewInt(int64(c*float64(base))), Big1e13)
-	minerBlock = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/2)), Big1e13)
-	minerFruit = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/2)), Big1e13)
+	committee = new(big.Int).Mul(big.NewInt(int64(c*float64(base))), Big1e6)
+	minerBlock = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/3*2)), Big1e6)
+	minerFruit = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/3)), Big1e6)
 	return
 }
 
@@ -894,5 +894,5 @@ func powerf(x float64, n int64) float64 {
 func getCurrentCoin(h *big.Int) *big.Int {
 	d := h.Int64() / int64(SnailBlockRewardsChangeInterval)
 	ratio := big.NewInt(int64(powerf(0.98, d) * float64(SnailBlockRewardsBase)))
-	return new(big.Int).Mul(ratio, Big1e13)
+	return new(big.Int).Mul(ratio, Big1e6)
 }
