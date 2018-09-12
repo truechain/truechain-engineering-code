@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"time"
 	"encoding/json"
+	"encoding/binary"
 	"math/rand"
 	"os"
+	"io"
 	// "os/exec"
 	// "os/signal"
 	// "strings"
@@ -170,7 +172,73 @@ func MarshalJSON(o interface{}) ([]byte, error) {
 func UnmarshalBinaryBare(bz []byte, ptr interface{}) error {
 	return rlp.DecodeBytes(bz, ptr)
 }
+// MarshalBinaryWriter writes the bytes as would be returned from
+// MarshalBinary to the writer w.
+func MarshalBinaryWriter(w io.Writer, o interface{}) (n int64, err error) {
+	var bz, _n = []byte(nil), int(0)
+	bz, err = MarshalBinaryBare(o)
+	if err != nil {
+		return 0, err
+	}
+	_n, err = w.Write(bz) // TODO: handle overflow in 32-bit systems.
+	n = int64(_n)
+	return
+}
+// Like UnmarshalBinaryBare, but will first read the byte-length prefix.
+// UnmarshalBinaryReader will panic if ptr is a nil-pointer.
+// If maxSize is 0, there is no limit (not recommended).
+func UnmarshalBinaryReader(r io.Reader, ptr interface{}, maxSize int64) (n int64, err error) {
+	if maxSize < 0 {
+		panic("maxSize cannot be negative.")
+	}
 
+	// Read byte-length prefix.
+	var l int64
+	var buf [binary.MaxVarintLen64]byte
+	for i := 0; i < len(buf); i++ {
+		_, err = r.Read(buf[i : i+1])
+		if err != nil {
+			return
+		}
+		n += 1
+		if buf[i]&0x80 == 0 {
+			break
+		}
+		if n >= maxSize {
+			err = fmt.Errorf("Read overflow, maxSize is %v but uvarint(length-prefix) is itself greater than maxSize.", maxSize)
+		}
+	}
+	u64, _ := binary.Uvarint(buf[:])
+	if err != nil {
+		return
+	}
+	if maxSize > 0 {
+		if uint64(maxSize) < u64 {
+			err = fmt.Errorf("Read overflow, maxSize is %v but this amino binary object is %v bytes.", maxSize, u64)
+			return
+		}
+		if (maxSize - n) < int64(u64) {
+			err = fmt.Errorf("Read overflow, maxSize is %v but this length-prefixed amino binary object is %v+%v bytes.", maxSize, n, u64)
+			return
+		}
+	}
+	l = int64(u64)
+	if l < 0 {
+		err = fmt.Errorf("Read overflow, this implementation can't read this because, why would anyone have this much data? Hello from 2018.")
+	}
+
+	// Read that many bytes.
+	var bz = make([]byte, l, l)
+	_, err = io.ReadFull(r, bz)
+	if err != nil {
+		return
+	}
+	n += l
+
+	// Decode.
+	err = UnmarshalBinaryBare(bz, ptr)
+	return
+}
 //-----------------------------------------------------------------------------
 func RandInt() int {
 	random := rand.New(rand.NewSource(time.Now().Unix()))
