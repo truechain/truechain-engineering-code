@@ -10,8 +10,6 @@ import (
 	"time"
 
 	// fail "github.com/ebuchman/fail-test"
-	tmevents "github.com/tendermint/tendermint/libs/events"
-
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
@@ -135,7 +133,7 @@ func NewConsensusState(
 		doWALCatchup:     true,
 		wal:              nilWAL{},
 		state:			  state,
-		evsw:             tmevents.NewEventSwitch(),
+		evsw:             ttypes.NewEventSwitch(),
 		// metrics:          NopMetrics(),
 	}
 	// set function defaults (may be overwritten before calling Start)
