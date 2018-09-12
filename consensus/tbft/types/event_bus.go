@@ -1,8 +1,8 @@
 package types
 
 import (
-	"context"
-	"fmt"
+	//"context"
+	//"fmt"
 	"errors"
 
 	"github.com/truechain/truechain-engineering-code/event"
@@ -30,7 +30,7 @@ type EventBus struct {
 // NewEventBus returns a new event bus.
 func NewEventBus() *EventBus {
 	b := &EventBus{subs: make(map[string]*event.Feed)}
-	b.BaseService = *help.NewBaseService(nil, "EventBus", b)
+	b.BaseService = *help.NewBaseService("EventBus", b)
 	return b
 }
 
@@ -75,21 +75,21 @@ func (b *EventBus) Subscribe(key string, out chan<- interface{}) event.Subscript
 
 //--- block, tx, and vote events
 
-func (b *EventBus) PublishEventNewBlock(event EventDataNewBlock) error {
-	if v,ok := b.subs[EventNewBlock];ok {
-		v.Send(event)
-		return nil
-	}
-	return errors.New(EventMsgNotFound)
-}
+// func (b *EventBus) PublishEventNewBlock(event EventDataNewBlock) error {
+// 	if v,ok := b.subs[EventNewBlock];ok {
+// 		v.Send(event)
+// 		return nil
+// 	}
+// 	return errors.New(EventMsgNotFound)
+// }
 
-func (b *EventBus) PublishEventNewBlockHeader(event EventDataNewBlockHeader) error {
-	if v,ok := b.subs[EventNewBlockHeader];ok {
-		v.Send(event)
-		return nil
-	}
-	return errors.New(EventMsgNotFound)
-}
+// func (b *EventBus) PublishEventNewBlockHeader(event EventDataNewBlockHeader) error {
+// 	if v,ok := b.subs[EventNewBlockHeader];ok {
+// 		v.Send(event)
+// 		return nil
+// 	}
+// 	return errors.New(EventMsgNotFound)
+// }
 
 func (b *EventBus) PublishEventVote(event EventDataVote) error {
 	if v,ok := b.subs[EventVote];ok {

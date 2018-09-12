@@ -2,7 +2,7 @@ package types
 
 import (
 	"bytes"
-	"fmt"
+	//"fmt"
 	"crypto/ecdsa"
 
 	// "github.com/tendermint/tendermint/crypto/ed25519"
