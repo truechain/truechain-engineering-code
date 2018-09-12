@@ -57,8 +57,11 @@ var (
 	//Snail block rewards initial 116.48733*10^18
 	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
 
-	//Snail block rewards base value 16.48733* 10^5
-	SnailBlockRewardsBase = 11648733
+	//Snail block rewards base value is 115.555555555555 * 10^12
+	SnailBlockRewardsBase = 115555555555555
+
+	//up to wei  SnailBlockRewardsBase * this is wei
+	Big1e6 = big.NewInt(1e6)
 
 	//Snail block rewards change interval 4500 blocks
 	SnailBlockRewardsChangeInterval = 4500
@@ -68,8 +71,6 @@ var (
 
 	//BaseBig
 	BaseBig = big.NewInt(1e18)
-
-	Big1e13 = big.NewInt(1e13)
 
 	//The number of main network fragments is currently fixed at 1
 	NetworkFragmentsNuber = 1
@@ -240,11 +241,9 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	return item, future
 }
 
-
-
 // dataset wraps an truehash dataset with some metadata to allow easier concurrent use.
 type dataset struct {
-	epoch   uint64    // Epoch for which this cache is relevant
+	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
 	dataset []uint64  // The actual cache data content
@@ -254,7 +253,7 @@ type dataset struct {
 // newDataset creates a new truehash mining dataset
 func newDataset(epoch uint64) *dataset {
 	ds := &dataset{
-		epoch: epoch,
+		epoch:   epoch,
 		dataset: make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	truehashTableInit(ds.dataset)
@@ -326,10 +325,10 @@ func New(config Config) *Minerva {
 	}
 
 	MinervaLocal = &Minerva{
-		config:   config,
+		config: config,
 		//caches:   newlru("cache", config.CachesInMem, newCache),
 		//datasets: newlru("dataset", config.DatasetsInMem, newDataset),
-		dataset: newDataset(0),
+		dataset:  newDataset(0),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}

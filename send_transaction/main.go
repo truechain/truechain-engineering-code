@@ -19,6 +19,8 @@ var from, to, frequency = 0, 1, 1
 //Two transmission intervals
 var interval = time.Millisecond * 0
 
+//get all account
+var account []string
 // get par
 func main() {
 	if len(os.Args) < 4 {
@@ -74,8 +76,7 @@ func send(count int, ip string) {
 		return
 	}
 
-	//get all account
-	var account []string
+
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
@@ -150,7 +151,7 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 //send one transaction
 func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
 	defer wait.Done()
-	map_data := make(map[string]string)
+	map_data := make(map[string]interface{})
 	map_data["from"] = account[from]
 	map_data["to"] = account[to]
 	map_data["value"] = "0x2100"
