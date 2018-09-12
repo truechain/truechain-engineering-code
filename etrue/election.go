@@ -1,3 +1,19 @@
+// Copyright 2018 The Truechain Authors
+// This file is part of the truechain-engineering-code library.
+//
+// The truechain-engineering-code library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The truechain-engineering-code library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
+
 package etrue
 
 import (
@@ -9,6 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/event"
 	"math/big"
 )
@@ -16,7 +33,7 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 100
+	z                  = 40
 	k                  = 10000
 	lamada             = 12
 
@@ -39,6 +56,37 @@ var (
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
 )
+
+
+var testCommitteeNodes = []*types.CommitteeNode{
+	{
+		IP:        "192.168.46.8",
+		Port:      10080,
+		Coinbase:  common.HexToAddress("831151b7eb8e650dc442cd623fbc6ae20279df85"),
+		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
+	},
+	{
+		IP:        "192.168.46.33",
+		Port:      10080,
+		Coinbase:  common.HexToAddress("76ea2f3a002431fede1141b660dbb75c26ba6d97"),
+		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
+	},
+	{
+		IP:        "192.168.46.24",
+		Port:      10080,
+		Coinbase:  common.HexToAddress("1074f7deccf8c66efcd0106e034d3356b7db3f2c"),
+		Publickey: common.Hex2Bytes("04013151837b19e4b0e7402ac576e4352091892d82504450864fc9fd156ddf15d22014a0f6bf3c8f9c12d03e75f628736f0c76b72322be28e7b6f0220cf7f4f5fb"),
+	},
+
+	{
+		IP:        "192.168.46.4",
+		Port:      10080,
+		Coinbase:  common.HexToAddress("d985e9871d1be109af5a7f6407b1d6b686901fff"),
+		Publickey: common.Hex2Bytes("04e3e59c07b320b5d35d65917d50806e1ee99e3d5ed062ed24d3435f61a47d29fb2f2ebb322011c1d2941b4853ce2dc71e8c4af57b59bbf40db66f76c3c740d41b"),
+	},
+}
+
+var testCommttee []*types.CommitteeMember
 
 
 type candidateMember struct {
@@ -102,6 +150,16 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 
 	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
 	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+
+	//
+	for _, node := range testCommitteeNodes {
+		pubkey, _ := crypto.UnmarshalPubkey(node.Publickey)
+		member := &types.CommitteeMember{
+			Coinbase:node.Coinbase,
+			Publickey: pubkey,
+		}
+		testCommttee = append(testCommttee, member)
+	}
 
 	return election
 }
@@ -361,22 +419,29 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 		blockNumber = new(big.Int).Add(blockNumber, big.NewInt(1))
 	}
 
+	log.Debug("get committee candidate", "fruit", len(members), "members", len(fruitsCount))
+
 	// remove miner whose fruits count below threshold
+	/*
 	for addr, cnt := range fruitsCount {
+		log.Trace("get committee candidate", "keyAddr", addr, "count", cnt)
 		if cnt < fruitThreshold {
 			delete(fruitsCount, addr)
 		}
-	}
+	}*/
 	var candidates []*candidateMember
 	td := big.NewInt(0)
 	for _, member := range members {
-		if _, ok := fruitsCount[member.address]; ok {
+		if cnt, ok := fruitsCount[member.address]; ok {
+			log.Trace("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
+			if cnt >= fruitThreshold {
+				td.Add(td, member.difficulty)
 
-			td.Add(td, member.difficulty)
-
-			candidates = append(candidates, member)
+				candidates = append(candidates, member)
+			}
 		}
 	}
+	log.Debug("get final candidate", "count", len(candidates))
 
 	dd := big.NewInt(0)
 	rate := new(big.Int).Div(maxUint256, td)
@@ -401,6 +466,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	var addrs map[common.Address]uint = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 
+	log.Debug("elect committee members ..")
 	round := new(big.Int).Set(common.Big0)
 	for {
 		seedNumber := new(big.Int).Add(seed.Big(), round)
@@ -435,18 +501,26 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 		}
 	}
 
+	log.Debug("get new committee members", "count", len(members))
+
+
 	return members
 }
 
 
 // electCommittee elect committee members from snail block.
 func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.CommitteeMember {
+	log.Info("Election new BFT committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", fruitThreshold, "min", minCommitteeNumber, "max", maxCommitteeNumber )
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
 		return nil
 	}
 
-	return e.elect(candidates, seed)
+	members:= e.elect(candidates, seed)
+
+	// for test
+	members = testCommttee
+	return members
 }
 
 func (e *Election) Start() error {
@@ -495,13 +569,13 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
-		e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.committee.id, e.committee.members}})
+		e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
 		//time.Sleep(time.Millisecond*500)
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, nil})
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
-			e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.nextCommittee.id, e.nextCommittee.members}})
+			e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 		}
 	} (e)
 
@@ -536,6 +610,8 @@ func (e *Election) loop() {
 					fruits := sb.Fruits()
 					e.committee.endFastNumber = new(big.Int).Add(fruits[len(fruits)-1].Number(), big.NewInt(k))
 
+					log.Info("BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
+
 					e.nextCommittee = &committee{
 						id:                snailStartNumber,
 						beginSnailNumber:  snailStartNumber,
@@ -547,7 +623,7 @@ func (e *Election) loop() {
 
 					e.startSwitchover = true
 
-					go e.committeeFeed.Send(core.CommitteeEvent{&types.CommitteeInfo{e.nextCommittee.id, e.nextCommittee.members}})
+					go e.committeeFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 				}
 
 			}
@@ -566,6 +642,8 @@ func (e *Election) loop() {
 
 						e.startSwitchover = false
 
+						log.Info("Start new BFT committee..")
+
 						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, nil})
 					}
 				}
@@ -576,10 +654,6 @@ func (e *Election) loop() {
 
 func (e *Election) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
 	return e.scope.Track(e.electionFeed.Subscribe(ch))
-}
-
-func (e *Election) SubscribeCommitteeEvent(ch chan<- core.CommitteeEvent) event.Subscription {
-	return e.scope.Track(e.committeeFeed.Subscribe(ch))
 }
 
 

@@ -1,3 +1,20 @@
+// Copyright 2018 The Truechain Authors
+// This file is part of the truechain-engineering-code library.
+//
+// The truechain-engineering-code library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The truechain-engineering-code library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
+
+
 package etrue
 
 import (
@@ -10,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -50,6 +66,16 @@ var (
 	averageTpsSlice []float32
 )
 
+
+type Backend interface {
+	//AccountManager() *accounts.Manager
+	BlockChain() *core.BlockChain
+	SnailBlockChain() *snailchain.SnailBlockChain
+	TxPool() *core.TxPool
+	//ChainDb() ethdb.Database
+	Config() *Config
+}
+
 type PbftAgent struct {
 	config     *params.ChainConfig
 	fastChain  *core.BlockChain
@@ -77,7 +103,7 @@ type PbftAgent struct {
 	scope            event.SubscriptionScope //send scope
 
 	electionCh    chan core.ElectionEvent
-	committeeCh   chan core.CommitteeEvent
+	//committeeCh   chan core.CommitteeEvent
 	cryNodeInfoCh chan *types.EncryptNodeMessage
 	chainHeadCh   chan core.ChainHeadEvent
 
@@ -110,14 +136,6 @@ type AgentWork struct {
 	createdAt time.Time
 }
 
-type Backend interface {
-	//AccountManager() *accounts.Manager
-	BlockChain() *core.BlockChain
-	SnailBlockChain() *snailchain.SnailBlockChain
-	TxPool() *core.TxPool
-	//ChainDb() ethdb.Database
-	Config() *Config
-}
 
 // NodeInfoEvent is posted when nodeInfo send
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
@@ -128,7 +146,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		fastChain:        eth.BlockChain(),
 		snailChain:       eth.SnailBlockChain(),
 		preCommitteeInfo: new(types.CommitteeInfo),
-		committeeCh:      make(chan core.CommitteeEvent),
+		//committeeCh:      make(chan core.CommitteeEvent),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadSize),
 		cryNodeInfoCh:    make(chan *types.EncryptNodeMessage),
@@ -140,7 +158,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 	}
 	self.InitNodeInfo(eth.Config())
 	if !self.singleNode {
-		self.committeeSub = self.election.SubscribeCommitteeEvent(self.committeeCh)
+		//self.committeeSub = self.election.SubscribeCommitteeEvent(self.committeeCh)
 		self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
 		self.chainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.chainHeadCh)
 	}
@@ -191,53 +209,62 @@ func (self *PbftAgent) loop() {
 		case ch := <-self.electionCh:
 			switch ch.Option {
 			case types.CommitteeStart:
-				log.Debug("CommitteeStart...")
+				log.Info("CommitteeStart...", "Id", ch.CommitteeId)
 				self.setCommitteeInfo(self.nextCommitteeInfo, currentCommittee)
-				if self.isCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(self.currentCommitteeInfo.Id, int(ch.Option))
+				if self.IsCommitteeMember(self.currentCommitteeInfo) {
+					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
 			case types.CommitteeStop:
-				log.Debug("CommitteeStop..")
+				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
+
+				if self.IsCommitteeMember(self.currentCommitteeInfo) {
+					go self.server.Notify(ch.CommitteeId, int(ch.Option))
+				}
 				self.setCommitteeInfo(self.currentCommitteeInfo, preCommittee)
 				self.setCommitteeInfo(nil, currentCommittee)
-				go self.server.Notify(self.currentCommitteeInfo.Id, int(ch.Option))
-			default:
-				log.Debug("unknown electionch:", ch.Option)
-			}
-		case ch := <-self.committeeCh:
-			log.Debug("CommitteeCh...")
-			receivedCommitteeInfo := ch.CommitteeInfo //received committeeInfo
-			self.setCommitteeInfo(receivedCommitteeInfo, nextCommittee)
-			ticker.Stop()                                //stop ticker send nodeInfo
-			self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
-			ticker = time.NewTicker(sendNodeTime)
-			if self.isCommitteeMember(receivedCommitteeInfo) {
-				self.server.PutCommittee(receivedCommitteeInfo)
-				self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
-				go func() {
-					for {
-						select {
-						case <-ticker.C:
-							self.sendPbftNode(receivedCommitteeInfo)
+
+			case types.CommitteeSwitchover:
+				log.Debug("CommitteeCh...")
+				receivedCommitteeInfo := &types.CommitteeInfo{
+					Id:ch.CommitteeId,
+					Members:ch.CommitteeMembers,
+				}
+				//ch.CommitteeInfo //received committeeInfo
+				self.setCommitteeInfo(receivedCommitteeInfo, nextCommittee)
+				ticker.Stop()                                //stop ticker send nodeInfo
+				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
+				ticker = time.NewTicker(sendNodeTime)
+				if self.IsCommitteeMember(receivedCommitteeInfo) {
+					self.server.PutCommittee(receivedCommitteeInfo)
+					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
+					go func() {
+						for {
+							select {
+							case <-ticker.C:
+								self.sendPbftNode(receivedCommitteeInfo)
+							}
 						}
-					}
-				}()
+					}()
+				}
+			default:
+				log.Info("unknown election option:", "option", ch.Option)
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-self.cryNodeInfoCh:
 			//if cryNodeInfo of  node in Committee,
 			if self.encryptoNodeInCommittee(cryNodeInfo) {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
+				/*
 				if bytes.Equal(cryNodeInfo.Sign, []byte{}) {
 					log.Error("received cryNodeInfo.Sign is nil ")
 					continue
-				}
+				}*/
 				signStr := hex.EncodeToString(cryNodeInfo.Sign)
 				if len(signStr) > subSignStr {
 					signStr = signStr[:subSignStr]
 				}
 				// if  node  is in committee  and the sign is not received
-				if self.isCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
+				if self.IsCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
 					self.receivePbftNode(cryNodeInfo)
 				} else {
@@ -524,16 +551,6 @@ func GetTps(currentBlock *types.Block) {
 		log.Info("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
 		averageTpsSlice = append(averageTpsSlice, averageTps)
 	}
-	if len(timeSlice)%50 == 0 {
-		fmt.Println("tps statistics:")
-		for _, tps := range tpsSlice {
-			fmt.Print(tps, "; ")
-		}
-		fmt.Printf("\n averageTps statistics:\n")
-		for _, tps := range averageTpsSlice {
-			fmt.Print(tps, "; ")
-		}
-	}
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
@@ -732,7 +749,7 @@ func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- core.NodeInfoEvent) even
 	return self.scope.Track(self.nodeInfoFeed.Subscribe(ch))
 }
 
-func (self *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
+func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
 	if !self.nodeInfoIsComplete {
 		return false
 	}
@@ -860,7 +877,7 @@ func DebugNode(node *types.CommitteeNode, str string) {
 		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey)[:6]+"***")
 }
 
-//Determine whether the node pubKey  is in the specified committee
+//AcquireCommitteeAuth determine whether the node pubKey  is in the specified committee
 func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 	if !self.nodeInfoIsComplete {
 		return false
