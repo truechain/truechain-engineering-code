@@ -161,6 +161,12 @@ MAIN_LOOP:
 	}	
 return string(chars)
 }
+func EqualHashes(hash1,hash2 []byte) bool {
+	if len(hash1) == 0 || len(hash2) == 0{
+		return false
+	}
+	return bytes.Equal(hash1, hash2)
+}
 //-----------------------------------------------------------------------------
 
 func MarshalBinaryBare(o interface{}) ([]byte,error) {

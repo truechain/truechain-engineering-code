@@ -40,3 +40,7 @@ type EventDataCommon struct {
 type EventDataVote struct {
 	Vote *Vote
 }
+
+type EventDataProposalHeartbeat struct {
+	Heartbeat *Heartbeat
+}
