@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/hex"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
@@ -168,8 +169,30 @@ var (
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}
 	SingleNodeFlag = cli.BoolFlag{
-		Name: "singlenode",
+		Name:  "singlenode",
 		Usage: "sing node model",
+	}
+	EnableElectionFlag = cli.BoolFlag{
+		Name:  "election",
+		Usage: "enable election",
+	}
+	BFTPortFlag = cli.IntFlag{
+		Name:  "bftport",
+		Usage: "committee node port ",
+		Value: 10080,
+	}
+	BFTIPFlag = cli.StringFlag{
+		Name:  "bftip",
+		Usage: "committee node ip",
+		//Value: "127.0.0.1",
+	}
+	BftKeyFileFlag = cli.StringFlag{
+		Name:  "bftkey",
+		Usage: "committee generate privatekey",
+	}
+	BftKeyHexFlag = cli.StringFlag{
+		Name:  "bftkeyhex",
+		Usage: "committee generate privatekey as hex (for testing)",
 	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
@@ -575,8 +598,6 @@ var (
 		Usage: "InfluxDB `host` tag attached to all measurements",
 		Value: "localhost",
 	}
-
-
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -617,6 +638,30 @@ func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
 	case hex != "":
 		if key, err = crypto.HexToECDSA(hex); err != nil {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
+		}
+		cfg.PrivateKey = key
+	}
+}
+
+func setBftCommitteeKey(ctx *cli.Context, cfg *etrue.Config) {
+	var (
+		hex  = ctx.GlobalString(BftKeyHexFlag.Name)
+		file = ctx.GlobalString(BftKeyFileFlag.Name)
+		key  *ecdsa.PrivateKey
+		err  error
+	)
+	log.Debug("", "file:", file, "hex:", hex)
+	switch {
+	case file != "" && hex != "":
+		Fatalf("Options %q and %q are mutually exclusive", BftKeyFileFlag.Name, BftKeyHexFlag.Name)
+	case file != "":
+		if key, err = crypto.LoadECDSA(file); err != nil {
+			Fatalf("Option %q: %v", BftKeyFileFlag.Name, err)
+		}
+		cfg.PrivateKey = key
+	case hex != "":
+		if key, err = crypto.HexToECDSA(hex); err != nil {
+			Fatalf("Option %q: %v", BftKeyHexFlag.Name, err)
 		}
 		cfg.PrivateKey = key
 	}
@@ -932,7 +977,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "rinkeby")
 	}
 
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
@@ -1055,8 +1099,8 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 	}
 }
 
-// SetEthConfig applies etrue-related command line flags to the config.
-func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
+// SetTruechainConfig applies etrue-related command line flags to the config.
+func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
 	checkExclusive(ctx, DeveloperFlag, TestnetFlag, RinkebyFlag)
 	checkExclusive(ctx, FastSyncFlag, LightModeFlag, SyncModeFlag)
@@ -1076,7 +1120,6 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.SyncMode = downloader.FastSync
 	case ctx.GlobalBool(LightModeFlag.Name):
 		cfg.SyncMode = downloader.LightSync
-
 	}
 	if ctx.GlobalIsSet(LightServFlag.Name) {
 		cfg.LightServ = ctx.GlobalInt(LightServFlag.Name)
@@ -1091,6 +1134,30 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
+	if ctx.GlobalIsSet(BFTIPFlag.Name) {
+		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
+	}
+	if ctx.GlobalIsSet(BFTPortFlag.Name) {
+		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
+	}
+	//set PrivateKey by config
+	setBftCommitteeKey(ctx, cfg)
+	if cfg.PrivateKey == nil {
+		//set PrivateKey by default file
+		cfg.PrivateKey = stack.Config().BftCommitteeKey()
+	}
+	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
+	if ctx.GlobalBool(EnableElectionFlag.Name) {
+		if cfg.Host == "" {
+			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
+		}
+		if cfg.Port == 0 {
+			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
+		}
+		cfg.EnableElection = true
+	}
+	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
+		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100

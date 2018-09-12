@@ -32,6 +32,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"crypto/ecdsa"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -78,7 +80,7 @@ type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
 	Genesis *core.Genesis
-	FastGenesis *core.Genesis
+	FastGenesis *fastchain.Genesis
 	SnailGenesis *snailchain.Genesis
 
 	// Protocol options
@@ -96,6 +98,8 @@ type Config struct {
 	// CommitteeKey is the ECDSA private key for committee member.
 	// If this filed is empty, can't be a committee member.
 	CommitteeKey  []byte `toml:",omitempty"`
+
+	PrivateKey *ecdsa.PrivateKey `toml:"-"`
 
 	// Host is the host interface on which to start the pbft server. If this
 	// field is empty, can't be a committee member.

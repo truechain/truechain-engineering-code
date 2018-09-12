@@ -563,6 +563,11 @@ func (n *Node) EventMux() *event.TypeMux {
 	return n.eventmux
 }
 
+func (n *Node) Config() *Config {
+	 copy :=*n.config
+	 return &copy
+}
+
 // OpenDatabase opens an existing database with the given name (or creates one if no
 // previous can be found) from within the node's instance directory. If the node is
 // ephemeral, a memory database is returned.
@@ -607,3 +612,4 @@ func (n *Node) apis() []rpc.API {
 		},
 	}
 }
+

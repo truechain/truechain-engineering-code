@@ -10,12 +10,20 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"log"
 	"math/big"
+	"time"
+	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 const (
 	CommitteeStart      = iota // start pbft consensus
 	CommitteeStop              // stop pbft consensus
 	CommitteeSwitchover        //switch pbft committee
+)
+
+const (
+	VoteAgreeAgainst = iota //vote against
+	VoteAgree               //vote  agree
 )
 
 type CommitteeMembers []*CommitteeMember
@@ -66,7 +74,7 @@ type PbftSign struct {
 type PbftAgentProxy interface {
 	FetchFastBlock() (*Block, error)
 	VerifyFastBlock(*Block) error
-	BroadcastFastBlock(*Block) error
+	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 }
 
@@ -117,4 +125,32 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 type CommitteeInfo struct {
 	Id      *big.Int
 	Members []*CommitteeMember
+}
+
+type EncryptCommitteeNode []byte
+type Sign []byte
+
+type EncryptNodeMessage struct {
+	CreatedAt   time.Time
+	CommitteeId *big.Int
+	Nodes       []EncryptCommitteeNode
+	Sign //sign msg
+}
+
+func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
+	return RlpHash([]interface{}{
+		c.Nodes,
+		c.CommitteeId,
+	})
+}
+
+func (c *EncryptNodeMessage) Hash() common.Hash {
+	return RlpHash(c)
+}
+
+func RlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }

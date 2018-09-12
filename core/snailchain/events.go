@@ -24,7 +24,6 @@ import (
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
-// for fruit and record
 type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
 
 type NewFastBlocksEvent struct{ FastBlocks []*types.Block }

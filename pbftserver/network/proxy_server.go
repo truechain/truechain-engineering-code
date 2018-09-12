@@ -31,6 +31,8 @@ start:
 	//	"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
 	//	"len(node.MsgBuffer.CommitMsgs):", len(node.MsgBuffer.CommitMsgs))
 
+	lock.PSLog("Node info", fmt.Sprintf("%+v", node.NodeTable))
+
 	for i := 0; i < len(node.MsgBuffer.ReqMsgs); i++ {
 		lock.PSLog("ReqMsgs:", fmt.Sprintf("%+v \n", *node.MsgBuffer.ReqMsgs[i]))
 	}

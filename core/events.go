@@ -65,12 +65,9 @@ type FruitEvent struct {
 
 type ElectionEvent struct {
 	Option      uint
-	Fastnumber  *big.Int
-	Snailnumber *big.Int
-}
-
-type CommitteeEvent struct {
-	CommitteeInfo *types.CommitteeInfo
+	CommitteeId  *big.Int
+	CommitteeMembers []*types.CommitteeMember
+	//CommitteeInfo *types.CommitteeInfo
 }
 
 type PbftSignEvent struct {
@@ -81,4 +78,5 @@ type PbftSignEvent struct {
 // NewBlockEvent is posted when a block has been generate .
 type NewBlockEvent struct{ Block *types.Block }
 
-type RewardNumberEvent struct{ RewardNumber *big.Int }
+// NodeInfoEvent is posted when nodeInfo send
+type NodeInfoEvent struct{ NodeInfo *types.EncryptNodeMessage }

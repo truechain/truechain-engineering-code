@@ -26,9 +26,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -40,15 +43,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
-	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	)
+)
 
 var (
 	FastBlockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-	ErrNoGenesis = errors.New("Fast Genesis not found in chain")
+	ErrNoGenesis         = errors.New("Fast Genesis not found in chain")
 )
 
 const (
@@ -93,16 +93,16 @@ type BlockChain struct {
 	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
-	hc            *HeaderChain
-	sc            *snailchain.SnailBlockChain
-	rmLogsFeed    event.Feed
-	chainFeed     event.Feed
-	chainSideFeed event.Feed
-	chainHeadFeed event.Feed
-	logsFeed      event.Feed
-	RewardNumberFeed	event.Feed
-	scope         event.SubscriptionScope
-	genesisBlock  *types.Block
+	hc               *HeaderChain
+	sc               *snailchain.SnailBlockChain
+	rmLogsFeed       event.Feed
+	chainFeed        event.Feed
+	chainSideFeed    event.Feed
+	chainHeadFeed    event.Feed
+	logsFeed         event.Feed
+	RewardNumberFeed event.Feed
+	scope            event.SubscriptionScope
+	genesisBlock     *types.Block
 
 	mu      sync.RWMutex // global mutex for locking chain operations
 	chainmu sync.RWMutex // blockchain insertion lock
@@ -153,8 +153,8 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 	blockCache, _ := lru.New(blockCacheLimit)
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
-	signCache,_ :=lru.New(bodyCacheLimit)
-	rewardCache,_:=lru.New(bodyCacheLimit)
+	signCache, _ := lru.New(bodyCacheLimit)
+	rewardCache, _ := lru.New(bodyCacheLimit)
 
 	bc := &BlockChain{
 		chainConfig:  chainConfig,
@@ -164,11 +164,11 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 		stateCache:   state.NewDatabase(db),
 		quit:         make(chan struct{}),
 		bodyCache:    bodyCache,
-		signCache:	  signCache,
+		signCache:    signCache,
 		bodyRLPCache: bodyRLPCache,
 		blockCache:   blockCache,
 		futureBlocks: futureBlocks,
-		rewardCache: rewardCache,
+		rewardCache:  rewardCache,
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
@@ -177,9 +177,9 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
 
 	var err error
-		bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
-		if err != nil {
-			return nil, err
+	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
+	if err != nil {
+		return nil, err
 	}
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
@@ -262,7 +262,7 @@ func (bc *BlockChain) loadLastState() error {
 
 	rewardHead := rawdb.ReadHeadRewardNumber(bc.db)
 	if rewardHead != 0 {
-		rawdb.ReadBlockReward(bc.db,rewardHead)
+		rawdb.ReadBlockReward(bc.db, rewardHead)
 		reward := bc.GetFastHeightBySnailHeight(rewardHead)
 		bc.currentReward.Store(reward)
 	}
@@ -284,15 +284,15 @@ func (bc *BlockChain) loadLastState() error {
 	return nil
 }
 
-func (bc *BlockChain)  GetLastRow() *types.BlockReward {
+func (bc *BlockChain) GetLastRow() *types.BlockReward {
 
 	sNumber := bc.CurrentBlock().NumberU64()
 
 	fmt.Println(sNumber)
-	for i:=sNumber; i>0 ; i-- {
+	for i := sNumber; i > 0; i-- {
 
 		sBlock := bc.sc.GetBlockByNumber(i)
-		if sBlock == nil{
+		if sBlock == nil {
 			continue
 		}
 		reward := bc.GetFastHeightBySnailHeight(sBlock.NumberU64())
@@ -302,7 +302,6 @@ func (bc *BlockChain)  GetLastRow() *types.BlockReward {
 	}
 	return nil
 }
-
 
 // SetHead rewinds the local chain to a new head. In the case of headers, everything
 // above the new head will be deleted and the new one set. In the case of blocks
@@ -392,7 +391,6 @@ func (bc *BlockChain) CurrentReward() *types.BlockReward {
 	}
 	return bc.currentReward.Load().(*types.BlockReward)
 }
-
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
@@ -565,8 +563,6 @@ func (bc *BlockChain) GetBody(hash common.Hash) *types.Body {
 	bc.bodyCache.Add(hash, body)
 	return body
 }
-
-
 
 // GetBodyRLP retrieves a block body in RLP encoding from the database by hash,
 // caching it if found.
@@ -761,7 +757,6 @@ const (
 	SideStatTy
 )
 
-
 // Rollback is designed to remove a chain of links from the database that aren't
 // certain enough to be valid.
 func (bc *BlockChain) Rollback(chain []common.Hash) {
@@ -911,7 +906,6 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	return 0, nil
 }
 
-
 var lastWrite uint64
 
 // WriteBlockWithoutState writes only the block and its metadata to the database,
@@ -955,20 +949,18 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	batch := bc.db.NewBatch()
 	rawdb.WriteBlock(batch, block)
 
-	if(block.SnailNumber().Int64() != 0){
+	if block.SnailNumber().Int64() != 0 {
 		//create BlockReward
 		br := &types.BlockReward{
-			FastHash:block.Hash(),
-			FastNumber:block.Number(),
-			SnailHash:block.SnailHash(),
-			SnailNumber:block.SnailNumber(),
+			FastHash:    block.Hash(),
+			FastNumber:  block.Number(),
+			SnailHash:   block.SnailHash(),
+			SnailNumber: block.SnailNumber(),
 		}
 		//insert BlockReward to db
-		rawdb.WriteBlockReward(batch,br)
-		rawdb.WriteHeadRewardNumber(bc.db,block.SnailNumber().Uint64())
+		rawdb.WriteBlockReward(batch, br)
+		rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())
 	}
-
-
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
@@ -1071,21 +1063,18 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	return status, nil
 }
 
+func (bc *BlockChain) InsertSign(block *types.Block, signs []*types.PbftSign) (int, error) {
 
-func (bc *BlockChain) InsertSign(block *types.Block,signs []*types.PbftSign) (int, error) {
-
-	if(signs == nil){
-		return 0,errors.New("signs is nil")
+	if signs == nil {
+		return 0, errors.New("signs is nil")
 	}
 
-	block.Body().Signs=signs
+	block.Body().Signs = signs
 	chain := []*types.Block{block}
 	n, events, logs, err := bc.insertChain(chain)
 	bc.PostChainEvents(events, logs)
 	return n, err
 }
-
-
 
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
@@ -1142,9 +1131,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		headers[i] = block.Header()
 		seals[i] = true
 	}
-	abort, results := bc.engine.VerifyFastHeaders(bc, headers, seals)
+	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 	defer close(abort)
-
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	senderCacher.recoverFromFastBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
@@ -1167,7 +1155,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateBody(block)//update
+			err = bc.Validator().ValidateBody(block) //update
 		}
 		switch {
 		case err == ErrKnownBlock:
@@ -1245,9 +1233,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			return i, events, coalescedLogs, err
 		}
 		// Process block using the parent state as reference point.
-		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)//update
-
-
+		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig) //update
 
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
@@ -1337,7 +1323,7 @@ func (st *fastInsertStats) report(chain []*types.Block, index int, cache common.
 		if st.ignored > 0 {
 			context = append(context, []interface{}{"ignored", st.ignored}...)
 		}
-		log.Info("Imported new chain segment", context...)
+		log.Info("Imported new fast chain segment", context...)
 
 		*st = fastInsertStats{startTime: now, lastIndex: index + 1}
 	}
@@ -1482,13 +1468,9 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 			bc.chainHeadFeed.Send(ev)
 		case ChainSideEvent:
 			bc.chainSideFeed.Send(ev)
-		 	
+
 		}
 	}
-}
-
-func (bc *BlockChain) SubscribeRewardNumberEvent(ch chan<- RewardNumberEvent) event.Subscription {
-	return bc.scope.Track(bc.RewardNumberFeed.Subscribe(ch))
 }
 
 func (bc *BlockChain) update() {
@@ -1707,14 +1689,13 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward{
-
+func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward {
 
 	if signs, ok := bc.rewardCache.Get(number); ok {
 		sign := signs.(*types.BlockReward)
 		return sign
 	}
-	signs := rawdb.ReadBlockReward(bc.db,number)
+	signs := rawdb.ReadBlockReward(bc.db, number)
 
 	if signs == nil {
 		return nil

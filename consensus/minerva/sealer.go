@@ -161,15 +161,15 @@ mineloop:
 			// One of the threads found a block or fruit return it
 			send <- result
 			// TODO snail need a flag to distinguish furit and block
-			
-			if block.Fruits() != nil{
+
+			if block.Fruits() != nil {
 				if !result.IsFruit() {
 					// stop threads when get a block, wait for outside abort when result is fruit
 					close(abort)
 					pend.Wait()
 					break mineloop
 				}
-			}else{
+			} else {
 				close(abort)
 				pend.Wait()
 				break mineloop
@@ -190,110 +190,29 @@ mineloop:
 	//return result, nil
 }
 
-// mine is the actual proof-of-work miner that searches for a nonce starting from
-// seed that results in correct final block difficulty.
-func (m *Minerva) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
-	// backup
-	/*
-		// Extract some data from the header
-		var (
-			header          = block.Header()
-			hash            = header.HashNoNonce().Bytes()
-			target          = new(big.Int).Div(maxUint256, header.Difficulty)
-			fruitDifficulty = new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-			fruitTarget     = new(big.Int).Div(maxUint128, fruitDifficulty)
-			number          = header.Number.Uint64()
-			dataset         = m.dataset(number)
-		)
-		// Start generating random nonces until we abort or find a good one
-		var (
-			attempts = int64(0)
-			nonce    = seed
-		)
-		logger := log.New("miner", id)
-		logger.Trace("Started ethash search for new nonces", "seed", seed)
-	search:
-		for {
-			select {
-			case <-abort:
-				// Mining terminated, update stats and abort
-				logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
-				ethash.hashrate.Mark(attempts)
-				break search
-
-			default:
-				// We don't have to update hash rate on every nonce, so update after after 2^X nonces
-				attempts++
-				if (attempts % (1 << 15)) == 0 {
-					ethash.hashrate.Mark(attempts)
-					attempts = 0
-				}
-				// Compute the PoW value of this nonce
-				digest, result := hashimotoFull(dataset.dataset, hash, nonce)
-				if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
-					// Correct nonce found, create a new header with it
-					header = types.CopyHeader(header)
-					header.Nonce = types.EncodeNonce(nonce)
-					header.MixDigest = common.BytesToHash(digest)
-					header.Fruit = false
-
-					// Seal and return a block (if still needed)
-					select {
-					case found <- block.WithSeal(header):
-						logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
-					case <-abort:
-						logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
-					}
-					break search
-				} else {
-					lastResult := result[16:]
-					if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
-						// last 128 bit < Dpf, get a fruit
-						header = types.CopyHeader(header)
-						header.Nonce = types.EncodeNonce(nonce)
-						header.MixDigest = common.BytesToHash(digest)
-						header.Fruit = true
-
-						// Seal and return a block (if still needed)
-						select {
-						case found <- block.WithSeal(header):
-							logger.Trace("IsFruit nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
-						case <-abort:
-							logger.Trace("IsFruit nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
-						}
-					}
-				}
-				nonce++
-			}
-		}
-		// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
-		// during sealing so it's not unmapped while being read.
-		runtime.KeepAlive(dataset)
-	*/
-}
 func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort chan struct{}, found chan *types.SnailBlock) {
 	// Extract some data from the header
 	var (
-		header          = block.Header()
-		hash            = header.HashNoNonce().Bytes()
-		target          = new(big.Int).Div(maxUint256, header.Difficulty)
+		header = block.Header()
+		hash   = header.HashNoNonce().Bytes()
+		target = new(big.Int).Div(maxUint256, header.Difficulty)
 
-		number          = header.Number.Uint64()
-		dataset         = m.dataset(number)
+		//number          = header.Number.Uint64()
+		//dataset         = m.dataset(number)
 	)
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 
 	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
 		fruitDifficulty.Set(params.MinimumFruitDifficulty)
 	}
-	fruitTarget     := new(big.Int).Div(maxUint128, fruitDifficulty)
+	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
-	logger.Trace("Started ethash search for new nonces", "seed", seed)
+	logger.Trace("Started truehash search for new nonces", "seed", seed)
 search:
 	for {
 		select {
@@ -311,11 +230,11 @@ search:
 				attempts = 0
 			}
 			// Compute the PoW value of this nonce
-			digest, result := hashimotoFull(dataset.dataset, hash, nonce)
+			digest, result := truehashFull(m.dataset.dataset, hash, nonce)
 
 			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
-				if block.Fruits() != nil{
+				if block.Fruits() != nil {
 					header = types.CopySnailHeader(header)
 					header.Nonce = types.EncodeNonce(nonce)
 					header.MixDigest = common.BytesToHash(digest)
@@ -325,16 +244,16 @@ search:
 					// Seal and return a block (if still needed)
 					select {
 					case found <- block.WithSeal(header):
-						logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+						logger.Trace("Truehash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 					case <-abort:
-						logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+						logger.Trace("Truehash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
 					}
 					break search
 				}
-				
+
 			} else {
 				lastResult := result[16:]
-				if header.FastNumber.Uint64() !=0 {
+				if header.FastNumber.Uint64() != 0 {
 					if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
 						// last 128 bit < Dpf, get a fruit
 						header = types.CopySnailHeader(header)
@@ -358,5 +277,5 @@ search:
 	}
 	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
 	// during sealing so it's not unmapped while being read.
-	runtime.KeepAlive(dataset)
+	//runtime.KeepAlive(dataset)
 }

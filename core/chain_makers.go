@@ -22,7 +22,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-		"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
@@ -35,7 +35,7 @@ type BlockGen struct {
 	i           int
 	parent      *types.Block
 	chain       []*types.Block
-	chainReader consensus.ChainFastReader
+	chainReader consensus.ChainReader
 	header      *types.Header
 	statedb     *state.StateDB
 
@@ -92,8 +92,8 @@ func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
 
-	feeAmount := big.NewInt(0);
-	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed,feeAmount, vm.Config{})
+	feeAmount := big.NewInt(0)
+	receipt, _, err := ApplyTransaction(b.config, bc, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, feeAmount, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
@@ -192,15 +192,13 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		//	misc.ApplyDAOHardFork(statedb)
 		//}
 
-
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
 			gen(i, b)
 		}
 
 		if b.engine != nil {
-
-			block, _ := b.engine.FinalizeFast(b.chainReader, b.header, statedb, b.txs, b.receipts)
+			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts)
 			// Write state changes to db
 			root, err := statedb.Commit(config.IsEIP158(b.header.Number))
 			if err != nil {
@@ -226,7 +224,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	return blocks, receipts
 }
 
-func  makeHeader(chain consensus.ChainFastReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
+func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time *big.Int
 	if parent.Time() == nil {
 		time = big.NewInt(10)
@@ -237,9 +235,9 @@ func  makeHeader(chain consensus.ChainFastReader, parent *types.Block, state *st
 	return &types.Header{
 		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
 		ParentHash: parent.Hash(),
-		GasLimit: FastCalcGasLimit(parent),
-		Number:   new(big.Int).Add(parent.Number(), common.Big1),
-		Time:     time,
+		GasLimit:   FastCalcGasLimit(parent),
+		Number:     new(big.Int).Add(parent.Number(), common.Big1),
+		Time:       time,
 	}
 }
 

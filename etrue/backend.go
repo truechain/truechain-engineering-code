@@ -33,10 +33,12 @@ import (
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
@@ -51,7 +53,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	"github.com/truechain/truechain-engineering-code/crypto"
 )
 
 type LesServer interface {
@@ -125,7 +126,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.FastGenesis)
+	chainConfig, genesisHash, genesisErr := fastchain.SetupGenesisBlock(chainDb, config.FastGenesis)
 	snailConfig, snailHash, snailErr := chain.SetupGenesisBlock(chainDb, config.SnailGenesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
@@ -176,7 +177,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if err != nil {
 		return nil, err
 	}
-
 
 	// Rewind the chain in case of an incompatible config upgrade.
 	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
@@ -433,9 +433,9 @@ func (s *Truechain) StopMining()         { s.miner.Stop() }
 func (s *Truechain) IsMining() bool      { return s.miner.Mining() }
 func (s *Truechain) Miner() *miner.Miner { return s.miner }
 
-func (s *Truechain) AccountManager() *accounts.Manager       { return s.accountManager }
-func (s *Truechain) BlockChain() *core.BlockChain            { return s.blockchain }
-func (s *Truechain) Config() *Config            { return s.config }
+func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
+func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
+func (s *Truechain) Config() *Config                   { return s.config }
 
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
@@ -482,10 +482,15 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		s.lesServer.Start(srvr)
 	}
 	s.startPbftServer()
-	s.agent.server =s.pbftServer
-	//s.agent.Start()
+	if s.pbftServer == nil {
+		log.Error("start pbft server failed.")
+		return errors.New("start pbft server failed.")
+	}
+	s.agent.server = s.pbftServer
+	log.Info("","server",s.agent.server)
+	s.agent.Start()
 
-	//s.election.Start()
+	s.election.Start()
 	//go s.agent.SendBlock()
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
@@ -514,7 +519,7 @@ func (s *Truechain) Stop() error {
 	return nil
 }
 func (s *Truechain) startPbftServer() error {
-	priv,err := crypto.ToECDSA(s.config.CommitteeKey)
+	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
 	if err != nil {
 		return err
 	}

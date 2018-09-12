@@ -50,11 +50,10 @@ const (
 
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize         = 4096
-	signChanSize       = 256
-	nodeChanSize       = 256
-	fruitChanSize      = 256
-	snailBlockChanSize = 256
+	txChanSize    = 4096
+	signChanSize  = 256
+	nodeChanSize  = 256
+	fruitChanSize = 256
 )
 
 var (
@@ -99,25 +98,21 @@ type ProtocolManager struct {
 	fruitsch  chan snailchain.NewFruitsEvent
 	fruitsSub event.Subscription
 
-	snailBlocksch  chan snailchain.ChainEvent
-	snailBlocksSub event.Subscription
-
 	//fast block
 	minedFastCh  chan core.NewBlockEvent
 	minedFastSub event.Subscription
 
 	pbSignsCh     chan core.PbftSignEvent
 	pbSignsSub    event.Subscription
-	pbNodeInfoCh  chan NodeInfoEvent
+	pbNodeInfoCh  chan core.NodeInfoEvent
 	pbNodeInfoSub event.Subscription
 
-	//fruit
-	minedFruitSub *event.TypeMuxSubscription
 	//minedsnailBlock
 	minedSnailBlockSub *event.TypeMuxSubscription
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
 	txsyncCh    chan *txsync
+	fruitsyncCh    chan *fruitsync
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
@@ -208,7 +203,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
-		return engine.VerifyFastHeader(blockchain, header, true)
+		return engine.VerifyHeader(blockchain, header, true)
 	}
 	fastHeighter := func() uint64 {
 		return blockchain.CurrentFastBlock().NumberU64()
@@ -286,12 +281,6 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
 
-	//broadcast snailblock
-	pm.snailBlocksch = make(chan snailchain.ChainEvent, snailBlockChanSize)
-	// TODO: modify snailblock broadcast
-	pm.snailBlocksSub = pm.snailchain.SubscribeChainEvent(pm.snailBlocksch)
-	go pm.snailBlockBroadcastLoop()
-
 	// broadcast mined fastBlocks
 	pm.minedFastCh = make(chan core.NewBlockEvent, txChanSize)
 	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
@@ -303,21 +292,20 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.pbSignBroadcastLoop()
 
 	// broadcast node info
-	pm.pbNodeInfoCh = make(chan NodeInfoEvent, nodeChanSize)
+	pm.pbNodeInfoCh = make(chan core.NodeInfoEvent, nodeChanSize)
 	pm.pbNodeInfoSub = pm.agentProxy.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
 	go pm.pbNodeInfoBroadcastLoop()
 
-	// broadcast mined fruits
-	pm.minedFruitSub = pm.eventMux.Subscribe(core.NewMinedFruitEvent{})
-	go pm.minedFruitLoop()
-
 	//broadcast mined snailblock
-	pm.minedSnailBlockSub = pm.eventMux.Subscribe(core.NewMinedSnailBlockEvent{})
+	pm.minedSnailBlockSub = pm.eventMux.Subscribe(snailchain.NewMinedBlockEvent{})
 	go pm.minedSnailBlockLoop()
 
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
+	go pm.fruitsyncLoop()
+	atomic.StoreUint32(&pm.acceptTxs, 1)
+	atomic.StoreUint32(&pm.acceptFruits, 1)
 }
 
 func (pm *ProtocolManager) Stop() {
@@ -328,10 +316,8 @@ func (pm *ProtocolManager) Stop() {
 	pm.pbSignsSub.Unsubscribe()
 	pm.pbNodeInfoSub.Unsubscribe()
 	//fruit and minedfruit
-	pm.fruitsSub.Unsubscribe()     // quits fruitBroadcastLoop
-	pm.minedFruitSub.Unsubscribe() // quits minedfruitBroadcastLoop
-	//snailblock and minedSnailBlock
-	pm.snailBlocksSub.Unsubscribe()     // quits snailBlockBroadcastLoop
+	pm.fruitsSub.Unsubscribe() // quits fruitBroadcastLoop
+	//minedSnailBlock
 	pm.minedSnailBlockSub.Unsubscribe() // quits minedSnailBlockBroadcastLoop
 
 	// Quit the sync loop.
@@ -403,7 +389,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
-
+	pm.syncFruits(p)
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
 		// Request the peer's DAO fork header for extra-data validation
@@ -874,22 +860,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == NewFastBlockHashesMsg:
-		log.Info("NewFastBlockHashesMsg")
 		var announces newBlockHashesData
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
 		// Mark the hashes as present at the remote node
 		for _, block := range announces {
-			log.Info("NewFastBlockHashesMsg", "block", block)
 			p.MarkFastBlock(block.Hash)
 		}
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
-			if !pm.blockchain.HasBlock(block.Hash, block.Number) &&
-				pm.fetcherFast.GetPendingBlock(block.Hash) == nil {
-				unknown = append(unknown, block)
+			if !pm.blockchain.HasBlock(block.Hash, block.Number) {
+				if pm.fetcherFast.GetPendingBlock(block.Hash) != nil {
+					log.Debug("Has pending block", "num", block.Number, "announces", len(announces))
+				} else {
+					unknown = append(unknown, block)
+				}
 			}
 		}
 		//for _, block := range unknown {
@@ -949,8 +936,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
-		// CryNodeInfo can be processed, parse all of them and deliver to the queue
-		var nodeInfo *CryNodeInfo
+		// EncryptNodeMessage can be processed, parse all of them and deliver to the queue
+		var nodeInfo *types.EncryptNodeMessage
 		if err := msg.Decode(&nodeInfo); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
@@ -975,11 +962,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		if pm.agentProxy.AcquireCommitteeAuth(signs[0].FastHeight) {
-			pm.BroadcastPbSign(signs)
-		} else {
-			pm.fetcherFast.EnqueueSign(p.id, signs)
-		}
+		// committee no current block
+		pm.fetcherFast.EnqueueSign(p.id, signs)
 
 	//fruit structure
 
@@ -1054,7 +1038,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 // BroadcastFastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
 func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool) {
-	fmt.Println("BroadcastFastBlock=====", block)
 	hash := block.Hash()
 	peers := pm.peers.PeersWithoutFastBlock(hash)
 
@@ -1077,7 +1060,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Info("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -1092,7 +1075,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Info("Broadcast sign", "hash", pbSign.Hash().String(), "number", pbSign.FastHeight, "recipients", len(peers))
+		log.Debug("Broadcast sign", "hash", pbSign.Hash().String(), "number", pbSign.FastHeight, "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
@@ -1101,54 +1084,20 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 	}
 }
 
-// BroadcastPbNodeInfo will propagate a batch of CryNodeInfo to all peers which are not known to
+// BroadcastPbNodeInfo will propagate a batch of EncryptNodeMessage to all peers which are not known to
 // already have the given CryNodeInfo.
-func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *CryNodeInfo) {
-	var nodeInfoSet = make(map[*peer]NodeInfoEvent)
+func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessage) {
+	var nodeInfoSet = make(map[*peer]core.NodeInfoEvent)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
 	for _, peer := range peers {
-		nodeInfoSet[peer] = NodeInfoEvent{nodeInfo}
+		nodeInfoSet[peer] = core.NodeInfoEvent{nodeInfo}
 	}
-	log.Info("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
+	log.Debug("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
-		peer.AsyncSendNodeInfo(nodeInfo.nodeInfo)
+		peer.AsyncSendNodeInfo(nodeInfo.NodeInfo)
 	}
-}
-
-// Addead by Abtion,BroadcastFruit will either propagate a fruit to a subset of it's peers, or
-// will only announce it's availability (depending what's requested).
-func (pm *ProtocolManager) BroadcastFruit(fruit *types.SnailBlock, propagate bool) {
-	hash := fruit.Hash()
-	peers := pm.peers.PeersWithoutFruit(hash)
-
-	// If propagation is requested, send to a subset of the peer
-	if propagate {
-		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
-		var td *big.Int
-		/*if parent := pm.fruitchain.GetBlock(fruit.ParentHash(), fruit.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(fruit.Difficulty(), pm.blockchain.GetTd(fruit.ParentHash(), fruit.NumberU64()-1))
-		} else {
-			log.Error("Propagating dangling fruit", "number", fruit.Number(), "hash", hash)
-			return
-		}*/
-		// Send the fruit to a subset of our peers
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
-		for _, peer := range transfer {
-			peer.AsyncSendNewFruit(fruit, td)
-		}
-		log.Trace("Propagated fruit", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(fruit.ReceivedAt)))
-		return
-	}
-	//fruit not exist the follow situation
-	/*// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, fruit.NumberU64()) {
-		for _, peer := range peers {
-			peer.AsyncSendNewBlockHash(block)
-		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
-	}*/
 }
 
 // BroadcastSnailBlock will either propagate a snailBlock to a subset of it's peers, or
@@ -1170,6 +1119,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 		// Send the fruit to a subset of our peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
+			log.Debug("AsyncSendNewSnailBlock begin", "peer", peer.RemoteAddr(), "number", snailBlock.NumberU64(), "hash", snailBlock.Hash())
 			peer.AsyncSendNewSnailBlock(snailBlock, td)
 		}
 		log.Trace("Propagated snailBlock", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
@@ -1196,7 +1146,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		for _, peer := range peers {
 			txset[peer] = append(txset[peer], tx)
 		}
-		log.Info("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
+		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
@@ -1222,30 +1172,12 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 	}
 }
 
-//for snailBlocks
-func (pm *ProtocolManager) BroadcastSnailBlocks(snailBlocks *types.SnailBlock) {
-	var snailBlcokset = make(map[*peer]types.SnailBlocks)
-
-	// Broadcast records to a batch of peers not knowing about it
-	//for _, snailBlcok := range snailBlocks {
-	peers := pm.peers.PeersWithoutSnailBlock(snailBlocks.Hash())
-	for _, peer := range peers {
-		snailBlcokset[peer] = append(snailBlcokset[peer], snailBlocks)
-		//}
-		log.Trace("Broadcast snailBlcoks", "hash", snailBlocks.Hash(), "recipients", len(peers))
-	}
-	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
-	for peer, snailBlocks := range snailBlcokset {
-		peer.AsyncSendSnailBlocks(snailBlocks)
-	}
-}
-
 // Mined broadcast loop
 func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.minedFastCh:
-			pm.BroadcastFastBlock(event.Block, true) // First propagate fast block to peers
+		case blockEvent := <-pm.minedFastCh:
+			pm.BroadcastFastBlock(blockEvent.Block, true) // First propagate fast block to peers
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.minedFastSub.Err():
@@ -1257,10 +1189,10 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.pbSignsCh:
-			log.Info("Committee sign", "hash", event.PbftSign.Hash().String(), "number", event.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
-			pm.BroadcastPbSign([]*types.PbftSign{event.PbftSign})
-			pm.BroadcastFastBlock(event.Block, false) // Only then announce to the rest
+		case signEvent := <-pm.pbSignsCh:
+			log.Debug("Committee sign", "hash", signEvent.PbftSign.Hash().String(), "number", signEvent.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
+			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
+			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbSignsSub.Err():
@@ -1272,24 +1204,12 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 func (pm *ProtocolManager) pbNodeInfoBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.pbNodeInfoCh:
-			pm.BroadcastPbNodeInfo(event.nodeInfo)
+		case nodeInfoEvent := <-pm.pbNodeInfoCh:
+			pm.BroadcastPbNodeInfo(nodeInfoEvent.NodeInfo)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.pbNodeInfoSub.Err():
 			return
-		}
-	}
-}
-
-// Mined fruit loop
-func (pm *ProtocolManager) minedFruitLoop() {
-	// automatically stops if unsubscribe
-	for obj := range pm.minedFruitSub.Chan() {
-		switch ev := obj.Data.(type) {
-		case core.NewMinedFruitEvent:
-			pm.BroadcastFruit(ev.Block, true)  // First propagate fruit to peers
-			pm.BroadcastFruit(ev.Block, false) // Only then announce to the rest
 		}
 	}
 }
@@ -1322,25 +1242,11 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.fruitsch:
-			pm.BroadcastFruits(event.Fruits)
+		case fruitsEvent := <-pm.fruitsch:
+			pm.BroadcastFruits(fruitsEvent.Fruits)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():
-			return
-		}
-	}
-}
-
-//  snailBlocks
-func (pm *ProtocolManager) snailBlockBroadcastLoop() {
-	for {
-		select {
-		case event := <-pm.snailBlocksch:
-			//pm.BroadcastSnailBlocks(event.SnailBlocks)
-			pm.BroadcastSnailBlocks(event.Block)
-			// Err() channel will be closed when unsubscribing.
-		case <-pm.snailBlocksSub.Err():
 			return
 		}
 	}

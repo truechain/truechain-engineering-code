@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"time"
 )
@@ -15,6 +16,7 @@ type State struct {
 	CurrentStage   Stage
 	FastStage      Stage
 	BlockResults   *SignedVoteMsg
+	Clear          bool
 }
 
 type MsgLogs struct {
@@ -148,8 +150,8 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 
 	// Print current voting status
-	fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
-	fmt.Println("[LOG]", "Commit", "start", f)
+	//fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
+	//fmt.Println("[LOG]", "Commit", "start", f)
 	if state.committed(f) {
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
@@ -157,7 +159,7 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 		// Change the stage to prepared.
 		state.CurrentStage = Committed
 
-		fmt.Println("[LOG]", "Commit", "end", f, "Return")
+		//fmt.Println("[LOG]", "Commit", "end", f, "Return")
 
 		return &ReplyMsg{
 			ViewID:    state.ViewID,
@@ -167,7 +169,7 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 			Height:    state.MsgLogs.ReqMsg.Height,
 		}, state.MsgLogs.ReqMsg, nil
 	}
-	fmt.Println("[LOG]", "Commit", "end", f, "notReturn")
+	//fmt.Println("[LOG]", "Commit", "end", f, "notReturn")
 	return nil, nil, nil
 }
 
@@ -223,7 +225,7 @@ func (state *State) committed(f int) bool {
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	var passCount = 0
 	for _, v := range state.MsgLogs.CommitMsgs {
-		if v.Pass != nil && v.Pass.Result == 0 {
+		if v.Pass != nil && v.Pass.Result == types.VoteAgree {
 			passCount += 1
 		}
 	}

@@ -14,24 +14,26 @@ import (
 )
 
 type Node struct {
-	NodeID        string
-	NodeTable     map[string]string // key=nodeID, value=url
-	View          *View
-	States        map[int64]*consensus.State
-	CommittedMsgs []*consensus.RequestMsg // kinda block.
-	CommitWaitMsg map[int64]*consensus.VoteMsg
-	MsgBuffer     *MsgBuffer
-	MsgEntrance   chan interface{}
-	MsgDelivery   chan interface{}
-	MsgBackward   chan interface{}
-	Alarm         chan bool
-	FinishChan    chan int64
-	Verify        consensus.ConsensusVerify
-	Finish        consensus.ConsensusFinish
-	ID            *big.Int
-	lock          sync.Mutex
-	Count         int64
-	Count2        int64
+	NodeID             string
+	NodeTable          map[string]string // key=nodeID, value=url
+	View               *View
+	States             map[int64]*consensus.State
+	CommittedMsgs      []*consensus.RequestMsg // kinda block.
+	CommitWaitMsg      map[int64]*consensus.VoteMsg
+	MsgBuffer          *MsgBuffer
+	MsgEntrance        chan interface{}
+	MsgDelivery        chan interface{}
+	MsgBackward        chan interface{}
+	Alarm              chan bool
+	FinishChan         chan int64
+	Verify             consensus.ConsensusVerify
+	Finish             consensus.ConsensusFinish
+	ID                 *big.Int
+	lock               sync.Mutex
+	CurrentHeight      int64
+	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
+	Count              int64
+	Count2             int64
 }
 
 type MsgBuffer struct {
@@ -49,6 +51,7 @@ type View struct {
 const (
 	ResolvingTimeDuration = time.Second // 1 second.
 	StateMax              = 1000        //max size for status
+	StateClear            = 500
 )
 
 func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
@@ -83,11 +86,12 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 			PrepareMsgs:    make([]*consensus.VoteMsg, 0),
 			CommitMsgs:     make([]*consensus.VoteMsg, 0),
 		},
-		MsgEntrance: make(chan interface{}),
-		MsgDelivery: make(chan interface{}),
-		MsgBackward: make(chan interface{}),
-		Alarm:       make(chan bool),
-		FinishChan:  make(chan int64),
+		MsgEntrance:        make(chan interface{}),
+		MsgDelivery:        make(chan interface{}),
+		MsgBackward:        make(chan interface{}),
+		Alarm:              make(chan bool),
+		FinishChan:         make(chan int64),
+		RetryPrePrepareMsg: make(map[int64]*consensus.PrePrepareMsg),
 	}
 
 	// Start message dispatcher
@@ -157,19 +161,23 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 }
 
 func (node *Node) ClearStatus(height int64) {
-	dHeight := height - 500
+	dHeight := height % StateMax
+	dHeight = dHeight - StateClear
 	if dHeight < 0 {
-		dHeight += 1000
+		dHeight += StateMax
 	}
+	//fmt.Println("[status]", "delete", dHeight)
 	delete(node.States, dHeight)
 }
 
 func (node *Node) PutStatus(height int64, state *consensus.State) {
+	node.CurrentHeight = height
 	node.lock.Lock()
 	defer node.lock.Unlock()
 	id := height % StateMax
 	node.States[id] = state
 	node.ClearStatus(height)
+	//fmt.Println("[status]", "put", id)
 }
 
 func (node *Node) GetStatus(height int64) *consensus.State {
@@ -226,13 +234,27 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 
 	LogStage(fmt.Sprintf("Consensus Process (ViewID:%d)", node.GetStatus(reqMsg.Height).ViewID), false)
 
+	//// Send getPrePrepare message
+	//if prePrepareMsg != nil {
+	//	node.Broadcast(prePrepareMsg, "/preprepare")
+	//	node.RetryPrePrepareMsg[prePrepareMsg.Height] = prePrepareMsg
+	//	LogStage("Pre-prepare", true)
+	//}
 	// Send getPrePrepare message
 	if prePrepareMsg != nil {
-		node.Broadcast(prePrepareMsg, "/preprepare")
-		LogStage("Pre-prepare", true)
+		go node.delayPrePrepareMessage(prePrepareMsg)
 	}
 
 	return nil
+}
+
+//Delay detection retransmission prePrepareMessage
+func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg) {
+	if prePrepareMsg.Height == node.CurrentHeight {
+		node.Broadcast(prePrepareMsg, "/preprepare")
+		time.Sleep(time.Second * 10)
+		node.delayPrePrepareMessage(prePrepareMsg)
+	}
 }
 
 // GetPrePrepare can be called when the node's CurrentState is nil.
@@ -242,6 +264,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(prePrepareMsg.Height)
 	if err != nil {
+		lock.PSLog("node GetPrePrepare1", err.Error())
 		return err
 	}
 
@@ -251,11 +274,13 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 
 	prePareMsg, err := node.GetStatus(prePrepareMsg.Height).PrePrepare(prePrepareMsg)
 	if err != nil {
+		lock.PSLog("node GetPrePrepare2", err.Error())
 		return err
 	}
 
 	//Add self
 	if _, ok := node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID]; !ok {
+		lock.PSLog("node GetPrePrepare3")
 		myPrepareMsg := prePareMsg
 		myPrepareMsg.NodeID = node.NodeID
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
@@ -293,12 +318,6 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		CurrentState.MsgLogs.ReqMsg.SequenceID != prepareMsg.SequenceID {
 		return nil
 	}
-	////Add self
-	//if _, ok := CurrentState.MsgLogs.PrepareMsgs[node.NodeID]; !ok {
-	//	myPrepareMsg := prepareMsg
-	//	myPrepareMsg.NodeID = node.NodeID
-	//	CurrentState.MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
-	//}
 
 	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
@@ -318,9 +337,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 		} else {
-			var result uint = 0
-			if res != nil {
-				result = 1
+			var result uint = types.VoteAgreeAgainst
+			if res == nil {
+				result = types.VoteAgree
 			}
 
 			lock.PSLog("CheckMsg Result ", result)
@@ -365,7 +384,7 @@ func (node *Node) processCommitWaitMessage() {
 					}
 					lock.PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
 					if msgSend.Pass == nil {
-						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
 
@@ -421,9 +440,9 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 	// Check if there is an ongoing consensus process.
 
 	lock.PSLog("[create]", "height", height)
-	if node.GetStatus(height) != nil && node.GetStatus(height).CurrentStage != consensus.Committed {
-		return errors.New("another consensus is ongoing")
-	}
+	//if node.GetStatus(height) != nil  {
+	//	return errors.New("another consensus is ongoing")
+	//}
 
 	// Get the last sequence ID
 	var lastSequenceID int64
@@ -434,7 +453,7 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 	}
 
 	// Create a new state for this new consensus process in the Primary
-	fmt.Println("[create]", node.NodeID, lastSequenceID, height)
+	//fmt.Println("[create]", node.NodeID, lastSequenceID, height)
 
 	node.PutStatus(height, consensus.CreateState(node.View.ID, lastSequenceID))
 
@@ -495,6 +514,11 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			// Send messages.
 			node.MsgDelivery <- msgs
 		} else {
+			for _, v := range node.MsgBuffer.PrePrepareMsgs {
+				if v == msg.(*consensus.PrePrepareMsg) {
+					return nil
+				}
+			}
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs, msg.(*consensus.PrePrepareMsg))
 		}
 	case *consensus.VoteMsg:
@@ -567,7 +591,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Pass:       state.BlockResults,
 					}
 					if msgSend.Pass == nil {
-						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
@@ -596,7 +620,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						Pass:       state.BlockResults,
 					}
 					if msgSend.Pass == nil {
-						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, 0)
+						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
@@ -662,7 +686,7 @@ func sendSameHightMessage(node *Node) {
 	msgPrePrepare := make([]*consensus.PrePrepareMsg, 0)
 	for i := len(node.MsgBuffer.PrePrepareMsgs) - 1; i >= 0; i-- {
 		status := node.GetStatus(node.MsgBuffer.PrePrepareMsgs[i].Height)
-		if status != nil && status.CurrentStage == consensus.Idle {
+		if status != nil && (status.CurrentStage == consensus.Idle || status.CurrentStage == consensus.PrePrepared) {
 			msgPrePrepare = append(msgPrePrepare, node.MsgBuffer.PrePrepareMsgs[i])
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
 		}

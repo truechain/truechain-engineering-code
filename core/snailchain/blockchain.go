@@ -337,8 +337,8 @@ func (bc *SnailBlockChain) CurrentBlock() *types.SnailBlock {
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
-func (bc *SnailBlockChain) CurrentFastBlock() *types.SnailBlock {
-	return bc.currentFastBlock.Load().(*types.SnailBlock)
+func (bc *SnailBlockChain) CurrentFastBlock() *types.Block {
+	return bc.currentFastBlock.Load().(*types.Block)
 }
 
 // SetValidator sets the validator which is used to validate incoming blocks.
@@ -1109,7 +1109,7 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 		if st.ignored > 0 {
 			context = append(context, []interface{}{"ignored", st.ignored}...)
 		}
-		log.Info("Imported new snailchain segment", context...)
+		log.Info("Imported new snail chain segment", context...)
 
 		*st = insertSnailStats{startTime: now, lastIndex: index + 1}
 	}

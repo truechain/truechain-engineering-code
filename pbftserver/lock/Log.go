@@ -5,12 +5,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
-const IfPrint = true
+const IfPrint = false
 
 func PSLog(a ...interface{}) {
 	if IfPrint {
 		fmt.Println("[PSLog]", a)
 		return
 	}
-	log.Debug("[PSLog]", a)
+	log.Debug("[PbftServer]", "[PSLog]", a)
 }

@@ -53,10 +53,8 @@ const (
 	// contain a single transaction, or thousands.
 	maxQueuedSigns = 128
 	// contain a single transaction, or thousands.
-	maxQueuedFruits = 128
-	maxQueuedSnailBlocks = 128
-	//for fruitEvent
-	maxQueuedFruit = 4
+	maxQueuedFruits     = 128
+	maxQueuedSnailBlock = 4
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
@@ -113,20 +111,18 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs          *set.Set                  // Set of transaction hashes known to be known by this peer
-	knownSign         *set.Set                  // Set of sign  known to be known by this peer
-	knownNodeInfos    *set.Set                  // Set of node info  known to be known by this peer
-	knownFruits       *set.Set                  // Set of fruits hashes known to be known by this peer
-	knownSnailBlocks  *set.Set                  // Set of snailBlocks hashes known to be known by this peer
-	knownFastBlocks   *set.Set                  // Set of fast block hashes known to be known by this peer
-	queuedTxs         chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedSign        chan []*types.PbftSign    // Queue of sign to broadcast to the peer
-	queuedNodeInfo    chan *CryNodeInfo         // a node info to broadcast to the peer
-	queuedFruits      chan []*types.SnailBlock  // Queue of fruits to broadcast to the peer
-	queuedSnailBlcoks chan []*types.SnailBlock  // Queue of snailBlocks to broadcast to the peer
-	queuedFastProps   chan *propFastEvent       // Queue of fast blocks to broadcast to the peer
+	knownTxs         *set.Set                       // Set of transaction hashes known to be known by this peer
+	knownSign        *set.Set                       // Set of sign  known to be known by this peer
+	knownNodeInfos   *set.Set                       // Set of node info  known to be known by this peer
+	knownFruits      *set.Set                       // Set of fruits hashes known to be known by this peer
+	knownSnailBlocks *set.Set                       // Set of snailBlocks hashes known to be known by this peer
+	knownFastBlocks  *set.Set                       // Set of fast block hashes known to be known by this peer
+	queuedTxs        chan []*types.Transaction      // Queue of transactions to broadcast to the peer
+	queuedSign       chan []*types.PbftSign         // Queue of sign to broadcast to the peer
+	queuedNodeInfo   chan *types.EncryptNodeMessage // a node info to broadcast to the peer
+	queuedFruits     chan []*types.SnailBlock       // Queue of fruits to broadcast to the peer
+	queuedFastProps  chan *propFastEvent            // Queue of fast blocks to broadcast to the peer
 
-	queuedFruit      chan *fruitEvent      // Queue of newFruits to broadcast to the peer
 	queuedSnailBlock chan *snailBlockEvent // Queue of newSnailBlock to broadcast to the peer
 
 	queuedFastAnns chan *types.Block // Queue of fastBlocks to announce to the peer
@@ -135,28 +131,25 @@ type peer struct {
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return &peer{
-		Peer:            p,
-		rw:              rw,
-		version:         version,
-		id:              fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:        set.New(),
-		knownSign:       set.New(),
-		knownNodeInfos:  set.New(),
-		knownFruits:     set.New(),
-		knownSnailBlocks:     set.New(),
-		knownFastBlocks: set.New(),
-		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
-		queuedSign:      make(chan []*types.PbftSign, maxQueuedSigns),
-		queuedNodeInfo:  make(chan *CryNodeInfo, maxQueuedNodeInfo),
-		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
-		queuedSnailBlcoks: make(chan []*types.SnailBlock, maxQueuedSnailBlocks),
-		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
+		Peer:             p,
+		rw:               rw,
+		version:          version,
+		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:         set.New(),
+		knownSign:        set.New(),
+		knownNodeInfos:   set.New(),
+		knownFruits:      set.New(),
+		knownSnailBlocks: set.New(),
+		knownFastBlocks:  set.New(),
+		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
+		queuedSign:       make(chan []*types.PbftSign, maxQueuedSigns),
+		queuedNodeInfo:   make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
+		queuedFruits:     make(chan []*types.SnailBlock, maxQueuedFruits),
+		queuedFastProps:  make(chan *propFastEvent, maxQueuedFastProps),
 
-		queuedFruit:  make(chan *fruitEvent, maxQueuedFruit),
-		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedFruit),
-
-		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
-		term:         make(chan struct{}),
+		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedSnailBlock),
+		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
+		term:             make(chan struct{}),
 	}
 }
 
@@ -193,23 +186,10 @@ func (p *peer) broadcast() {
 			}
 			p.Log().Trace("Broadcast fruits", "count", len(fruits))
 
-		//add for mined fruit
-		case fruit := <-p.queuedFruit:
-			if err := p.SendNewFruit(fruit.block, fruit.td); err != nil {
-				return
-			}
-			p.Log().Trace("Propagated fruit", "number", fruit.block.Number(), "hash", fruit.block.Hash(), "td", fruit.td)
-
-			//add for snailBlock
-		case snailBlocks := <-p.queuedSnailBlcoks:
-			if err := p.SendSnailBlocks(snailBlocks); err != nil {
-				return
-			}
-			p.Log().Trace("Broadcast snailBlocks", "count", len(snailBlocks))
-
-			//add for mined snailBlock
 		case snailBlock := <-p.queuedSnailBlock:
+			p.Log().Debug("Propagated snailBlock begin", "peer", p.RemoteAddr(), "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 			if err := p.SendNewSnailBlock(snailBlock.block, snailBlock.td); err != nil {
+				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 				return
 			}
 			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
@@ -372,12 +352,12 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 
 //SendNodeInfo sends node info to the peer and includes the hashes
 // in its signs hash set for future reference.
-func (p *peer) SendNodeInfo(nodeInfo *CryNodeInfo) error {
+func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
 
-func (p *peer) AsyncSendNodeInfo(nodeInfo *CryNodeInfo) {
+func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	select {
 	case p.queuedNodeInfo <- nodeInfo:
 		p.knownNodeInfos.Add(nodeInfo.Hash())
@@ -411,17 +391,6 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 		}
 	default:
 		p.Log().Debug("Dropping fruits propagation", "count", len(fruits))
-	}
-}
-
-func (p *peer) AsyncSendSnailBlocks(snailBlocks []*types.SnailBlock) {
-	select {
-	case p.queuedSnailBlcoks <- snailBlocks:
-		for _, snailBlock := range snailBlocks {
-			p.knownSnailBlocks.Add(snailBlock.Hash())
-		}
-	default:
-		p.Log().Debug("Dropping snailBlocks propagation", "count", len(snailBlocks))
 	}
 }
 
@@ -478,17 +447,6 @@ func (p *peer) SendNewFruit(fruit *types.SnailBlock, td *big.Int) error {
 func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
 	p.knownSnailBlocks.Add(snailBlock.Hash())
 	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock, td})
-}
-
-// AsyncSendNewFruit queues an entire fruit for propagation to a remote peer. If
-// the peer's broadcast queue is full, the event is silently dropped.
-func (p *peer) AsyncSendNewFruit(fruit *types.SnailBlock, td *big.Int) {
-	select {
-	case p.queuedFruit <- &fruitEvent{block: fruit, td: td}:
-		p.knownFruits.Add(fruit.Hash())
-	default:
-		p.Log().Debug("Dropping fruit propagation", "number", fruit.NumberU64(), "hash", fruit.Hash())
-	}
 }
 
 // AsyncSendNewSnailBlock queues an entire snailBlock for propagation to a remote peer. If

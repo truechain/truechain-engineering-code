@@ -69,7 +69,14 @@ var (
 		utils.FastSyncFlag,
 		utils.LightModeFlag,
 		utils.SyncModeFlag,
+
 		utils.SingleNodeFlag,
+		utils.EnableElectionFlag,
+		utils.BFTPortFlag,
+		utils.BFTIPFlag,
+		utils.BftKeyFileFlag,
+		utils.BftKeyHexFlag,
+
 		utils.GCModeFlag,
 		utils.LightServFlag,
 		utils.LightPeersFlag,
@@ -165,8 +172,8 @@ func init() {
 		attachCommand,
 		javascriptCommand,
 		// See misccmd.go:
-		makecacheCommand,
-		makedagCommand,
+		//makecacheCommand,
+		//makedagCommand,
 		versionCommand,
 		bugCommand,
 		licenseCommand,
