@@ -893,6 +893,8 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 
 func (agent *PbftAgent) singleloop() {
 	log.Debug("singleloop test.")
+	// sleep a minute to wait election module start and other nodes' connection
+	time.Sleep(time.Minute)
 	for {
 		// fetch block
 		var (
