@@ -221,8 +221,30 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
-
-	//eth.NewRecord(pool)
+	//from snailchain get headchain's fb number
+	headSnailBlock:=pool.chain.CurrentBlock()
+	fruits:=headSnailBlock.Fruits()
+	var minFbNumber *big.Int
+	for k, fruit := range fruits {
+		if k == 0 {
+			minFbNumber=fruit.FastNumber()
+			continue
+		}
+		if minFbNumber.Cmp(fruit.FastNumber())>0{
+			minFbNumber=fruit.FastNumber()
+		}
+	}
+	if minFbNumber!=nil{
+		minFbNumber = new(big.Int).Add(minFbNumber, common.Big1)
+	}
+	maxFbNumber:=pool.fastchain.CurrentHeader().Number
+	if maxFbNumber!=nil && minFbNumber!=nil{
+		for i := minFbNumber; i.Cmp(maxFbNumber)<0;i=new(big.Int).Add(i, common.Big1) {
+			fastblock:=pool.fastchain.GetBlockByNumber(i.Uint64())
+			pool.insertFastBlockWithLock(pool.fastBlockPending,fastblock )
+			pool.allFastBlocks[fastblock.Hash()] = fastblock
+		}
+	}
 	return pool
 }
 
@@ -706,7 +728,6 @@ func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 	}
 	block := first.Value.(*types.Block)
 	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
-
 	return fastBlock, nil
 }
 
