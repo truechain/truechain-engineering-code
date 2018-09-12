@@ -1129,7 +1129,6 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
-
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
@@ -1138,15 +1137,17 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
 		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
+	}else{
+		cfg.Port = BFTPortFlag.Value
 	}
-	//set PrivateKey by config
+	//set PrivateKey by config,file or hex
 	setBftCommitteeKey(ctx, cfg)
 	if cfg.PrivateKey == nil {
 		//set PrivateKey by default file
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
-	if ctx.GlobalBool(EnableElectionFlag.Name) {
+	if ctx.GlobalBool(EnableElectionFlag.Name) && !cfg.NodeType{
 		if cfg.Host == "" {
 			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
