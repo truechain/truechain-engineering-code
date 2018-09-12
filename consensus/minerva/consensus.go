@@ -337,7 +337,7 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 	}
 	// Verify the header's timestamp
 	if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-		log.Info(consensus.ErrFutureBlock.Error(), "header", header.Time, "now", time.Now().Unix(),
+		fmt.Println(consensus.ErrFutureBlock.Error(), "header", header.Time, "now", time.Now().Unix(),
 			"cmp:", big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix()))
 		return consensus.ErrFutureBlock
 	}
