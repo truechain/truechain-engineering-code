@@ -180,3 +180,11 @@ func RandIntn(n int) int {
 	random := rand.New(rand.NewSource(time.Now().Unix()))
 	return random.Intn(n)
 }
+func Float64() float64  {
+	random := rand.New(rand.NewSource(time.Now().Unix()))
+	return random.Float64()
+}
+func Int31n(n int32) int32 {
+	random := rand.New(rand.NewSource(time.Now().Unix()))
+	return random.Int31n(n)
+}
