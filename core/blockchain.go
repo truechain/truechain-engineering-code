@@ -957,6 +957,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			SnailHash:   block.SnailHash(),
 			SnailNumber: block.SnailNumber(),
 		}
+		log.Info("already Reward","snailNumber:",block.SnailNumber().Int64())
 		//insert BlockReward to db
 		rawdb.WriteBlockReward(batch, br)
 		rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())

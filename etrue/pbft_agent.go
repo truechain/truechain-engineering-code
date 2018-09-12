@@ -531,7 +531,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-	log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"space:",space)
+	log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"currentSnailBlock:",
+		self.snailChain.CurrentBlock().Number(),"space:",space)
 	if space >= blockRewordSpace {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
