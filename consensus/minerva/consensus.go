@@ -758,6 +758,7 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
+		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
@@ -778,6 +779,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 
 //gas allocation
 func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
+	log.Info("FinalizeFastGas:", "fastNumber", fastNumber, "gasLimit", gasLimit)
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
 	if len(committee) != 0 {
