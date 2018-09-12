@@ -180,7 +180,7 @@ func (pm *ProtocolManager) fruitsyncLoop() {
 		// Send the pack in the background.
 		f.p.Log().Trace("Sending batch of fruits", "count", len(pack.fruits), "bytes", size)
 		sending = true
-		go func() { done <- pack.p.Sendfruits(pack.fruits) }()
+		go func() { done <- pack.p.SendFruits(pack.fruits)}()
 	}
 
 	// pick chooses the next pending sync.

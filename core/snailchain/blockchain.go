@@ -337,8 +337,8 @@ func (bc *SnailBlockChain) CurrentBlock() *types.SnailBlock {
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
-func (bc *SnailBlockChain) CurrentFastBlock() *types.Block {
-	return bc.currentFastBlock.Load().(*types.Block)
+func (bc *SnailBlockChain) CurrentFastBlock() *types.SnailBlock {
+	return bc.currentFastBlock.Load().(*types.SnailBlock)
 }
 
 // SetValidator sets the validator which is used to validate incoming blocks.
