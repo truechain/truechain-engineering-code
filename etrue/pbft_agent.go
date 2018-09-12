@@ -531,6 +531,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
+	log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"space:",space)
 	if space >= blockRewordSpace {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
@@ -539,6 +540,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		} else {
 			log.Error("cannot find block.", "err", err)
 		}
+		log.Info("space >= blockRewordSpace","header.SnailNumber",header.SnailNumber)
 	}
 
 	//  padding Header.Root, TxHash, ReceiptHash.
