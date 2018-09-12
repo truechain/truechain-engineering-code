@@ -5,6 +5,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 type TrueScan struct {
@@ -23,20 +24,25 @@ type TrueScan struct {
 	snailChainHeadCh  chan snailchain.ChainHeadEvent
 	snailChainHeadSub event.Subscription
 
+	electionCh  chan core.ElectionEvent
+	electionSub event.Subscription
+
 	quit chan struct{}
 }
 
-func New(s *Subscriber) *TrueScan {
+func New(sub Subscriber) *TrueScan {
 	return &TrueScan{
+		sub:              sub,
 		txsCh:            make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadChanSize),
 		fruitsch:         make(chan snailchain.NewFruitsEvent, fruitChanSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
+		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		quit:             make(chan struct{}),
 	}
 }
 
-func (ts *TrueScan) Start(maxPeers int) {
+func (ts *TrueScan) Start() {
 	// broadcast transactions
 	ts.txsSub = ts.sub.SubscribeNewTxsEvent(ts.txsCh)
 	go ts.txHandleLoop()
@@ -50,7 +56,28 @@ func (ts *TrueScan) Start(maxPeers int) {
 	ts.snailChainHeadSub = ts.sub.SubscribeSnailChainHeadEvent(ts.snailChainHeadCh)
 	go ts.snailChainHandleLoop()
 
+	ts.electionSub = ts.sub.SubscribeElectionEvent(ts.electionCh)
+	go ts.electionHandleLoop()
+
 	go ts.loop()
+}
+
+func (ts *TrueScan) electionHandleLoop() error {
+	for {
+		select {
+		case ch := <-ts.electionCh:
+			switch ch.Option {
+			case types.CommitteeStart:
+			case types.CommitteeStop:
+			case types.CommitteeSwitchover:
+			default:
+				log.Warn("unknown election option:", "option", ch.Option)
+			}
+			// Err() channel will be closed when unsubscribing.
+		case <-ts.electionSub.Err():
+			return errResp("election terminated")
+		}
+	}
 }
 
 func (ts *TrueScan) snailChainHandleLoop() error {
@@ -132,5 +159,7 @@ func (ts *TrueScan) Stop() {
 	ts.txsSub.Unsubscribe()
 	ts.chainHeadSub.Unsubscribe()
 	ts.fruitsSub.Unsubscribe()
+	ts.snailChainHeadSub.Unsubscribe()
+	ts.electionSub.Unsubscribe()
 	close(ts.quit)
 }

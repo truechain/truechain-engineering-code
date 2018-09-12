@@ -16,6 +16,7 @@ const (
 	chainHeadChanSize  = 10
 	fruitChanSize      = 256
 	snailChainHeadSize = 64
+	electionChanSize   = 64
 )
 
 var (
@@ -33,7 +34,7 @@ type Subscriber interface {
 
 	// SubscribeChainHeadEvent should return an event subscription of
 	// ChainHeadEvent and send events to the given channel.
-	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(chan<- core.ChainHeadEvent) event.Subscription
 
 	// SubscribeNewFruitEvent should return an event subscription of
 	// NewFruitsEvent and send events to the given channel.
@@ -41,7 +42,7 @@ type Subscriber interface {
 
 	// SubscribeSnailChainHeadEvent should return an event subscription of
 	// ChainHeadEvent and send events to the given channel.
-	SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainHeadEvent) event.Subscription
+	SubscribeSnailChainHeadEvent(chan<- snailchain.ChainHeadEvent) event.Subscription
 
-	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription
+	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
 }
