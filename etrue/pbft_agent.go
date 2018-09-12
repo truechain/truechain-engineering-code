@@ -87,6 +87,7 @@ type PbftAgent struct {
 	preCommitteeInfo     *types.CommitteeInfo
 	currentCommitteeInfo *types.CommitteeInfo
 	nextCommitteeInfo    *types.CommitteeInfo
+	committeeId          *big.Int
 
 	server   types.PbftServerProxy
 	election *Election
@@ -164,7 +165,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.singleNode = config.NodeType
 	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port, ", Host:", config.Host)
-	if config.Host == "" || config.Port == 0 {
+	if !config.NodeType && (config.Host == "" || config.Port == 0) {
 		log.Debug("host or IP is not complete .")
 		return
 	}
@@ -205,27 +206,37 @@ func (self *PbftAgent) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				log.Debug("CommitteeStart...", "Id", ch.CommitteeId)
-				self.setCommitteeInfo(self.nextCommitteeInfo, currentCommittee)
+				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
+					continue
+				}*/
+				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
-
+				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
+					continue
+				}*/
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
-				self.setCommitteeInfo(self.currentCommitteeInfo, preCommittee)
+				self.setCommitteeInfo(preCommittee, self.currentCommitteeInfo)
 				//self.setCommitteeInfo(nil, currentCommittee)
 
 			case types.CommitteeSwitchover:
-				log.Debug("CommitteeCh...")
+				log.Debug("CommitteeCh...", "Id", ch.CommitteeId)
+				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
+					continue
+				}*/
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:      ch.CommitteeId,
 					Members: ch.CommitteeMembers,
 				}
 				//ch.CommitteeInfo //received committeeInfo
-				self.setCommitteeInfo(receivedCommitteeInfo, nextCommittee)
+				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
+				self.committeeId = ch.CommitteeId
+
 				ticker.Stop()                                //stop ticker send nodeInfo
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 				ticker = time.NewTicker(sendNodeTime)
@@ -273,6 +284,40 @@ func (self *PbftAgent) loop() {
 			go self.putCacheIntoChain(ch.Block)
 		}
 	}
+}
+func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *big.Int) bool {
+	switch committeeEventType {
+	case types.CommitteeStart:
+		if self.committeeId.Cmp(committeeId) != 0 {
+			log.Error("CommitteeStart CommitteeId err ",
+				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
+		}
+		return false
+	case types.CommitteeStop:
+		if self.committeeId.Cmp(committeeId) != 0 {
+			log.Error("CommitteeStop CommitteeId err ",
+				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
+		}
+		return false
+	case types.CommitteeSwitchover:
+		if new(big.Int).Add(self.committeeId, common.Big1).Cmp(committeeId) != 0 {
+			log.Error("CommitteeSwitchover CommitteeId err ",
+				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
+		}
+		return false
+	default:
+		log.Warn("unknown election option:")
+	}
+	return true
+}
+
+func setReceivedCommitteeInfo(ch core.ElectionEvent) *types.CommitteeInfo {
+	//cpyMembers :=&ch.CommitteeMembers
+	receivedCommitteeInfo := &types.CommitteeInfo{
+		//Id:      cpy.CommitteeId,
+		//Members: &cpyMembers,
+	}
+	return receivedCommitteeInfo
 }
 
 //  when receive block insert chain event ,put cacheBlock into fastchain
@@ -486,6 +531,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
+
 	if space >= blockRewordSpace {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
@@ -494,6 +540,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		} else {
 			log.Error("cannot find block.", "err", err)
 		}
+		log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"currentSnailBlock:",
+			self.snailChain.CurrentBlock().Number(),"space:",space)
 	}
 
 	//  padding Header.Root, TxHash, ReceiptHash.
@@ -836,7 +884,7 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 	return int32(len(committees))
 }
 
-func (self *PbftAgent) setCommitteeInfo(newCommitteeInfo *types.CommitteeInfo, CommitteeType int) {
+func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
 		log.Error("newCommitteeInfo is nil ")
 		newCommitteeInfo = &types.CommitteeInfo{}
@@ -887,7 +935,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 func (agent *PbftAgent) singleloop() {
 	log.Debug("singleloop test.")
 	// sleep a minute to wait election module start and other nodes' connection
-	time.Sleep(time.Minute)
+	//time.Sleep(time.Minute)
 	for {
 		// fetch block
 		var (
