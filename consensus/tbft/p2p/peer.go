@@ -5,11 +5,12 @@ import (
 	"net"
 	"sync/atomic"
 	"time"
+	"errors"
 
 	crypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
-	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -124,7 +125,7 @@ func newPeer(
 		onPeerError,
 		mConfig,
 	)
-	p.BaseService = *help.NewBaseService(nil, "Peer", p)
+	p.BaseService = *help.NewBaseService("Peer", p)
 
 	return p
 }
@@ -137,13 +138,13 @@ func newOutboundPeerConn(
 ) (peerConn, error) {
 	conn, err := dial(addr, config)
 	if err != nil {
-		return peerConn{}, errors.New(fmt.Sprintf(err,"Error creating peer"))
+		return peerConn{}, errors.New(fmt.Sprint(err,"Error creating peer"))
 	}
 
 	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)
 	if err != nil {
 		if cerr := conn.Close(); cerr != nil {
-			return peerConn{}, errors.New(fmt.Sprintf(err, cerr.Error()))
+			return peerConn{}, errors.New(fmt.Sprint(err, cerr.Error()))
 		}
 		return peerConn{}, err
 	}
@@ -151,7 +152,7 @@ func newOutboundPeerConn(
 	// ensure dialed ID matches connection ID
 	if addr.ID != pc.ID() {
 		if cerr := conn.Close(); cerr != nil {
-			return peerConn{}, errors.New(fmt.Sprintf(err, cerr.Error()))
+			return peerConn{}, errors.New(fmt.Sprint(err, cerr.Error()))
 		}
 		return peerConn{}, ErrSwitchAuthenticationFailure{addr, pc.ID()}
 	}
@@ -180,24 +181,22 @@ func newPeerConn(
 	conn := rawConn
 
 	// Fuzz connection
-	if cfg.TestFuzz {
-		// so we have time to do peer handshakes and get set up
-		conn = FuzzConnAfterFromConfig(conn, 10*time.Second, cfg.TestFuzzConfig)
-	}
+	//if cfg.TestFuzz {
+	//	// so we have time to do peer handshakes and get set up
+	//	conn = FuzzConnAfterFromConfig(conn, 10*time.Second, cfg.TestFuzzConfig)
+	//}
 
 	// Set deadline for secret handshake
 	dl := time.Now().Add(cfg.HandshakeTimeout)
 	if err := conn.SetDeadline(dl); err != nil {
-		return pc, errors.New(fmt.Sprintf(
-			err,
-			"Error setting deadline while encrypting connection",
-		))
+		return pc, errors.New(fmt.Sprint(
+			err, "Error setting deadline while encrypting connection"))
 	}
 
 	// Encrypt connection
 	conn, err = tmconn.MakeSecretConnection(conn, ourNodePrivKey)
 	if err != nil {
-		return pc, errors.New(fmt.Sprintf(err, "Error creating peer"))
+		return pc, errors.New(fmt.Sprint(err, "Error creating peer"))
 	}
 
 	// Only the information we already have
@@ -215,7 +214,7 @@ func newPeerConn(
 
 // SetLogger implements BaseService.
 func (p *peer) SetLogger(l log.Logger) {
-	p.Logger = l
+	//p.Logger = l
 	p.mconn.SetLogger(l)
 }
 
@@ -315,7 +314,7 @@ func (p *peer) hasChannel(chID byte) bool {
 	}
 	// NOTE: probably will want to remove this
 	// but could be helpful while the feature is new
-	p.Logger.Debug(
+	log.Debug(
 		"Unknown channel for peer",
 		"channel",
 		chID,
@@ -344,7 +343,7 @@ func (pc *peerConn) HandshakeTimeout(
 ) (peerNodeInfo NodeInfo, err error) {
 	// Set deadline for handshake so we don't block forever on conn.ReadFull
 	if err := pc.conn.SetDeadline(time.Now().Add(timeout)); err != nil {
-		return peerNodeInfo, errors.New(fmt.Sprintf(err, "Error setting deadline"))
+		return peerNodeInfo, errors.New(fmt.Sprint(err, "Error setting deadline"))
 	}
 
 	var trs, _ = help.Parallel(
@@ -362,12 +361,12 @@ func (pc *peerConn) HandshakeTimeout(
 		},
 	)
 	if err := trs.FirstError(); err != nil {
-		return peerNodeInfo, errors.New(fmt.Sprintf(err, "Error during handshake"))
+		return peerNodeInfo, errors.New(fmt.Sprint(err, "Error during handshake"))
 	}
 
 	// Remove deadline
 	if err := pc.conn.SetDeadline(time.Time{}); err != nil {
-		return peerNodeInfo, errors.New(fmt.Sprintf(err, "Error removing deadline"))
+		return peerNodeInfo, errors.New(fmt.Sprint(err, "Error removing deadline"))
 	}
 
 	return peerNodeInfo, nil
