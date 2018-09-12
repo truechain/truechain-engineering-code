@@ -803,7 +803,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 		//	p.GetLog().Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
 		//	go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false,true)
 		//} else {
-		p.GetLog().Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
+		p.GetLog().Trace("Fetching full headers", "count", height, "from", from)
 		go p.GetPeer().RequestHeadersByNumber(from, height, 0, false, true)
 		//}
 	}
