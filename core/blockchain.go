@@ -1323,7 +1323,7 @@ func (st *fastInsertStats) report(chain []*types.Block, index int, cache common.
 		if st.ignored > 0 {
 			context = append(context, []interface{}{"ignored", st.ignored}...)
 		}
-		log.Info("Imported new chain segment", context...)
+		log.Info("Imported new fast chain segment", context...)
 
 		*st = fastInsertStats{startTime: now, lastIndex: index + 1}
 	}

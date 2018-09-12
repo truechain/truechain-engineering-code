@@ -33,15 +33,15 @@ import (
 )
 
 const (
-	arriveTimeout = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
-	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
-	fetchTimeout  = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
-	maxUncleDist  = 0                      // Maximum allowed backward distance from the chain head
-	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
-	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit    = 64                     // Maximum number of unique blocks a peer may have delivered
-	signLimit     = 128                    // Maximum number of unique sign a peer may have delivered
-	maxChanelSign = 64                     // Maximum number of unique sign a peer may have cache
+	arriveTimeout    = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
+	gatherSlack      = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
+	fetchTimeout     = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
+	maxCommitteeDist = 4                      // Maximum allowed backward distance from the chain head
+	maxQueueDist     = 32                     // Maximum allowed distance from the chain head to queue
+	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
+	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
+	signLimit        = 64                     // Maximum number of unique sign a peer may have delivered
+	maxSignDist      = 16                     // Maximum allowed sign distance from the chain head
 )
 
 var (
@@ -407,34 +407,30 @@ func (f *Fetcher) loop() {
 						break
 					}
 					// Otherwise if fresh and still unknown, try and import
-					if number+maxUncleDist < height || f.getBlock(hash) != nil {
+					if number+maxCommitteeDist < height {
 						f.forgetBlockHeight(big.NewInt(int64(number)))
-						continue
+						break
 					}
 
-					find := false
-					if f.sendBlockHash[number] != nil {
-						for _, hashOld := range f.sendBlockHash[number] {
-							if hashOld == hash {
-								find = true
-								break
-							}
+					if f.getBlock(hash) != nil {
+						if f.agentFetcher.AcquireCommitteeAuth(block.Number()) {
+							f.markBroadcastBlock(number, peer, block)
 						}
-					}
-					if !find {
-						f.verifyBlockBroadcast(peer, block)
-					}
-
-					if _, ok := f.blockConsensus[number]; ok {
-						signHashs := f.signMultiHash[number]
-						if len(signHashs) > 0 {
-							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
-							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
-								if signInject.sign.FastHash == hash {
-									index = i
+						f.forgetBlockHeight(big.NewInt(int64(number)))
+						break
+					} else {
+						f.markBroadcastBlock(number, peer, block)
+						if _, ok := f.blockConsensus[number]; ok {
+							signHashs := f.signMultiHash[number]
+							if len(signHashs) > 0 {
+								log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
+								if signInject, ok := f.queuedSign[signHashs[0]]; ok {
+									if signInject.sign.FastHash == hash {
+										index = i
+									}
+								} else {
+									log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
 								}
-							} else {
-								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
 							}
 						}
 					}
@@ -481,7 +477,7 @@ func (f *Fetcher) loop() {
 			}
 			// If we have a valid block number, check that it's potentially useful
 			if notification.number > 0 {
-				if dist := int64(notification.number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
+				if dist := int64(notification.number) - int64(f.chainHeight()); dist < -maxCommitteeDist || dist > maxQueueDist {
 					log.Debug("Peer discarded announcement", "peer", notification.origin, "number", notification.number, "hash", notification.hash, "distance", dist)
 					propAnnounceDropMeter.Mark(1)
 					break
@@ -769,16 +765,17 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	hash := signs[0].Hash()
 	number := signs[0].FastHeight.Uint64()
+	committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
-	if count > signLimit {
-		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit)
+	if count > signLimit*int(committeeNumber) {
+		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit, "committee count", committeeNumber)
 		propSignDOSMeter.Mark(1)
 		return
 	}
 	// Discard any past or too distant blocks
-	if dist := int64(number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
+	if dist := int64(number) - int64(f.chainHeight()); dist < -maxSignDist || dist > maxQueueDist {
 		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
 		propSignDropMeter.Mark(1)
 		return
@@ -840,7 +837,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		if f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
 			f.forgetBlockHeight(verifySigns[0].FastHeight)
 		} else {
-			committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
@@ -868,7 +864,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 	// Discard any past or too distant blocks
-	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
+	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxCommitteeDist || dist > maxQueueDist {
 		log.Info("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
@@ -911,7 +907,23 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
+		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
+	}
+}
+
+// markBroadcastBlock only validation block header and propagated block.
+func (f *Fetcher) markBroadcastBlock(number uint64, peer string, block *types.Block) {
+	find := false
+	if f.sendBlockHash[number] != nil {
+		for _, hashOld := range f.sendBlockHash[number] {
+			if hashOld == block.Hash() {
+				find = true
+				break
+			}
+		}
+	}
+	if !find {
+		f.verifyBlockBroadcast(peer, block)
 	}
 }
 

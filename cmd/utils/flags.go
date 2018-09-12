@@ -1155,7 +1155,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		}
 		cfg.EnableElection = true
 	}
-	log.Info("Committee Node info:", "publickey", hex.EncodeToString(cfg.CommitteeKey),
+	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
 		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
