@@ -957,7 +957,7 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 		for _, peer := range peers {
 			fruitset[peer] = append(fruitset[peer], fruit)
 		}
-		log.Trace("Broadcast fruits", "hash", fruit.Hash(), "recipients", len(peers))
+		log.Debug("Broadcast fruits", "hash", fruit.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, fruits := range fruitset {

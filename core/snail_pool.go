@@ -573,7 +573,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	}
 
 	// Inject any fastblocks discarded due to reorgs
-	log.Debug("Reinjecting stale transactions", "count", len(reinject))
+	log.Debug("Reinjecting stale fruits", "count", len(reinject))
 
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -626,9 +626,7 @@ func (pool *SnailPool) GasPrice() *big.Int {
 }
 
 
-// AddLocals enqueues a batch of transactions into the pool if they are valid,
-// marking the senders as a local ones in the mean time, ensuring they go around
-// the local pricing constraints.
+// AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 	errs := make([]error, len(fruits))
