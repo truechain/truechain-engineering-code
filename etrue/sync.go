@@ -35,6 +35,7 @@ const (
 	// This is the target size for the packs of transactions sent by txsyncLoop.
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize = 100 * 1024
+	fruitsyncPackSize = 100 * 1024
 )
 
 type txsync struct {
@@ -42,6 +43,10 @@ type txsync struct {
 	txs []*types.Transaction
 }
 
+type fruitsync struct {
+	p   *peer
+	fruits []*types.SnailBlock
+}
 // syncTransactions starts sending all currently pending transactions to the given peer.
 func (pm *ProtocolManager) syncTransactions(p *peer) {
 	var txs types.Transactions
@@ -58,6 +63,21 @@ func (pm *ProtocolManager) syncTransactions(p *peer) {
 	}
 }
 
+// syncFruits starts sending all currently pending fruits to the given peer.
+func (pm *ProtocolManager) syncFruits(p *peer) {
+	var fruits types.SnailBlocks
+	pending, _ := pm.SnailPool.PendingFruits()
+	for _, batch := range pending {
+		fruits = append(fruits, batch)
+	}
+	if len(fruits) == 0 {
+		return
+	}
+	select {
+	case pm.fruitsyncCh <- &fruitsync{p, fruits}:
+	case <-pm.quitSync:
+	}
+}
 // txsyncLoop takes care of the initial transaction sync for each new
 // connection. When a new peer appears, we relay all currently pending
 // transactions. In order to minimise egress bandwidth usage, we send
@@ -122,6 +142,77 @@ func (pm *ProtocolManager) txsyncLoop() {
 			// Schedule the next send.
 			if s := pick(); s != nil {
 				send(s)
+			}
+		case <-pm.quitSync:
+			return
+		}
+	}
+}
+
+// fruitsyncLoop takes care of the initial fruit sync for each new
+// connection. When a new peer appears, we relay all currently pending
+// fruits. In order to minimise egress bandwidth usage, we send
+// the fruits in small packs to one peer at a time.
+func (pm *ProtocolManager) fruitsyncLoop() {
+	var (
+		pending = make(map[discover.NodeID]*fruitsync)
+		sending = false               // whether a send is active
+		pack    = new(fruitsync)         // the pack that is being sent
+		done    = make(chan error, 1) // result of the send
+	)
+
+	// send starts a sending a pack of fruits from the sync.
+	send := func(f *fruitsync) {
+		// Fill pack with fruits up to the target size.
+		size := common.StorageSize(0)
+		pack.p = f.p
+		pack.fruits = pack.fruits[:0]
+		for i := 0; i < len(f.fruits) && size < fruitsyncPackSize; i++ {
+			pack.fruits = append(pack.fruits, f.fruits[i])
+			size += f.fruits[i].Size()
+		}
+		// Remove the fruits that will be sent.
+		f.fruits = f.fruits[:copy(f.fruits, f.fruits[len(pack.fruits):])]
+		if len(f.fruits) == 0 {
+			delete(pending, f.p.ID())
+		}
+		// Send the pack in the background.
+		f.p.Log().Trace("Sending batch of fruits", "count", len(pack.fruits), "bytes", size)
+		sending = true
+		go func() { done <- pack.p.Sendfruits(pack.fruits) }()
+	}
+
+	// pick chooses the next pending sync.
+	pick := func() *fruitsync {
+		if len(pending) == 0 {
+			return nil
+		}
+		n := rand.Intn(len(pending)) + 1
+		for _, f := range pending {
+			if n--; n == 0 {
+				return f
+			}
+		}
+		return nil
+	}
+
+	for {
+		select {
+		case f := <-pm.fruitsyncCh:
+			pending[f.p.ID()] = f
+			if !sending {
+				send(f)
+			}
+		case err := <-done:
+			sending = false
+			// Stop tracking peers that cause send failures.
+			if err != nil {
+				pack.p.Log().Debug("Fruits send failed", "err", err)
+				delete(pending, pack.p.ID())
+			}
+			// Schedule the next send.
+			if f := pick(); f != nil {
+				send(f)
 			}
 		case <-pm.quitSync:
 			return

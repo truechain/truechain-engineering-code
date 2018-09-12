@@ -110,6 +110,7 @@ type ProtocolManager struct {
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
 	txsyncCh    chan *txsync
+	fruitsyncCh    chan *fruitsync
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
@@ -297,6 +298,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// start sync handlers
 	go pm.syncer()
 	go pm.txsyncLoop()
+	go pm.fruitsyncLoop()
 	atomic.StoreUint32(&pm.acceptTxs, 1)
 	atomic.StoreUint32(&pm.acceptFruits, 1)
 }
@@ -376,7 +378,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
-
+	pm.syncFruits(p)
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
 	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
 		// Request the peer's DAO fork header for extra-data validation
