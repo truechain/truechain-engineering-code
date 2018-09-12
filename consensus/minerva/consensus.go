@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"runtime"
 	"time"
@@ -334,10 +335,12 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
 	}
-	//// Verify the header's timestamp
-	//if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-	//	return consensus.ErrFutureBlock
-	//}
+	// Verify the header's timestamp
+	if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+		log.Info(consensus.ErrFutureBlock.Error(), "header", header.Time, "now", time.Now().Unix(),
+			"cmp:", big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix()))
+		return consensus.ErrFutureBlock
+	}
 
 	if header.Time.Cmp(parent.Time) <= 0 {
 		return errZeroBlockTime
