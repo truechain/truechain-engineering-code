@@ -38,7 +38,7 @@ func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) 
 type bodyPack struct {
 	peerID       string
 	fruit 		 [][]*types.SnailBlock
-	//Signs   	 [][]*types.PbftSign
+	signs   	 [][]*types.PbftSign
 	uncles       [][]*types.SnailHeader
 }
 
@@ -49,7 +49,7 @@ func (p *bodyPack) Items() int {
 	}
 	return len(p.uncles)
 }
-func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d", len(p.fruit), len(p.uncles)) }
+func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d:%d", len(p.fruit), len(p.signs),len(p.uncles)) }
 
 // receiptPack is a batch of receipts returned by a peer.
 type receiptPack struct {

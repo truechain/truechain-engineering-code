@@ -396,9 +396,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
-	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
-		return err
-	}
+	//if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
+	//	return err
+	//}
 
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
@@ -652,7 +652,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendFastBlockHeaders(headers)
 
 	case msg.Code == FastBlockHeadersMsg:
-		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>")
+
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.Header
 		if err := msg.Decode(&headers); err != nil {
@@ -667,6 +667,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 		// mecMark
 		//if len(headers) > 0 {
+		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>","headers:",len(headers))
 		err := pm.fdownloader.DeliverHeaders(p.id, headers)
 		if err != nil {
 			log.Debug("Failed to deliver headers", "err", err)
@@ -767,9 +768,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Deliver them all to the downloader for queuing
 		fruits := make([][]*types.SnailBlock, len(request))
+		signs := make([][]*types.PbftSign, len(request))
+
 
 		for i, body := range request {
 			fruits[i] = body.Fruits
+			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		//filter := len(fruits) > 0
@@ -778,7 +782,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		err := pm.downloader.DeliverBodies(p.id, fruits, nil)
+		err := pm.downloader.DeliverBodies(p.id, fruits, signs,nil)
 		if err != nil {
 			log.Debug("Failed to deliver bodies", "err", err)
 		}

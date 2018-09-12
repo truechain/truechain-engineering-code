@@ -234,7 +234,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		fastDown:      fdown,
 	}
 
-	//dl.fastDown.SetPeers(dl.peers)
+	dl.fastDown.SetPeers(dl.peers)
 
 	go dl.qosTuner()
 	go dl.stateFetcher()
@@ -483,7 +483,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	fetchers := []func() error{
 		func() error { return d.fetchHeaders(p, origin+1, pivot) }, // Headers are always retrieved
 		func() error { return d.fetchBodies(origin + 1) },          // Bodies are retrieved during normal and fast sync
-		func() error { return d.fetchReceipts(origin + 1) },        // Receipts are retrieved during fast sync
+		//func() error { return d.fetchReceipts(origin + 1) },        // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
@@ -514,8 +514,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	for _, fn := range fetchers {
 		fn := fn
 		go func() {
-			defer d.cancelWg.Done();
-			log.Debug("++++++++++++++++++++++++++++++++++++++++++++")
+			defer func() {d.cancelWg.Done();log.Debug("snail++++++++++++++++++++++++++++++++++++++++++++")}()
 			errc <- fn()
 			}()
 	}
@@ -980,7 +979,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 		d.queue.PendingBlocks, d.queue.InFlightBlocks, d.queue.ShouldThrottleBlocks, d.queue.ReserveBodies,
 		d.bodyFetchHook, fetch, d.queue.CancelBodies, capacity, d.peers.BodyIdlePeers, setIdle, "bodies")
 
-	log.Debug("Block body download terminated", "err", err)
+	log.Debug("snail Block body download terminated", "err", err)
 	return err
 }
 
@@ -988,7 +987,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 // available peers, reserving a chunk of receipts for each, waiting for delivery
 // and also periodically checking for timeouts.
 func (d *Downloader) fetchReceipts(from uint64) error {
-	log.Debug("Downloading transaction receipts", "origin", from)
+	log.Debug("snail Downloading transaction receipts", "origin", from)
 
 	//var (
 	//	deliver = func(packet dataPack) (int, error) {
@@ -1393,21 +1392,31 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
 	blocks := make([]*types.SnailBlock, len(results))
+	fbNum := uint64(0)
+	fbHeight := uint64(0)
 	for i, result := range results {
 
 		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
 		if len(result.Fruits)>0{
-
-			origin := result.Fruits[i].FastNumber().Uint64() - 1
-			height := uint64(len(result.Fruits))
-			log.Debug("Snail---blocks>>>", blocks[i].NumberU64(),"fruits>>",len(result.Fruits))
-			d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
-
+			if fbNum == 0 {
+				fbNum = result.Fruits[0].FastNumber().Uint64()
+			}
+			fbHeight+=uint64(len(result.Fruits))
+			//height := uint64(len(result.Fruits))
+			//log.Debug("Snail--->>>","blocks>>>>" ,blocks[i],"fruits>>",result.Fruits)
+			//d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
 		}else {
 
-			log.Debug("Snail---blocks>>>", blocks[i].NumberU64(),"fruits>>",len(result.Fruits))
+			log.Debug("Snail--->>>","blocks>>>>",blocks[i],"fruits>>",result.Fruits)
 		}
+	}
+
+	//fbHeight = fbNum + fbHeight
+	errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, fbHeight)
+	if errs != nil{
+		log.Debug("fast sync: ","err>>>>>>>>>",errs)
+		return errs
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
@@ -1415,9 +1424,11 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		return errInvalidChain
 	}
 
-
 	return nil
+
 }
+
+
 
 // processFastSyncContent takes fetch results from the queue and writes them to the
 // database. It also controls the synchronisation of state nodes of the pivot block.
@@ -1431,7 +1442,6 @@ func (d *Downloader) processFastSyncContent(latest *types.SnailHeader) error {
 	//		d.queue.Close() // wake up WaitResults
 	//	}
 	//}()
-
 	// Figure out the ideal pivot block. Note, that this goalpost may move if the
 	// sync takes long enough for the chain head to move significantly.
 	pivot := uint64(0)
@@ -1586,8 +1596,8 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.SnailHeader) (er
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock, uncles [][]*types.SnailHeader) (err error) {
-	return d.deliver(id, d.bodyCh, &bodyPack{id, fruit, uncles}, bodyInMeter, bodyDropMeter)
+func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock, signs [][]*types.PbftSign,uncles [][]*types.SnailHeader) (err error) {
+	return d.deliver(id, d.bodyCh, &bodyPack{id, fruit,signs, uncles}, bodyInMeter, bodyDropMeter)
 }
 
 // DeliverReceipts injects a new batch of receipts received from a remote node.

@@ -867,6 +867,7 @@ func (q *queue) Prepare(offset uint64, mode SyncMode) {
 	defer q.lock.Unlock()
 
 	// Prepare the queue for sync results
+	// 为同步结果准备队列
 	if q.resultOffset < offset {
 		q.resultOffset = offset
 	}

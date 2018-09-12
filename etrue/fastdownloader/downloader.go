@@ -396,8 +396,9 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	defer d.Cancel() // No matter what, we can't leave the cancel channel open
 
 	// Set the requested sync mode, unless it's forbidden
-	d.mode = mode
-
+	if mode <0 {
+		d.mode = FullSync
+	}
 	// Retrieve the origin peer and initiate the downloading process
 	p := d.peers.Peer(id)
 	if p == nil {
@@ -433,8 +434,9 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	//	return err
 	//}
 	//height := latest.Number.Uint64()
-
 	//origin, err := d.findAncestor(p, height)
+
+
 	if err != nil {
 		return err
 	}
@@ -462,6 +464,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		d.committed = 0
 	}
 	// Initiate the sync using a concurrent header and content retrieval algorithm
+	//使用并发标头和内容检索算法启动同步
 	d.queue.Prepare(origin+1, d.mode)
 	if d.syncInitHook != nil {
 		d.syncInitHook(origin, height)
@@ -475,6 +478,8 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		func() error { return d.fetchReceipts(origin + 1) },                  // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
+
+
 	//if d.mode == FastSync {
 	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 	//} else if d.mode == FullSync {
@@ -493,9 +498,8 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	for _, fn := range fetchers {
 		fn := fn
 		go func() {
-			defer d.cancelWg.Done()
+			defer func() {d.cancelWg.Done();log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++")}()
 			errc <- fn()
-
 		}()
 	}
 	// Wait for the first error, then terminate the others.
@@ -869,16 +873,19 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				case <-d.cancelCh:
 					return errCancelHeaderFetch
 				}
-				from += uint64(len(headers))
+				//from += uint64(len(headers))
 			}
 
-			select {
-			case d.headerProcCh <- nil:
-				return nil
-			case <-d.cancelCh:
-				return errCancelHeaderFetch
-			}
+			//select {
+			//case d.headerProcCh <- nil:
+			//	return nil
+			//case <-d.cancelCh:
+			//	return errCancelHeaderFetch
+			//}
 			//getHeaders(from,height)
+
+			d.headerProcCh <- nil
+			return nil
 
 		case <-timeout.C:
 			if d.dropPeer == nil {
