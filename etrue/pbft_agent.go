@@ -206,18 +206,18 @@ func (self *PbftAgent) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				log.Debug("CommitteeStart...", "Id", ch.CommitteeId)
-				if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
+				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
 					continue
-				}
+				}*/
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
-				if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
+				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
 					continue
-				}
+				}*/
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
@@ -226,9 +226,9 @@ func (self *PbftAgent) loop() {
 
 			case types.CommitteeSwitchover:
 				log.Debug("CommitteeCh...", "Id", ch.CommitteeId)
-				if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
+				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
 					continue
-				}
+				}*/
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:      ch.CommitteeId,
 					Members: ch.CommitteeMembers,
@@ -531,8 +531,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-	log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"currentSnailBlock:",
-		self.snailChain.CurrentBlock().Number(),"space:",space)
+
 	if space >= blockRewordSpace {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
@@ -541,7 +540,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		} else {
 			log.Error("cannot find block.", "err", err)
 		}
-		log.Info("space >= blockRewordSpace","header.SnailNumber",header.SnailNumber)
+		log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"currentSnailBlock:",
+			self.snailChain.CurrentBlock().Number(),"space:",space)
 	}
 
 	//  padding Header.Root, TxHash, ReceiptHash.
