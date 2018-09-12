@@ -40,8 +40,8 @@ const (
 	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
 	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit    = 64                     // Maximum number of unique blocks a peer may have delivered
-	signLimit     = 128                    // Maximum number of unique sign a peer may have delivered
-	maxChanelSign = 64                     // Maximum number of unique sign a peer may have cache
+	signLimit     = 64                     // Maximum number of unique sign a peer may have delivered
+	maxSignDist   = 16                     // Maximum allowed sign distance from the chain head
 )
 
 var (
@@ -769,16 +769,17 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	hash := signs[0].Hash()
 	number := signs[0].FastHeight.Uint64()
+	committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
-	if count > signLimit {
-		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit)
+	if count > signLimit*int(committeeNumber) {
+		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit, "committee count", committeeNumber)
 		propSignDOSMeter.Mark(1)
 		return
 	}
 	// Discard any past or too distant blocks
-	if dist := int64(number) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
+	if dist := int64(number) - int64(f.chainHeight()); dist < -maxSignDist || dist > maxQueueDist {
 		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
 		propSignDropMeter.Mark(1)
 		return
@@ -840,7 +841,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		if f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
 			f.forgetBlockHeight(verifySigns[0].FastHeight)
 		} else {
-			committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
@@ -911,7 +911,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
+		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
 	}
 }
 
