@@ -77,7 +77,7 @@ type ConsensusState struct {
 	ttypes.RoundState
 	// state sm.State // State until height-1.
 	state ttypes.StateAgent
-	blockStore *ttypes.BlockMeta
+	blockStore *ttypes.BlockStore
 
 	// state changes may be triggered by: msgs from peers,
 	// msgs from ourself, or by timeouts
@@ -1198,14 +1198,13 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 		help.PanicSanity(fmt.Sprintf("+2/3 committed an invalid block: %v", err))
 	}
 
-	log.Info(fmt.Sprintf("Finalizing commit of block with %d txs", block.NumTxs),
-		"height", block.NumberU64(), "hash", block.Hash(), "root", block.AppHash)
+	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", block.Hash()))
 	log.Info(fmt.Sprintf("%v", block))
 
 	// fail.Fail() // XXX
 
 	// Save to blockStore.
-	if cs.blockStore.Height() < block.Height {
+	if cs.blockStore.MaxBlockHeight() < int64(block.NumberU64()) {
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(cs.CommitRound)
@@ -1213,7 +1212,7 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
-		log.Info("Calling finalizeCommit on already stored block", "height", block.Height)
+		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
 
 	// fail.Fail() // XXX
@@ -1272,35 +1271,35 @@ func (cs *ConsensusState) recordMetrics(height int64, block *types.Block) {
 	return
 	// cs.metrics.Validators.Set(float64(cs.Validators.Size()))
 	// cs.metrics.ValidatorsPower.Set(float64(cs.Validators.TotalVotingPower()))
-	missingValidators := 0
-	missingValidatorsPower := int64(0)
-	for i, val := range cs.Validators.Validators {
-		var vote *types.Vote
-		if i < len(block.LastCommit.Precommits) {
-			vote = block.LastCommit.Precommits[i]
-		}
-		if vote == nil {
-			missingValidators++
-			missingValidatorsPower += val.VotingPower
-		}
-	}
+	// missingValidators := 0
+	// missingValidatorsPower := int64(0)
+	// for i, val := range cs.Validators.Validators {
+	// 	var vote *types.Vote
+	// 	if i < len(block.LastCommit.Precommits) {
+	// 		vote = block.LastCommit.Precommits[i]
+	// 	}
+	// 	if vote == nil {
+	// 		missingValidators++
+	// 		missingValidatorsPower += val.VotingPower
+	// 	}
+	// }
 	// cs.metrics.MissingValidators.Set(float64(missingValidators))
 	// cs.metrics.MissingValidatorsPower.Set(float64(missingValidatorsPower))
 	// cs.metrics.ByzantineValidators.Set(float64(len(block.Evidence.Evidence)))
-	byzantineValidatorsPower := int64(0)
-	for _, ev := range block.Evidence.Evidence {
-		if _, val := cs.Validators.GetByAddress(ev.Address()); val != nil {
-			byzantineValidatorsPower += val.VotingPower
-		}
-	}
+	// byzantineValidatorsPower := int64(0)
+	// for _, ev := range block.Evidence.Evidence {
+	// 	if _, val := cs.Validators.GetByAddress(ev.Address()); val != nil {
+	// 		byzantineValidatorsPower += val.VotingPower
+	// 	}
+	// }
 	// cs.metrics.ByzantineValidatorsPower.Set(float64(byzantineValidatorsPower))
 
-	if height > 1 {
-		lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
-		// cs.metrics.BlockIntervalSeconds.Observe(
-		// 	block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
-		// )
-	}
+	// if height > 1 {
+	// 	lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
+	// 	// cs.metrics.BlockIntervalSeconds.Observe(
+	// 	// 	block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
+	// 	// )
+	// }
 
 	// cs.metrics.NumTxs.Set(float64(block.NumTxs))
 	// cs.metrics.BlockSizeBytes.Set(float64(block.Size()))
@@ -1333,9 +1332,10 @@ func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 	}
 
 	// Verify signature
-	if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.ChainID), proposal.Signature) {
-		return ErrInvalidProposalSignature
-	}
+	// if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.GetChainID()),
+	// 	 proposal.Signature) {
+	// 	return ErrInvalidProposalSignature
+	// }
 
 	cs.Proposal = proposal
 	cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(proposal.BlockPartsHeader)
@@ -1369,12 +1369,12 @@ func (cs *ConsensusState) addProposalBlockPart(msg *BlockPartMessage, peerID str
 	}
 	if added && cs.ProposalBlockParts.IsComplete() {
 		// Added and completed!
-		_, err = cdc.UnmarshalBinaryReader(cs.ProposalBlockParts.GetReader(), &cs.ProposalBlock, int64(cs.state.ConsensusParams.BlockSize.MaxBytes))
+		_, err = help.UnmarshalBinaryReader(cs.ProposalBlockParts.GetReader(), &cs.ProposalBlock, int64(ttypes.MaxBlockBytes))
 		if err != nil {
 			return true, err
 		}
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-		log.Info("Received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash())
+		log.Info("Received complete proposal block", "height", cs.ProposalBlock.NumberU64(), "hash", cs.ProposalBlock.Hash())
 
 		// Update Valid* if we can.
 		prevotes := cs.Votes.Prevotes(cs.Round)
@@ -1415,7 +1415,7 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 		// If it's otherwise invalid, punish peer.
 		if err == ErrVoteHeightMismatch {
 			return err
-		} else if voteErr, ok := err.(*ttypes.ErrVoteConflictingVotes); ok {
+		} else if _, ok := err.(*ttypes.ErrVoteConflictingVotes); ok {
 			if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
 				log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 				return err
@@ -1582,7 +1582,7 @@ func (cs *ConsensusState) signVote(type_ byte, hash []byte, header ttypes.PartSe
 		Type:             type_,
 		BlockID:          ttypes.BlockID{hash, header},
 	}
-	err := cs.privValidator.SignVote(cs.state.ChainID, vote)
+	err := cs.privValidator.SignVote(cs.state.GetChainID(), vote)
 	return vote, err
 }
 

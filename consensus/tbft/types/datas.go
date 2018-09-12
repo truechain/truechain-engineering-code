@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
-	"time"
+	//"sync"
+	//"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
@@ -237,6 +237,7 @@ func (blockID BlockID) String() string {
 //-------------------------------------------------------
 const (
 	MaxLimitBlockStore = 2000
+	MaxBlockBytes = 1048510			// lMB
 )
 
 type BlockMeta struct {
@@ -270,7 +271,7 @@ func (b *BlockStore) MaxBlockHeight() int64 {
 	// ss.blockLock.Lock()
 	// defer ss.blockLock.Unlock()
 	var cur int64 = 0
-	var fb *types.Block = nil
+	//var fb *ctypes.Block = nil
 	for k, _ := range b.blocks {
 		if cur == 0 {
 			cur = k
@@ -286,4 +287,7 @@ func (b *BlockStore) LoadBlockCommit(height int64) *Commit {
 		return v.SeenCommit
 	}
 	return nil
+}
+func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit){
+
 }
