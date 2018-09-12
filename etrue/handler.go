@@ -984,6 +984,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		select {
 		case signEvent := <-pm.pbSignsCh:
 			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash().String(), "recipients", len(pm.peers.peers))
+			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
 			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
