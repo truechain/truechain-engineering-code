@@ -110,7 +110,7 @@ type ProtocolManager struct {
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
 	txsyncCh    chan *txsync
-	fruitsyncCh    chan *fruitsync
+	fruitsyncCh chan *fruitsync
 	quitSync    chan struct{}
 	noMorePeers chan struct{}
 
@@ -845,7 +845,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
 		}
-		log.Info("Propagated handle block", "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Info("Propagated block", "num", block.Number(), "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
@@ -853,7 +853,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Debug("Announced block", "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced block", "num", block.Number(), "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -868,7 +868,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Debug("Broadcast sign", "hash", pbSign.Hash().String(), "number", pbSign.FastHeight, "recipients", len(peers))
+		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash().String(), "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
@@ -983,7 +983,8 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case signEvent := <-pm.pbSignsCh:
-			log.Debug("Committee sign", "hash", signEvent.PbftSign.Hash().String(), "number", signEvent.PbftSign.FastHeight, "recipients", len(pm.peers.peers))
+			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash().String(), "recipients", len(pm.peers.peers))
+			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
 			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 

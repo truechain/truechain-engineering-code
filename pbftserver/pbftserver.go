@@ -187,6 +187,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		lock.PSLog("FetchFastBlock wait", ss.blockSleep, "second")
 	}
 	fb, err := ss.Agent.FetchFastBlock()
+	fmt.Println("[pbft server] FetchFastBlock", fb.Header().Time)
 
 	if len(fb.Body().Transactions) == 0 {
 		if ss.blockSleep < BlockSleepMax {
@@ -276,6 +277,7 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	}
 	lock.PSLog("[Agent]", "BroadcastConsensus", "start")
 	err := ss.Agent.BroadcastConsensus(block)
+	fmt.Println("[pbft server] BroadcastConsensus", block.Header().Time)
 	lock.PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	//ss.removeBlock(height)
 	if err != nil {
@@ -288,6 +290,7 @@ func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 	if fb := ss.getBlock(height.Uint64()); fb != nil {
 		lock.PSLog("[Agent]", "BroadcastFastBlock", "start")
 		ss.Agent.BroadcastFastBlock(fb)
+		fmt.Println("[leader]", "BroadcastFastBlock")
 		lock.PSLog("[Agent]", "BroadcastFastBlock", "end")
 	}
 }

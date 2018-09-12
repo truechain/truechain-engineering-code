@@ -236,6 +236,8 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	}
 	if minFbNumber!=nil{
 		minFbNumber = new(big.Int).Add(minFbNumber, common.Big1)
+	}else {
+		minFbNumber=common.Big1
 	}
 	maxFbNumber:=pool.fastchain.CurrentHeader().Number
 	if maxFbNumber!=nil && minFbNumber!=nil{
