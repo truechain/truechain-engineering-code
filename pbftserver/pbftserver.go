@@ -288,6 +288,7 @@ func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 	if fb := ss.getBlock(height.Uint64()); fb != nil {
 		lock.PSLog("[Agent]", "BroadcastFastBlock", "start")
 		ss.Agent.BroadcastFastBlock(fb)
+		fmt.Println("[leader]", "BroadcastFastBlock")
 		lock.PSLog("[Agent]", "BroadcastFastBlock", "end")
 	}
 }
