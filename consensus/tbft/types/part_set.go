@@ -45,7 +45,7 @@ func (part *Part) StringIndented(indent string) string {
 %s  Proof: %v
 %s}`,
 		part.Index,
-		indent, Fingerprint(part.Bytes),
+		indent, help.Fingerprint(part.Bytes),
 		indent,"comment",
 		// commented tmp by iceming
 		// indent, part.Proof.StringIndented(indent+"  "),
@@ -60,7 +60,7 @@ type PartSetHeader struct {
 }
 
 func (psh PartSetHeader) String() string {
-	return fmt.Sprintf("%v:%X", psh.Total, Fingerprint(psh.Hash))
+	return fmt.Sprintf("%v:%X", psh.Total, help.Fingerprint(psh.Hash))
 }
 
 func (psh PartSetHeader) IsZero() bool {

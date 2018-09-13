@@ -47,7 +47,7 @@ func NewEventSwitch() EventSwitch {
 		eventCells: make(map[string]*eventCell),
 		listeners:  make(map[string]*eventListener),
 	}
-	evsw.BaseService = *help.NewBaseService(nil, "EventSwitch", evsw)
+	evsw.BaseService = *help.NewBaseService("EventSwitch", evsw)
 	return evsw
 }
 
