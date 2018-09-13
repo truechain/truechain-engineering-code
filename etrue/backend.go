@@ -488,9 +488,9 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	}
 	s.agent.server = s.pbftServer
 	log.Info("","server",s.agent.server)
-	//s.agent.Start()
+	s.agent.Start()
 
-	//s.election.Start()
+	s.election.Start()
 	//go s.agent.SendBlock()
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
