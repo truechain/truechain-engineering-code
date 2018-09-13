@@ -10,9 +10,6 @@ import (
 	"strings"
 	"os"
 	"io"
-	// "os/exec"
-	// "os/signal"
-	// "strings"
 	"syscall"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -180,6 +177,7 @@ func ProtocolAndAddress(listenAddr string) (string, string) {
 	}
 	return protocol, address
 }
+
 //-----------------------------------------------------------------------------
 // Panics if error.
 func MustMarshalBinaryBare(o interface{}) []byte {

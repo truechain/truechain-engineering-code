@@ -1415,17 +1415,18 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 		// If it's otherwise invalid, punish peer.
 		if err == ErrVoteHeightMismatch {
 			return err
-		} else if _, ok := err.(*ttypes.ErrVoteConflictingVotes); ok {
-			if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
-				log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
-				return err
+		}  else {
+			if err == ttypes.ErrVoteConflictingVotes {
+				if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
+					log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
+					return err
+				}
+			} else {
+				// Probably an invalid signature / Bad peer.
+				// Seems this can also err sometimes with "Unexpected step" - perhaps not from a bad peer ?
+				log.Error("Error attempting to add vote", "err", err)
+				return ErrAddingVote
 			}
-			return err
-		} else {
-			// Probably an invalid signature / Bad peer.
-			// Seems this can also err sometimes with "Unexpected step" - perhaps not from a bad peer ?
-			log.Error("Error attempting to add vote", "err", err)
-			return ErrAddingVote
 		}
 	}
 	return nil
