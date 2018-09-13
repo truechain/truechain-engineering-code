@@ -16,8 +16,8 @@ import (
 var _ crypto.PrivKey = PrivKeyEd25519{}
 
 const (
-	Ed25519PrivKeyAminoRoute = "truechain/PrivKeyEd25519"
-	Ed25519PubKeyAminoRoute  = "truechain/PubKeyEd25519"
+	Ed25519PrivKeyAminoRoute = "Truechain/PrivKeyEd25519"
+	Ed25519PubKeyAminoRoute  = "Truechain/PubKeyEd25519"
 	// Size of an Edwards25519 signature. Namely the size of a compressed
 	// Edwards25519 point, and a field element. Both of which are 32 bytes.
 	SignatureEd25519Size = 64
@@ -40,7 +40,7 @@ type PrivKeyEd25519 [64]byte
 
 // Bytes marshals the privkey using amino encoding.
 func (privKey PrivKeyEd25519) Bytes() []byte {
-	return help.MarshalBinaryBare(privKey)
+	return help.MustMarshalBinaryBare(privKey)
 }
 
 // Sign produces a signature on the provided message.
@@ -98,7 +98,7 @@ func (privKey PrivKeyEd25519) ToCurve25519() *[PubKeyEd25519Size]byte {
 // It uses OS randomness in conjunction with the current global random seed
 // in tendermint/libs/common to generate the private key.
 func GenPrivKey() PrivKeyEd25519 {
-	return genPrivKey(crypto.CReader())
+	return genPrivKey(help.CReader())
 }
 
 // genPrivKey generates a new ed25519 private key using the provided reader.
@@ -142,7 +142,7 @@ type PubKeyEd25519 [PubKeyEd25519Size]byte
 
 // Address is the Keccak256 of the raw pubkey bytes.
 func (pubKey PubKeyEd25519) Address() crypto.Address {
-	return crypto.Address(help.RlpHash(pubKey[:]))
+	return crypto.Address(help.RlpHash(pubKey[:])[:])
 }
 
 // Bytes marshals the PubKey using amino encoding.

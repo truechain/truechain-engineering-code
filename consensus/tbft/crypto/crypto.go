@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"crypto/sha256"
 )
 
 type PrivKey interface {
@@ -28,3 +29,10 @@ type Symmetric interface {
 	Encrypt(plaintext []byte, secret []byte) (ciphertext []byte)
 	Decrypt(ciphertext []byte, secret []byte) (plaintext []byte, err error)
 }
+
+func Sha256(bytes []byte) []byte {
+	hasher := sha256.New()
+	hasher.Write(bytes)
+	return hasher.Sum(nil)
+}
+
