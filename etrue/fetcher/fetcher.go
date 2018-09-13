@@ -36,12 +36,12 @@ const (
 	arriveTimeout    = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
 	gatherSlack      = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
 	fetchTimeout     = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
-	maxCommitteeDist = 4                      // Maximum allowed backward distance from the chain head
+	maxCommitteeDist = 0                      // Maximum allowed backward distance from the chain head
 	maxQueueDist     = 32                     // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 64                     // Maximum number of unique sign a peer may have delivered
-	maxSignDist      = 16                     // Maximum allowed sign distance from the chain head
+	maxSignDist      = 4                      // Maximum allowed sign distance from the chain head
 )
 
 var (
@@ -774,7 +774,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		propSignDOSMeter.Mark(1)
 		return
 	}
-	// Discard any past or too distant blocks
+	// Discard any past or too distant signs
 	if dist := int64(number) - int64(f.chainHeight()); dist < -maxSignDist || dist > maxQueueDist {
 		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
 		propSignDropMeter.Mark(1)
