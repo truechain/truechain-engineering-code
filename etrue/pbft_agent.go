@@ -144,6 +144,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		fastChain:        eth.BlockChain(),
 		snailChain:       eth.SnailBlockChain(),
 		preCommitteeInfo: new(types.CommitteeInfo),
+		committeeId:      new(big.Int),
 		//committeeCh:      make(chan core.CommitteeEvent),
 		electionCh:    make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:   make(chan core.ChainHeadEvent, chainHeadSize),
@@ -207,18 +208,18 @@ func (self *PbftAgent) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				log.Debug("CommitteeStart...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
+				if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
 					continue
-				}*/
+				}
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
+				if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
 					continue
-				}*/
+				}
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
@@ -227,9 +228,9 @@ func (self *PbftAgent) loop() {
 
 			case types.CommitteeSwitchover:
 				log.Debug("CommitteeCh...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
+				if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
 					continue
-				}*/
+				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:      ch.CommitteeId,
 					Members: ch.CommitteeMembers,
@@ -286,6 +287,15 @@ func (self *PbftAgent) loop() {
 	}
 }
 func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *big.Int) bool {
+	if committeeId == nil {
+		log.Error("verifyCommitteeId committeeId is nil", "committeeEventType", committeeEventType)
+		return false
+	}
+	if self.committeeId == nil {
+		log.Error("verifyCommitteeId self.committeeId is nil", "committeeEventType", committeeEventType)
+		return false
+	}
+
 	switch committeeEventType {
 	case types.CommitteeStart:
 		if self.committeeId.Cmp(committeeId) != 0 {
@@ -314,8 +324,8 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 func setReceivedCommitteeInfo(ch core.ElectionEvent) *types.CommitteeInfo {
 	//cpyMembers :=&ch.CommitteeMembers
 	receivedCommitteeInfo := &types.CommitteeInfo{
-		//Id:      cpy.CommitteeId,
-		//Members: &cpyMembers,
+	//Id:      cpy.CommitteeId,
+	//Members: &cpyMembers,
 	}
 	return receivedCommitteeInfo
 }
@@ -486,12 +496,13 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
-	tstamp := tstart.Unix()
-
+	tstamp := tstart.UnixNano() / 1000000
+	log.Info("printTime", "parent.Time", parent.Time(), "tstamp", tstamp)
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
-		log.Info("printTime", "parent.Time", parent.Time(), "tstamp", tstamp)
+		log.Info("printTime2", "parent.Time", parent.Time(), "tstamp", tstamp)
 		tstamp = parent.Time().Int64() + 1
 	}
+
 	// this will ensure we're not going off too far in the future
 	//if now := time.Now().Unix(); tstamp > now+1 {
 	//	wait := time.Duration(tstamp-now) * time.Second
@@ -523,28 +534,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain)
 
-	//generate rewardSnailHegiht
-	var rewardSnailHegiht *big.Int
-	BlockReward := self.fastChain.CurrentReward()
-	if BlockReward == nil {
-		rewardSnailHegiht = new(big.Int).Set(common.Big1)
-	} else {
-		rewardSnailHegiht = new(big.Int).Add(BlockReward.SnailNumber, common.Big1)
-	}
-	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-
-	if space >= blockRewordSpace {
-		header.SnailNumber = rewardSnailHegiht
-		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
-		if sb != nil {
-			header.SnailHash = sb.Hash()
-		} else {
-			log.Error("cannot find block.", "err", err)
-		}
-		log.Debug("reward", "rewardSnailHegiht:", rewardSnailHegiht, "currentSnailBlock:",
-			self.snailChain.CurrentBlock().Number(), "space:", space)
-	}
-
+	self.rewardSnailBlock(header)
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
 	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
@@ -566,6 +556,30 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	fmt.Println("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
 
 	return fastBlock, err
+}
+
+//generate rewardSnailHegiht
+func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
+	var rewardSnailHegiht *big.Int
+	blockReward := self.fastChain.CurrentReward()
+	if blockReward == nil {
+		rewardSnailHegiht = new(big.Int).Set(common.Big1)
+	} else {
+		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
+	}
+	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
+
+	if space >= blockRewordSpace {
+		header.SnailNumber = rewardSnailHegiht
+		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
+		if sb != nil {
+			header.SnailHash = sb.Hash()
+		} else {
+			log.Error("cannot find snailBlock by rewardSnailHegiht.")
+		}
+		log.Debug("reward", "rewardSnailHegiht:", rewardSnailHegiht, "currentSnailBlock:",
+			self.snailChain.CurrentBlock().Number(), "space:", space)
+	}
 }
 
 func GetTps(currentBlock *types.Block) {
