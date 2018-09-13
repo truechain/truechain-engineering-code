@@ -143,7 +143,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		fastChain:        eth.BlockChain(),
 		snailChain:       eth.SnailBlockChain(),
 		preCommitteeInfo: new(types.CommitteeInfo),
-		committeeId:      new(big.Int),
+		committeeId:      new(big.Int).SetInt64(-1),
 		//committeeCh:      make(chan core.CommitteeEvent),
 		electionCh:    make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:   make(chan core.ChainHeadEvent, chainHeadSize),
@@ -290,34 +290,25 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 		log.Error("verifyCommitteeId committeeId is nil", "committeeEventType", committeeEventType)
 		return false
 	}
-	if self.committeeId == nil {
-		log.Error("verifyCommitteeId self.committeeId is nil", "committeeEventType", committeeEventType)
-		return false
-	}
-
 	switch committeeEventType {
 	case types.CommitteeStart:
 		if self.committeeId.Cmp(committeeId) != 0 {
 			log.Error("CommitteeStart CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
+			return false
 		}
-		return false
 	case types.CommitteeStop:
 		if self.committeeId.Cmp(committeeId) != 0 {
 			log.Error("CommitteeStop CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
+			return false
 		}
-		return false
 	case types.CommitteeSwitchover:
-		if common.Big0.Cmp(committeeId) ==0 &&  common.Big0.Cmp(self.committeeId) ==0   {
-			log.Info("genesis committee CommitteeSwitchover")
-			return true
-		}
 		if new(big.Int).Add(self.committeeId, common.Big1).Cmp(committeeId) != 0 {
 			log.Error("CommitteeSwitchover CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
+			return false
 		}
-		return false
 	default:
 		log.Warn("unknown election option:")
 	}
