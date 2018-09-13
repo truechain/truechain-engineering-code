@@ -489,6 +489,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	tstamp := tstart.Unix()
 
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
+		log.Info("printTime", "parent.Time", parent.Time(), "tstamp", tstamp)
 		tstamp = parent.Time().Int64() + 1
 	}
 	// this will ensure we're not going off too far in the future
