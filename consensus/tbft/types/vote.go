@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	"crypto"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -16,26 +16,9 @@ var (
 	ErrVoteInvalidSignature          = errors.New("Invalid signature")
 	ErrVoteInvalidBlockHash          = errors.New("Invalid block hash")
 	ErrVoteNonDeterministicSignature = errors.New("Non-deterministic signature")
+	ErrVoteConflictingVotes			 = errors.New("Conflicting votes from validator")
 	ErrVoteNil                       = errors.New("Nil vote")
 )
-
-type ErrVoteConflictingVotes struct {
-	*DuplicateVoteEvidence
-}
-
-func (err *ErrVoteConflictingVotes) Error() string {
-	return fmt.Sprintf("Conflicting votes from validator %v", err.PubKey.Address())
-}
-
-func NewConflictingVoteError(val *Validator, voteA, voteB *Vote) *ErrVoteConflictingVotes {
-	return &ErrVoteConflictingVotes{
-		&DuplicateVoteEvidence{
-			PubKey: val.PubKey,
-			VoteA:  voteA,
-			VoteB:  voteB,
-		},
-	}
-}
 
 // Types of votes
 // TODO Make a new type "VoteType"
@@ -55,23 +38,20 @@ func IsVoteTypeValid(type_ byte) bool {
 	}
 }
 
-// Address is hex bytes. TODO: crypto.Address
-type Address = help.HexBytes
-
 // Represents a prevote, precommit, or commit vote from validators for consensus.
 type Vote struct {
-	ValidatorAddress Address   `json:"validator_address"`
-	ValidatorIndex   int       `json:"validator_index"`
-	Height           int64     `json:"height"`
-	Round            int       `json:"round"`
-	Timestamp        time.Time `json:"timestamp"`
-	Type             byte      `json:"type"`
-	BlockID          BlockID   `json:"block_id"` // zero if vote is nil.
-	Signature        []byte    `json:"signature"`
+	ValidatorAddress help.Address   `json:"validator_address"`
+	ValidatorIndex   int       		`json:"validator_index"`
+	Height           int64     		`json:"height"`
+	Round            int       		`json:"round"`
+	Timestamp        time.Time 		`json:"timestamp"`
+	Type             byte      		`json:"type"`
+	BlockID          BlockID   		`json:"block_id"` // zero if vote is nil.
+	Signature        []byte    		`json:"signature"`
 }
 
 func (vote *Vote) SignBytes(chainID string) []byte {
-	bz, err := cdc.MarshalJSON(CanonicalVote(chainID, vote))
+	bz, err := help.MarshalJSON(CanonicalVote(chainID, vote))
 	if err != nil {
 		panic(err)
 	}

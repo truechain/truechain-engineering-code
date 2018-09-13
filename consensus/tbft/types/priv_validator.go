@@ -5,12 +5,13 @@ import (
 	//"fmt"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // PrivValidator defines the functionality of a local Tendermint validator
 // that signs votes, proposals, and heartbeats, and never double signs.
 type PrivValidator interface {
-	GetAddress() Address // redundant since .PubKey().Address()
+	GetAddress() help.Address // redundant since .PubKey().Address()
 	GetPubKey() crypto.PubKey
 
 	SignVote(chainID string, vote *Vote) error
