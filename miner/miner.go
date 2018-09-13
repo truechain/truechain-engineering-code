@@ -74,7 +74,6 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 	}
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
 	go miner.update()
-
 	return miner
 }
 
@@ -83,11 +82,20 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (self *Miner) update() {
-	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
+	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{},core.ElectionEvent{})
 out:
 	for ev := range events.Chan() {
 		switch ev.Data.(type) {
+		case core.ElectionEvent:
+			
+		//	log.Info("----------------------Mining aborted due to sync","event is ", core.ElectionEvent
+			/*if self.Mining() {
+				self.Stop()
+				atomic.StoreInt32(&self.shouldStart, 1)
+				log.Info("Mining aborted due to sync")
+			} */
 		case downloader.StartEvent:
+
 			atomic.StoreInt32(&self.canStart, 0)
 			if self.Mining() {
 				self.Stop()
@@ -95,6 +103,7 @@ out:
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
+			log.Info("start to miner---------------??????")
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
 
 			atomic.StoreInt32(&self.canStart, 1)
@@ -108,6 +117,7 @@ out:
 			break out
 		}
 	}
+
 }
 
 func (self *Miner) Start(coinbase common.Address) {

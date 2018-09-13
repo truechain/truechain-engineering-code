@@ -74,6 +74,7 @@ type receiptRLP struct {
 
 type receiptStorageRLP struct {
 	PostStateOrStatus []byte
+	Status            uint64
 	CumulativeGasUsed uint64
 	Bloom             Bloom
 	TxHash            common.Hash
@@ -158,6 +159,7 @@ type ReceiptForStorage Receipt
 func (r *ReceiptForStorage) EncodeRLP(w io.Writer) error {
 	enc := &receiptStorageRLP{
 		PostStateOrStatus: (*Receipt)(r).statusEncoding(),
+		Status:            r.Status,
 		CumulativeGasUsed: r.CumulativeGasUsed,
 		Bloom:             r.Bloom,
 		TxHash:            r.TxHash,
@@ -181,6 +183,7 @@ func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 	if err := (*Receipt)(r).setStatus(dec.PostStateOrStatus); err != nil {
 		return err
 	}
+	r.Status = dec.Status
 	// Assign the consensus fields
 	r.CumulativeGasUsed, r.Bloom = dec.CumulativeGasUsed, dec.Bloom
 	r.Logs = make([]*Log, len(dec.Logs))

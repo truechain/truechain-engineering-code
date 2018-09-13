@@ -187,6 +187,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		lock.PSLog("FetchFastBlock wait", ss.blockSleep, "second")
 	}
 	fb, err := ss.Agent.FetchFastBlock()
+
 	fmt.Println("[pbft server] FetchFastBlock", fb.Header().Time)
 
 	if len(fb.Body().Transactions) == 0 {

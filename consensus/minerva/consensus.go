@@ -342,7 +342,7 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 		return consensus.ErrFutureBlock
 	}
 
-	if header.Time.Cmp(parent.Time) <= 0 {
+	if header.Time.Cmp(parent.Time) < 0 {
 		return errZeroBlockTime
 	}
 
