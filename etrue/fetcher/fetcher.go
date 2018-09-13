@@ -41,7 +41,7 @@ const (
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 64                     // Maximum number of unique sign a peer may have delivered
-	maxSignDist      = 4                      // Maximum allowed sign distance from the chain head
+	maxSignDist      = 0                      // Maximum allowed sign distance from the chain head
 )
 
 var (
@@ -438,6 +438,9 @@ func (f *Fetcher) loop() {
 
 				if index != -1 {
 					number := blocks[index].NumberU64()
+					if number > height+1 {
+						break
+					}
 					signHashs := f.signMultiHash[number]
 					signs := []*types.PbftSign{}
 					for _, signHash := range signHashs {
