@@ -229,6 +229,9 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
+	fmt.Println("fastQueue>>>>>>>>>>>>>",&dl.queue.active)
+
+
 	//go dl.qosTuner()
 	//go dl.stateFetcher()
 	return dl
@@ -363,7 +366,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
-	//d.peers.Reset()
+	d.peers.Reset()
 
 	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 		select {
@@ -423,9 +426,9 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		return errTooOld
 	}
 
-	log.Debug("Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode)
+	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode)
 	defer func(start time.Time) {
-		log.Debug("Synchronisation terminated", "elapsed", time.Since(start))
+		log.Debug("Fast Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
 
 	// Look up the sync boundaries: the common ancestor and the target block
@@ -478,6 +481,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		func() error { return d.fetchReceipts(origin + 1) },                  // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
+
 
 
 	//if d.mode == FastSync {
@@ -564,7 +568,7 @@ func (d *Downloader) Terminate() {
 // fetchHeight retrieves the head header of the remote peer to aid in estimating
 // the total time a pending synchronisation would take.
 func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.Header, error) {
-	p.GetLog().Debug("Retrieving remote chain height")
+	p.GetLog().Debug("Fast Retrieving remote chain height")
 
 	// Request the advertised remote head block and wait for the response
 	head, _ := p.GetPeer().Head()
@@ -580,21 +584,21 @@ func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.Header, error) 
 		case packet := <-d.headerCh:
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
-				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
+				log.Debug("Fast Received headers from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			// Make sure the peer actually gave something valid
 			headers := packet.(*headerPack).headers
 			if len(headers) != 1 {
-				p.GetLog().Debug("Multiple headers for single request", "headers", len(headers))
+				p.GetLog().Debug("Fast Multiple headers for single request", "headers", len(headers))
 				return nil, errBadPeer
 			}
 			head := headers[0]
-			p.GetLog().Debug("Remote head header identified", "number", head.Number, "hash", head.Hash())
+			p.GetLog().Debug("Fast Remote head header identified", "number", head.Number, "hash", head.Hash())
 			return head, nil
 
 		case <-timeout:
-			p.GetLog().Debug("Waiting for head header timed out", "elapsed", ttl)
+			p.GetLog().Debug("Fast Waiting for head header timed out", "elapsed", ttl)
 			return nil, errTimeout
 
 		case <-d.bodyCh:
@@ -621,7 +625,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 	if ceil >= MaxForkAncestry {
 		floor = int64(ceil - MaxForkAncestry)
 	}
-	p.GetLog().Debug("Looking for common ancestor", "local", ceil, "remote", height)
+	p.GetLog().Debug("Fast Looking for common ancestor", "local", ceil, "remote", height)
 
 	// Request the topmost blocks to short circuit binary ancestor lookup
 	head := ceil
@@ -654,19 +658,19 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 		case packet := <-d.headerCh:
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
-				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
+				log.Debug("Fast Received headers from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			// Make sure the peer actually gave something valid
 			headers := packet.(*headerPack).headers
 			if len(headers) == 0 {
-				p.GetLog().Warn("Empty head header set")
+				p.GetLog().Warn("Fast  Empty head header set")
 				return 0, errEmptyHeaderSet
 			}
 			// Make sure the peer's reply conforms to the request
 			for i := 0; i < len(headers); i++ {
 				if number := headers[i].Number.Int64(); number != from+int64(i)*16 {
-					p.GetLog().Warn("Head headers broke chain ordering", "index", i, "requested", from+int64(i)*16, "received", number)
+					p.GetLog().Warn("Fast Head headers broke chain ordering", "index", i, "requested", from+int64(i)*16, "received", number)
 					return 0, errInvalidChain
 				}
 			}
@@ -683,7 +687,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 
 					// If every header is known, even future ones, the peer straight out lied about its head
 					if number > height && i == limit-1 {
-						p.GetLog().Warn("Lied about chain head", "reported", height, "found", number)
+						p.GetLog().Warn("Fast Lied about chain head", "reported", height, "found", number)
 						return 0, errStallingPeer
 					}
 					break
@@ -691,7 +695,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 			}
 
 		case <-timeout:
-			p.GetLog().Debug("Waiting for head header timed out", "elapsed", ttl)
+			p.GetLog().Debug("Fast Waiting for head header timed out", "elapsed", ttl)
 			return 0, errTimeout
 
 		case <-d.bodyCh:
@@ -702,10 +706,10 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 	// If the head fetch already found an ancestor, return
 	if hash != (common.Hash{}) {
 		if int64(number) <= floor {
-			p.GetLog().Warn("Ancestor below allowance", "number", number, "hash", hash, "allowance", floor)
+			p.GetLog().Warn("Fast Ancestor below allowance", "number", number, "hash", hash, "allowance", floor)
 			return 0, errInvalidAncestor
 		}
-		p.GetLog().Debug("Found common ancestor", "number", number, "hash", hash)
+		p.GetLog().Debug("Fast Found common ancestor", "number", number, "hash", hash)
 		return number, nil
 	}
 	// Ancestor not found, we need to binary search over our chain
@@ -731,13 +735,13 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 			case packer := <-d.headerCh:
 				// Discard anything not from the origin peer
 				if packer.PeerId() != p.GetID() {
-					log.Debug("Received headers from incorrect peer", "peer", packer.PeerId())
+					log.Debug("Fast Received headers from incorrect peer", "peer", packer.PeerId())
 					break
 				}
 				// Make sure the peer actually gave something valid
 				headers := packer.(*headerPack).headers
 				if len(headers) != 1 {
-					p.GetLog().Debug("Multiple headers for single request", "headers", len(headers))
+					p.GetLog().Debug("Fast Multiple headers for single request", "headers", len(headers))
 					return 0, errBadPeer
 				}
 				arrived = true
@@ -749,13 +753,13 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 				}
 				header := d.lightchain.GetHeaderByHash(headers[0].Hash()) // Independent of sync mode, header surely exists
 				if header.Number.Uint64() != check {
-					p.GetLog().Debug("Received non requested header", "number", header.Number, "hash", header.Hash(), "request", check)
+					p.GetLog().Debug("Fast Received non requested header", "number", header.Number, "hash", header.Hash(), "request", check)
 					return 0, errBadPeer
 				}
 				start = check
 
 			case <-timeout:
-				p.GetLog().Debug("Waiting for search header timed out", "elapsed", ttl)
+				p.GetLog().Debug("Fast Waiting for search header timed out", "elapsed", ttl)
 				return 0, errTimeout
 
 			case <-d.bodyCh:
@@ -766,10 +770,10 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 	}
 	// Ensure valid ancestry and return
 	if int64(start) <= floor {
-		p.GetLog().Warn("Ancestor below allowance", "number", start, "hash", hash, "allowance", floor)
+		p.GetLog().Warn("Fast Ancestor below allowance", "number", start, "hash", hash, "allowance", floor)
 		return 0, errInvalidAncestor
 	}
-	p.GetLog().Debug("Found common ancestor", "number", start, "hash", hash)
+	p.GetLog().Debug("Fast Found common ancestor", "number", start, "hash", hash)
 	return start, nil
 }
 
@@ -782,8 +786,8 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, height uint64) (uint64
 // can fill in the skeleton - not even the origin peer - it's assumed invalid and
 // the origin is dropped.
 func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height int, pivot uint64) error {
-	p.GetLog().Debug("Directing header downloads", "origin", from)
-	defer p.GetLog().Debug("Header download terminated")
+	p.GetLog().Debug("Fast Directing header downloads", "origin", from)
+	defer p.GetLog().Debug("Fast Header download terminated")
 
 	// Create a timeout timer, and the associated header fetcher
 	skeleton := false           // Skeleton assembly phase or finishing up
@@ -803,7 +807,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 		//	p.GetLog().Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
 		//	go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false,true)
 		//} else {
-		p.GetLog().Trace("Fetching full headers", "count", height, "from", from)
+		p.GetLog().Trace("Fast Fetching full headers", "count", height, "from", from)
 		go p.GetPeer().RequestHeadersByNumber(from, height, 0, false, true)
 		//}
 	}
@@ -818,7 +822,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 		case packet := <-d.headerCh:
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
-				log.Debug("Received skeleton from incorrect peer", "peer", packet.PeerId())
+				log.Debug("Fast Received skeleton from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			headerReqTimer.UpdateSince(request)
@@ -834,7 +838,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			if packet.Items() == 0 {
 				// Don't abort header fetches while the pivot is downloading
 				if atomic.LoadInt32(&d.committed) == 0 && pivot <= from {
-					p.GetLog().Debug("No headers, waiting for pivot commit")
+					p.GetLog().Debug("Fast No headers, waiting for pivot commit")
 					select {
 					case <-time.After(fsHeaderContCheck):
 						getHeaders(from, height)
@@ -844,7 +848,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 					}
 				}
 				// Pivot done (or not in fast sync) and no more headers, terminate the process
-				p.GetLog().Debug("No more fast headers available")
+				p.GetLog().Debug("Fast No more fast headers available")
 				select {
 				case d.headerProcCh <- nil:
 					return nil
@@ -867,7 +871,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 
 			// Insert all the new headers and fetch the next batch
 			if len(headers) > 0 {
-				p.GetLog().Trace("Scheduling new headers", "count", len(headers), "from", from)
+				p.GetLog().Trace("Fast Scheduling new headers", "count", len(headers), "from", from)
 				select {
 				case d.headerProcCh <- headers:
 				case <-d.cancelCh:
@@ -891,11 +895,11 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			if d.dropPeer == nil {
 				// The dropPeer method is nil when `--copydb` is used for a local copy.
 				// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
-				p.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", p.GetID())
+				p.GetLog().Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", p.GetID())
 				break
 			}
 			// Header retrieval timed out, consider the peer bad and drop
-			p.GetLog().Debug("Header request timed out", "elapsed", ttl)
+			p.GetLog().Debug("Fast Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
 			d.dropPeer(p.GetID())
 
@@ -925,7 +929,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 // The method returns the entire filled skeleton and also the number of headers
 // already forwarded for processing.
 func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) ([]*types.Header, int, error) {
-	log.Debug("Filling up skeleton", "from", from)
+	log.Debug("Fast Filling up skeleton", "from", from)
 	d.queue.ScheduleSkeleton(from, skeleton)
 
 	var (
@@ -948,7 +952,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 		d.queue.PendingHeaders, d.queue.InFlightHeaders, throttle, reserve,
 		nil, fetch, d.queue.CancelHeaders, capacity, d.peers.HeaderIdlePeers, setIdle, "headers")
 
-	log.Debug("Skeleton fill terminated", "err", err)
+	log.Debug("Fast Skeleton fill terminated", "err", err)
 
 	filled, proced := d.queue.RetrieveHeaders()
 	return filled, proced, err
@@ -958,7 +962,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 // available peers, reserving a chunk of blocks for each, waiting for delivery
 // and also periodically checking for timeouts.
 func (d *Downloader) fetchBodies(from uint64) error {
-	log.Debug("Downloading block bodies", "origin", from)
+	log.Debug("Fast Downloading block bodies", "origin", from)
 
 	var (
 		deliver = func(packet etrue.DataPack) (int, error) {
@@ -974,7 +978,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 		d.queue.PendingBlocks, d.queue.InFlightBlocks, d.queue.ShouldThrottleBlocks, d.queue.ReserveBodies,
 		d.bodyFetchHook, fetch, d.queue.CancelBodies, capacity, d.peers.BodyIdlePeers, setIdle, "bodies")
 
-	log.Debug("Block body download terminated", "err", err)
+	log.Debug("Fast Block body download terminated", "err", err)
 	return err
 }
 
@@ -982,7 +986,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 // available peers, reserving a chunk of receipts for each, waiting for delivery
 // and also periodically checking for timeouts.
 func (d *Downloader) fetchReceipts(from uint64) error {
-	log.Debug("Downloading transaction receipts", "origin", from)
+	log.Debug("Fast Downloading transaction receipts", "origin", from)
 
 	var (
 		deliver = func(packet etrue.DataPack) (int, error) {
@@ -998,7 +1002,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 		d.queue.PendingReceipts, d.queue.InFlightReceipts, d.queue.ShouldThrottleReceipts, d.queue.ReserveReceipts,
 		d.receiptFetchHook, fetch, d.queue.CancelReceipts, capacity, d.peers.ReceiptIdlePeers, setIdle, "receipts")
 
-	log.Debug("Transaction receipt download terminated", "err", err)
+	log.Debug("Fast Transaction receipt download terminated", "err", err)
 	return err
 }
 
@@ -1063,11 +1067,11 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 				// Issue a log to the user to see what's going on
 				switch {
 				case err == nil && packet.Items() == 0:
-					peer.GetLog().Trace("Requested data not delivered", "type", kind)
+					peer.GetLog().Trace("Fast Requested data not delivered", "type", kind)
 				case err == nil:
-					peer.GetLog().Trace("Delivered new batch of data", "type", kind, "count", packet.Stats())
+					peer.GetLog().Trace("Fast Delivered new batch of data", "type", kind, "count", packet.Stats())
 				default:
-					peer.GetLog().Trace("Failed to deliver retrieved data", "type", kind, "err", err)
+					peer.GetLog().Trace("Fast Failed to deliver retrieved data", "type", kind, "err", err)
 				}
 			}
 			// Blocks assembled, try to update the progress
@@ -1110,14 +1114,14 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					// and latency of a peer separately, which requires pushing the measures capacity a bit and seeing
 					// how response times reacts, to it always requests one more than the minimum (i.e. min 2).
 					if fails > 2 {
-						peer.GetLog().Trace("Data delivery timed out", "type", kind)
+						peer.GetLog().Trace("Fast Data delivery timed out", "type", kind)
 						setIdle(peer, 0)
 					} else {
-						peer.GetLog().Debug("Stalling delivery, dropping", "type", kind)
+						peer.GetLog().Debug("Fast Stalling delivery, dropping", "type", kind)
 						if d.dropPeer == nil {
 							// The dropPeer method is nil when `--copydb` is used for a local copy.
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
-							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
+							peer.GetLog().Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
 							d.dropPeer(pid)
 						}
@@ -1127,7 +1131,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			// If there's nothing more to fetch, wait or terminate
 			if pending() == 0 {
 				if !inFlight() && finished {
-					log.Debug("Data fetching completed", "type", kind)
+					log.Debug("Fast Data fetching completed", "type", kind)
 					return nil
 				}
 				break
@@ -1160,9 +1164,9 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					continue
 				}
 				if request.From > 0 {
-					peer.GetLog().Trace("Requesting new batch of data", "type", kind, "from", request.From)
+					peer.GetLog().Trace("Fast Requesting new batch of data", "type", kind, "from", request.From)
 				} else {
-					peer.GetLog().Trace("Requesting new batch of data", "type", kind, "count", len(request.Fheaders), "from", request.Fheaders[0].Number)
+					peer.GetLog().Trace("Fast Requesting new batch of data", "type", kind, "count", len(request.Fheaders), "from", request.Fheaders[0].Number)
 				}
 				// Fetch the chunk and make sure any errors return the hashes to the queue
 				if fetchHook != nil {
@@ -1174,7 +1178,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 					// case, the internal state of the downloader and the queue is very wrong so
 					// better hard crash and note the error instead of silently accumulating into
 					// a much bigger issue.
-					panic(fmt.Sprintf("%v: %s fetch assignment failed", peer, kind))
+					panic(fmt.Sprintf("Fast %v: %s fetch assignment failed", peer, kind))
 				}
 				running = true
 			}
@@ -1308,7 +1312,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						if n > 0 {
 							rollback = append(rollback, chunk[:n]...)
 						}
-						log.Debug("Invalid header encountered", "number", chunk[n].Number, "hash", chunk[n].Hash(), "err", err)
+						log.Debug("Fast Invalid header encountered", "number", chunk[n].Number, "hash", chunk[n].Hash(), "err", err)
 						return errInvalidChain
 					}
 					// All verifications passed, store newly found uncertain headers
@@ -1330,7 +1334,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					// Otherwise insert the headers for content retrieval
 					inserts := d.queue.Schedule(chunk, origin)
 					if len(inserts) != len(chunk) {
-						log.Debug("Stale headers")
+						log.Debug("Fast Stale headers")
 						return errBadPeer
 					}
 				}
@@ -1391,9 +1395,10 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Uncles)
-	}
+		fmt.Println(blocks[i].Number(),blocks[i].ParentHash(),blocks[i].Hash())
+		}
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Debug("Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
+		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain
 	}
 	return nil

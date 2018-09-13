@@ -100,6 +100,7 @@ func newQueue() *queue {
 		active:           sync.NewCond(lock),
 		lock:             lock,
 	}
+
 }
 
 // Reset clears out the queue contents.
@@ -339,6 +340,7 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
+	fmt.Println("countProcessableItems  >>>>>>>>>>>>>>>  ")
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
@@ -494,6 +496,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 
 		// If we're the first to request this task, initialise the result container
 		index := int(header.Number.Int64() - int64(q.resultOffset))
+		fmt.Println("index >= len(q.resultCache) || index < 0>>>>>>>>>>>",index , len(q.resultCache) , index < 0)
 		if index >= len(q.resultCache) || index < 0 {
 			common.Report("index allocation went beyond available resultCache space")
 			return nil, false, errInvalidChain
@@ -510,6 +513,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 			}
 		}
 		// If this fetch task is a noop, skip this fetch operation
+		fmt.Println("isNoop(header)>>>>>>>",isNoop(header))
 		if isNoop(header) {
 			donePool[hash] = struct{}{}
 			delete(taskPool, hash)
@@ -531,6 +535,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		taskQueue.Push(header, -float32(header.Number.Uint64()))
 	}
 	if progress {
+		fmt.Println("q.active.Signal()>>>>>>>>>>>")
 		// Wake WaitResults, resultCache was modified
 		q.active.Signal()
 	}
@@ -847,6 +852,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 	}
 	// Wake up WaitResults
 	if accepted > 0 {
+		fmt.Println("q.active.Signal()>>>>>>>>>>>deliver")
 		q.active.Signal()
 	}
 	// If none of the data was good, it's a stale delivery

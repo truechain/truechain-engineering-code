@@ -234,8 +234,8 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		fastDown:      fdown,
 	}
 
-	dl.fastDown.SetPeers(dl.peers)
-
+	//dl.fastDown.SetPeers(dl.peers)
+	fmt.Println("snailQueue>>>>>>>>>>>>>",&dl.queue.active)
 	go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
@@ -1132,7 +1132,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			// If there's nothing more to fetch, wait or terminate
 			if pending() == 0 {
 				if !inFlight() && finished {
-					log.Debug("Data fetching completed", "type", kind)
+					log.Debug("Fast Data fetching completed", "type", kind)
 					return nil
 				}
 				break
@@ -1412,6 +1412,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		}
 	}
 
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>",len(blocks))
 	//fbHeight = fbNum + fbHeight
 	errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, fbHeight)
 	if errs != nil{

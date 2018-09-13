@@ -384,9 +384,9 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
-	//if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
-	//	return err
-	//}
+	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
+		return err
+	}
 
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
@@ -646,7 +646,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&headers); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
 		//filter := len(headers) == 1
 		//if filter {
@@ -748,7 +747,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendSnailBlockBodiesRLP(bodies)
 
 	case msg.Code == SnailBlockBodiesMsg:
-		log.Debug("SnailBlockBodiesMsg>>>>>>>>>>>>")
+
 		// A batch of block bodies arrived to one of our previous requests
 		var request snailBlockBodiesData
 		if err := msg.Decode(&request); err != nil {
@@ -770,6 +769,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
+		log.Debug("SnailBlockBodiesMsg>>>>>>>>>>>>","fruits",len(fruits))
 		err := pm.downloader.DeliverBodies(p.id, fruits, signs,nil)
 		if err != nil {
 			log.Debug("Failed to deliver bodies", "err", err)

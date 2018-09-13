@@ -246,7 +246,7 @@ func (pm *ProtocolManager) syncer() {
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			 pm.synchronise(pm.peers.BestPeer())
+			pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
 			return
