@@ -762,7 +762,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
 		}
-		//accumulateRewardsFast(m.election, state, header, sBlock)
+		accumulateRewardsFast(m.election, state, header, sBlock)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	return types.NewBlock(header, txs, receipts, nil), nil
