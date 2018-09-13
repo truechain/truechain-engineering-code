@@ -75,10 +75,10 @@ func GenPrivKey() PrivKeyTrue {
 type PubKeyTrue ecdsa.PublicKey
 
 // Address is the Keccak256 of the raw pubkey bytes.
-func (pub PubKeyTrue) Address() Address {
+func (pub PubKeyTrue) Address() help.Address {
 	pub1 := ecdsa.PublicKey(pub)
 	data := tcrypyo.FromECDSAPub(&pub1)
-	return Address(help.HexBytes(data[:]))
+	return help.Address(help.HexBytes(data[:]))
 }
 
 // Bytes marshals the PubKey using amino encoding.
