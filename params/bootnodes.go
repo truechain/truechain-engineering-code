@@ -35,7 +35,9 @@ var MainnetBootnodes = []string{
 // Ropsten test network.
 var TestnetBootnodes = []string{
 	"enode://7d2142bcff0f3ea520f5230948e3d807ffb24ccb9ca3831adc454911b06f347df36c69b7d2642a4fc9f7e04f08768c6c8b20caffa5a5152bdfd44b3c39a72792@47.92.172.168:30301",
+	"enode://8fa18b269a41fb6bfbea3aa170a10308498f4aa7e63dc837d71e9e64fc23f7a0b91e5992bb2a4d3ed73582d6b3a138412789c3039f6312caee4aa04774db666e@47.92.172.168:9220",
 	"enode://9b01f1c3e40cc27dbfc5aa7e84f898e7a353b462b93a5e47d85dd73258f6793d0fb6168bfdf0ca111f2115dc48542a120d1f9199c9badc3153d16b4081d08a64@47.92.135.242:30301",
+	"enode://6e6d19cc642c26a1714e01e81f7f5eb50b32632ce5db4344aaca50e356a1d539be277a44867c59e8a6db8a32697fb0f2155dab3ccdc4e5deed149aebbcec3f64@47.92.135.242:9220",
 }
 
 // RinkebyBootnodes are the enode URLs of the P2P bootstrap nodes running on the
