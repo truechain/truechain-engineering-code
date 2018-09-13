@@ -158,7 +158,7 @@ func NewConsensusState(
 // SetLogger implements Service.
 func (cs *ConsensusState) SetLogger(l log.Logger) {
 	// cs.BaseService.Logger = l
-	cs.timeoutTicker.SetLogger(l)
+	//cs.timeoutTicker.SetLogger(l)
 }
 
 // SetEventBus sets event bus.
