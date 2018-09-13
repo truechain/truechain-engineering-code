@@ -1,25 +1,23 @@
 package types
 
 import (
-	"time"
 	"bytes"
 	"fmt"
-	"math/rand"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 )
 
 // Volatile state for each Validator
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
-	Address     Address       	`json:"address"`
-	PubKey      PubKey 			`json:"pub_key"`
-	VotingPower int64         	`json:"voting_power"`
-
-	Accum 		int64 			`json:"accum"`
+	Address     help.Address       	`json:"address"`
+	PubKey      crypto.PubKey 		`json:"pub_key"`
+	VotingPower int64         		`json:"voting_power"`
+	Accum 		int64 				`json:"accum"`
 }
 
-func NewValidator(pubKey PubKey, votingPower int64) *Validator {
+func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
 	return &Validator{
 		Address:     pubKey.Address(),
 		PubKey:      pubKey,
@@ -72,8 +70,8 @@ func (v *Validator) String() string {
 // It excludes the Accum value, which changes with every round.
 func (v *Validator) Hash() []byte {
 	return help.RlpHash(struct {
-		Address     Address
-		PubKey      PubKey
+		Address     help.Address
+		PubKey      crypto.PubKey
 		VotingPower int64
 	}{
 		v.Address,
@@ -87,16 +85,16 @@ func (v *Validator) Hash() []byte {
 
 // RandValidator returns a randomized validator, useful for testing.
 // UNSTABLE
-func RandValidator(randPower bool, minPower int64) (*Validator, PrivValidator) {
-	privVal := NewMockPV()
-	votePower := minPower
-	if randPower {
-		// update by iceming
-		// votePower += int64(cmn.RandUint32())
-		random := rand.New(rand.NewSource(time.Now().Unix()))
-		rdata := random.Uint32()
-		votePower += int64(rdata)
-	}
-	val := NewValidator(privVal.GetPubKey(), votePower)
-	return val, privVal
-}
+//func RandValidator(randPower bool, minPower int64) (*Validator, PrivValidator) {
+//	privVal := NewMockPV()
+//	votePower := minPower
+//	if randPower {
+//		// update by iceming
+//		// votePower += int64(cmn.RandUint32())
+//		random := rand.New(rand.NewSource(time.Now().Unix()))
+//		rdata := random.Uint32()
+//		votePower += int64(rdata)
+//	}
+//	val := NewValidator(privVal.GetPubKey(), votePower)
+//	return val, privVal
+//}

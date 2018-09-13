@@ -3,19 +3,15 @@ package types
 import (
 	"bytes"
 	//"fmt"
-	"crypto/ecdsa"
-
-	// "github.com/tendermint/tendermint/crypto/ed25519"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 )
-
-type PubKey ecdsa.PublicKey
 
 // PrivValidator defines the functionality of a local Tendermint validator
 // that signs votes, proposals, and heartbeats, and never double signs.
 type PrivValidator interface {
 	GetAddress() Address // redundant since .PubKey().Address()
-	GetPubKey() PubKey
+	GetPubKey() crypto.PubKey
 
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
