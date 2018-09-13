@@ -796,14 +796,14 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":           (*hexutil.Big)(head.Number),
-		"hash":             b.Hash(),
-		"parentHash":       head.ParentHash,
+		"number":     (*hexutil.Big)(head.Number),
+		"hash":       b.Hash(),
+		"parentHash": head.ParentHash,
 		//"nonce":            head.Nonce,
 		//"mixHash":          head.MixDigest,
 		//"sha3Uncles":       head.UncleHash,
-		"logsBloom":        head.Bloom,
-		"stateRoot":        head.Root,
+		"logsBloom": head.Bloom,
+		"stateRoot": head.Root,
 		//"miner":            head.Coinbase,
 		//"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"extraData":        hexutil.Bytes(head.Extra),
@@ -1072,13 +1072,12 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 		"contractAddress":   nil,
 		"logs":              receipt.Logs,
 		"logsBloom":         receipt.Bloom,
+		"status":            hexutil.Uint(receipt.Status),
 	}
 
 	// Assign receipt status or post state.
 	if len(receipt.PostState) > 0 {
 		fields["root"] = hexutil.Bytes(receipt.PostState)
-	} else {
-		fields["status"] = hexutil.Uint(receipt.Status)
 	}
 	if receipt.Logs == nil {
 		fields["logs"] = [][]*types.Log{}
