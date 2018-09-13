@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -261,10 +262,10 @@ func (self *PbftAgent) loop() {
 			if self.encryptoNodeInCommittee(cryNodeInfo) {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 				/*
-				if bytes.Equal(cryNodeInfo.Sign, []byte{}) {
-					log.Error("received cryNodeInfo.Sign is nil ")
-					continue
-				}*/
+					if bytes.Equal(cryNodeInfo.Sign, []byte{}) {
+						log.Error("received cryNodeInfo.Sign is nil ")
+						continue
+					}*/
 				signStr := hex.EncodeToString(cryNodeInfo.Sign)
 				if len(signStr) > subSignStr {
 					signStr = signStr[:subSignStr]
@@ -540,8 +541,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		} else {
 			log.Error("cannot find block.", "err", err)
 		}
-		log.Info("reward","rewardSnailHegiht:",rewardSnailHegiht,"currentSnailBlock:",
-			self.snailChain.CurrentBlock().Number(),"space:",space)
+		log.Info("reward", "rewardSnailHegiht:", rewardSnailHegiht, "currentSnailBlock:",
+			self.snailChain.CurrentBlock().Number(), "space:", space)
 	}
 
 	//  padding Header.Root, TxHash, ReceiptHash.
@@ -561,6 +562,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
+	fmt.Println("[pbft agent FetchFastBlock]", time.Now().Unix(), fastBlock.Time())
 	return fastBlock, err
 }
 
