@@ -98,9 +98,9 @@ func (rs *RoundState) RoundStateSimple() RoundStateSimple {
 	return RoundStateSimple{
 		HeightRoundStep:   fmt.Sprintf("%d/%d/%d", rs.Height, rs.Round, rs.Step),
 		StartTime:         rs.StartTime,
-		ProposalBlockHash: rs.ProposalBlock.Hash(),
-		LockedBlockHash:   rs.LockedBlock.Hash(),
-		ValidBlockHash:    rs.ValidBlock.Hash(),
+		ProposalBlockHash: rs.ProposalBlock.Hash()[:],
+		LockedBlockHash:   rs.LockedBlock.Hash()[:],
+		ValidBlockHash:    rs.ValidBlock.Hash()[:],
 		Votes:             votesJSON,
 	}
 }
@@ -146,11 +146,11 @@ func (rs *RoundState) StringIndented(indent string) string {
 		indent, rs.CommitTime,
 		indent, rs.Validators.StringIndented(indent+"  "),
 		indent, rs.Proposal,
-		indent, rs.ProposalBlockParts.StringShort(), rs.ProposalBlock.StringShort(),
+		indent, rs.ProposalBlockParts.StringShort(), rs.ProposalBlock.Hash(),
 		indent, rs.LockedRound,
-		indent, rs.LockedBlockParts.StringShort(), rs.LockedBlock.StringShort(),
+		indent, rs.LockedBlockParts.StringShort(), rs.LockedBlock.Hash(),
 		indent, rs.ValidRound,
-		indent, rs.ValidBlockParts.StringShort(), rs.ValidBlock.StringShort(),
+		indent, rs.ValidBlockParts.StringShort(), rs.ValidBlock.Hash(),
 		indent, rs.Votes.StringIndented(indent+"  "),
 		indent, rs.LastCommit.StringShort(),
 		indent, rs.LastValidators.StringIndented(indent+"  "),
