@@ -47,7 +47,7 @@ type CanonicalJSONHeartbeat struct {
 	Height           int64   `json:"height"`
 	Round            int     `json:"round"`
 	Sequence         int     `json:"sequence"`
-	ValidatorAddress Address `json:"validator_address"`
+	ValidatorAddress help.Address `json:"validator_address"`
 	ValidatorIndex   int     `json:"validator_index"`
 }
 

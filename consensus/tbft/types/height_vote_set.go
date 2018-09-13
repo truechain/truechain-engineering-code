@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 type RoundVoteSet struct {
@@ -230,7 +231,7 @@ func (hvs *HeightVoteSet) MarshalJSON() ([]byte, error) {
 	defer hvs.mtx.Unlock()
 
 	allVotes := hvs.toAllRoundVotes()
-	return cdc.MarshalJSON(allVotes)
+	return help.MarshalJSON(allVotes)
 }
 
 func (hvs *HeightVoteSet) toAllRoundVotes() []roundVotes {

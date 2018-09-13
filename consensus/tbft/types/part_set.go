@@ -273,7 +273,7 @@ func (ps *PartSet) MarshalJSON() ([]byte, error) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	return cdc.MarshalJSON(struct {
+	return help.MarshalJSON(struct {
 		CountTotal    string        `json:"count/total"`
 		PartsBitArray *help.BitArray `json:"parts_bit_array"`
 	}{

@@ -141,8 +141,8 @@ const PubKeyEd25519Size = 32
 type PubKeyEd25519 [PubKeyEd25519Size]byte
 
 // Address is the Keccak256 of the raw pubkey bytes.
-func (pubKey PubKeyEd25519) Address() crypto.Address {
-	return crypto.Address(help.RlpHash(pubKey[:])[:])
+func (pubKey PubKeyEd25519) Address() help.Address {
+	return help.Address(help.RlpHash(pubKey[:])[:])
 }
 
 // Bytes marshals the PubKey using amino encoding.
