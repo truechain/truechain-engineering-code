@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -260,10 +261,10 @@ func (self *PbftAgent) loop() {
 			if self.encryptoNodeInCommittee(cryNodeInfo) {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 				/*
-				if bytes.Equal(cryNodeInfo.Sign, []byte{}) {
-					log.Error("received cryNodeInfo.Sign is nil ")
-					continue
-				}*/
+					if bytes.Equal(cryNodeInfo.Sign, []byte{}) {
+						log.Error("received cryNodeInfo.Sign is nil ")
+						continue
+					}*/
 				signStr := hex.EncodeToString(cryNodeInfo.Sign)
 				if len(signStr) > subSignStr {
 					signStr = signStr[:subSignStr]
@@ -313,8 +314,8 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 func setReceivedCommitteeInfo(ch core.ElectionEvent) *types.CommitteeInfo {
 	//cpyMembers :=&ch.CommitteeMembers
 	receivedCommitteeInfo := &types.CommitteeInfo{
-	//Id:      cpy.CommitteeId,
-	//Members: &cpyMembers,
+		//Id:      cpy.CommitteeId,
+		//Members: &cpyMembers,
 	}
 	return receivedCommitteeInfo
 }
@@ -560,6 +561,9 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
+
+	fmt.Println("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
+
 	return fastBlock, err
 }
 
