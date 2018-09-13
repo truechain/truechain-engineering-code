@@ -5,23 +5,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
-type CanonicalJSONHeartbeat struct {
-	ChainID          string  `json:"@chain_id"`
-	Type             string  `json:"@type"`
-	Height           int64   `json:"height"`
-	Round            int     `json:"round"`
-	Sequence         int     `json:"sequence"`
-	ValidatorAddress Address `json:"validator_address"`
-	ValidatorIndex   int     `json:"validator_index"`
-}
-
 // Heartbeat is a simple vote-like structure so validators can
 // alert others that they are alive and waiting for transactions.
 // Note: We aren't adding ",omitempty" to Heartbeat's
 // json field tags because we always want the JSON
 // representation to be in its canonical form.
 type Heartbeat struct {
-	ValidatorAddress Address `json:"validator_address"`
+	ValidatorAddress help.Address `json:"validator_address"`
 	ValidatorIndex   int     `json:"validator_index"`
 	Height           int64   `json:"height"`
 	Round            int     `json:"round"`
