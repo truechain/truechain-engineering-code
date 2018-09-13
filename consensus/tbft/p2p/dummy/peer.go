@@ -20,7 +20,7 @@ func NewPeer() *peer {
 	p := &peer{
 		kv: make(map[string]interface{}),
 	}
-	p.BaseService = *help.NewBaseService(nil, "peer", p)
+	p.BaseService = *help.NewBaseService("peer", p)
 
 	return p
 }
