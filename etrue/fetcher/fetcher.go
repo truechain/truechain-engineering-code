@@ -40,7 +40,7 @@ const (
 	maxQueueDist     = 32                     // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
-	signLimit        = 64                     // Maximum number of unique sign a peer may have delivered
+	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
 	maxSignDist      = 0                      // Maximum allowed sign distance from the chain head
 )
 
@@ -768,12 +768,11 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	hash := signs[0].Hash()
 	number := signs[0].FastHeight.Uint64()
-	committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
-	if count > signLimit*int(committeeNumber) {
-		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit, "committee count", committeeNumber)
+	if count > signLimit {
+		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit)
 		propSignDOSMeter.Mark(1)
 		return
 	}
@@ -801,7 +800,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
 		f.broadcastSigns(verifySigns)
 
-		if !f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
+		if f.getBlock(verifySigns[0].FastHash) != nil {
 			log.Debug("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
 			propSignDropMeter.Mark(1)
 			return
@@ -840,6 +839,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		if f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
 			f.forgetBlockHeight(verifySigns[0].FastHeight)
 		} else {
+			committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
