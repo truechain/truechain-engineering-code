@@ -22,7 +22,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -496,10 +495,9 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
-	tstamp := tstart.UnixNano() / 1000000
+	tstamp := tstart.Unix()
 	log.Info("printTime", "parent.Time", parent.Time(), "tstamp", tstamp)
-	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
-		log.Info("printTime2", "parent.Time", parent.Time(), "tstamp", tstamp)
+	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
 
@@ -553,7 +551,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		fastBlock.AppendSign(voteSign)
 	}
 
-	fmt.Println("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
+	log.Info("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
 
 	return fastBlock, err
 }
@@ -953,7 +951,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")
 	// sleep a minute to wait election module start and other nodes' connection
-	time.Sleep(time.Minute)
+	//time.Sleep(time.Minute)
 	for {
 		// fetch block
 		var (
