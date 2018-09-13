@@ -115,8 +115,8 @@ type Election struct {
 	committee     *committee
 	nextCommittee *committee
 
-	fastHeadNumber  *big.Int
-	snailHeadNumber *big.Int
+	//fastHeadNumber  *big.Int
+	//snailHeadNumber *big.Int
 	startSwitchover bool //Flag bit for handling event switching
 
 	electionFeed  event.Feed
@@ -328,9 +328,11 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 // GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	log.Debug("get committee ..", "fastNumber", fastNumber)
-	newestFast := new(big.Int).Add(e.fastHeadNumber, big.NewInt(k))
+	fastHeadNumber := e.fastchain.CurrentHeader().Number
+	snailHeadNumber := e.snailchain.CurrentHeader().Number
+	newestFast := new(big.Int).Add(fastHeadNumber, big.NewInt(k))
 	if fastNumber.Cmp(newestFast) > 0 {
-		log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", e.fastHeadNumber)
+		log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
 		return nil
 	}
 
@@ -353,7 +355,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 
 	fastBlock := e.fastchain.GetBlockByNumber(fastNumber.Uint64())
 	if fastBlock == nil {
-		log.Info("get committee failed (no fast block)", "fastnumber", fastNumber, "currentNumber", e.fastHeadNumber)
+		log.Info("get committee failed (no fast block)", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
 		return nil
 	}
 	// get snail number
@@ -362,7 +364,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	if snailBlock == nil {
 		// fast block has not stored in snail chain
 		// TODO: when fast number is so far away from snail block
-		snailNumber = e.snailHeadNumber
+		snailNumber = snailHeadNumber
 	} else {
 		snailNumber = snailBlock.Number()
 	}
@@ -551,10 +553,10 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 func (e *Election) Start() error {
 	// get current committee info
-	e.fastHeadNumber = e.fastchain.CurrentHeader().Number
-	e.snailHeadNumber = e.snailchain.CurrentHeader().Number
+	fastHeadNumber := e.fastchain.CurrentHeader().Number
+	snailHeadNumber := e.snailchain.CurrentHeader().Number
 
-	comm := e.getCommittee(e.fastHeadNumber, e.snailHeadNumber)
+	comm := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if comm == nil {
 		return nil
 	}
@@ -580,7 +582,7 @@ func (e *Election) Start() error {
 		// start switchover
 		e.startSwitchover = true
 
-		if e.committee.endFastNumber.Cmp(e.fastHeadNumber) == 0 {
+		if e.committee.endFastNumber.Cmp(fastHeadNumber) == 0 {
 			// committee has finish their work, start the new committee
 
 			if _, ok := e.committeeList[e.committee.id]; !ok {
