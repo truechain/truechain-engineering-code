@@ -309,6 +309,10 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 		}
 		return false
 	case types.CommitteeSwitchover:
+		if common.Big0.Cmp(committeeId) ==0 &&  common.Big0.Cmp(self.committeeId) ==0   {
+			log.Info("genesis committee CommitteeSwitchover")
+			return true
+		}
 		if new(big.Int).Add(self.committeeId, common.Big1).Cmp(committeeId) != 0 {
 			log.Error("CommitteeSwitchover CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
@@ -550,9 +554,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
-
 	log.Info("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
-
 	return fastBlock, err
 }
 
