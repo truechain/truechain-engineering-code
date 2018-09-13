@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -15,7 +16,7 @@ type addrBookJSON struct {
 }
 
 func (a *addrBook) saveToFile(filePath string) {
-	a.Logger.Info("Saving AddrBook to file", "size", a.Size())
+	log.Info("Saving AddrBook to file", "size", a.Size())
 
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -32,12 +33,12 @@ func (a *addrBook) saveToFile(filePath string) {
 
 	jsonBytes, err := json.MarshalIndent(aJSON, "", "\t")
 	if err != nil {
-		a.Logger.Error("Failed to save AddrBook to file", "err", err)
+		log.Error("Failed to save AddrBook to file", "err", err)
 		return
 	}
 	err = help.WriteFileAtomic(filePath, jsonBytes, 0644)
 	if err != nil {
-		a.Logger.Error("Failed to save AddrBook to file", "file", filePath, "err", err)
+		log.Error("Failed to save AddrBook to file", "file", filePath, "err", err)
 	}
 }
 
