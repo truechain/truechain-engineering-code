@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/math"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -50,8 +51,8 @@ func (t *BlockTest) UnmarshalJSON(in []byte) error {
 type btJSON struct {
 	Blocks    []btBlock             `json:"blocks"`
 	Genesis   btHeader              `json:"genesisBlockHeader"`
-	Pre       core.GenesisAlloc     `json:"pre"`
-	Post      core.GenesisAlloc     `json:"postState"`
+	Pre       types.GenesisAlloc     `json:"pre"`
+	Post      types.GenesisAlloc     `json:"postState"`
 	BestBlock common.UnprefixedHash `json:"lastblockhash"`
 	Network   string                `json:"network"`
 }
@@ -107,9 +108,9 @@ func (t *BlockTest) Run() error {
 	if gblock.Hash() != t.json.Genesis.Hash {
 		return fmt.Errorf("genesis block hash doesn't match test: computed=%x, test=%x", gblock.Hash().Bytes()[:6], t.json.Genesis.Hash[:6])
 	}
-	if gblock.Root() != t.json.Genesis.StateRoot {
-		return fmt.Errorf("genesis block state root does not match test: computed=%x, test=%x", gblock.Root().Bytes()[:6], t.json.Genesis.StateRoot[:6])
-	}
+	// if gblock.Root() != t.json.Genesis.StateRoot {
+	// 	return fmt.Errorf("genesis block state root does not match test: computed=%x, test=%x", gblock.Root().Bytes()[:6], t.json.Genesis.StateRoot[:6])
+	// }
 
 	chain, err := core.NewBlockChain(db, nil, config, ethash.NewShared(), vm.Config{})
 	if err != nil {
@@ -135,8 +136,8 @@ func (t *BlockTest) Run() error {
 	return t.validateImportedHeaders(chain, validBlocks)
 }
 
-func (t *BlockTest) genesis(config *params.ChainConfig) *core.Genesis {
-	return &core.Genesis{
+func (t *BlockTest) genesis(config *params.ChainConfig) *snailchain.Genesis {
+	return &snailchain.Genesis{
 		Config:     config,
 		Nonce:      t.json.Genesis.Nonce.Uint64(),
 		Timestamp:  t.json.Genesis.Timestamp.Uint64(),
@@ -202,15 +203,16 @@ func validateHeader(h *btHeader, h2 *types.Header) error {
 	if h.Bloom != h2.Bloom {
 		return fmt.Errorf("Bloom: want: %x have: %x", h.Bloom, h2.Bloom)
 	}
-	if h.Coinbase != h2.Coinbase {
-		return fmt.Errorf("Coinbase: want: %x have: %x", h.Coinbase, h2.Coinbase)
-	}
-	if h.MixHash != h2.MixDigest {
-		return fmt.Errorf("MixHash: want: %x have: %x", h.MixHash, h2.MixDigest)
-	}
-	if h.Nonce != h2.Nonce {
-		return fmt.Errorf("Nonce: want: %x have: %x", h.Nonce, h2.Nonce)
-	}
+	// types.Header has no fields: Coinbase MixDigest Nonce UncleHash Difficulty, so del its as following.
+	// if h.Coinbase != h2.Coinbase {
+	// 	return fmt.Errorf("Coinbase: want: %x have: %x", h.Coinbase, h2.Coinbase)
+	// }
+	// if h.MixHash != h2.MixDigest {
+	// 	return fmt.Errorf("MixHash: want: %x have: %x", h.MixHash, h2.MixDigest)
+	// }
+	// if h.Nonce != h2.Nonce {
+	// 	return fmt.Errorf("Nonce: want: %x have: %x", h.Nonce, h2.Nonce)
+	// }
 	if h.Number.Cmp(h2.Number) != 0 {
 		return fmt.Errorf("Number: want: %v have: %v", h.Number, h2.Number)
 	}
@@ -226,15 +228,15 @@ func validateHeader(h *btHeader, h2 *types.Header) error {
 	if h.StateRoot != h2.Root {
 		return fmt.Errorf("State hash: want: %x have: %x", h.StateRoot, h2.Root)
 	}
-	if h.UncleHash != h2.UncleHash {
-		return fmt.Errorf("Uncle hash: want: %x have: %x", h.UncleHash, h2.UncleHash)
-	}
+	// if h.UncleHash != h2.UncleHash {
+	// 	return fmt.Errorf("Uncle hash: want: %x have: %x", h.UncleHash, h2.UncleHash)
+	// }
 	if !bytes.Equal(h.ExtraData, h2.Extra) {
 		return fmt.Errorf("Extra data: want: %x have: %x", h.ExtraData, h2.Extra)
 	}
-	if h.Difficulty.Cmp(h2.Difficulty) != 0 {
-		return fmt.Errorf("Difficulty: want: %v have: %v", h.Difficulty, h2.Difficulty)
-	}
+	// if h.Difficulty.Cmp(h2.Difficulty) != 0 {
+	// 	return fmt.Errorf("Difficulty: want: %v have: %v", h.Difficulty, h2.Difficulty)
+	// }
 	if h.GasLimit != h2.GasLimit {
 		return fmt.Errorf("GasLimit: want: %d have: %d", h.GasLimit, h2.GasLimit)
 	}
