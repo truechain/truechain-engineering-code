@@ -61,6 +61,7 @@ var (
 
 	ErrFreshness = errors.New("fruit not fresh")
 	ErrMined = errors.New("already mined")
+	ErrNoFastBlockToMiner = errors.New("the fastblocks is null")
 )
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -718,7 +719,21 @@ func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.Block) []error {
 
 // PendingFastBlocks retrieves one currently fast block.
 // The returned fast block is a copy and can be freely modified by calling code.
-func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
+func (pool *SnailPool) PendingFastBlocks() (types.Blocks, error) {
+	pool.muFastBlock.Lock()
+	defer pool.muFastBlock.Unlock()
+	var fastblocks types.Blocks
+ 
+	for fastblock := pool.fastBlockPending.Front(); fastblock != nil; fastblock = fastblock.Next() {
+	   block := fastblock.Value.(*types.Block)
+	   fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
+	   fastblocks=append(fastblocks,fastBlock)
+	}
+	var blockby types.BlockBy = types.Number
+	blockby.Sort(fastblocks)
+	return fastblocks, nil 
+ 
+	/*
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
 
@@ -728,7 +743,8 @@ func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 	}
 	block := first.Value.(*types.Block)
 	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
-	return fastBlock, nil
+	return fastBlock, nil*/
+
 }
 
 // SubscribeNewFastBlockEvent registers a subscription of NewFastBlocksEvent
