@@ -1,4 +1,4 @@
-// Copyright 2018 The Truechain Authors
+// Copyright 2018 The TrueChain Authors
 // This file is part of the truechain-engineering-code library.
 //
 // The truechain-engineering-code library is free software: you can redistribute it and/or modify
@@ -324,19 +324,36 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	}
 }
 
+
+// GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
+	log.Debug("get committee ..", "fastNumber", fastNumber)
 	newestFast := new(big.Int).Add(e.fastHeadNumber, big.NewInt(k))
 	if fastNumber.Cmp(newestFast) > 0 {
+		log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", e.fastHeadNumber)
 		return nil
 	}
+
+	if e.nextCommittee != nil {
+		log.Debug("next committee info..", "id", e.nextCommittee.id, "firstNumber", e.nextCommittee.beginFastNumber)
+		if new(big.Int).Add(e.nextCommittee.beginFastNumber, big.NewInt(k)).Cmp(fastNumber) < 0 {
+			log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", e.nextCommittee.beginFastNumber)
+			return nil
+		}
+		if fastNumber.Cmp(e.nextCommittee.beginFastNumber) >= 0 {
+			return e.nextCommittee.members
+		}
+	}
 	if e.committee != nil {
+		log.Debug("current committee info..", "id", e.committee.id, "firstNumber", e.committee.beginFastNumber)
 		if fastNumber.Cmp(e.committee.beginFastNumber) >= 0 {
 			return e.committee.members
 		}
 	}
 
-	fastBlock := e.snailchain.GetBlockByNumber(fastNumber.Uint64())
+	fastBlock := e.fastchain.GetBlockByNumber(fastNumber.Uint64())
 	if fastBlock == nil {
+		log.Info("get committee failed (no fast block)", "fastnumber", fastNumber, "currentNumber", e.fastHeadNumber)
 		return nil
 	}
 	// get snail number
