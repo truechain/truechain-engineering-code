@@ -133,13 +133,16 @@ type Election struct {
 	snailchain *snailchain.SnailBlockChain
 
 	engine   consensus.Engine
+
+	mux *event.TypeMux
 }
 
-func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain) *Election {
+func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain,mux *event.TypeMux) *Election {
 	// init
 	election := &Election{
 		fastchain:        fastBlockChain,
 		snailchain:       snailBlockChain,
+		mux : mux,
 		committeeList:    make(map[*big.Int]*committee),
 		fastChainHeadCh:  make(chan core.ChainHeadEvent, fastChainHeadSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailchainHeadSize),
@@ -598,13 +601,20 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
+		//self.mux.Post(chain.NewMinedFruitEvent{Block: block})
+		//type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
+		e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+	
 		//time.Sleep(time.Millisecond*500)
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
+		e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
+	
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
 			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
+			e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 		}
 	} (e)
 
@@ -653,6 +663,8 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
+					e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+					
 				}
 
 			}
@@ -662,6 +674,7 @@ func (e *Election) loop() {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
 						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, nil})
+						e.mux.Post(core.ElectionEvent{types.CommitteeStop,e.committee.id,nil})
 
 						// find committee already exist in committee list
 						e.committeeList[e.committee.id] = e.committee
@@ -674,6 +687,7 @@ func (e *Election) loop() {
 						log.Info("Election start new BFT committee..")
 
 						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
+						e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
 					}
 				}
 			}

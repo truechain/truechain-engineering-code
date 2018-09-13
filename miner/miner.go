@@ -33,9 +33,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-)
+) 
 
 // Backend wraps all methods required for mining.
+
 type Backend interface {
 	AccountManager() *accounts.Manager
 	SnailBlockChain() *snailchain.SnailBlockChain
@@ -43,7 +44,9 @@ type Backend interface {
 	TxPool() *core.TxPool
 	SnailPool() *core.SnailPool
 	ChainDb() ethdb.Database
+	//Election() *etrue.Election
 }
+
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
@@ -60,6 +63,10 @@ type Miner struct {
 	truechain Backend
 	engine    consensus.Engine
 
+	//election
+	electionCh  chan core.ElectionEvent
+	electionSub event.Subscription
+
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
@@ -73,6 +80,9 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		canStart:  1,
 	}
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
+ 
+	//miner.electionSub = truechain.Election().SubscribeElectionEvent(miner.electionCh)
+	
 	go miner.update()
 	return miner
 }
@@ -82,11 +92,23 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (self *Miner) update() {
+	//defer self.electionSub.Unsubscribe()
 	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{},core.ElectionEvent{})
 out:
 	for ev := range events.Chan() {
 		switch ev.Data.(type) {
 		case core.ElectionEvent:
+			election := ev.Data.(core.ElectionEvent)
+			//log.Info("============== get election msg  1  CommitteeStart","data",election.Option)
+			
+			switch election.Option {
+				case types.CommitteeStart:
+					log.Info("============== get election msg  1  CommitteeStart")
+				case types.CommitteeSwitchover:
+					log.Info("============== get election msg  2  CommitteeSwitchover")
+				case types.CommitteeStop:
+					log.Info("============== get election msg  3  CommitteeStop")
+			}
 			
 		//	log.Info("----------------------Mining aborted due to sync","event is ", core.ElectionEvent
 			/*if self.Mining() {
