@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"time"
 	"errors"
-
+	"github.com/truechain/truechain-engineering-code/log"
 	auto "github.com/truechain/truechain-engineering-code/consensus/tbft/help/autofile"
-	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	//ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -84,7 +84,7 @@ func NewWAL(walFile string) (*baseWAL, error) {
 		group: group,
 		enc:   NewWALEncoder(group),
 	}
-	wal.BaseService = *help.NewBaseService(nil, "baseWAL", wal)
+	wal.BaseService = *help.NewBaseService("baseWAL", wal)
 	return wal, nil
 }
 
@@ -154,7 +154,7 @@ func (wal *baseWAL) SearchForEndHeight(height int64, options *WALSearchOptions) 
 	// NOTE: starting from the last file in the group because we're usually
 	// searching for the last height. See replay.go
 	min, max := wal.group.MinIndex(), wal.group.MaxIndex()
-	wal.Logger.Debug("Searching for height", "height", height, "min", min, "max", max)
+	log.Debug("Searching for height", "height", height, "min", min, "max", max)
 	for index := max; index >= min; index-- {
 		gr, err = wal.group.NewReader(index)
 		if err != nil {
@@ -174,7 +174,7 @@ func (wal *baseWAL) SearchForEndHeight(height int64, options *WALSearchOptions) 
 				break
 			}
 			if options.IgnoreDataCorruptionErrors && IsDataCorruptionError(err) {
-				wal.Logger.Debug("Corrupted entry. Skipping...", "err", err)
+				log.Debug("Corrupted entry. Skipping...", "err", err)
 				// do nothing
 				continue
 			} else if err != nil {
@@ -185,7 +185,7 @@ func (wal *baseWAL) SearchForEndHeight(height int64, options *WALSearchOptions) 
 			if m, ok := msg.Msg.(EndHeightMessage); ok {
 				lastHeightFound = m.Height
 				if m.Height == height { // found
-					wal.Logger.Debug("Found", "height", height, "index", index)
+					log.Debug("Found", "height", height, "index", index)
 					return gr, true, nil
 				}
 			}
@@ -212,7 +212,7 @@ func NewWALEncoder(wr io.Writer) *WALEncoder {
 
 // Encode writes the custom encoding of v to the stream.
 func (enc *WALEncoder) Encode(v *TimedWALMessage) error {
-	data := help.MarshalBinaryBare(v)
+	data := help.MustMarshalBinaryBare(v)
 
 	crc := crc32.Checksum(data, crc32c)
 	length := uint32(len(data))
