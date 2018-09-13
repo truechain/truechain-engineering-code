@@ -169,7 +169,7 @@ func NewMConnectionWithConfig(conn net.Conn, chDescs []*ChannelDescriptor, onRec
 	mconn.channels = channels
 	mconn.channelsIdx = channelsIdx
 
-	mconn.BaseService = *help.NewBaseService(nil, "MConnection", mconn)
+	mconn.BaseService = *help.NewBaseService("MConnection", mconn)
 
 	// maxPacketMsgSize() is a bit heavy, so call just once
 	mconn._maxPacketMsgSize = mconn.maxPacketMsgSize()
@@ -178,7 +178,7 @@ func NewMConnectionWithConfig(conn net.Conn, chDescs []*ChannelDescriptor, onRec
 }
 
 func (c *MConnection) SetLogger(l log.Logger) {
-	c.BaseService.SetLogger(l)
+	//c.BaseService.SetLogger(l)
 	for _, ch := range c.channels {
 		ch.SetLogger(l)
 	}
@@ -221,10 +221,10 @@ func (c *MConnection) String() string {
 }
 
 func (c *MConnection) flush() {
-	c.Logger.Debug("Flush", "conn", c)
+	log.Debug("Flush", "conn", c)
 	err := c.bufConnWriter.Flush()
 	if err != nil {
-		c.Logger.Error("MConnection flush failed", "err", err)
+		log.Error("MConnection flush failed", "err", err)
 	}
 }
 
@@ -251,12 +251,12 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 		return false
 	}
 
-	c.Logger.Debug("Send", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
+	log.Debug("Send", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
 
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		c.Logger.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
+		log.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
 		return false
 	}
 
@@ -268,7 +268,7 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 		default:
 		}
 	} else {
-		c.Logger.Error("Send failed", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
+		log.Error("Send failed", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
 	}
 	return success
 }
@@ -280,12 +280,12 @@ func (c *MConnection) TrySend(chID byte, msgBytes []byte) bool {
 		return false
 	}
 
-	c.Logger.Debug("TrySend", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
+	log.Debug("TrySend", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
 
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		c.Logger.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
+		log.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
 		return false
 	}
 
@@ -310,7 +310,7 @@ func (c *MConnection) CanSend(chID byte) bool {
 
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		c.Logger.Error(fmt.Sprintf("Unknown channel %X", chID))
+		log.Error(fmt.Sprintf("Unknown channel %X", chID))
 		return false
 	}
 	return channel.canSend()
@@ -335,13 +335,13 @@ FOR_LOOP:
 				channel.updateStats()
 			}
 		case <-c.pingTimer.Chan():
-			c.Logger.Debug("Send Ping")
+			log.Debug("Send Ping")
 			_n, err = help.MarshalBinaryWriter(c.bufConnWriter, PacketPing{})
 			if err != nil {
 				break SELECTION
 			}
 			c.sendMonitor.Update(int(_n))
-			c.Logger.Debug("Starting pong timer", "dur", c.config.PongTimeout)
+			log.Debug("Starting pong timer", "dur", c.config.PongTimeout)
 			c.pongTimer = time.AfterFunc(c.config.PongTimeout, func() {
 				select {
 				case c.pongTimeoutCh <- true:
@@ -351,13 +351,13 @@ FOR_LOOP:
 			c.flush()
 		case timeout := <-c.pongTimeoutCh:
 			if timeout {
-				c.Logger.Debug("Pong timeout")
+				log.Debug("Pong timeout")
 				err = errors.New("pong timeout")
 			} else {
 				c.stopPongTimer()
 			}
 		case <-c.pong:
-			c.Logger.Debug("Send Pong")
+			log.Debug("Send Pong")
 			_n, err = help.MarshalBinaryWriter(c.bufConnWriter, PacketPong{})
 			if err != nil {
 				break SELECTION
@@ -382,7 +382,7 @@ FOR_LOOP:
 			break FOR_LOOP
 		}
 		if err != nil {
-			c.Logger.Error("Connection failed @ sendRoutine", "conn", c, "err", err)
+			log.Error("Connection failed @ sendRoutine", "conn", c, "err", err)
 			c.stopForError(err)
 			break FOR_LOOP
 		}
@@ -437,7 +437,7 @@ func (c *MConnection) sendPacketMsg() bool {
 	// Make & send a PacketMsg from this channel
 	_n, err := leastChannel.writePacketMsgTo(c.bufConnWriter)
 	if err != nil {
-		c.Logger.Error("Failed to write PacketMsg", "err", err)
+		log.Error("Failed to write PacketMsg", "err", err)
 		c.stopForError(err)
 		return true
 	}
@@ -480,7 +480,7 @@ FOR_LOOP:
 		c.recvMonitor.Update(int(_n))
 		if err != nil {
 			if c.IsRunning() {
-				c.Logger.Error("Connection failed @ recvRoutine (reading byte)", "conn", c, "err", err)
+				log.Error("Connection failed @ recvRoutine (reading byte)", "conn", c, "err", err)
 				c.stopForError(err)
 			}
 			break FOR_LOOP
@@ -491,14 +491,14 @@ FOR_LOOP:
 		case PacketPing:
 			// TODO: prevent abuse, as they cause flush()'s.
 			// https://github.com/tendermint/tendermint/issues/1190
-			c.Logger.Debug("Receive Ping")
+			log.Debug("Receive Ping")
 			select {
 			case c.pong <- struct{}{}:
 			default:
 				// never block
 			}
 		case PacketPong:
-			c.Logger.Debug("Receive Pong")
+			log.Debug("Receive Pong")
 			select {
 			case c.pongTimeoutCh <- false:
 			default:
@@ -508,7 +508,7 @@ FOR_LOOP:
 			channel, ok := c.channelsIdx[pkt.ChannelID]
 			if !ok || channel == nil {
 				err := fmt.Errorf("Unknown channel %X", pkt.ChannelID)
-				c.Logger.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
+				log.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
 				c.stopForError(err)
 				break FOR_LOOP
 			}
@@ -516,19 +516,19 @@ FOR_LOOP:
 			msgBytes, err := channel.recvPacketMsg(pkt)
 			if err != nil {
 				if c.IsRunning() {
-					c.Logger.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
+					log.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
 					c.stopForError(err)
 				}
 				break FOR_LOOP
 			}
 			if msgBytes != nil {
-				c.Logger.Debug("Received bytes", "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
+				log.Debug("Received bytes", "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
 				// NOTE: This means the reactor.Receive runs in the same thread as the p2p recv routine
 				c.onReceive(pkt.ChannelID, msgBytes)
 			}
 		default:
 			err := fmt.Errorf("Unknown message type %v", reflect.TypeOf(packet))
-			c.Logger.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
+			log.Error("Connection failed @ recvRoutine", "conn", c, "err", err)
 			c.stopForError(err)
 			break FOR_LOOP
 		}
@@ -552,7 +552,7 @@ func (c *MConnection) stopPongTimer() {
 // maxPacketMsgSize returns a maximum size of PacketMsg, including the overhead
 // of amino encoding.
 func (c *MConnection) maxPacketMsgSize() int {
-	return len(help.MarshalBinaryBare(PacketMsg{
+	return len(help.MustMarshalBinaryBare(PacketMsg{
 		ChannelID: 0x01,
 		EOF:       1,
 		Bytes:     make([]byte, c.config.MaxPacketMsgPayloadSize),
