@@ -89,7 +89,7 @@ func OpenGroup(headPath string) (g *Group, err error) {
 		minIndex:       0,
 		maxIndex:       0,
 	}
-	g.BaseService = *help.NewBaseService(nil, "Group", g)
+	g.BaseService = *help.NewBaseService("Group", g)
 
 	gInfo := g.readGroupInfo()
 	g.minIndex = gInfo.MinIndex
