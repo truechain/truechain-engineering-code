@@ -206,18 +206,18 @@ func (self *PbftAgent) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				log.Debug("CommitteeStart...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
+				if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
 					continue
-				}*/
+				}
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
+				if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
 					continue
-				}*/
+				}
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(ch.CommitteeId, int(ch.Option))
 				}
@@ -226,14 +226,13 @@ func (self *PbftAgent) loop() {
 
 			case types.CommitteeSwitchover:
 				log.Debug("CommitteeCh...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
+				if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
 					continue
-				}*/
+				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:      ch.CommitteeId,
 					Members: ch.CommitteeMembers,
 				}
-				//ch.CommitteeInfo //received committeeInfo
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 				self.committeeId = ch.CommitteeId
 
@@ -314,8 +313,8 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 func setReceivedCommitteeInfo(ch core.ElectionEvent) *types.CommitteeInfo {
 	//cpyMembers :=&ch.CommitteeMembers
 	receivedCommitteeInfo := &types.CommitteeInfo{
-		//Id:      cpy.CommitteeId,
-		//Members: &cpyMembers,
+	//Id:      cpy.CommitteeId,
+	//Members: &cpyMembers,
 	}
 	return receivedCommitteeInfo
 }
@@ -540,8 +539,8 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		} else {
 			log.Error("cannot find block.", "err", err)
 		}
-		log.Debug("reward","rewardSnailHegiht:",rewardSnailHegiht,"currentSnailBlock:",
-			self.snailChain.CurrentBlock().Number(),"space:",space)
+		log.Debug("reward", "rewardSnailHegiht:", rewardSnailHegiht, "currentSnailBlock:",
+			self.snailChain.CurrentBlock().Number(), "space:", space)
 	}
 
 	//  padding Header.Root, TxHash, ReceiptHash.
