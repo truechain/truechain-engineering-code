@@ -803,6 +803,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
 		//var snailBlocks []*types.SnailBlock
+		log.Debug("receive SnailBlockMsg")
 		var request newSnailBlockData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
@@ -813,6 +814,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if snailBlock == nil {
 			return errResp(ErrDecode, "snailBlock  is nil")
 		}
+		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
 		p.MarkSnailBlock(snailBlock.Hash())
 		// }
@@ -957,7 +959,7 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 		for _, peer := range peers {
 			fruitset[peer] = append(fruitset[peer], fruit)
 		}
-		log.Trace("Broadcast fruits", "hash", fruit.Hash(), "recipients", len(peers))
+		log.Debug("Broadcast fruits", "hash", fruit.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, fruits := range fruitset {
