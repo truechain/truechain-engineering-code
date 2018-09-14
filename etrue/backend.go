@@ -227,7 +227,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
 	}
 
-	etrue.APIBackend = NewEthAPIBackend(etrue)
+	etrue.APIBackend = &EthAPIBackend{etrue, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -491,7 +491,6 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.agent.Start()
 
 	s.election.Start()
-	s.APIBackend.Start()
 	//go s.agent.SendBlock()
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
@@ -512,7 +511,6 @@ func (s *Truechain) Stop() error {
 	}
 	s.txPool.Stop()
 	s.miner.Stop()
-	s.APIBackend.Stop()
 	s.eventMux.Stop()
 
 	s.chainDb.Close()

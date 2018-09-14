@@ -26,7 +26,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -36,14 +35,12 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
-	"github.com/truechain/truechain-engineering-code/truescan"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes
 type EthAPIBackend struct {
 	etrue *Truechain
 	gpo   *gasprice.Oracle
-	*truescan.TrueScan
 }
 
 // ChainConfig returns the active chain configuration.
@@ -229,25 +226,4 @@ func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.Ma
 	for i := 0; i < bloomFilterThreads; i++ {
 		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, b.etrue.bloomRequests)
 	}
-}
-
-func NewEthAPIBackend(etrue *Truechain) *EthAPIBackend {
-	apiBackend := &EthAPIBackend{
-		etrue: etrue,
-		gpo:   nil,
-	}
-	apiBackend.TrueScan = truescan.New(apiBackend)
-	return apiBackend
-}
-
-func (b *EthAPIBackend) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {
-	return b.etrue.SnailBlockChain().SubscribeNewFruitEvent(ch)
-}
-
-func (b *EthAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainHeadEvent) event.Subscription {
-	return b.etrue.SnailBlockChain().SubscribeChainHeadEvent(ch)
-}
-
-func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
-	return b.etrue.election.SubscribeElectionEvent(ch)
 }
