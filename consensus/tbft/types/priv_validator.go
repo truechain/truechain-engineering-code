@@ -39,6 +39,7 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 }
 
 //----------------------------------------
+// StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet 
 	GetLastValidator() *ValidatorSet
@@ -49,4 +50,15 @@ type StateAgent interface {
 	MakeBlock() (*ctypes.Block,*PartSet)
 	ValidateBlock(block *ctypes.Block) error 
 	ConsensusCommit(block *ctypes.Block) error 
+
+	GetAddress() help.Address 
+	GetPubKey() crypto.PubKey
+
+	SignVote(chainID string, vote *Vote) error
+	SignProposal(chainID string, proposal *Proposal) error
+	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
+}
+
+type stateAgent struct {
+	
 }
