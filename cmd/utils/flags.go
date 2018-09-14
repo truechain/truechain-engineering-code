@@ -702,7 +702,6 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
-
 // setListenAddress creates a TCP listening address string from set command
 // line flags.
 func setListenAddress(ctx *cli.Context, cfg *p2p.Config) {
@@ -1109,7 +1108,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
 		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
-	}else{
+	} else {
 		cfg.Port = BFTPortFlag.Value
 	}
 	//set PrivateKey by config,file or hex
@@ -1119,10 +1118,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
-	if ctx.GlobalBool(EnableElectionFlag.Name){
+	if ctx.GlobalBool(EnableElectionFlag.Name) {
 		cfg.EnableElection = true
 	}
-	if cfg.EnableElection && !cfg.NodeType{
+	if cfg.EnableElection && !cfg.NodeType {
 		if cfg.Host == "" {
 			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
@@ -1131,7 +1130,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		}
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
-		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection)
+		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection, "singlenode", cfg.NodeType)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
