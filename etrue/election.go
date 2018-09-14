@@ -550,7 +550,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	members:= e.elect(candidates, seed)
 
 	// for test
-	members = testCommttee
+	//members = testCommttee
 	return members
 }
 
