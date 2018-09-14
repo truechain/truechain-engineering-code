@@ -295,19 +295,19 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 		if self.committeeId.Cmp(committeeId) != 0 {
 			log.Error("CommitteeStart CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
-			return false
+			//return false
 		}
 	case types.CommitteeStop:
 		if self.committeeId.Cmp(committeeId) != 0 {
 			log.Error("CommitteeStop CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
-			return false
+			//return false
 		}
 	case types.CommitteeSwitchover:
 		if new(big.Int).Add(self.committeeId, common.Big1).Cmp(committeeId) != 0 {
 			log.Error("CommitteeSwitchover CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
-			return false
+			//return false
 		}
 	default:
 		log.Warn("unknown election option:")
@@ -510,7 +510,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-
+	//validate height and hash 
 	if err := self.engine.Prepare(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return fastBlock, err
@@ -641,6 +641,9 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 		return err
 	}
 	err = bc.Validator().ValidateBody(fb)
+	if err != nil{
+		log.Error("validate body error")
+	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
@@ -895,7 +898,7 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
-		log.Error("newCommitteeInfo is nil ")
+		log.Error("newCommitteeInfo is nil ","CommitteeType",CommitteeType)
 		newCommitteeInfo = &types.CommitteeInfo{}
 	}
 	switch CommitteeType {
@@ -944,7 +947,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(blockHeight *big.Int) bool {
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")
 	// sleep a minute to wait election module start and other nodes' connection
-	time.Sleep(time.Minute)
+	//time.Sleep(time.Minute)
 	for {
 		// fetch block
 		var (
@@ -967,6 +970,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
+		agent.VerifyFastBlock(block)
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
