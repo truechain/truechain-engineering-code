@@ -1119,14 +1119,16 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
-	if ctx.GlobalBool(EnableElectionFlag.Name) && !cfg.NodeType{
+	if ctx.GlobalBool(EnableElectionFlag.Name){
+		cfg.EnableElection = true
+	}
+	if cfg.EnableElection && !cfg.NodeType{
 		if cfg.Host == "" {
 			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
 		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
-		cfg.EnableElection = true
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
 		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection)
