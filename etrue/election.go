@@ -649,7 +649,7 @@ func (e *Election) loop() {
 					fruits := sb.Fruits()
 					e.committee.endFastNumber = new(big.Int).Add(fruits[len(fruits)-1].Number(), big.NewInt(k))
 
-					log.Info("BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
+					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
 
 					e.nextCommittee = &committee{
 						id:                  snailStartNumber,
@@ -662,6 +662,7 @@ func (e *Election) loop() {
 
 					e.startSwitchover = true
 
+					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
 					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
 					e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 					
@@ -673,21 +674,24 @@ func (e *Election) loop() {
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
-						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, nil})
-						e.mux.Post(core.ElectionEvent{types.CommitteeStop,e.committee.id,nil})
+						go func(e *Election) {
+							log.Info("Election stop committee..", "id", e.committee.id)
+							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, nil})
+							e.mux.Post(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.members})
 
-						// find committee already exist in committee list
-						e.committeeList[e.committee.id] = e.committee
+							// find committee already exist in committee list
+							e.committeeList[e.committee.id] = e.committee
 
-						e.committee = e.nextCommittee
-						e.nextCommittee = nil
+							e.committee = e.nextCommittee
+							e.nextCommittee = nil
 
-						e.startSwitchover = false
+							e.startSwitchover = false
 
-						log.Info("Election start new BFT committee..")
+							log.Info("Election start new BFT committee", "id", e.committee.id)
 
-						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-						e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
+							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
+							e.mux.Post(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
+						}(e)
 					}
 				}
 			}
