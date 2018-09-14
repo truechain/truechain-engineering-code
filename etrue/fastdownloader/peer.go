@@ -24,14 +24,14 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-		"sync"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-		"github.com/truechain/truechain-engineering-code/log"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	)
+	"github.com/truechain/truechain-engineering-code/log"
+)
 
 const (
 	maxLackingHashes  = 4096 // Maximum number of entries allowed on the list or lacking items
@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	errAlreadyFetching   = errors.New("already fetching blocks from peer")
+	errAlreadyFetching = errors.New("already fetching blocks from peer")
 )
 
 // peerConnection represents an active peer from which hashes and blocks are retrieved.
@@ -72,71 +72,68 @@ type peerConnection struct {
 	lock    sync.RWMutex
 }
 
-
 // lightPeerWrapper wraps a LightPeer struct, stubbing out the Peer-only methods.
 type lightPeerWrapper struct {
 	peer etrue.LightPeer
 }
 
 func (w *lightPeerWrapper) Head() (common.Hash, *big.Int) { return w.peer.Head() }
-func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
-	return w.peer.RequestHeadersByHash(h, amount, skip, reverse,isFastchain)
+func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
+	return w.peer.RequestHeadersByHash(h, amount, skip, reverse, isFastchain)
 }
-func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool,isFastchain bool) error {
-	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse,isFastchain)
+func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool, isFastchain bool) error {
+	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse, isFastchain)
 }
-func (w *lightPeerWrapper) RequestBodies([]common.Hash,bool) error {
+func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool) error {
 	panic("RequestBodies not supported in light client mode sync")
 }
-func (w *lightPeerWrapper) RequestReceipts([]common.Hash,bool) error {
+func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
-func (w *lightPeerWrapper) RequestNodeData([]common.Hash,bool) error {
+func (w *lightPeerWrapper) RequestNodeData([]common.Hash, bool) error {
 	panic("RequestNodeData not supported in light client mode sync")
 }
-
 
 // newPeerConnection creates a new downloader peer.
 func newPeerConnection(id string, version int, peer etrue.Peer, logger log.Logger) *peerConnection {
 	return &peerConnection{
 		id:      id,
 		lacking: make(map[common.Hash]struct{}),
-		peer: peer,
+		peer:    peer,
 		version: version,
 		log:     logger,
 	}
 }
 
-func (p *peerConnection) GetHeaderIdle() int32 {return p.headerIdle}
-func (p *peerConnection) GetBlockIdle() int32 {return p.blockIdle}
-func (p *peerConnection) GetReceiptIdle() int32 {return p.receiptIdle}
-func (p *peerConnection) GetStateIdle() int32 {return p.stateIdle}
+func (p *peerConnection) GetHeaderIdle() int32  { return p.headerIdle }
+func (p *peerConnection) GetBlockIdle() int32   { return p.blockIdle }
+func (p *peerConnection) GetReceiptIdle() int32 { return p.receiptIdle }
+func (p *peerConnection) GetStateIdle() int32   { return p.stateIdle }
 
-func (p *peerConnection) GetHeaderThroughput() float64 {return p.headerThroughput}
-func (p *peerConnection) GetBlockThroughput() float64 {return p.blockThroughput}
-func (p *peerConnection) GetReceiptThroughput() float64 {return p.receiptThroughput}
-func (p *peerConnection) GetStateThroughput() float64 {return p.stateThroughput}
+func (p *peerConnection) GetHeaderThroughput() float64  { return p.headerThroughput }
+func (p *peerConnection) GetBlockThroughput() float64   { return p.blockThroughput }
+func (p *peerConnection) GetReceiptThroughput() float64 { return p.receiptThroughput }
+func (p *peerConnection) GetStateThroughput() float64   { return p.stateThroughput }
 
-func (p *peerConnection) SetHeaderThroughput(t float64){ p.headerThroughput=t }
-func (p *peerConnection) SetBlockThroughput(t float64){ p.blockThroughput=t }
-func (p *peerConnection) SetReceiptThroughput(t float64){ p.receiptThroughput=t }
-func (p *peerConnection) SetStateThroughput(t float64){ p.stateThroughput=t }
+func (p *peerConnection) SetHeaderThroughput(t float64)  { p.headerThroughput = t }
+func (p *peerConnection) SetBlockThroughput(t float64)   { p.blockThroughput = t }
+func (p *peerConnection) SetReceiptThroughput(t float64) { p.receiptThroughput = t }
+func (p *peerConnection) SetStateThroughput(t float64)   { p.stateThroughput = t }
 
-func (p *peerConnection) GetRtt() time.Duration  {return p.rtt}// Request round trip time to track responsiveness (QoS)
-func (p *peerConnection) SetRtt(d time.Duration )  {p.rtt=d}// Request round trip time to track responsiveness (QoS)
+func (p *peerConnection) GetRtt() time.Duration  { return p.rtt } // Request round trip time to track responsiveness (QoS)
+func (p *peerConnection) SetRtt(d time.Duration) { p.rtt = d }    // Request round trip time to track responsiveness (QoS)
 
-func (p *peerConnection) GetHeaderStarted()  time.Time {return p.headerStarted}
-func (p *peerConnection) GetBlockStarted()  time.Time {return p.blockStarted}
-func (p *peerConnection) GetReceiptStarted()  time.Time {return p.receiptStarted}
-func (p *peerConnection) GetStateStarted()  time.Time {return p.stateStarted}
+func (p *peerConnection) GetHeaderStarted() time.Time  { return p.headerStarted }
+func (p *peerConnection) GetBlockStarted() time.Time   { return p.blockStarted }
+func (p *peerConnection) GetReceiptStarted() time.Time { return p.receiptStarted }
+func (p *peerConnection) GetStateStarted() time.Time   { return p.stateStarted }
 
-func (p *peerConnection) GetID() string {return p.id}
-func (p *peerConnection) GetVersion() int {return p.version}
+func (p *peerConnection) GetID() string   { return p.id }
+func (p *peerConnection) GetVersion() int { return p.version }
 
-func (p *peerConnection) GetPeer() etrue.Peer {return p.peer}
-func (p *peerConnection) GetLog() log.Logger {return p.log}
-func (p *peerConnection) GetLock() *sync.RWMutex {return &p.lock}
-
+func (p *peerConnection) GetPeer() etrue.Peer    { return p.peer }
+func (p *peerConnection) GetLog() log.Logger     { return p.log }
+func (p *peerConnection) GetLock() *sync.RWMutex { return &p.lock }
 
 // Reset clears the internal state of a peer entity.
 func (p *peerConnection) Reset() {
@@ -169,7 +166,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	p.headerStarted = time.Now()
 
 	// Issue the header retrieval request (absolut upwards without gaps)
-	go p.peer.RequestHeadersByNumber(from, count, 0, false,true)
+	go p.peer.RequestHeadersByNumber(from, count, 0, false, true)
 
 	return nil
 }
@@ -191,7 +188,7 @@ func (p *peerConnection) FetchBodies(request *etrue.FetchRequest) error {
 	for _, header := range request.Fheaders {
 		hashes = append(hashes, header.Hash())
 	}
-	go p.peer.RequestBodies(hashes,true)
+	go p.peer.RequestBodies(hashes, true)
 
 	return nil
 }
@@ -213,7 +210,7 @@ func (p *peerConnection) FetchReceipts(request *etrue.FetchRequest) error {
 	for _, header := range request.Fheaders {
 		hashes = append(hashes, header.Hash())
 	}
-	go p.peer.RequestReceipts(hashes,true)
+	go p.peer.RequestReceipts(hashes, true)
 
 	return nil
 }
@@ -230,7 +227,7 @@ func (p *peerConnection) FetchNodeData(hashes []common.Hash) error {
 	}
 	p.stateStarted = time.Now()
 
-	go p.peer.RequestNodeData(hashes,true)
+	go p.peer.RequestNodeData(hashes, true)
 
 	return nil
 }
@@ -279,6 +276,7 @@ func (p *peerConnection) setIdle(started time.Time, delivered int, throughput *f
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
+	p.log.Debug("fast setIdle?>>>>>>>>>")
 	// If nothing was delivered (hard timeout / unavailable data), reduce throughput to minimum
 	if delivered == 0 {
 		*throughput = 0
@@ -348,7 +346,6 @@ func (p *peerConnection) MarkLacking(hash common.Hash) {
 	}
 	p.lacking[hash] = struct{}{}
 }
-
 
 // Lacks retrieves whether the hash of a blockchain item is on the peers lacking
 // list (i.e. whether we know that the peer does not have it).

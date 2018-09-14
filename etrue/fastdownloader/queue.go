@@ -27,10 +27,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
 var (
@@ -44,9 +44,6 @@ var (
 	errStaleDelivery    = errors.New("stale delivery")
 )
 
-
-
-
 // queue represents hashes that are either need fetching or are being fetched
 type queue struct {
 	mode SyncMode // Synchronisation mode to decide on the block parts to schedule for fetching
@@ -56,26 +53,26 @@ type queue struct {
 	headerTaskPool  map[uint64]*types.Header       // [eth/62] Pending header retrieval tasks, mapping starting indexes to skeleton headers
 	headerTaskQueue *prque.Prque                   // [eth/62] Priority queue of the skeleton indexes to fetch the filling headers for
 	headerPeerMiss  map[string]map[uint64]struct{} // [eth/62] Set of per-peer header batches known to be unavailable
-	headerPendPool  map[string]*etrue.FetchRequest       // [eth/62] Currently pending header retrieval operations
+	headerPendPool  map[string]*etrue.FetchRequest // [eth/62] Currently pending header retrieval operations
 	headerResults   []*types.Header                // [eth/62] Result cache accumulating the completed headers
 	headerProced    int                            // [eth/62] Number of headers already processed from the results
 	headerOffset    uint64                         // [eth/62] Number of the first header in the result cache
 	headerContCh    chan bool                      // [eth/62] Channel to notify when header download finishes
 
 	// All data retrievals below are based on an already assembles header chain
-	blockTaskPool  map[common.Hash]*types.Header // [eth/62] Pending block (body) retrieval tasks, mapping hashes to headers
-	blockTaskQueue *prque.Prque                  // [eth/62] Priority queue of the headers to fetch the blocks (bodies) for
-	blockPendPool  map[string]*etrue.FetchRequest      // [eth/62] Currently pending block (body) retrieval operations
-	blockDonePool  map[common.Hash]struct{}      // [eth/62] Set of the completed block (body) fetches
+	blockTaskPool  map[common.Hash]*types.Header  // [eth/62] Pending block (body) retrieval tasks, mapping hashes to headers
+	blockTaskQueue *prque.Prque                   // [eth/62] Priority queue of the headers to fetch the blocks (bodies) for
+	blockPendPool  map[string]*etrue.FetchRequest // [eth/62] Currently pending block (body) retrieval operations
+	blockDonePool  map[common.Hash]struct{}       // [eth/62] Set of the completed block (body) fetches
 
-	receiptTaskPool  map[common.Hash]*types.Header // [eth/63] Pending receipt retrieval tasks, mapping hashes to headers
-	receiptTaskQueue *prque.Prque                  // [eth/63] Priority queue of the headers to fetch the receipts for
-	receiptPendPool  map[string]*etrue.FetchRequest      // [eth/63] Currently pending receipt retrieval operations
-	receiptDonePool  map[common.Hash]struct{}      // [eth/63] Set of the completed receipt fetches
+	receiptTaskPool  map[common.Hash]*types.Header  // [eth/63] Pending receipt retrieval tasks, mapping hashes to headers
+	receiptTaskQueue *prque.Prque                   // [eth/63] Priority queue of the headers to fetch the receipts for
+	receiptPendPool  map[string]*etrue.FetchRequest // [eth/63] Currently pending receipt retrieval operations
+	receiptDonePool  map[common.Hash]struct{}       // [eth/63] Set of the completed receipt fetches
 
-	resultCache  []*etrue.FetchResult     // Downloaded but not yet delivered fetch results
-	resultOffset uint64             // Offset of the first cached fetch result in the block chain
-	resultSize   common.StorageSize // Approximate size of a block (exponential moving average)
+	resultCache  []*etrue.FetchResult // Downloaded but not yet delivered fetch results
+	resultOffset uint64               // Offset of the first cached fetch result in the block chain
+	resultSize   common.StorageSize   // Approximate size of a block (exponential moving average)
 
 	lock   *sync.Mutex
 	active *sync.Cond
@@ -340,14 +337,16 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
-	fmt.Println("countProcessableItems  >>>>>>>>>>>>>>>  ")
+	log.Debug("countProcessableItems  >>>>>>>>>>>>>>>  ", ":", nproc, "q.closed", q.closed)
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
 		}
 		q.active.Wait()
+		//fmt.Println("q.active.Wait()")
 		nproc = q.countProcessableItems()
 	}
+	log.Debug("countProcessableItems  >>>>>>>>>>>>>>>  exit ", ":", nproc, "q.closed", q.closed)
 	// Since we have a batch limit, don't pull more into "dangling" memory
 	if nproc > maxResultsProcess {
 		nproc = maxResultsProcess
@@ -496,7 +495,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 
 		// If we're the first to request this task, initialise the result container
 		index := int(header.Number.Int64() - int64(q.resultOffset))
-		fmt.Println("index >= len(q.resultCache) || index < 0>>>>>>>>>>>",index , len(q.resultCache) , index < 0)
+		log.Debug("index >= len(q.resultCache) || index < 0>>>>>>>>>>>", index, len(q.resultCache), "", index < 0)
 		if index >= len(q.resultCache) || index < 0 {
 			common.Report("index allocation went beyond available resultCache space")
 			return nil, false, errInvalidChain
@@ -509,11 +508,11 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 			q.resultCache[index] = &etrue.FetchResult{
 				Pending: components,
 				Hash:    hash,
-				Fheader:  header,
+				Fheader: header,
 			}
 		}
 		// If this fetch task is a noop, skip this fetch operation
-		fmt.Println("isNoop(header)>>>>>>>",isNoop(header))
+		log.Debug("isNoop(header)>>>>>>>", ":", isNoop(header))
 		if isNoop(header) {
 			donePool[hash] = struct{}{}
 			delete(taskPool, hash)
@@ -535,7 +534,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		taskQueue.Push(header, -float32(header.Number.Uint64()))
 	}
 	if progress {
-		fmt.Println("q.active.Signal()>>>>>>>>>>>")
+		log.Debug("q.active.Signal()>>>>>>>>>>>reserveHeaders>>>>>>")
 		// Wake WaitResults, resultCache was modified
 		q.active.Signal()
 	}
@@ -544,9 +543,9 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		return nil, progress, nil
 	}
 	request := &etrue.FetchRequest{
-		Peer:    p,
+		Peer:     p,
 		Fheaders: send,
-		Time:    time.Now(),
+		Time:     time.Now(),
 	}
 	pendPool[p.GetID()] = request
 
@@ -755,7 +754,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 // DeliverBodies injects a block body retrieval response into the results queue.
 // The method returns the number of blocks bodies accepted from the delivery and
 // also wakes any threads waiting for data delivery.
-func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLists [][]*types.Header) (int, error) {
+func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [][]*types.PbftSign, uncleLists [][]*types.Header) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -765,8 +764,10 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, uncleLi
 		if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
 			return errInvalidBody
 		}
+
 		result.Transactions = txLists[index]
 		result.Uncles = uncleLists[index]
+		result.Signs = signs[index]
 		return nil
 	}
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(txLists), reconstruct)
@@ -852,7 +853,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 	}
 	// Wake up WaitResults
 	if accepted > 0 {
-		fmt.Println("q.active.Signal()>>>>>>>>>>>deliver")
+		log.Debug("q.active.Signal() fast >>>>>>>>>>>deliver")
 		q.active.Signal()
 	}
 	// If none of the data was good, it's a stale delivery

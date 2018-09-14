@@ -27,10 +27,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
 var (
@@ -50,29 +50,29 @@ type queue struct {
 
 	// Headers are "special", they download in batches, supported by a skeleton chain
 	headerHead      common.Hash                    // [eth/62] Hash of the last queued header to verify order
-	headerTaskPool  map[uint64]*types.SnailHeader       // [eth/62] Pending header retrieval tasks, mapping starting indexes to skeleton headers
+	headerTaskPool  map[uint64]*types.SnailHeader  // [eth/62] Pending header retrieval tasks, mapping starting indexes to skeleton headers
 	headerTaskQueue *prque.Prque                   // [eth/62] Priority queue of the skeleton indexes to fetch the filling headers for
 	headerPeerMiss  map[string]map[uint64]struct{} // [eth/62] Set of per-peer header batches known to be unavailable
-	headerPendPool  map[string]*etrue.FetchRequest       // [eth/62] Currently pending header retrieval operations
-	headerResults   []*types.SnailHeader                // [eth/62] Result cache accumulating the completed headers
+	headerPendPool  map[string]*etrue.FetchRequest // [eth/62] Currently pending header retrieval operations
+	headerResults   []*types.SnailHeader           // [eth/62] Result cache accumulating the completed headers
 	headerProced    int                            // [eth/62] Number of headers already processed from the results
 	headerOffset    uint64                         // [eth/62] Number of the first header in the result cache
 	headerContCh    chan bool                      // [eth/62] Channel to notify when header download finishes
 
 	// All data retrievals below are based on an already assembles header chain
 	blockTaskPool  map[common.Hash]*types.SnailHeader // [eth/62] Pending block (body) retrieval tasks, mapping hashes to headers
-	blockTaskQueue *prque.Prque                  // [eth/62] Priority queue of the headers to fetch the blocks (bodies) for
-	blockPendPool  map[string]*etrue.FetchRequest      // [eth/62] Currently pending block (body) retrieval operations
-	blockDonePool  map[common.Hash]struct{}      // [eth/62] Set of the completed block (body) fetches
+	blockTaskQueue *prque.Prque                       // [eth/62] Priority queue of the headers to fetch the blocks (bodies) for
+	blockPendPool  map[string]*etrue.FetchRequest     // [eth/62] Currently pending block (body) retrieval operations
+	blockDonePool  map[common.Hash]struct{}           // [eth/62] Set of the completed block (body) fetches
 
 	receiptTaskPool  map[common.Hash]*types.SnailHeader // [eth/63] Pending receipt retrieval tasks, mapping hashes to headers
-	receiptTaskQueue *prque.Prque                  // [eth/63] Priority queue of the headers to fetch the receipts for
-	receiptPendPool  map[string]*etrue.FetchRequest      // [eth/63] Currently pending receipt retrieval operations
-	receiptDonePool  map[common.Hash]struct{}      // [eth/63] Set of the completed receipt fetches
+	receiptTaskQueue *prque.Prque                       // [eth/63] Priority queue of the headers to fetch the receipts for
+	receiptPendPool  map[string]*etrue.FetchRequest     // [eth/63] Currently pending receipt retrieval operations
+	receiptDonePool  map[common.Hash]struct{}           // [eth/63] Set of the completed receipt fetches
 
-	resultCache  []*etrue.FetchResult     // Downloaded but not yet delivered fetch results
-	resultOffset uint64             // Offset of the first cached fetch result in the block chain
-	resultSize   common.StorageSize // Approximate size of a block (exponential moving average)
+	resultCache  []*etrue.FetchResult // Downloaded but not yet delivered fetch results
+	resultOffset uint64               // Offset of the first cached fetch result in the block chain
+	resultSize   common.StorageSize   // Approximate size of a block (exponential moving average)
 
 	lock   *sync.Mutex
 	active *sync.Cond
@@ -336,6 +336,7 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
+	log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail ", nproc)
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
@@ -343,6 +344,7 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		q.active.Wait()
 		nproc = q.countProcessableItems()
 	}
+	log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail exit ", nproc)
 	// Since we have a batch limit, don't pull more into "dangling" memory
 	if nproc > maxResultsProcess {
 		nproc = maxResultsProcess
@@ -504,7 +506,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 			q.resultCache[index] = &etrue.FetchResult{
 				Pending: components,
 				Hash:    hash,
-				Sheader:  header,
+				Sheader: header,
 			}
 		}
 		// If this fetch task is a noop, skip this fetch operation
@@ -537,9 +539,9 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		return nil, progress, nil
 	}
 	request := &etrue.FetchRequest{
-		Peer:    p,
+		Peer:     p,
 		Sheaders: send,
-		Time:    time.Now(),
+		Time:     time.Now(),
 	}
 	pendPool[p.GetID()] = request
 

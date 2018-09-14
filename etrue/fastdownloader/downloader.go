@@ -205,23 +205,23 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	}
 
 	dl := &Downloader{
-		mode:           mode,
-		stateDB:        stateDb,
-		mux:            mux,
-		queue:          newQueue(),
-		peers:          etrue.NewPeerSet(),
-		rttEstimate:    uint64(rttMaxEstimate),
-		rttConfidence:  uint64(1000000),
-		blockchain:     chain,
-		lightchain:     lightchain,
-		dropPeer:       dropPeer,
+		mode:          mode,
+		stateDB:       stateDb,
+		mux:           mux,
+		queue:         newQueue(),
+		peers:         etrue.NewPeerSet(),
+		rttEstimate:   uint64(rttMaxEstimate),
+		rttConfidence: uint64(1000000),
+		blockchain:    chain,
+		lightchain:    lightchain,
+		dropPeer:      dropPeer,
 
-		headerCh:       make(chan etrue.DataPack, 2),
-		bodyCh:         make(chan etrue.DataPack, 2),
-		receiptCh:      make(chan etrue.DataPack, 2),
-		bodyWakeCh:     make(chan bool, 2),
-		receiptWakeCh:  make(chan bool, 2),
-		headerProcCh:   make(chan []*types.Header, 2),
+		headerCh:      make(chan etrue.DataPack, 1),
+		bodyCh:        make(chan etrue.DataPack, 1),
+		receiptCh:     make(chan etrue.DataPack, 1),
+		bodyWakeCh:    make(chan bool, 1),
+		receiptWakeCh: make(chan bool, 1),
+		headerProcCh:  make(chan []*types.Header, 1),
 
 		quitCh:         make(chan struct{}),
 		stateCh:        make(chan etrue.DataPack),
@@ -231,8 +231,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	fmt.Println("fastQueue>>>>>>>>>>>>>",&dl.queue.active)
-
+	fmt.Println("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
 
 	//go dl.qosTuner()
 	//go dl.stateFetcher()
@@ -352,19 +351,19 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 // checks fail an error will be returned. This method is synchronous
 func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	// Mock out the synchronisation if testing
-	//if d.synchroniseMock != nil {
-	//	return d.synchroniseMock(id, hash)
-	//}
+	if d.synchroniseMock != nil {
+		return d.synchroniseMock(id, hash)
+	}
 	// Make sure only one goroutine is ever allowed past this point at once
-	//if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
-	//	return errBusy
-	//}
-	//defer atomic.StoreInt32(&d.synchronising, 0)
+	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
+		return errBusy
+	}
+	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	// Post a user notification of the sync (only once per session)
-	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-	log.Info("Fast Block synchronisation started")
-	//}
+	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
+		log.Info("Fast Block synchronisation started", "origin", origin, "height", height)
+	}
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
@@ -401,7 +400,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	defer d.Cancel() // No matter what, we can't leave the cancel channel open
 
 	// Set the requested sync mode, unless it's forbidden
-	if mode <0 {
+	if mode < 0 {
 		d.mode = FullSync
 	}
 	// Retrieve the origin peer and initiate the downloading process
@@ -440,7 +439,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	//}
 	//height := latest.Number.Uint64()
 	//origin, err := d.findAncestor(p, height)
-
 
 	if err != nil {
 		return err
@@ -484,8 +482,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
-
-
 	//if d.mode == FastSync {
 	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 	//} else if d.mode == FullSync {
@@ -504,7 +500,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	for _, fn := range fetchers {
 		fn := fn
 		go func() {
-			defer func() {d.cancelWg.Done();log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++")}()
+			defer func() { d.cancelWg.Done(); log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++") }()
 			errc <- fn()
 		}()
 	}
@@ -969,7 +965,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 	var (
 		deliver = func(packet etrue.DataPack) (int, error) {
 			pack := packet.(*bodyPack)
-			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.uncles)
+			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.signs, pack.uncles)
 		}
 		expire   = func() map[string]int { return d.queue.ExpireBodies(d.requestTTL()) }
 		fetch    = func(p etrue.PeerConnection, req *etrue.FetchRequest) error { return p.FetchBodies(req) }
@@ -1052,7 +1048,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			return errCancel
 
 		case packet := <-deliveryCh:
-			fmt.Println("fast fetchParts >>>>>>>>>>> ",kind,packet.Items())
+			fmt.Println("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -1399,8 +1395,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Uncles)
 
-		}
-
+	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
@@ -1596,7 +1591,7 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 		}
 	}()
 
-	fmt.Println("fast >>>>>>>>>>>>>>(d *Downloader) deliver",packet.Items())
+	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliver", "packet.Items()==", packet.Items())
 	// Deliver or abort if the sync is canceled while queuing
 	d.cancelLock.RLock()
 	cancel := d.cancelCh
