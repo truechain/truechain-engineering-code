@@ -43,7 +43,7 @@ type Genesis struct {
 	Fast  *fastchain.Genesis
 }
 
-
+type GenesisAlloc map[common.Address]types.GenesisAccount
 
 
 // SetupGenesisBlock writes or updates the genesis block in db.

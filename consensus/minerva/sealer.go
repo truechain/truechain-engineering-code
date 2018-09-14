@@ -195,7 +195,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 	var (
 		header = block.Header()
 		hash   = header.HashNoNonce().Bytes()
-		target = new(big.Int).Div(maxUint256, header.Difficulty)
+		target = new(big.Int).Div(maxUint128, header.Difficulty)
 
 		//number          = header.Number.Uint64()
 		//dataset         = m.dataset(number)
@@ -232,7 +232,8 @@ search:
 			// Compute the PoW value of this nonce
 			digest, result := truehashFull(m.dataset.dataset, hash, nonce)
 
-			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
+			headResult := result[:16]
+			if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
 				if block.Fruits() != nil {
 					header = types.CopySnailHeader(header)

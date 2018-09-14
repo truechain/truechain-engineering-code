@@ -1015,7 +1015,7 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedSnailBlockSub.Chan() {
 		switch ev := obj.Data.(type) {
-		case core.NewMinedSnailBlockEvent:
+		case snailchain.NewMinedBlockEvent:
 			pm.BroadcastSnailBlock(ev.Block, true)  // First propagate fruit to peers
 			pm.BroadcastSnailBlock(ev.Block, false) // Only then announce to the rest
 		}

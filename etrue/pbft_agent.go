@@ -295,19 +295,19 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 		if self.committeeId.Cmp(committeeId) != 0 {
 			log.Error("CommitteeStart CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
-			return false
+			//return false
 		}
 	case types.CommitteeStop:
 		if self.committeeId.Cmp(committeeId) != 0 {
 			log.Error("CommitteeStop CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
-			return false
+			//return false
 		}
 	case types.CommitteeSwitchover:
 		if new(big.Int).Add(self.committeeId, common.Big1).Cmp(committeeId) != 0 {
 			log.Error("CommitteeSwitchover CommitteeId err ",
 				"currentCommitteeId", self.committeeId, "receivedCommitteeId", committeeId)
-			return false
+			//return false
 		}
 	default:
 		log.Warn("unknown election option:")
@@ -410,7 +410,7 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 		return false
 	}
 	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
-		log.Info("CommitteeId not consistence  ...")
+		log.Warn("CommitteeId not consistence  ...")
 		return false
 	}
 
@@ -491,7 +491,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
 	tstamp := tstart.Unix()
-	log.Info("printTime", "parent.Time", parent.Time(), "tstamp", tstamp)
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
@@ -510,7 +509,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-
+	//validate height and hash 
 	if err := self.engine.Prepare(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return fastBlock, err
@@ -545,7 +544,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
-	log.Info("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
 	return fastBlock, err
 }
 
@@ -641,6 +639,9 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 		return err
 	}
 	err = bc.Validator().ValidateBody(fb)
+	if err != nil{
+		log.Error("validate body error")
+	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
@@ -895,7 +896,7 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
-		log.Error("newCommitteeInfo is nil ")
+		log.Error("newCommitteeInfo is nil ","CommitteeType",CommitteeType)
 		newCommitteeInfo = &types.CommitteeInfo{}
 	}
 	switch CommitteeType {
@@ -967,6 +968,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
+		agent.VerifyFastBlock(block)
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
