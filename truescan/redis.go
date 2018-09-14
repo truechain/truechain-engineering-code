@@ -1,4 +1,4 @@
-package core
+package truescan
 
 import (
 	"encoding/json"
