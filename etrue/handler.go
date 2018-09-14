@@ -810,22 +810,41 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-			var snailBlock = request.Block
-			// for i, snailBlock := range snailBlocks {
-			// 	// Validate and mark the remote snailBlock
-			if snailBlock == nil {
-				return errResp(ErrDecode, "snailBlock  is nil")
+		var snailBlock = request.Block
+		// for i, snailBlock := range snailBlocks {
+		// 	// Validate and mark the remote snailBlock
+		if snailBlock == nil {
+			return errResp(ErrDecode, "snailBlock  is nil")
+		}
+		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
+
+		p.MarkSnailBlock(snailBlock.Hash())
+		// }
+		pm.fetcherSnail.Enqueue(p.id, snailBlock)
+
+		// Assuming the block is importable by the peer, but possibly not yet done so,
+		// calculate the head hash and TD that the peer truly must have.
+		var (
+			trueHead = request.Block.ParentHash()
+			trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
+		)
+		// Update the peers total difficulty if better than the previous
+		if _, td := p.Head(); trueTD.Cmp(td) > 0 {
+			p.SetHead(trueHead, trueTD)
+
+			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+			// a singe block (as the true TD is below the propagated block), however this
+			// scenario should easily be covered by the fetcher.
+			currentBlock := pm.blockchain.CurrentBlock()
+			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+				go pm.synchronise(p)
 			}
-			log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
+		}
 
-			p.MarkSnailBlock(snailBlock.Hash())
-			// }
-			pm.fetcherSnail.Enqueue(p.id, snailBlock)
+		// TODO: send snail block to snail blockchain
+		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
+		// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
 
-			// TODO: send snail block to snail blockchain
-			//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
-			// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
-		
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
