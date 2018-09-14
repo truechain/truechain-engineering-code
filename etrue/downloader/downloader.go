@@ -1391,39 +1391,46 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
-	blocks := make([]*types.SnailBlock, len(results))
-	fbNum := uint64(0)
-	fbHeight := uint64(0)
-	for i, result := range results {
 
-		blocks[i] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
+	//fbNum := uint64(0)
+	//fbHeight := uint64(0)
+	for _, result := range results {
+		//blocks := make([]*types.SnailBlock, len(results))
+		blocks := make([]*types.SnailBlock, 1)
+		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
 		if len(result.Fruits)>0{
-			if fbNum == 0 {
-				fbNum = result.Fruits[0].FastNumber().Uint64()
-			}
-			fbHeight+=uint64(len(result.Fruits))
+			//if fbNum == 0 {
+			//	fbNum = result.Fruits[0].FastNumber().Uint64()
+			//}
+			//fbHeight+=uint64(len(result.Fruits))
 			//height := uint64(len(result.Fruits))
 			//log.Debug("Snail--->>>","blocks>>>>" ,blocks[i],"fruits>>",result.Fruits)
 			//d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
+
+			fbNum := result.Fruits[0].FastNumber().Uint64()
+
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>",len(result.Fruits),fbNum)
+			//errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, uint64(len(result.Fruits)))
+			//time.Sleep(1*time.Second)
+			//if errs != nil {
+			//	log.Debug("fast sync: ", "err>>>>>>>>>", errs)
+			//	return errs
+			//}
+			//fbHeight = fbNum + fbHeight
+
 		}else {
 
-			log.Debug("Snail--->>>","blocks>>>>",blocks[i],"fruits>>",result.Fruits)
+			log.Debug("Snail--->>>","blocks>>>>",blocks[0],"fruits>>",result.Fruits)
 		}
+
+		if index, err := d.blockchain.InsertChain(blocks); err != nil {
+			log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
+			return errInvalidChain
+		}
+
 	}
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>",len(blocks))
-	//fbHeight = fbNum + fbHeight
-	errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, fbHeight)
-	if errs != nil{
-		log.Debug("fast sync: ","err>>>>>>>>>",errs)
-		return errs
-	}
-
-	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
-		return errInvalidChain
-	}
 
 	return nil
 
@@ -1627,6 +1634,7 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 	if cancel == nil {
 		return errNoSyncActive
 	}
+	fmt.Println(">>>>>>>>>>>>>>(d *Downloader) deliver",packet.Items())
 	select {
 	case destCh <- packet:
 		return nil

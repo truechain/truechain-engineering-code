@@ -215,12 +215,14 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		blockchain:     chain,
 		lightchain:     lightchain,
 		dropPeer:       dropPeer,
-		headerCh:       make(chan etrue.DataPack, 1),
-		bodyCh:         make(chan etrue.DataPack, 1),
-		receiptCh:      make(chan etrue.DataPack, 1),
-		bodyWakeCh:     make(chan bool, 1),
-		receiptWakeCh:  make(chan bool, 1),
-		headerProcCh:   make(chan []*types.Header, 1),
+
+		headerCh:       make(chan etrue.DataPack, 2),
+		bodyCh:         make(chan etrue.DataPack, 2),
+		receiptCh:      make(chan etrue.DataPack, 2),
+		bodyWakeCh:     make(chan bool, 2),
+		receiptWakeCh:  make(chan bool, 2),
+		headerProcCh:   make(chan []*types.Header, 2),
+
 		quitCh:         make(chan struct{}),
 		stateCh:        make(chan etrue.DataPack),
 		stateSyncStart: make(chan *stateSync),
@@ -272,9 +274,9 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 }
 
 // Synchronising returns whether the downloader is currently retrieving blocks.
-func (d *Downloader) Synchronising() bool {
-	return atomic.LoadInt32(&d.synchronising) > 0
-}
+//func (d *Downloader) Synchronising() bool {
+//	return atomic.LoadInt32(&d.synchronising) > 0
+//}
 
 // RegisterPeer injects a new download peer into the set of block source to be
 // used for fetching hashes and blocks from.
@@ -361,7 +363,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 
 	// Post a user notification of the sync (only once per session)
 	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-	log.Info("Block synchronisation started")
+	log.Info("Fast Block synchronisation started")
 	//}
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
@@ -1050,6 +1052,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			return errCancel
 
 		case packet := <-deliveryCh:
+			fmt.Println("fast fetchParts >>>>>>>>>>> ",kind,packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -1395,8 +1398,10 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Uncles)
-		fmt.Println(blocks[i].Number(),blocks[i].ParentHash(),blocks[i].Hash())
+
 		}
+
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain
@@ -1590,6 +1595,8 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 			dropMeter.Mark(int64(packet.Items()))
 		}
 	}()
+
+	fmt.Println("fast >>>>>>>>>>>>>>(d *Downloader) deliver",packet.Items())
 	// Deliver or abort if the sync is canceled while queuing
 	d.cancelLock.RLock()
 	cancel := d.cancelCh

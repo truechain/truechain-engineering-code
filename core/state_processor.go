@@ -25,7 +25,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 
 		"math/big"
-	)
+	"fmt"
+	"log"
+)
 
 // StateProcessor is a basic Processor, which takes care of transitioning
 // state from one point to another.
@@ -79,14 +81,15 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts)
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
 
 	//Commission allocation
-	//err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
-	//if err != nil {
-	//	log.Panic(err)
-	//}
+	err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
+	if err != nil {
+		log.Panic(err)
+	}
 
 	return receipts, allLogs, *usedGas, nil
 }
