@@ -806,26 +806,27 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
 		//var snailBlocks []*types.SnailBlock
 		log.Debug("receive SnailBlockMsg")
-		var request newSnailBlockData
-		if err := msg.Decode(&request); err != nil {
+		var requests []*newSnailBlockData
+		if err := msg.Decode(&requests); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		var snailBlock = request.Block
-		// for i, snailBlock := range snailBlocks {
-		// 	// Validate and mark the remote snailBlock
-		if snailBlock == nil {
-			return errResp(ErrDecode, "snailBlock  is nil")
+		for _, request := range requests {
+			var snailBlock = request.Block
+			// for i, snailBlock := range snailBlocks {
+			// 	// Validate and mark the remote snailBlock
+			if snailBlock == nil {
+				return errResp(ErrDecode, "snailBlock  is nil")
+			}
+			log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
+
+			p.MarkSnailBlock(snailBlock.Hash())
+			// }
+			pm.fetcherSnail.Enqueue(p.id, snailBlock)
+
+			// TODO: send snail block to snail blockchain
+			//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
+			// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
 		}
-		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
-
-		p.MarkSnailBlock(snailBlock.Hash())
-		// }
-		pm.fetcherSnail.Enqueue(p.id, snailBlock)
-
-		// TODO: send snail block to snail blockchain
-		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
-		// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
-
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
