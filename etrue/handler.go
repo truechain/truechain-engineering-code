@@ -50,7 +50,8 @@ const (
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize    = 4096
-	signChanSize  = 256
+	blockChanSize = 64
+	signChanSize  = 512
 	nodeChanSize  = 256
 	fruitChanSize = 256
 )
@@ -277,7 +278,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.fruitBroadcastLoop()
 
 	// broadcast mined fastBlocks
-	pm.minedFastCh = make(chan core.NewBlockEvent, txChanSize)
+	pm.minedFastCh = make(chan core.NewBlockEvent, blockChanSize)
 	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
 
@@ -775,6 +776,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
+		log.Debug("Receive sign", "num", signs[0].FastHeight, "peer", p.id)
 		// committee no current block
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 

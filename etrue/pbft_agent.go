@@ -315,14 +315,6 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 	return true
 }
 
-func setReceivedCommitteeInfo(ch core.ElectionEvent) *types.CommitteeInfo {
-	//cpyMembers :=&ch.CommitteeMembers
-	receivedCommitteeInfo := &types.CommitteeInfo{
-	//Id:      cpy.CommitteeId,
-	//Members: &cpyMembers,
-	}
-	return receivedCommitteeInfo
-}
 
 //  when receive block insert chain event ,put cacheBlock into fastchain
 func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
@@ -640,7 +632,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	}
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil{
-		log.Error("validate body error")
+		log.Error("VerifyFastBlock: validate body error","err",err)
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
