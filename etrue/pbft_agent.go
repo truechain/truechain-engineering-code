@@ -410,7 +410,7 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 		return false
 	}
 	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
-		log.Info("CommitteeId not consistence  ...")
+		log.Warn("CommitteeId not consistence  ...")
 		return false
 	}
 
@@ -491,7 +491,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
 	tstamp := tstart.Unix()
-	log.Info("printTime", "parent.Time", parent.Time(), "tstamp", tstamp)
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
@@ -545,7 +544,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
-	log.Info("[pbft agent] FetchFastBlock", fastBlock.Header().Time, time.Now().Unix())
 	return fastBlock, err
 }
 
