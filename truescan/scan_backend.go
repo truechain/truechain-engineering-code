@@ -2,6 +2,7 @@ package truescan
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -98,6 +99,22 @@ func (ts *TrueScan) snailChainHandleLoop() error {
 }
 
 func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
+	// fbm := &SnailBlockHeaderMsg{
+	// 	Number:     block.NumberU64(),
+	// 	Hash:       block.Hash().String(),
+	// 	ParentHash: block.ParentHash().String(),
+	// 	Nonce:      block.Nonce(),
+	// 	Miner:      block.Coinbase().String(),
+	// 	Difficulty: block.Difficulty().Uint64(),
+	// 	ExtraData:  "0x" + hex.EncodeToString(block.Extra()),
+	// 	Size:       block.Size().Int(),
+	// 	Timestamp:  block.Time().Uint64(),
+	// }
+	fruits := block.Fruits()
+	for i, fruit := range fruits {
+		fmt.Println(i)
+		fmt.Println(fruit.FastNumber().Uint64())
+	}
 }
 
 func (ts *TrueScan) fruitHandleLoop() error {
@@ -114,6 +131,7 @@ func (ts *TrueScan) fruitHandleLoop() error {
 }
 
 func (ts *TrueScan) handleFruits(fruits []*types.SnailBlock) {
+	fmt.Println("-----------------")
 }
 
 func (ts *TrueScan) fastChainHandleLoop() error {
@@ -130,7 +148,43 @@ func (ts *TrueScan) fastChainHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleFastChain(txs *types.Block) {
+func (ts *TrueScan) handleFastChain(block *types.Block) {
+	fbm := &FastBlockHeaderMsg{
+		Number:     block.NumberU64(),
+		Hash:       block.Hash().String(),
+		ParentHash: block.ParentHash().String(),
+		ExtraData:  "0x" + hex.EncodeToString(block.Extra()),
+		Size:       block.Size().Int(),
+		GasLimit:   block.GasLimit(),
+		GasUsed:    block.GasUsed(),
+		Timestamp:  block.Time().Uint64(),
+	}
+	txs := block.Transactions()
+	tms := make([]*TransactionMsg, len(txs))
+	for i, tx := range txs {
+		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
+		if err != nil {
+			continue
+		}
+		var toHex string
+		if to := tx.To(); to == nil {
+			toHex = ""
+		} else {
+			toHex = to.String()
+		}
+		tm := &TransactionMsg{
+			Hash:     tx.Hash().String(),
+			From:     from.String(),
+			To:       toHex,
+			Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
+			Gas:      tx.Gas(),
+			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
+			Input:    "0x" + hex.EncodeToString(tx.Data()),
+		}
+		tms[i] = tm
+	}
+	fbm.Txs = tms
+	ts.redisClient.ReceiveFastBlockHeader(fbm)
 }
 
 func (ts *TrueScan) txHandleLoop() error {
@@ -158,7 +212,7 @@ func (ts *TrueScan) handleTx(txs []*types.Transaction) {
 		} else {
 			toHex = to.String()
 		}
-		ptm := &PendingTransactionMsg{
+		tm := &TransactionMsg{
 			Hash:     tx.Hash().String(),
 			From:     from.String(),
 			To:       toHex,
@@ -167,7 +221,7 @@ func (ts *TrueScan) handleTx(txs []*types.Transaction) {
 			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
 			Input:    "0x" + hex.EncodeToString(tx.Data()),
 		}
-		ts.redisClient.PendingTransaction(ptm)
+		ts.redisClient.PendingTransaction(tm)
 	}
 }
 

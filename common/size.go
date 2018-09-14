@@ -46,3 +46,8 @@ func (s StorageSize) TerminalString() string {
 		return fmt.Sprintf("%.2fB", s)
 	}
 }
+
+// Int returns the size in B
+func (s StorageSize) Int() uint64 {
+	return uint64(s)
+}
