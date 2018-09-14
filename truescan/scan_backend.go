@@ -1,6 +1,8 @@
 package truescan
 
 import (
+	"encoding/hex"
+
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -9,29 +11,24 @@ import (
 )
 
 type TrueScan struct {
-	sub Subscriber
-
-	txsCh  chan core.NewTxsEvent
-	txsSub event.Subscription
-
-	chainHeadCh  chan core.ChainHeadEvent
-	chainHeadSub event.Subscription
-
-	//fruit
-	fruitsch  chan snailchain.NewFruitsEvent
-	fruitsSub event.Subscription // for fruit pool
-
+	sub               Subscriber
+	txsCh             chan core.NewTxsEvent
+	txsSub            event.Subscription
+	chainHeadCh       chan core.ChainHeadEvent
+	chainHeadSub      event.Subscription
+	fruitsch          chan snailchain.NewFruitsEvent //fruit
+	fruitsSub         event.Subscription             // for fruit pool
 	snailChainHeadCh  chan snailchain.ChainHeadEvent
 	snailChainHeadSub event.Subscription
-
-	electionCh  chan core.ElectionEvent
-	electionSub event.Subscription
-
-	quit chan struct{}
+	electionCh        chan core.ElectionEvent
+	electionSub       event.Subscription
+	redisClient       *RedisClient
+	quit              chan struct{}
 }
 
+// New function return a TrueScan message processing client
 func New(sub Subscriber) *TrueScan {
-	return &TrueScan{
+	ts := &TrueScan{
 		sub:              sub,
 		txsCh:            make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadChanSize),
@@ -40,8 +37,15 @@ func New(sub Subscriber) *TrueScan {
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		quit:             make(chan struct{}),
 	}
+	rc, err := NewRedisClient("39.105.126.32:6379", 1)
+	if err != nil {
+		return nil
+	}
+	ts.redisClient = rc
+	return ts
 }
 
+// Start TrueScan message processing client
 func (ts *TrueScan) Start() {
 	// broadcast transactions
 	ts.txsSub = ts.sub.SubscribeNewTxsEvent(ts.txsCh)
@@ -143,6 +147,28 @@ func (ts *TrueScan) txHandleLoop() error {
 }
 
 func (ts *TrueScan) handleTx(txs []*types.Transaction) {
+	for _, tx := range txs {
+		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
+		if err != nil {
+			continue
+		}
+		var toHex string
+		if to := tx.To(); to == nil {
+			toHex = ""
+		} else {
+			toHex = to.String()
+		}
+		ptm := &PendingTransactionMsg{
+			Hash:     tx.Hash().String(),
+			From:     from.String(),
+			To:       toHex,
+			Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
+			Gas:      tx.Gas(),
+			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
+			Input:    "0x" + hex.EncodeToString(tx.Data()),
+		}
+		ts.redisClient.PendingTransaction(ptm)
+	}
 }
 
 func (ts *TrueScan) loop() error {
@@ -155,6 +181,7 @@ func (ts *TrueScan) loop() error {
 	}
 }
 
+// Stop TrueScan message processing client
 func (ts *TrueScan) Stop() {
 	ts.txsSub.Unsubscribe()
 	ts.chainHeadSub.Unsubscribe()
