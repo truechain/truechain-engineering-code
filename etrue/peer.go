@@ -438,7 +438,7 @@ func (p *peer) SendNewFruit(fruit *types.SnailBlock, td *big.Int) error {
 
 func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
 	p.knownSnailBlocks.Add(snailBlock.Hash())
-	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock, td})
+	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock})
 }
 
 // AsyncSendNewSnailBlock queues an entire snailBlock for propagation to a remote peer. If

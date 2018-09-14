@@ -806,11 +806,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
 		//var snailBlocks []*types.SnailBlock
 		log.Debug("receive SnailBlockMsg")
-		var requests []*newSnailBlockData
-		if err := msg.Decode(&requests); err != nil {
+		var request newSnailBlockData
+		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		for _, request := range requests {
 			var snailBlock = request.Block
 			// for i, snailBlock := range snailBlocks {
 			// 	// Validate and mark the remote snailBlock
@@ -826,7 +825,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// TODO: send snail block to snail blockchain
 			//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
 			// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
-		}
+		
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
