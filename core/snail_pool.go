@@ -469,6 +469,7 @@ func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash co
 // remove all the fruits and fastBlocks included in the new snailblock
 func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	for _, fruit := range fruits {
+		//log.Info(" ********* del fruit","snail number", fruit.Number(),"fb number",fruit.FastNumber())
 		delete(pool.fruitPending, fruit.FastHash())
 		delete(pool.allFruits, fruit.FastHash())
 
@@ -485,6 +486,12 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 // of the fastblock pool is valid with regard to the chain state.
 func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	// If we're reorging an old state, reinject all dropped fastblocks
+
+	/*
+	for _ , fb := range newHead.Fruits() {
+		log.Info(" -----------------------------------reset fb list","sb number",newHead.Number(),"fb number",fb.FastNumber())
+	}
+	*/
 	var reinject []*types.SnailBlock
 
 	if oldHead != nil && oldHead.Hash() != newHead.ParentHash() {
@@ -614,6 +621,26 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 // PendingFruits retrieves all currently verified fruits, sorted by fast number.
 // The returned fruit set is a copy and can be freely modified by calling code.
 func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
+	// new flow return all fruits
+	pool.muFruit.Lock()
+   defer pool.muFruit.Unlock()
+
+   var fruits types.SnailBlocks
+   var rtfruits types.SnailBlocks
+
+   for _, fruit := range pool.fruitPending {
+      fruits=append(fruits,types.CopyFruit(fruit))
+   }
+
+   var blockby types.SnailBlockBy = types.FruitNumber
+   blockby.Sort(fruits)
+   
+   for _, v := range fruits {
+      rtfruits = append(rtfruits, v)
+   }
+   return rtfruits, nil
+
+	/*
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
@@ -642,6 +669,7 @@ func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 		rtfruits = append(rtfruits, v)
 	}
 	return rtfruits, nil
+	*/
 }
 // SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
 // starts sending event to the given channel.
