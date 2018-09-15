@@ -179,7 +179,6 @@ out:
 			break out
 		}
 	}
-
 }
 
 func (self *Miner) Start(coinbase common.Address) {
