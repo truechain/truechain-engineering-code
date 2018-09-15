@@ -143,6 +143,7 @@ out:
 }
 
 func (self *Miner) Start(coinbase common.Address) {
+	log.Info("Start method coinbase:","coinbase",coinbase)
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 
