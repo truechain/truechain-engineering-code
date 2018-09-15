@@ -331,8 +331,6 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 					if server, ok := ss.servers[cid.Uint64()]; ok {
 						server.Height = big.NewInt(req.Height)
 						server.server.PutRequest(req)
-					} else {
-						fmt.Println(err.Error())
 					}
 				} else {
 					lock.PSLog(err.Error())
@@ -426,7 +424,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 					b, c := serverCheck(server)
 					fmt.Println("server count:", c)
 					if b {
-						time.Sleep(time.Second * 60)
+						time.Sleep(time.Second * 10)
 						break
 					}
 					time.Sleep(time.Second)
@@ -446,6 +444,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 		return errors.New("wrong conmmitt ID:" + id.String())
 	case Stop:
 		if server, ok := ss.servers[id.Uint64()]; ok {
+			server.server.Stop()
 			server.clear = true
 		}
 		ss.clear(id)
