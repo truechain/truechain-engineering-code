@@ -793,8 +793,9 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 		log.Error("len(committeeInfo.Members) == 0 ")
 		return false
 	}
-	isCommitteeMember,_:=self.election.isCommitteeMember(committeeInfo.Members,self.committeeNode.Publickey)
-	return isCommitteeMember
+	member := self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
+
+	return member != nil
 }
 
 /*
@@ -843,11 +844,12 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool{
 		log.Error("VerifyCommitteeSign sign is nil")
 		return false
 	}
-	b,_ ,err:=self.election.VerifySign(sign)
+	_ ,err:=self.election.VerifySign(sign)
 	if err !=nil{
 		log.Error("VerifyCommitteeSign  error", "err", err)
+		return false
 	}
-	return b
+	return true
 }
 
 // ChangeCommitteeLeader trigger view change.
@@ -907,10 +909,10 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	if !self.nodeInfoIsComplete {
 		return false
 	}
-	b,_,err := self.election.VerifySignByPubKey(fastHeight, self.committeeNode.Publickey)
+	_,err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
 	if err != nil{
 		log.Error("AcquireCommitteeAuth","err",err)
-		return b
+		return false
 	}
 	/*committeeMembers := self.election.GetCommittee(blockHeight)
 	for _, member := range committeeMembers {
@@ -918,7 +920,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 			return true
 		}
 	}*/
-	return b
+	return true
 }
 
 func (agent *PbftAgent) singleloop() {
