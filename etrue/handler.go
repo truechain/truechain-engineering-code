@@ -810,16 +810,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		request.Block.ReceivedAt = msg.ReceivedAt
+		request.Block.ReceivedFrom = p
+
 		var snailBlock = request.Block
-		// for i, snailBlock := range snailBlocks {
-		// 	// Validate and mark the remote snailBlock
 		if snailBlock == nil {
 			return errResp(ErrDecode, "snailBlock  is nil")
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
 		p.MarkSnailBlock(snailBlock.Hash())
-		// }
+
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
@@ -835,15 +836,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 			// a singe block (as the true TD is below the propagated block), however this
 			// scenario should easily be covered by the fetcher.
-			currentBlock := pm.blockchain.CurrentBlock()
-			if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+			currentBlock := pm.snailchain.CurrentBlock()
+			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				go pm.synchronise(p)
 			}
 		}
-
-		// TODO: send snail block to snail blockchain
-		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
-		// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -926,12 +923,12 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 	if propagate {
 		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
 		var td *big.Int
-		/*if parent := pm.fruitchain.GetBlock(fruit.ParentHash(), fruit.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(fruit.Difficulty(), pm.blockchain.GetTd(fruit.ParentHash(), fruit.NumberU64()-1))
+		if parent := pm.snailchain.GetBlock(snailBlock.ParentHash(), snailBlock.NumberU64()-1); parent != nil {
+			td = new(big.Int).Add(snailBlock.Difficulty(), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
 		} else {
-			log.Error("Propagating dangling fruit", "number", fruit.Number(), "hash", hash)
+			log.Error("Propagating dangling block", "number", snailBlock.Number(), "hash", hash)
 			return
-		}*/
+		}
 		// Send the fruit to a subset of our peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
@@ -941,14 +938,14 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 		log.Trace("Propagated snailBlock", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 		return
 	}
-	//fruit not exist the follow situation
-	/*// Otherwise if the block is indeed in out own chain, announce it
-	if pm.blockchain.HasBlock(hash, fruit.NumberU64()) {
+	// Otherwise if the block is indeed in out own chain, announce it
+	if pm.snailchain.HasBlock(hash, snailBlock.NumberU64()) {
+		td :=pm.snailchain.GetTd(snailBlock.Hash(), snailBlock.NumberU64())
 		for _, peer := range peers {
-			peer.AsyncSendNewBlockHash(block)
+			peer.AsyncSendNewSnailBlock(snailBlock,td)
 		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
-	}*/
+		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
+	}
 }
 
 // BroadcastTxs will propagate a batch of transactions to all peers which are not known to

@@ -17,6 +17,7 @@
 package etrue
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -165,6 +166,25 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	}
 
 	return election
+}
+
+func (e *Election)VerifySign(id *big.Int, hash []byte, sign []byte) bool {
+	pubKey, err := crypto.SigToPub(hash, sign)
+	if err != nil {
+		log.Error("VerifySign SigToPub error", "err", err)
+		return false
+	}
+
+	members := e.GetComitteeById(id)
+
+	pubKeyByte := crypto.FromECDSAPub(pubKey)
+	for _, member := range members {
+		if bytes.Equal(pubKeyByte, crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 
@@ -382,7 +402,6 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 }
 
 func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
-
 	if e.committee.id.Cmp(id) == 0 {
 		return e.committee.members
 	}
@@ -395,11 +414,6 @@ func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	if committee, ok := e.committeeList[id]; ok {
 		return committee.members
 	}
-
-	return nil
-}
-
-func (e *Election) GetByCommitteeId(id *big.Int) []*ecdsa.PublicKey {
 
 	return nil
 }
