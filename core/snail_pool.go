@@ -227,7 +227,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 		minFbNumber = new(big.Int).Set(common.Big1)
 	} else {
 		fruits := headSnailBlock.Fruits()
-		minFbNumber = fruits[len(fruits)-1].Number()
+		minFbNumber = fruits[len(fruits)-1].FastNumber()
 	}
 	maxFbNumber := pool.fastchain.CurrentHeader().Number
 	if maxFbNumber != nil && minFbNumber != nil {

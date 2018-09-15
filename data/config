@@ -1,0 +1,6 @@
+[Etrue]
+EnableElection = true
+CommitteeKey = "0xc5273b8c9d86b289bd5e9f035eb12c97cca71222649be3af824a74a1a16939a4"
+Host = "127.0.0.1"
+Port = 10080
+Etherbase = "0x2c621249c133e6669b325f3ff2b5d9b61bb354e6"
