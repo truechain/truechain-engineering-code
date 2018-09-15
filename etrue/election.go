@@ -118,7 +118,7 @@ func (c *committee)Members() []*types.CommitteeMember {
 
 type Election struct {
 	genesisCommittee []*types.CommitteeMember
-	committeeList    map[*big.Int]*committee
+	committeeList    map[uint64]*committee
 	muList			sync.RWMutex
 
 	committee     *committee
@@ -146,7 +146,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	election := &Election{
 		fastchain:        fastBlockChain,
 		snailchain:       snailBlockChain,
-		committeeList:    make(map[*big.Int]*committee),
+		committeeList:    make(map[uint64]*committee),
 		fastChainHeadCh:  make(chan core.ChainHeadEvent, fastChainHeadSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailchainHeadSize),
 	}
@@ -291,7 +291,7 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	defer e.muList.RUnlock()
 
 	for _, id := range ids {
-		if committee, ok := e.committeeList[id]; ok {
+		if committee, ok := e.committeeList[id.Uint64()]; ok {
 			if committee.beginFastNumber.Cmp(fastNumber) > 0 {
 				continue
 			}
@@ -465,8 +465,8 @@ func (e *Election) appendCommittee(c *committee) {
 	e.muList.Lock()
 	defer e.muList.Unlock()
 
-	if _, ok := e.committeeList[c.id]; !ok {
-		e.committeeList[c.id] = c
+	if _, ok := e.committeeList[c.id.Uint64()]; !ok {
+		e.committeeList[c.id.Uint64()] = c
 	}
 }
 
@@ -487,7 +487,7 @@ func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	e.muList.RLock()
 	e.muList.RUnlock()
 
-	if committee, ok := e.committeeList[id]; ok {
+	if committee, ok := e.committeeList[id.Uint64()]; ok {
 		return committee.Members()
 	}
 
