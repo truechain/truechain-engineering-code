@@ -810,16 +810,17 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		request.Block.ReceivedAt = msg.ReceivedAt
+		request.Block.ReceivedFrom = p
+
 		var snailBlock = request.Block
-		// for i, snailBlock := range snailBlocks {
-		// 	// Validate and mark the remote snailBlock
 		if snailBlock == nil {
 			return errResp(ErrDecode, "snailBlock  is nil")
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
 		p.MarkSnailBlock(snailBlock.Hash())
-		// }
+
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
 		// Assuming the block is importable by the peer, but possibly not yet done so,
@@ -840,10 +841,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-
-		// TODO: send snail block to snail blockchain
-		//pm.SnailPool.AddRemoteSnailBlocks(snailBlocks)
-		// pm.snailchain.VerifySnailBlock(pm,snailBlocks)
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -947,7 +944,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 		for _, peer := range peers {
 			peer.AsyncSendNewSnailBlock(snailBlock,td)
 		}
-		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 	}
 }
 
