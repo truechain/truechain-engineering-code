@@ -107,7 +107,7 @@ func (q *queue) Reset() {
 
 	q.closed = false
 	q.mode = FullSync
-
+	log.Debug("(q *queue) Reset()")
 	q.headerHead = common.Hash{}
 	q.headerPendPool = make(map[string]*etrue.FetchRequest)
 
@@ -371,9 +371,9 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		// Recalculate the result item weights to prevent memory exhaustion
 		for _, result := range results {
 			size := result.Fheader.Size()
-			for _, uncle := range result.Uncles {
-				size += uncle.Size()
-			}
+			//for _, uncle := range result.Uncles {
+			//	size += uncle.Size()
+			//}
 			for _, receipt := range result.Receipts {
 				size += receipt.Size()
 			}
@@ -754,7 +754,7 @@ func (q *queue) DeliverHeaders(id string, headers []*types.Header, headerProcCh 
 // DeliverBodies injects a block body retrieval response into the results queue.
 // The method returns the number of blocks bodies accepted from the delivery and
 // also wakes any threads waiting for data delivery.
-func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [][]*types.PbftSign, uncleLists [][]*types.Header) (int, error) {
+func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [][]*types.PbftSign) (int, error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -766,7 +766,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 		}
 
 		result.Transactions = txLists[index]
-		result.Uncles = uncleLists[index]
+		//result.Uncles = uncleLists[index]
 		result.Signs = signs[index]
 		return nil
 	}

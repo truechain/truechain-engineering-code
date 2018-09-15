@@ -393,24 +393,24 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	pm.syncTransactions(p)
 	pm.syncFruits(p)
 	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
-	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
-		// Request the peer's DAO fork header for extra-data validation
-		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false, false); err != nil {
-			return err
-		}
-		// Start a timer to disconnect if the peer doesn't reply in time
-		p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
-			p.Log().Debug("Timed out DAO fork-check, dropping")
-			pm.removePeer(p.id)
-		})
-		// Make sure it's cleaned up if the peer dies off
-		defer func() {
-			if p.forkDrop != nil {
-				p.forkDrop.Stop()
-				p.forkDrop = nil
-			}
-		}()
-	}
+	//if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
+	//	// Request the peer's DAO fork header for extra-data validation
+	//	if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false, false); err != nil {
+	//		return err
+	//	}
+	//	// Start a timer to disconnect if the peer doesn't reply in time
+	//	p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
+	//		p.Log().Debug("Timed out DAO fork-check, dropping")
+	//		pm.removePeer(p.id)
+	//	})
+	//	// Make sure it's cleaned up if the peer dies off
+	//	defer func() {
+	//		if p.forkDrop != nil {
+	//			p.forkDrop.Stop()
+	//			p.forkDrop = nil
+	//		}
+	//	}()
+	//}
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
@@ -712,7 +712,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, nil)
+		err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
 		if err != nil {
 			log.Debug("Failed to deliver bodies", "err", err)
 		}

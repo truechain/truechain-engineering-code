@@ -37,18 +37,19 @@ type bodyPack struct {
 	peerID       string
 	transactions [][]*types.Transaction
 	signs        [][]*types.PbftSign
-	uncles       [][]*types.Header
+	//uncles       [][]*types.Header
 }
 
 func (p *bodyPack) PeerId() string { return p.peerID }
 func (p *bodyPack) Items() int {
-	if len(p.transactions) <= len(p.uncles) {
-		return len(p.transactions)
-	}
-	return len(p.uncles)
+	//if len(p.transactions) <= len(p.uncles) {
+	//	return len(p.transactions)
+	//}
+	//return len(p.uncles)
+	return len(p.transactions)
 }
 func (p *bodyPack) Stats() string {
-	return fmt.Sprintf("%d:%d:%d", len(p.transactions), len(p.signs), len(p.uncles))
+	return fmt.Sprintf("%d:%d", len(p.transactions), len(p.signs))
 }
 
 // receiptPack is a batch of receipts returned by a peer.
