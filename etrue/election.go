@@ -17,6 +17,7 @@
 package etrue
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -165,6 +166,25 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	}
 
 	return election
+}
+
+func (e *Election)VerifySign(id *big.Int, hash []byte, sign []byte) bool {
+	pubKey, err := crypto.SigToPub(hash, sign)
+	if err != nil {
+		log.Error("VerifySign SigToPub error", "err", err)
+		return false
+	}
+
+	members := e.GetComitteeById(id)
+
+	pubKeyByte := crypto.FromECDSAPub(pubKey)
+	for _, member := range members {
+		if bytes.Equal(pubKeyByte, crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 
@@ -382,7 +402,6 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 }
 
 func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
-
 	if e.committee.id.Cmp(id) == 0 {
 		return e.committee.members
 	}
@@ -395,11 +414,6 @@ func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	if committee, ok := e.committeeList[id]; ok {
 		return committee.members
 	}
-
-	return nil
-}
-
-func (e *Election) GetByCommitteeId(id *big.Int) []*ecdsa.PublicKey {
 
 	return nil
 }
@@ -604,17 +618,17 @@ func (e *Election) Start() error {
 		//self.mux.Post(chain.NewMinedFruitEvent{Block: block})
 		//type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
-		e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+		//e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 	
 		//time.Sleep(time.Millisecond*500)
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-		e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
+		//e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
 	
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
 			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
-			e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+			//e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 		}
 	} (e)
 
@@ -664,7 +678,7 @@ func (e *Election) loop() {
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
 					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
-					e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+					//e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 					
 				}
 
@@ -677,7 +691,7 @@ func (e *Election) loop() {
 						go func(e *Election) {
 							log.Info("Election stop committee..", "id", e.committee.id)
 							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, nil})
-							e.mux.Post(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.members})
+							//e.mux.Post(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.members})
 
 							// find committee already exist in committee list
 							e.committeeList[e.committee.id] = e.committee
@@ -690,7 +704,7 @@ func (e *Election) loop() {
 							log.Info("Election start new BFT committee", "id", e.committee.id)
 
 							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-							e.mux.Post(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
+							//e.mux.Post(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
 						}(e)
 					}
 				}
