@@ -604,17 +604,17 @@ func (e *Election) Start() error {
 		//self.mux.Post(chain.NewMinedFruitEvent{Block: block})
 		//type NewMinedFruitEvent struct{ Block *types.SnailBlock }
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
-		e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+		//e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 	
 		//time.Sleep(time.Millisecond*500)
 		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-		e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
+		//e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
 	
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
 			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
-			e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+			//e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 		}
 	} (e)
 
@@ -664,7 +664,7 @@ func (e *Election) loop() {
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
 					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
-					e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+					//e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
 					
 				}
 
@@ -677,7 +677,7 @@ func (e *Election) loop() {
 						go func(e *Election) {
 							log.Info("Election stop committee..", "id", e.committee.id)
 							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, nil})
-							e.mux.Post(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.members})
+							//e.mux.Post(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.members})
 
 							// find committee already exist in committee list
 							e.committeeList[e.committee.id] = e.committee
@@ -690,7 +690,7 @@ func (e *Election) loop() {
 							log.Info("Election start new BFT committee", "id", e.committee.id)
 
 							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-							e.mux.Post(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
+							//e.mux.Post(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
 						}(e)
 					}
 				}

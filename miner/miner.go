@@ -20,6 +20,7 @@ package miner
 import (
 	"fmt"
 	"sync/atomic"
+	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -47,6 +48,17 @@ type Backend interface {
 	//Election() *etrue.Election
 }
 
+//Election module implementation committee interface
+type CommitteeElection interface {
+	//VerifySigns verify the fast chain committee signatures in batches
+	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
+
+	//Get a list of committee members
+	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
+	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
+
+	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription 
+}
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
@@ -62,6 +74,7 @@ type Miner struct {
 	mining    int32
 	truechain Backend
 	engine    consensus.Engine
+	election  CommitteeElection
 
 	//election
 	electionCh  chan core.ElectionEvent
@@ -71,20 +84,47 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, election CommitteeElection) *Miner {
 	miner := &Miner{
 		truechain: truechain,
 		mux:       mux,
 		engine:    engine,
+		election : election,
+		electionCh:    make(chan core.ElectionEvent, txChanSize),
 		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:  1,
 	}
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
  
-	//miner.electionSub = truechain.Election().SubscribeElectionEvent(miner.electionCh)
+	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 	
+	go miner.loop()
 	go miner.update()
 	return miner
+} 
+func (self *Miner) loop() {
+	
+	defer self.electionSub.Unsubscribe()
+
+	for{
+		select {
+			case ch := <-self.electionCh:
+				
+				switch ch.Option {
+				case types.CommitteeStart:
+					log.Info("==================get  election  msg  CommitteeStart")
+				case types.CommitteeSwitchover:
+					log.Info("==================get  election  msg  CommitteeSwitchover")
+				case types.CommitteeStop:
+					log.Info("==================get  election  msg  CommitteeSwitchover")
+				}
+				
+			case <- self.electionSub.Err():
+				return
+				
+		}
+	}
+
 }
 
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
@@ -95,7 +135,7 @@ func (self *Miner) update() {
 	//defer self.electionSub.Unsubscribe()
 	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{},core.ElectionEvent{})
 out:
-	for ev := range events.Chan() {
+	for ev := range events.Chan() {		
 		switch ev.Data.(type) {
 		case core.ElectionEvent:
 			election := ev.Data.(core.ElectionEvent)
