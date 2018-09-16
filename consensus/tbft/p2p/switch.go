@@ -73,8 +73,6 @@ type Switch struct {
 	filterConnByID   func(ID) error
 
 	mConfig conn.MConnConfig
-
-	metrics *Metrics
 }
 
 // SwitchOption sets an optional parameter on the Switch.
@@ -90,7 +88,6 @@ func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
 		peers:        NewPeerSet(),
 		dialing:      help.NewCMap(),
 		reconnecting: help.NewCMap(),
-		metrics:      NopMetrics(),
 	}
 
 	// Ensure we have a completely undeterministic PRNG.
@@ -109,11 +106,6 @@ func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
 	}
 
 	return sw
-}
-
-// WithMetrics sets the metrics.
-func WithMetrics(metrics *Metrics) SwitchOption {
-	return func(sw *Switch) { sw.metrics = metrics }
 }
 
 //---------------------------------------------------------------------
@@ -298,7 +290,6 @@ func (sw *Switch) StopPeerGracefully(peer Peer) {
 
 func (sw *Switch) stopAndRemovePeer(peer Peer, reason interface{}) {
 	sw.peers.Remove(peer)
-	sw.metrics.Peers.Add(float64(-1))
 	peer.Stop()
 	for _, reactor := range sw.reactors {
 		reactor.RemovePeer(peer, reason)
@@ -645,8 +636,6 @@ func (sw *Switch) addPeer(pc peerConn) error {
 	if err := sw.peers.Add(peer); err != nil {
 		return err
 	}
-	//sw.metrics.Peers.Add(float64(1))
-
 	log.Info("Added peer", "peer", peer)
 	return nil
 }
