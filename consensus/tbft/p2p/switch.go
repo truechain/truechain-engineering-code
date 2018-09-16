@@ -32,7 +32,8 @@ const (
 	// TODO: move to config
 	DefaultMinNumOutboundPeers = 10
 )
-
+type ChannelDescriptor = conn.ChannelDescriptor
+type ConnectionStatus = conn.ConnectionStatus
 //-----------------------------------------------------------------------------
 
 // An AddrBook represents an address book from the pex package, which is used
