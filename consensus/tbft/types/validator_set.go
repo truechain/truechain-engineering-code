@@ -8,7 +8,6 @@ import (
 	"strings"
 	"errors"
 
-	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -162,11 +161,11 @@ func (valSet *ValidatorSet) Hash() []byte {
 	if len(valSet.Validators) == 0 {
 		return nil
 	}
-	hashers := make([]merkle.Hasher, len(valSet.Validators))
+	hashers := make([]help.HexBytes, len(valSet.Validators))
 	for i, val := range valSet.Validators {
-		hashers[i] = val
+		hashers[i] = help.RlpHash(val)[:]
 	}
-	return merkle.SimpleHashFromHashers(hashers)
+	return help.RlpHash(hashers)[:]
 }
 
 // Add adds val to the validator set and returns true. It returns false if val
