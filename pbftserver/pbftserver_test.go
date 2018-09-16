@@ -41,6 +41,7 @@ func getID() *big.Int {
 func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getID()
+	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	return types.NewBlock(header, nil, nil, nil), nil
 }
@@ -365,14 +366,16 @@ func TestPbftServerStartChange3(t *testing.T) {
 	ser3.PutNodes(c1.Id, nodes)
 	go ser3.Notify(c1.Id, 0)
 
-	time.Sleep(time.Second * 30)
+	time.Sleep(time.Second * 32)
 	ser1.Notify(c1.Id, 1)
 	ser2.Notify(c1.Id, 1)
 	ser3.Notify(c1.Id, 1)
 
+	time.Sleep(time.Second * 30)
+
 	c2 := new(types.CommitteeInfo)
 	c2.Id = big.NewInt(2)
-	c2.Members = append(c2.Members, m1, m2, m3)
+	c2.Members = append(c2.Members, m2, m1, m3)
 
 	ser1.PutCommittee(c2)
 	ser2.PutCommittee(c2)

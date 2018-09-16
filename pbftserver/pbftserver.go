@@ -186,6 +186,11 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		time.Sleep(ss.blockSleep * time.Second)
 		lock.PSLog("FetchFastBlock wait", ss.blockSleep, "second")
 	}
+
+	if server.clear {
+		return nil, errors.New("server stop")
+	}
+
 	fb, err := ss.Agent.FetchFastBlock()
 
 	fmt.Println("[pbft server] FetchFastBlock", fb.Header().Time)
@@ -326,14 +331,18 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 		select {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
-				req, err := ss.GetRequest(cid)
-				if err == nil && req != nil {
-					if server, ok := ss.servers[cid.Uint64()]; ok {
-						server.Height = big.NewInt(req.Height)
-						server.server.PutRequest(req)
+				if server, ok := ss.servers[cid.Uint64()]; ok {
+					if !server.clear {
+						req, err := ss.GetRequest(cid)
+						if err == nil && req != nil {
+							if server, ok := ss.servers[cid.Uint64()]; ok {
+								server.Height = big.NewInt(req.Height)
+								server.server.PutRequest(req)
+							} else {
+								lock.PSLog(err.Error())
+							}
+						}
 					}
-				} else {
-					lock.PSLog(err.Error())
 				}
 			} else if ac.AC == consensus.ActionBroadcast {
 				ss.Broadcast(ac.Height)
@@ -414,34 +423,38 @@ func serverCheck(server *serverInfo) (bool, int) {
 	return successPre > (float64(2) / float64(3)), serverCompleteCnt
 }
 
+func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
+	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
+		for {
+			b, c := serverCheck(server)
+			fmt.Println("server count:", c)
+			if b {
+				time.Sleep(time.Second * 10)
+				break
+			}
+			time.Sleep(time.Second)
+		}
+	}
+
+	server.server.Start(ss.work)
+	// start to fetch
+	ac := &consensus.ActionIn{
+		AC:     consensus.ActionFecth,
+		ID:     id,
+		Height: common.Big0,
+	}
+	server.server.ActionChan <- ac
+}
+
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 	lock.PSLog("PutNodes", id, action)
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
-			if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
-				for {
-					b, c := serverCheck(server)
-					fmt.Println("server count:", c)
-					if b {
-						time.Sleep(time.Second * 10)
-						break
-					}
-					time.Sleep(time.Second)
-				}
-			}
-
-			server.server.Start(ss.work)
-			// start to fetch
-			ac := &consensus.ActionIn{
-				AC:     consensus.ActionFecth,
-				ID:     id,
-				Height: common.Big0,
-			}
-			server.server.ActionChan <- ac
-			return nil
+			go ss.runServer(server, id)
+		} else {
+			return errors.New("wrong conmmitt ID:" + id.String())
 		}
-		return errors.New("wrong conmmitt ID:" + id.String())
 	case Stop:
 		if server, ok := ss.servers[id.Uint64()]; ok {
 			server.server.Stop()
