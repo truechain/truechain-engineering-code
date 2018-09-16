@@ -45,7 +45,7 @@ const (
 	tryListenSeconds       = 5
 )
 
-func splitHostPort(addr string) (host string, port int) {
+func SplitHostPort(addr string) (host string, port int) {
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		panic(err)
@@ -67,7 +67,7 @@ func NewDefaultListener(
 
 	// Split protocol, address, and port.
 	protocol, lAddr := help.ProtocolAndAddress(fullListenAddrString)
-	lAddrIP, lAddrPort := splitHostPort(lAddr)
+	lAddrIP, lAddrPort := SplitHostPort(lAddr)
 
 	// Create listener
 	var listener net.Listener
@@ -84,7 +84,7 @@ func NewDefaultListener(
 		panic(err)
 	}
 	// Actual listener local IP & port
-	listenerIP, listenerPort := splitHostPort(listener.Addr().String())
+	listenerIP, listenerPort := SplitHostPort(listener.Addr().String())
 	logger.Info("Local listener", "ip", listenerIP, "port", listenerPort)
 
 	// Determine internal address...
