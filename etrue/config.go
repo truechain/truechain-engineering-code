@@ -137,6 +137,8 @@ type Config struct {
 	DocRoot string `toml:"-"`
 
 	NodeType bool `toml:",omitempty"`
+
+	MineFruit bool `toml:",omitempty"`
 }
 
 type configMarshaling struct {

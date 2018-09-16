@@ -71,6 +71,7 @@ var (
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
+		utils.MineFruitFlag,
 		utils.EnableElectionFlag,
 		utils.BFTPortFlag,
 		utils.BFTIPFlag,

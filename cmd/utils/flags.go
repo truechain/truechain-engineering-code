@@ -170,6 +170,10 @@ var (
 		Name:  "singlenode",
 		Usage: "sing node model",
 	}
+	MineFruitFlag = cli.BoolFlag{
+		Name:  "minefruit",
+		Usage: "only mine fruit",
+	}
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
 		Usage: "enable election",
@@ -1100,6 +1104,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
+	}
+
+	if ctx.GlobalBool(MineFruitFlag.Name) {
+		cfg.MineFruit = true
 	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true

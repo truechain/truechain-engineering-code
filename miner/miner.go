@@ -86,7 +86,8 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, election CommitteeElection) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
+	election CommitteeElection,mineFruit bool) *Miner {
 	miner := &Miner{
 		truechain: truechain,
 		mux:       mux,
@@ -97,7 +98,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		canStart:  1,
 	}
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
- 
+ 	log.Info("initmineFruit","mineFruit",mineFruit)
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 	
 	go miner.loop()
@@ -184,8 +185,6 @@ out:
 func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
-	log.Info("Start method coinbase:","coinbase",coinbase,
-	"self.coinbase",self.coinbase,"self.coinbase",self.worker.coinbase)//SHUXUN
 
 	if atomic.LoadInt32(&self.canStart) == 0 {
 		log.Info("Network syncing, will start miner afterwards")
