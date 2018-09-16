@@ -271,6 +271,15 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
+	//if the new fruit's fbnumber less than,don't add
+	headSnailBlock := pool.chain.CurrentBlock()
+	if headSnailBlock.NumberU64()> 0 {
+		fruits := headSnailBlock.Fruits()
+		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber())>=0{
+			return  nil
+		}
+	}
+
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
