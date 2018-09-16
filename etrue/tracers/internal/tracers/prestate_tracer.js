@@ -19,7 +19,7 @@
 {
 	// prestate is the genesis that we're building.
 	prestate: null,
-
+ 
 	// lookupAccount injects the specified account into the prestate object.
 	lookupAccount: function(addr, db){
 		var acc = toHex(addr);
