@@ -751,15 +751,19 @@ func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	}
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
+		LogPrint("gas", v.Coinbase, committeeGas)
 	}
 	return nil
+}
+
+func LogPrint(info string, addr common.Address, amount *big.Int) {
+	log.Info("[AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
-
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
 
 	if e != nil {
@@ -768,6 +772,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
 
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
@@ -776,6 +781,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
+			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
 		}
 	} else {
 		return consensus.ErrInvalidBlock
@@ -819,6 +825,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
+			LogPrint("committee", v, committeeCoinFruitMember)
 		}
 	}
 

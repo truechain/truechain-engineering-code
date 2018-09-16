@@ -48,7 +48,7 @@ type ChainReader interface {
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
 }
-
+ 
 // ChainSnailReader defines a small collection of methods needed to access the local
 // block chain during header and/or uncle verification.
 // Temporary interface for snail
