@@ -33,10 +33,7 @@ import (
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (m *Minerva) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
-	return nil, nil
-}
-func (m *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error) {
+func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -45,7 +42,7 @@ func (m *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.Snail
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if m.shared != nil {
-		return m.shared.SealSnail(chain, block, stop)
+		return m.shared.Seal(chain, block, stop)
 	}
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
@@ -92,19 +89,16 @@ func (m *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.Snail
 		// Thread count was changed on user request, restart
 		close(abort)
 		pend.Wait()
-		return m.SealSnail(chain, block, stop)
+		return m.Seal(chain, block, stop)
 	}
 	// Wait for all miners to terminate and return the block
 	pend.Wait()
 	return result, nil
 }
 
-// Seal implements consensus.Engine, attempting to find a nonce that satisfies
+// ConSeal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (m *Minerva) ConSeal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block) {
-	//return nil,nil
-}
-func (m *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
+func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -114,7 +108,7 @@ func (m *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.Sn
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if m.shared != nil {
-		m.shared.ConSnailSeal(chain, block, stop, send)
+		m.shared.ConSeal(chain, block, stop, send)
 	}
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
@@ -133,10 +127,15 @@ func (m *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.Sn
 	}
 	m.lock.Unlock()
 	if threads == 0 {
-		threads = runtime.NumCPU()
+		cpuNumber := runtime.NumCPU()
+		log.Info("Seal get cpu number", "number", cpuNumber)
+
+		// remain one cpu to process fast block
+		threads = cpuNumber - 1
 	}
 	if threads < 0 {
 		threads = 0 // Allows disabling local mining without extra logic around local/remote
+		log.Error("Stop mining for CPU number less than 2 or set threads number error.")
 	}
 	var pend sync.WaitGroup
 	for i := 0; i < threads; i++ {
@@ -180,7 +179,7 @@ mineloop:
 			// Thread count was changed on user request, restart
 			close(abort)
 			pend.Wait()
-			m.ConSnailSeal(chain, block, stop, send)
+			m.ConSeal(chain, block, stop, send)
 			break mineloop
 		}
 	}
@@ -196,9 +195,6 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		header = block.Header()
 		hash   = header.HashNoNonce().Bytes()
 		target = new(big.Int).Div(maxUint128, header.Difficulty)
-
-		//number          = header.Number.Uint64()
-		//dataset         = m.dataset(number)
 	)
 	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 
