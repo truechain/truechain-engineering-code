@@ -9,7 +9,7 @@ import (
 	//"strings"
 	"time"
 	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/tendermint/tendermint/types"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 )
 
 var crc32c = crc32.MakeTable(crc32.Castagnoli)
