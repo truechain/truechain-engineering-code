@@ -426,7 +426,7 @@ func (s *Truechain) StartMining(local bool) error {
 
 	}
 	go s.miner.Start(eb)
-	log.Info("StartMining method coinbase:","eb",eb,"s.etherbase",s.etherbase)
+	log.Info("StartMining method coinbase:","eb",eb,"s.etherbase",s.etherbase)//SHUXUN
 	return nil
 }
 

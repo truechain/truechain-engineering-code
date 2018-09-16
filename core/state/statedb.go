@@ -275,9 +275,11 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
 // AddBalance adds amount to the account associated with addr.
 func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
+	log.Info("AddBalance method","addr",addr,"addr.Balance",stateObject.Balance())//SHUXUN
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
 	}
+	log.Info("AddBalance method","addr",addr,"addr.Balance",stateObject.Balance())//SHUXUN
 }
 
 // SubBalance subtracts amount from the account associated with addr.
