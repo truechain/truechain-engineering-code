@@ -102,7 +102,7 @@ out:
 
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	//Neo for test
-	log.Info("start to mine and to be consensus", " difficulty ", work.header.Difficulty)
+	log.Info("start to mine and to be consensus", "block", work.Block.Number(), " difficulty ", work.header.Difficulty)
 	// the mine with consensus
 	/*
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {

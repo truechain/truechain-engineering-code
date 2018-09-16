@@ -91,6 +91,12 @@ type Engine interface {
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
 	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+
+	// VerifySnailHeaders is similar to VerifySnailHeader, but verifies a batch of headers concurrently.
+	// VerifySnailHeaders only verifies snail header rather than fruit header.
+	// The method returns a quit channel to abort the operations and
+	// a results channel to retrieve the async verifications (the order is that of
+	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
@@ -99,7 +105,7 @@ type Engine interface {
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
+	VerifySnailSeal(chain SnailChainReader, header, pointer *types.SnailHeader) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.

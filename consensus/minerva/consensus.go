@@ -98,26 +98,31 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *ty
 		return nil
 	}
 
-	// Short circuit if the header is known, or it's parent not
-	number := header.Number.Uint64()
 
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
 
 	//TODO for fruit
 
 	if header.Fruit {
-		return m.verifySnailHeader(chain, header, parent, false, seal)
-	}
+		pointer := chain.GetHeaderByHash(header.PointerHash)
+		if pointer == nil {
+			return consensus.ErrUnknownPointer
+		}
+		return m.verifySnailHeader(chain, header, nil, pointer, false, seal)
+	} else {
+		// Short circuit if the header is known, or it's parent not
+		number := header.Number.Uint64()
 
-	if chain.GetHeader(header.Hash(), number) != nil {
-		return nil
-	}
+		parent := chain.GetHeader(header.ParentHash, number-1)
+		if parent == nil {
+			return consensus.ErrUnknownAncestor
+		}
+		if chain.GetHeader(header.Hash(), number) != nil {
+			return nil
+		}
 
-	// Sanity checks passed, do a proper verification
-	return m.verifySnailHeader(chain, header, parent, false, seal)
+		// Sanity checks passed, do a proper verification
+		return m.verifySnailHeader(chain, header, parent,  nil,false, seal)
+	}
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -185,6 +190,8 @@ func (m *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.He
 	}()
 	return abort, errorsOut
 }
+
+
 func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader,
 	seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
@@ -283,7 +290,7 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 		return nil // known block
 	}
 
-	return m.verifySnailHeader(chain, headers[index], parent, false, seals[index])
+	return m.verifySnailHeader(chain, headers[index], parent, nil, false, seals[index])
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
@@ -373,7 +380,7 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 
 	return nil
 }
-func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader,
+func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent, pointer *types.SnailHeader,
 	uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
@@ -385,53 +392,28 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 			return errLargeBlockTime
 		}
 	} else {
-		if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-			return consensus.ErrFutureBlock
+		if !header.Fruit {
+			if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+				return consensus.ErrFutureBlock
+			}
 		}
 	}
-	if header.Time.Cmp(parent.Time) <= 0 {
-		return errZeroBlockTime
+	if !header.Fruit {
+		if header.Time.Cmp(parent.Time) <= 0 {
+			return errZeroBlockTime
+		}
+
+		// Verify the block's difficulty based in it's timestamp and parent's difficulty
+		expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
+
+		if expected.Cmp(header.Difficulty) != 0 {
+			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
+		}
 	}
-
-	// Verify the block's difficulty based in it's timestamp and parent's difficulty
-	expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-
-	if expected.Cmp(header.Difficulty) != 0 {
-		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
-	}
-
-	// Verify that the gas limit is <= 2^63-1
-
-	//TODO snail chian gaslimit
-	/*
-		cap := uint64(0x7fffffffffffffff)
-		if header.GasLimit > cap {
-			return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
-		}
-		// Verify that the gasUsed is <= gasLimit
-		if header.GasUsed > header.GasLimit {
-			return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
-		}
-
-		// Verify that the gas limit remains within allowed bounds
-		diff := int64(parent.GasLimit) - int64(header.GasLimit)
-		if diff < 0 {
-			diff *= -1
-		}
-		limit := parent.GasLimit / params.GasLimitBoundDivisor
-
-		if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-			return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
-		}
-		// Verify that the block number is parent's +1
-		if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
-			return consensus.ErrInvalidNumber
-		}
-	*/
 
 	// Verify the engine specific seal securing the block
 	if seal {
-		if err := m.VerifySnailSeal(chain, header); err != nil {
+		if err := m.VerifySnailSeal(chain, header, pointer); err != nil {
 			return err
 		}
 	}
@@ -669,7 +651,7 @@ func calcDifficultyFrontier(time uint64, parent *types.SnailHeader) *big.Int {
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
-func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
+func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header, pointer *types.SnailHeader) error {
 	// If we're running a fake PoW, accept any seal as valid
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		time.Sleep(m.fakeDelay)
@@ -680,7 +662,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	}
 	// If we're running a shared PoW, delegate verification to it
 	if m.shared != nil {
-		return m.shared.VerifySnailSeal(chain, header)
+		return m.shared.VerifySnailSeal(chain, header, pointer)
 	}
 	// Ensure that we have a valid difficulty for the block
 	if header.Difficulty.Sign() <= 0 {
@@ -689,45 +671,34 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	// Recompute the digest and PoW value and verify against the header
 	//number := header.Number.Uint64()
 
-	//cache := m.cache(number)
-	//size := datasetSize(number)
-	//if m.config.PowMode == ModeTest {
-	//	size = 32 * 1024
-	//}
 	digest, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
-	// Caches are unmapped in a finalizer. Ensure that the cache stays live
-	// until after the call to hashimotoLight so it's not unmapped while being used.
-	//runtime.KeepAlive(cache)
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest
 	}
 
-	//TODO for fruit
-
-	target := new(big.Int).Div(maxUint256, header.Difficulty)
-	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+	target := new(big.Int).Div(maxUint128, header.Difficulty)
+	fruitDifficulty := new(big.Int).Div(pointer.Difficulty, FruitBlockRatio)
 	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
 		fruitDifficulty.Set(params.MinimumFruitDifficulty)
 	}
 	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 
 	if header.Fruit {
-		// TODO need know how to get fruits
-		if header.Number.Uint64() > 0 {
-			last := result[16:]
-			if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
-				// fmt.Printf("last is  %v", new(big.Int).SetBytes(last))
-				// fmt.Printf("fruitTarget is %v", fruitTarget)
-				return errInvalidPoW
-			}
-		} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
+		last := result[16:]
+		if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
+			return errInvalidPoW
+		}
+	} else {
+		last := result[:16]
+		if new(big.Int).SetBytes(last).Cmp(target) > 0 {
 			return errInvalidPoW
 		}
 	}
 
 	return nil
 }
+
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the minerva protocol. The changes are done inline.
