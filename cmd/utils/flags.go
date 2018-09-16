@@ -59,6 +59,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
+	"bytes"
 )
 
 var (
@@ -1127,6 +1128,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
+	if bytes.Equal(cfg.CommitteeKey,[]byte{}){
+		Fatalf("init load CommitteeKey  nil.")
+	}
 	if ctx.GlobalBool(EnableElectionFlag.Name){
 		cfg.EnableElection = true
 	}
