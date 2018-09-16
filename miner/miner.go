@@ -163,7 +163,7 @@ func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 	log.Info("Start method coinbase:","coinbase",coinbase,
-	"self.coinbase",self.coinbase,"self.coinbase",self.worker.coinbase)
+	"self.coinbase",self.coinbase,"self.coinbase",self.worker.coinbase)//SHUXUN
 
 	if atomic.LoadInt32(&self.canStart) == 0 {
 		log.Info("Network syncing, will start miner afterwards")

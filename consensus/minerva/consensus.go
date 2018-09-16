@@ -804,7 +804,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
-	log.Info("accumulateRewardsFast","sBlock.Coinbase",sBlock.Coinbase(),"minerCoin",minerCoin)
+	log.Info("accumulateRewardsFast","sBlock.Coinbase",sBlock.Coinbase(),"minerCoin",minerCoin)//SHUXUN
 
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits

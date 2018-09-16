@@ -562,6 +562,7 @@ func (self *worker) commitNewWork() {
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
+		log.Info("commitNewWork method","self.coinbase",self.coinbase,"header.Coinbase",header.Coinbase)//SHUXUN
 	}
 	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
