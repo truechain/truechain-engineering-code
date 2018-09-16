@@ -76,7 +76,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum m engine.
-func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {// TODO remove seal
+func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -766,7 +766,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		accumulateRewardsFast(m.election, state, header, sBlock)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewBlock(header, txs, receipts, nil), nil	//TODO remove signs
+	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
@@ -787,15 +787,19 @@ func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	}
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
+		LogPrint("gas", v.Coinbase, committeeGas)
 	}
 	return nil
+}
+
+func LogPrint(info string, addr common.Address, amount *big.Int) {
+	log.Info("[AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
-
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
 
 	if e != nil {
@@ -804,8 +808,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
-	log.Info("accumulateRewardsFast","sBlock.Coinbase",sBlock.Coinbase(),"minerCoin",minerCoin)
-
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
 	blockFruitsLen := big.NewInt(int64(len(blockFruits)))
@@ -813,6 +816,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
+			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
 		}
 	} else {
 		return consensus.ErrInvalidBlock
@@ -856,6 +860,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
+			LogPrint("committee", v, committeeCoinFruitMember)
 		}
 	}
 
