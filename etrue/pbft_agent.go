@@ -114,7 +114,7 @@ type PbftAgent struct {
 	cacheSign          map[string]types.Sign     //prevent receive same sign
 	cacheBlock         map[*big.Int]*types.Block //prevent receive same block
 	singleNode         bool
-	nodeInfoIsComplete bool
+	//nodeInfoIsComplete bool
 }
 
 type AgentWork struct {
@@ -161,11 +161,10 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.singleNode = config.NodeType
-	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:", config.Port, ", Host:", config.Host)
-	if !config.NodeType && (config.Host == "" || config.Port == 0) {
+	/*if !config.NodeType && (config.Host == "" || config.Port == 0) {
 		log.Debug("host or IP is not complete .")
 		return
-	}
+	}*/
 	self.privateKey = config.PrivateKey
 	pubKey := self.privateKey.PublicKey
 	pubBytes := crypto.FromECDSAPub(&pubKey)
@@ -175,7 +174,9 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Coinbase:  crypto.PubkeyToAddress(pubKey),
 		Publickey: pubBytes,
 	}
-	self.nodeInfoIsComplete = true
+	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
+		config.Port, ", Host:", config.Host,"coinbase",self.committeeNode.Coinbase)
+	//self.nodeInfoIsComplete = true
 }
 
 func (self *PbftAgent) Start() {
@@ -583,9 +584,9 @@ func GetTps(currentBlock *types.Block) {
 }
 
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
-	if !self.nodeInfoIsComplete {
+	/*if !self.nodeInfoIsComplete {
 		return nil, errors.New("nodeInfo is not exist ,cannot generateSign.")
-	}
+	}*/
 	voteSign := &types.PbftSign{
 		Result:     types.VoteAgree,
 		FastHeight: fb.Header().Number,
@@ -782,9 +783,9 @@ func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- core.NodeInfoEvent) even
 }
 
 func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
-	if !self.nodeInfoIsComplete {
+	/*if !self.nodeInfoIsComplete {
 		return false
-	}
+	}*/
 	if committeeInfo == nil {
 		log.Error("received committeeInfo is nil ")
 		return false
@@ -906,9 +907,9 @@ func DebugNode(node *types.CommitteeNode, str string) {
 
 //AcquireCommitteeAuth determine whether the node pubKey  is in the specified committee
 func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
-	if !self.nodeInfoIsComplete {
+	/*if !self.nodeInfoIsComplete {
 		return false
-	}
+	}*/
 	_,err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
 	if err != nil{
 		log.Error("AcquireCommitteeAuth","err",err)
