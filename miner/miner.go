@@ -105,20 +105,18 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 func (self *Miner) loop() {
 	
 	defer self.electionSub.Unsubscribe()
-
 	for{
 		select {
 			case ch := <-self.electionCh:
 				
 				switch ch.Option {
 				case types.CommitteeStart:
-					log.Info("==================get  election  msg  CommitteeStart")
+					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.Mining)
 				case types.CommitteeSwitchover:
-					log.Info("==================get  election  msg  CommitteeSwitchover")
+					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.Mining)
 				case types.CommitteeStop:
-					log.Info("==================get  election  msg  CommitteeSwitchover")
+					log.Info("==================get  election  msg  3 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.Mining)
 				}
-				
 			case <- self.electionSub.Err():
 				return
 				
@@ -126,7 +124,6 @@ func (self *Miner) loop() {
 	}
 
 }
-
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
@@ -137,25 +134,6 @@ func (self *Miner) update() {
 out:
 	for ev := range events.Chan() {		
 		switch ev.Data.(type) {
-		case core.ElectionEvent:
-			election := ev.Data.(core.ElectionEvent)
-			//log.Info("============== get election msg  1  CommitteeStart","data",election.Option)
-			
-			switch election.Option {
-				case types.CommitteeStart:
-					log.Info("============== get election msg  1  CommitteeStart")
-				case types.CommitteeSwitchover:
-					log.Info("============== get election msg  2  CommitteeSwitchover")
-				case types.CommitteeStop:
-					log.Info("============== get election msg  3  CommitteeStop")
-			}
-			
-		//	log.Info("----------------------Mining aborted due to sync","event is ", core.ElectionEvent
-			/*if self.Mining() {
-				self.Stop()
-				atomic.StoreInt32(&self.shouldStart, 1)
-				log.Info("Mining aborted due to sync")
-			} */
 		case downloader.StartEvent:
 
 			atomic.StoreInt32(&self.canStart, 0)
