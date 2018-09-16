@@ -76,7 +76,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum m engine.
-func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
+func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {// TODO remove seal
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -766,7 +766,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		accumulateRewardsFast(m.election, state, header, sBlock)
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
+	return types.NewBlock(header, txs, receipts, nil), nil	//TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
@@ -809,6 +809,8 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+	log.Info("accumulateRewardsFast","sBlock.Coinbase",sBlock.Coinbase(),"minerCoin",minerCoin)//SHUXUN
+
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
 	blockFruitsLen := big.NewInt(int64(len(blockFruits)))
