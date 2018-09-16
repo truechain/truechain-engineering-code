@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"bytes"
 	"time"
+	"errors"
+	"reflect"
 	"encoding/json"
 	"encoding/binary"
 	"math/rand"
@@ -236,6 +238,17 @@ func MarshalBinaryBare(o interface{}) ([]byte,error) {
 }
 func MarshalJSON(o interface{}) ([]byte, error) {
 	return json.Marshal(&o)
+}
+func UnmarshalJSON(bz []byte, ptr interface{}) error {
+	if len(bz) == 0 {
+		return errors.New("UnmarshalJSON cannot decode empty bytes")
+	}
+
+	rv := reflect.ValueOf(ptr)
+	if rv.Kind() != reflect.Ptr {
+		return errors.New("UnmarshalJSON expects a pointer")
+	}
+	return json.Unmarshal(bz,ptr)
 }
 func UnmarshalBinaryBare(bz []byte, ptr interface{}) error {
 	return rlp.DecodeBytes(bz, ptr)
