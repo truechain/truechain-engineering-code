@@ -347,7 +347,10 @@ func (self *worker) update() {
 		case <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  chainHeadCh")
-				self.commitNewWork()
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}
+				
 			}
 
 		// Handle ChainSideEvent
@@ -362,16 +365,16 @@ func (self *worker) update() {
 			if !self.atCommintNewWoker {
 				// after get the fruit event should star mining if have not mining
 				log.Info("star commit new work  fruitCh")
-				self.commitNewWork()	
+				
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}	
 			}
 		case  <-self.fastBlockCh:
 			log.Info("------------start commit new work  fastBlockCh")
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  fastBlockCh")
-				if atomic.LoadInt32(&self.mining) != 1 {
-					//self.start()
-					//self.commitNewWork()
-				}else{
+				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
 					
@@ -420,9 +423,24 @@ func (self *worker) wait() {
 
 				log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
-				var newFruits []*types.SnailBlock
-				newFruits = append(newFruits, block)
-				self.etrue.SnailPool().AddRemoteFruits(newFruits)
+				// add fruit once 
+				if self.FastBlockNumber != nil{
+
+					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
+						//log.Info("not same fruits")
+						var newFruits []*types.SnailBlock
+						newFruits = append(newFruits, block)
+						self.etrue.SnailPool().AddRemoteFruits(newFruits)
+					}else{
+						//log.Info("the same fruits")
+					}
+
+				}else{
+					var newFruits []*types.SnailBlock
+					newFruits = append(newFruits, block)
+					self.etrue.SnailPool().AddRemoteFruits(newFruits)
+				}
+				
 
 				// make sure the fast number has been fruit
 				self.FastBlockNumber.SetUint64(block.FastNumber().Uint64())
@@ -430,14 +448,6 @@ func (self *worker) wait() {
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil{
 					self.atCommintNewWoker = false
-					/*
-					self.mux.Post(chain.NewMinedFruitEvent{Block: block})
-					var (
-						events []interface{}
-					)
-					events = append(events, chain.NewMinedFruitEvent{Block: block})
-					self.chain.PostChainEvents(events)
-					*/
 				}
 			} else {
 				log.Info("+++++ mined block  ---  "," FB NUMBER",block.FastNumber(),"block number",block.Number())
@@ -770,9 +780,11 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
 
+	/*
 	for _, fruit := range fs {
 		log.Info("----parent number","fb number",fruit.FastNumber())
 	}
+	*/
 
 	if len(fs) > 0 {
 		lastFastNumber = fs[len(fs) - 1].FastNumber()
@@ -785,7 +797,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	// find the continue fruits
 	
 	for _, fruit := range fruits {
-		//log.Info("----pending number","fb number",fruit.FastNumber())
+	//	log.Info("----pending number","fb number",fruit.FastNumber())
 		if lastFastNumber.Cmp(common.Big0) == 0{
 			startCoypfruits = true
 		}
@@ -809,7 +821,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		}
 	}
 	//log.Info(" end 11 ----------------- not continue number")
-	//log.Info(" start 22 -----------------continue number")
+		//log.Info(" start 22 -----------------continue number")
 	for _, fruit := range fruitsContine {
 		//log.Info("---continue number","fb number",fruit.FastNumber())
 		err := env.commitFruit(fruit, bc, lastFastNumber)

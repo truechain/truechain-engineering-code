@@ -58,6 +58,8 @@ type CommitteeElection interface {
 	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
 
 	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription 
+
+	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember
 }
 
 // Miner creates blocks and searches for proof-of-work values.
@@ -111,11 +113,31 @@ func (self *Miner) loop() {
 				
 				switch ch.Option {
 				case types.CommitteeStart:
-					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.Mining)
+					// alread to start mining need stop
+					if self.shouldStart == 1 || self.mining == 1 {
+					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
+						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+							 // i am committee
+							 self.Stop()
+						 }
+					}
+					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				
 				case types.CommitteeSwitchover:
-					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.Mining)
+					// alread to start mining need stop
+					if self.shouldStart == 1 || self.mining == 1 {
+						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+							// i am committee
+							self.Stop()
+						}
+				   }
+					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				
 				case types.CommitteeStop:
-					log.Info("==================get  election  msg  3 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.Mining)
+
+					atomic.StoreInt32(&self.canStart, 1)
+					self.Start(self.coinbase)
+					log.Info("==================get  election  msg  3 CommitteeStop","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
 				}
 			case <- self.electionSub.Err():
 				return
@@ -143,7 +165,7 @@ out:
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
-			log.Info("start to miner---------------??????")
+			
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
 
 			atomic.StoreInt32(&self.canStart, 1)
