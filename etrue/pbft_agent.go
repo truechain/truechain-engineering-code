@@ -909,9 +909,9 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	if !self.nodeInfoIsComplete {
 		return false
 	}
-	_,err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
-	if err != nil{
-		log.Error("AcquireCommitteeAuth","err",err)
+	_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
+	if err != nil {
+		log.Error("AcquireCommitteeAuth", "err", err)
 		return false
 	}
 	/*committeeMembers := self.election.GetCommittee(blockHeight)

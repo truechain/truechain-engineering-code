@@ -40,13 +40,13 @@ var (
 	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
 	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 
-	FruitReward *big.Int = big.NewInt(3.333e+16)
-	BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
+	//FruitReward *big.Int = big.NewInt(3.333e+16)
+	//BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
 
 	maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
 
-	FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
+	//FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -440,7 +440,7 @@ func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) 
 	if header.Fruit {
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
-		fruitDiff := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+		fruitDiff := new(big.Int).Div(header.Difficulty, params.FruitBlockRatio)
 
 		return actDiff, fruitDiff
 	} else {
@@ -678,7 +678,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header, poin
 	}
 
 	target := new(big.Int).Div(maxUint128, header.Difficulty)
-	fruitDifficulty := new(big.Int).Div(pointer.Difficulty, FruitBlockRatio)
+	fruitDifficulty := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
 	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
 		fruitDifficulty.Set(params.MinimumFruitDifficulty)
 	}

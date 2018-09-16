@@ -209,7 +209,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, pointerDifficulty *big.Int,
 		target = new(big.Int).Div(maxUint128, header.Difficulty)
 	)
 
-	fruitDifficulty := new(big.Int).Div(pointerDifficulty, FruitBlockRatio)
+	fruitDifficulty := new(big.Int).Div(pointerDifficulty, params.FruitBlockRatio)
 
 	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
 		fruitDifficulty.Set(params.MinimumFruitDifficulty)
