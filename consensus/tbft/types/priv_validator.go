@@ -10,7 +10,6 @@ import (
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/tendermint/tendermint/types"
 )
 
 const (
@@ -230,7 +229,7 @@ func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.T
 		panic(fmt.Sprintf("signBytes cannot be unmarshalled into vote: %v", err))
 	}
 
-	lastTime, err := time.Parse(types.TimeFormat, lastVote.Timestamp)
+	lastTime, err := time.Parse(TimeFormat, lastVote.Timestamp)
 	if err != nil {
 		panic(err)
 	}
@@ -247,7 +246,7 @@ func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.T
 // returns the timestamp from the lastSignBytes.
 // returns true if the only difference in the proposals is their timestamp
 func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.Time, bool) {
-	var lastProposal, newProposal types.CanonicalJSONProposal
+	var lastProposal, newProposal CanonicalJSONProposal
 	if err := help.UnmarshalJSON(lastSignBytes, &lastProposal); err != nil {
 		panic(fmt.Sprintf("LastSignBytes cannot be unmarshalled into proposal: %v", err))
 	}
@@ -255,7 +254,7 @@ func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (ti
 		panic(fmt.Sprintf("signBytes cannot be unmarshalled into proposal: %v", err))
 	}
 
-	lastTime, err := time.Parse(types.TimeFormat, lastProposal.Timestamp)
+	lastTime, err := time.Parse(TimeFormat, lastProposal.Timestamp)
 	if err != nil {
 		panic(err)
 	}
@@ -311,8 +310,9 @@ type StateAgent interface {
 }
 
 type stateAgent struct {
-	Validators         *ValidatorSet
-	PrivValidator      *ecdsa.PrivateKey
+	privValidator
+	Agent 				ctypes.PbftAgentProxy
+	Validators         	*ValidatorSet
 }
 
 func NewStateAgent() *stateAgent {
@@ -320,4 +320,7 @@ func NewStateAgent() *stateAgent {
 }
 func makeValidators() *ValidatorSet{
 	return nil
+}
+func (state *stateAgent) MakeBlock() (*ctypes.Block,*PartSet) {
+
 }
