@@ -119,14 +119,11 @@ type Engine interface {
 	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
 
 	// Seal generates a new block for the given input block with the local miner's
-	// seal place on top.
-	Seal(chain ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error)
-	SealSnail(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
+	Seal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
 
 	// ConSeal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	ConSeal(chain ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block)
-	ConSnailSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
+	ConSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
 
 	CalcSnailDifficulty(chain SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int
 

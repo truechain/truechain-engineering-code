@@ -119,7 +119,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	// the new flow for fruit and block 20180624
 	send := make(chan *types.SnailBlock, 10)
 	abort := make(chan struct{})
-	go self.engine.ConSnailSeal(self.chain, work.Block, abort, send)
+	go self.engine.ConSeal(self.chain, work.Block, abort, send)
 
 	var result *types.SnailBlock
 	mineloop:

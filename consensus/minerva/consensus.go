@@ -453,13 +453,6 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 }
 
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
-	//number := header.Number.Uint64()
-
-	//cache := m.cache(number)
-	//size := datasetSize(number)
-	//if m.config.PowMode == ModeTest {
-	//	size = 32 * 1024
-	//}
 	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
