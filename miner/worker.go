@@ -625,7 +625,7 @@ func (self *worker) commitNewWork() {
 		self.atCommintNewWoker  = false
 		return
 	}
-	self.FruitOnly = true
+	
 	// only miner fruit if not fruit set only miner the fruit
 	if self.FruitOnly {
 		fruits = nil 
