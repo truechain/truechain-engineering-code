@@ -447,6 +447,11 @@ func (f *Fetcher) loop() {
 					signs := []*types.PbftSign{}
 					for _, signHash := range signHashs {
 						if sign, ok := f.queuedSign[signHash]; ok {
+							if f.getBlock(sign.sign.FastHash) != nil {
+								f.forgetBlockHeight(big.NewInt(int64(number)))
+								finished = true
+								break
+							}
 							signs = append(signs, sign.sign)
 						}
 					}
@@ -788,7 +793,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	verifySigns := []*types.PbftSign{}
 	for _, sign := range signs {
 		if _, ok := f.queuedSign[sign.Hash()]; !ok {
-			if ok:= f.agentFetcher.VerifyCommitteeSign(sign); !ok {
+			if ok := f.agentFetcher.VerifyCommitteeSign(sign); !ok {
 				log.Info("Discarded propagated sign failed", "peer", peer, "number", number, "hash", hash)
 				propSignInvaildMeter.Mark(1)
 				break
@@ -881,7 +886,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	// Schedule the block for future importing
 	if _, ok := f.queued[hash]; !ok {
 
-		if ok:= f.agentFetcher.VerifyCommitteeSign(block.GetLeaderSign()); !ok {
+		if ok := f.agentFetcher.VerifyCommitteeSign(block.GetLeaderSign()); !ok {
 			log.Info("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
 			propBroadcastInvaildMeter.Mark(1)
 			return

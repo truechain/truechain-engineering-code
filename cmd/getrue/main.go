@@ -71,8 +71,10 @@ var (
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
+		utils.MineFruitFlag,
 		utils.EnableElectionFlag,
 		utils.BFTPortFlag,
+		utils.BFTStandByPortFlag,
 		utils.BFTIPFlag,
 		utils.BftKeyFileFlag,
 		utils.BftKeyHexFlag,
@@ -310,8 +312,8 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
-		var ethereum *etrue.Truechain
-		if err := stack.Service(&ethereum); err != nil {
+		var truechain *etrue.Truechain
+		if err := stack.Service(&truechain); err != nil {
 			utils.Fatalf("Truechain service not running: %v", err)
 		}
 		// Use a reduced number of threads if requested
@@ -319,13 +321,13 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 			type threaded interface {
 				SetThreads(threads int)
 			}
-			if th, ok := ethereum.Engine().(threaded); ok {
+			if th, ok := truechain.Engine().(threaded); ok {
 				th.SetThreads(threads)
 			}
 		}
 		// Set the gas price to the limits from the CLI and start mining
-		ethereum.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
-		if err := ethereum.StartMining(true); err != nil {
+		truechain.TxPool().SetGasPrice(utils.GlobalBig(ctx, utils.GasPriceFlag.Name))
+		if err := truechain.StartMining(true); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
 		}
 	}

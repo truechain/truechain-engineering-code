@@ -59,6 +59,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
+	"bytes"
 )
 
 var (
@@ -170,6 +171,10 @@ var (
 		Name:  "singlenode",
 		Usage: "sing node model",
 	}
+	MineFruitFlag = cli.BoolFlag{
+		Name:  "minefruit",
+		Usage: "only mine fruit",
+	}
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
 		Usage: "enable election",
@@ -177,7 +182,12 @@ var (
 	BFTPortFlag = cli.IntFlag{
 		Name:  "bftport",
 		Usage: "committee node port ",
-		Value: 10080,
+		//Value: 10080,
+	}
+	BFTStandByPortFlag = cli.IntFlag{
+		Name:  "bftport2",
+		Usage: "committee node standBy port ",
+		//Value: 10090,
 	}
 	BFTIPFlag = cli.StringFlag{
 		Name:  "bftip",
@@ -347,7 +357,7 @@ var (
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
 		Usage: "Number of CPU threads to use for mining",
-		Value: runtime.NumCPU(),
+		Value: runtime.NumCPU() - 1,
 	}
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
@@ -1101,6 +1111,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
+
+	if ctx.GlobalBool(MineFruitFlag.Name) {
+		cfg.MineFruit = true
+	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
@@ -1109,9 +1123,11 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
 		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
-	}else{
-		cfg.Port = BFTPortFlag.Value
 	}
+	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
+		cfg.StandByPort = ctx.GlobalInt(BFTStandByPortFlag.Name)
+	}
+
 	//set PrivateKey by config,file or hex
 	setBftCommitteeKey(ctx, cfg)
 	if cfg.PrivateKey == nil {
@@ -1119,6 +1135,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
+	if bytes.Equal(cfg.CommitteeKey,[]byte{}){
+		Fatalf("init load CommitteeKey  nil.")
+	}
 	if ctx.GlobalBool(EnableElectionFlag.Name){
 		cfg.EnableElection = true
 	}
@@ -1128,6 +1147,12 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		}
 		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
+		}
+		if cfg.StandByPort == 0 {
+			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
+		}
+		if cfg.Port == cfg.StandByPort{
+			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name,BFTStandByPortFlag.Name)
 		}
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),

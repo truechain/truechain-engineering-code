@@ -59,7 +59,7 @@ type CommitteeElection interface {
 
 	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription 
 
-	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember
+	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool
 }
 
 // Miner creates blocks and searches for proof-of-work values.
@@ -86,21 +86,26 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine, election CommitteeElection) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
+	election CommitteeElection,mineFruit bool) *Miner {
 	miner := &Miner{
 		truechain: truechain,
 		mux:       mux,
 		engine:    engine,
 		election : election,
+		FruitOnly: mineFruit,// set fruit only 
 		electionCh:    make(chan core.ElectionEvent, txChanSize),
 		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:  1,
 	}
+
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
- 
+ 	log.Info("init mineFruit","mineFruit",mineFruit)
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 	
-	go miner.loop()
+	
+	go miner.SetFruitOnly(mineFruit)
+	//go miner.loop()
 	go miner.update()
 	return miner
 } 
@@ -110,15 +115,24 @@ func (self *Miner) loop() {
 	for{
 		select {
 			case ch := <-self.electionCh:
-				
+				/*
+				log.Info("-------------------------miner committerMenn","publickey",self.publickey)
+
+				for _, m:=range ch.CommitteeMembers{
+					log.Info("******   miner committerMenn","publickey",m.Publickey)
+				}
+				*/
+
 				switch ch.Option {
 				case types.CommitteeStart:
 					// alread to start mining need stop
 					if self.shouldStart == 1 || self.mining == 1 {
 					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
-						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey){
 							 // i am committee
 							 self.Stop()
+						 }else{
+							 log.Info("not in commiteer munber start")
 						 }
 					}
 					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
@@ -126,9 +140,11 @@ func (self *Miner) loop() {
 				case types.CommitteeSwitchover:
 					// alread to start mining need stop
 					if self.shouldStart == 1 || self.mining == 1 {
-						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey){
 							// i am committee
 							self.Stop()
+						}else{
+							log.Info("not in commiteer munber staCommitteeSwitchoverrt")
 						}
 				   }
 					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
@@ -157,7 +173,7 @@ out:
 	for ev := range events.Chan() {		
 		switch ev.Data.(type) {
 		case downloader.StartEvent:
-
+			log.Info("-----------------get download info startEvent")
 			atomic.StoreInt32(&self.canStart, 0)
 			if self.Mining() {
 				self.Stop()
@@ -165,7 +181,7 @@ out:
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
-			
+			log.Info("-----------------get download info DoneEvent,FailedEvent")
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
 
 			atomic.StoreInt32(&self.canStart, 1)
@@ -182,10 +198,9 @@ out:
 }
 
 func (self *Miner) Start(coinbase common.Address) {
+	log.Info("start miner --miner start function")
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
-	log.Info("Start method coinbase:","coinbase",coinbase,
-	"self.coinbase",self.coinbase,"self.coinbase",self.worker.coinbase)//SHUXUN
 
 	if atomic.LoadInt32(&self.canStart) == 0 {
 		log.Info("Network syncing, will start miner afterwards")
@@ -199,6 +214,7 @@ func (self *Miner) Start(coinbase common.Address) {
 }
 
 func (self *Miner) Stop() {
+	log.Info(" miner   ---stop miner funtion")
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)

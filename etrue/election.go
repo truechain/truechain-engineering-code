@@ -108,8 +108,7 @@ type committee struct {
 	members             types.CommitteeMembers
 }
 
-
-func (c *committee)Members() []*types.CommitteeMember {
+func (c *committee) Members() []*types.CommitteeMember {
 	members := make([]*types.CommitteeMember, len(c.members))
 	copy(members, c.members)
 
@@ -119,7 +118,7 @@ func (c *committee)Members() []*types.CommitteeMember {
 type Election struct {
 	genesisCommittee []*types.CommitteeMember
 	committeeList    map[uint64]*committee
-	muList			sync.RWMutex
+	muList           sync.RWMutex
 
 	committee     *committee
 	nextCommittee *committee
@@ -127,7 +126,7 @@ type Election struct {
 	startSwitchover bool //Flag bit for handling event switching
 
 	electionFeed event.Feed
-	scope event.SubscriptionScope
+	scope        event.SubscriptionScope
 
 	fastChainHeadCh  chan core.ChainHeadEvent
 	fastChainHeadSub event.Subscription
@@ -170,33 +169,32 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	return election
 }
 
-
 //whether assigned publickey  in  committeeMember pubKey
-func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
 	for _, member := range members {
 		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return member
 		}
 	}
-
 	return nil
 }
 
+func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+	return e.GetMemberByPubkey(members, publickey) != nil
+}
 
-func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember,error) {
+func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
 		log.Error("GetCommittee members is nil", "err", ErrCommittee)
 		return nil, ErrCommittee
 	}
-	member := e.IsCommitteeMember(members, pubKeyByte)
+	member := e.GetMemberByPubkey(members, pubKeyByte)
 	if member == nil {
 		return nil, ErrInvalidMember
 	}
 	return member, nil
 }
-
-
 
 func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, error) {
 	pubkey, err := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
@@ -208,10 +206,8 @@ func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, err
 	if err != nil {
 		return member, err
 	}
-
 	return member, nil
 }
-
 
 //VerifySigns verify signatures of bft committee in batches
 func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
@@ -396,7 +392,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	}
 }
 
-
 // GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	log.Debug("get committee ..", "fastNumber", fastNumber)
@@ -460,7 +455,6 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	return committee.Members()
 }
 
-
 func (e *Election) appendCommittee(c *committee) {
 	e.muList.Lock()
 	defer e.muList.Unlock()
@@ -469,7 +463,6 @@ func (e *Election) appendCommittee(c *committee) {
 		e.committeeList[c.id.Uint64()] = c
 	}
 }
-
 
 func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	currentCommittee := e.committee

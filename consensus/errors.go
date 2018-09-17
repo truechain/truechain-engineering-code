@@ -39,4 +39,6 @@ var (
 	ErrInvalidSignsLength = errors.New("invalid signs length")
 
 	ErrInvalidBlock = errors.New("invalid snail block")
+
+	ErrUnknownPointer = errors.New("unknown pointer hash")
 )
