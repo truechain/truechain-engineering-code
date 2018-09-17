@@ -59,6 +59,9 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	MinerThreads: 2,
+	Port:10080,
+	StandByPort:10090,
+
 }
 
 func init() {
@@ -108,6 +111,9 @@ type Config struct {
 
 	// Port is the TCP port number on which to start the pbft server.
 	Port int `toml:",omitempty"`
+
+	// StandByPort is the TCP port number on which to start the pbft server.
+	StandByPort int `toml:",omitempty"`
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`
