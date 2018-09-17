@@ -12,11 +12,11 @@ import (
 // representation to be in its canonical form.
 type Heartbeat struct {
 	ValidatorAddress help.Address `json:"validator_address"`
-	ValidatorIndex   int     `json:"validator_index"`
-	Height           int64   `json:"height"`
-	Round            int     `json:"round"`
-	Sequence         int     `json:"sequence"`
-	Signature        []byte  `json:"signature"`
+	ValidatorIndex   uint         `json:"validator_index"`
+	Height           uint64       `json:"height"`
+	Round            uint         `json:"round"`
+	Sequence         uint         `json:"sequence"`
+	Signature        []byte       `json:"signature"`
 }
 
 // SignBytes returns the Heartbeat bytes for signing.

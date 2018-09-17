@@ -1,8 +1,8 @@
 package types
 
 import (
-	"time"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"time"
 )
 
 // Canonical json is amino's json for structs with fields in alphabetical order
@@ -11,13 +11,13 @@ import (
 const TimeFormat = time.RFC3339Nano
 
 type CanonicalJSONBlockID struct {
-	Hash        help.HexBytes               	`json:"hash,omitempty"`
-	PartsHeader CanonicalJSONPartSetHeader 		`json:"parts,omitempty"`
+	Hash        help.HexBytes              `json:"hash,omitempty"`
+	PartsHeader CanonicalJSONPartSetHeader `json:"parts,omitempty"`
 }
 
 type CanonicalJSONPartSetHeader struct {
-	Hash  help.HexBytes 	`json:"hash,omitempty"`
-	Total int          		`json:"total,omitempty"`
+	Hash  help.HexBytes `json:"hash,omitempty"`
+	Total int           `json:"total,omitempty"`
 }
 
 type CanonicalJSONProposal struct {
@@ -42,13 +42,13 @@ type CanonicalJSONVote struct {
 }
 
 type CanonicalJSONHeartbeat struct {
-	ChainID          string  `json:"@chain_id"`
-	Type             string  `json:"@type"`
-	Height           int64   `json:"height"`
-	Round            int     `json:"round"`
-	Sequence         int     `json:"sequence"`
+	ChainID          string       `json:"@chain_id"`
+	Type             string       `json:"@type"`
+	Height           uint64       `json:"height"`
+	Round            uint         `json:"round"`
+	Sequence         uint         `json:"sequence"`
 	ValidatorAddress help.Address `json:"validator_address"`
-	ValidatorIndex   int     `json:"validator_index"`
+	ValidatorIndex   uint         `json:"validator_index"`
 }
 
 //-----------------------------------
