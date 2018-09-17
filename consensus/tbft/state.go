@@ -109,10 +109,6 @@ type ConsensusState struct {
 	// synchronous pubsub between consensus state and reactor.
 	// state only emits EventNewRoundStep, EventVote and EventProposalHeartbeat
 	evsw ttypes.EventSwitch
-
-	// for reporting metrics
-	// removed,tmp by iceming
-	// metrics *Metrics
 }
 
 // CSOption sets an optional parameter on the ConsensusState.
@@ -134,7 +130,6 @@ func NewConsensusState(
 		wal:              nilWAL{},
 		state:			  state,
 		evsw:             ttypes.NewEventSwitch(),
-		// metrics:          NopMetrics(),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -165,11 +160,6 @@ func (cs *ConsensusState) SetLogger(l log.Logger) {
 func (cs *ConsensusState) SetEventBus(b *ttypes.EventBus) {
 	cs.eventBus = b
 }
-
-// WithMetrics sets the metrics.
-// func WithMetrics(metrics *Metrics) CSOption {
-// 	return func(cs *ConsensusState) { cs.metrics = metrics }
-// }
 
 // String returns a string.
 func (cs *ConsensusState) String() string {
@@ -1206,7 +1196,7 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 	// fail.Fail() // XXX
 
 	// Save to blockStore.
-	if cs.blockStore.MaxBlockHeight() < int64(block.NumberU64()) {
+	if cs.blockStore.MaxBlockHeight() < block.NumberU64() {
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(cs.CommitRound)

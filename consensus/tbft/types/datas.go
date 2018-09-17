@@ -247,30 +247,30 @@ type BlockMeta struct {
 	SeenCommit *Commit
 }
 type BlockStore struct {
-	blocks map[int64]*BlockMeta
+	blocks map[uint64]*BlockMeta
 }
-
+// warning all function not thread_safe
 func NewBlockStore() *BlockStore {
 	return &BlockStore{
-		blocks: make(map[int64]*BlockMeta),
+		blocks: make(map[uint64]*BlockMeta),
 	}
 }
-func (b *BlockStore) LoadBlockMeta(height int64) *BlockMeta {
+func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
 	if v, ok := b.blocks[height]; ok {
 		return v
 	}
 	return nil
 }
-func (b *BlockStore) LoadBlockPart(height int64, index int) *Part {
+func (b *BlockStore) LoadBlockPart(height uint64, index int) *Part {
 	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
 	return nil
 }
-func (b *BlockStore) MaxBlockHeight() int64 {
+func (b *BlockStore) MaxBlockHeight() uint64 {
 	// ss.blockLock.Lock()
 	// defer ss.blockLock.Unlock()
-	var cur int64 = 0
+	var cur uint64 = 0
 	//var fb *ctypes.Block = nil
 	for k, _ := range b.blocks {
 		if cur == 0 {
@@ -282,12 +282,38 @@ func (b *BlockStore) MaxBlockHeight() int64 {
 	}
 	return cur
 }
-func (b *BlockStore) LoadBlockCommit(height int64) *Commit {
+func (b *BlockStore) MinBlockHeight() uint64 {
+	var cur uint64 = 0
+	for k,_ := range b.blocks {
+		if cur == 0 {
+			cur = k
+		}
+		if cur > k {
+			cur = k
+		}
+	}
+	return cur
+}
+func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
 	if v, ok := b.blocks[height]; ok {
 		return v.SeenCommit
 	}
 	return nil
 }
 func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit) {
-
+	if len(b.blocks) >= MaxLimitBlockStore {
+		k := b.MinBlockHeight()
+		if k <= 0 {
+			panic(errors.New("block height is 0"))
+		}
+		delete(b.blocks,k)
+	}
+	if v,ok := b.blocks[block.NumberU64()]; !ok {
+		b.blocks[block.NumberU64()] = &BlockMeta{
+			Block:			block,
+			BlockPacks：	blockParts,
+			SeenCommit:		seenCommit,
+			BlockID:		seenCommit.BlockID,
+		}
+	}
 }
