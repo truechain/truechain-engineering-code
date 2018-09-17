@@ -530,7 +530,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain,feeAmount)
-
+	log.Info("agent:","feeAmount",feeAmount)
 	self.rewardSnailBlock(header)
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine

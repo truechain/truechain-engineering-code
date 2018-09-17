@@ -23,7 +23,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
-
+	elog "github.com/truechain/truechain-engineering-code/log"
 	"log"
 	"math/big"
 )
@@ -77,6 +77,7 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
+	elog.Info("state_processor:","feeAmount",feeAmount)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts)
 	if err != nil {
