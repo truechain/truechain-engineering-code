@@ -17,6 +17,7 @@
 package etrue
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -28,21 +29,22 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/event"
 	"math/big"
+	"sync"
 )
 
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 44		// snail block period number
+	z                  = 44 // snail block period number
 	k                  = 100
 	lamada             = 12
 
-	fruitThreshold		= 1		// fruit size threshold for committee election
+	fruitThreshold = 1 // fruit size threshold for committee election
 
-	maxCommitteeNumber  = 40
-	minCommitteeNumber  = 1
+	maxCommitteeNumber = 40
+	minCommitteeNumber = 1
 
-	powUnit				= 1
+	powUnit = 1
 )
 
 var (
@@ -56,7 +58,6 @@ var (
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
 )
-
 
 var testCommitteeNodes = []*types.CommitteeNode{
 	{
@@ -88,7 +89,6 @@ var testCommitteeNodes = []*types.CommitteeNode{
 
 var testCommttee []*types.CommitteeMember
 
-
 type candidateMember struct {
 	coinbase   common.Address
 	address    common.Address
@@ -105,23 +105,29 @@ type committee struct {
 	firstElectionNumber *big.Int // the begin snailblock to elect members
 	lastElectionNumber  *big.Int // the end snailblock to elect members
 	switchCheckNumber   *big.Int // the snailblock that start switch next committee
-	members             []*types.CommitteeMember
+	members             types.CommitteeMembers
+}
+
+
+func (c *committee)Members() []*types.CommitteeMember {
+	members := make([]*types.CommitteeMember, len(c.members))
+	copy(members, c.members)
+
+	return members
 }
 
 type Election struct {
 	genesisCommittee []*types.CommitteeMember
-	committeeList    map[*big.Int]*committee
+	committeeList    map[uint64]*committee
+	muList			sync.RWMutex
 
 	committee     *committee
 	nextCommittee *committee
 
-	//fastHeadNumber  *big.Int
-	//snailHeadNumber *big.Int
 	startSwitchover bool //Flag bit for handling event switching
 
-	electionFeed  event.Feed
-	//committeeFeed event.Feed
-	scope         event.SubscriptionScope
+	electionFeed event.Feed
+	scope event.SubscriptionScope
 
 	fastChainHeadCh  chan core.ChainHeadEvent
 	fastChainHeadSub event.Subscription
@@ -132,18 +138,15 @@ type Election struct {
 	fastchain  *core.BlockChain
 	snailchain *snailchain.SnailBlockChain
 
-	engine   consensus.Engine
-
-	mux *event.TypeMux
+	engine consensus.Engine
 }
 
-func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain,mux *event.TypeMux) *Election {
+func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain, mux *event.TypeMux) *Election {
 	// init
 	election := &Election{
 		fastchain:        fastBlockChain,
 		snailchain:       snailBlockChain,
-		mux : mux,
-		committeeList:    make(map[*big.Int]*committee),
+		committeeList:    make(map[uint64]*committee),
 		fastChainHeadCh:  make(chan core.ChainHeadEvent, fastChainHeadSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailchainHeadSize),
 	}
@@ -158,7 +161,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	for _, node := range testCommitteeNodes {
 		pubkey, _ := crypto.UnmarshalPubkey(node.Publickey)
 		member := &types.CommitteeMember{
-			Coinbase:node.Coinbase,
+			Coinbase:  node.Coinbase,
 			Publickey: pubkey,
 		}
 		testCommttee = append(testCommttee, member)
@@ -168,14 +171,69 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 }
 
 
+//whether assigned publickey  in  committeeMember pubKey
+func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+	for _, member := range members {
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return member
+		}
+	}
+
+	return nil
+}
+
+
+func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember,error) {
+	members := e.GetCommittee(fastHeight)
+	if members == nil {
+		log.Error("GetCommittee members is nil", "err", ErrCommittee)
+		return nil, ErrCommittee
+	}
+	member := e.IsCommitteeMember(members, pubKeyByte)
+	if member == nil {
+		return nil, ErrInvalidMember
+	}
+	return member, nil
+}
+
+
+
+func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, error) {
+	pubkey, err := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
+	if err != nil {
+		return nil, err
+	}
+	pubkeyByte := crypto.FromECDSAPub(pubkey)
+	member, err := e.VerifyPublicKey(sign.FastHeight, pubkeyByte)
+	if err != nil {
+		return member, err
+	}
+
+	return member, nil
+}
+
+
 //VerifySigns verify signatures of bft committee in batches
 func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
 	members := make([]*types.CommitteeMember, len(signs))
 	errs := make([]error, len(signs))
 
 	for i, sign := range signs {
+		member, err := e.VerifySign(sign)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+		if member == nil {
+			errs[i] = ErrInvalidMember
+		} else {
+			members[i] = member
+		}
+	}
+	/*for i, sign := range signs {
 		hash := sign.HashWithNoSign()
 		pubkey, err := crypto.SigToPub(hash.Bytes(), sign.Sign)
+
 		if err != nil {
 			errs[i] = err
 			continue
@@ -198,19 +256,27 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 		if members[i] == nil {
 			errs[i] = ErrInvalidMember
 		}
-	}
+	}*/
 
 	return members, errs
 }
-
 
 func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.Int) *committee {
 	var ids []*big.Int
 
 	committeeNumber := new(big.Int).Div(snailNumber, big.NewInt(z))
-	lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
-	lastSwitchoverNumber := new(big.Int).Sub(lastSnailNumber, big.NewInt(lamada))
+	//lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
+	//lastSwitchoverNumber := new(big.Int).Sub(lastSnailNumber, big.NewInt(lamada))
+	preCommitteeNumber := new(big.Int).Sub(committeeNumber, common.Big1)
+	//nextCommitteeNumber := new(big.Int).Add(committeeNumber, common.Big1)
 
+	if preCommitteeNumber.Cmp(common.Big0) >= 0 {
+		ids = append(ids, preCommitteeNumber)
+	}
+	ids = append(ids, committeeNumber)
+	//ids = append(ids, nextCommitteeNumber)
+
+	/*
 	if lastSwitchoverNumber.Cmp(common.Big0) <= 0 {
 		ids = append(ids, common.Big0)
 		ids = append(ids, common.Big1)
@@ -219,15 +285,18 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 		committeeId := new(big.Int).Add(lastSwitchoverNumber, common.Big1)
 		ids = append(ids, committeeId)
 		ids = append(ids, new(big.Int).Add(committeeId, big.NewInt(z)))
-	}
+	}*/
+
+	e.muList.RLock()
+	defer e.muList.RUnlock()
 
 	for _, id := range ids {
-		if committee, ok := e.committeeList[id]; ok {
+		if committee, ok := e.committeeList[id.Uint64()]; ok {
 			if committee.beginFastNumber.Cmp(fastNumber) > 0 {
-				return nil
+				continue
 			}
 			if committee.endFastNumber.Cmp(common.Big0) > 0 && committee.endFastNumber.Cmp(fastNumber) < 0 {
-				return nil
+				continue
 			}
 			return committee
 		}
@@ -236,7 +305,7 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	return nil
 }
 
-// GetCommittee returns the committee members who propose this fast block
+// getCommittee returns the committee members who propose this fast block
 func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *committee {
 
 	log.Info("get committee ..", "fastnumber", fastNumber, "snailnumber", snailNumber)
@@ -279,7 +348,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 				endFastNumber:       lastFastNumber,
 				firstElectionNumber: new(big.Int).Set(common.Big0),
 				lastElectionNumber:  new(big.Int).Set(common.Big0),
-				switchCheckNumber:    big.NewInt(z),
+				switchCheckNumber:   big.NewInt(z),
 				members:             e.genesisCommittee,
 			}
 		}
@@ -339,20 +408,23 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		return nil
 	}
 
-	if e.nextCommittee != nil {
-		log.Debug("next committee info..", "id", e.nextCommittee.id, "firstNumber", e.nextCommittee.beginFastNumber)
-		if new(big.Int).Add(e.nextCommittee.beginFastNumber, big.NewInt(k)).Cmp(fastNumber) < 0 {
-			log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", e.nextCommittee.beginFastNumber)
+	currentCommittee := e.committee
+	nextCommittee := e.nextCommittee
+
+	if nextCommittee != nil {
+		log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
+		if new(big.Int).Add(nextCommittee.beginFastNumber, big.NewInt(k)).Cmp(fastNumber) < 0 {
+			log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", nextCommittee.beginFastNumber)
 			return nil
 		}
-		if fastNumber.Cmp(e.nextCommittee.beginFastNumber) >= 0 {
-			return e.nextCommittee.members
+		if fastNumber.Cmp(nextCommittee.beginFastNumber) >= 0 {
+			return nextCommittee.Members()
 		}
 	}
-	if e.committee != nil {
-		log.Debug("current committee info..", "id", e.committee.id, "firstNumber", e.committee.beginFastNumber)
-		if fastNumber.Cmp(e.committee.beginFastNumber) >= 0 {
-			return e.committee.members
+	if currentCommittee != nil {
+		log.Debug("current committee info..", "id", currentCommittee.id, "firstNumber", currentCommittee.beginFastNumber)
+		if fastNumber.Cmp(currentCommittee.beginFastNumber) >= 0 {
+			return currentCommittee.Members()
 		}
 	}
 
@@ -375,35 +447,52 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	// find committee from map
 	committee := e.getCommitteeFromCache(fastNumber, snailNumber)
 	if committee != nil {
-		return committee.members
+		return committee.Members()
 	}
 
-	return e.getCommittee(fastNumber, snailNumber).members
+	committee = e.getCommittee(fastNumber, snailNumber)
+	if committee == nil {
+		return nil
+	}
+
+	e.appendCommittee(committee)
+
+	return committee.Members()
 }
 
-func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 
-	if e.committee.id.Cmp(id) == 0 {
-		return e.committee.members
+func (e *Election) appendCommittee(c *committee) {
+	e.muList.Lock()
+	defer e.muList.Unlock()
+
+	if _, ok := e.committeeList[c.id.Uint64()]; !ok {
+		e.committeeList[c.id.Uint64()] = c
 	}
-	if e.nextCommittee != nil {
-		if e.nextCommittee.id.Cmp(id) == 0 {
-			return e.nextCommittee.members
+}
+
+
+func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
+	currentCommittee := e.committee
+	nextCommittee := e.nextCommittee
+
+	if currentCommittee.id.Cmp(id) == 0 {
+		return currentCommittee.Members()
+	}
+	if nextCommittee != nil {
+		if nextCommittee.id.Cmp(id) == 0 {
+			return nextCommittee.Members()
 		}
 	}
 
-	if committee, ok := e.committeeList[id]; ok {
-		return committee.members
+	e.muList.RLock()
+	e.muList.RUnlock()
+
+	if committee, ok := e.committeeList[id.Uint64()]; ok {
+		return committee.Members()
 	}
 
 	return nil
 }
-
-func (e *Election) GetByCommitteeId(id *big.Int) []*ecdsa.PublicKey {
-
-	return nil
-}
-
 
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
@@ -433,14 +522,14 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 				act, diff := e.engine.GetDifficulty(f.Header())
 
 				member := &candidateMember{
-					coinbase: f.Coinbase(),
-					publickey: pubkey,
-					address: addr,
+					coinbase:   f.Coinbase(),
+					publickey:  pubkey,
+					address:    addr,
 					difficulty: new(big.Int).Sub(act, diff),
 				}
 
 				members = append(members, member)
-				if _, ok :=fruitsCount[addr]; ok {
+				if _, ok := fruitsCount[addr]; ok {
 					fruitsCount[addr] += 1
 				} else {
 					fruitsCount[addr] = 1
@@ -452,14 +541,6 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 	log.Debug("get committee candidate", "fruit", len(members), "members", len(fruitsCount))
 
-	// remove miner whose fruits count below threshold
-	/*
-	for addr, cnt := range fruitsCount {
-		log.Trace("get committee candidate", "keyAddr", addr, "count", cnt)
-		if cnt < fruitThreshold {
-			delete(fruitsCount, addr)
-		}
-	}*/
 	var candidates []*candidateMember
 	td := big.NewInt(0)
 	for _, member := range members {
@@ -481,7 +562,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 		dd = new(big.Int).Add(dd, member.difficulty)
 
-		if i == len(candidates) - 1 {
+		if i == len(candidates)-1 {
 			member.upper = new(big.Int).Set(maxUint256)
 		} else {
 			member.upper = new(big.Int).Mul(rate, dd)
@@ -490,7 +571,6 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 	return crypto.Keccak256Hash(seed), candidates
 }
-
 
 // elect is a lottery function that select committee members from candidates miners
 func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
@@ -516,7 +596,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 			}
 			addrs[cm.address] = 1
 			member := &types.CommitteeMember{
-				Coinbase: cm.coinbase,
+				Coinbase:  cm.coinbase,
 				Publickey: cm.publickey,
 			}
 			members = append(members, member)
@@ -534,20 +614,18 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 
 	log.Debug("get new committee members", "count", len(members))
 
-
 	return members
 }
 
-
 // electCommittee elect committee members from snail block.
 func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.CommitteeMember {
-	log.Info("Election new BFT committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", fruitThreshold, "min", minCommitteeNumber, "max", maxCommitteeNumber )
+	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", fruitThreshold, "min", minCommitteeNumber, "max", maxCommitteeNumber)
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
 		return nil
 	}
 
-	members:= e.elect(candidates, seed)
+	members := e.elect(candidates, seed)
 
 	// for test
 	//members = testCommttee
@@ -559,38 +637,38 @@ func (e *Election) Start() error {
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
 
-	comm := e.getCommittee(fastHeadNumber, snailHeadNumber)
-	if comm == nil {
+	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
+	if currentCommittee == nil {
 		return nil
 	}
 
-	e.committee = comm
-	if comm.endFastNumber.Cmp(common.Big0) > 0 {
+	e.appendCommittee(currentCommittee)
+	e.committee = currentCommittee
+
+	if currentCommittee.endFastNumber.Cmp(common.Big0) > 0 {
 		// over the switch block, to elect next committee
-		electEndSnailNumber := new(big.Int).Add(comm.lastElectionNumber, big.NewInt(z))
+		electEndSnailNumber := new(big.Int).Add(currentCommittee.lastElectionNumber, big.NewInt(z))
 		electBeginSnailNumber := new(big.Int).Add(new(big.Int).Sub(electEndSnailNumber, big.NewInt(z)), common.Big1)
 
 		members := e.electCommittee(electBeginSnailNumber, electEndSnailNumber)
 
 		// get next committee
-		e.nextCommittee = &committee{
+		nextCommittee := &committee{
 			id:                  electBeginSnailNumber,
-			beginFastNumber:     new(big.Int).Add(comm.endFastNumber, common.Big1),
+			beginFastNumber:     new(big.Int).Add(currentCommittee.endFastNumber, common.Big1),
 			endFastNumber:       new(big.Int).Set(common.Big0),
 			firstElectionNumber: electBeginSnailNumber,
 			lastElectionNumber:  electEndSnailNumber,
 			switchCheckNumber:   new(big.Int).Add(e.committee.switchCheckNumber, big.NewInt(z)),
 			members:             members,
 		}
+		e.appendCommittee(nextCommittee)
+		e.nextCommittee = nextCommittee
 		// start switchover
 		e.startSwitchover = true
 
 		if e.committee.endFastNumber.Cmp(fastHeadNumber) == 0 {
 			// committee has finish their work, start the new committee
-
-			if _, ok := e.committeeList[e.committee.id]; !ok {
-				e.committeeList[e.committee.id] = e.committee
-			}
 
 			e.committee = e.nextCommittee
 			e.nextCommittee = nil
@@ -601,22 +679,14 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
-		//self.mux.Post(chain.NewMinedFruitEvent{Block: block})
-		//type NewMinedFruitEvent struct{ Block *types.SnailBlock }
-		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.members})
-		e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
-	
-		//time.Sleep(time.Millisecond*500)
-		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-		e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
-	
+		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.Members()})
+		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.Members()})
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
-			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
-			e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
+			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.Members()})
 		}
-	} (e)
+	}(e)
 
 	// Start the event loop and return
 	go e.loop()
@@ -649,9 +719,9 @@ func (e *Election) loop() {
 					fruits := sb.Fruits()
 					e.committee.endFastNumber = new(big.Int).Add(fruits[len(fruits)-1].Number(), big.NewInt(k))
 
-					log.Info("BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
+					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
 
-					e.nextCommittee = &committee{
+					nextCommittee := &committee{
 						id:                  snailStartNumber,
 						firstElectionNumber: snailStartNumber,
 						lastElectionNumber:  snailEndNumber,
@@ -659,12 +729,14 @@ func (e *Election) loop() {
 						switchCheckNumber:   new(big.Int).Add(e.committee.switchCheckNumber, big.NewInt(z)),
 						members:             members,
 					}
+					e.appendCommittee(nextCommittee)
 
+					e.nextCommittee = nextCommittee
 					e.startSwitchover = true
 
-					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.members})
-					e.mux.Post(core.ElectionEvent{types.CommitteeSwitchover,e.committee.id,e.committee.members})
-					
+					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
+					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.Members()})
+
 				}
 
 			}
@@ -673,21 +745,19 @@ func (e *Election) loop() {
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
-						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, nil})
-						e.mux.Post(core.ElectionEvent{types.CommitteeStop,e.committee.id,nil})
+						go func(e *Election) {
+							log.Info("Election stop committee..", "id", e.committee.id)
+							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.Members()})
 
-						// find committee already exist in committee list
-						e.committeeList[e.committee.id] = e.committee
+							e.committee = e.nextCommittee
+							e.nextCommittee = nil
 
-						e.committee = e.nextCommittee
-						e.nextCommittee = nil
+							e.startSwitchover = false
 
-						e.startSwitchover = false
+							log.Info("Election start new BFT committee", "id", e.committee.id)
 
-						log.Info("Election start new BFT committee..")
-
-						go e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.members})
-						e.mux.Post(core.ElectionEvent{types.CommitteeStart,e.committee.id,e.committee.members})
+							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.Members()})
+						}(e)
 					}
 				}
 			}
@@ -699,7 +769,6 @@ func (e *Election) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Su
 	return e.scope.Track(e.electionFeed.Subscribe(ch))
 }
 
-
-func (e *Election)SetEngine(engine consensus.Engine) {
+func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }

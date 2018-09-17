@@ -1,18 +1,15 @@
 package types
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"encoding/binary"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"log"
-	"math/big"
-	"time"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"math/big"
+	"time"
 )
 
 const (
@@ -84,29 +81,6 @@ type PbftServerProxy interface {
 	Notify(id *big.Int, action int) error
 }
 
-/*func (voteSign *PbftSign) PrepareData() []byte {
-	result,_ :=rlp.EncodeToBytes(voteSign.Result)
-	height,_ :=rlp.EncodeToBytes(voteSign.FastHeight)
-	data := bytes.Join(
-		[][]byte{
-			voteSign.FastHash[:],
-			result,
-			height,
-		},
-		[]byte{},
-	)
-	return data
-}*/
-
-// IntToHex converts an int64 to a byte array
-func IntToHex(num interface{}) []byte {
-	buff := new(bytes.Buffer)
-	err := binary.Write(buff, binary.BigEndian, num)
-	if err != nil {
-		log.Panic(err)
-	}
-	return buff.Bytes()
-}
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
 // RLP encoding.

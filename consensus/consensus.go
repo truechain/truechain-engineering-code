@@ -48,7 +48,7 @@ type ChainReader interface {
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
 }
-
+ 
 // ChainSnailReader defines a small collection of methods needed to access the local
 // block chain during header and/or uncle verification.
 // Temporary interface for snail
@@ -91,6 +91,12 @@ type Engine interface {
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
 	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+
+	// VerifySnailHeaders is similar to VerifySnailHeader, but verifies a batch of headers concurrently.
+	// VerifySnailHeaders only verifies snail header rather than fruit header.
+	// The method returns a quit channel to abort the operations and
+	// a results channel to retrieve the async verifications (the order is that of
+	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
@@ -99,7 +105,7 @@ type Engine interface {
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
+	VerifySnailSeal(chain SnailChainReader, header, pointer *types.SnailHeader) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -119,14 +125,11 @@ type Engine interface {
 	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
 
 	// Seal generates a new block for the given input block with the local miner's
-	// seal place on top.
-	Seal(chain ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error)
-	SealSnail(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
+	Seal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
 
 	// ConSeal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	ConSeal(chain ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block)
-	ConSnailSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
+	ConSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
 
 	CalcSnailDifficulty(chain SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int
 

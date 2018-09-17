@@ -41,6 +41,7 @@ var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 type Genesis struct {
 	Snail *snailchain.Genesis
 	Fast  *fastchain.Genesis
+	Config     *params.ChainConfig
 }
 
 type GenesisAlloc map[common.Address]types.GenesisAccount

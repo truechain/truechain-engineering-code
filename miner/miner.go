@@ -20,6 +20,7 @@ package miner
 import (
 	"fmt"
 	"sync/atomic"
+	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -47,6 +48,19 @@ type Backend interface {
 	//Election() *etrue.Election
 }
 
+//Election module implementation committee interface
+type CommitteeElection interface {
+	//VerifySigns verify the fast chain committee signatures in batches
+	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
+
+	//Get a list of committee members
+	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
+	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
+
+	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription 
+
+	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember
+}
 
 // Miner creates blocks and searches for proof-of-work values.
 type Miner struct {
@@ -62,6 +76,7 @@ type Miner struct {
 	mining    int32
 	truechain Backend
 	engine    consensus.Engine
+	election  CommitteeElection
 
 	//election
 	electionCh  chan core.ElectionEvent
@@ -71,22 +86,67 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
+	election CommitteeElection,mineFruit bool) *Miner {
 	miner := &Miner{
 		truechain: truechain,
 		mux:       mux,
 		engine:    engine,
+		election : election,
+		electionCh:    make(chan core.ElectionEvent, txChanSize),
 		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:  1,
 	}
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
- 
-	//miner.electionSub = truechain.Election().SubscribeElectionEvent(miner.electionCh)
+ 	log.Info("init mineFruit","mineFruit",mineFruit)
+	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 	
+	go miner.loop()
 	go miner.update()
 	return miner
-}
+} 
+func (self *Miner) loop() {
+	
+	defer self.electionSub.Unsubscribe()
+	for{
+		select {
+			case ch := <-self.electionCh:
+				
+				switch ch.Option {
+				case types.CommitteeStart:
+					// alread to start mining need stop
+					if self.shouldStart == 1 || self.mining == 1 {
+					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
+						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+							 // i am committee
+							 self.Stop()
+						 }
+					}
+					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				
+				case types.CommitteeSwitchover:
+					// alread to start mining need stop
+					if self.shouldStart == 1 || self.mining == 1 {
+						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+							// i am committee
+							self.Stop()
+						}
+				   }
+					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				
+				case types.CommitteeStop:
 
+					atomic.StoreInt32(&self.canStart, 1)
+					self.Start(self.coinbase)
+					log.Info("==================get  election  msg  3 CommitteeStop","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				}
+			case <- self.electionSub.Err():
+				return
+				
+		}
+	}
+
+}
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
@@ -95,27 +155,8 @@ func (self *Miner) update() {
 	//defer self.electionSub.Unsubscribe()
 	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{},core.ElectionEvent{})
 out:
-	for ev := range events.Chan() {
+	for ev := range events.Chan() {		
 		switch ev.Data.(type) {
-		case core.ElectionEvent:
-			election := ev.Data.(core.ElectionEvent)
-			//log.Info("============== get election msg  1  CommitteeStart","data",election.Option)
-			
-			switch election.Option {
-				case types.CommitteeStart:
-					log.Info("============== get election msg  1  CommitteeStart")
-				case types.CommitteeSwitchover:
-					log.Info("============== get election msg  2  CommitteeSwitchover")
-				case types.CommitteeStop:
-					log.Info("============== get election msg  3  CommitteeStop")
-			}
-			
-		//	log.Info("----------------------Mining aborted due to sync","event is ", core.ElectionEvent
-			/*if self.Mining() {
-				self.Stop()
-				atomic.StoreInt32(&self.shouldStart, 1)
-				log.Info("Mining aborted due to sync")
-			} */
 		case downloader.StartEvent:
 
 			atomic.StoreInt32(&self.canStart, 0)
@@ -125,7 +166,7 @@ out:
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
-			log.Info("start to miner---------------??????")
+			
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
 
 			atomic.StoreInt32(&self.canStart, 1)
@@ -139,7 +180,6 @@ out:
 			break out
 		}
 	}
-
 }
 
 func (self *Miner) Start(coinbase common.Address) {

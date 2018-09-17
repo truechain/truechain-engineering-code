@@ -347,7 +347,10 @@ func (self *worker) update() {
 		case <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  chainHeadCh")
-				self.commitNewWork()
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}
+				
 			}
 
 		// Handle ChainSideEvent
@@ -362,16 +365,16 @@ func (self *worker) update() {
 			if !self.atCommintNewWoker {
 				// after get the fruit event should star mining if have not mining
 				log.Info("star commit new work  fruitCh")
-				self.commitNewWork()	
+				
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}	
 			}
 		case  <-self.fastBlockCh:
 			log.Info("------------start commit new work  fastBlockCh")
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  fastBlockCh")
-				if atomic.LoadInt32(&self.mining) != 1 {
-					//self.start()
-					//self.commitNewWork()
-				}else{
+				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
 					
@@ -420,24 +423,41 @@ func (self *worker) wait() {
 
 				log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
-				var newFruits []*types.SnailBlock
-				newFruits = append(newFruits, block)
-				self.etrue.SnailPool().AddRemoteFruits(newFruits)
+				// add fruit once 
+				if self.FastBlockNumber != nil{
+
+					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
+						//log.Info("not same fruits")
+						var newFruits []*types.SnailBlock
+						newFruits = append(newFruits, block)
+						self.etrue.SnailPool().AddRemoteFruits(newFruits)
+					}else{
+						//log.Info("the same fruits")
+					}
+
+				}else{
+					var newFruits []*types.SnailBlock
+					newFruits = append(newFruits, block)
+					self.etrue.SnailPool().AddRemoteFruits(newFruits)
+				}
+				
+
+				// make sure the fast number has been fruit
+				self.FastBlockNumber.SetUint64(block.FastNumber().Uint64())
+
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil{
 					self.atCommintNewWoker = false
-					/*
-					self.mux.Post(chain.NewMinedFruitEvent{Block: block})
-					var (
-						events []interface{}
-					)
-					events = append(events, chain.NewMinedFruitEvent{Block: block})
-					self.chain.PostChainEvents(events)
-					*/
 				}
 			} else {
 				log.Info("+++++ mined block  ---  "," FB NUMBER",block.FastNumber(),"block number",block.Number())
 				
+				if block.Fruits() != nil{
+					for _,fruit :=range block.Fruits(){
+						log.Info(" ^^^  block fruits","fb number",fruit.FastNumber())
+					}
+				}
+
 				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
@@ -753,62 +773,112 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 
 // TODO: check fruits continue with last snail block
+// find all fruits and start to the last parent fruits number and end continue fruit list 
 func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) {
 
 	var lastFastNumber *big.Int
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
+
+	/*
+	for _, fruit := range fs {
+		log.Info("----parent number","fb number",fruit.FastNumber())
+	}
+	*/
+
 	if len(fs) > 0 {
 		lastFastNumber = fs[len(fs) - 1].FastNumber()
 	} else {
 		lastFastNumber = new(big.Int).Set(common.Big0)
 	}
+	var fruitsContine []*types.SnailBlock 
+	startCoypfruits := false
+	
+	// find the continue fruits
+	
 	for _, fruit := range fruits {
+	//	log.Info("----pending number","fb number",fruit.FastNumber())
+		if lastFastNumber.Cmp(common.Big0) == 0{
+			startCoypfruits = true
+		}
+		if lastFastNumber.Cmp(fruit.FastNumber()) == 0 || lastFastNumber.Uint64() == fruit.FastNumber().Uint64()-1{
+			startCoypfruits = true
+			fruitsContine = append(fruitsContine, fruit)
+			continue
+		}
+		if startCoypfruits {
+			if lastFastNumber.Uint64()<fruit.FastNumber().Uint64(){
+				if fruitsContine == nil{
+					fruitsContine = append(fruitsContine, fruit)
+				}else{
+					if fruitsContine[len(fruitsContine)-1].FastNumber().Uint64() == fruit.FastNumber().Uint64()-1{
+						fruitsContine = append(fruitsContine, fruit)
+					}else{
+						break
+					}
+				}
+			}
+		}
+	}
+	//log.Info(" end 11 ----------------- not continue number")
+		//log.Info(" start 22 -----------------continue number")
+	for _, fruit := range fruitsContine {
+		//log.Info("---continue number","fb number",fruit.FastNumber())
 		err := env.commitFruit(fruit, bc, lastFastNumber)
 		if err == nil {
 			env.fruits = append(env.fruits, fruit)
 		}
 	}
+
 }
 
 // find a corect fast block to miner
 func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 	
+	if atomic.LoadInt32(&self.mining) == 0{
+		return nil
+	}
+
 	if fastBlocks == nil{
 		return core.ErrNoFastBlockToMiner
 	} 
 	
-	/*for _ , fb := range fastBlocks {
+	/*
+	log.Info("   1111111     fast block number","fb self.FastBlockNumber", self.FastBlockNumber )
+	for _ , fb := range fastBlocks {
 		log.Info(" ====---- fb list","fb number",fb.Number())
 	}
 	*/
-
-	fastBlock := fastBlocks[0]
+	
+	var fastBlock *types.Block
 	for _ , fb := range fastBlocks {
-		if self.FastBlockNumber == nil{
+		if self.FastBlockNumber.Uint64() == 0{
+			log.Info("1")
 			self.FastBlockNumber = new(big.Int).Set(common.Big0)
-			self.FastBlockNumber.SetUint64(fb.NumberU64()) 
+			//self.FastBlockNumber.SetUint64(fb.NumberU64()) 
 			fastBlock = fb
 			break	
 		}
 
 		// this fast block has been minered but pending not update
-		if self.FastBlockNumber.Cmp(fb.Number()) == 0{
+		if self.FastBlockNumber.Uint64() >= fb.NumberU64(){
+			
 			continue
 		}
-
-		self.FastBlockNumber.SetUint64(fb.NumberU64())
+		//self.FastBlockNumber.SetUint64(fb.NumberU64())
 		fastBlock = fb
 		break
 	} 
 
-	self.current.header.FastNumber = fastBlock.Number()
-	self.current.header.FastHash = fastBlock.Hash()
-	signs := fastBlock.Body().Signs
-	self.current.signs = make([]*types.PbftSign, len(signs))
-	for i := range signs {
-		self.current.signs[i] = types.CopyPbftSign(signs[i])
+	log.Info("fast block number","fb self.FastBlockNumber", self.FastBlockNumber )
+	if fastBlock != nil{
+		self.current.header.FastNumber = fastBlock.Number()
+		self.current.header.FastHash = fastBlock.Hash()
+		signs := fastBlock.Body().Signs
+		self.current.signs = make([]*types.PbftSign, len(signs))
+		for i := range signs {
+			self.current.signs[i] = types.CopyPbftSign(signs[i])
+		}
 	}
-
 	return nil
 }

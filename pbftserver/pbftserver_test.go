@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
+	"time"
 )
 
 /*
@@ -40,6 +41,7 @@ func getID() *big.Int {
 func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getID()
+	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	return types.NewBlock(header, nil, nil, nil), nil
 }
@@ -304,6 +306,88 @@ func TestPbftServerStart3(t *testing.T) {
 	ser3.PutNodes(c1.Id, nodes)
 	go ser3.Notify(c1.Id, 0)
 
+	<-start
+}
+
+func TestPbftServerStartChange3(t *testing.T) {
+	start := make(chan bool)
+
+	pa1 := NewPbftAgent("Agent1")
+	pa2 := NewPbftAgent("Agent2")
+	pa3 := NewPbftAgent("Agent3")
+
+	ser1 := addServer(pa1)
+	ser2 := addServer(pa2)
+	ser3 := addServer(pa3)
+
+	fmt.Println(ser1, ser2, ser3)
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = ser1.pk
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = ser2.pk
+	m3 := new(types.CommitteeMember)
+	m3.Publickey = ser3.pk
+
+	c1.Members = append(c1.Members, m1, m2, m3)
+
+	ser1.PutCommittee(c1)
+
+	node1 := new(types.CommitteeNode)
+	node1.IP = "127.0.0.1"
+	node1.Port = 10011
+	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
+
+	node2 := new(types.CommitteeNode)
+	node2.IP = "127.0.0.1"
+	node2.Port = 10012
+	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
+
+	node3 := new(types.CommitteeNode)
+	node3.IP = "127.0.0.1"
+	node3.Port = 10013
+	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
+
+	var nodes []*types.CommitteeNode
+	nodes = append(nodes, node1, node2, node3)
+
+	ser1.PutCommittee(c1)
+	ser1.PutNodes(c1.Id, nodes)
+	go ser1.Notify(c1.Id, 0)
+
+	ser2.PutCommittee(c1)
+	ser2.PutNodes(c1.Id, nodes)
+	go ser2.Notify(c1.Id, 0)
+
+	ser3.PutCommittee(c1)
+	ser3.PutNodes(c1.Id, nodes)
+	go ser3.Notify(c1.Id, 0)
+
+	time.Sleep(time.Second * 32)
+	ser1.Notify(c1.Id, 1)
+	ser2.Notify(c1.Id, 1)
+	ser3.Notify(c1.Id, 1)
+
+	time.Sleep(time.Second * 30)
+
+	c2 := new(types.CommitteeInfo)
+	c2.Id = big.NewInt(2)
+	c2.Members = append(c2.Members, m2, m1, m3)
+
+	ser1.PutCommittee(c2)
+	ser2.PutCommittee(c2)
+	ser3.PutCommittee(c2)
+	time.Sleep(time.Second * 5)
+	ser1.PutNodes(c2.Id, nodes)
+	ser2.PutNodes(c2.Id, nodes)
+	ser3.PutNodes(c2.Id, nodes)
+
+	ser1.Notify(c2.Id, 0)
+	ser2.Notify(c2.Id, 0)
+	ser3.Notify(c2.Id, 0)
 	<-start
 }
 
