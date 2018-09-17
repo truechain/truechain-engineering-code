@@ -18,7 +18,7 @@ func TestRedisClient(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = rc.PendingTransaction()
+	err = rc.Ping()
 	if err != nil {
 		t.Error(err.Error())
 	}

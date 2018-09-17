@@ -49,6 +49,13 @@ func (rc *RedisClient) publishMsg(message string) error {
 	return err
 }
 
+// Ping sends a message without any payload.
+func (rc *RedisClient) Ping() error {
+	message := `{"name":"ping","data":"Hello TrueChain!"}`
+	err := rc.publishMsg(message)
+	return err
+}
+
 // PendingTransaction is triggered when the node receives the transaction
 // and is verified by adding it to the transaction pool.
 func (rc *RedisClient) PendingTransaction(ptm *TransactionMsg) error {
@@ -216,25 +223,8 @@ func (rc *RedisClient) ChangeBalance() error {
 }
 
 // ChangeView is triggered when the committee changes.
-func (rc *RedisClient) changeView() error {
-	var exampleMembers = []string{
-		"0x281055afc982d96fab65b3a49cac8b878184cb16",
-		"0x6f46cf5569aefa1acc1009290c8e043747172d89",
-		"0x90e63c3d53e0ea496845b7a03ec7548b70014a91",
-		"0x53d284357ec70ce289d6d64134dfac8e511c8a3d",
-		"0x742d35cc6634c0532925a3b844bc454e4438f44e",
-		"0xfe9e8709d3215310075d67e3ed32a380ccf451c8",
-	}
-	exampleMsg := struct {
-		ViewNumber int      `json:"viewNumber"`
-		Members    []string `json:"members"`
-		Timestamp  int      `json:"timestamp"`
-	}{
-		ViewNumber: 5,
-		Members:    exampleMembers,
-		Timestamp:  1536642158,
-	}
-	msg, err := json.Marshal(exampleMsg)
+func (rc *RedisClient) changeView(vcm *ViewChangeMsg) error {
+	msg, err := json.Marshal(vcm)
 	if err != nil {
 		return err
 	}

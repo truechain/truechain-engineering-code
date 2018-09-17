@@ -79,11 +79,21 @@ func (ts *TrueScan) electionHandleLoop() error {
 	}
 }
 func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
-	fmt.Println(ee.CommitteeId.Uint64())
-	members := ee.CommitteeMembers
-	for _, member := range members {
-		fmt.Println(member.Coinbase.String())
+	bfn := ee.BeginFastNumber
+	if bfn == nil {
+		return
 	}
+	members := ee.CommitteeMembers
+	mas := make([]string, len(members))
+	for i, member := range members {
+		mas[i] = member.Coinbase.String()
+	}
+	vcm := &ViewChangeMsg{
+		ViewNumber:      ee.CommitteeID.Uint64(),
+		Members:         mas,
+		BeginFastNumber: bfn.Uint64(),
+	}
+	ts.redisClient.changeView(vcm)
 }
 
 func (ts *TrueScan) snailChainHandleLoop() error {
