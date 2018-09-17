@@ -59,6 +59,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
+	"bytes"
 )
 
 var (
@@ -169,6 +170,10 @@ var (
 	SingleNodeFlag = cli.BoolFlag{
 		Name:  "singlenode",
 		Usage: "sing node model",
+	}
+	MineFruitFlag = cli.BoolFlag{
+		Name:  "minefruit",
+		Usage: "only mine fruit",
 	}
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
@@ -347,7 +352,7 @@ var (
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
 		Usage: "Number of CPU threads to use for mining",
-		Value: runtime.NumCPU(),
+		Value: runtime.NumCPU() - 1,
 	}
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
@@ -1101,6 +1106,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
+
+	if ctx.GlobalBool(MineFruitFlag.Name) {
+		cfg.MineFruit = true
+	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
@@ -1119,6 +1128,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
+	if bytes.Equal(cfg.CommitteeKey,[]byte{}){
+		Fatalf("init load CommitteeKey  nil.")
+	}
 	if ctx.GlobalBool(EnableElectionFlag.Name){
 		cfg.EnableElection = true
 	}

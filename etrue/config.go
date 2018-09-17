@@ -58,6 +58,7 @@ var DefaultConfig = Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
+	MinerThreads: 2,
 }
 
 func init() {
@@ -79,8 +80,8 @@ func init() {
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
-	Genesis *core.Genesis
-	FastGenesis *fastchain.Genesis
+	Genesis      *core.Genesis
+	FastGenesis  *fastchain.Genesis
 	SnailGenesis *snailchain.Genesis
 
 	// Protocol options
@@ -97,7 +98,7 @@ type Config struct {
 	EnableElection bool `toml:",omitempty"`
 	// CommitteeKey is the ECDSA private key for committee member.
 	// If this filed is empty, can't be a committee member.
-	CommitteeKey  []byte `toml:",omitempty"`
+	CommitteeKey []byte `toml:",omitempty"`
 
 	PrivateKey *ecdsa.PrivateKey `toml:"-"`
 
@@ -136,7 +137,11 @@ type Config struct {
 	// Miscellaneous options
 	DocRoot string `toml:"-"`
 
+	// true indicate singlenode start
 	NodeType bool `toml:",omitempty"`
+
+	//true indicate only mine fruit
+	MineFruit bool `toml:",omitempty"`
 }
 
 type configMarshaling struct {
