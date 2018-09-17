@@ -775,6 +775,8 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	hash := signs[0].Hash()
 	number := signs[0].FastHeight.Uint64()
 	height := f.chainHeight()
+	auth := f.agentFetcher.AcquireCommitteeAuth(signs[0].FastHeight)
+	dist := int64(number) - int64(height)
 
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
@@ -783,8 +785,11 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		propSignDOSMeter.Mark(1)
 		return
 	}
+	if auth {
+		dist = dist + 1
+	}
 	// Discard any past or too distant signs
-	if dist := int64(number) - int64(height); dist < lowSignDist || dist > maxQueueDist {
+	if dist < lowSignDist || dist > maxQueueDist {
 		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
 		propSignDropMeter.Mark(1)
 		return
@@ -844,13 +849,13 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			return
 		}
 
-		if f.agentFetcher.AcquireCommitteeAuth(verifySigns[0].FastHeight) && f.getBlock(verifySigns[0].FastHash) != nil {
+		if auth && f.getBlock(verifySigns[0].FastHash) != nil {
 			f.forgetBlockHeight(verifySigns[0].FastHeight)
 		} else {
 			committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 			log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]))
 			if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
-				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash); ok {
+				if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
 					propSignInMeter.Mark(1)
 					f.enterQueue = true
 					f.blockConsensus[number] = ok
@@ -1115,7 +1120,7 @@ func (f *Fetcher) forgetSign(hash common.Hash) {
 }
 
 // agreeAtSameHeight judge whether consensus is reached at a certain height.
-func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool, []common.Hash) {
+func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash, committeeNumber int32) (bool, []common.Hash) {
 	voteCount := 0
 	blockSignHash := []common.Hash{}
 	if hashs, ok := f.signMultiHash[height]; ok {
@@ -1127,7 +1132,7 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash) (bool,
 					blockSignHash = append(blockSignHash, hash)
 				}
 
-				if verifyCommitteesReachedTwoThirds(f.agentFetcher.GetCommitteeNumber(sign.FastHeight), int32(voteCount)) {
+				if verifyCommitteesReachedTwoThirds(committeeNumber, int32(voteCount)) {
 					return true, blockSignHash
 				}
 			} else {
