@@ -76,7 +76,6 @@ type RoundState struct {
 	Votes              *HeightVoteSet      `json:"votes"`
 	CommitRound        int                 `json:"commit_round"` //
 	LastCommit         *VoteSet      	   `json:"last_commit"`  // Last precommits at Height-1
-	LastValidators     *ValidatorSet 	   `json:"last_validators"`
 }
 
 // Compressed version of the RoundState for use in RPC
@@ -139,7 +138,6 @@ func (rs *RoundState) StringIndented(indent string) string {
 %s  ValidBlock:   %v %v
 %s  Votes:         %v
 %s  LastCommit:    %v
-%s  LastValidators:%v
 %s}`,
 		indent, rs.Height, rs.Round, rs.Step,
 		indent, rs.StartTime,
@@ -153,7 +151,6 @@ func (rs *RoundState) StringIndented(indent string) string {
 		indent, rs.ValidBlockParts.StringShort(), rs.ValidBlock.Hash(),
 		indent, rs.Votes.StringIndented(indent+"  "),
 		indent, rs.LastCommit.StringShort(),
-		indent, rs.LastValidators.StringIndented(indent+"  "),
 		indent)
 }
 

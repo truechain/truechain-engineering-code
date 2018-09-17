@@ -5,11 +5,12 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+	"math/big"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"sync"
-	"time"
 )
 
 const (
@@ -305,7 +306,7 @@ type StateAgent interface {
 
 	GetLastBlockHeight() int64
 	GetChainID() string
-	LoadSeenCommit(height int64) *Commit
+	UpdateHeight(height int64)
 	MakeBlock() (*ctypes.Block, *PartSet)
 	ValidateBlock(block *ctypes.Block) error
 	ConsensusCommit(block *ctypes.Block) error
@@ -318,24 +319,27 @@ type StateAgent interface {
 }
 
 type stateAgent struct {
-	privValidator
-	Agent      ctypes.PbftAgentProxy
-	Validators *ValidatorSet
-	ChainID    string
+	Priv		*privValidator
+	Agent      	ctypes.PbftAgentProxy
+	Validators 	*ValidatorSet
+	ChainID    	string
+	Height 		int64
 }
 
-func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string, vals *ValidatorSet) *stateAgent {
+func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string, 
+	vals *ValidatorSet,height int64) *stateAgent {
 	return &stateAgent{
 		Agent:      agent,
 		ChainID:    chainID,
 		Validators: vals,
+		Height:		height,
 	}
 }
 
 func MakePartSet(partSize int, block *ctypes.Block) *PartSet {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
-	bz, err := help.MarshalBinary(b)
+	bz, err := help.MarshalBinary(block)
 	if err != nil {
 		panic(err)
 	}
@@ -345,7 +349,7 @@ func (state *stateAgent) GetChainID() string {
 	return state.ChainID
 }
 func (state *stateAgent) SetPrivValidator(priv *privValidator) {
-	state.privValidator = priv
+	state.Priv = priv
 }
 func (state *stateAgent) MakeBlock() (*ctypes.Block, *PartSet) {
 	block, err := state.Agent.FetchFastBlock()
@@ -374,17 +378,34 @@ func (state *stateAgent) ValidateBlock(block *ctypes.Block) error {
 	}
 	return nil
 }
-func (state *stateAgent) LoadSeenCommit(height int64) *Commit {
-
-}
 func (state *stateAgent) GetValidator() *ValidatorSet {
 	return state.Validators
 }
 func (state *stateAgent) GetLastValidator() *ValidatorSet {
-
+	return state.Validators
 }
 func (state *stateAgent) GetLastBlockHeight() int64 {
-
+	return state.Height
+}
+func (state *stateAgent) UpdateHeight(height int64) {
+	if height > state.Height {
+		state.Height = height
+	}
+}
+func (state *stateAgent) GetAddress() help.Address {
+	return state.Priv.GetAddress()
+}
+func (state *stateAgent) GetPubKey() tcrypto.PubKey {
+	return state.Priv.GetPubKey()
+}
+func (state *stateAgent) SignVote(chainID string, vote *Vote) error {
+	return state.Priv.SignVote(chainID,vote)
+}
+func (state *stateAgent) SignProposal(chainID string, proposal *Proposal) error {
+	return state.Priv.signProposal(chainID,proposal)
+}
+func (state *stateAgent) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
+	return state.Priv.SignHeartbeat(chainID,heartbeat)
 }
 func (state *stateAgent) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {

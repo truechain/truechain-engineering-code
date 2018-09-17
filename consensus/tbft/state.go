@@ -144,7 +144,7 @@ func NewConsensusState(
 	cs.updateToState(state)
 	// Don't call scheduleRound0 yet.
 	// We do that upon Start().
-	cs.reconstructLastCommit(state)
+	cs.reconstructLastCommit(nil)
 	cs.BaseService = *help.NewBaseService("ConsensusState", cs)
 	for _, option := range options {
 		option(cs)
@@ -403,14 +403,17 @@ func (cs *ConsensusState) sendInternalMessage(mi msgInfo) {
 
 // Reconstruct LastCommit from SeenCommit, which we saved along with the block,
 // (which happens even before saving the state)
-func (cs *ConsensusState) reconstructLastCommit(state ttypes.StateAgent) {
-	LastBlockHeight := state.GetLastBlockHeight()
+func (cs *ConsensusState) reconstructLastCommit(seenCommit *ttypes.Commit) {
+	if seenCommit == nil {
+		cs.LastCommit = nil
+		return 
+	}
+	LastBlockHeight := cs.state.GetLastBlockHeight()
 	if LastBlockHeight == 0 {
 		return
 	}
-	seenCommit := state.LoadSeenCommit(LastBlockHeight)
-	lastPrecommits := ttypes.NewVoteSet(state.GetChainID(), LastBlockHeight, seenCommit.Round(),
-		ttypes.VoteTypePrecommit, state.GetLastValidator())
+	lastPrecommits := ttypes.NewVoteSet(cs.state.GetChainID(), LastBlockHeight, seenCommit.Round(),
+		ttypes.VoteTypePrecommit, cs.state.GetLastValidator())
 	for _, precommit := range seenCommit.Precommits {
 		if precommit == nil {
 			continue
@@ -493,7 +496,6 @@ func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 	cs.Votes = ttypes.NewHeightVoteSet(state.GetChainID(), height, validators)
 	cs.CommitRound = -1
 	cs.LastCommit = lastPrecommits
-	cs.LastValidators = state.GetLastValidator()
 
 	cs.state = state
 
@@ -1210,6 +1212,8 @@ func (cs *ConsensusState) finalizeCommit(height int64) {
 		precommits := cs.Votes.Precommits(cs.CommitRound)
 		seenCommit := precommits.MakeCommit()
 		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
+		cs.state.UpdateHeight(height)
+		cs.reconstructLastCommit(seenCommit)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
