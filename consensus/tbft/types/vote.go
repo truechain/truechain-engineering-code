@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"time"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"time"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 	ErrVoteInvalidSignature          = errors.New("Invalid signature")
 	ErrVoteInvalidBlockHash          = errors.New("Invalid block hash")
 	ErrVoteNonDeterministicSignature = errors.New("Non-deterministic signature")
-	ErrVoteConflictingVotes			 = errors.New("Conflicting votes from validator")
+	ErrVoteConflictingVotes          = errors.New("Conflicting votes from validator")
 	ErrVoteNil                       = errors.New("Nil vote")
 )
 
@@ -40,14 +40,14 @@ func IsVoteTypeValid(type_ byte) bool {
 
 // Represents a prevote, precommit, or commit vote from validators for consensus.
 type Vote struct {
-	ValidatorAddress help.Address   `json:"validator_address"`
-	ValidatorIndex   int       		`json:"validator_index"`
-	Height           int64     		`json:"height"`
-	Round            int       		`json:"round"`
-	Timestamp        time.Time 		`json:"timestamp"`
-	Type             byte      		`json:"type"`
-	BlockID          BlockID   		`json:"block_id"` // zero if vote is nil.
-	Signature        []byte    		`json:"signature"`
+	ValidatorAddress help.Address `json:"validator_address"`
+	ValidatorIndex   uint         `json:"validator_index"`
+	Height           uint64       `json:"height"`
+	Round            uint         `json:"round"`
+	Timestamp        time.Time    `json:"timestamp"`
+	Type             byte         `json:"type"`
+	BlockID          BlockID      `json:"block_id"` // zero if vote is nil.
+	Signature        []byte       `json:"signature"`
 }
 
 func (vote *Vote) SignBytes(chainID string) []byte {

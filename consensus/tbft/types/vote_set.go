@@ -53,22 +53,22 @@ type P2PID string
 */
 type VoteSet struct {
 	chainID string
-	height  int64
-	round   int
+	height  uint64
+	round   uint
 	type_   byte
 	valSet  *ValidatorSet
 
 	mtx           sync.Mutex
 	votesBitArray *help.BitArray
 	votes         []*Vote                // Primary votes to share
-	sum           int64                  // Sum of voting power for seen votes, discounting conflicts
+	sum           uint64                 // Sum of voting power for seen votes, discounting conflicts
 	maj23         *BlockID               // First 2/3 majority seen
 	votesByBlock  map[string]*blockVotes // string(blockHash|blockParts) -> blockVotes
 	peerMaj23s    map[P2PID]BlockID      // Maj23 for each peer
 }
 
 // Constructs a new VoteSet struct used to accumulate votes for given height/round.
-func NewVoteSet(chainID string, height int64, round int, type_ byte, valSet *ValidatorSet) *VoteSet {
+func NewVoteSet(chainID string, height uint64, round uint, type_ byte, valSet *ValidatorSet) *VoteSet {
 	if height == 0 {
 		help.PanicSanity("Cannot make VoteSet for height == 0, doesn't make sense.")
 	}
@@ -91,14 +91,14 @@ func (voteSet *VoteSet) ChainID() string {
 	return voteSet.chainID
 }
 
-func (voteSet *VoteSet) Height() int64 {
+func (voteSet *VoteSet) Height() uint64 {
 	if voteSet == nil {
 		return 0
 	}
 	return voteSet.height
 }
 
-func (voteSet *VoteSet) Round() int {
+func (voteSet *VoteSet) Round() uint {
 	if voteSet == nil {
 		return -1
 	}
