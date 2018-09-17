@@ -74,7 +74,7 @@ func (commit *Commit) FirstPrecommit() *Vote {
 }
 
 // Height returns the height of the commit
-func (commit *Commit) Height() int64 {
+func (commit *Commit) Height() uint64 {
 	if len(commit.Precommits) == 0 {
 		return 0
 	}
@@ -82,7 +82,7 @@ func (commit *Commit) Height() int64 {
 }
 
 // Round returns the round of the commit
-func (commit *Commit) Round() int {
+func (commit *Commit) Round() uint {
 	if len(commit.Precommits) == 0 {
 		return 0
 	}
@@ -205,7 +205,7 @@ func (commit *Commit) StringIndented(indent string) string {
 
 // BlockID defines the unique ID of a block as its Hash and its PartSetHeader
 type BlockID struct {
-	Hash        help.HexBytes  `json:"hash"`
+	Hash        help.HexBytes `json:"hash"`
 	PartsHeader PartSetHeader `json:"parts"`
 }
 
@@ -237,32 +237,32 @@ func (blockID BlockID) String() string {
 //-------------------------------------------------------
 const (
 	MaxLimitBlockStore = 2000
-	MaxBlockBytes = 1048510			// lMB
+	MaxBlockBytes      = 1048510 // lMB
 )
 
 type BlockMeta struct {
-	Block 			*ctypes.Block
-	BlockID			*BlockID
-	BlockPacks		*PartSet
-	SeenCommit		*Commit
+	Block      *ctypes.Block
+	BlockID    *BlockID
+	BlockPacks *PartSet
+	SeenCommit *Commit
 }
 type BlockStore struct {
-	blocks 		map[int64]*BlockMeta
+	blocks map[int64]*BlockMeta
 }
 
 func NewBlockStore() *BlockStore {
-	return &BlockStore {
-		blocks:		make(map[int64]*BlockMeta),
+	return &BlockStore{
+		blocks: make(map[int64]*BlockMeta),
 	}
 }
 func (b *BlockStore) LoadBlockMeta(height int64) *BlockMeta {
-	if v,ok := b.blocks[height]; ok{
+	if v, ok := b.blocks[height]; ok {
 		return v
 	}
 	return nil
 }
 func (b *BlockStore) LoadBlockPart(height int64, index int) *Part {
-	if v,ok := b.blocks[height]; ok {
+	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
 	return nil
@@ -283,11 +283,11 @@ func (b *BlockStore) MaxBlockHeight() int64 {
 	return cur
 }
 func (b *BlockStore) LoadBlockCommit(height int64) *Commit {
-	if v,ok := b.blocks[height]; ok{
+	if v, ok := b.blocks[height]; ok {
 		return v.SeenCommit
 	}
 	return nil
 }
-func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit){
+func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit) {
 
 }
