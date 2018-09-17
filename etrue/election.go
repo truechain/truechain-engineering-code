@@ -172,6 +172,10 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 
 //whether assigned publickey  in  committeeMember pubKey
 func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+	if len(members) == 0 {
+		log.Error("GetMemberByPubkey method len(members)= 0" )
+		return nil
+	}
 	for _, member := range members {
 		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return member
