@@ -100,7 +100,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
  
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 	
-	go miner.loop()
+	//go miner.loop()
 	go miner.update()
 	return miner
 } 
@@ -110,7 +110,14 @@ func (self *Miner) loop() {
 	for{
 		select {
 			case ch := <-self.electionCh:
-				
+				/*
+				log.Info("-------------------------miner committerMenn","publickey",self.publickey)
+
+				for _, m:=range ch.CommitteeMembers{
+					log.Info("******   miner committerMenn","publickey",m.Publickey)
+				}
+				*/
+
 				switch ch.Option {
 				case types.CommitteeStart:
 					// alread to start mining need stop
@@ -119,6 +126,8 @@ func (self *Miner) loop() {
 						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
 							 // i am committee
 							 self.Stop()
+						 }else{
+							 log.Info("not in commiteer munber start")
 						 }
 					}
 					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
@@ -129,6 +138,8 @@ func (self *Miner) loop() {
 						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
 							// i am committee
 							self.Stop()
+						}else{
+							log.Info("not in commiteer munber staCommitteeSwitchoverrt")
 						}
 				   }
 					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
@@ -157,7 +168,7 @@ out:
 	for ev := range events.Chan() {		
 		switch ev.Data.(type) {
 		case downloader.StartEvent:
-
+			log.Info("-----------------get download info startEvent")
 			atomic.StoreInt32(&self.canStart, 0)
 			if self.Mining() {
 				self.Stop()
@@ -165,7 +176,7 @@ out:
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
-			
+			log.Info("-----------------get download info DoneEvent,FailedEvent")
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
 
 			atomic.StoreInt32(&self.canStart, 1)
@@ -182,6 +193,7 @@ out:
 }
 
 func (self *Miner) Start(coinbase common.Address) {
+	log.Info("start miner --miner start function")
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 	log.Info("Start method coinbase:","coinbase",coinbase,
@@ -199,6 +211,7 @@ func (self *Miner) Start(coinbase common.Address) {
 }
 
 func (self *Miner) Stop() {
+	log.Info(" miner   ---stop miner funtion")
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)
