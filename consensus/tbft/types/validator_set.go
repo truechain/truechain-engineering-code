@@ -2,11 +2,11 @@ package types
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
 	"strings"
-	"errors"
 
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
@@ -109,8 +109,8 @@ func (valSet *ValidatorSet) GetByAddress(address []byte) (index int, val *Valida
 // GetByIndex returns the validator's address and validator itself by index.
 // It returns nil values if index is less than 0 or greater or equal to
 // len(ValidatorSet.Validators).
-func (valSet *ValidatorSet) GetByIndex(index int) (address []byte, val *Validator) {
-	if index < 0 || index >= len(valSet.Validators) {
+func (valSet *ValidatorSet) GetByIndex(index uint) (address []byte, val *Validator) {
+	if index < 0 || index >= uint(len(valSet.Validators)) {
 		return nil, nil
 	}
 	val = valSet.Validators[index]
@@ -242,7 +242,7 @@ func (valSet *ValidatorSet) Iterate(fn func(index int, val *Validator) bool) {
 }
 
 // Verify that +2/3 of the set had signed the given signBytes
-func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height int64, commit *Commit) error {
+func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height uint64, commit *Commit) error {
 	if valSet.Size() != len(commit.Precommits) {
 		return fmt.Errorf("Invalid commit -- wrong set size: %v vs %v", valSet.Size(), len(commit.Precommits))
 	}
@@ -267,7 +267,7 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 		if precommit.Type != VoteTypePrecommit {
 			return fmt.Errorf("Invalid commit -- not precommit @ index %v", idx)
 		}
-		_, val := valSet.GetByIndex(idx)
+		_, val := valSet.GetByIndex(uint(idx))
 		// Validate signature
 		precommitSignBytes := precommit.SignBytes(chainID)
 		if !val.PubKey.VerifyBytes(precommitSignBytes, precommit.Signature) {
@@ -301,7 +301,7 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 // * 10% of the valset can't just declare themselves kings
 // * If the validator set is 3x old size, we need more proof to trust
 func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string,
-	blockID BlockID, height int64, commit *Commit) error {
+	blockID BlockID, height uint64, commit *Commit) error {
 
 	if newSet.Size() != len(commit.Precommits) {
 		return errors.New(fmt.Sprintf("Invalid commit -- wrong set size: %v vs %v", newSet.Size(), len(commit.Precommits)))
@@ -359,10 +359,10 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 
 	if oldVotingPower <= valSet.TotalVotingPower()*2/3 {
 		return errors.New(fmt.Sprintf("Invalid commit -- insufficient old voting power: got %v, needed %v",
-		oldVotingPower, (valSet.TotalVotingPower()*2/3 + 1)))
+			oldVotingPower, (valSet.TotalVotingPower()*2/3 + 1)))
 	} else if newVotingPower <= newSet.TotalVotingPower()*2/3 {
 		return errors.New(fmt.Sprintf("Invalid commit -- insufficient cur voting power: got %v, needed %v",
-		newVotingPower, (newSet.TotalVotingPower()*2/3 + 1)))
+			newVotingPower, (newSet.TotalVotingPower()*2/3 + 1)))
 	}
 	return nil
 }
