@@ -88,12 +88,12 @@ func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
 	for i, member := range members {
 		mas[i] = member.Coinbase.String()
 	}
-	vcm := &ViewChangeMsg{
+	cvm := &ChangeViewMsg{
 		ViewNumber:      ee.CommitteeID.Uint64(),
 		Members:         mas,
 		BeginFastNumber: bfn.Uint64(),
 	}
-	ts.redisClient.changeView(vcm)
+	ts.redisClient.changeView(cvm)
 }
 
 func (ts *TrueScan) snailChainHandleLoop() error {

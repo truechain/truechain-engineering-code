@@ -51,9 +51,9 @@ type SnailBlockHeaderMsg struct {
 	EndFruitNumber   uint64            `json:"endFruitNumber"`
 }
 
-// ViewChangeMsg used in corresponding message transmission
-type ViewChangeMsg struct {
+// ChangeViewMsg used in corresponding message transmission
+type ChangeViewMsg struct {
 	ViewNumber      uint64   `json:"viewNumber"`
 	Members         []string `json:"members"`
-	BeginFastNumber uint64   `json:"startBlockNumber"`
+	BeginFastNumber uint64   `json:"beginFastNumber"`
 }

@@ -51,7 +51,7 @@ func (rc *RedisClient) publishMsg(message string) error {
 
 // Ping sends a message without any payload.
 func (rc *RedisClient) Ping() error {
-	message := `{"name":"ping","data":"Hello TrueChain!"}`
+	message := `{"type":"ping","data":"Hello TrueChain!"}`
 	err := rc.publishMsg(message)
 	return err
 }
@@ -63,7 +63,7 @@ func (rc *RedisClient) PendingTransaction(ptm *TransactionMsg) error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"pendingTransaction","data":`
+	start := `{"type":"pendingTransaction","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -81,7 +81,7 @@ func (rc *RedisClient) RemoveTransaction() error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"removeTransaction","data":`
+	start := `{"type":"removeTransaction","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -112,7 +112,7 @@ func (rc *RedisClient) ExecuteTransaction() error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"executeTransaction","data":`
+	start := `{"type":"executeTransaction","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -125,7 +125,7 @@ func (rc *RedisClient) NewFastBlockHeader(fbm *FastBlockHeaderMsg) error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"receiveFastBlockHeader","data":`
+	start := `{"type":"newFastBlockHeader","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -154,7 +154,7 @@ func (rc *RedisClient) ReceiveFruitBlockHeader() error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"receiveFruitBlockHeader","data":`
+	start := `{"type":"receiveFruitBlockHeader","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -168,7 +168,7 @@ func (rc *RedisClient) NewSnailBlockHeader(sbm *SnailBlockHeaderMsg) error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"newBlockHeader","data":`
+	start := `{"type":"newSnailBlockHeader","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -195,7 +195,7 @@ func (rc *RedisClient) PruningShortBranch() error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"pruningShortBranch","data":`
+	start := `{"type":"pruningShortBranch","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
@@ -216,19 +216,19 @@ func (rc *RedisClient) ChangeBalance() error {
 	if err != nil {
 		return err
 	}
-	start := `{"name":"changeBalance","data":`
+	start := `{"type":"changeBalance","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
 }
 
 // ChangeView is triggered when the committee changes.
-func (rc *RedisClient) changeView(vcm *ViewChangeMsg) error {
-	msg, err := json.Marshal(vcm)
+func (rc *RedisClient) changeView(cvm *ChangeViewMsg) error {
+	msg, err := json.Marshal(cvm)
 	if err != nil {
 		return err
 	}
-	start := `{"name":"changeView","data":`
+	start := `{"type":"changeView","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err
