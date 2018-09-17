@@ -511,15 +511,16 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			// Close the queue when all fetchers have exited.
 			// This will cause the block processor to end when
 			// it has processed the queue.
+			log.Debug("d.queue.Close()>>>>>>>>>>>>>>>>>>")
 			d.queue.Close()
 		}
-		log.Debug("fetchers  start")
+		log.Debug("fetchers  start","index",i)
 		//if len(errc
 		if err = <-errc; err != nil {
 			log.Debug("err = <-errc; err != nil","err:",err)
 			break
 		}
-		log.Debug("fetchers  end")
+		log.Debug("fetchers  end","index",i)
 	}
 
 	d.queue.Close()
@@ -984,6 +985,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 		d.queue.PendingBlocks, d.queue.InFlightBlocks, d.queue.ShouldThrottleBlocks, d.queue.ReserveBodies,
 		d.bodyFetchHook, fetch, d.queue.CancelBodies, capacity, d.peers.BodyIdlePeers, setIdle, "bodies")
 
+	d.queue.active.Signal()
 	log.Debug("Fast Block body download terminated", "err", err)
 	return err
 }
@@ -1007,7 +1009,7 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 	err := d.fetchParts(errCancelReceiptFetch, d.receiptCh, deliver, d.receiptWakeCh, expire,
 		d.queue.PendingReceipts, d.queue.InFlightReceipts, d.queue.ShouldThrottleReceipts, d.queue.ReserveReceipts,
 		d.receiptFetchHook, fetch, d.queue.CancelReceipts, capacity, d.peers.ReceiptIdlePeers, setIdle, "receipts")
-
+	d.queue.active.Signal()
 	log.Debug("Fast Transaction receipt download terminated", "err", err)
 	return err
 }
@@ -1205,6 +1207,8 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 // queue until the stream ends or a failure occurs.
 func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) error {
 	// Keep a count of uncertain headers to roll back
+	defer log.Debug("Fast processHeaders download terminated")
+
 	rollback := []*types.Header{}
 	defer func() {
 		if len(rollback) > 0 {
@@ -1375,6 +1379,7 @@ func (d *Downloader) processFullSyncContent() error {
 	for {
 		results := d.queue.Results(true)
 		if len(results) == 0 {
+			log.Debug("processFullSyncContent>>>>>>>>>>>>>>>>>>>==0")
 			return nil
 		}
 		if d.chainInsertHook != nil {

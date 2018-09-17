@@ -131,7 +131,7 @@ func (q *queue) Close() {
 	q.lock.Lock()
 	q.closed = true
 	q.lock.Unlock()
-	//q.active.Broadcast()
+	q.active.Broadcast()
 }
 
 // PendingHeaders retrieves the number of header requests pending for retrieval.
