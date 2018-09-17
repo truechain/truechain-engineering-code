@@ -99,22 +99,33 @@ func (ts *TrueScan) snailChainHandleLoop() error {
 }
 
 func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
-	// fbm := &SnailBlockHeaderMsg{
-	// 	Number:     block.NumberU64(),
-	// 	Hash:       block.Hash().String(),
-	// 	ParentHash: block.ParentHash().String(),
-	// 	Nonce:      block.Nonce(),
-	// 	Miner:      block.Coinbase().String(),
-	// 	Difficulty: block.Difficulty().Uint64(),
-	// 	ExtraData:  "0x" + hex.EncodeToString(block.Extra()),
-	// 	Size:       block.Size().Int(),
-	// 	Timestamp:  block.Time().Uint64(),
-	// }
-	fruits := block.Fruits()
-	for i, fruit := range fruits {
-		fmt.Println(i)
-		fmt.Println(fruit.FastNumber().Uint64())
+	sbm := &SnailBlockHeaderMsg{
+		Number:     block.NumberU64(),
+		Hash:       block.Hash().String(),
+		ParentHash: block.ParentHash().String(),
+		Nonce:      block.Nonce(),
+		Miner:      block.Coinbase().String(),
+		Difficulty: block.Difficulty().Uint64(),
+		ExtraData:  "0x" + hex.EncodeToString(block.Extra()),
+		Size:       block.Size().Int(),
+		Timestamp:  block.Time().Uint64(),
 	}
+	fruits := block.Fruits()
+	fms := make([]*FruitHeaderMsg, len(fruits))
+	for i, fruit := range fruits {
+		fm := &FruitHeaderMsg{
+			Number:     fruit.FastNumber().Uint64(),
+			Hash:       fruit.FruitsHash().String(),
+			Nonce:      fruit.Nonce(),
+			Miner:      fruit.Coinbase().String(),
+			Difficulty: fruit.Difficulty().Uint64(),
+		}
+		fms[i] = fm
+	}
+	sbm.StartFruitNumber = fms[0].Number
+	sbm.EndFruitNumber = fms[len(fms)-1].Number
+	sbm.Fruits = fms
+	ts.redisClient.NewSnailBlockHeader(sbm)
 }
 
 func (ts *TrueScan) fruitHandleLoop() error {
@@ -184,7 +195,7 @@ func (ts *TrueScan) handleFastChain(block *types.Block) {
 		tms[i] = tm
 	}
 	fbm.Txs = tms
-	ts.redisClient.ReceiveFastBlockHeader(fbm)
+	ts.redisClient.NewFastBlockHeader(fbm)
 }
 
 func (ts *TrueScan) txHandleLoop() error {

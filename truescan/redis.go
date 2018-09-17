@@ -111,9 +111,9 @@ func (rc *RedisClient) ExecuteTransaction() error {
 	return err
 }
 
-// ReceiveFastBlockHeader is triggered when a fast block is packaged
+// NewFastBlockHeader is triggered when a fast block is packaged
 // by the committee.
-func (rc *RedisClient) ReceiveFastBlockHeader(fbm *FastBlockHeaderMsg) error {
+func (rc *RedisClient) NewFastBlockHeader(fbm *FastBlockHeaderMsg) error {
 	msg, err := json.Marshal(fbm)
 	if err != nil {
 		return err
@@ -153,47 +153,11 @@ func (rc *RedisClient) ReceiveFruitBlockHeader() error {
 	return err
 }
 
-// NewBlockHeader is triggered when new blocks are mined.
+// NewSnailBlockHeader is triggered when new blocks are mined.
 // The blocks and the fruit blocks packaged in it may roll back,
 // but this won't affect the outcome of the transaction.
-func (rc *RedisClient) NewBlockHeader() error {
-	var exampleFruits = []string{
-		"0x039bf6c9055a879ef9c4dca7dc52d1d153949c58592dc4d8d21f65681c67af4d",
-		"0xb111473b8918b31908b73a1d184ba251a1573bcfb23f07d32550827e4dd8a640",
-		"0xdcf771c58a2813f3ff95ee9e1155fbd478334f609810b63eff0ef80e491efa90",
-	}
-	exampleMsg := struct {
-		Number           int      `json:"number"`
-		Hash             string   `json:"hash"`
-		ParentHash       string   `json:"parentHash"`
-		Nonce            string   `json:"nonce"`
-		Miner            string   `json:"miner"`
-		Difficulty       string   `json:"difficulty"`
-		ExtraData        string   `json:"extraData"`
-		Size             int      `json:"size"`
-		GasLimit         int      `json:"gasLimit"`
-		GasUsed          int      `json:"gasUsed"`
-		Timestamp        int      `json:"timestamp"`
-		Fruits           []string `json:"fruits"`
-		StartFruitNumber int      `json:"startFruitNumber"`
-		EndFruitNumber   int      `json:"endFruitNumber"`
-	}{
-		Number:           67,
-		Hash:             "0x0e85909ca8633754642b6790cd522e798af31b7258a6420faac041d4ca9886b6",
-		ParentHash:       "0x94c5d3e1d81ee34f08313cbe61a721924ed6057b85ee9bed32fdba3ca21ca635",
-		Nonce:            "0xce05a28014935817",
-		Miner:            "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf",
-		Difficulty:       "3240588572051566",
-		ExtraData:        "0x00",
-		Size:             12450,
-		GasLimit:         8000000,
-		GasUsed:          6400000,
-		Timestamp:        1536673251,
-		Fruits:           exampleFruits,
-		StartFruitNumber: 1233,
-		EndFruitNumber:   1235,
-	}
-	msg, err := json.Marshal(exampleMsg)
+func (rc *RedisClient) NewSnailBlockHeader(sbm *SnailBlockHeaderMsg) error {
+	msg, err := json.Marshal(sbm)
 	if err != nil {
 		return err
 	}
