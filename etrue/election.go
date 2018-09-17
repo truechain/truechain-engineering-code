@@ -171,14 +171,17 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 }
 
 //whether assigned publickey  in  committeeMember pubKey
-func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
 	for _, member := range members {
 		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return member
 		}
 	}
-
 	return nil
+}
+
+func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+	return e.GetMemberByPubkey(members, publickey) != nil
 }
 
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
@@ -187,7 +190,7 @@ func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*typ
 		log.Error("GetCommittee members is nil", "err", ErrCommittee)
 		return nil, ErrCommittee
 	}
-	member := e.IsCommitteeMember(members, pubKeyByte)
+	member := e.GetMemberByPubkey(members, pubKeyByte)
 	if member == nil {
 		return nil, ErrInvalidMember
 	}
@@ -204,7 +207,6 @@ func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, err
 	if err != nil {
 		return member, err
 	}
-
 	return member, nil
 }
 
