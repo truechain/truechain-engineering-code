@@ -93,14 +93,18 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		mux:       mux,
 		engine:    engine,
 		election : election,
+		FruitOnly: mineFruit,// set fruit only 
 		electionCh:    make(chan core.ElectionEvent, txChanSize),
 		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:  1,
 	}
+
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
  	log.Info("init mineFruit","mineFruit",mineFruit)
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 	
+	
+	go miner.SetFruitOnly(mineFruit)
 	//go miner.loop()
 	go miner.update()
 	return miner
