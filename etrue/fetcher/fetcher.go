@@ -785,7 +785,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		return
 	}
 	// Discard any past or too distant signs
-	if dist := int64(number) - int64(height); dist < lowSignDist || dist > maxSignDist {
+	if dist := int64(number) - int64(height); dist < -lowSignDist || dist > maxSignDist {
 		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
 		propSignDropMeter.Mark(1)
 		return
