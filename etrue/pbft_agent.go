@@ -111,9 +111,9 @@ type PbftAgent struct {
 	committeeNode *types.CommitteeNode
 	privateKey    *ecdsa.PrivateKey
 
-	cacheSign          map[string]types.Sign     //prevent receive same sign
-	cacheBlock         map[*big.Int]*types.Block //prevent receive same block
-	singleNode         bool
+	cacheSign  map[string]types.Sign     //prevent receive same sign
+	cacheBlock map[*big.Int]*types.Block //prevent receive same block
+	singleNode bool
 	//nodeInfoIsComplete bool
 }
 
@@ -175,7 +175,7 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Publickey: pubBytes,
 	}
 	log.Debug("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
-		config.Port, ", Host:", config.Host,"coinbase",self.committeeNode.Coinbase)
+		config.Port, ", Host:", config.Host, "coinbase", self.committeeNode.Coinbase)
 	//self.nodeInfoIsComplete = true
 }
 
@@ -202,36 +202,36 @@ func (self *PbftAgent) loop() {
 		case ch := <-self.electionCh:
 			switch ch.Option {
 			case types.CommitteeStart:
-				log.Debug("CommitteeStart...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
+				log.Debug("CommitteeStart...", "Id", ch.CommitteeID)
+				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeID) {
 					continue
 				}*/
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(ch.CommitteeId, int(ch.Option))
+					go self.server.Notify(ch.CommitteeID, int(ch.Option))
 				}
 			case types.CommitteeStop:
-				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
+				log.Debug("CommitteeStop..", "Id", ch.CommitteeID)
+				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeID) {
 					continue
 				}*/
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(ch.CommitteeId, int(ch.Option))
+					go self.server.Notify(ch.CommitteeID, int(ch.Option))
 				}
 				//self.setCommitteeInfo(preCommittee, self.currentCommitteeInfo)
 				//self.setCommitteeInfo(nil, currentCommittee)
 
 			case types.CommitteeSwitchover:
-				log.Debug("CommitteeCh...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
+				log.Debug("CommitteeCh...", "Id", ch.CommitteeID)
+				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeID) {
 					continue
 				}*/
 				receivedCommitteeInfo := &types.CommitteeInfo{
-					Id:      ch.CommitteeId,
+					Id:      ch.CommitteeID,
 					Members: ch.CommitteeMembers,
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
-				self.committeeId = ch.CommitteeId
+				self.committeeId = ch.CommitteeID
 
 				ticker.Stop()                                //stop ticker send nodeInfo
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
@@ -491,7 +491,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-	//validate height and hash 
+	//validate height and hash
 	if err := self.engine.Prepare(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return fastBlock, err
@@ -824,7 +824,7 @@ func (self *PbftAgent) GetCommitteInfo(committeeType int64) int {
 }*/
 
 // verify sign of node is in committee
-func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool{
+func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool {
 	/*if sign == nil {
 		return false, ""
 	}
@@ -845,8 +845,8 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool{
 		log.Error("VerifyCommitteeSign sign is nil")
 		return false
 	}
-	_ ,err:=self.election.VerifySign(sign)
-	if err !=nil{
+	_, err := self.election.VerifySign(sign)
+	if err != nil {
 		log.Error("VerifyCommitteeSign  error", "err", err)
 		return false
 	}
@@ -882,7 +882,7 @@ func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *typ
 	case nextCommittee:
 		self.nextCommitteeInfo = newCommitteeInfo
 	/*case preCommittee:
-		self.preCommitteeInfo = newCommitteeInfo*/
+	self.preCommitteeInfo = newCommitteeInfo*/
 	default:
 		log.Warn("CommitteeType is error ")
 	}
