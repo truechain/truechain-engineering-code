@@ -457,7 +457,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	return cdc.MarshalJSON(VoteSetJSON{
+	return help.MarshalJSON(VoteSetJSON{
 		voteSet.voteStrings(),
 		voteSet.bitArrayString(),
 		voteSet.peerMaj23s,
@@ -558,10 +558,10 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	2. A peer claims to have a 2/3 majority w/ blockKey (peerMaj23=true)
 */
 type blockVotes struct {
-	peerMaj23 bool          // peer claims to have maj23
+	peerMaj23 bool           // peer claims to have maj23
 	bitArray  *help.BitArray // valIndex -> hasVote?
-	votes     []*Vote       // valIndex -> *Vote
-	sum       int64         // vote sum
+	votes     []*Vote        // valIndex -> *Vote
+	sum       int64          // vote sum
 }
 
 func newBlockVotes(peerMaj23 bool, numValidators int) *blockVotes {

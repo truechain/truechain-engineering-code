@@ -1,27 +1,34 @@
 package consensus
 
 import (
-	"fmt"
 	"crypto/ecdsa"
-	"math/big"
-	"strconv"
 	"encoding/hex"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/log"
+	"fmt"
 	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/pex"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/pex"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
+	"math/big"
+	"strconv"
 )
 
 type service struct {
-	sw 					*p2p.Switch
-	consensusState   	*ConsensusState     // latest consensus state
-	consensusReactor 	*ConsensusReactor   // for participating in the consensus
+	sw               *p2p.Switch
+	consensusState   *ConsensusState   // latest consensus state
+	consensusReactor *ConsensusReactor // for participating in the consensus
 }
+
+const (
+	Start int = iota
+	Stop
+	Switch
+)
+
 func (s *service) start(node *Node) error {
 	// Create & add listener
 	l := p2p.NewDefaultListener(
@@ -29,21 +36,22 @@ func (s *service) start(node *Node) error {
 		node.config.P2P.ExternalAddress,
 		node.config.P2P.UPNP,
 		log.New("p2p"))
-	s.sw.AddListener(l)		
-	
+	s.sw.AddListener(l)
+
 	s.sw.SetNodeInfo(node.nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
 	// Start the switch (the P2P server).
 	err := s.sw.Start()
 	if err != nil {
 		return err
-	}	
+	}
 	return nil
 }
 func (s *service) stop() error {
 	s.sw.Stop()
 	return nil
 }
+
 //------------------------------------------------------------------------------
 
 // Node is the highest level interface to a full Tendermint node.
@@ -51,22 +59,22 @@ func (s *service) stop() error {
 type Node struct {
 	help.BaseService
 	// configt
-	config        *cfg.Config
-	Agent			types.PbftAgentProxy
+	config *cfg.Config
+	Agent  types.PbftAgentProxy
 	// network
-	addrBook 		pex.AddrBook // known peers
-	privValidator 	ttypes.PrivValidator // local node's validator key
+	addrBook      pex.AddrBook         // known peers
+	privValidator ttypes.PrivValidator // local node's validator key
 
 	// services
-	services		map[uint64]*service
-	eventBus         *ttypes.EventBus // pub/sub for services
-	nodekey			 p2p.NodeKey
-	nodeinfo		 p2p.NodeInfo
-	chainID 		 string
+	services map[uint64]*service
+	eventBus *ttypes.EventBus // pub/sub for services
+	nodekey  p2p.NodeKey
+	nodeinfo p2p.NodeInfo
+	chainID  string
 }
 
 // NewNode returns a new, ready to go, Tendermint Node.
-func NewNode(config *cfg.Config, chainID string,priv *ecdsa.PrivateKey,
+func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 	agent types.PbftAgentProxy) (*Node, error) {
 
 	privValidator := ttypes.NewPrivValidator(*priv)
@@ -76,7 +84,7 @@ func NewNode(config *cfg.Config, chainID string,priv *ecdsa.PrivateKey,
 	// even if the PEX is off. We can include the DNS name in the NetAddress,
 	// but it would still be nice to have a clear list of the current "PersistentPeers"
 	// somewhere that we can return with net_info.
-	
+
 	// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 	// Note we currently use the addrBook regardless at least for AddOurAddress
 	addrBook := pex.NewAddrBook(config.P2P.AddrBookFile(), config.P2P.AddrBookStrict)
@@ -112,16 +120,16 @@ func NewNode(config *cfg.Config, chainID string,priv *ecdsa.PrivateKey,
 	// services which will be publishing and/or subscribing for messages (events)
 	// consensusReactor will set it on consensusState and blockExecutor
 	node := &Node{
-		config:        		config,
-		privValidator:		privValidator,
-		addrBook: 			addrBook,
-		eventBus:         	eventBus,
-		chainID:			chainID,
-		Agent:				agent,
-		services:			make(map[uint64]*service),
-		nodekey:			p2p.NodeKey{
-								PrivKey: tcrypto.PrivKeyTrue(*priv),
-							},
+		config:        config,
+		privValidator: privValidator,
+		addrBook:      addrBook,
+		eventBus:      eventBus,
+		chainID:       chainID,
+		Agent:         agent,
+		services:      make(map[uint64]*service),
+		nodekey: p2p.NodeKey{
+			PrivKey: tcrypto.PrivKeyTrue(*priv),
+		},
 	}
 	node.BaseService = *help.NewBaseService("Node", node)
 	return node, nil
@@ -160,6 +168,7 @@ func (n *Node) RunForever() {
 	//	n.Stop()
 	//})
 }
+
 // EventBus returns the Node's EventBus.
 func (n *Node) EventBus() *ttypes.EventBus {
 	return n.eventBus
@@ -173,7 +182,7 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 		Channels: []byte{
 			StateChannel,
 			DataChannel,
-			VoteChannel, 
+			VoteChannel,
 			VoteSetBitsChannel,
 		},
 		Moniker: n.config.Moniker,
@@ -190,40 +199,23 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 }
 
 func (n *Node) Notify(id *big.Int, action int) error {
-	// switch action {
-	// case Start:
-	// 	if server, ok := ss.servers[id.Uint64()]; ok {
-	// 		if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
-	// 			for {
-	// 				if serverCheck(server) {
-	// 					time.Sleep(time.Second * 30)
-	// 					break
-	// 				}
-	// 				time.Sleep(time.Second)
-	// 			}
-	// 		}
+	switch action {
+	case Start:
+		if server, ok := n.services[id.Uint64()]; ok {
+			server.start(n)
+		} else {
+			return errors.New("wrong conmmitt ID:" + id.String())
+		}
 
-	// 		server.server.Start(ss.work)
-	// 		// start to fetch
-	// 		ac := &consensus.ActionIn{
-	// 			AC:     consensus.ActionFecth,
-	// 			ID:     id,
-	// 			Height: common.Big0,
-	// 		}
-	// 		server.server.ActionChan <- ac
-	// 		return nil
-	// 	}
-	// 	return errors.New("wrong conmmitt ID:" + id.String())
-	// case Stop:
-	// 	if server, ok := ss.servers[id.Uint64()]; ok {
-	// 		server.clear = true
-	// 	}
-	// 	ss.clear(id)
-	// 	return nil
-	// case Switch:
-	// 	// begin to make network..
-	// 	return nil
-	// }
+	case Stop:
+		if server, ok := n.services[id.Uint64()]; ok {
+			server.stop()
+		}
+		return nil
+	case Switch:
+		// begin to make network..
+		return nil
+	}
 	return errors.New("wrong action Num:" + strconv.Itoa(action))
 }
 func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
@@ -236,13 +228,13 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("repeat ID:" + id.String())
 	}
 	// Make StateAgent
-	state := ttypes.NewStateAgent(n.Agent,n.chainID,MakeValidators(committeeInfo))
+	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo))
 	if state == nil {
 		return errors.New("make the nil state")
 	}
 	service := &service{
-		sw:					p2p.NewSwitch(n.config.P2P),
-		consensusState:		NewConsensusState(n.config.Consensus, state),
+		sw:             p2p.NewSwitch(n.config.P2P),
+		consensusState: NewConsensusState(n.config.Consensus, state),
 	}
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
@@ -262,10 +254,10 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	}
 	for _, v := range nodes {
 		id := p2p.ID(hex.EncodeToString(v.Publickey))
-		addr,err := p2p.NewNetAddressString(p2p.IDAddressString(id,
-			fmt.Sprintf("%v:%v",v.IP,v.Port)))
+		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
+			fmt.Sprintf("%v:%v", v.IP, v.Port)))
 		if err == nil {
-			server.sw.DialPeerWithAddress(addr,true)
+			server.sw.DialPeerWithAddress(addr, true)
 		}
 	}
 	return nil
@@ -276,10 +268,10 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	if id == nil || len(members) <= 0 {
 		return nil
 	}
-	vals := make([]*ttypes.Validator,0,0)
-	for _,m := range members {
-		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*m.Publickey),10)
-		vals = append(vals,v)
+	vals := make([]*ttypes.Validator, 0, 0)
+	for _, m := range members {
+		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*m.Publickey), 10)
+		vals = append(vals, v)
 	}
 	return ttypes.NewValidatorSet(vals)
 }

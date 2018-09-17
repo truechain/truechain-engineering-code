@@ -3,21 +3,21 @@ package types
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"sync"
-	"fmt"
-	"time"
 	"errors"
-	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"fmt"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"sync"
+	"time"
 )
 
 const (
-	stepNone      int8 = 0 // Used to distinguish the initial state
-	stepPropose   int8 = 1
-	stepPrevote   int8 = 2
-	stepPrecommit int8 = 3
-	BlockPartSizeBytes int = 65536 // 64kB,
+	stepNone           int8 = 0 // Used to distinguish the initial state
+	stepPropose        int8 = 1
+	stepPrevote        int8 = 2
+	stepPrecommit      int8 = 3
+	BlockPartSizeBytes int  = 65536 // 64kB,
 )
 
 func voteToStep(vote *Vote) int8 {
@@ -31,6 +31,7 @@ func voteToStep(vote *Vote) int8 {
 		return 0
 	}
 }
+
 // PrivValidator defines the functionality of a local Tendermint validator
 // that signs votes, proposals, and heartbeats, and never double signs.
 type PrivValidator interface {
@@ -43,20 +44,20 @@ type PrivValidator interface {
 }
 
 type privValidator struct {
-	PrivKey     	tcrypto.PrivKey
-	LastHeight    	int64          `json:"last_height"`
-	LastRound     	int            `json:"last_round"`
-	LastStep      	int8           `json:"last_step"`
-	LastSignature 	[]byte         `json:"last_signature,omitempty"` // so we dont lose signatures XXX Why would we lose signatures?
-	LastSignBytes 	help.HexBytes   `json:"last_signbytes,omitempty"` // so we dont lose signatures XXX Why would we lose signatures?
+	PrivKey       tcrypto.PrivKey
+	LastHeight    int64         `json:"last_height"`
+	LastRound     int           `json:"last_round"`
+	LastStep      int8          `json:"last_step"`
+	LastSignature []byte        `json:"last_signature,omitempty"` // so we dont lose signatures XXX Why would we lose signatures?
+	LastSignBytes help.HexBytes `json:"last_signbytes,omitempty"` // so we dont lose signatures XXX Why would we lose signatures?
 
-	mtx      	sync.Mutex
+	mtx sync.Mutex
 }
 
 func NewPrivValidator(priv ecdsa.PrivateKey) PrivValidator {
 	return &privValidator{
-		PrivKey:	tcrypto.PrivKeyTrue(priv),
-		LastStep:	stepNone,
+		PrivKey:  tcrypto.PrivKeyTrue(priv),
+		LastStep: stepNone,
 	}
 }
 
@@ -68,6 +69,7 @@ func (Validator *privValidator) Reset() {
 	Validator.LastSignature = sig
 	Validator.LastSignBytes = nil
 }
+
 // Persist height/round/step and signature
 func (Validator *privValidator) saveSigned(height int64, round int, step int8,
 	signBytes []byte, sig []byte) {
@@ -96,6 +98,7 @@ func (Validator *privValidator) SignVote(chainID string, vote *Vote) error {
 	}
 	return nil
 }
+
 // signVote checks if the vote is good to sign and sets the vote signature.
 // It may need to set the timestamp as well if the vote is otherwise the same as
 // a previously signed vote (ie. we crashed after signing but before the vote hit the WAL).
@@ -134,6 +137,7 @@ func (Validator *privValidator) signVote(chainID string, vote *Vote) error {
 	vote.Signature = sig
 	return nil
 }
+
 // SignProposal signs a canonical representation of the proposal, along with
 // the chainID. Implements PrivValidator.
 func (Validator *privValidator) SignProposal(chainID string, proposal *Proposal) error {
@@ -144,6 +148,7 @@ func (Validator *privValidator) SignProposal(chainID string, proposal *Proposal)
 	}
 	return nil
 }
+
 // signProposal checks if the proposal is good to sign and sets the proposal signature.
 // It may need to set the timestamp as well if the proposal is otherwise the same as
 // a previously signed proposal ie. we crashed after signing but before the proposal hit the WAL).
@@ -192,6 +197,7 @@ func (Validator *privValidator) SignHeartbeat(chainID string, heartbeat *Heartbe
 	heartbeat.Signature = sig
 	return nil
 }
+
 // returns error if HRS regression or no LastSignBytes. returns true if HRS is unchanged
 func (Validator *privValidator) checkHRS(height int64, round int, step int8) (bool, error) {
 	if Validator.LastHeight > height {
@@ -219,6 +225,7 @@ func (Validator *privValidator) checkHRS(height int64, round int, step int8) (bo
 	}
 	return false, nil
 }
+
 // returns the timestamp from the lastSignBytes.
 // returns true if the only difference in the votes is their timestamp.
 func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.Time, bool) {
@@ -244,6 +251,7 @@ func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.T
 
 	return lastTime, bytes.Equal(newVoteBytes, lastVoteBytes)
 }
+
 // returns the timestamp from the lastSignBytes.
 // returns true if the only difference in the proposals is their timestamp
 func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.Time, bool) {
@@ -292,17 +300,17 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 //----------------------------------------
 // StateAgent implements PrivValidator
 type StateAgent interface {
-	GetValidator() *ValidatorSet 
+	GetValidator() *ValidatorSet
 	GetLastValidator() *ValidatorSet
 
 	GetLastBlockHeight() int64
 	GetChainID() string
 	LoadSeenCommit(height int64) *Commit
-	MakeBlock() (*ctypes.Block,*PartSet)
-	ValidateBlock(block *ctypes.Block) error 
-	ConsensusCommit(block *ctypes.Block) error 
+	MakeBlock() (*ctypes.Block, *PartSet)
+	ValidateBlock(block *ctypes.Block) error
+	ConsensusCommit(block *ctypes.Block) error
 
-	GetAddress() help.Address 
+	GetAddress() help.Address
 	GetPubKey() tcrypto.PubKey
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
@@ -311,20 +319,20 @@ type StateAgent interface {
 
 type stateAgent struct {
 	privValidator
-	Agent 				ctypes.PbftAgentProxy
-	Validators         	*ValidatorSet
-	ChainID				string
+	Agent      ctypes.PbftAgentProxy
+	Validators *ValidatorSet
+	ChainID    string
 }
 
-func NewStateAgent(agent ctypes.PbftAgentProxy,chainID string,vals *ValidatorSet) *stateAgent {
-	return &stateAgent {
-		Agent:			agent,
-		ChainID:		chainID,
-		Validators:		vals,
+func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string, vals *ValidatorSet) *stateAgent {
+	return &stateAgent{
+		Agent:      agent,
+		ChainID:    chainID,
+		Validators: vals,
 	}
 }
 
-func MakePartSet(partSize int,block *ctypes.Block) *PartSet {
+func MakePartSet(partSize int, block *ctypes.Block) *PartSet {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
 	bz, err := help.MarshalBinary(b)
@@ -339,12 +347,12 @@ func (state *stateAgent) GetChainID() string {
 func (state *stateAgent) SetPrivValidator(priv *privValidator) {
 	state.privValidator = priv
 }
-func (state *stateAgent) MakeBlock() (*ctypes.Block,*PartSet) {
+func (state *stateAgent) MakeBlock() (*ctypes.Block, *PartSet) {
 	block, err := state.Agent.FetchFastBlock()
 	if err != nil {
-		return nil,nil
+		return nil, nil
 	}
-	return block,MakePartSet(BlockPartSizeBytes,block)
+	return block, MakePartSet(BlockPartSizeBytes, block)
 }
 func (state *stateAgent) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
