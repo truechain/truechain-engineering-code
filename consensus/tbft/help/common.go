@@ -224,6 +224,12 @@ func ASCIITrim(s string) string {
 	}
 	return string(r)
 }
+func EncodeUvarint(w io.Writer, u uint64) (err error) {
+	var buf [10]byte
+	n := binary.PutUvarint(buf[:], u)
+	_, err = w.Write(buf[0:n])
+	return
+}
 //-----------------------------------------------------------------------------
 // Panics if error.
 func MustMarshalBinaryBare(o interface{}) []byte {
@@ -319,6 +325,62 @@ func UnmarshalBinaryReader(r io.Reader, ptr interface{}, maxSize int64) (n int64
 	// Decode.
 	err = UnmarshalBinaryBare(bz, ptr)
 	return
+}
+// MarshalBinary encodes the object o according to the Amino spec,
+// but prefixed by a uvarint encoding of the object to encode.
+// Use MarshalBinaryBare if you don't want byte-length prefixing.
+//
+// For consistency, MarshalBinary will first dereference pointers
+// before encoding.  MarshalBinary will panic if o is a nil-pointer,
+// or if o is invalid.
+func MarshalBinary(o interface{}) ([]byte, error) {
+
+	// Write the bytes here.
+	var buf = new(bytes.Buffer)
+
+	// Write the bz without length-prefixing.
+	bz, err := MarshalBinaryBare(o)
+	if err != nil {
+		return nil, err
+	}
+
+	// Write uvarint(len(bz)).
+	err = EncodeUvarint(buf, uint64(len(bz)))
+	if err != nil {
+		return nil, err
+	}
+
+	// Write bz.
+	_, err = buf.Write(bz)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+// Like UnmarshalBinaryBare, but will first decode the byte-length prefix.
+// UnmarshalBinary will panic if ptr is a nil-pointer.
+// Returns an error if not all of bz is consumed.
+func UnmarshalBinary(bz []byte, ptr interface{}) error {
+	if len(bz) == 0 {
+		return errors.New("UnmarshalBinary cannot decode empty bytes")
+	}
+
+	// Read byte-length prefix.
+	u64, n := binary.Uvarint(bz)
+	if n < 0 {
+		return fmt.Errorf("Error reading msg byte-length prefix: got code %v", n)
+	}
+	if u64 > uint64(len(bz)-n) {
+		return fmt.Errorf("Not enough bytes to read in UnmarshalBinary, want %v more bytes but only have %v",
+			u64, len(bz)-n)
+	} else if u64 < uint64(len(bz)-n) {
+		return fmt.Errorf("Bytes left over in UnmarshalBinary, should read %v more bytes but have %v",
+			u64, len(bz)-n)
+	}
+	bz = bz[n:]
+	// Decode.
+	return UnmarshalBinaryBare(bz, ptr)
 }
 //-----------------------------------------------------------------------------
 func RandInt() int {

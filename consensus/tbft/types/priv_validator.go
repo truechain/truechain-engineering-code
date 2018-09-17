@@ -17,6 +17,7 @@ const (
 	stepPropose   int8 = 1
 	stepPrevote   int8 = 2
 	stepPrecommit int8 = 3
+	BlockPartSizeBytes int = 65536 // 64kB,
 )
 
 func voteToStep(vote *Vote) int8 {
@@ -303,7 +304,6 @@ type StateAgent interface {
 
 	GetAddress() help.Address 
 	GetPubKey() tcrypto.PubKey
-
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
 	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
@@ -313,14 +313,73 @@ type stateAgent struct {
 	privValidator
 	Agent 				ctypes.PbftAgentProxy
 	Validators         	*ValidatorSet
+	ChainID				string
 }
 
-func NewStateAgent() *stateAgent {
-	return nil
+func NewStateAgent(agent ctypes.PbftAgentProxy,chainID string,vals *ValidatorSet) *stateAgent {
+	return &stateAgent {
+		Agent:			agent,
+		ChainID:		chainID,
+		Validators:		vals,
+	}
 }
-func makeValidators() *ValidatorSet{
-	return nil
+
+func MakePartSet(partSize int,block *ctypes.Block) *PartSet {
+	// We prefix the byte length, so that unmarshaling
+	// can easily happen via a reader.
+	bz, err := help.MarshalBinary(b)
+	if err != nil {
+		panic(err)
+	}
+	return NewPartSetFromData(bz, partSize)
+}
+func (state *stateAgent) GetChainID() string {
+	return state.ChainID
+}
+func (state *stateAgent) SetPrivValidator(priv *privValidator) {
+	state.privValidator = priv
 }
 func (state *stateAgent) MakeBlock() (*ctypes.Block,*PartSet) {
+	block, err := state.Agent.FetchFastBlock()
+	if err != nil {
+		return nil,nil
+	}
+	return block,MakePartSet(BlockPartSizeBytes,block)
+}
+func (state *stateAgent) ConsensusCommit(block *ctypes.Block) error {
+	if block == nil {
+		return errors.New("error param")
+	}
+	err := state.Agent.BroadcastConsensus(block)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (state *stateAgent) ValidateBlock(block *ctypes.Block) error {
+	if block == nil {
+		return errors.New("block not have")
+	}
+	err := state.Agent.VerifyFastBlock(block)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (state *stateAgent) LoadSeenCommit(height int64) *Commit {
 
+}
+func (state *stateAgent) GetValidator() *ValidatorSet {
+	return state.Validators
+}
+func (state *stateAgent) GetLastValidator() *ValidatorSet {
+
+}
+func (state *stateAgent) GetLastBlockHeight() int64 {
+
+}
+func (state *stateAgent) Broadcast(height *big.Int) {
+	// if fb := ss.getBlock(height.Uint64()); fb != nil {
+	// 	state.Agent.BroadcastFastBlock(fb)
+	// }
 }

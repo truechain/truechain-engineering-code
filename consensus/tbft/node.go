@@ -50,8 +50,9 @@ func (s *service) stop() error {
 // It includes all configuration information and running services.
 type Node struct {
 	help.BaseService
-	// config
+	// configt
 	config        *cfg.Config
+	Agent			types.PbftAgentProxy
 	// network
 	addrBook 		pex.AddrBook // known peers
 	privValidator 	ttypes.PrivValidator // local node's validator key
@@ -65,7 +66,8 @@ type Node struct {
 }
 
 // NewNode returns a new, ready to go, Tendermint Node.
-func NewNode(config *cfg.Config, chainID string,priv *ecdsa.PrivateKey) (*Node, error) {
+func NewNode(config *cfg.Config, chainID string,priv *ecdsa.PrivateKey,
+	agent types.PbftAgentProxy) (*Node, error) {
 
 	privValidator := ttypes.NewPrivValidator(*priv)
 	// Optionally, start the pex reactor
@@ -115,6 +117,7 @@ func NewNode(config *cfg.Config, chainID string,priv *ecdsa.PrivateKey) (*Node, 
 		addrBook: 			addrBook,
 		eventBus:         	eventBus,
 		chainID:			chainID,
+		Agent:				agent,
 		services:			make(map[uint64]*service),
 		nodekey:			p2p.NodeKey{
 								PrivKey: tcrypto.PrivKeyTrue(*priv),
@@ -183,11 +186,10 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 	_, lAddr := help.ProtocolAndAddress(n.config.P2P.ListenAddress)
 	lAddrIP, lAddrPort := p2p.SplitHostPort(lAddr)
 	nodeInfo.ListenAddr = fmt.Sprintf("%v:%v", lAddrIP, lAddrPort)
-
 	return nodeInfo
 }
 
-func (ss *Node) Notify(id *big.Int, action int) error {
+func (n *Node) Notify(id *big.Int, action int) error {
 	// switch action {
 	// case Start:
 	// 	if server, ok := ss.servers[id.Uint64()]; ok {
@@ -234,7 +236,10 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("repeat ID:" + id.String())
 	}
 	// Make StateAgent
-	var state ttypes.StateAgent	
+	state := ttypes.NewStateAgent(n.Agent,n.chainID,MakeValidators(committeeInfo))
+	if state == nil {
+		return errors.New("make the nil state")
+	}
 	service := &service{
 		sw:					p2p.NewSwitch(n.config.P2P),
 		consensusState:		NewConsensusState(n.config.Consensus, state),
@@ -247,11 +252,11 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	n.services[id.Uint64()] = service
 	return nil
 }
-func (ss *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
+func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
-	server, ok := ss.services[id.Uint64()]
+	server, ok := n.services[id.Uint64()]
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
 	}
@@ -264,4 +269,17 @@ func (ss *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		}
 	}
 	return nil
+}
+func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
+	id := cmm.Id
+	members := cmm.Members
+	if id == nil || len(members) <= 0 {
+		return nil
+	}
+	vals := make([]*ttypes.Validator,0,0)
+	for _,m := range members {
+		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*m.Publickey),10)
+		vals = append(vals,v)
+	}
+	return ttypes.NewValidatorSet(vals)
 }
