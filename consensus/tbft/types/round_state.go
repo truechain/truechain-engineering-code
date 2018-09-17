@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 //-----------------------------------------------------------------------------
@@ -58,33 +58,33 @@ func (rs RoundStepType) String() string {
 // NOTE: Not thread safe. Should only be manipulated by functions downstream
 // of the cs.receiveRoutine
 type RoundState struct {
-	Height             int64               `json:"height"` // Height we are working on
-	Round              int                 `json:"round"`
-	Step               RoundStepType       `json:"step"`
-	StartTime          time.Time           `json:"start_time"`
-	CommitTime         time.Time           `json:"commit_time"` // Subjective time when +2/3 precommits for Block at Round were found
-	Validators         *ValidatorSet 	   `json:"validators"`
-	Proposal           *Proposal     	   `json:"proposal"`
-	ProposalBlock      *types.Block        `json:"proposal_block"`
-	ProposalBlockParts *PartSet      	   `json:"proposal_block_parts"`
-	LockedRound        int                 `json:"locked_round"`
-	LockedBlock        *types.Block        `json:"locked_block"`
-	LockedBlockParts   *PartSet      	   `json:"locked_block_parts"`
-	ValidRound         int                 `json:"valid_round"`       // Last known round with POL for non-nil valid block.
-	ValidBlock         *types.Block        `json:"valid_block"`       // Last known block of POL mentioned above.
-	ValidBlockParts    *PartSet 	       `json:"valid_block_parts"` // Last known block parts of POL metnioned above.
-	Votes              *HeightVoteSet      `json:"votes"`
-	CommitRound        int                 `json:"commit_round"` //
-	LastCommit         *VoteSet      	   `json:"last_commit"`  // Last precommits at Height-1
+	Height             uint64         `json:"height"` // Height we are working on
+	Round              uint           `json:"round"`
+	Step               RoundStepType  `json:"step"`
+	StartTime          time.Time      `json:"start_time"`
+	CommitTime         time.Time      `json:"commit_time"` // Subjective time when +2/3 precommits for Block at Round were found
+	Validators         *ValidatorSet  `json:"validators"`
+	Proposal           *Proposal      `json:"proposal"`
+	ProposalBlock      *types.Block   `json:"proposal_block"`
+	ProposalBlockParts *PartSet       `json:"proposal_block_parts"`
+	LockedRound        uint           `json:"locked_round"`
+	LockedBlock        *types.Block   `json:"locked_block"`
+	LockedBlockParts   *PartSet       `json:"locked_block_parts"`
+	ValidRound         uint           `json:"valid_round"`       // Last known round with POL for non-nil valid block.
+	ValidBlock         *types.Block   `json:"valid_block"`       // Last known block of POL mentioned above.
+	ValidBlockParts    *PartSet       `json:"valid_block_parts"` // Last known block parts of POL metnioned above.
+	Votes              *HeightVoteSet `json:"votes"`
+	CommitRound        uint           `json:"commit_round"` //
+	LastCommit         *VoteSet       `json:"last_commit"`  // Last precommits at Height-1
 }
 
 // Compressed version of the RoundState for use in RPC
 type RoundStateSimple struct {
 	HeightRoundStep   string          `json:"height/round/step"`
 	StartTime         time.Time       `json:"start_time"`
-	ProposalBlockHash help.HexBytes    `json:"proposal_block_hash"`
-	LockedBlockHash   help.HexBytes    `json:"locked_block_hash"`
-	ValidBlockHash    help.HexBytes    `json:"valid_block_hash"`
+	ProposalBlockHash help.HexBytes   `json:"proposal_block_hash"`
+	LockedBlockHash   help.HexBytes   `json:"locked_block_hash"`
+	ValidBlockHash    help.HexBytes   `json:"valid_block_hash"`
 	Votes             json.RawMessage `json:"height_vote_set"`
 }
 
