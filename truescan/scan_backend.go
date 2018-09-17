@@ -8,7 +8,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 )
 
 type TrueScan struct {
@@ -70,18 +69,20 @@ func (ts *TrueScan) Start() {
 func (ts *TrueScan) electionHandleLoop() error {
 	for {
 		select {
-		case ch := <-ts.electionCh:
-			switch ch.Option {
-			case types.CommitteeStart:
-			case types.CommitteeStop:
-			case types.CommitteeSwitchover:
-			default:
-				log.Warn("unknown election option:", "option", ch.Option)
+		case electionEvent := <-ts.electionCh:
+			if electionEvent.Option == types.CommitteeStart {
+				ts.handleElection(&electionEvent)
 			}
-			// Err() channel will be closed when unsubscribing.
 		case <-ts.electionSub.Err():
 			return errResp("election terminated")
 		}
+	}
+}
+func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
+	fmt.Println(ee.CommitteeId.Uint64())
+	members := ee.CommitteeMembers
+	for _, member := range members {
+		fmt.Println(member.Coinbase.String())
 	}
 }
 
