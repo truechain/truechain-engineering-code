@@ -265,7 +265,8 @@ func (self *PbftAgent) loop() {
 					signStr = signStr[:subSignStr]
 				}
 				// if  node  is in committee  and the sign is not received
-				if self.IsCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
+				//TODO every time getcommittee
+				if bytes.Equal(self.cacheSign[signStr], []byte{}) && self.IsCommitteeMember(self.nextCommitteeInfo) {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
 					self.receivePbftNode(cryNodeInfo)
 				} else {
@@ -284,7 +285,7 @@ func (self *PbftAgent) loop() {
 func (self *PbftAgent) updateCommitteeNode() {
 	members := self.currentCommitteeInfo.Members
 	isCommitteeeMember := self.election.IsCommitteeMember(members, self.committeeNode.Publickey)
-	if isCommitteeeMember != nil {
+	if isCommitteeeMember {
 		for _, port := range self.commiteePorts {
 			if self.committeeNode.Port != uint(port) {
 				self.committeeNode.Port = uint(port)
@@ -409,17 +410,12 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 		return false
 	}
 	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
-		log.Warn("CommitteeId not consistence  ...")
+		log.Warn("received nodeInfo CommitteeId not consistence  ...")
 		return false
 	}
 
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-	for _, member := range nextCommitteeInfo.Members {
-		if bytes.Equal(pubKeyByte, crypto.FromECDSAPub(member.Publickey)) {
-			return true
-		}
-	}
-	return false
+	return self.election.IsCommitteeMember(nextCommitteeInfo.Members, pubKeyByte)
 }
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
@@ -432,7 +428,7 @@ func (self *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 			CommitteeId: committeeInfo.Id,
 		}
 	)
-	DebugNode(self.committeeNode, "send")
+	PrintNode("send", self.committeeNode)
 	nodeByte, err := rlp.EncodeToBytes(self.committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
@@ -474,7 +470,7 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
-			DebugNode(node, "receive")
+			PrintNode("receive", node)
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
@@ -811,9 +807,7 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 		log.Error("len(committeeInfo.Members) == 0 ")
 		return false
 	}
-	member := self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
-
-	return member != nil
+	return self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
 }
 
 /*
@@ -890,7 +884,7 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
-		log.Error("newCommitteeInfo is nil ", "CommitteeType", CommitteeType)
+		log.Error("setCommitteeInfo is nil ", "CommitteeType", CommitteeType)
 		newCommitteeInfo = &types.CommitteeInfo{}
 	}
 	switch CommitteeType {
@@ -917,7 +911,7 @@ func DebugCryptNode(node *types.EncryptNodeMessage) {
 		len(node.Nodes))
 }
 
-func DebugNode(node *types.CommitteeNode, str string) {
+func PrintNode(str string, node *types.CommitteeNode) {
 	log.Info(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
 		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey)[:6]+"***")
 }
