@@ -985,7 +985,6 @@ func (d *Downloader) fetchBodies(from uint64) error {
 		d.queue.PendingBlocks, d.queue.InFlightBlocks, d.queue.ShouldThrottleBlocks, d.queue.ReserveBodies,
 		d.bodyFetchHook, fetch, d.queue.CancelBodies, capacity, d.peers.BodyIdlePeers, setIdle, "bodies")
 
-	d.queue.active.Signal()
 	log.Debug("Fast Block body download terminated", "err", err)
 	return err
 }
@@ -1009,7 +1008,6 @@ func (d *Downloader) fetchReceipts(from uint64) error {
 	err := d.fetchParts(errCancelReceiptFetch, d.receiptCh, deliver, d.receiptWakeCh, expire,
 		d.queue.PendingReceipts, d.queue.InFlightReceipts, d.queue.ShouldThrottleReceipts, d.queue.ReserveReceipts,
 		d.receiptFetchHook, fetch, d.queue.CancelReceipts, capacity, d.peers.ReceiptIdlePeers, setIdle, "receipts")
-	d.queue.active.Signal()
 	log.Debug("Fast Transaction receipt download terminated", "err", err)
 	return err
 }
