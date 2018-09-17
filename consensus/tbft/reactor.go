@@ -1,15 +1,15 @@
 package consensus
 
 import (
+	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"reflect"
 	"sync"
 	"time"
-	"errors"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 )
 
 const (
@@ -71,30 +71,6 @@ func (conR *ConsensusReactor) OnStop() {
 	conR.conS.Stop()
 	if !conR.FastSync() {
 		conR.conS.Wait()
-	}
-}
-
-// SwitchToConsensus switches from fast_sync mode to consensus mode.
-// It resets the state, turns off fast_sync, and starts the consensus state-machine
-func (conR *ConsensusReactor) SwitchToConsensus(state ttypes.StateAgent, blocksSynced int) {
-	log.Info("SwitchToConsensus")
-	conR.conS.reconstructLastCommit(state)
-	// NOTE: The line below causes broadcastNewRoundStepRoutine() to
-	// broadcast a NewRoundStepMessage.
-	conR.conS.updateToState(state)
-
-	conR.mtx.Lock()
-	conR.fastSync = false
-	conR.mtx.Unlock()
-
-	if blocksSynced > 0 {
-		// dont bother with the WAL if we fast synced
-		conR.conS.doWALCatchup = false
-	}
-	err := conR.conS.Start()
-	if err != nil {
-		log.Error("Error starting conS", "err", err)
-		return
 	}
 }
 
@@ -221,7 +197,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 				log.Error("Bad VoteSetBitsMessage field Type")
 				return
 			}
-			d1,derr := help.MarshalBinaryBare(&VoteSetBitsMessage{
+			d1, derr := help.MarshalBinaryBare(&VoteSetBitsMessage{
 				Height:  msg.Height,
 				Round:   msg.Round,
 				Type:    msg.Type,
@@ -417,8 +393,8 @@ func makeRoundStepMessages(rs *ttypes.RoundState) (nrsMsg *NewRoundStepMessage, 
 		Height: rs.Height,
 		Round:  rs.Round,
 		Step:   rs.Step,
-		SecondsSinceStartTime: int(time.Since(rs.StartTime).Seconds()),
-		LastCommitRound:       rs.LastCommit.Round(),
+		SecondsSinceStartTime: uint(time.Since(rs.StartTime).Seconds()),
+		LastCommitRound:       uint(rs.LastCommit.Round()),
 	}
 	if rs.Step == ttypes.RoundStepCommit {
 		csMsg = &CommitStepMessage{
@@ -828,9 +804,9 @@ type PeerState struct {
 	peer   p2p.Peer
 	logger log.Logger
 
-	mtx   sync.Mutex             `json:"-"`           // NOTE: Modify below using setters, never directly.
+	mtx   sync.Mutex            `json:"-"`           // NOTE: Modify below using setters, never directly.
 	PRS   ttypes.PeerRoundState `json:"round_state"` // Exposed.
-	Stats *peerStateStats        `json:"stats"`       // Exposed.
+	Stats *peerStateStats       `json:"stats"`       // Exposed.
 }
 
 // peerStateStats holds internal statistics for a peer.
@@ -849,9 +825,9 @@ func (pss peerStateStats) String() string {
 // NewPeerState returns a new PeerState for the given Peer
 func NewPeerState(peer p2p.Peer) *PeerState {
 	return &PeerState{
-		peer:   peer,
+		peer: peer,
 		//logger: log.NewNopLogger(),
-		logger:	nil,
+		logger: nil,
 		PRS: ttypes.PeerRoundState{
 			Round:              -1,
 			ProposalPOLRound:   -1,
@@ -1027,7 +1003,7 @@ func (ps *PeerState) getVoteBitArray(height int64, round int, type_ byte) *help.
 }
 
 // 'round': A round for which we have a +2/3 commit.
-func (ps *PeerState) ensureCatchupCommitRound(height int64, round int, numValidators int) {
+func (ps *PeerState) ensureCatchupCommitRound(height uint64, round uint, numValidators uint) {
 	if ps.PRS.Height != height {
 		return
 	}
@@ -1053,13 +1029,13 @@ func (ps *PeerState) ensureCatchupCommitRound(height int64, round int, numValida
 // what votes this peer has received.
 // NOTE: It's important to make sure that numValidators actually matches
 // what the node sees as the number of validators for height.
-func (ps *PeerState) EnsureVoteBitArrays(height int64, numValidators int) {
+func (ps *PeerState) EnsureVoteBitArrays(height uint64, numValidators int) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 	ps.ensureVoteBitArrays(height, numValidators)
 }
 
-func (ps *PeerState) ensureVoteBitArrays(height int64, numValidators int) {
+func (ps *PeerState) ensureVoteBitArrays(height uint64, numValidators int) {
 	if ps.PRS.Height == height {
 		if ps.PRS.Prevotes == nil {
 			ps.PRS.Prevotes = help.NewBitArray(numValidators)
@@ -1190,11 +1166,11 @@ func (ps *PeerState) ApplyNewRoundStepMessage(msg *NewRoundStepMessage) {
 	}
 	if psHeight != msg.Height {
 		// Shift Precommits to LastCommit.
-		if psHeight+1 == msg.Height && psRound == msg.LastCommitRound {
-			ps.PRS.LastCommitRound = msg.LastCommitRound
+		if psHeight+1 == msg.Height && psRound == uint(msg.LastCommitRound) {
+			ps.PRS.LastCommitRound = uint(msg.LastCommitRound)
 			ps.PRS.LastCommit = ps.PRS.Precommits
 		} else {
-			ps.PRS.LastCommitRound = msg.LastCommitRound
+			ps.PRS.LastCommitRound = uint(msg.LastCommitRound)
 			ps.PRS.LastCommit = nil
 		}
 		// We'll update the BitArray capacity later.
@@ -1319,24 +1295,24 @@ func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 // NewRoundStepMessage is sent for every step taken in the ConsensusState.
 // For every height/round/step transition
 type NewRoundStepMessage struct {
-	Height                int64
-	Round                 int
+	Height                uint64
+	Round                 uint
 	Step                  ttypes.RoundStepType
-	SecondsSinceStartTime int
-	LastCommitRound       int
+	SecondsSinceStartTime uint
+	LastCommitRound       uint
 }
 
 // String returns a string representation.
 func (m *NewRoundStepMessage) String() string {
 	return fmt.Sprintf("[NewRoundStep H:%v R:%v S:%v LCR:%v]",
-		m.Height, m.Round, m.Step, m.LastCommitRound)
+		m.Height, m.Round, m.Step, int(m.LastCommitRound))
 }
 
 //-------------------------------------
 
 // CommitStepMessage is sent when a block is committed.
 type CommitStepMessage struct {
-	Height           int64
+	Height           uint64
 	BlockPartsHeader ttypes.PartSetHeader
 	BlockParts       *help.BitArray
 }
@@ -1402,10 +1378,10 @@ func (m *VoteMessage) String() string {
 
 // HasVoteMessage is sent to indicate that a particular vote has been received.
 type HasVoteMessage struct {
-	Height int64
-	Round  int
+	Height uint64
+	Round  uint
 	Type   byte
-	Index  int
+	Index  uint
 }
 
 // String returns a string representation.
@@ -1417,8 +1393,8 @@ func (m *HasVoteMessage) String() string {
 
 // VoteSetMaj23Message is sent to indicate that a given BlockID has seen +2/3 votes.
 type VoteSetMaj23Message struct {
-	Height  int64
-	Round   int
+	Height  uint64
+	Round   uint
 	Type    byte
 	BlockID ttypes.BlockID
 }

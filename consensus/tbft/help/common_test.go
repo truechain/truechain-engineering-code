@@ -2,11 +2,12 @@ package help
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 )
 
 type TStruct struct {
-	Id string
+	Id *big.Float
 	T2 TStruct2
 }
 
@@ -30,7 +31,7 @@ func TestJson(t *testing.T) {
 func TestBinaryBare(t *testing.T) {
 	//TestBinary
 	t2 := TStruct2{Id: "ab"}
-	a := TStruct{Id: "ac", T2: t2}
+	a := TStruct{Id: big.NewFloat(0.001), T2: t2}
 	var tOut TStruct
 	byte2, err := MarshalBinaryBare(a)
 	if err != nil {
@@ -46,9 +47,9 @@ func TestBinaryBare(t *testing.T) {
 
 func TestMarshalBinary(t *testing.T) {
 	t2 := TStruct2{Id: "ab"}
-	a := TStruct{Id: "ac", T2: t2}
+	a := TStruct{Id: big.NewFloat(1.001), T2: t2}
 	var tOut TStruct
-
+	fmt.Println(a)
 	byte2, err := MarshalBinary(a)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -59,4 +60,11 @@ func TestMarshalBinary(t *testing.T) {
 	} else {
 		fmt.Println(err.Error())
 	}
+}
+
+func TestAbc(t *testing.T) {
+	var a int = -1
+
+	fmt.Println(uint(a))
+	fmt.Println(int(uint(a)))
 }
