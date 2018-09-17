@@ -429,7 +429,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 			b, c := serverCheck(server)
 			fmt.Println("server count:", c)
 			if b {
-				time.Sleep(time.Second * 10)
+				time.Sleep(time.Second * 60)
 				break
 			}
 			time.Sleep(time.Second)
