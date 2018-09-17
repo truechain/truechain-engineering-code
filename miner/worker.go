@@ -362,7 +362,8 @@ func (self *worker) update() {
 		//TODO　fruit event
 		case <-self.fruitCh:
 			log.Info("----------------start commit new work  fruitCh")
-			if !self.atCommintNewWoker {
+			// if only fruit only not need care about fruit event
+			if !self.atCommintNewWoker && !self.FruitOnly {
 				// after get the fruit event should star mining if have not mining
 				log.Info("star commit new work  fruitCh")
 				
@@ -618,10 +619,16 @@ func (self *worker) commitNewWork() {
 		return
 	}
 
+	
 	fruits, errFruit := self.etrue.SnailPool().PendingFruits()
 	if errFruit != nil {
 		self.atCommintNewWoker  = false
 		return
+	}
+	
+	// only miner fruit if not fruit set only miner the fruit
+	if self.FruitOnly {
+		fruits = nil 
 	}
 
 	if fastblock == nil && fruits == nil{
