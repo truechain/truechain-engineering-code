@@ -589,15 +589,15 @@ func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-/*
+
 func (bc *SnailBlockChain) GetUnclesInChain(block *types.SnailBlock, length int) []*types.SnailHeader {
-	uncles := []*types.Header{}
+	uncles := []*types.SnailHeader{}
 	for i := 0; block != nil && i < length; i++ {
 		uncles = append(uncles, block.Uncles()...)
 		block = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	}
 	return uncles
-}*/
+}
 
 // TrieNode retrieves a blob of data associated with a trie node (or code hash)
 // either from ephemeral in-memory cache, or from persistent storage.
@@ -865,7 +865,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 				return NonStatTy, err
 			}
 		}
-
+		log.Debug("Reorganise the chain sine the parent is not the head block")
 		// Write the positional metadata for fruit lookups
 		rawdb.WriteFtLookupEntries(batch, block)
 
