@@ -94,12 +94,16 @@ func (rs *RoundState) RoundStateSimple() RoundStateSimple {
 	if err != nil {
 		panic(err)
 	}
+
+	tmpPro:=rs.ProposalBlock.Hash()
+	tmpLock := rs.LockedBlock.Hash()
+	tmpValid := rs.ValidBlock.Hash()
 	return RoundStateSimple{
 		HeightRoundStep:   fmt.Sprintf("%d/%d/%d", rs.Height, rs.Round, rs.Step),
 		StartTime:         rs.StartTime,
-		ProposalBlockHash: rs.ProposalBlock.Hash()[:],
-		LockedBlockHash:   rs.LockedBlock.Hash()[:],
-		ValidBlockHash:    rs.ValidBlock.Hash()[:],
+		ProposalBlockHash: tmpPro[:],
+		LockedBlockHash:   tmpLock[:],
+		ValidBlockHash:    tmpValid[:],
 		Votes:             votesJSON,
 	}
 }
@@ -111,7 +115,7 @@ func (rs *RoundState) RoundStateEvent() EventDataRoundState {
 	rsCopy := *rs
 	edrs := EventDataRoundState{
 		Height:     rs.Height,
-		Round:      rs.Round,
+		Round:      uint(rs.Round),
 		Step:       rs.Step.String(),
 		RoundState: &rsCopy,
 	}

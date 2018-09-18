@@ -30,7 +30,7 @@ type TimedWALMessage struct {
 // EndHeightMessage marks the end of the given height inside WAL.
 // @internal used by scripts/wal2json util.
 type EndHeightMessage struct {
-	Height int64 `json:"height"`
+	Height uint64 `json:"height"`
 }
 
 type WALMessage interface{}
@@ -51,7 +51,7 @@ type WAL interface {
 	Write(WALMessage)
 	WriteSync(WALMessage)
 	Group() *auto.Group
-	SearchForEndHeight(height int64, options *WALSearchOptions) (gr *auto.GroupReader, found bool, err error)
+	SearchForEndHeight(height uint64, options *WALSearchOptions) (gr *auto.GroupReader, found bool, err error)
 
 	Start() error
 	Stop() error
@@ -147,7 +147,7 @@ type WALSearchOptions struct {
 // Group reader will be nil if found equals false.
 //
 // CONTRACT: caller must close group reader.
-func (wal *baseWAL) SearchForEndHeight(height int64, options *WALSearchOptions) (gr *auto.GroupReader, found bool, err error) {
+func (wal *baseWAL) SearchForEndHeight(height uint64, options *WALSearchOptions) (gr *auto.GroupReader, found bool, err error) {
 	var msg *TimedWALMessage
 	lastHeightFound := int64(-1)
 
@@ -166,7 +166,7 @@ func (wal *baseWAL) SearchForEndHeight(height int64, options *WALSearchOptions) 
 			msg, err = dec.Decode()
 			if err == io.EOF {
 				// OPTIMISATION: no need to look for height in older files if we've seen h < height
-				if lastHeightFound > 0 && lastHeightFound < height {
+				if lastHeightFound > 0 && lastHeightFound < int64(height) {
 					gr.Close()
 					return nil, false, nil
 				}
@@ -183,8 +183,8 @@ func (wal *baseWAL) SearchForEndHeight(height int64, options *WALSearchOptions) 
 			}
 
 			if m, ok := msg.Msg.(EndHeightMessage); ok {
-				lastHeightFound = m.Height
-				if m.Height == height { // found
+				lastHeightFound = int64(m.Height)
+				if m.Height == uint64(height) { // found
 					log.Debug("Found", "height", height, "index", index)
 					return gr, true, nil
 				}
@@ -313,7 +313,7 @@ type nilWAL struct{}
 func (nilWAL) Write(m WALMessage)     {}
 func (nilWAL) WriteSync(m WALMessage) {}
 func (nilWAL) Group() *auto.Group     { return nil }
-func (nilWAL) SearchForEndHeight(height int64, options *WALSearchOptions) (gr *auto.GroupReader, found bool, err error) {
+func (nilWAL) SearchForEndHeight(height uint64, options *WALSearchOptions) (gr *auto.GroupReader, found bool, err error) {
 	return nil, false, nil
 }
 func (nilWAL) Start() error { return nil }

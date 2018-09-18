@@ -3,9 +3,9 @@ package types
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"strings"
 	"sync"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 type RoundVoteSet struct {
@@ -37,9 +37,9 @@ type HeightVoteSet struct {
 	valSet  *ValidatorSet
 
 	mtx               sync.Mutex
-	round             uint                  // max tracked round
-	roundVoteSets     map[uint]RoundVoteSet // keys: [0...round]
-	peerCatchupRounds map[string][]uint     // keys: peer.ID; values: at most 2 rounds
+	round             int                  // max tracked round
+	roundVoteSets     map[int]RoundVoteSet // keys: [0...round]
+	peerCatchupRounds map[string][]int     // keys: peer.ID; values: at most 2 rounds
 }
 
 func NewHeightVoteSet(chainID string, height uint64, valSet *ValidatorSet) *HeightVoteSet {
@@ -56,8 +56,8 @@ func (hvs *HeightVoteSet) Reset(height uint64, valSet *ValidatorSet) {
 
 	hvs.height = height
 	hvs.valSet = valSet
-	hvs.roundVoteSets = make(map[uint]RoundVoteSet)
-	hvs.peerCatchupRounds = make(map[string][]uint)
+	hvs.roundVoteSets = make(map[int]RoundVoteSet)
+	hvs.peerCatchupRounds = make(map[string][]int)
 
 	hvs.addRound(0)
 	hvs.round = 0
@@ -69,14 +69,14 @@ func (hvs *HeightVoteSet) Height() uint64 {
 	return hvs.height
 }
 
-func (hvs *HeightVoteSet) Round() uint {
+func (hvs *HeightVoteSet) Round() int {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
 	return hvs.round
 }
 
 // Create more RoundVoteSets up to round.
-func (hvs *HeightVoteSet) SetRound(round uint) {
+func (hvs *HeightVoteSet) SetRound(round int) {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
 	if hvs.round != 0 && (round < hvs.round+1) {
@@ -92,7 +92,7 @@ func (hvs *HeightVoteSet) SetRound(round uint) {
 	hvs.round = round
 }
 
-func (hvs *HeightVoteSet) addRound(round uint) {
+func (hvs *HeightVoteSet) addRound(round int) {
 	if _, ok := hvs.roundVoteSets[round]; ok {
 		// cmn.PanicSanity("addRound() for an existing round")
 		panic(0)
@@ -114,12 +114,12 @@ func (hvs *HeightVoteSet) AddVote(vote *Vote, peerID string) (added bool, err er
 	if !IsVoteTypeValid(vote.Type) {
 		return
 	}
-	voteSet := hvs.getVoteSet(vote.Round, vote.Type)
+	voteSet := hvs.getVoteSet(int(vote.Round), vote.Type)
 	if voteSet == nil {
 		if rndz := hvs.peerCatchupRounds[peerID]; len(rndz) < 2 {
-			hvs.addRound(vote.Round)
-			voteSet = hvs.getVoteSet(vote.Round, vote.Type)
-			hvs.peerCatchupRounds[peerID] = append(rndz, vote.Round)
+			hvs.addRound(int(vote.Round))
+			voteSet = hvs.getVoteSet(int(vote.Round), vote.Type)
+			hvs.peerCatchupRounds[peerID] = append(rndz, int(vote.Round))
 		} else {
 			// punish peer
 			err = GotVoteFromUnwantedRoundError
@@ -130,13 +130,13 @@ func (hvs *HeightVoteSet) AddVote(vote *Vote, peerID string) (added bool, err er
 	return
 }
 
-func (hvs *HeightVoteSet) Prevotes(round uint) *VoteSet {
+func (hvs *HeightVoteSet) Prevotes(round int) *VoteSet {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
 	return hvs.getVoteSet(round, VoteTypePrevote)
 }
 
-func (hvs *HeightVoteSet) Precommits(round uint) *VoteSet {
+func (hvs *HeightVoteSet) Precommits(round int) *VoteSet {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
 	return hvs.getVoteSet(round, VoteTypePrecommit)
@@ -144,7 +144,7 @@ func (hvs *HeightVoteSet) Precommits(round uint) *VoteSet {
 
 // Last round and blockID that has +2/3 prevotes for a particular block or nil.
 // Returns -1 if no such round exists.
-func (hvs *HeightVoteSet) POLInfo() (polRound uint, polBlockID BlockID) {
+func (hvs *HeightVoteSet) POLInfo() (polRound int, polBlockID BlockID) {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
 	for r := hvs.round; r >= 0; r-- {
@@ -157,7 +157,7 @@ func (hvs *HeightVoteSet) POLInfo() (polRound uint, polBlockID BlockID) {
 	return -1, BlockID{}
 }
 
-func (hvs *HeightVoteSet) getVoteSet(round uint, type_ byte) *VoteSet {
+func (hvs *HeightVoteSet) getVoteSet(round int, type_ byte) *VoteSet {
 	rvs, ok := hvs.roundVoteSets[round]
 	if !ok {
 		return nil
@@ -177,7 +177,7 @@ func (hvs *HeightVoteSet) getVoteSet(round uint, type_ byte) *VoteSet {
 // NOTE: if there are too many peers, or too much peer churn,
 // this can cause memory issues.
 // TODO: implement ability to remove peers too
-func (hvs *HeightVoteSet) SetPeerMaj23(round uint, type_ byte, peerID string, blockID BlockID) error {
+func (hvs *HeightVoteSet) SetPeerMaj23(round int, type_ byte, peerID string, blockID BlockID) error {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
 	if !IsVoteTypeValid(type_) {
@@ -202,10 +202,10 @@ func (hvs *HeightVoteSet) StringIndented(indent string) string {
 	defer hvs.mtx.Unlock()
 	vsStrings := make([]string, 0, (len(hvs.roundVoteSets)+1)*2)
 	// rounds 0 ~ hvs.round inclusive
-	for round := 0; round <= int(hvs.round); round++ {
-		voteSetString := hvs.roundVoteSets[uint(round)].Prevotes.StringShort()
+	for round := 0; round <= hvs.round; round++ {
+		voteSetString := hvs.roundVoteSets[round].Prevotes.StringShort()
 		vsStrings = append(vsStrings, voteSetString)
-		voteSetString = hvs.roundVoteSets[uint(round)].Precommits.StringShort()
+		voteSetString = hvs.roundVoteSets[round].Precommits.StringShort()
 		vsStrings = append(vsStrings, voteSetString)
 	}
 	// all other peer catchup rounds
@@ -238,13 +238,13 @@ func (hvs *HeightVoteSet) toAllRoundVotes() []roundVotes {
 	totalRounds := hvs.round + 1
 	allVotes := make([]roundVotes, totalRounds)
 	// rounds 0 ~ hvs.round inclusive
-	for round := 0; round < int(totalRounds); round++ {
+	for round := 0; round < totalRounds; round++ {
 		allVotes[round] = roundVotes{
 			Round:              round,
-			Prevotes:           hvs.roundVoteSets[uint(round)].Prevotes.VoteStrings(),
-			PrevotesBitArray:   hvs.roundVoteSets[uint(round)].Prevotes.BitArrayString(),
-			Precommits:         hvs.roundVoteSets[uint(round)].Precommits.VoteStrings(),
-			PrecommitsBitArray: hvs.roundVoteSets[uint(round)].Precommits.BitArrayString(),
+			Prevotes:           hvs.roundVoteSets[round].Prevotes.VoteStrings(),
+			PrevotesBitArray:   hvs.roundVoteSets[round].Prevotes.BitArrayString(),
+			Precommits:         hvs.roundVoteSets[round].Precommits.VoteStrings(),
+			PrecommitsBitArray: hvs.roundVoteSets[round].Precommits.BitArrayString(),
 		}
 	}
 	// TODO: all other peer catchup rounds

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"io"
 	"sync"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 var (
@@ -15,11 +15,9 @@ var (
 )
 
 type Part struct {
-	Index int                		`json:"index"`
-	Bytes help.HexBytes       	 	`json:"bytes"`
-	// Proof merkle.SimpleProof `json:"proof"`
+	Index uint          `json:"index"`
+	Bytes help.HexBytes `json:"bytes"`
 
-	// Cache
 	hash []byte
 }
 
@@ -31,7 +29,8 @@ func (part *Part) Hash() []byte {
 	// hasher.Write(part.Bytes) // nolint: errcheck, gas
 	// part.hash = hasher.Sum(nil)
 	// md hash tmp by iceming
-	part.hash = help.RlpHash(part.Bytes)[:]
+	tmp := help.RlpHash(part.Bytes)
+	part.hash = tmp[:]
 	return part.hash
 }
 
@@ -46,7 +45,7 @@ func (part *Part) StringIndented(indent string) string {
 %s}`,
 		part.Index,
 		indent, help.Fingerprint(part.Bytes),
-		indent,"comment",
+		indent, "comment",
 		// commented tmp by iceming
 		// indent, part.Proof.StringIndented(indent+"  "),
 		indent)
@@ -55,8 +54,8 @@ func (part *Part) StringIndented(indent string) string {
 //-------------------------------------
 
 type PartSetHeader struct {
-	Total int          			`json:"total"`
-	Hash  help.HexBytes 		`json:"hash"`
+	Total uint          `json:"total"`
+	Hash  help.HexBytes `json:"hash"`
 }
 
 func (psh PartSetHeader) String() string {
@@ -74,32 +73,32 @@ func (psh PartSetHeader) Equals(other PartSetHeader) bool {
 //-------------------------------------
 
 type PartSet struct {
-	total int
+	total uint
 	hash  []byte
 
 	mtx           sync.Mutex
 	parts         []*Part
 	partsBitArray *help.BitArray
-	count         int
+	count         uint
 }
 
 // Returns an immutable, full PartSet from the data bytes.
 // The data bytes are split into "partSize" chunks, and merkle tree computed.
-func NewPartSetFromData(data []byte, partSize int) *PartSet {
+func NewPartSetFromData(data []byte, partSize uint) *PartSet {
 	// divide data into 4kb parts.
-	total := (len(data) + partSize - 1) / partSize
+	total := (len(data) + int(partSize) - 1) / int(partSize)
 	parts := make([]*Part, total)
 	// commented tmp by iceming
 	// parts_ := make([]merkle.Hasher, total)
-	partsBitArray := help.NewBitArray(total)
+	partsBitArray := help.NewBitArray(uint(total))
 	for i := 0; i < total; i++ {
 		part := &Part{
-			Index: i,
-			Bytes: data[i*partSize : help.MinInt(len(data), (i+1)*partSize)],
+			Index: uint(i),
+			Bytes: data[i*int(partSize) : help.MinInt(len(data), (i+1)*int(partSize))],
 		}
 		parts[i] = part
 		// parts_[i] = part
-		partsBitArray.SetIndex(i, true)
+		partsBitArray.SetIndex(uint(i), true)
 	}
 	// commented tmp by iceming
 	// Compute merkle proofs
@@ -108,11 +107,11 @@ func NewPartSetFromData(data []byte, partSize int) *PartSet {
 	// 	parts[i].Proof = *proofs[i]
 	// }
 	return &PartSet{
-		total:         total,
-		hash:          nil,//root,
+		total:         uint(total),
+		hash:          nil, //root,
 		parts:         parts,
 		partsBitArray: partsBitArray,
-		count:         total,
+		count:         uint(total),
 	}
 }
 
@@ -122,7 +121,7 @@ func NewPartSetFromHeader(header PartSetHeader) *PartSet {
 		total:         header.Total,
 		hash:          header.Hash,
 		parts:         make([]*Part, header.Total),
-		partsBitArray: help.NewBitArray(header.Total),
+		partsBitArray: help.NewBitArray(uint(header.Total)),
 		count:         0,
 	}
 }
@@ -164,14 +163,14 @@ func (ps *PartSet) HashesTo(hash []byte) bool {
 	return bytes.Equal(ps.hash, hash)
 }
 
-func (ps *PartSet) Count() int {
+func (ps *PartSet) Count() uint {
 	if ps == nil {
 		return 0
 	}
 	return ps.count
 }
 
-func (ps *PartSet) Total() int {
+func (ps *PartSet) Total() uint {
 	if ps == nil {
 		return 0
 	}
@@ -199,12 +198,12 @@ func (ps *PartSet) AddPart(part *Part) (bool, error) {
 
 	// Add part
 	ps.parts[part.Index] = part
-	ps.partsBitArray.SetIndex(part.Index, true)
+	ps.partsBitArray.SetIndex(uint(part.Index), true)
 	ps.count++
 	return true, nil
 }
 
-func (ps *PartSet) GetPart(index int) *Part {
+func (ps *PartSet) GetPart(index uint) *Part {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 	return ps.parts[index]
@@ -274,7 +273,7 @@ func (ps *PartSet) MarshalJSON() ([]byte, error) {
 	defer ps.mtx.Unlock()
 
 	return help.MarshalJSON(struct {
-		CountTotal    string        `json:"count/total"`
+		CountTotal    string         `json:"count/total"`
 		PartsBitArray *help.BitArray `json:"parts_bit_array"`
 	}{
 		fmt.Sprintf("%d/%d", ps.Count(), ps.Total()),

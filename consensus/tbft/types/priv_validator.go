@@ -5,23 +5,23 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"sync"
-	"time"
-	"math/big"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
+	"sync"
+	"time"
 )
 
 const (
-	stepNone           int8 = 0 // Used to distinguish the initial state
-	stepPropose        int8 = 1
-	stepPrevote        int8 = 2
-	stepPrecommit      int8 = 3
-	BlockPartSizeBytes int  = 65536 // 64kB,
+	stepNone           uint8 = 0 // Used to distinguish the initial state
+	stepPropose        uint8 = 1
+	stepPrevote        uint8 = 2
+	stepPrecommit      uint8 = 3
+	BlockPartSizeBytes uint  = 65536 // 64kB,
 )
 
-func voteToStep(vote *Vote) int8 {
+func voteToStep(vote *Vote) uint8 {
 	switch vote.Type {
 	case VoteTypePrevote:
 		return stepPrevote
@@ -46,9 +46,9 @@ type PrivValidator interface {
 
 type privValidator struct {
 	PrivKey       tcrypto.PrivKey
-	LastHeight    int64         `json:"last_height"`
-	LastRound     int           `json:"last_round"`
-	LastStep      int8          `json:"last_step"`
+	LastHeight    uint64        `json:"last_height"`
+	LastRound     uint          `json:"last_round"`
+	LastStep      uint8         `json:"last_step"`
 	LastSignature []byte        `json:"last_signature,omitempty"` // so we dont lose signatures XXX Why would we lose signatures?
 	LastSignBytes help.HexBytes `json:"last_signbytes,omitempty"` // so we dont lose signatures XXX Why would we lose signatures?
 
@@ -72,11 +72,11 @@ func (Validator *privValidator) Reset() {
 }
 
 // Persist height/round/step and signature
-func (Validator *privValidator) saveSigned(height int64, round int, step int8,
+func (Validator *privValidator) saveSigned(height uint64, round int, step uint8,
 	signBytes []byte, sig []byte) {
 
 	Validator.LastHeight = height
-	Validator.LastRound = round
+	Validator.LastRound = uint(round)
 	Validator.LastStep = step
 	Validator.LastSignature = sig
 	Validator.LastSignBytes = signBytes
@@ -107,7 +107,7 @@ func (Validator *privValidator) signVote(chainID string, vote *Vote) error {
 	height, round, step := vote.Height, vote.Round, voteToStep(vote)
 	signBytes := vote.SignBytes(chainID)
 
-	sameHRS, err := Validator.checkHRS(height, round, step)
+	sameHRS, err := Validator.checkHRS(height, int(round), step)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (Validator *privValidator) signVote(chainID string, vote *Vote) error {
 	if err != nil {
 		return err
 	}
-	Validator.saveSigned(height, round, step, signBytes, sig)
+	Validator.saveSigned(height, int(round), step, signBytes, sig)
 	vote.Signature = sig
 	return nil
 }
@@ -154,7 +154,7 @@ func (Validator *privValidator) SignProposal(chainID string, proposal *Proposal)
 // It may need to set the timestamp as well if the proposal is otherwise the same as
 // a previously signed proposal ie. we crashed after signing but before the proposal hit the WAL).
 func (Validator *privValidator) signProposal(chainID string, proposal *Proposal) error {
-	height, round, step := proposal.Height, proposal.Round, stepPropose
+	height, round, step := proposal.Height, int(proposal.Round), stepPropose
 	signBytes := proposal.SignBytes(chainID)
 
 	sameHRS, err := Validator.checkHRS(height, round, step)
@@ -200,17 +200,17 @@ func (Validator *privValidator) SignHeartbeat(chainID string, heartbeat *Heartbe
 }
 
 // returns error if HRS regression or no LastSignBytes. returns true if HRS is unchanged
-func (Validator *privValidator) checkHRS(height int64, round int, step int8) (bool, error) {
+func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (bool, error) {
 	if Validator.LastHeight > height {
 		return false, errors.New("Height regression")
 	}
 
 	if Validator.LastHeight == height {
-		if Validator.LastRound > round {
+		if int(Validator.LastRound) > round {
 			return false, errors.New("Round regression")
 		}
 
-		if Validator.LastRound == round {
+		if int(Validator.LastRound) == round {
 			if Validator.LastStep > step {
 				return false, errors.New("Step regression")
 			} else if Validator.LastStep == step {
@@ -304,9 +304,9 @@ type StateAgent interface {
 	GetValidator() *ValidatorSet
 	GetLastValidator() *ValidatorSet
 
-	GetLastBlockHeight() int64
+	GetLastBlockHeight() uint64
 	GetChainID() string
-	UpdateHeight(height int64)
+	UpdateHeight(height uint64)
 	MakeBlock() (*ctypes.Block, *PartSet)
 	ValidateBlock(block *ctypes.Block) error
 	ConsensusCommit(block *ctypes.Block) error
@@ -319,24 +319,24 @@ type StateAgent interface {
 }
 
 type stateAgent struct {
-	Priv		*privValidator
-	Agent      	ctypes.PbftAgentProxy
-	Validators 	*ValidatorSet
-	ChainID    	string
-	Height 		int64
+	Priv       *privValidator
+	Agent      ctypes.PbftAgentProxy
+	Validators *ValidatorSet
+	ChainID    string
+	Height     uint64
 }
 
-func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string, 
-	vals *ValidatorSet,height int64) *stateAgent {
+func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
+	vals *ValidatorSet, height uint64) *stateAgent {
 	return &stateAgent{
 		Agent:      agent,
 		ChainID:    chainID,
 		Validators: vals,
-		Height:		height,
+		Height:     height,
 	}
 }
 
-func MakePartSet(partSize int, block *ctypes.Block) *PartSet {
+func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
 	bz, err := help.MarshalBinary(block)
@@ -384,10 +384,10 @@ func (state *stateAgent) GetValidator() *ValidatorSet {
 func (state *stateAgent) GetLastValidator() *ValidatorSet {
 	return state.Validators
 }
-func (state *stateAgent) GetLastBlockHeight() int64 {
+func (state *stateAgent) GetLastBlockHeight() uint64 {
 	return state.Height
 }
-func (state *stateAgent) UpdateHeight(height int64) {
+func (state *stateAgent) UpdateHeight(height uint64) {
 	if height > state.Height {
 		state.Height = height
 	}
@@ -399,13 +399,13 @@ func (state *stateAgent) GetPubKey() tcrypto.PubKey {
 	return state.Priv.GetPubKey()
 }
 func (state *stateAgent) SignVote(chainID string, vote *Vote) error {
-	return state.Priv.SignVote(chainID,vote)
+	return state.Priv.SignVote(chainID, vote)
 }
 func (state *stateAgent) SignProposal(chainID string, proposal *Proposal) error {
-	return state.Priv.signProposal(chainID,proposal)
+	return state.Priv.signProposal(chainID, proposal)
 }
 func (state *stateAgent) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
-	return state.Priv.SignHeartbeat(chainID,heartbeat)
+	return state.Priv.SignHeartbeat(chainID, heartbeat)
 }
 func (state *stateAgent) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {

@@ -12,19 +12,19 @@ import (
 // NOTE: Read-only when returned by PeerState.GetRoundState().
 type PeerRoundState struct {
 	Height                   uint64         `json:"height"`                      // Height peer is at
-	Round                    uint           `json:"round"`                       // Round peer is at, -1 if unknown.
+	Round                    uint            `json:"round"`                       // Round peer is at, -1 if unknown.
 	Step                     RoundStepType  `json:"step"`                        // Step peer is at
 	StartTime                time.Time      `json:"start_time"`                  // Estimated start of round 0 at this height
 	Proposal                 bool           `json:"proposal"`                    // True if peer has proposal for this round
 	ProposalBlockPartsHeader PartSetHeader  `json:"proposal_block_parts_header"` //
 	ProposalBlockParts       *help.BitArray `json:"proposal_block_parts"`        //
-	ProposalPOLRound         uint           `json:"proposal_pol_round"`          // Proposal's POL round. -1 if none.
+	ProposalPOLRound         uint            `json:"proposal_pol_round"`          // Proposal's POL round. -1 if none.
 	ProposalPOL              *help.BitArray `json:"proposal_pol"`                // nil until ProposalPOLMessage received.
 	Prevotes                 *help.BitArray `json:"prevotes"`                    // All votes peer has for this round
 	Precommits               *help.BitArray `json:"precommits"`                  // All precommits peer has for this round
-	LastCommitRound          uint           `json:"last_commit_round"`           // Round of commit for last height. -1 if none.
+	LastCommitRound          uint            `json:"last_commit_round"`           // Round of commit for last height. -1 if none.
 	LastCommit               *help.BitArray `json:"last_commit"`                 // All commit precommits of commit for last height.
-	CatchupCommitRound       uint           `json:"catchup_commit_round"`        // Round that we have commit for. Not necessarily unique. -1 if none.
+	CatchupCommitRound       uint            `json:"catchup_commit_round"`        // Round that we have commit for. Not necessarily unique. -1 if none.
 	CatchupCommit            *help.BitArray `json:"catchup_commit"`              // All commit precommits peer has for this height & CatchupCommitRound
 }
 

@@ -68,14 +68,14 @@ type VoteSet struct {
 }
 
 // Constructs a new VoteSet struct used to accumulate votes for given height/round.
-func NewVoteSet(chainID string, height uint64, round uint, type_ byte, valSet *ValidatorSet) *VoteSet {
+func NewVoteSet(chainID string, height uint64, round int, type_ byte, valSet *ValidatorSet) *VoteSet {
 	if height == 0 {
 		help.PanicSanity("Cannot make VoteSet for height == 0, doesn't make sense.")
 	}
 	return &VoteSet{
 		chainID:       chainID,
 		height:        height,
-		round:         round,
+		round:         uint(round),
 		type_:         type_,
 		valSet:        valSet,
 		votesBitArray: help.NewBitArray(valSet.Size()),
@@ -98,11 +98,11 @@ func (voteSet *VoteSet) Height() uint64 {
 	return voteSet.height
 }
 
-func (voteSet *VoteSet) Round() uint {
+func (voteSet *VoteSet) Round() int {
 	if voteSet == nil {
 		return -1
 	}
-	return voteSet.round
+	return int(voteSet.round)
 }
 
 func (voteSet *VoteSet) Type() byte {
@@ -112,11 +112,11 @@ func (voteSet *VoteSet) Type() byte {
 	return voteSet.type_
 }
 
-func (voteSet *VoteSet) Size() int {
+func (voteSet *VoteSet) Size() uint {
 	if voteSet == nil {
 		return 0
 	}
-	return voteSet.valSet.Size()
+	return uint(voteSet.valSet.Size())
 }
 
 // Returns added=true if vote is valid and new.
@@ -202,7 +202,7 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 }
 
 // Returns (vote, true) if vote exists for valIndex and blockKey
-func (voteSet *VoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok bool) {
+func (voteSet *VoteSet) getVote(valIndex uint, blockKey string) (vote *Vote, ok bool) {
 	if existing := voteSet.votes[valIndex]; existing != nil && existing.BlockID.Key() == blockKey {
 		return existing, true
 	}
@@ -214,7 +214,7 @@ func (voteSet *VoteSet) getVote(valIndex int, blockKey string) (vote *Vote, ok b
 
 // Assumes signature is valid.
 // If conflicting vote exists, returns it.
-func (voteSet *VoteSet) addVerifiedVote(vote *Vote, blockKey string, votingPower int64) (added bool, conflicting *Vote) {
+func (voteSet *VoteSet) addVerifiedVote(vote *Vote, blockKey string, votingPower uint64) (added bool, conflicting *Vote) {
 	valIndex := vote.ValidatorIndex
 
 	// Already exists in voteSet.votes?
@@ -346,7 +346,7 @@ func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *help.BitArray {
 }
 
 // NOTE: if validator has conflicting votes, returns "canonical" vote
-func (voteSet *VoteSet) GetByIndex(valIndex int) *Vote {
+func (voteSet *VoteSet) GetByIndex(valIndex uint) *Vote {
 	if voteSet == nil {
 		return nil
 	}
@@ -519,7 +519,7 @@ func (voteSet *VoteSet) StringShort() string {
 }
 
 // return the power voted, the total, and the fraction
-func (voteSet *VoteSet) sumTotalFrac() (int64, int64, float64) {
+func (voteSet *VoteSet) sumTotalFrac() (uint64, uint64, float64) {
 	voted, total := voteSet.sum, voteSet.valSet.TotalVotingPower()
 	fracVoted := float64(voted) / float64(total)
 	return voted, total, fracVoted
@@ -561,10 +561,10 @@ type blockVotes struct {
 	peerMaj23 bool           // peer claims to have maj23
 	bitArray  *help.BitArray // valIndex -> hasVote?
 	votes     []*Vote        // valIndex -> *Vote
-	sum       int64          // vote sum
+	sum       uint64          // vote sum
 }
 
-func newBlockVotes(peerMaj23 bool, numValidators int) *blockVotes {
+func newBlockVotes(peerMaj23 bool, numValidators uint) *blockVotes {
 	return &blockVotes{
 		peerMaj23: peerMaj23,
 		bitArray:  help.NewBitArray(numValidators),
@@ -573,7 +573,7 @@ func newBlockVotes(peerMaj23 bool, numValidators int) *blockVotes {
 	}
 }
 
-func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower int64) {
+func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower uint64) {
 	valIndex := vote.ValidatorIndex
 	if existing := vs.votes[valIndex]; existing == nil {
 		vs.bitArray.SetIndex(valIndex, true)
@@ -582,7 +582,7 @@ func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower int64) {
 	}
 }
 
-func (vs *blockVotes) getByIndex(index int) *Vote {
+func (vs *blockVotes) getByIndex(index uint) *Vote {
 	if vs == nil {
 		return nil
 	}
@@ -593,11 +593,11 @@ func (vs *blockVotes) getByIndex(index int) *Vote {
 
 // Common interface between *consensus.VoteSet and types.Commit
 type VoteSetReader interface {
-	Height() int64
+	Height() uint64
 	Round() int
 	Type() byte
-	Size() int
+	Size() uint
 	BitArray() *help.BitArray
-	GetByIndex(int) *Vote
+	GetByIndex(uint) *Vote
 	IsCommit() bool
 }

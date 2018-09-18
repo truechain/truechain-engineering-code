@@ -26,7 +26,7 @@ type ValidatorSet struct {
 	Proposer   *Validator   `json:"proposer"`
 
 	// cached (unexported)
-	totalVotingPower int64
+	totalVotingPower uint64
 }
 
 func NewValidatorSet(vals []*Validator) *ValidatorSet {
@@ -48,22 +48,24 @@ func NewValidatorSet(vals []*Validator) *ValidatorSet {
 
 // IncrementAccum increments accum of each validator and updates the
 // proposer. Panics if validator set is empty.
-func (valSet *ValidatorSet) IncrementAccum(times int) {
+func (valSet *ValidatorSet) IncrementAccum(times uint) {
 	// Add VotingPower * times to each validator and order into heap.
 	validatorsHeap := help.NewHeap()
 	for _, val := range valSet.Validators {
 		// check for overflow both multiplication and sum
-		val.Accum = safeAddClip(val.Accum, safeMulClip(val.VotingPower, int64(times)))
+		val.Accum = uint64(safeAddClip(int64(val.Accum), safeMulClip(int64(val.VotingPower), int64(times))))
 		validatorsHeap.PushComparable(val, accumComparable{val})
 	}
 
 	// Decrement the validator with most accum times times
-	for i := 0; i < times; i++ {
+	for i := 0; i < int(times); i++ {
 		mostest := validatorsHeap.Peek().(*Validator)
 		// mind underflow
-		mostest.Accum = safeSubClip(mostest.Accum, valSet.TotalVotingPower())
+		Accum := int64(mostest.Accum)
+		power := int64(valSet.TotalVotingPower())
+		mostest.Accum = uint64(safeSubClip(Accum, power))
 
-		if i == times-1 {
+		if i == int(times)-1 {
 			valSet.Proposer = mostest
 		} else {
 			validatorsHeap.Update(mostest, accumComparable{mostest})
@@ -118,16 +120,16 @@ func (valSet *ValidatorSet) GetByIndex(index uint) (address []byte, val *Validat
 }
 
 // Size returns the length of the validator set.
-func (valSet *ValidatorSet) Size() int {
-	return len(valSet.Validators)
+func (valSet *ValidatorSet) Size() uint {
+	return uint(len(valSet.Validators))
 }
 
 // TotalVotingPower returns the sum of the voting powers of all validators.
-func (valSet *ValidatorSet) TotalVotingPower() int64 {
+func (valSet *ValidatorSet) TotalVotingPower() uint64 {
 	if valSet.totalVotingPower == 0 {
 		for _, val := range valSet.Validators {
 			// mind overflow
-			valSet.totalVotingPower = safeAddClip(valSet.totalVotingPower, val.VotingPower)
+			valSet.totalVotingPower = uint64(safeAddClip(int64(valSet.totalVotingPower), int64(val.VotingPower)))
 		}
 	}
 	return valSet.totalVotingPower
@@ -163,9 +165,11 @@ func (valSet *ValidatorSet) Hash() []byte {
 	}
 	hashers := make([]help.HexBytes, len(valSet.Validators))
 	for i, val := range valSet.Validators {
-		hashers[i] = help.RlpHash(val)[:]
+		tmp := help.RlpHash(val)
+		hashers[i] = tmp[:]
 	}
-	return help.RlpHash(hashers)[:]
+	tmp := help.RlpHash(hashers)
+	return tmp[:]
 }
 
 // Add adds val to the validator set and returns true. It returns false if val
@@ -243,14 +247,14 @@ func (valSet *ValidatorSet) Iterate(fn func(index int, val *Validator) bool) {
 
 // Verify that +2/3 of the set had signed the given signBytes
 func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height uint64, commit *Commit) error {
-	if valSet.Size() != len(commit.Precommits) {
+	if valSet.Size() != uint(len(commit.Precommits)) {
 		return fmt.Errorf("Invalid commit -- wrong set size: %v vs %v", valSet.Size(), len(commit.Precommits))
 	}
 	if height != commit.Height() {
 		return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, commit.Height())
 	}
 
-	talliedVotingPower := int64(0)
+	talliedVotingPower := uint64(0)
 	round := commit.Round()
 
 	for idx, precommit := range commit.Precommits {
@@ -261,7 +265,7 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 		if precommit.Height != height {
 			return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, precommit.Height)
 		}
-		if precommit.Round != round {
+		if int(precommit.Round) != round {
 			return fmt.Errorf("Invalid commit -- wrong round: %v vs %v", round, precommit.Round)
 		}
 		if precommit.Type != VoteTypePrecommit {
@@ -303,16 +307,16 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string,
 	blockID BlockID, height uint64, commit *Commit) error {
 
-	if newSet.Size() != len(commit.Precommits) {
+	if newSet.Size() != uint(len(commit.Precommits)) {
 		return errors.New(fmt.Sprintf("Invalid commit -- wrong set size: %v vs %v", newSet.Size(), len(commit.Precommits)))
 	}
 	if height != commit.Height() {
 		return errors.New(fmt.Sprintf("Invalid commit -- wrong height: %v vs %v", height, commit.Height()))
 	}
 
-	oldVotingPower := int64(0)
-	newVotingPower := int64(0)
-	seen := map[int]bool{}
+	oldVotingPower := uint64(0)
+	newVotingPower := uint64(0)
+	seen := map[uint]bool{}
 	round := commit.Round()
 
 	for idx, precommit := range commit.Precommits {
@@ -324,7 +328,7 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 			// return certerr.ErrHeightMismatch(height, precommit.Height)
 			return errors.New(fmt.Sprintf("Blocks don't match - %d vs %d", round, precommit.Round))
 		}
-		if precommit.Round != round {
+		if int(precommit.Round) != round {
 			return errors.New(fmt.Sprintf("Invalid commit -- wrong round: %v vs %v", round, precommit.Round))
 		}
 		if precommit.Type != VoteTypePrecommit {
@@ -336,10 +340,10 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 
 		// we only grab by address, ignoring unknown validators
 		vi, ov := valSet.GetByAddress(precommit.ValidatorAddress)
-		if ov == nil || seen[vi] {
+		if ov == nil || seen[uint(vi)] {
 			continue // missing or double vote...
 		}
-		seen[vi] = true
+		seen[uint(vi)] = true
 
 		// Validate signature old school
 		precommitSignBytes := precommit.SignBytes(chainID)
@@ -350,7 +354,7 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 		oldVotingPower += ov.VotingPower
 
 		// check new school
-		_, cv := newSet.GetByIndex(idx)
+		_, cv := newSet.GetByIndex(uint(idx))
 		if cv.PubKey.Equals(ov.PubKey) {
 			// make sure this is properly set in the current block as well
 			newVotingPower += cv.VotingPower

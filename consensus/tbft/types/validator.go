@@ -13,11 +13,11 @@ import (
 type Validator struct {
 	Address     help.Address       	`json:"address"`
 	PubKey      crypto.PubKey 		`json:"pub_key"`
-	VotingPower int64         		`json:"voting_power"`
-	Accum 		int64 				`json:"accum"`
+	VotingPower uint64         		`json:"voting_power"`
+	Accum 		uint64 				`json:"accum"`
 }
 
-func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
+func NewValidator(pubKey crypto.PubKey, votingPower uint64) *Validator {
 	return &Validator{
 		Address:     pubKey.Address(),
 		PubKey:      pubKey,
@@ -69,15 +69,17 @@ func (v *Validator) String() string {
 // Hash computes the unique ID of a validator with a given voting power.
 // It excludes the Accum value, which changes with every round.
 func (v *Validator) Hash() []byte {
-	return help.RlpHash(struct {
+	tmp := help.RlpHash(struct {
 		Address     help.Address
 		PubKey      crypto.PubKey
-		VotingPower int64
+		VotingPower uint64
 	}{
 		v.Address,
 		v.PubKey,
 		v.VotingPower,
-	})[:]
+	})
+
+	return tmp[:]
 }
 
 //----------------------------------------
