@@ -88,6 +88,7 @@ type PbftAgent struct {
 	currentCommitteeInfo *types.CommitteeInfo
 	nextCommitteeInfo    *types.CommitteeInfo
 	committeeId          *big.Int
+	isCommitteeMember    bool
 
 	server   types.PbftServerProxy
 	election *Election
@@ -143,6 +144,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		snailChain: eth.SnailBlockChain(),
 		//preCommitteeInfo: new(types.CommitteeInfo),
 		currentCommitteeInfo: new(types.CommitteeInfo),
+		nextCommitteeInfo:    new(types.CommitteeInfo),
 		committeeId:          new(big.Int).SetInt64(-1),
 		electionCh:           make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan core.ChainHeadEvent, chainHeadSize),
@@ -240,6 +242,7 @@ func (self *PbftAgent) loop() {
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 				ticker = time.NewTicker(sendNodeTime)
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
+					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)
 					self.updateCommitteeNode()
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
@@ -251,6 +254,9 @@ func (self *PbftAgent) loop() {
 							}
 						}
 					}()
+				} else {
+					log.Info("node not in pbft member")
+					self.isCommitteeMember = false
 				}
 			default:
 				log.Warn("unknown election option:", "option", ch.Option)
@@ -266,7 +272,8 @@ func (self *PbftAgent) loop() {
 				}
 				// if  node  is in committee  and the sign is not received
 				//TODO every time getcommittee
-				if bytes.Equal(self.cacheSign[signStr], []byte{}) && self.IsCommitteeMember(self.nextCommitteeInfo) {
+				//if bytes.Equal(self.cacheSign[signStr], []byte{}) && self.IsCommitteeMember(self.nextCommitteeInfo) {
+				if self.isCommitteeMember && bytes.Equal(self.cacheSign[signStr], []byte{}) {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
 					self.receivePbftNode(cryNodeInfo)
 				} else {
@@ -405,8 +412,8 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 	}
 
 	nextCommitteeInfo := self.nextCommitteeInfo
-	if nextCommitteeInfo == nil || len(nextCommitteeInfo.Members) == 0 {
-		log.Error("NextCommitteeInfo.Members is nil ...")
+	if len(nextCommitteeInfo.Members) == 0 {
+		log.Error("encryptoNodeInCommittee method NextCommitteeInfo.Members = 0")
 		return false
 	}
 	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
@@ -481,7 +488,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	log.Debug("into GenerateFastBlock...")
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	var fastBlock *types.Block
+	var (
+		fastBlock *types.Block
+		feeAmount = big.NewInt(0)
+	)
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
@@ -519,7 +529,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		return fastBlock, err
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.fastChain)
+	work.commitTransactions(self.mux, txs, self.fastChain,feeAmount)
 
 	self.rewardSnailBlock(header)
 	//  padding Header.Root, TxHash, ReceiptHash.
@@ -527,6 +537,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
+	}
+	err = self.engine.FinalizeFastGas(work.state, fastBlock.Number(), fastBlock.Hash(), feeAmount)
+	if err != nil {
+
 	}
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
@@ -684,7 +698,7 @@ func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) er
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain,feeAmount *big.Int) {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
@@ -716,7 +730,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 
-		err, logs := env.commitTransaction(tx, bc, env.gasPool)
+		err, logs := env.commitTransaction(tx, bc, env.gasPool,feeAmount)
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
@@ -767,9 +781,8 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool,feeAmount *big.Int) (error, []*types.Log) {
 	snap := env.state.Snapshot()
-	feeAmount := big.NewInt(0)
 	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
@@ -799,14 +812,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	/*if !self.nodeInfoIsComplete {
 		return false
 	}*/
-	if committeeInfo == nil {
-		log.Error("received committeeInfo is nil ")
-		return false
-	}
-	if len(committeeInfo.Members) == 0 {
-		log.Error("len(committeeInfo.Members) == 0 ")
-		return false
-	}
 	return self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
 }
 

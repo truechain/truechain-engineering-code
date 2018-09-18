@@ -36,8 +36,8 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 44 // snail block period number
-	k                  = 100
+	z                  = 1440 // snail block period number
+	k                  = 1000
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -172,6 +172,10 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 
 //whether assigned publickey  in  committeeMember pubKey
 func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+	if len(members) == 0 {
+		log.Error("GetMemberByPubkey method len(members)= 0" )
+		return nil
+	}
 	for _, member := range members {
 		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return member
