@@ -672,9 +672,9 @@ func (ps *peerSet) Register(p *peer) error {
 	if ps.closed {
 		return errClosed
 	}
-	//if _, ok := ps.peers[p.id]; ok {
-	//	return errAlreadyRegistered
-	//}
+	if _, ok := ps.peers[p.id]; ok {
+		return errAlreadyRegistered
+	}
 	ps.peers[p.id] = p
 	go p.broadcast()
 
