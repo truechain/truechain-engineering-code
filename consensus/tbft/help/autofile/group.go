@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"io"
 	"log"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 const (
@@ -61,10 +61,10 @@ type Group struct {
 	Dir            string // Directory that contains .Head
 	ticker         *time.Ticker
 	mtx            sync.Mutex
-	headSizeLimit  int64
-	totalSizeLimit int64
-	minIndex       int // Includes head
-	maxIndex       int // Includes head, where Head will move to
+	headSizeLimit  uint64
+	totalSizeLimit uint64
+	minIndex       uint // Includes head
+	maxIndex       uint // Includes head, where Head will move to
 
 	// TODO: When we start deleting files, we need to start tracking GroupReaders
 	// and their dependencies.
@@ -122,14 +122,14 @@ func (g *Group) Close() {
 }
 
 // SetHeadSizeLimit allows you to overwrite default head size limit - 10MB.
-func (g *Group) SetHeadSizeLimit(limit int64) {
+func (g *Group) SetHeadSizeLimit(limit uint64) {
 	g.mtx.Lock()
 	g.headSizeLimit = limit
 	g.mtx.Unlock()
 }
 
 // HeadSizeLimit returns the current head size limit.
-func (g *Group) HeadSizeLimit() int64 {
+func (g *Group) HeadSizeLimit() uint64 {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.headSizeLimit
@@ -137,28 +137,28 @@ func (g *Group) HeadSizeLimit() int64 {
 
 // SetTotalSizeLimit allows you to overwrite default total size limit of the
 // group - 1GB.
-func (g *Group) SetTotalSizeLimit(limit int64) {
+func (g *Group) SetTotalSizeLimit(limit uint64) {
 	g.mtx.Lock()
 	g.totalSizeLimit = limit
 	g.mtx.Unlock()
 }
 
 // TotalSizeLimit returns total size limit of the group.
-func (g *Group) TotalSizeLimit() int64 {
+func (g *Group) TotalSizeLimit() uint64 {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.totalSizeLimit
 }
 
 // MaxIndex returns index of the last file in the group.
-func (g *Group) MaxIndex() int {
+func (g *Group) MaxIndex() uint {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.maxIndex
 }
 
 // MinIndex returns index of the first file in the group.
-func (g *Group) MinIndex() int {
+func (g *Group) MinIndex() uint {
 	g.mtx.Lock()
 	defer g.mtx.Unlock()
 	return g.minIndex
@@ -233,7 +233,7 @@ func (g *Group) checkTotalSizeLimit() {
 	gInfo := g.readGroupInfo()
 	totalSize := gInfo.TotalSize
 	for i := 0; i < maxFilesToRemove; i++ {
-		index := gInfo.MinIndex + i
+		index := gInfo.MinIndex + uint(i)
 		if totalSize < limit {
 			return
 		}
@@ -253,7 +253,7 @@ func (g *Group) checkTotalSizeLimit() {
 			log.Println(err)
 			return
 		}
-		totalSize -= fileInfo.Size()
+		totalSize -= uint64(fileInfo.Size())
 	}
 }
 
@@ -279,7 +279,7 @@ func (g *Group) RotateFile() {
 
 // NewReader returns a new group reader.
 // CONTRACT: Caller must close the returned GroupReader.
-func (g *Group) NewReader(index int) (*GroupReader, error) {
+func (g *Group) NewReader(index uint) (*GroupReader, error) {
 	r := newGroupReader(g)
 	err := r.SetIndex(index)
 	if err != nil {
@@ -366,7 +366,7 @@ func (g *Group) Search(prefix string, cmp SearchFunc) (*GroupReader, bool, error
 
 // Scans and returns the first line that starts with 'prefix'
 // Consumes line and returns it.
-func scanNext(r *GroupReader, prefix string) (int, string, error) {
+func scanNext(r *GroupReader, prefix string) (uint, string, error) {
 	for {
 		line, err := r.ReadLine()
 		if err != nil {
@@ -456,10 +456,10 @@ GROUP_LOOP:
 
 // GroupInfo holds information about the group.
 type GroupInfo struct {
-	MinIndex  int   // index of the first file in the group, including head
-	MaxIndex  int   // index of the last file in the group, including head
-	TotalSize int64 // total size of the group
-	HeadSize  int64 // size of the head
+	MinIndex  uint   // index of the first file in the group, including head
+	MaxIndex  uint   // index of the last file in the group, including head
+	TotalSize uint64 // total size of the group
+	HeadSize  uint64 // size of the head
 }
 
 // Returns info after scanning all files in g.Head's dir.
@@ -524,10 +524,10 @@ func (g *Group) readGroupInfo() GroupInfo {
 		// Otherwise, the head file is 1 greater
 		maxIndex++
 	}
-	return GroupInfo{minIndex, maxIndex, totalSize, headSize}
+	return GroupInfo{uint(minIndex), uint(maxIndex), uint64(totalSize), uint64(headSize)}
 }
 
-func filePathForIndex(headPath string, index int, maxIndex int) string {
+func filePathForIndex(headPath string, index uint, maxIndex uint) string {
 	if index == maxIndex {
 		return headPath
 	}
@@ -540,7 +540,7 @@ func filePathForIndex(headPath string, index int, maxIndex int) string {
 type GroupReader struct {
 	*Group
 	mtx       sync.Mutex
-	curIndex  int
+	curIndex  uint
 	curFile   *os.File
 	curReader *bufio.Reader
 	curLine   []byte
@@ -655,7 +655,7 @@ func (gr *GroupReader) ReadLine() (string, error) {
 
 // IF index > gr.Group.maxIndex, returns io.EOF
 // CONTRACT: caller should hold gr.mtx
-func (gr *GroupReader) openFile(index int) error {
+func (gr *GroupReader) openFile(index uint) error {
 
 	// Lock on Group to ensure that head doesn't move in the meanwhile.
 	gr.Group.mtx.Lock()
@@ -698,7 +698,7 @@ func (gr *GroupReader) PushLine(line string) {
 }
 
 // CurIndex returns cursor's file index.
-func (gr *GroupReader) CurIndex() int {
+func (gr *GroupReader) CurIndex() uint {
 	gr.mtx.Lock()
 	defer gr.mtx.Unlock()
 	return gr.curIndex
@@ -706,7 +706,7 @@ func (gr *GroupReader) CurIndex() int {
 
 // SetIndex sets the cursor's file index to index by opening a file at this
 // position.
-func (gr *GroupReader) SetIndex(index int) error {
+func (gr *GroupReader) SetIndex(index uint) error {
 	gr.mtx.Lock()
 	defer gr.mtx.Unlock()
 	return gr.openFile(index)
