@@ -48,7 +48,7 @@ type ChainReader interface {
 	// GetBlock retrieves a block from the database by hash and number.
 	GetBlock(hash common.Hash, number uint64) *types.Block
 }
- 
+
 // ChainSnailReader defines a small collection of methods needed to access the local
 // block chain during header and/or uncle verification.
 // Temporary interface for snail
@@ -117,12 +117,9 @@ type Engine interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDB,
-		txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error)
+		txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error)
 	FinalizeSnail(chain SnailChainReader, header *types.SnailHeader,
 		uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error)
-
-	//Call allocation gas before FinalizeFast
-	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
 
 	// Seal generates a new block for the given input block with the local miner's
 	Seal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
