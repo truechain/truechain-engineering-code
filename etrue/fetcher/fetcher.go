@@ -43,7 +43,6 @@ const (
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
-	blockChanSize    = 4
 	signChanSize     = 32
 )
 
@@ -211,7 +210,7 @@ type Fetcher struct {
 func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFastBlock blockBroadcasterFn, chainHeight chainHeightFn, insertChain chainInsertFn, dropPeer peerDropFn, agentFetcher PbftAgentFetcher, broadcastSigns signBroadcasterFn) *Fetcher {
 	return &Fetcher{
 		notify:        make(chan *announce),
-		inject:        make(chan *inject, blockChanSize),
+		inject:        make(chan *inject),
 		injectSign:    make(chan *injectSign, signChanSize),
 		blockFilter:   make(chan chan []*types.Block),
 		headerFilter:  make(chan chan *headerFilterTask),
