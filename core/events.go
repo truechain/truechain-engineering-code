@@ -17,9 +17,10 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -64,9 +65,10 @@ type FruitEvent struct {
 }
 
 type ElectionEvent struct {
-	Option      uint
-	CommitteeId  *big.Int
+	Option           uint
+	CommitteeID      *big.Int
 	CommitteeMembers []*types.CommitteeMember
+	BeginFastNumber  *big.Int
 	//CommitteeInfo *types.CommitteeInfo
 }
 

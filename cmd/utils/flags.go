@@ -183,7 +183,12 @@ var (
 	BFTPortFlag = cli.IntFlag{
 		Name:  "bftport",
 		Usage: "committee node port ",
-		Value: 10080,
+		//Value: 10080,
+	}
+	BFTStandByPortFlag = cli.IntFlag{
+		Name:  "bftport2",
+		Usage: "committee node standBy port ",
+		//Value: 10090,
 	}
 	BFTIPFlag = cli.StringFlag{
 		Name:  "bftip",
@@ -1119,9 +1124,11 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
 		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
-	}else{
-		cfg.Port = BFTPortFlag.Value
 	}
+	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
+		cfg.StandByPort = ctx.GlobalInt(BFTStandByPortFlag.Name)
+	}
+
 	//set PrivateKey by config,file or hex
 	setBftCommitteeKey(ctx, cfg)
 	if cfg.PrivateKey == nil {
@@ -1141,6 +1148,12 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		}
 		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
+		}
+		if cfg.StandByPort == 0 {
+			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
+		}
+		if cfg.Port == cfg.StandByPort{
+			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name,BFTStandByPortFlag.Name)
 		}
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),

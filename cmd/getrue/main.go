@@ -74,6 +74,7 @@ var (
 		utils.MineFruitFlag,
 		utils.EnableElectionFlag,
 		utils.BFTPortFlag,
+		utils.BFTStandByPortFlag,
 		utils.BFTIPFlag,
 		utils.BftKeyFileFlag,
 		utils.BftKeyHexFlag,
