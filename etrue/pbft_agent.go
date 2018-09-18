@@ -969,7 +969,10 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		agent.VerifyFastBlock(block)
+		err =agent.VerifyFastBlock(block)
+		if err != nil {
+			log.Error("VerifyFastBlock error", "err", err)
+		}
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
