@@ -121,7 +121,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, 
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
 	*usedGas += gas
-	feeAmount = new(big.Int).Add(new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice()), feeAmount)
+	feeAmount_ := new(big.Int).Add(new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice()), feeAmount)
+	*feeAmount = *feeAmount_
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.

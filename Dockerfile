@@ -12,5 +12,5 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 COPY --from=construction /truechain-engineering-code/build/bin/getrue /usr/local/bin/
 
-EXPOSE 8546 8546 30333 30333/udp
+EXPOSE 8545 8545 30303 30303/udp
 ENTRYPOINT ["getrue"]

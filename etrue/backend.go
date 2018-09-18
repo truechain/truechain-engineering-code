@@ -200,7 +200,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.snailPool = core.NewSnailPool(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 
-	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain)
+	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.EventMux())
 
 	etrue.snailblockchain.Validator().SetElection(etrue.election)
 
@@ -219,7 +219,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine)
+	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election,etrue.Config().MineFruit)
 	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	committeeKey, err := crypto.ToECDSA(etrue.config.CommitteeKey)
@@ -487,7 +487,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		return errors.New("start pbft server failed.")
 	}
 	s.agent.server = s.pbftServer
-	log.Info("","server",s.agent.server)
+	log.Info("", "server", s.agent.server)
 	s.agent.Start()
 
 	s.election.Start()

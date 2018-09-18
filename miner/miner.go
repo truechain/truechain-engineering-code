@@ -20,6 +20,7 @@ package miner
 import (
 	"fmt"
 	"sync/atomic"
+	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -33,9 +34,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-)
+) 
 
 // Backend wraps all methods required for mining.
+
 type Backend interface {
 	AccountManager() *accounts.Manager
 	SnailBlockChain() *snailchain.SnailBlockChain
@@ -43,6 +45,21 @@ type Backend interface {
 	TxPool() *core.TxPool
 	SnailPool() *core.SnailPool
 	ChainDb() ethdb.Database
+	//Election() *etrue.Election
+}
+
+//Election module implementation committee interface
+type CommitteeElection interface {
+	//VerifySigns verify the fast chain committee signatures in batches
+	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
+
+	//Get a list of committee members
+	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
+	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
+
+	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription 
+
+	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember
 }
 
 // Miner creates blocks and searches for proof-of-work values.
@@ -59,35 +76,104 @@ type Miner struct {
 	mining    int32
 	truechain Backend
 	engine    consensus.Engine
+	election  CommitteeElection
+
+	//election
+	electionCh  chan core.ElectionEvent
+	electionSub event.Subscription
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
-func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
+func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
+	election CommitteeElection,mineFruit bool) *Miner {
 	miner := &Miner{
 		truechain: truechain,
 		mux:       mux,
 		engine:    engine,
+		election : election,
+		FruitOnly: mineFruit,// set fruit only 
+		electionCh:    make(chan core.ElectionEvent, txChanSize),
 		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:  1,
 	}
+
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
+ 	log.Info("init mineFruit","mineFruit",mineFruit)
+	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
+	
+	
+	go miner.SetFruitOnly(mineFruit)
+	//go miner.loop()
 	go miner.update()
-
 	return miner
-}
+} 
+func (self *Miner) loop() {
+	
+	defer self.electionSub.Unsubscribe()
+	for{
+		select {
+			case ch := <-self.electionCh:
+				/*
+				log.Info("-------------------------miner committerMenn","publickey",self.publickey)
 
+				for _, m:=range ch.CommitteeMembers{
+					log.Info("******   miner committerMenn","publickey",m.Publickey)
+				}
+				*/
+
+				switch ch.Option {
+				case types.CommitteeStart:
+					// alread to start mining need stop
+					if self.shouldStart == 1 || self.mining == 1 {
+					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
+						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+							 // i am committee
+							 self.Stop()
+						 }else{
+							 log.Info("not in commiteer munber start")
+						 }
+					}
+					log.Info("==================get  election  msg  1 CommitteeStart","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				
+				case types.CommitteeSwitchover:
+					// alread to start mining need stop
+					if self.shouldStart == 1 || self.mining == 1 {
+						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+							// i am committee
+							self.Stop()
+						}else{
+							log.Info("not in commiteer munber staCommitteeSwitchoverrt")
+						}
+				   }
+					log.Info("==================get  election  msg  2 CommitteeSwitchover","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				
+				case types.CommitteeStop:
+
+					atomic.StoreInt32(&self.canStart, 1)
+					self.Start(self.coinbase)
+					log.Info("==================get  election  msg  3 CommitteeStop","canStart",self.canStart,"shoutstart",self.shouldStart,"mining",self.mining)
+				}
+			case <- self.electionSub.Err():
+				return
+				
+		}
+	}
+
+}
 // update keeps track of the downloader events. Please be aware that this is a one shot type of update loop.
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (self *Miner) update() {
-	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{})
+	//defer self.electionSub.Unsubscribe()
+	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{},core.ElectionEvent{})
 out:
-	for ev := range events.Chan() {
+	for ev := range events.Chan() {		
 		switch ev.Data.(type) {
 		case downloader.StartEvent:
+			log.Info("-----------------get download info startEvent")
 			atomic.StoreInt32(&self.canStart, 0)
 			if self.Mining() {
 				self.Stop()
@@ -95,6 +181,7 @@ out:
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
+			log.Info("-----------------get download info DoneEvent,FailedEvent")
 			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
 
 			atomic.StoreInt32(&self.canStart, 1)
@@ -111,6 +198,7 @@ out:
 }
 
 func (self *Miner) Start(coinbase common.Address) {
+	log.Info("start miner --miner start function")
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 
@@ -126,6 +214,7 @@ func (self *Miner) Start(coinbase common.Address) {
 }
 
 func (self *Miner) Stop() {
+	log.Info(" miner   ---stop miner funtion")
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)

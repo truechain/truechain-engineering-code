@@ -135,12 +135,12 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 // CalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
 
-// TODO need add gas limit 20180804
+
 func CalcGasLimit(parent *types.SnailBlock) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
 
-	// TODO add function
-	fmt.Printf("Block_Validator calcGasLimit not function")
+	// TODO need add gas limit 20180804
+	//fmt.Printf("Block_Validator calcGasLimit not function")
 	return 0
 	/*
 		contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor

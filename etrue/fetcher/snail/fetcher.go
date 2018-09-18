@@ -99,13 +99,13 @@ type Fetcher struct {
 	queued map[common.Hash]*inject // Set of already queued blocks (to dedupe imports)
 
 	// Callbacks
-	getBlock           blockRetrievalFn           // Retrieves a block from the local chain
-	verifyHeader       headerVerifierFn           // Checks if a block's headers have a valid proof of work
-	broadcastFastBlock blockBroadcasterFn         // Broadcasts a block to connected peers
-	chainHeight        chainHeightFn              // Retrieves the current chain's height
-	insertChain        chainInsertFn              // Injects a batch of blocks into the chain
-	dropPeer           peerDropFn                 // Drops a peer for misbehaving
-	blockMultiHash     map[*big.Int][]common.Hash //solve same height more block question
+	getBlock       blockRetrievalFn           // Retrieves a block from the local chain
+	verifyHeader   headerVerifierFn           // Checks if a block's headers have a valid proof of work
+	broadcastBlock blockBroadcasterFn         // Broadcasts a block to connected peers
+	chainHeight    chainHeightFn              // Retrieves the current chain's height
+	insertChain    chainInsertFn              // Injects a batch of blocks into the chain
+	dropPeer       peerDropFn                 // Drops a peer for misbehaving
+	blockMultiHash map[*big.Int][]common.Hash //solve same height more block question
 
 	// Testing hooks
 	queueChangeHook func(common.Hash, bool) // Method to call upon adding or deleting a block from the import queue
@@ -113,7 +113,7 @@ type Fetcher struct {
 }
 
 // New creates a block fetcher to retrieve blocks based on hash announcements.
-func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFastBlock blockBroadcasterFn, chainHeight chainHeightFn, insertChain chainInsertFn, dropPeer peerDropFn) *Fetcher {
+func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBlock blockBroadcasterFn, chainHeight chainHeightFn, insertChain chainInsertFn, dropPeer peerDropFn) *Fetcher {
 	return &Fetcher{
 		inject:      make(chan *inject),
 		blockFilter: make(chan chan []*types.SnailBlock),
@@ -124,13 +124,13 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		queues: make(map[string]int),
 		queued: make(map[common.Hash]*inject),
 
-		getBlock:           getBlock,
-		verifyHeader:       verifyHeader,
-		broadcastFastBlock: broadcastFastBlock,
-		chainHeight:        chainHeight,
-		insertChain:        insertChain,
-		dropPeer:           dropPeer,
-		blockMultiHash:     make(map[*big.Int][]common.Hash),
+		getBlock:       getBlock,
+		verifyHeader:   verifyHeader,
+		broadcastBlock: broadcastBlock,
+		chainHeight:    chainHeight,
+		insertChain:    insertChain,
+		dropPeer:       dropPeer,
+		blockMultiHash: make(map[*big.Int][]common.Hash),
 	}
 }
 
@@ -200,6 +200,7 @@ func (f *Fetcher) loop() {
 						continue
 					}
 					f.verifyBlockBroadcast(peer, block, true)
+					log.Debug("insert SnailBlockMsg", "number", block.Number())
 					if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
 						log.Warn("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 						f.done <- hash
@@ -301,7 +302,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock, pro
 			case nil:
 				// All ok, quickly propagate to our peers
 				propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
-				go f.broadcastFastBlock(block, propagate)
+				go f.broadcastBlock(block, propagate)
 
 			case consensus.ErrFutureBlock:
 				// Weird future block, don't fail, but neither propagate
@@ -314,7 +315,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock, pro
 			}
 		} else {
 			// If import succeeded, broadcast the block
-			go f.broadcastFastBlock(block, propagate)
+			go f.broadcastBlock(block, propagate)
 
 			// Invoke the testing hook if needed
 			if f.importedHook != nil {

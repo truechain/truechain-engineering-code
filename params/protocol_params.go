@@ -88,3 +88,16 @@ var (
 
 	FruitBlockRatio *big.Int = big.NewInt(600) // difficulty ratio between fruit and snail block
 )
+
+
+var (
+	ElectionPeriodNumber      	uint64 = 144 			// snail block period number
+	ElectionSwitchoverNumber  	uint64 = 10000
+
+	ElectionFruitsThreshold 	uint64 = 100		 // fruit size threshold for committee election
+
+	MaximumCommitteeNumber 		uint64 = 40
+	MinimumCommitteeNumber 		uint64 = 4
+
+	SnailConfirmInterval		uint64 = 12
+)

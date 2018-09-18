@@ -135,7 +135,7 @@ type SnailPool interface {
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
-	PendingFastBlocks() (*types.Block, error)
+	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
 }
@@ -222,7 +222,7 @@ type newBlockData struct {
 // newFastBlockData is the network packet for the block propagation message.
 type newSnailBlockData struct {
 	Block *types.SnailBlock
-	td    *big.Int
+	TD    *big.Int
 }
 
 // blockBody represents the data content of a single block.

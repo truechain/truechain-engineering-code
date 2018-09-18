@@ -61,6 +61,7 @@ var (
 
 	ErrFreshness = errors.New("fruit not fresh")
 	ErrMined = errors.New("already mined")
+	ErrNoFastBlockToMiner = errors.New("the fastblocks is null")
 )
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -187,23 +188,23 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	pool := &SnailPool{
 		config:      config,
 		chainconfig: chainconfig,
-		fastchain :  fastBlockChain,
+		fastchain:   fastBlockChain,
 		chain:       chain,
-		engine:       engine,
+		engine:      engine,
 
-		chainHeadCh: make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
+		chainHeadCh:     make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
 		fastchainHeadCh: make(chan ChainHeadEvent, fastchainHeadChanSize),
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
-		allFastBlocks:    make(map[common.Hash]*types.Block),
+		allFastBlocks: make(map[common.Hash]*types.Block),
 
 		//fastBlockList: 	list.New(),
-		fastBlockPending:  list.New(),
+		fastBlockPending: list.New(),
 
-		newFruitCh: make(chan *types.SnailBlock, fruitChanSize),
-		allFruits:  make(map[common.Hash]*types.SnailBlock),
-		fruitPending:make(map[common.Hash]*types.SnailBlock),
+		newFruitCh:   make(chan *types.SnailBlock, fruitChanSize),
+		allFruits:    make(map[common.Hash]*types.SnailBlock),
+		fruitPending: make(map[common.Hash]*types.SnailBlock),
 	}
 	pool.reset(nil, chain.CurrentBlock())
 
@@ -218,56 +219,32 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 
 	pool.header = pool.chain.CurrentBlock()
 
-	// Start the event loop and return
-	pool.wg.Add(1)
-	go pool.loop()
 	//from snailchain get headchain's fb number
-	headSnailBlock:=pool.chain.CurrentBlock()
-	fruits:=headSnailBlock.Fruits()
 	var minFbNumber *big.Int
-	for k, fruit := range fruits {
-		if k == 0 {
-			minFbNumber=fruit.FastNumber()
-			continue
-		}
-		if minFbNumber.Cmp(fruit.FastNumber())>0{
-			minFbNumber=fruit.FastNumber()
-		}
+	headSnailBlock := pool.chain.CurrentBlock()
+	if headSnailBlock.NumberU64() == 0 {
+		/* genesis block */
+		minFbNumber = new(big.Int).Set(common.Big1)
+	} else {
+		fruits := headSnailBlock.Fruits()
+		minFbNumber = fruits[len(fruits)-1].FastNumber()
 	}
-	if minFbNumber!=nil{
-		minFbNumber = new(big.Int).Add(minFbNumber, common.Big1)
-	}
-	maxFbNumber:=pool.fastchain.CurrentHeader().Number
-	if maxFbNumber!=nil && minFbNumber!=nil{
-		for i := minFbNumber; i.Cmp(maxFbNumber)<0;i=new(big.Int).Add(i, common.Big1) {
-			fastblock:=pool.fastchain.GetBlockByNumber(i.Uint64())
-			pool.insertFastBlockWithLock(pool.fastBlockPending,fastblock )
+	maxFbNumber := pool.fastchain.CurrentHeader().Number
+	if maxFbNumber != nil && minFbNumber != nil {
+		for i := new(big.Int).Add(minFbNumber, common.Big1); i.Cmp(maxFbNumber) <= 0; i = new(big.Int).Add(i, common.Big1) {
+			fastblock := pool.fastchain.GetBlockByNumber(i.Uint64())
+			pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
 			pool.allFastBlocks[fastblock.Hash()] = fastblock
 		}
 	}
+
+	// Start the event loop and return
+	pool.wg.Add(1)
+	go pool.loop()
+
 	return pool
 }
 
-/*func (pool *SnailPool) getFastBlock(hash common.Hash, number *big.Int) *types.Block {
-	pool.muFastBlock.Lock()
-	defer pool.muFastBlock.Unlock()
-
-	for lr := pool.fastBlockPending.Front(); lr != nil; lr = lr.Next() {
-		r := lr.Value.(*types.Block)
-		if r.Number().Cmp(number) > 0 {
-			// rest fastblocks are greater than number
-			return nil
-		} else if r.Number().Cmp(number) == 0 {
-			if r.Hash() != hash {
-				return nil
-			} else {
-				return r
-			}
-		}
-	}
-
-	return nil
-}*/
 
 //updateFruit move the validated fruit to pending list
 func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
@@ -294,6 +271,15 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
+	//if the new fruit's fbnumber less than,don't add
+	headSnailBlock := pool.chain.CurrentBlock()
+	if headSnailBlock.NumberU64()> 0 {
+		fruits := headSnailBlock.Fruits()
+		if fruits[len(fruits)-1].FastNumber().Cmp(fruit.FastNumber())>=0{
+			return  nil
+		}
+	}
+
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
@@ -492,6 +478,7 @@ func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash co
 // remove all the fruits and fastBlocks included in the new snailblock
 func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	for _, fruit := range fruits {
+		//log.Info(" ********* del fruit","snail number", fruit.Number(),"fb number",fruit.FastNumber())
 		delete(pool.fruitPending, fruit.FastHash())
 		delete(pool.allFruits, fruit.FastHash())
 
@@ -504,21 +491,16 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 }
 
 
-/*func (pool *SnailPool) resetRecordsWithLock() {
-	pool.fruitPending = make(map[common.Hash]*types.SnailBlock)
-
-	pool.fastBlockList = list.New()
-	pool.fastBlockPending = list.New()
-
-	for _, record := range pool.allFastBlocks {
-		pool.insertFastBlockWithLock(pool.fastBlockList, record)
-	}
-}*/
-
 // reset retrieves the current state of the blockchain and ensures the content
 // of the fastblock pool is valid with regard to the chain state.
 func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	// If we're reorging an old state, reinject all dropped fastblocks
+
+	/*
+	for _ , fb := range newHead.Fruits() {
+		log.Info(" -----------------------------------reset fb list","sb number",newHead.Number(),"fb number",fb.FastNumber())
+	}
+	*/
 	var reinject []*types.SnailBlock
 
 	if oldHead != nil && oldHead.Hash() != newHead.ParentHash() {
@@ -573,7 +555,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	}
 
 	// Inject any fastblocks discarded due to reorgs
-	log.Debug("Reinjecting stale transactions", "count", len(reinject))
+	log.Debug("Reinjecting stale fruits", "count", len(reinject))
 
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -626,9 +608,7 @@ func (pool *SnailPool) GasPrice() *big.Int {
 }
 
 
-// AddLocals enqueues a batch of transactions into the pool if they are valid,
-// marking the senders as a local ones in the mean time, ensuring they go around
-// the local pricing constraints.
+// AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 	errs := make([]error, len(fruits))
@@ -650,6 +630,26 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 // PendingFruits retrieves all currently verified fruits, sorted by fast number.
 // The returned fruit set is a copy and can be freely modified by calling code.
 func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
+	// new flow return all fruits
+	pool.muFruit.Lock()
+   defer pool.muFruit.Unlock()
+
+   var fruits types.SnailBlocks
+   var rtfruits types.SnailBlocks
+
+   for _, fruit := range pool.fruitPending {
+      fruits=append(fruits,types.CopyFruit(fruit))
+   }
+
+   var blockby types.SnailBlockBy = types.FruitNumber
+   blockby.Sort(fruits)
+   
+   for _, v := range fruits {
+      rtfruits = append(rtfruits, v)
+   }
+   return rtfruits, nil
+
+	/*
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
@@ -678,6 +678,7 @@ func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 		rtfruits = append(rtfruits, v)
 	}
 	return rtfruits, nil
+	*/
 }
 // SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
 // starts sending event to the given channel.
@@ -718,7 +719,21 @@ func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.Block) []error {
 
 // PendingFastBlocks retrieves one currently fast block.
 // The returned fast block is a copy and can be freely modified by calling code.
-func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
+func (pool *SnailPool) PendingFastBlocks() ([]*types.Block, error) {
+	pool.muFastBlock.Lock()
+	defer pool.muFastBlock.Unlock()
+	var fastblocks types.Blocks
+
+	for fastblock := pool.fastBlockPending.Front(); fastblock != nil; fastblock = fastblock.Next() {
+		block := fastblock.Value.(*types.Block)
+		fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
+		fastblocks = append(fastblocks, fastBlock)
+	}
+	var blockby types.BlockBy = types.Number
+	blockby.Sort(fastblocks)
+	return fastblocks, nil
+
+	/*
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
 
@@ -728,7 +743,8 @@ func (pool *SnailPool) PendingFastBlocks() (*types.Block, error) {
 	}
 	block := first.Value.(*types.Block)
 	fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
-	return fastBlock, nil
+	return fastBlock, nil*/
+
 }
 
 // SubscribeNewFastBlockEvent registers a subscription of NewFastBlocksEvent

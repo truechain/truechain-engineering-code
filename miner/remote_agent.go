@@ -154,7 +154,9 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
 
-	if err := a.engine.VerifySnailSeal(a.snailchain, result); err != nil {
+	pointer := a.snailchain.GetHeaderByHash(result.PointerHash)
+
+	if err := a.engine.VerifySnailSeal(a.snailchain, result, pointer); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
 	}
