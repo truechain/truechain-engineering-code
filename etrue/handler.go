@@ -865,7 +865,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
 		}
-		log.Info("Propagated block", "num", block.Number(), "hash", hash.String(), "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Info("Propagated block", "num", block.Number(), "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 		return
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
@@ -1003,7 +1003,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 	for {
 		select {
 		case signEvent := <-pm.pbSignsCh:
-			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash().String(), "recipients", len(pm.peers.peers))
+			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
 			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
 			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
