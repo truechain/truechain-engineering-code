@@ -24,7 +24,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 	elog "github.com/truechain/truechain-engineering-code/log"
-	"log"
 	"math/big"
 )
 
@@ -86,10 +85,10 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 	}
 
 	//Commission allocation
-	err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
+	/*err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
 	if err != nil {
 		log.Panic(err)
-	}
+	}*/
 
 	return receipts, allLogs, *usedGas, nil
 }

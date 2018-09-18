@@ -541,10 +541,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	err = self.engine.FinalizeFastGas(work.state, fastBlock.Number(), fastBlock.Hash(), feeAmount)
+	/*err = self.engine.FinalizeFastGas(work.state, fastBlock.Number(), fastBlock.Hash(), feeAmount)
 	if err != nil {
-
-	}
+		log.Error("FinalizeFastGas error ","number",fastBlock.Number())
+	}*/
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -930,7 +930,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 		return false
 	}*/
 	_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
-	if err != nil {
+	if err != nil && err !=	ErrInvalidMember {
 		log.Error("AcquireCommitteeAuth", "err", err)
 		return false
 	}
