@@ -112,6 +112,7 @@ type PbftAgent struct {
 	committeeNode *types.CommitteeNode
 	commiteePorts []int
 	privateKey    *ecdsa.PrivateKey
+	vmConfig	vm.Config
 
 	cacheSign  map[string]types.Sign     //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
@@ -179,9 +180,11 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Publickey: pubBytes,
 	}
 	self.commiteePorts = append(self.commiteePorts, config.Port, config.StandByPort)
-	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
-		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host, "coinbase", self.committeeNode.Coinbase)
 	//self.nodeInfoIsComplete = true
+	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
+		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host,
+		"coinbase", self.committeeNode.Coinbase,"self.vmConfig",self.vmConfig)
 }
 
 func (self *PbftAgent) Start() {
@@ -530,7 +533,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain,feeAmount)
-	log.Info("agent:","feeAmount",feeAmount)
+	log.Warn("agent:","feeAmount",feeAmount)
 	self.rewardSnailBlock(header)
 	//  padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
@@ -656,8 +659,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
-
-	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{}) //update
+	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	if err != nil {
 		return err
 	}
@@ -784,6 +786,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool,feeAmount *big.Int) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
+	log.Info("commitTransaction","feeAmount",feeAmount)
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
