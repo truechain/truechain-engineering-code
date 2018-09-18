@@ -228,7 +228,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("repeat ID:" + id.String())
 	}
 	// Make StateAgent
-	var height int64 = 100 	// will modify the CommitteeInfo type
+	var height uint64 = 100 	// will modify the CommitteeInfo type
 	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo),height)
 	if state == nil {
 		return errors.New("make the nil state")
