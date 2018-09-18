@@ -1399,13 +1399,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
 		if len(result.Fruits) > 0 {
-			//if fbNum == 0 {
-			//	fbNum = result.Fruits[0].FastNumber().Uint64()
-			//}
-			//fbHeight+=uint64(len(result.Fruits))
-			//height := uint64(len(result.Fruits))
-			//log.Debug("Snail--->>>","blocks>>>>" ,blocks[i],"fruits>>",result.Fruits)
-			//d.fastDown.Synchronise(p.GetID(), hash, td, -1, origin, height)
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 
