@@ -82,11 +82,11 @@ func (commit *Commit) Height() uint64 {
 }
 
 // Round returns the round of the commit
-func (commit *Commit) Round() uint {
+func (commit *Commit) Round() int {
 	if len(commit.Precommits) == 0 {
 		return 0
 	}
-	return commit.FirstPrecommit().Round
+	return int(commit.FirstPrecommit().Round)
 }
 
 // Type returns the vote type of the commit, which is always VoteTypePrecommit
@@ -95,28 +95,28 @@ func (commit *Commit) Type() byte {
 }
 
 // Size returns the number of votes in the commit
-func (commit *Commit) Size() int {
+func (commit *Commit) Size() uint {
 	if commit == nil {
 		return 0
 	}
-	return len(commit.Precommits)
+	return uint(len(commit.Precommits))
 }
 
 // BitArray returns a BitArray of which validators voted in this commit
 func (commit *Commit) BitArray() *help.BitArray {
 	if commit.bitArray == nil {
-		commit.bitArray = help.NewBitArray(len(commit.Precommits))
+		commit.bitArray = help.NewBitArray(uint(len(commit.Precommits)))
 		for i, precommit := range commit.Precommits {
 			// TODO: need to check the BlockID otherwise we could be counting conflicts,
 			// not just the one with +2/3 !
-			commit.bitArray.SetIndex(i, precommit != nil)
+			commit.bitArray.SetIndex(uint(i), precommit != nil)
 		}
 	}
 	return commit.bitArray
 }
 
 // GetByIndex returns the vote corresponding to a given validator index
-func (commit *Commit) GetByIndex(index int) *Vote {
+func (commit *Commit) GetByIndex(index uint) *Vote {
 	return commit.Precommits[index]
 }
 
@@ -152,7 +152,7 @@ func (commit *Commit) ValidateBasic() error {
 				height, precommit.Height)
 		}
 		// Ensure that all rounds are the same
-		if precommit.Round != round {
+		if int(precommit.Round) != round {
 			return fmt.Errorf("Invalid commit precommit round. Expected %v, got %v",
 				round, precommit.Round)
 		}
@@ -170,7 +170,8 @@ func (commit *Commit) Hash() help.HexBytes {
 		for i, precommit := range commit.Precommits {
 			bs[i] = help.RlpHash(precommit)
 		}
-		commit.hash = help.RlpHash(bs)[:]
+		hash := help.RlpHash(bs)
+		commit.hash = help.HexBytes(hash[:])
 	}
 	return commit.hash
 }
@@ -249,6 +250,7 @@ type BlockMeta struct {
 type BlockStore struct {
 	blocks map[uint64]*BlockMeta
 }
+
 // warning all function not thread_safe
 func NewBlockStore() *BlockStore {
 	return &BlockStore{
@@ -261,7 +263,7 @@ func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
 	}
 	return nil
 }
-func (b *BlockStore) LoadBlockPart(height uint64, index int) *Part {
+func (b *BlockStore) LoadBlockPart(height uint64, index uint) *Part {
 	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
@@ -284,7 +286,7 @@ func (b *BlockStore) MaxBlockHeight() uint64 {
 }
 func (b *BlockStore) MinBlockHeight() uint64 {
 	var cur uint64 = 0
-	for k,_ := range b.blocks {
+	for k, _ := range b.blocks {
 		if cur == 0 {
 			cur = k
 		}
@@ -306,14 +308,14 @@ func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCom
 		if k <= 0 {
 			panic(errors.New("block height is 0"))
 		}
-		delete(b.blocks,k)
+		delete(b.blocks, k)
 	}
-	if v,ok := b.blocks[block.NumberU64()]; !ok {
+	if _, ok := b.blocks[block.NumberU64()]; !ok {
 		b.blocks[block.NumberU64()] = &BlockMeta{
-			Block:			block,
-			BlockPacks：	blockParts,
-			SeenCommit:		seenCommit,
-			BlockID:		seenCommit.BlockID,
+			Block:      block,
+			BlockPacks: blockParts,
+			SeenCommit: seenCommit,
+			BlockID:    &seenCommit.BlockID,
 		}
 	}
 }
