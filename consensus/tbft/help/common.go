@@ -107,6 +107,13 @@ func MinInt(a, b int) int {
 	}
 	return b
 }
+
+func MinUint(a, b uint) uint {
+	if a < b {
+		return a
+	}
+	return b
+}
 //-----------------------------------------------------------------------------
 const (
 	strChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" // 62 characters
