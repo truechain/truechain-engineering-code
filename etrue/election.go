@@ -20,23 +20,24 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
+	"sync"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/event"
-	"math/big"
-	"sync"
+	"github.com/truechain/truechain-engineering-code/log"
 )
-
+ 
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 44 // snail block period number
-	k                  = 100
+	z                  = 1440 // snail block period number
+	k                  = 1000
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -171,6 +172,10 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 
 //whether assigned publickey  in  committeeMember pubKey
 func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
+	if len(members) == 0 {
+		log.Error("GetMemberByPubkey method len(members)= 0" )
+		return nil
+	}
 	for _, member := range members {
 		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return member
@@ -180,19 +185,28 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
-	return e.GetMemberByPubkey(members, publickey) != nil
+	if len(members) == 0 {
+		log.Error("IsCommitteeMember method len(members)= 0" )
+		return false
+	}
+	for _, member := range members {
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
-		log.Error("GetCommittee members is nil", "err", ErrCommittee)
+		log.Error("GetCommittee members is nil","fastHeight",fastHeight, "err", ErrCommittee)
 		return nil, ErrCommittee
 	}
 	member := e.GetMemberByPubkey(members, pubKeyByte)
-	if member == nil {
+	/*if member == nil {
 		return nil, ErrInvalidMember
-	}
+	}*/
 	return member, nil
 }
 
@@ -203,10 +217,7 @@ func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, err
 	}
 	pubkeyByte := crypto.FromECDSAPub(pubkey)
 	member, err := e.VerifyPublicKey(sign.FastHeight, pubkeyByte)
-	if err != nil {
-		return member, err
-	}
-	return member, nil
+	return member, err
 }
 
 //VerifySigns verify signatures of bft committee in batches
@@ -273,15 +284,15 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	//ids = append(ids, nextCommitteeNumber)
 
 	/*
-	if lastSwitchoverNumber.Cmp(common.Big0) <= 0 {
-		ids = append(ids, common.Big0)
-		ids = append(ids, common.Big1)
-		lastSwitchoverNumber = new(big.Int).Set(common.Big0)
-	} else {
-		committeeId := new(big.Int).Add(lastSwitchoverNumber, common.Big1)
-		ids = append(ids, committeeId)
-		ids = append(ids, new(big.Int).Add(committeeId, big.NewInt(z)))
-	}*/
+		if lastSwitchoverNumber.Cmp(common.Big0) <= 0 {
+			ids = append(ids, common.Big0)
+			ids = append(ids, common.Big1)
+			lastSwitchoverNumber = new(big.Int).Set(common.Big0)
+		} else {
+			committeeId := new(big.Int).Add(lastSwitchoverNumber, common.Big1)
+			ids = append(ids, committeeId)
+			ids = append(ids, new(big.Int).Add(committeeId, big.NewInt(z)))
+		}*/
 
 	e.muList.RLock()
 	defer e.muList.RUnlock()
@@ -599,7 +610,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 
 		round = new(big.Int).Add(round, common.Big1)
 		if round.Cmp(big.NewInt(maxCommitteeNumber)) >= 0 {
-			if (len(members) >= minCommitteeNumber) {
+			if len(members) >= minCommitteeNumber {
 				break
 			}
 		}
@@ -672,12 +683,25 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
-		e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.committee.id, e.committee.Members()})
-		e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.Members()})
+		e.electionFeed.Send(core.ElectionEvent{
+			Option:           types.CommitteeSwitchover,
+			CommitteeID:      e.committee.id,
+			CommitteeMembers: e.committee.Members(),
+		})
+		e.electionFeed.Send(core.ElectionEvent{
+			Option:           types.CommitteeStart,
+			CommitteeID:      e.committee.id,
+			CommitteeMembers: e.committee.Members(),
+			BeginFastNumber:  e.committee.beginFastNumber,
+		})
 
 		if e.startSwitchover {
 			// send switch event to the subscripber
-			e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.Members()})
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      e.nextCommittee.id,
+				CommitteeMembers: e.nextCommittee.Members(),
+			})
 		}
 	}(e)
 
@@ -728,7 +752,11 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					go e.electionFeed.Send(core.ElectionEvent{types.CommitteeSwitchover, e.nextCommittee.id, e.nextCommittee.Members()})
+					go e.electionFeed.Send(core.ElectionEvent{
+						Option:           types.CommitteeSwitchover,
+						CommitteeID:      e.nextCommittee.id,
+						CommitteeMembers: e.nextCommittee.Members(),
+					})
 
 				}
 
@@ -740,7 +768,11 @@ func (e *Election) loop() {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
 						go func(e *Election) {
 							log.Info("Election stop committee..", "id", e.committee.id)
-							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStop, e.committee.id, e.committee.Members()})
+							e.electionFeed.Send(core.ElectionEvent{
+								Option:           types.CommitteeStop,
+								CommitteeID:      e.committee.id,
+								CommitteeMembers: e.committee.Members(),
+							})
 
 							e.committee = e.nextCommittee
 							e.nextCommittee = nil
@@ -749,7 +781,12 @@ func (e *Election) loop() {
 
 							log.Info("Election start new BFT committee", "id", e.committee.id)
 
-							e.electionFeed.Send(core.ElectionEvent{types.CommitteeStart, e.committee.id, e.committee.Members()})
+							e.electionFeed.Send(core.ElectionEvent{
+								Option:           types.CommitteeStart,
+								CommitteeID:      e.committee.id,
+								CommitteeMembers: e.committee.Members(),
+								BeginFastNumber:  e.committee.beginFastNumber,
+							})
 						}(e)
 					}
 				}

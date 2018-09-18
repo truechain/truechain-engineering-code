@@ -940,9 +940,9 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 	}
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.snailchain.HasBlock(hash, snailBlock.NumberU64()) {
-		td :=pm.snailchain.GetTd(snailBlock.Hash(), snailBlock.NumberU64())
+		td := pm.snailchain.GetTd(snailBlock.Hash(), snailBlock.NumberU64())
 		for _, peer := range peers {
-			peer.AsyncSendNewSnailBlock(snailBlock,td)
+			peer.AsyncSendNewSnailBlock(snailBlock, td)
 		}
 		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(snailBlock.ReceivedAt)))
 	}
@@ -1069,21 +1069,28 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 // NodeInfo represents a short summary of the Truechain sub-protocol metadata
 // known about the host peer.
 type NodeInfo struct {
-	Network    uint64              `json:"network"`    // Truechain network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
-	Difficulty *big.Int            `json:"difficulty"` // Total difficulty of the host's blockchain
-	Genesis    common.Hash         `json:"genesis"`    // SHA3 hash of the host's genesis block
-	Config     *params.ChainConfig `json:"config"`     // Chain configuration for the fork rules
-	Head       common.Hash         `json:"head"`       // SHA3 hash of the host's best owned block
+	Network      uint64              `json:"network"`         // Truechain network ID (1=Frontier, 2=Morden, Ropsten=3, Rinkeby=4)
+	Genesis      common.Hash         `json:"genesis"`         // SHA3 hash of the host's genesis block
+	Config       *params.ChainConfig `json:"config"`          // Chain configuration for the fork rules
+	Head         common.Hash         `json:"head"`            // SHA3 hash of the host's best owned block
+	Difficulty   *big.Int            `json:"snailDifficulty"` // Total difficulty of the host's blockchain
+	SnailGenesis common.Hash         `json:"snailGenesis"`    // SHA3 hash of the host's genesis block
+	SnailConfig  *params.ChainConfig `json:"snailConfig"`     // Chain configuration for the fork rules
+	SnailHead    common.Hash         `json:"snailHead"`       // SHA3 hash of the host's best owned block
 }
 
 // NodeInfo retrieves some protocol metadata about the running host node.
 func (pm *ProtocolManager) NodeInfo() *NodeInfo {
 	currentBlock := pm.blockchain.CurrentBlock()
+	currentSnailBlock := pm.snailchain.CurrentBlock()
 	return &NodeInfo{
-		Network:    pm.networkID,
-		Difficulty: pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64()),
-		Genesis:    pm.blockchain.Genesis().Hash(),
-		Config:     pm.blockchain.Config(),
-		Head:       currentBlock.Hash(),
+		Network:      pm.networkID,
+		Genesis:      pm.blockchain.Genesis().Hash(),
+		Config:       pm.blockchain.Config(),
+		Head:         currentBlock.Hash(),
+		Difficulty:   pm.snailchain.GetTd(currentSnailBlock.Hash(), currentSnailBlock.NumberU64()),
+		SnailGenesis: pm.snailchain.Genesis().Hash(),
+		SnailConfig:  pm.snailchain.Config(),
+		SnailHead:    currentSnailBlock.Hash(),
 	}
 }
