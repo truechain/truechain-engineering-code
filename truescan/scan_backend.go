@@ -100,7 +100,7 @@ func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
 		Members:         mas,
 		BeginFastNumber: bfn.Uint64(),
 	}
-	ts.redisClient.changeView(cvm)
+	ts.redisClient.ChangeView(cvm)
 }
 
 func (ts *TrueScan) stateChangeHandleLoop() error {
