@@ -144,10 +144,13 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 
 		// remain one cpu to process fast block
 		threads = cpuNumber - 1
+		if threads <= 0 {
+			threads = 1
+		}
 	}
 	if threads < 0 {
 		threads = 0 // Allows disabling local mining without extra logic around local/remote
-		log.Error("Stop mining for CPU number less than 2 or set threads number error.")
+		//log.Error("Stop mining for CPU number less than 2 or set threads number error.")
 	}
 	var pend sync.WaitGroup
 	for i := 0; i < threads; i++ {
