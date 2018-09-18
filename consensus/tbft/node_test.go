@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestNote(t *testing.T) {
-	n,e := NewNode(nil,"",nil,nil)
-	fmt.Println(n,e)
+func TestNoteBuild(t *testing.T) {
+	n, e := NewNode(nil, "", nil, nil)
+	fmt.Println(n, e)
 }

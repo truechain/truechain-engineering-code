@@ -2,18 +2,18 @@ package help
 
 import (
 	"encoding/binary"
-	"time"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strings"
 	"sync"
-	"math/rand"
+	"time"
 )
 
 // BitArray is a thread-safe implementation of a bit array.
 type BitArray struct {
-	mtx   sync.Mutex
-	Bits  uint      `json:"bits"`  // NOTE: persisted via reflect, must be exported
+	Mtx   sync.Mutex
+	Bits  uint     `json:"bits"`  // NOTE: persisted via reflect, must be exported
 	Elems []uint64 `json:"elems"` // NOTE: persisted via reflect, must be exported
 }
 
@@ -43,8 +43,8 @@ func (bA *BitArray) GetIndex(i uint) bool {
 	if bA == nil {
 		return false
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 	return bA.getIndex(i)
 }
 
@@ -61,8 +61,8 @@ func (bA *BitArray) SetIndex(i uint, v bool) bool {
 	if bA == nil {
 		return false
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 	return bA.setIndex(i, v)
 }
 
@@ -83,8 +83,8 @@ func (bA *BitArray) Copy() *BitArray {
 	if bA == nil {
 		return nil
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 	return bA.copy()
 }
 
@@ -119,11 +119,11 @@ func (bA *BitArray) Or(o *BitArray) *BitArray {
 	if o == nil {
 		return bA.Copy()
 	}
-	bA.mtx.Lock()
-	o.mtx.Lock()
+	bA.Mtx.Lock()
+	o.Mtx.Lock()
 	defer func() {
-		bA.mtx.Unlock()
-		o.mtx.Unlock()
+		bA.Mtx.Unlock()
+		o.Mtx.Unlock()
 	}()
 	c := bA.copyBits(MaxUint(bA.Bits, o.Bits))
 	for i := 0; i < len(c.Elems); i++ {
@@ -139,11 +139,11 @@ func (bA *BitArray) And(o *BitArray) *BitArray {
 	if bA == nil || o == nil {
 		return nil
 	}
-	bA.mtx.Lock()
-	o.mtx.Lock()
+	bA.Mtx.Lock()
+	o.Mtx.Lock()
 	defer func() {
-		bA.mtx.Unlock()
-		o.mtx.Unlock()
+		bA.Mtx.Unlock()
+		o.Mtx.Unlock()
 	}()
 	return bA.and(o)
 }
@@ -161,8 +161,8 @@ func (bA *BitArray) Not() *BitArray {
 	if bA == nil {
 		return nil // Degenerate
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 	return bA.not()
 }
 
@@ -182,11 +182,11 @@ func (bA *BitArray) Sub(o *BitArray) *BitArray {
 		// TODO: Decide if we should do 1's complement here?
 		return nil
 	}
-	bA.mtx.Lock()
-	o.mtx.Lock()
+	bA.Mtx.Lock()
+	o.Mtx.Lock()
 	defer func() {
-		bA.mtx.Unlock()
-		o.mtx.Unlock()
+		bA.Mtx.Unlock()
+		o.Mtx.Unlock()
 	}()
 	if bA.Bits > o.Bits {
 		c := bA.copy()
@@ -209,8 +209,8 @@ func (bA *BitArray) IsEmpty() bool {
 	if bA == nil {
 		return true // should this be opposite?
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 	for _, e := range bA.Elems {
 		if e > 0 {
 			return false
@@ -224,8 +224,8 @@ func (bA *BitArray) IsFull() bool {
 	if bA == nil {
 		return true
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 
 	// Check all elements except the last
 	for _, elem := range bA.Elems[:len(bA.Elems)-1] {
@@ -246,8 +246,8 @@ func (bA *BitArray) PickRandom() (uint, bool) {
 	if bA == nil {
 		return 0, false
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 
 	length := len(bA.Elems)
 	if length == 0 {
@@ -305,8 +305,8 @@ func (bA *BitArray) StringIndented(indent string) string {
 	if bA == nil {
 		return "nil-BitArray"
 	}
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 	return bA.stringIndented(indent)
 }
 
@@ -338,8 +338,8 @@ func (bA *BitArray) stringIndented(indent string) string {
 
 // Bytes returns the byte representation of the bits within the bitarray.
 func (bA *BitArray) Bytes() []byte {
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 
 	numBytes := (bA.Bits + 7) / 8
 	bytes := make([]byte, numBytes)
@@ -357,11 +357,11 @@ func (bA *BitArray) Update(o *BitArray) {
 	if bA == nil || o == nil {
 		return
 	}
-	bA.mtx.Lock()
-	o.mtx.Lock()
+	bA.Mtx.Lock()
+	o.Mtx.Lock()
 	defer func() {
-		bA.mtx.Unlock()
-		o.mtx.Unlock()
+		bA.Mtx.Unlock()
+		o.Mtx.Unlock()
 	}()
 
 	copy(bA.Elems, o.Elems)
@@ -374,8 +374,8 @@ func (bA *BitArray) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
+	bA.Mtx.Lock()
+	defer bA.Mtx.Unlock()
 
 	bits := `"`
 	for i := 0; i < int(bA.Bits); i++ {
