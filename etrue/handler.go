@@ -838,7 +838,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-				go pm.synchronise(p)
+				// TODO: fix the issue
+				// go pm.synchronise(p)
 			}
 		}
 
