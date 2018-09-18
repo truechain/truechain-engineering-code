@@ -17,14 +17,15 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/params"
 	elog "github.com/truechain/truechain-engineering-code/log"
-	"math/big"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -70,26 +71,19 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
-		elog.Info("Process commitTransaction","feeAmount",feeAmount)
+		elog.Info("Process commitTransaction", "feeAmount", feeAmount)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
-	elog.Warn("state_processor:","feeAmount",feeAmount)
+	elog.Warn("state_processor:", "feeAmount", feeAmount)
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts)
+	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
-		panic(err)
+		return nil, nil, 0, err
 	}
-
-	//Commission allocation
-	/*err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
-	if err != nil {
-		log.Panic(err)
-	}*/
-
 	return receipts, allLogs, *usedGas, nil
 }
 
@@ -121,8 +115,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
 	}
 	*usedGas += gas
-	feeAmount_ := new(big.Int).Add(new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice()), feeAmount)
-	*feeAmount = *feeAmount_
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	feeAmount.Add(fee, feeAmount)
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.

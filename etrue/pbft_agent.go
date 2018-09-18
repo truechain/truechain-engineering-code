@@ -112,7 +112,7 @@ type PbftAgent struct {
 	committeeNode *types.CommitteeNode
 	commiteePorts []int
 	privateKey    *ecdsa.PrivateKey
-	vmConfig	vm.Config
+	vmConfig      vm.Config
 
 	cacheSign  map[string]types.Sign     //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
@@ -532,19 +532,15 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		return fastBlock, err
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.fastChain,feeAmount)
-	log.Warn("agent:","feeAmount",feeAmount)
+	work.commitTransactions(self.mux, txs, self.fastChain, feeAmount)
+	log.Warn("agent:", "feeAmount", feeAmount)
 	self.rewardSnailBlock(header)
-	//  padding Header.Root, TxHash, ReceiptHash.
+	// padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
-	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
+	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	/*err = self.engine.FinalizeFastGas(work.state, fastBlock.Number(), fastBlock.Hash(), feeAmount)
-	if err != nil {
-		log.Error("FinalizeFastGas error ","number",fastBlock.Number())
-	}*/
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -700,7 +696,7 @@ func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) er
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain,feeAmount *big.Int) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, feeAmount *big.Int) {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
@@ -732,7 +728,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 
-		err, logs := env.commitTransaction(tx, bc, env.gasPool,feeAmount)
+		err, logs := env.commitTransaction(tx, bc, env.gasPool, feeAmount)
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
@@ -783,10 +779,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool,feeAmount *big.Int) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool, feeAmount *big.Int) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
-	log.Info("commitTransaction","feeAmount",feeAmount)
+	log.Info("commitTransaction", "feeAmount", feeAmount)
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
@@ -930,7 +926,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 		return false
 	}*/
 	_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
-	if err != nil && err !=	ErrInvalidMember {
+	if err != nil && err != ErrInvalidMember {
 		log.Error("AcquireCommitteeAuth", "err", err)
 		return false
 	}
