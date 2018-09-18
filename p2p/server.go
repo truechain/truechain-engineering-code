@@ -642,7 +642,7 @@ running:
 					p.events = &srv.peerFeed
 				}
 				name := truncateName(c.name)
-				srv.log.Info("Adding p2p peer", "name", name, "addr", c.fd.RemoteAddr(), "peers", len(peers)+1)
+				srv.log.Debug("Adding p2p peer", "name", name, "addr", c.fd.RemoteAddr(), "peers", len(peers)+1)
 				go srv.runPeer(p)
 				peers[c.id] = p
 				if p.Inbound() {
