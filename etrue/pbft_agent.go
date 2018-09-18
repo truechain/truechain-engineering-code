@@ -533,7 +533,6 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain, feeAmount)
-	log.Warn("agent:", "feeAmount", feeAmount)
 	self.rewardSnailBlock(header)
 	// padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
@@ -782,7 +781,6 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool, feeAmount *big.Int) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
-	log.Info("commitTransaction", "feeAmount", feeAmount)
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
