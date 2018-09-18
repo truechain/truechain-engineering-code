@@ -40,7 +40,7 @@ func TestReader(t *testing.T) {
 
 	bTmp := types.NewBlock(header, tr, re, si)
 
-	ps := types2.MakePartSet(64*1024, bTmp)
+	ps := types2.MakePartSet(64*64, bTmp)
 	pe := types2.NewPartSetFromHeader(ps.Header())
 
 	for i := 0; i < int(ps.Total()); i++ {
@@ -48,7 +48,7 @@ func TestReader(t *testing.T) {
 	}
 
 	header2 := &types.Header{}
-	n, e := help.UnmarshalBinaryReader(pe.GetReader(), &header2, 32451)
+	n, e := help.UnmarshalBinaryReader(ps.GetReader(), header2, 32451)
 	fmt.Println(n, e)
 	fmt.Println(header)
 	fmt.Println(header2)
