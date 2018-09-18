@@ -307,8 +307,6 @@ func (cs *ConsensusState) AddVote(vote *ttypes.Vote, peerID string) (added bool,
 	} else {
 		cs.peerMsgQueue <- msgInfo{&VoteMessage{vote}, peerID}
 	}
-
-	// TODO: wait for event?!
 	return false, nil
 }
 
@@ -394,12 +392,8 @@ func (cs *ConsensusState) sendInternalMessage(mi msgInfo) {
 // Reconstruct LastCommit from SeenCommit, which we saved along with the block,
 // (which happens even before saving the state)
 func (cs *ConsensusState) reconstructLastCommit(seenCommit *ttypes.Commit) {
-	if seenCommit == nil {
-		cs.LastCommit = nil
-		return
-	}
 	LastBlockHeight := cs.state.GetLastBlockHeight()
-	if LastBlockHeight == 0 {
+	if LastBlockHeight == 0 || seenCommit == nil{
 		return
 	}
 	lastPrecommits := ttypes.NewVoteSet(cs.state.GetChainID(), LastBlockHeight, seenCommit.Round(),
