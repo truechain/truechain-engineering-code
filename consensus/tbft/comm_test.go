@@ -19,11 +19,14 @@ func RandHexBytes20() [20]byte {
 }
 
 func TestReader(t *testing.T) {
-	header := &types.Header{}
-	header.Time = big.NewInt(time.Now().Unix())
-	header.ParentHash = RandHexBytes32()
-
-	header.Number = header.Time
+	header := &types.Header{
+		Time:        big.NewInt(time.Now().Unix()),
+		ParentHash:  RandHexBytes32(),
+		Root:        RandHexBytes32(),
+		TxHash:      RandHexBytes32(),
+		ReceiptHash: RandHexBytes32(),
+		Extra:       nil,
+	}
 
 	var tr []*types.Transaction
 
