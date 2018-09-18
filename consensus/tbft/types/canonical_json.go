@@ -17,17 +17,17 @@ type CanonicalJSONBlockID struct {
 
 type CanonicalJSONPartSetHeader struct {
 	Hash  help.HexBytes `json:"hash,omitempty"`
-	Total int           `json:"total,omitempty"`
+	Total uint          `json:"total,omitempty"`
 }
 
 type CanonicalJSONProposal struct {
 	ChainID          string                     `json:"@chain_id"`
 	Type             string                     `json:"@type"`
 	BlockPartsHeader CanonicalJSONPartSetHeader `json:"block_parts_header"`
-	Height           int64                      `json:"height"`
+	Height           uint64                     `json:"height"`
 	POLBlockID       CanonicalJSONBlockID       `json:"pol_block_id"`
-	POLRound         int                        `json:"pol_round"`
-	Round            int                        `json:"round"`
+	POLRound         uint                       `json:"pol_round"`
+	Round            uint                       `json:"round"`
 	Timestamp        string                     `json:"timestamp"`
 }
 
@@ -35,8 +35,8 @@ type CanonicalJSONVote struct {
 	ChainID   string               `json:"@chain_id"`
 	Type      string               `json:"@type"`
 	BlockID   CanonicalJSONBlockID `json:"block_id"`
-	Height    int64                `json:"height"`
-	Round     int                  `json:"round"`
+	Height    uint64               `json:"height"`
+	Round     uint                 `json:"round"`
 	Timestamp string               `json:"timestamp"`
 	VoteType  byte                 `json:"type"`
 }
