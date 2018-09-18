@@ -858,12 +858,12 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool {
 		log.Error("VerifyCommitteeSign sign is nil")
 		return false
 	}
-	_, err := self.election.VerifySign(sign)
+	member, err := self.election.VerifySign(sign)
 	if err != nil {
 		log.Error("VerifyCommitteeSign  error", "err", err)
 		return false
 	}
-	return true
+	return member!= nil
 }
 
 // ChangeCommitteeLeader trigger view change.
