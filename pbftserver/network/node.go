@@ -362,6 +362,7 @@ func (node *Node) processCommitWaitMessage() {
 	for {
 		node.Count2 += 1
 		var msgSend = make([]*consensus.VoteMsg, 0)
+	start:
 		for k, v := range node.CommitWaitMsg {
 			lock.PSLog("CommitWaitMsg in")
 			state := node.GetStatus(v.Height)
@@ -391,7 +392,7 @@ func (node *Node) processCommitWaitMessage() {
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
 				delete(node.CommitWaitMsg, k)
-				continue
+				break start
 			}
 
 			//send back
