@@ -31,7 +31,7 @@ import (
 	"math/big"
 	"sync"
 )
-
+ 
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
