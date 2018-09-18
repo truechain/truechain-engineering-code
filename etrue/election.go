@@ -185,19 +185,28 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
-	return e.GetMemberByPubkey(members, publickey) != nil
+	if len(members) == 0 {
+		log.Error("IsCommitteeMember method len(members)= 0" )
+		return false
+	}
+	for _, member := range members {
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
-		log.Error("GetCommittee members is nil", "err", ErrCommittee)
+		log.Error("GetCommittee members is nil","fastHeight",fastHeight, "err", ErrCommittee)
 		return nil, ErrCommittee
 	}
 	member := e.GetMemberByPubkey(members, pubKeyByte)
-	if member == nil {
+	/*if member == nil {
 		return nil, ErrInvalidMember
-	}
+	}*/
 	return member, nil
 }
 
@@ -208,10 +217,7 @@ func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, err
 	}
 	pubkeyByte := crypto.FromECDSAPub(pubkey)
 	member, err := e.VerifyPublicKey(sign.FastHeight, pubkeyByte)
-	if err != nil {
-		return member, err
-	}
-	return member, nil
+	return member, err
 }
 
 //VerifySigns verify signatures of bft committee in batches
