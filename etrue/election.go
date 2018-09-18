@@ -32,7 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 )
-
+ 
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64

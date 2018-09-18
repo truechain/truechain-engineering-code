@@ -71,6 +71,7 @@ type Miner struct {
 	toElect   bool // for elect
 	publickey   []byte// for publickey
 	FruitOnly  bool // only for miner fruit
+	singleNode  bool // for single node mode
 
 	coinbase  common.Address
 	mining    int32
@@ -87,13 +88,14 @@ type Miner struct {
 }
 
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
-	election CommitteeElection,mineFruit bool) *Miner {
+	election CommitteeElection,mineFruit bool, singleNode bool) *Miner {
 	miner := &Miner{
 		truechain: truechain,
 		mux:       mux,
 		engine:    engine,
 		election : election,
 		FruitOnly: mineFruit,// set fruit only 
+		singleNode:singleNode,
 		electionCh:    make(chan core.ElectionEvent, txChanSize),
 		worker:    newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:  1,
@@ -105,7 +107,12 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 	
 	
 	go miner.SetFruitOnly(mineFruit)
-	//go miner.loop()
+
+	// single node not need care about the election 
+	if !miner.singleNode{
+		go miner.loop()
+	}
+
 	go miner.update()
 	return miner
 } 
