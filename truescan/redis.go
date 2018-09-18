@@ -3,6 +3,7 @@ package truescan
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -201,22 +202,16 @@ func (rc *RedisClient) PruningShortBranch() error {
 	return err
 }
 
-// ChangeBalance is triggered when any account balance changed due to any reason.
+// StateChange is triggered when accounts balances changed due to any reason.
 // If a balance change event is rolled back (which in theory should not have happened),
 // then there needs to be a "countervailing event" with the opposite amount of change.
-func (rc *RedisClient) ChangeBalance() error {
-	exampleMsg := struct {
-		Address string `json:"address"`
-		Change  string `json:"change"`
-	}{
-		Address: "0xF2bb016e8C9C8975654dcd62f318323A8A79D48E",
-		Change:  "100000000000000000000",
-	}
-	msg, err := json.Marshal(exampleMsg)
+func (rc *RedisClient) StateChange(scm []*BalanceChangeMsg) error {
+	msg, err := json.Marshal(scm)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
-	start := `{"type":"changeBalance","data":`
+	start := `{"type":"stateChange","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
 	return err

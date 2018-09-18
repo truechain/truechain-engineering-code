@@ -3,6 +3,8 @@ package truescan
 import (
 	"errors"
 	"fmt"
+
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -13,10 +15,11 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize  = 10
-	fruitChanSize      = 256
-	snailChainHeadSize = 64
-	electionChanSize   = 64
+	chainHeadChanSize   = 10
+	fruitChanSize       = 256
+	snailChainHeadSize  = 64
+	electionChanSize    = 64
+	stateChangeChanSize = 64
 )
 
 var (
@@ -45,4 +48,6 @@ type Subscriber interface {
 	SubscribeSnailChainHeadEvent(chan<- snailchain.ChainHeadEvent) event.Subscription
 
 	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
+
+	SubscribeStateChangeEvent(chan<- []*common.AddressWithBalance) event.Subscription
 }

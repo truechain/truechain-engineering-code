@@ -251,3 +251,7 @@ func (b *EthAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainH
 func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
 	return b.etrue.election.SubscribeElectionEvent(ch)
 }
+
+func (b *EthAPIBackend) SubscribeStateChangeEvent(ch chan<- []*common.AddressWithBalance) event.Subscription {
+	return b.etrue.BlockChain().SubscribeStateChangeEvent(ch)
+}

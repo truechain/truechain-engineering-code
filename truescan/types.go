@@ -57,3 +57,9 @@ type ChangeViewMsg struct {
 	Members         []string `json:"members"`
 	BeginFastNumber uint64   `json:"beginFastNumber"`
 }
+
+// BalanceChangeMsg used in corresponding message transmission
+type BalanceChangeMsg struct {
+	Address string `json:"address"`
+	Balance string `json:"balance"`
+}

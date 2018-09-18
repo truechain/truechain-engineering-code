@@ -1,5 +1,3 @@
-
-
 package common
 
 import (
@@ -286,4 +284,10 @@ func (ma *MixedcaseAddress) ValidChecksum() bool {
 // Original returns the mixed-case input string
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
+}
+
+// AddressWithBalance store account balance information.
+type AddressWithBalance struct {
+	Address Address
+	Balance *big.Int
 }

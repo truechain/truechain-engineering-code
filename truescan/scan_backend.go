@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -22,6 +23,8 @@ type TrueScan struct {
 	snailChainHeadSub event.Subscription
 	electionCh        chan core.ElectionEvent
 	electionSub       event.Subscription
+	stateChangeCh     chan []*common.AddressWithBalance
+	stateChangeSub    event.Subscription
 	redisClient       *RedisClient
 	quit              chan struct{}
 }
@@ -35,6 +38,7 @@ func New(sub Subscriber) *TrueScan {
 		fruitsch:         make(chan snailchain.NewFruitsEvent, fruitChanSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
+		stateChangeCh:    make(chan []*common.AddressWithBalance, stateChangeChanSize),
 		quit:             make(chan struct{}),
 	}
 	rc, err := NewRedisClient("39.105.126.32:6379", 1)
@@ -62,6 +66,9 @@ func (ts *TrueScan) Start() {
 
 	ts.electionSub = ts.sub.SubscribeElectionEvent(ts.electionCh)
 	go ts.electionHandleLoop()
+
+	ts.stateChangeSub = ts.sub.SubscribeStateChangeEvent(ts.stateChangeCh)
+	go ts.stateChangeHandleLoop()
 
 	go ts.loop()
 }
@@ -94,6 +101,31 @@ func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
 		BeginFastNumber: bfn.Uint64(),
 	}
 	ts.redisClient.changeView(cvm)
+}
+
+func (ts *TrueScan) stateChangeHandleLoop() error {
+	for {
+		select {
+		case stateChangeEvent := <-ts.stateChangeCh:
+			ts.handleStateChange(stateChangeEvent)
+
+			// Err() channel will be closed when unsubscribing.
+		case <-ts.stateChangeSub.Err():
+			return errResp("fruit terminated")
+		}
+	}
+}
+
+func (ts *TrueScan) handleStateChange(awbs []*common.AddressWithBalance) {
+	bcms := make([]*BalanceChangeMsg, len(awbs))
+	for i, awb := range awbs {
+		bcm := &BalanceChangeMsg{
+			Address: awb.Address.String(),
+			Balance: "0x" + hex.EncodeToString(awb.Balance.Bytes()),
+		}
+		bcms[i] = bcm
+	}
+	ts.redisClient.StateChange(bcms)
 }
 
 func (ts *TrueScan) snailChainHandleLoop() error {

@@ -100,6 +100,20 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	}, nil
 }
 
+// Balances return state info.
+func (db *StateDB) Balances() []*common.AddressWithBalance {
+	balances := make([]*common.AddressWithBalance, len(db.stateObjects))
+	i := 0
+	for _, sto := range db.stateObjects {
+		balances[i] = &common.AddressWithBalance{
+			Address: sto.Address(),
+			Balance: sto.Balance(),
+		}
+		i++
+	}
+	return balances
+}
+
 // setError remembers the first non-nil error it is called with.
 func (self *StateDB) setError(err error) {
 	if self.dbErr == nil {
@@ -292,7 +306,7 @@ func (self *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
-	} 
+	}
 }
 
 func (self *StateDB) SetNonce(addr common.Address, nonce uint64) {
