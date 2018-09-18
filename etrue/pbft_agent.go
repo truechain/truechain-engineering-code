@@ -938,7 +938,6 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 			return true
 		}
 	}*/
-	return true
 }
 
 func (agent *PbftAgent) singleloop() {
