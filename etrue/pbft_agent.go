@@ -88,6 +88,7 @@ type PbftAgent struct {
 	currentCommitteeInfo *types.CommitteeInfo
 	nextCommitteeInfo    *types.CommitteeInfo
 	committeeId          *big.Int
+	isCommitteeMember    bool
 
 	server   types.PbftServerProxy
 	election *Election
@@ -111,6 +112,7 @@ type PbftAgent struct {
 	committeeNode *types.CommitteeNode
 	commiteePorts []int
 	privateKey    *ecdsa.PrivateKey
+	vmConfig      vm.Config
 
 	cacheSign  map[string]types.Sign     //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
@@ -143,6 +145,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		snailChain: eth.SnailBlockChain(),
 		//preCommitteeInfo: new(types.CommitteeInfo),
 		currentCommitteeInfo: new(types.CommitteeInfo),
+		nextCommitteeInfo:    new(types.CommitteeInfo),
 		committeeId:          new(big.Int).SetInt64(-1),
 		electionCh:           make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan core.ChainHeadEvent, chainHeadSize),
@@ -177,9 +180,11 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Publickey: pubBytes,
 	}
 	self.commiteePorts = append(self.commiteePorts, config.Port, config.StandByPort)
-	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
-		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host, "coinbase", self.committeeNode.Coinbase)
 	//self.nodeInfoIsComplete = true
+	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
+		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host,
+		"coinbase", self.committeeNode.Coinbase)
 }
 
 func (self *PbftAgent) Start() {
@@ -205,41 +210,42 @@ func (self *PbftAgent) loop() {
 		case ch := <-self.electionCh:
 			switch ch.Option {
 			case types.CommitteeStart:
-				log.Debug("CommitteeStart...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeId) {
+				log.Debug("CommitteeStart...", "Id", ch.CommitteeID)
+				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeID) {
 					continue
 				}*/
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(ch.CommitteeId, int(ch.Option))
+					go self.server.Notify(ch.CommitteeID, int(ch.Option))
 				}
 			case types.CommitteeStop:
-				log.Debug("CommitteeStop..", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeId) {
+				log.Debug("CommitteeStop..", "Id", ch.CommitteeID)
+				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeID) {
 					continue
 				}*/
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(ch.CommitteeId, int(ch.Option))
+					go self.server.Notify(ch.CommitteeID, int(ch.Option))
 				}
 				//self.setCommitteeInfo(preCommittee, self.currentCommitteeInfo)
 				//self.setCommitteeInfo(nil, currentCommittee)
 
 			case types.CommitteeSwitchover:
-				log.Debug("CommitteeCh...", "Id", ch.CommitteeId)
-				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeId) {
+				log.Debug("CommitteeCh...", "Id", ch.CommitteeID)
+				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeID) {
 					continue
 				}*/
 				receivedCommitteeInfo := &types.CommitteeInfo{
-					Id:      ch.CommitteeId,
+					Id:      ch.CommitteeID,
 					Members: ch.CommitteeMembers,
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
-				//self.committeeId = ch.CommitteeId
+				//self.committeeId = ch.CommitteeID
 
 				ticker.Stop()                                //stop ticker send nodeInfo
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 				ticker = time.NewTicker(sendNodeTime)
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
+					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)
 					self.updateCommitteeNode()
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
@@ -251,6 +257,9 @@ func (self *PbftAgent) loop() {
 							}
 						}
 					}()
+				} else {
+					log.Info("node not in pbft member")
+					self.isCommitteeMember = false
 				}
 			default:
 				log.Warn("unknown election option:", "option", ch.Option)
@@ -265,7 +274,9 @@ func (self *PbftAgent) loop() {
 					signStr = signStr[:subSignStr]
 				}
 				// if  node  is in committee  and the sign is not received
-				if self.IsCommitteeMember(self.nextCommitteeInfo) && bytes.Equal(self.cacheSign[signStr], []byte{}) {
+				//TODO every time getcommittee
+				//if bytes.Equal(self.cacheSign[signStr], []byte{}) && self.IsCommitteeMember(self.nextCommitteeInfo) {
+				if self.isCommitteeMember && bytes.Equal(self.cacheSign[signStr], []byte{}) {
 					self.cacheSign[signStr] = cryNodeInfo.Sign
 					self.receivePbftNode(cryNodeInfo)
 				} else {
@@ -284,7 +295,7 @@ func (self *PbftAgent) loop() {
 func (self *PbftAgent) updateCommitteeNode() {
 	members := self.currentCommitteeInfo.Members
 	isCommitteeeMember := self.election.IsCommitteeMember(members, self.committeeNode.Publickey)
-	if isCommitteeeMember != nil {
+	if isCommitteeeMember {
 		for _, port := range self.commiteePorts {
 			if self.committeeNode.Port != uint(port) {
 				self.committeeNode.Port = uint(port)
@@ -404,22 +415,17 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 	}
 
 	nextCommitteeInfo := self.nextCommitteeInfo
-	if nextCommitteeInfo == nil || len(nextCommitteeInfo.Members) == 0 {
-		log.Error("NextCommitteeInfo.Members is nil ...")
+	if len(nextCommitteeInfo.Members) == 0 {
+		log.Error("encryptoNodeInCommittee method NextCommitteeInfo.Members = 0")
 		return false
 	}
 	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
-		log.Warn("CommitteeId not consistence  ...")
+		log.Warn("received nodeInfo CommitteeId not consistence  ...")
 		return false
 	}
 
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-	for _, member := range nextCommitteeInfo.Members {
-		if bytes.Equal(pubKeyByte, crypto.FromECDSAPub(member.Publickey)) {
-			return true
-		}
-	}
-	return false
+	return self.election.IsCommitteeMember(nextCommitteeInfo.Members, pubKeyByte)
 }
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
@@ -432,7 +438,7 @@ func (self *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 			CommitteeId: committeeInfo.Id,
 		}
 	)
-	DebugNode(self.committeeNode, "send")
+	PrintNode("send", self.committeeNode)
 	nodeByte, err := rlp.EncodeToBytes(self.committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
@@ -474,7 +480,7 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 		if err == nil { // can Decrypt by priKey
 			node := new(types.CommitteeNode) //receive nodeInfo
 			rlp.DecodeBytes(decryptNode, node)
-			DebugNode(node, "receive")
+			PrintNode("receive", node)
 			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
 		}
 	}
@@ -485,7 +491,10 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	log.Debug("into GenerateFastBlock...")
 	self.mu.Lock()
 	defer self.mu.Unlock()
-	var fastBlock *types.Block
+	var (
+		fastBlock *types.Block
+		feeAmount = big.NewInt(0)
+	)
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
@@ -508,7 +517,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-	//validate height and hash 
+	//validate height and hash
 	if err := self.engine.Prepare(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return fastBlock, err
@@ -523,12 +532,12 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		return fastBlock, err
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.fastChain)
-
+	work.commitTransactions(self.mux, txs, self.fastChain, feeAmount)
+	log.Warn("agent:", "feeAmount", feeAmount)
 	self.rewardSnailBlock(header)
-	//  padding Header.Root, TxHash, ReceiptHash.
+	// padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
-	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts); err != nil {
+	if fastBlock, err = self.engine.Finalize(self.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
@@ -646,8 +655,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
-
-	receipts, _, usedGas, err := bc.Processor().Process(fb, state, vm.Config{}) //update
+	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	if err != nil {
 		return err
 	}
@@ -688,7 +696,7 @@ func (self *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) er
 	return nil
 }
 
-func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain) {
+func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, feeAmount *big.Int) {
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
@@ -720,7 +728,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 
-		err, logs := env.commitTransaction(tx, bc, env.gasPool)
+		err, logs := env.commitTransaction(tx, bc, env.gasPool, feeAmount)
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
@@ -771,10 +779,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 	}
 }
 
-func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool) (error, []*types.Log) {
+func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockChain, gp *core.GasPool, feeAmount *big.Int) (error, []*types.Log) {
 	snap := env.state.Snapshot()
-	feeAmount := big.NewInt(0)
 	receipt, _, err := core.ApplyTransaction(env.config, bc, gp, env.state, env.header, tx, &env.header.GasUsed, feeAmount, vm.Config{})
+	log.Info("commitTransaction", "feeAmount", feeAmount)
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return err, nil
@@ -803,17 +811,7 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	/*if !self.nodeInfoIsComplete {
 		return false
 	}*/
-	if committeeInfo == nil {
-		log.Error("received committeeInfo is nil ")
-		return false
-	}
-	if len(committeeInfo.Members) == 0 {
-		log.Error("len(committeeInfo.Members) == 0 ")
-		return false
-	}
-	member := self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
-
-	return member != nil
+	return self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
 }
 
 /*
@@ -890,7 +888,7 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
-		log.Error("newCommitteeInfo is nil ", "CommitteeType", CommitteeType)
+		log.Error("setCommitteeInfo is nil ", "CommitteeType", CommitteeType)
 		newCommitteeInfo = &types.CommitteeInfo{}
 	}
 	switch CommitteeType {
@@ -898,8 +896,8 @@ func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *typ
 		self.currentCommitteeInfo = newCommitteeInfo
 	case nextCommittee:
 		self.nextCommitteeInfo = newCommitteeInfo
-		/*case preCommittee:
-			self.preCommitteeInfo = newCommitteeInfo*/
+	// case preCommittee:
+	// 	self.preCommitteeInfo = newCommitteeInfo
 	default:
 		log.Warn("CommitteeType is error ")
 	}
@@ -917,7 +915,7 @@ func DebugCryptNode(node *types.EncryptNodeMessage) {
 		len(node.Nodes))
 }
 
-func DebugNode(node *types.CommitteeNode, str string) {
+func PrintNode(str string, node *types.CommitteeNode) {
 	log.Info(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
 		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey)[:6]+"***")
 }
@@ -928,7 +926,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 		return false
 	}*/
 	_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
-	if err != nil {
+	if err != nil && err != ErrInvalidMember {
 		log.Error("AcquireCommitteeAuth", "err", err)
 		return false
 	}

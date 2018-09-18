@@ -59,7 +59,7 @@ type CommitteeElection interface {
 
 	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription 
 
-	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember
+	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool
 }
 
 // Miner creates blocks and searches for proof-of-work values.
@@ -128,7 +128,7 @@ func (self *Miner) loop() {
 					// alread to start mining need stop
 					if self.shouldStart == 1 || self.mining == 1 {
 					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
-						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey){
 							 // i am committee
 							 self.Stop()
 						 }else{
@@ -140,7 +140,7 @@ func (self *Miner) loop() {
 				case types.CommitteeSwitchover:
 					// alread to start mining need stop
 					if self.shouldStart == 1 || self.mining == 1 {
-						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey) != nil{
+						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey){
 							// i am committee
 							self.Stop()
 						}else{
