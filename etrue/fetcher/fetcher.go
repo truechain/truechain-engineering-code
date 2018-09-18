@@ -411,6 +411,7 @@ func (f *Fetcher) loop() {
 					// Otherwise if fresh and still unknown, try and import
 					if number-lowCommitteeDist < height {
 						f.forgetBlockHeight(big.NewInt(int64(number)))
+						finished = true
 						break
 					}
 
@@ -443,6 +444,7 @@ func (f *Fetcher) loop() {
 					if index != -1 {
 						number := blocks[index].NumberU64()
 						if number > height+1 {
+							finished = true
 							break
 						}
 						signHashs := f.signMultiHash[number]
