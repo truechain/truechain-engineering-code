@@ -84,7 +84,7 @@ func (cs *ConsensusState) readReplayMessage(msg *TimedWALMessage, newStepCh chan
 
 // Replay only those messages since the last block.  `timeoutRoutine` should
 // run concurrently to read off tickChan.
-func (cs *ConsensusState) catchupReplay(csHeight int64) error {
+func (cs *ConsensusState) catchupReplay(csHeight uint64) error {
 
 	// Set replayMode to true so we don't log signing errors.
 	cs.replayMode = true
