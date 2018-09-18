@@ -184,7 +184,7 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
 		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host,
-		"coinbase", self.committeeNode.Coinbase,"self.vmConfig",self.vmConfig)
+		"coinbase", self.committeeNode.Coinbase)
 }
 
 func (self *PbftAgent) Start() {
