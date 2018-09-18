@@ -182,9 +182,9 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.commiteePorts = append(self.commiteePorts, config.Port, config.StandByPort)
 	//self.nodeInfoIsComplete = true
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
-		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host,
-		"coinbase", self.committeeNode.Coinbase)
+	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
+		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
+		", coinbase", self.committeeNode.Coinbase,", self.vmConfig",self.vmConfig.EnablePreimageRecording)
 }
 
 func (self *PbftAgent) Start() {
@@ -642,7 +642,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
-		log.Error("VerifyFastHeader error", "err", err)
+		log.Error("VerifyFastHeader error","header",fb.Header(), "err", err)
 		return err
 	}
 	err = bc.Validator().ValidateBody(fb)
@@ -894,8 +894,8 @@ func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *typ
 		self.currentCommitteeInfo = newCommitteeInfo
 	case nextCommittee:
 		self.nextCommitteeInfo = newCommitteeInfo
-	// case preCommittee:
-	// 	self.preCommitteeInfo = newCommitteeInfo
+		// case preCommittee:
+		// 	self.preCommitteeInfo = newCommitteeInfo
 	default:
 		log.Warn("CommitteeType is error ")
 	}
@@ -923,13 +923,17 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	/*if !self.nodeInfoIsComplete {
 		return false
 	}*/
-	_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
+
+	/*_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
 	if err != nil && err != ErrInvalidMember {
 		log.Error("AcquireCommitteeAuth", "err", err)
 		return false
-	}
-	/*committeeMembers := self.election.GetCommittee(blockHeight)
-	for _, member := range committeeMembers {
+	}*/
+
+	committeeMembers := self.election.GetCommittee(fastHeight)
+	return self.election.IsCommitteeMember(committeeMembers,self.committeeNode.Publickey)
+
+	/*for _, member := range committeeMembers {
 		if bytes.Equal(self.committeeNode.Publickey, crypto.FromECDSAPub(member.Publickey)) {
 			return true
 		}
@@ -963,7 +967,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		err =agent.VerifyFastBlock(block)
+		err = agent.VerifyFastBlock(block)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
 		}
