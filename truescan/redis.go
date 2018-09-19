@@ -11,12 +11,15 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
+var msgChanSize = 16
+
 // RedisClient is used only at specific nodes, which needs to push messages to redis services.
 // Now mainly provide service for TrueScan.
 type RedisClient struct {
 	id         int
 	serverAddr string
 	c          redis.Conn
+	msgCh      chan string
 }
 
 // NewRedisClient returns a redis client with scheduled message sending interface.
@@ -34,7 +37,13 @@ func NewRedisClient(redisServerAddr string, id int) (*RedisClient, error) {
 		return nil, err
 	}
 	rc.c = c
+	rc.msgCh = make(chan string, msgChanSize)
 	return rc, nil
+}
+
+// Start redis server
+func (rc *RedisClient) Start() {
+	go rc.msgSendLoop()
 }
 
 func (rc *RedisClient) publish(channel string, message string) error {
@@ -45,10 +54,22 @@ func (rc *RedisClient) publish(channel string, message string) error {
 	return err
 }
 
-func (rc *RedisClient) publishMsg(message string) error {
+func (rc *RedisClient) msgSendLoop() {
 	channel := "truescan:ch:" + strconv.Itoa(rc.id)
-	err := rc.publish(channel, message)
-	return err
+	for {
+		select {
+		case msg, ok := <-rc.msgCh:
+			if !ok {
+				return
+			}
+			rc.publish(channel, msg)
+		}
+	}
+}
+
+func (rc *RedisClient) publishMsg(message string) error {
+	rc.msgCh <- message
+	return nil
 }
 
 // Ping sends a message without any payload.

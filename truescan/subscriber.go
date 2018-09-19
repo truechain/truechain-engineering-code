@@ -30,6 +30,7 @@ func errResp(format string) error {
 	return fmt.Errorf("%v", format)
 }
 
+// Subscriber contains all the events that the redis service needs to subscribe to.
 type Subscriber interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.

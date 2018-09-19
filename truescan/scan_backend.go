@@ -51,6 +51,8 @@ func New(sub Subscriber) *TrueScan {
 
 // Start TrueScan message processing client
 func (ts *TrueScan) Start() {
+	ts.redisClient.Start()
+
 	// broadcast transactions
 	ts.txsSub = ts.sub.SubscribeNewTxsEvent(ts.txsCh)
 	go ts.txHandleLoop()
