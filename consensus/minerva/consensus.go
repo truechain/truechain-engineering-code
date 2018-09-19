@@ -816,6 +816,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		}
 
 		if len(fruitOkAddr) == 0 {
+			log.Info("-------------------------- fruitOkAddr = 0 --------------------------")
 			return consensus.ErrInvalidSignsLength
 		}
 
