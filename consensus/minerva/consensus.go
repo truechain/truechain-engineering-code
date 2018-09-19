@@ -724,7 +724,10 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
 		}
-		accumulateRewardsFast(m.election, state, header, sBlock)
+		err := accumulateRewardsFast(m.election, state, header, sBlock)
+		if err != nil {
+			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+		}
 	}
 	m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount)
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
@@ -739,13 +742,13 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
-//gas allocation
-func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "gasLimit", gasLimit)
+// gas allocation
+func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
+	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
 	if len(committee) != 0 {
-		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+		committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	}
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
@@ -806,24 +809,23 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr, err := election.VerifySigns(signs)
-		if len(addr) != len(err) {
+		committeeMembers, errs := election.VerifySigns(signs)
+		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
-		for i := 0; i < len(addr); i++ {
-			v := addr[i]
-			if v == nil || err[i] != nil {
+		for i, cm := range committeeMembers {
+			if errs[i] != nil {
 				continue
 			}
-			if signs[i].Result == types.VoteAgreeAgainst {
-				if _, ok := failAddr[v.Coinbase]; !ok {
-					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
+			if signs[i].Result == types.VoteAgree {
+				if _, ok := failAddr[cm.Coinbase]; !ok {
+					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
 				}
 			} else {
-				failAddr[v.Coinbase] = false
+				failAddr[cm.Coinbase] = false
 			}
 		}
 
