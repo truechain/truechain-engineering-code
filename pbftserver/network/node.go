@@ -32,6 +32,8 @@ type Node struct {
 	Finish             consensus.ConsensusFinish
 	ID                 *big.Int
 	lock               sync.Mutex
+	PrePareLock        sync.Mutex
+	CommitLock         sync.Mutex
 	CurrentHeight      int64
 	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
 	Count              int64
@@ -313,6 +315,8 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 }
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
+	node.PrePareLock.Lock()
+	defer node.PrePareLock.Unlock()
 	lock.PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
 	f := len(node.NodeTable) / 3
 
@@ -328,12 +332,14 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		return err
 	}
 
-	lock.PSLog("Prepare PrepareMsgs cnt2", len(CurrentState.MsgLogs.PrepareMsgs))
-
-	lock.PSLog("node GetPrepare", "Len", len(CurrentState.MsgLogs.PrepareMsgs), len(CurrentState.MsgLogs.CommitMsgs))
 	if commitMsg != nil {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
+
+		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
+			return nil
+		}
 
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
@@ -446,12 +452,21 @@ func (node *Node) processCommitWaitMessageQueue() {
 //}
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
+	node.CommitLock.Lock()
+	defer node.CommitLock.Unlock()
 	lock.PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))
 	f := len(node.NodeTable) / 3
-	if node.GetStatus(commitMsg.Height) == nil {
+
+	state := node.GetStatus(commitMsg.Height)
+	if state == nil {
 		return nil
 	}
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
+
+	if state.CurrentStage == consensus.Committed {
+		node.CommittedMsgs = append(node.CommittedMsgs, committedMsg)
+		return nil
+	}
 
 	if err != nil {
 		return err
@@ -460,6 +475,9 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 		if committedMsg == nil {
 			return errors.New("committed message is nil, even though the reply message is not nil")
 		}
+
+		// Change the stage to prepared.
+		state.CurrentStage = consensus.Committed
 
 		// Attach node ID to the message
 		replyMsg.NodeID = node.NodeID
