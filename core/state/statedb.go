@@ -137,8 +137,11 @@ func (db *StateDB) IsMarked() bool {
 }
 
 // RecordRewards write down balance change
-func (db *StateDB) RecordRewards(abs []*common.AddressWithBalance) {
-	db.rewards = abs
+func (db *StateDB) RecordRewards(ab *common.AddressWithBalance) {
+	if !db.marked {
+		return
+	}
+	db.rewards = append(db.rewards, ab)
 }
 
 // setError remembers the first non-nil error it is called with.

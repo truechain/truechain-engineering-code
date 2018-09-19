@@ -771,12 +771,10 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		return e
 	}
 
-	var rewards []*common.AddressWithBalance
-
 	//miner's award
 	miner := sBlock.Coinbase()
 	state.AddBalance(miner, minerCoin)
-	rewards = append(rewards, &common.AddressWithBalance{
+	state.RecordRewards(&common.AddressWithBalance{
 		Address: miner,
 		Balance: minerCoin,
 	})
@@ -790,7 +788,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		for _, v := range sBlock.Body().Fruits {
 			address := v.Coinbase()
 			state.AddBalance(address, minerFruitCoinOne)
-			rewards = append(rewards, &common.AddressWithBalance{
+			state.RecordRewards(&common.AddressWithBalance{
 				Address: address,
 				Balance: minerFruitCoinOne,
 			})
@@ -830,7 +828,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		}
 
 		if len(fruitOkAddr) == 0 {
-			log.RedisLog("fruitOkAddr zero")
 			return consensus.ErrInvalidSignsLength
 		}
 
@@ -838,16 +835,12 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
-			rewards = append(rewards, &common.AddressWithBalance{
+			state.RecordRewards(&common.AddressWithBalance{
 				Address: v,
 				Balance: committeeCoinFruitMember,
 			})
 			LogPrint("committee", v, committeeCoinFruitMember)
 		}
-	}
-
-	if state.IsMarked() {
-		state.RecordRewards(rewards)
 	}
 
 	return nil
