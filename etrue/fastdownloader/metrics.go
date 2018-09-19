@@ -16,7 +16,7 @@
 
 // Contains the metrics collected by the downloader.
 
-package downloader
+package fastdownloader
 
 import (
 	"github.com/truechain/truechain-engineering-code/metrics"

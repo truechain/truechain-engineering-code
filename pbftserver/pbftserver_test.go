@@ -47,6 +47,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
 	//if rand.Intn(100) > 30 {
+	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())

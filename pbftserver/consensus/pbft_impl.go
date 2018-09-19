@@ -156,9 +156,6 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 
-		// Change the stage to prepared.
-		state.CurrentStage = Committed
-
 		//fmt.Println("[LOG]", "Commit", "end", f, "Return")
 
 		return &ReplyMsg{

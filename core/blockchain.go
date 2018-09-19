@@ -957,11 +957,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			SnailHash:   block.SnailHash(),
 			SnailNumber: block.SnailNumber(),
 		}
-		log.Info("already Reward","snailNumber:",block.SnailNumber().Int64())
 		//insert BlockReward to db
 		rawdb.WriteBlockReward(batch, br)
 		rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())
-		bc.currentReward.Store(br)
 	}
 
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))

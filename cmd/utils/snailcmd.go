@@ -23,69 +23,18 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"runtime"
-	"strings"
+		"strings"
 	"syscall"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/internal/debug"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/node"
-	"github.com/truechain/truechain-engineering-code/rlp"
+				"github.com/truechain/truechain-engineering-code/core/types"
+				"github.com/truechain/truechain-engineering-code/log"
+		"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
-const (
-	importBatchSize = 2500
-)
 
-// Fatalf formats a message to standard error and exits the program.
-// The message is also printed to standard output if standard error
-// is redirected to a different file.
-func Fatalf(format string, args ...interface{}) {
-	w := io.MultiWriter(os.Stdout, os.Stderr)
-	if runtime.GOOS == "windows" {
-		// The SameFile check below doesn't work on Windows.
-		// stdout is unlikely to get redirected though, so just print there.
-		w = os.Stdout
-	} else {
-		outf, _ := os.Stdout.Stat()
-		errf, _ := os.Stderr.Stat()
-		if outf != nil && errf != nil && os.SameFile(outf, errf) {
-			w = os.Stderr
-		}
-	}
-	fmt.Fprintf(w, "Fatal: "+format+"\n", args...)
-	os.Exit(1)
-}
 
-func StartNode(stack *node.Node) {
-	if err := stack.Start(); err != nil {
-		Fatalf("Error starting protocol stack: %v", err)
-	}
-	go func() {
-		sigc := make(chan os.Signal, 1)
-		signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
-		defer signal.Stop(sigc)
-		<-sigc
-		log.Info("Got interrupt, shutting down...")
-		go stack.Stop()
-		for i := 10; i > 0; i-- {
-			<-sigc
-			if i > 1 {
-				log.Warn("Already shutting down, interrupt more to panic.", "times", i-1)
-			}
-		}
-		debug.Exit() // ensure trace and CPU profile data is flushed.
-		debug.LoudPanic("boom")
-	}()
-}
-
-func ImportChain(chain *core.BlockChain, fn string) error {
+func ImportSnailChain(chain *snailchain.SnailBlockChain, fn string) error {
 	// Watch for Ctrl-C while the import is running.
 	// If a signal is received, the import will stop at the next batch.
 	interrupt := make(chan os.Signal, 1)
@@ -126,7 +75,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 	stream := rlp.NewStream(reader, 0)
 
 	// Run actual the import.
-	blocks := make(types.Blocks, importBatchSize)
+	blocks := make(types.SnailBlocks, importBatchSize)
 	n := 0
 	for batch := 0; ; batch++ {
 		// Load a batch of RLP blocks.
@@ -135,7 +84,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		}
 		i := 0
 		for ; i < importBatchSize; i++ {
-			var b types.Block
+			var b types.SnailBlock
 			if err := stream.Decode(&b); err == io.EOF {
 				break
 			} else if err != nil {
@@ -156,7 +105,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if checkInterrupt() {
 			return fmt.Errorf("interrupted")
 		}
-		missing := missingBlocks(chain, blocks[:i])
+		missing := missingSnailBlocks(chain, blocks[:i])
 
 		if len(missing) == 0 {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
@@ -169,7 +118,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 	return nil
 }
 
-func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block {
+func missingSnailBlocks(chain *snailchain.SnailBlockChain, blocks []*types.SnailBlock) []*types.SnailBlock {
 	head := chain.CurrentBlock()
 	for i, block := range blocks {
 		// If we're behind the chain head, only check block, state is available at head
@@ -189,12 +138,10 @@ func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block
 
 
 
-
-
 // ExportChain exports a blockchain into the specified file, truncating any data
 // already present in the file.
-func ExportChain(blockchain *core.BlockChain, fn string) error {
-	log.Info("Exporting blockchain", "file", fn)
+func ExportSnailChain(blockchain *snailchain.SnailBlockChain, fn string) error {
+	log.Info("Exporting SnailBlockChain", "file", fn)
 
 	// Open the file handle and potentially wrap with a gzip stream
 	fh, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
@@ -219,7 +166,7 @@ func ExportChain(blockchain *core.BlockChain, fn string) error {
 
 // ExportAppendChain exports a blockchain into the specified file, appending to
 // the file if data already exists in it.
-func ExportAppendChain(blockchain *core.BlockChain, fn string, first uint64, last uint64) error {
+func ExportAppendSnailChain(blockchain *snailchain.SnailBlockChain, fn string, first uint64, last uint64) error {
 	log.Info("Exporting blockchain", "file", fn)
 
 	// Open the file handle and potentially wrap with a gzip stream
@@ -239,79 +186,5 @@ func ExportAppendChain(blockchain *core.BlockChain, fn string, first uint64, las
 		return err
 	}
 	log.Info("Exported blockchain to", "file", fn)
-	return nil
-}
-
-// ImportPreimages imports a batch of exported hash preimages into the database.
-func ImportPreimages(db *ethdb.LDBDatabase, fn string) error {
-	log.Info("Importing preimages", "file", fn)
-
-	// Open the file handle and potentially unwrap the gzip stream
-	fh, err := os.Open(fn)
-	if err != nil {
-		return err
-	}
-	defer fh.Close()
-
-	var reader io.Reader = fh
-	if strings.HasSuffix(fn, ".gz") {
-		if reader, err = gzip.NewReader(reader); err != nil {
-			return err
-		}
-	}
-	stream := rlp.NewStream(reader, 0)
-
-	// Import the preimages in batches to prevent disk trashing
-	preimages := make(map[common.Hash][]byte)
-
-	for {
-		// Read the next entry and ensure it's not junk
-		var blob []byte
-
-		if err := stream.Decode(&blob); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		// Accumulate the preimages and flush when enough ws gathered
-		preimages[crypto.Keccak256Hash(blob)] = common.CopyBytes(blob)
-		if len(preimages) > 1024 {
-			rawdb.WritePreimages(db, 0, preimages)
-			preimages = make(map[common.Hash][]byte)
-		}
-	}
-	// Flush the last batch preimage data
-	if len(preimages) > 0 {
-		rawdb.WritePreimages(db, 0, preimages)
-	}
-	return nil
-}
-
-// ExportPreimages exports all known hash preimages into the specified file,
-// truncating any data already present in the file.
-func ExportPreimages(db *ethdb.LDBDatabase, fn string) error {
-	log.Info("Exporting preimages", "file", fn)
-
-	// Open the file handle and potentially wrap with a gzip stream
-	fh, err := os.OpenFile(fn, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer fh.Close()
-
-	var writer io.Writer = fh
-	if strings.HasSuffix(fn, ".gz") {
-		writer = gzip.NewWriter(writer)
-		defer writer.(*gzip.Writer).Close()
-	}
-	// Iterate over the preimages and export them
-	it := db.NewIteratorWithPrefix([]byte("secure-key-"))
-	for it.Next() {
-		if err := rlp.Encode(writer, it.Value()); err != nil {
-			return err
-		}
-	}
-	log.Info("Exported preimages", "file", fn)
 	return nil
 }

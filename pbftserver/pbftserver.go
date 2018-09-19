@@ -15,7 +15,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/pbftserver/network"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -25,7 +24,7 @@ const (
 	Stop
 	Switch
 
-	BlockCacheMax = 1000
+	ServerWait    = 60
 	BlockSleepMax = 5
 )
 
@@ -426,10 +425,10 @@ func serverCheck(server *serverInfo) (bool, int) {
 func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
-			b, c := serverCheck(server)
-			fmt.Println("server count:", c)
+			b, _ := serverCheck(server)
+			//fmt.Println("server count:", c)
 			if b {
-				time.Sleep(time.Second * 60)
+				time.Sleep(time.Second * ServerWait)
 				break
 			}
 			time.Sleep(time.Second)
@@ -466,7 +465,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 		// begin to make network..
 		return nil
 	}
-	return errors.New("wrong action Num:" + strconv.Itoa(action))
+	return nil
 }
 
 func rlpHash(x interface{}) (h common.Hash) {

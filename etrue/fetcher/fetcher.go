@@ -623,7 +623,7 @@ func (f *Fetcher) loop() {
 				hash := header.Hash()
 
 				// Filter fetcher-requested headers from other synchronisation algorithms
-				if announce := f.fetching[hash]; announce != nil && announce.origin == task.peer && f.fetched[hash] == nil && f.completing[hash] == nil && f.queued[hash] == nil {
+				if announce := f.fetching[hash]; announce != nil && announce.origin == task.peer && f.fetched[hash] == nil && f.completing[hash] == nil && f.getPendingBlock(hash) == nil {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
 						log.Trace("Invalid block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
@@ -699,7 +699,7 @@ func (f *Fetcher) loop() {
 				matched := false
 
 				for hash, announce := range f.completing {
-					if f.queued[hash] == nil {
+					if f.getPendingBlock(hash) == nil {
 						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]))
 
 						if txnHash == announce.header.TxHash && announce.origin == task.peer {
@@ -886,7 +886,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	}
 
 	// Schedule the block for future importing
-	if _, ok := f.queued[hash]; !ok {
+	if f.getPendingBlock(hash) == nil {
 
 		if ok := f.agentFetcher.VerifyCommitteeSign(block.GetLeaderSign()); !ok {
 			log.Info("Discarded propagated leader Sign failed", "peer", peer, "number", block.Number(), "hash", hash)
@@ -899,13 +899,15 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			block:  block,
 		}
 		f.queues[peer] = count
+		f.blockMutex.Lock()
 		f.queued[hash] = op
+		f.blockMutex.Unlock()
 
 		opMulti := &injectMulti{}
 		f.blockMultiHash[number] = append(f.blockMultiHash[number], hash)
 		// update queue cache far more block in same height
 		for _, hash := range f.blockMultiHash[number] {
-			opOld := f.queued[hash]
+			opOld := f.getPendingBlock(hash)
 			opMulti.origins = append(opMulti.origins, opOld.origin)
 			opMulti.blocks = append(opMulti.blocks, opOld.block)
 		}
@@ -915,7 +917,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
+		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queue", f.queue.Size())
 	}
 }
 
@@ -1011,12 +1013,19 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
+	if f.getPendingBlock(hash) != nil {
+		return f.getPendingBlock(hash).block
+	}
+	return nil
+}
+
+func (f *Fetcher) getPendingBlock(hash common.Hash) *inject {
 	f.blockMutex.Lock()
 	defer f.blockMutex.Unlock()
 	if _, ok := f.queued[hash]; !ok {
 		return nil
 	} else {
-		return f.queued[hash].block
+		return f.queued[hash]
 	}
 }
 
@@ -1093,6 +1102,8 @@ func (f *Fetcher) forgetBlockHeight(height *big.Int) {
 // forgetBlock removes all traces of a queued block from the fetcher's internal
 // state.
 func (f *Fetcher) forgetBlock(hash common.Hash) {
+	f.blockMutex.Lock()
+	defer f.blockMutex.Unlock()
 	if insert := f.queued[hash]; insert != nil {
 		f.queues[insert.origin]--
 		log.Trace("forgetBlock", "number", insert.block.Number(), "queues", f.queues[insert.origin])
@@ -1103,7 +1114,7 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 	}
 }
 
-// forgetSign removes all traces of a queued block from the fetcher's internal
+// forgetSign removes all traces of a queue block from the fetcher's internal
 // state.
 func (f *Fetcher) forgetSign(hash common.Hash) {
 	if insert := f.queuedSign[hash]; insert != nil {

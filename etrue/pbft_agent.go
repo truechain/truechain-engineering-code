@@ -381,6 +381,9 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
+		for _,fb := range fastBlocks{
+			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Header().Number,"len:",len(fastBlocks))
+		}
 		if err != nil {
 			log.Error("self.fastChain.InsertChain error ", "err", err)
 			return err
@@ -487,8 +490,8 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 }
 
 //generateBlock and broadcast
-func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
-	log.Debug("into GenerateFastBlock...")
+func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
+	log.Debug("into GenerateFastBlock...","committeeId",committeeId)
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	var (
@@ -540,6 +543,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
+	log.Info("Finalize: leader generateBlock", "Height:", fastBlock.Header().Number)
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -649,6 +653,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		log.Error("VerifyFastBlock: validate body error", "err", err)
+		return err
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
@@ -656,6 +661,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 		return err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
+	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
 	if err != nil {
 		return err
 	}
@@ -668,7 +674,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 }
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Debug("into BroadcastSign.")
+	log.Debug("into BroadcastSign.","fastHeight",fb.Header().Number)
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	//insert bockchain
@@ -676,7 +682,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("out BroadcastSign.")
+	log.Debug("out BroadcastSign.","fastHeight",fb.Header().Number)
 	return nil
 }
 
