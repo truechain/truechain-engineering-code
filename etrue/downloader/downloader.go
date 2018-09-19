@@ -417,14 +417,14 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
 	d.mux.Post(StartEvent{})
-	//defer func() {
-	//	// reset on error
-	//	if err != nil {
-	//		d.mux.Post(FailedEvent{err})
-	//	} else {
-	//		//d.mux.Post(DoneEvent{})
-	//	}
-	//}()
+	defer func() {
+		// reset on error
+		if err != nil {
+			d.mux.Post(FailedEvent{err})
+		} else {
+			d.mux.Post(DoneEvent{})
+		}
+	}()
 	defer func() {
 
 		fmt.Println("syncWithPeer退出")
