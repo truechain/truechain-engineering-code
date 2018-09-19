@@ -464,7 +464,7 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
 	if state.CurrentStage == consensus.Committed {
-		node.CommittedMsgs = append(node.CommittedMsgs, committedMsg)
+		state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 		return nil
 	}
 
