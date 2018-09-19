@@ -202,8 +202,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	fmode := fastdownloader.SyncMode(int(mode))
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 
-
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
+
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
@@ -262,7 +262,8 @@ func (pm *ProtocolManager) removePeer(id string) {
 
 	// TODO: downloader.UnregisterPeer
 	// Unregister the peer from the downloader and Truechain peer set
-	//pm.downloader.UnregisterPeer(id)
+	pm.downloader.UnregisterPeer(id)
+	pm.fdownloader.UnregisterPeer(id)
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
@@ -381,16 +382,16 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	defer pm.removePeer(p.id)
 
 	// TODO: downloader.RegisterPeer
-	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	//if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
-	//	p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
-	//	return err
-	//}
+	//Register the peer in the downloader. If the downloader considers it banned, we disconnect
+	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
+		return err
+	}
 	//
-	//if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
-	//	p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
-	//	return err
-	//}
+	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
+		p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
+		return err
+	}
 
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
