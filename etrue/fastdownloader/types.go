@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package downloader
+package fastdownloader
 
 import (
 	"fmt"
@@ -22,12 +22,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
-
-
 // headerPack is a batch of block headers returned by a peer.
 type headerPack struct {
 	peerID  string
-	headers []*types.SnailHeader
+	headers []*types.Header
 }
 
 func (p *headerPack) PeerId() string { return p.peerID }
@@ -37,19 +35,22 @@ func (p *headerPack) Stats() string  { return fmt.Sprintf("%d", len(p.headers)) 
 // bodyPack is a batch of block bodies returned by a peer.
 type bodyPack struct {
 	peerID       string
-	fruit 		 [][]*types.SnailBlock
-	signs   	 [][]*types.PbftSign
-	uncles       [][]*types.SnailHeader
+	transactions [][]*types.Transaction
+	signs        [][]*types.PbftSign
+	//uncles       [][]*types.Header
 }
 
 func (p *bodyPack) PeerId() string { return p.peerID }
 func (p *bodyPack) Items() int {
-	if len(p.fruit) <= len(p.uncles) {
-		return len(p.fruit)
-	}
-	return len(p.uncles)
+	//if len(p.transactions) <= len(p.uncles) {
+	//	return len(p.transactions)
+	//}
+	//return len(p.uncles)
+	return len(p.transactions)
 }
-func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d:%d", len(p.fruit), len(p.signs),len(p.uncles)) }
+func (p *bodyPack) Stats() string {
+	return fmt.Sprintf("%d:%d", len(p.transactions), len(p.signs))
+}
 
 // receiptPack is a batch of receipts returned by a peer.
 type receiptPack struct {

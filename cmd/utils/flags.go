@@ -59,6 +59,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"bytes"
 )
 
@@ -1353,7 +1354,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chainDb ethdb.Database) {
+func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain,schain *snailchain.SnailBlockChain, chainDb ethdb.Database) {
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
@@ -1386,15 +1387,25 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
 		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
+	scache := &snailchain.CacheConfig{
+		Disabled:      ctx.GlobalString(GCModeFlag.Name) == "archive",
+		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	}
+
+
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+
+	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, scache, config, engine, vmcfg)
+
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
-	return chain, chainDb
+	return fchain,schain, chainDb
 }
 
 // MakeConsolePreloads retrieves the absolute paths for the console JavaScript

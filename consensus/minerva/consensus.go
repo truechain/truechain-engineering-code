@@ -736,6 +736,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
 
+
 	//header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
 	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()

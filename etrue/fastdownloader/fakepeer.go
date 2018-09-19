@@ -14,14 +14,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package downloader
+package fastdownloader
 
 import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	core "github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 )
@@ -50,9 +50,9 @@ func (p *FakePeer) Head() (common.Hash, *big.Int) {
 
 // RequestHeadersByHash implements downloader.Peer, returning a batch of headers
 // defined by the origin hash and the associated query parameters.
-func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, reverse bool,isFastchain bool) error {
+func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
 	var (
-		headers []*types.SnailHeader
+		headers []*types.Header
 		unknown bool
 	)
 	for !unknown && len(headers) < amount {
@@ -92,12 +92,11 @@ func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, 
 	return nil
 }
 
-
 // RequestHeadersByNumber implements downloader.Peer, returning a batch of headers
 // defined by the origin number and the associated query parameters.
-func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool,isFastchain bool) error {
+func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, reverse bool, isFastchain bool) error {
 	var (
-		headers []*types.SnailHeader
+		headers []*types.Header
 		unknown bool
 	)
 	for !unknown && len(headers) < amount {
@@ -120,29 +119,28 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 	return nil
 }
 
-
 // RequestBodies implements downloader.Peer, returning a batch of block bodies
 // corresponding to the specified block hashes.
-func (p *FakePeer) RequestBodies(hashes []common.Hash,isFastchain bool) error {
+func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
-		fruits    [][]*types.SnailBlock
-		signs     [][]*types.PbftSign
+		txs    [][]*types.Transaction
+		signs  [][]*types.PbftSign
 		//uncles [][]*types.Header
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
-		fruits = append(fruits, block.Fruits())
 		signs = append(signs, block.Signs())
-
+		txs = append(txs, block.Transactions())
+		//uncles = append(uncles, block.Uncles())
 	}
-	p.dl.DeliverBodies(p.id, fruits, signs,nil)
+
+	p.dl.DeliverBodies(p.id, txs, signs)
 	return nil
 }
 
-
 // RequestReceipts implements downloader.Peer, returning a batch of transaction
 // receipts corresponding to the specified block hashes.
-func (p *FakePeer) RequestReceipts(hashes []common.Hash,isFastchain bool) error {
+func (p *FakePeer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 	var receipts [][]*types.Receipt
 	for _, hash := range hashes {
 		receipts = append(receipts, rawdb.ReadReceipts(p.db, hash, *p.hc.GetBlockNumber(hash)))
@@ -151,10 +149,9 @@ func (p *FakePeer) RequestReceipts(hashes []common.Hash,isFastchain bool) error 
 	return nil
 }
 
-
 // RequestNodeData implements downloader.Peer, returning a batch of state trie
 // nodes corresponding to the specified trie hashes.
-func (p *FakePeer) RequestNodeData(hashes []common.Hash,isFastchain bool) error {
+func (p *FakePeer) RequestNodeData(hashes []common.Hash, isFastchain bool) error {
 	var data [][]byte
 	for _, hash := range hashes {
 		if entry, err := p.db.Get(hash.Bytes()); err == nil {

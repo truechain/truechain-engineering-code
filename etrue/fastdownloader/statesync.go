@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package downloader
+package fastdownloader
 
 import (
 	"fmt"
@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/trie"
+
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
@@ -104,7 +105,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 		}
 	}()
 	// Run the state sync.
-	go s.run()
+	//go s.run()
 	defer s.Cancel()
 
 	// Listen for peer departure events to cancel assigned tasks

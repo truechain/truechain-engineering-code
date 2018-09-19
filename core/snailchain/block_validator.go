@@ -195,13 +195,13 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
 		return err
 	}
 
-	// validate the signatures of this fruit
-	_, errs := v.election.VerifySigns(fruit.Signs())
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
+	//validate the signatures of this fruit
+	//_, errs := v.election.VerifySigns(fruit.Signs())
+	//for _, err := range errs {
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	return nil
 }
