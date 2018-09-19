@@ -731,8 +731,9 @@ func (pool *SnailPool) PendingFastBlocks() ([]*types.Block, error) {
 		fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
 		fastblocks = append(fastblocks, fastBlock)
 	}
-	
-	log.Info("$pending Fast Blocks","min fb num",pool.fastBlockPending.Front().Value.(*types.Block).Number()," ---- max fb num",pool.fastBlockPending.Back().Value.(*types.Block).Number())
+	if pool.fastBlockPending.Front() != nil && pool.fastBlockPending.Back() !=nil{
+		log.Info("$pending Fast Blocks","min fb num",pool.fastBlockPending.Front().Value.(*types.Block).Number()," ---- max fb num",pool.fastBlockPending.Back().Value.(*types.Block).Number())
+	}
 	var blockby types.BlockBy = types.Number
 	blockby.Sort(fastblocks)
 	return fastblocks, nil
