@@ -141,7 +141,8 @@ type PubKeyEd25519 [PubKeyEd25519Size]byte
 
 // Address is the Keccak256 of the raw pubkey bytes.
 func (pubKey PubKeyEd25519) Address() help.Address {
-	return help.Address(help.RlpHash(pubKey[:])[:])
+	hash := help.RlpHash(pubKey[:])
+	return help.Address(hash[:])
 }
 
 // Bytes marshals the PubKey using amino encoding.

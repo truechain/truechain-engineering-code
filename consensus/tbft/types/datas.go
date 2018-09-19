@@ -223,7 +223,7 @@ func (blockID BlockID) Equals(other BlockID) bool {
 
 // Key returns a machine-readable string representation of the BlockID
 func (blockID BlockID) Key() string {
-	bz, err := help.MarshalBinaryBare(blockID.PartsHeader)
+	bz, err := cdc.MarshalBinaryBare(blockID.PartsHeader)
 	if err != nil {
 		panic(err)
 	}

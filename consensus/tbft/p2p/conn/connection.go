@@ -552,7 +552,7 @@ func (c *MConnection) stopPongTimer() {
 // maxPacketMsgSize returns a maximum size of PacketMsg, including the overhead
 // of amino encoding.
 func (c *MConnection) maxPacketMsgSize() int {
-	return len(help.MustMarshalBinaryBare(PacketMsg{
+	return len(cdc.MustMarshalBinaryBare(PacketMsg{
 		ChannelID: 0x01,
 		EOF:       1,
 		Bytes:     make([]byte, c.config.MaxPacketMsgPayloadSize),
