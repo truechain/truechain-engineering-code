@@ -234,8 +234,6 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		fastDown:      fdown,
 	}
 
-	//dl.fastDown.SetPeers(dl.peers)
-	fmt.Println("snailQueue>>>>>>>>>>>>>", &dl.queue.active)
 	go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
