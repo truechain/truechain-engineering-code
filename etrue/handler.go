@@ -377,7 +377,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		return err
 	}
 
-	//defer pm.removePeer(p.id)
+	defer pm.removePeer(p.id)
 
 	// TODO: downloader.RegisterPeer
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
