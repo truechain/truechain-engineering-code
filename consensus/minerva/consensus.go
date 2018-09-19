@@ -739,13 +739,13 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
-//gas allocation
-func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "gasLimit", gasLimit)
+// gas allocation
+func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
+	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
 	if len(committee) != 0 {
-		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+		committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	}
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
