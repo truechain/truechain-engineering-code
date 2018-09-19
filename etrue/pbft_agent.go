@@ -649,6 +649,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		log.Error("VerifyFastBlock: validate body error", "err", err)
+		return err
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
