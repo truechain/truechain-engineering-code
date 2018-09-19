@@ -276,8 +276,14 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 		return nil
 	}
 	vals := make([]*ttypes.Validator, 0, 0)
-	for _, m := range members {
-		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*m.Publickey), 10)
+	var power uint64 = 1
+	for i, m := range members {
+		if i == 0 {
+			power = power * 10
+		} else {
+			power = 1
+		}
+		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*m.Publickey), power)
 		vals = append(vals, v)
 	}
 	return ttypes.NewValidatorSet(vals)
