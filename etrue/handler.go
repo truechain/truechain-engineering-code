@@ -146,17 +146,17 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
 
-	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync {
-		manager.fastSync = uint32(1)
-	}
+	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+	//	log.Warn("Blockchain not empty, fast sync disabled")
+	//	mode = downloader.FullSync
+	//}
+	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+	//	log.Warn("Blockchain not empty, fast sync disabled")
+	//	mode = downloader.FullSync
+	//}
+	//if mode == downloader.FastSync {
+	//	manager.fastSync = uint32(1)
+	//}
 
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
