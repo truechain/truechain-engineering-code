@@ -86,8 +86,8 @@ type PubKeyTrue ecdsa.PublicKey
 // Address is the Keccak256 of the raw pubkey bytes.
 func (pub PubKeyTrue) Address() help.Address {
 	pub1 := ecdsa.PublicKey(pub)
-	data := tcrypyo.FromECDSAPub(&pub1)
-	return help.Address(help.HexBytes(data[:]))
+	data := tcrypyo.PubkeyToAddress(pub1)
+	return help.Address(data[:])
 }
 
 // Bytes marshals the PubKey using amino encoding.

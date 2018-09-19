@@ -12,6 +12,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/pex"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 )
@@ -254,7 +255,12 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		return errors.New("wrong ID:" + id.String())
 	}
 	for _, v := range nodes {
-		id := p2p.ID(hex.EncodeToString(v.Coinbase[:]))
+		pub,err := crypto.UnmarshalPubkey(v.Publickey)
+		if err != nil {
+			panic(err)
+		}
+		address := crypto.PubkeyToAddress(*pub)
+		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", v.IP, v.Port)))
 		if err == nil {
