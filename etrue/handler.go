@@ -382,15 +382,15 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// TODO: downloader.RegisterPeer
 	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
-		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
-		return err
-	}
-
-	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
-		p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
-		return err
-	}
+	//if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+	//	p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
+	//	return err
+	//}
+	//
+	//if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
+	//	p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
+	//	return err
+	//}
 
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
