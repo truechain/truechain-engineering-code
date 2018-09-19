@@ -34,4 +34,3 @@ func Sha256(bytes []byte) []byte {
 	hasher.Write(bytes)
 	return hasher.Sum(nil)
 }
-
