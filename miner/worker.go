@@ -422,7 +422,7 @@ func (self *worker) wait() {
 					continue
 				}
 
-				log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
+				//log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
 				// add fruit once 
 				if self.FastBlockNumber != nil{
