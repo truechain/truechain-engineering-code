@@ -8,7 +8,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
-// Generic event data can be typed and registered with tendermint/go-amino
+// Generic event data can be typed and registered with go-amino
 // via concrete implementation of this interface
 type EventData interface {
 	//AssertIsEventData()

@@ -21,7 +21,7 @@ const (
 // config/toml.go
 // NOTE: tmlibs/cli must know to look in the config dir!
 var (
-	DefaultTendermintDir = ".tendermint"
+	DefaultTendermintDir = ".tbft"
 	defaultConfigDir     = "config"
 	defaultDataDir       = "data"
 

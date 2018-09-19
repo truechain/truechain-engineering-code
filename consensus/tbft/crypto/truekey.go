@@ -68,8 +68,7 @@ func (priv PrivKeyTrue) Equals(other PrivKey) bool {
 }
 
 // GenPrivKey generates a new ed25519 private key.
-// It uses OS randomness in conjunction with the current global random seed
-// in tendermint/libs/common to generate the private key.
+
 func GenPrivKey() PrivKeyTrue {
 	priv,err := tcrypyo.GenerateKey()
 	if err != nil {

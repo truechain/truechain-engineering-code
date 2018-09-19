@@ -2,7 +2,7 @@ package help
 
 import (
 	"fmt"
-	"github.com/tendermint/tendermint/types/time"
+	"time"
 	types2 "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"

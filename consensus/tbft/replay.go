@@ -295,11 +295,11 @@ func makeHeightSearchFunc(height int64) auto.SearchFunc {
 //		return appHash, sm.ErrAppBlockHeightTooHigh{storeBlockHeight, appBlockHeight}
 //
 //	} else if storeBlockHeight < stateBlockHeight {
-//		// the state should never be ahead of the store (this is under tendermint's control)
+//		// the state should never be ahead of the store (this is under tbft's control)
 //		cmn.PanicSanity(cmn.Fmt("StateBlockHeight (%d) > StoreBlockHeight (%d)", stateBlockHeight, storeBlockHeight))
 //
 //	} else if storeBlockHeight > stateBlockHeight+1 {
-//		// store should be at most one ahead of the state (this is under tendermint's control)
+//		// store should be at most one ahead of the state (this is under tbft's control)
 //		cmn.PanicSanity(cmn.Fmt("StoreBlockHeight (%d) > StateBlockHeight + 1 (%d)", storeBlockHeight, stateBlockHeight+1))
 //	}
 //

@@ -5,8 +5,8 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"io"
-	"github.com/ed25519"
-	"github.com/ed25519/extra25519"
+	"github.com/agl/ed25519"
+	"github.com/agl/ed25519/extra25519"
 	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
@@ -96,8 +96,6 @@ func (privKey PrivKeyEd25519) ToCurve25519() *[PubKeyEd25519Size]byte {
 }
 
 // GenPrivKey generates a new ed25519 private key.
-// It uses OS randomness in conjunction with the current global random seed
-// in tendermint/libs/common to generate the private key.
 func GenPrivKey() PrivKeyEd25519 {
 	return genPrivKey(help.CReader())
 }

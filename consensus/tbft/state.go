@@ -595,7 +595,6 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 			// We probably don't want to stop the peer here. The vote does not
 			// necessarily comes from a malicious peer but can be just broadcasted by
 			// a typical peer.
-			// https://github.com/tendermint/tendermint/issues/1281
 		}
 
 		// NOTE: the vote is broadcast to peers by the reactor listening
@@ -1235,7 +1234,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	var err error
 	err = cs.state.ConsensusCommit(block)
 	if err != nil {
-		log.Error("Error on ApplyBlock. Did the application crash? Please restart tendermint", "err", err)
+		log.Error("Error on ApplyBlock. Did the application crash? Please restart getrue", "err", err)
 		err := help.Kill()
 		if err != nil {
 			log.Error("Failed to kill this process - please do so manually", "err", err)

@@ -491,7 +491,6 @@ FOR_LOOP:
 		switch pkt := packet.(type) {
 		case PacketPing:
 			// TODO: prevent abuse, as they cause flush()'s.
-			// https://github.com/tendermint/tendermint/issues/1190
 			log.Debug("Receive Ping")
 			select {
 			case c.pong <- struct{}{}:

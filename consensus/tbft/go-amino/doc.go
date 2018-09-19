@@ -15,8 +15,8 @@ All interfaces and the concrete types that implement them must be registered.
 
  amino.RegisterInterface((*MyInterface1)(nil), nil)
  amino.RegisterInterface((*MyInterface2)(nil), nil)
- amino.RegisterConcrete(MyStruct1{}, "com.tendermint/MyStruct1", nil)
- amino.RegisterConcrete(MyStruct2{}, "com.tendermint/MyStruct2", nil)
+ amino.RegisterConcrete(MyStruct1{}, "true/MyStruct1", nil)
+ amino.RegisterConcrete(MyStruct2{}, "true/MyStruct2", nil)
  amino.RegisterConcrete(&MyStruct3{}, "anythingcangoinhereifitsunique", nil)
 
 Notice that an interface is represented by a nil pointer.
@@ -38,7 +38,7 @@ there are 2**(8*4)-2**(8*3) possible values.
 When there are 4096 types registered at once, the probability of there being a
 conflict is ~ 0.2%. See https://instacalc.com/51189 for estimation.  This is
 assuming that all registered concrete types have unique natural names (e.g.
-prefixed by a unique entity name such as "com.tendermint/", and not
+prefixed by a unique entity name such as "true/", and not
 "mined/grinded" to produce a particular sequence of "prefix bytes").
 
 TODO Update instacalc.com link with 255/256 since 0x00 is an escape.
@@ -73,7 +73,7 @@ Computing prefix bytes
 To compute the disambiguation bytes, we take `hash := sha256(concreteTypeName)`,
 and drop the leading 0x00 bytes.
 
- > hash := sha256("com.tendermint.consensus/MyConcreteName")
+ > hash := sha256("true.consensus/MyConcreteName")
  > hex.EncodeBytes(hash) // 0x{00 00 A8 FC 54 00 00 00 BB 9C 83 DD ...} (example)
 
 In the example above, hash has two leading 0x00 bytes, so we drop them.
