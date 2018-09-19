@@ -11,6 +11,9 @@
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
 
+init:
+	build/env.sh go get github.com/gomodule/redigo/redis
+
 getrue:
 	build/env.sh go run build/ci.go install ./cmd/getrue
 	@echo "Done building."
