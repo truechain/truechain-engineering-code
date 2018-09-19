@@ -11,7 +11,7 @@ import (
 
 func BinaryBareTest(o interface{}, o2 interface{}) {
 	byte2, _ := help.MarshalBinaryBare(o)
-	if err := help.UnmarshalBinaryBare(byte2, o2); err == nil {
+	if err := cdc.UnmarshalBinaryBare(byte2, o2); err == nil {
 		fmt.Println(o)
 		fmt.Println(o2)
 	} else {
@@ -20,8 +20,8 @@ func BinaryBareTest(o interface{}, o2 interface{}) {
 }
 
 func BinaryTest(o interface{}, o2 interface{}) {
-	byte2, _ := help.MarshalBinary(o)
-	if err := help.UnmarshalBinary(byte2, o2); err == nil {
+	byte2, _ := cdc.MarshalBinary(o)
+	if err := cdc.UnmarshalBinary(byte2, o2); err == nil {
 		fmt.Println(o)
 		fmt.Println(o2)
 	} else {

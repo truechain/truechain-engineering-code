@@ -5,25 +5,35 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	tcrypyo "github.com/truechain/truechain-engineering-code/crypto"
+	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 //-------------------------------------
 const (
-	Ed25519PrivKeyAminoRoute = "Truechain/PrivKeyTrue"
-	Ed25519PubKeyAminoRoute  = "Truechain/PubKeyTrue"
+	EcdsaPrivKeyAminoRoute = "true/PrivKeyTrue"
+	EcdsaPubKeyAminoRoute  = "true/PubKeyTrue"
 	// Size of an Edwards25519 signature. Namely the size of a compressed
 	// Edwards25519 point, and a field element. Both of which are 32 bytes.
 	SignatureEd25519Size = 64
 )
+var cdc = amino.NewCodec()
 
+func init() {
+	cdc.RegisterInterface((*PubKey)(nil), nil)
+	cdc.RegisterConcrete(PubKeyTrue{},
+		EcdsaPubKeyAminoRoute, nil)
+
+	cdc.RegisterInterface((*PrivKey)(nil), nil)
+	cdc.RegisterConcrete(PrivKeyTrue{},
+		EcdsaPrivKeyAminoRoute, nil)
+}
 // PrivKeyTrue implements PrivKey.
 type PrivKeyTrue ecdsa.PrivateKey
 
 // Bytes marshals the privkey using amino encoding.
 func (priv PrivKeyTrue) Bytes() []byte {
-	priv1 := ecdsa.PrivateKey(priv)
-	return tcrypyo.FromECDSA(&priv1)
+	return cdc.MustMarshalBinaryBare(priv)
 }
 
 // Sign produces a signature on the provided message.
@@ -83,13 +93,11 @@ func (pub PubKeyTrue) Address() help.Address {
 
 // Bytes marshals the PubKey using amino encoding.
 func (pub PubKeyTrue) Bytes() []byte {
-	pub1 := ecdsa.PublicKey(pub)
-	data := tcrypyo.FromECDSAPub(&pub1)
-	// bz, err := help.MarshalBinaryBare(data)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	return data
+	bz, err := cdc.MarshalBinaryBare(pub)
+	if err != nil {
+		panic(err)
+	}
+	return bz
 }
 
 func (pub PubKeyTrue) VerifyBytes(msg []byte, sig_ []byte) bool {

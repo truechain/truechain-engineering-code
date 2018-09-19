@@ -10,8 +10,9 @@ import (
 	"errors"
 	"github.com/truechain/truechain-engineering-code/log"
 	auto "github.com/truechain/truechain-engineering-code/consensus/tbft/help/autofile"
-	//ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 )
 
 const (
@@ -35,13 +36,13 @@ type EndHeightMessage struct {
 
 type WALMessage interface{}
 
-// func RegisterWALMessages(cdc *amino.Codec) {
-// 	cdc.RegisterInterface((*WALMessage)(nil), nil)
-// 	cdc.RegisterConcrete(ttypes.EventDataRoundState{}, "tendermint/wal/EventDataRoundState", nil)
-// 	cdc.RegisterConcrete(msgInfo{}, "tendermint/wal/MsgInfo", nil)
-// 	cdc.RegisterConcrete(timeoutInfo{}, "tendermint/wal/TimeoutInfo", nil)
-// 	cdc.RegisterConcrete(EndHeightMessage{}, "tendermint/wal/EndHeightMessage", nil)
-// }
+func RegisterWALMessages(cdc *amino.Codec) {
+	cdc.RegisterInterface((*WALMessage)(nil), nil)
+	cdc.RegisterConcrete(ttypes.EventDataRoundState{}, "true/wal/EventDataRoundState", nil)
+	cdc.RegisterConcrete(msgInfo{}, "true/wal/MsgInfo", nil)
+	cdc.RegisterConcrete(timeoutInfo{}, "true/wal/TimeoutInfo", nil)
+	cdc.RegisterConcrete(EndHeightMessage{}, "true/wal/EndHeightMessage", nil)
+}
 
 //--------------------------------------------------------
 // Simple write-ahead logger
@@ -212,7 +213,7 @@ func NewWALEncoder(wr io.Writer) *WALEncoder {
 
 // Encode writes the custom encoding of v to the stream.
 func (enc *WALEncoder) Encode(v *TimedWALMessage) error {
-	data := help.MustMarshalBinaryBare(v)
+	data := cdc.MustMarshalBinaryBare(v)
 
 	crc := crc32.Checksum(data, crc32c)
 	length := uint32(len(data))
@@ -300,7 +301,7 @@ func (dec *WALDecoder) Decode() (*TimedWALMessage, error) {
 	}
 
 	var res = new(TimedWALMessage) // nolint: gosimple
-	err = help.UnmarshalBinaryBare(data, res)
+	err = cdc.UnmarshalBinaryBare(data, res)
 	if err != nil {
 		return nil, DataCorruptionError{fmt.Errorf("failed to decode data: %v", err)}
 	}

@@ -231,10 +231,10 @@ func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (
 // returns true if the only difference in the votes is their timestamp.
 func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.Time, bool) {
 	var lastVote, newVote CanonicalJSONVote
-	if err := help.UnmarshalJSON(lastSignBytes, &lastVote); err != nil {
+	if err := cdc.UnmarshalJSON(lastSignBytes, &lastVote); err != nil {
 		panic(fmt.Sprintf("LastSignBytes cannot be unmarshalled into vote: %v", err))
 	}
-	if err := help.UnmarshalJSON(newSignBytes, &newVote); err != nil {
+	if err := cdc.UnmarshalJSON(newSignBytes, &newVote); err != nil {
 		panic(fmt.Sprintf("signBytes cannot be unmarshalled into vote: %v", err))
 	}
 
@@ -247,8 +247,8 @@ func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.T
 	now := CanonicalTime(time.Now())
 	lastVote.Timestamp = now
 	newVote.Timestamp = now
-	lastVoteBytes, _ := help.MarshalJSON(lastVote)
-	newVoteBytes, _ := help.MarshalJSON(newVote)
+	lastVoteBytes, _ := cdc.MarshalJSON(lastVote)
+	newVoteBytes, _ := cdc.MarshalJSON(newVote)
 
 	return lastTime, bytes.Equal(newVoteBytes, lastVoteBytes)
 }
@@ -257,10 +257,10 @@ func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.T
 // returns true if the only difference in the proposals is their timestamp
 func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.Time, bool) {
 	var lastProposal, newProposal CanonicalJSONProposal
-	if err := help.UnmarshalJSON(lastSignBytes, &lastProposal); err != nil {
+	if err := cdc.UnmarshalJSON(lastSignBytes, &lastProposal); err != nil {
 		panic(fmt.Sprintf("LastSignBytes cannot be unmarshalled into proposal: %v", err))
 	}
-	if err := help.UnmarshalJSON(newSignBytes, &newProposal); err != nil {
+	if err := cdc.UnmarshalJSON(newSignBytes, &newProposal); err != nil {
 		panic(fmt.Sprintf("signBytes cannot be unmarshalled into proposal: %v", err))
 	}
 
@@ -273,8 +273,8 @@ func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (ti
 	now := CanonicalTime(time.Now())
 	lastProposal.Timestamp = now
 	newProposal.Timestamp = now
-	lastProposalBytes, _ := help.MarshalJSON(lastProposal)
-	newProposalBytes, _ := help.MarshalJSON(newProposal)
+	lastProposalBytes, _ := cdc.MarshalJSON(lastProposal)
+	newProposalBytes, _ := cdc.MarshalJSON(newProposal)
 
 	return lastTime, bytes.Equal(newProposalBytes, lastProposalBytes)
 }
@@ -339,7 +339,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
-	bz, err := help.MarshalBinary(block)
+	bz, err := cdc.MarshalBinary(block)
 	if err != nil {
 		panic(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"github.com/ed25519"
 	"github.com/ed25519/extra25519"
+	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
@@ -16,31 +17,31 @@ import (
 var _ crypto.PrivKey = PrivKeyEd25519{}
 
 const (
-	Ed25519PrivKeyAminoRoute = "Truechain/PrivKeyEd25519"
-	Ed25519PubKeyAminoRoute  = "Truechain/PubKeyEd25519"
+	Ed25519PrivKeyAminoRoute = "true/PrivKeyEd25519"
+	Ed25519PubKeyAminoRoute  = "true/PubKeyEd25519"
 	// Size of an Edwards25519 signature. Namely the size of a compressed
 	// Edwards25519 point, and a field element. Both of which are 32 bytes.
 	SignatureEd25519Size = 64
 )
 
-// var cdc = amino.NewCodec()
+var cdc = amino.NewCodec()
 
-// func init() {
-// 	cdc.RegisterInterface((*crypto.PubKey)(nil), nil)
-// 	cdc.RegisterConcrete(PubKeyEd25519{},
-// 		Ed25519PubKeyAminoRoute, nil)
+func init() {
+	cdc.RegisterInterface((*crypto.PubKey)(nil), nil)
+	cdc.RegisterConcrete(PubKeyEd25519{},
+		Ed25519PubKeyAminoRoute, nil)
 
-// 	cdc.RegisterInterface((*crypto.PrivKey)(nil), nil)
-// 	cdc.RegisterConcrete(PrivKeyEd25519{},
-// 		Ed25519PrivKeyAminoRoute, nil)
-// }
+	cdc.RegisterInterface((*crypto.PrivKey)(nil), nil)
+	cdc.RegisterConcrete(PrivKeyEd25519{},
+		Ed25519PrivKeyAminoRoute, nil)
+}
 
 // PrivKeyEd25519 implements crypto.PrivKey.
 type PrivKeyEd25519 [64]byte
 
 // Bytes marshals the privkey using amino encoding.
 func (privKey PrivKeyEd25519) Bytes() []byte {
-	return help.MustMarshalBinaryBare(privKey)
+	return cdc.MustMarshalBinaryBare(privKey)
 }
 
 // Sign produces a signature on the provided message.
@@ -147,7 +148,7 @@ func (pubKey PubKeyEd25519) Address() help.Address {
 
 // Bytes marshals the PubKey using amino encoding.
 func (pubKey PubKeyEd25519) Bytes() []byte {
-	bz, err := help.MarshalBinaryBare(pubKey)
+	bz, err := cdc.MarshalBinaryBare(pubKey)
 	if err != nil {
 		panic(err)
 	}

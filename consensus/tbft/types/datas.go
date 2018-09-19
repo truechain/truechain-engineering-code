@@ -29,7 +29,7 @@ var (
 
 // 	// We prefix the byte length, so that unmarshaling
 // 	// can easily happen via a reader.
-// 	bz, err := help.MarshalBinary(b)
+// 	bz, err := cdc.MarshalBinary(b)
 // 	if err != nil {
 // 		panic(err)
 // 	}

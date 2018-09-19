@@ -231,7 +231,7 @@ func (hvs *HeightVoteSet) MarshalJSON() ([]byte, error) {
 	defer hvs.mtx.Unlock()
 
 	allVotes := hvs.toAllRoundVotes()
-	return help.MarshalJSON(allVotes)
+	return cdc.MarshalJSON(allVotes)
 }
 
 func (hvs *HeightVoteSet) toAllRoundVotes() []roundVotes {
