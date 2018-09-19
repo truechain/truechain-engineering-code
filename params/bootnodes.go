@@ -43,9 +43,9 @@ var TestnetBootnodes = []string{
 // RinkebyBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Rinkeby test network.
 var RinkebyBootnodes = []string{
-	"enode://a24ac7c5484ef4ed0c5eb2d36620ba4e4aa13b8c84684e1b4aab0cebea2ae45cb4d375b77eab56516d34bfbd3c1a833fc51296ff084b770b94fb9028c4d25ccf@52.169.42.101:30303", // IE
-	"enode://343149e4feefa15d882d9fe4ac7d88f885bd05ebb735e547f12e12080a9fa07c8014ca6fd7f373123488102fe5e34111f8509cf0b7de3f5b44339c9f25e87cb8@52.3.158.184:30303",  // INFURA
-	"enode://b6b28890b006743680c52e64e0d16db57f28124885595fa03a562be1d2bf0f3a1da297d56b13da25fb992888fd556d4c1a27b1f39d531bde7de1921c90061cc6@159.89.28.211:30303", // AKASHA
+	"enode://7e9b4ad3a1b747cb78a53bdee18a96089a3540a4d87cdee0a600cfe7211ec986adc669beb3344eec8cdf083c93755fa90d3fd6cf6c9d4b4765e4fd93cfd4732e@47.92.100.100:9215", // 39
+	"enode://81ee2b913f5c10695ddafc25264d8d68167aa1fc2993417c7b5d02f9b08e931a37820f1fd7c3e89a7e2fa6956a376f3d8bf9b2959bcaece76ceef83b26673b40@47.92.98.104:9215",  // 40
+	"enode://d73b087c411957f55abbd2dbb9b2cfcfee41dec68dfb1bfcbb4710968ffc84cdeb9eb0cb261a6a904d5b8c9aa3e5cb98360fbbd0967b075ab73e186c75aac6bd@47.92.172.168:9215", // 2
 }
 
 // DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the
