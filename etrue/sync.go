@@ -242,11 +242,11 @@ func (pm *ProtocolManager) syncer() {
 			if pm.peers.Len() < minDesiredPeerCount {
 				break
 			}
-			go pm.synchronise(pm.peers.BestPeer())
+			//go pm.synchronise(pm.peers.BestPeer())
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			pm.synchronise(pm.peers.BestPeer())
+			//pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
 			return
