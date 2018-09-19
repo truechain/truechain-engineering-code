@@ -490,8 +490,8 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 }
 
 //generateBlock and broadcast
-func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
-	log.Debug("into GenerateFastBlock...")
+func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
+	log.Debug("into GenerateFastBlock...","committeeId",committeeId)
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	var (
@@ -674,7 +674,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 }
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Debug("into BroadcastSign.")
+	log.Debug("into BroadcastSign.","fastHeight",fb.Header().Number)
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	//insert bockchain
@@ -682,7 +682,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("out BroadcastSign.")
+	log.Debug("out BroadcastSign.","fastHeight",fb.Header().Number)
 	return nil
 }
 
@@ -949,7 +949,7 @@ func (agent *PbftAgent) singleloop() {
 			cnt   = 0
 		)
 		for {
-			block, err = agent.FetchFastBlock()
+			block, err = agent.FetchFastBlock(nil)
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
 				time.Sleep(time.Second)

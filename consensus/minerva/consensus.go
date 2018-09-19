@@ -727,15 +727,17 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		err := accumulateRewardsFast(m.election, state, header, sBlock)
 		if err != nil {
 			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+			return nil, err
 		}
 	}
-	m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount)
+	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
+		return nil, err
+	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
-
 
 	//header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
@@ -748,9 +750,10 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
-	if len(committee) != 0 {
-		committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
+	if len(committee) == 0 {
+		return errors.New("not have committee")
 	}
+	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
 		LogPrint("gas", v.Coinbase, committeeGas)
