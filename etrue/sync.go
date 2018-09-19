@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"fmt"
 )
 
 const (
@@ -179,7 +180,7 @@ func (pm *ProtocolManager) fruitsyncLoop() {
 		// Send the pack in the background.
 		f.p.Log().Trace("Sending batch of fruits", "count", len(pack.fruits), "bytes", size)
 		sending = true
-		go func() { done <- pack.p.Sendfruits(pack.fruits) }()
+		go func() { done <- pack.p.SendFruits(pack.fruits)}()
 	}
 
 	// pick chooses the next pending sync.
@@ -241,11 +242,11 @@ func (pm *ProtocolManager) syncer() {
 			if pm.peers.Len() < minDesiredPeerCount {
 				break
 			}
-			//go pm.synchronise(pm.peers.BestPeer())
+			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			//go pm.synchronise(pm.peers.BestPeer())
+			pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
 			return
@@ -260,8 +261,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 	// Make sure the peer's TD is higher than our own
-	currentBlock := pm.blockchain.CurrentBlock()
-	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+	currentBlock := pm.snailchain.CurrentBlock()
+	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
 	if pTd.Cmp(td) <= 0 {
@@ -272,7 +273,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		// Fast sync was explicitly requested, and explicitly granted
 		mode = downloader.FastSync
-	} else if currentBlock.NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+	} else if currentBlock.NumberU64() == 0 && pm.snailchain.CurrentFastBlock().NumberU64() > 0 {
 		// The database seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
@@ -284,15 +285,17 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	if mode == downloader.FastSync {
 		// Make sure the peer's total difficulty we are synchronizing is higher.
-		if pm.blockchain.GetTdByHash(pm.blockchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
+		if pm.snailchain.GetTdByHash(pm.snailchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return
 		}
 	}
 
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
+		fmt.Println(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<")
 		return
 	}
+
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		log.Info("Fast sync complete, auto disabling")
 		atomic.StoreUint32(&pm.fastSync, 0)
@@ -307,6 +310,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// scenario will most often crop up in private and hackathon networks with
 		// degenerate connectivity, but it should be healthy for the mainnet too to
 		// more reliably update peers or the local TD state.
-		go pm.BroadcastFastBlock(head, false)
+		//go pm.BroadcastFastBlock(head, false)
 	}
 }

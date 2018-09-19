@@ -42,7 +42,7 @@ var ProtocolName = "etrue"
 var ProtocolVersions = []uint{eth63, eth62}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{17, 8}
+var ProtocolLengths = []uint64{25, 8}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -58,6 +58,7 @@ const (
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
 
+
 	BlockSignMsg    = 0x08
 	PbftNodeInfoMsg = 0x09
 
@@ -68,6 +69,16 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
+
+	//snail sync
+	GetSnailBlockHeadersMsg = 0x11
+	SnailBlockHeadersMsg = 0x12
+	GetSnailBlockBodiesMsg  = 0x13
+	SnailBlockBodiesMsg     = 0x14
+
+
+
+
 )
 
 type errCode int
@@ -124,7 +135,7 @@ type SnailPool interface {
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
-	PendingFastBlocks() (types.Blocks, error)
+	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
 }
@@ -211,7 +222,7 @@ type newBlockData struct {
 // newFastBlockData is the network packet for the block propagation message.
 type newSnailBlockData struct {
 	Block *types.SnailBlock
-	td    int
+	TD    *big.Int
 }
 
 // blockBody represents the data content of a single block.
@@ -222,3 +233,15 @@ type blockBody struct {
 
 // blockBodiesData is the network packet for block content distribution.
 type blockBodiesData []*blockBody
+
+
+// blockBody represents the data content of a single block.
+type snailBlockBody struct {
+	Fruits []*types.SnailBlock
+	Signs  []*types.PbftSign
+}
+
+// blockBodiesData is the network packet for block content distribution.
+type snailBlockBodiesData []*snailBlockBody
+
+

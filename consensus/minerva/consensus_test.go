@@ -121,3 +121,16 @@ func TestOutSqrt(t *testing.T) {
 	fmt.Println(ARR)
 	fmt.Println(string(b))
 }
+
+//Calculate the reward distribution corresponding to the slow block height
+//There is a new distribution incentive for every 4,500 blocks.
+//The unit of output is wei
+//6 bits at the end are cleared
+func TestSnailAwardForHeight(t *testing.T) {
+	for i := 1; i < 100; i++ {
+		snailBlockNumber := new(big.Int).SetInt64(int64(1 + 4500*(i-1)))
+		fmt.Println("snailBlockNumber:", snailBlockNumber, "Award:", getCurrentCoin(snailBlockNumber))
+		committeeAward, minerAward, minerFruitAward, _ := getBlockReward(snailBlockNumber)
+		fmt.Println("committeeAward:", committeeAward, "minerAward:", minerAward, "minerFruitAward:", minerFruitAward)
+	}
+}

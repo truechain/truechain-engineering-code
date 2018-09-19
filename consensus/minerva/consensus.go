@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"runtime"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
@@ -40,13 +41,13 @@ var (
 	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
 	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 
-	FruitReward *big.Int = big.NewInt(3.333e+16)
-	BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
+	//FruitReward *big.Int = big.NewInt(3.333e+16)
+	//BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
 
 	maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
 
-	FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
+	//FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -76,7 +77,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum m engine.
-func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -98,26 +99,29 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *ty
 		return nil
 	}
 
-	// Short circuit if the header is known, or it's parent not
-	number := header.Number.Uint64()
-
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-
 	//TODO for fruit
 
 	if header.Fruit {
-		return m.verifySnailHeader(chain, header, parent, false, seal)
-	}
+		pointer := chain.GetHeaderByHash(header.PointerHash)
+		if pointer == nil {
+			return consensus.ErrUnknownPointer
+		}
+		return m.verifySnailHeader(chain, header, nil, pointer, false, seal)
+	} else {
+		// Short circuit if the header is known, or it's parent not
+		number := header.Number.Uint64()
 
-	if chain.GetHeader(header.Hash(), number) != nil {
-		return nil
-	}
+		parent := chain.GetHeader(header.ParentHash, number-1)
+		if parent == nil {
+			return consensus.ErrUnknownAncestor
+		}
+		if chain.GetHeader(header.Hash(), number) != nil {
+			return nil
+		}
 
-	// Sanity checks passed, do a proper verification
-	return m.verifySnailHeader(chain, header, parent, false, seal)
+		// Sanity checks passed, do a proper verification
+		return m.verifySnailHeader(chain, header, parent, nil, false, seal)
+	}
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -185,6 +189,7 @@ func (m *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.He
 	}()
 	return abort, errorsOut
 }
+
 func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader,
 	seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
@@ -283,7 +288,7 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 		return nil // known block
 	}
 
-	return m.verifySnailHeader(chain, headers[index], parent, false, seals[index])
+	return m.verifySnailHeader(chain, headers[index], parent, nil, false, seals[index])
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
@@ -373,7 +378,7 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 
 	return nil
 }
-func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader,
+func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent, pointer *types.SnailHeader,
 	uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
@@ -385,53 +390,28 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 			return errLargeBlockTime
 		}
 	} else {
-		if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-			return consensus.ErrFutureBlock
+		if !header.Fruit {
+			if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+				return consensus.ErrFutureBlock
+			}
 		}
 	}
-	if header.Time.Cmp(parent.Time) <= 0 {
-		return errZeroBlockTime
+	if !header.Fruit {
+		if header.Time.Cmp(parent.Time) <= 0 {
+			return errZeroBlockTime
+		}
+
+		// Verify the block's difficulty based in it's timestamp and parent's difficulty
+		expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
+
+		if expected.Cmp(header.Difficulty) != 0 {
+			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
+		}
 	}
-
-	// Verify the block's difficulty based in it's timestamp and parent's difficulty
-	expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-
-	if expected.Cmp(header.Difficulty) != 0 {
-		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
-	}
-
-	// Verify that the gas limit is <= 2^63-1
-
-	//TODO snail chian gaslimit
-	/*
-		cap := uint64(0x7fffffffffffffff)
-		if header.GasLimit > cap {
-			return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
-		}
-		// Verify that the gasUsed is <= gasLimit
-		if header.GasUsed > header.GasLimit {
-			return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
-		}
-
-		// Verify that the gas limit remains within allowed bounds
-		diff := int64(parent.GasLimit) - int64(header.GasLimit)
-		if diff < 0 {
-			diff *= -1
-		}
-		limit := parent.GasLimit / params.GasLimitBoundDivisor
-
-		if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-			return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
-		}
-		// Verify that the block number is parent's +1
-		if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
-			return consensus.ErrInvalidNumber
-		}
-	*/
 
 	// Verify the engine specific seal securing the block
 	if seal {
-		if err := m.VerifySnailSeal(chain, header); err != nil {
+		if err := m.VerifySnailSeal(chain, header, pointer); err != nil {
 			return err
 		}
 	}
@@ -453,19 +433,12 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 }
 
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
-	//number := header.Number.Uint64()
-
-	//cache := m.cache(number)
-	//size := datasetSize(number)
-	//if m.config.PowMode == ModeTest {
-	//	size = 32 * 1024
-	//}
 	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
-		fruitDiff := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
+		fruitDiff := new(big.Int).Div(header.Difficulty, params.FruitBlockRatio)
 
 		return actDiff, fruitDiff
 	} else {
@@ -676,7 +649,7 @@ func calcDifficultyFrontier(time uint64, parent *types.SnailHeader) *big.Int {
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
-func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
+func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header, pointer *types.SnailHeader) error {
 	// If we're running a fake PoW, accept any seal as valid
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		time.Sleep(m.fakeDelay)
@@ -687,7 +660,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	}
 	// If we're running a shared PoW, delegate verification to it
 	if m.shared != nil {
-		return m.shared.VerifySnailSeal(chain, header)
+		return m.shared.VerifySnailSeal(chain, header, pointer)
 	}
 	// Ensure that we have a valid difficulty for the block
 	if header.Difficulty.Sign() <= 0 {
@@ -696,39 +669,27 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	// Recompute the digest and PoW value and verify against the header
 	//number := header.Number.Uint64()
 
-	//cache := m.cache(number)
-	//size := datasetSize(number)
-	//if m.config.PowMode == ModeTest {
-	//	size = 32 * 1024
-	//}
 	digest, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
-	// Caches are unmapped in a finalizer. Ensure that the cache stays live
-	// until after the call to hashimotoLight so it's not unmapped while being used.
-	//runtime.KeepAlive(cache)
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest
 	}
 
-	//TODO for fruit
-
-	target := new(big.Int).Div(maxUint256, header.Difficulty)
-	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
-		fruitDifficulty.Set(params.MinimumFruitDifficulty)
-	}
-	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
-
 	if header.Fruit {
-		// TODO need know how to get fruits
-		if header.Number.Uint64() > 0 {
-			last := result[16:]
-			if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
-				// fmt.Printf("last is  %v", new(big.Int).SetBytes(last))
-				// fmt.Printf("fruitTarget is %v", fruitTarget)
-				return errInvalidPoW
-			}
-		} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
+		fruitDifficulty := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
+		if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
+			fruitDifficulty.Set(params.MinimumFruitDifficulty)
+		}
+		fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
+
+		last := result[16:]
+		if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
+			return errInvalidPoW
+		}
+	} else {
+		target := new(big.Int).Div(maxUint128, header.Difficulty)
+		last := result[:16]
+		if new(big.Int).SetBytes(last).Cmp(target) > 0 {
 			return errInvalidPoW
 		}
 	}
@@ -756,17 +717,24 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
+	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
 			return nil, consensus.ErrInvalidNumber
 		}
-		accumulateRewardsFast(m.election, state, header, sBlock)
+		err := accumulateRewardsFast(m.election, state, header, sBlock)
+		if err != nil {
+			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+			return nil, err
+		}
+	}
+	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
+		return nil, err
 	}
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewBlock(header, txs, receipts, nil), nil
+	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
@@ -777,25 +745,30 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
-//gas allocation
-func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	log.Info("FinalizeFastGas:", "fastNumber", fastNumber, "gasLimit", gasLimit)
+// gas allocation
+func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
+	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
-	if len(committee) != 0 {
-		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+	if len(committee) == 0 {
+		return errors.New("not have committee")
 	}
+	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
+		LogPrint("gas", v.Coinbase, committeeGas)
 	}
 	return nil
+}
+
+func LogPrint(info string, addr common.Address, amount *big.Int) {
+	log.Trace("[AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
-
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
 
 	if e != nil {
@@ -804,6 +777,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
 
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
@@ -812,6 +786,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
+			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
 		}
 	} else {
 		return consensus.ErrInvalidBlock
@@ -826,24 +801,23 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr, err := election.VerifySigns(signs)
-		if len(addr) != len(err) {
+		committeeMembers, errs := election.VerifySigns(signs)
+		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
-		for i := 0; i < len(addr); i++ {
-			v := addr[i]
-			if v == nil || err[i] != nil {
+		for i, cm := range committeeMembers {
+			if errs[i] != nil {
 				continue
 			}
-			if signs[i].Result == types.VoteAgreeAgainst {
-				if _, ok := failAddr[v.Coinbase]; !ok {
-					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
+			if signs[i].Result == types.VoteAgree {
+				if _, ok := failAddr[cm.Coinbase]; !ok {
+					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
 				}
 			} else {
-				failAddr[v.Coinbase] = false
+				failAddr[cm.Coinbase] = false
 			}
 		}
 
@@ -855,6 +829,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
+			LogPrint("committee", v, committeeCoinFruitMember)
 		}
 	}
 

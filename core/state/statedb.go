@@ -292,7 +292,7 @@ func (self *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 	stateObject := self.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetBalance(amount)
-	}
+	} 
 }
 
 func (self *StateDB) SetNonce(addr common.Address, nonce uint64) {

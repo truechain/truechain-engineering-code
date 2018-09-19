@@ -242,16 +242,16 @@ func (bc *SnailBlockChain) loadLastState() error {
 
 	// Issue a status log for the user
 	// TODO: get fastblock
-	//currentFastBlock := bc.CurrentFastBlock()
+	currentFastBlock := bc.CurrentFastBlock()
 
 	headerTd := bc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64())
 	blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	// TODO: get fastTD
-	//fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
+	fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
 
 	log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
 	log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
-	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
+	log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
 	return nil
 }
@@ -285,21 +285,21 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	}
 
 	// Rewind the fast block in a simpleton way to the target head
-	//if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock != nil && currentHeader.Number.Uint64() < currentFastBlock.NumberU64() {
-	//	bc.currentFastBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
-	//}
+	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock != nil && currentHeader.Number.Uint64() < currentFastBlock.NumberU64() {
+		bc.currentFastBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
+	}
 	// If either blocks reached nil, reset to the genesis state
 	if currentBlock := bc.CurrentBlock(); currentBlock == nil {
 		bc.currentBlock.Store(bc.genesisBlock)
 	}
-	//if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
-	//	bc.currentFastBlock.Store(bc.genesisBlock)
-	//}
+	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
+		bc.currentFastBlock.Store(bc.genesisBlock)
+	}
 	currentBlock := bc.CurrentBlock()
-	//currentFastBlock := bc.CurrentFastBlock()
+	currentFastBlock := bc.CurrentFastBlock()
 
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
-	//rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
+	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
 
 	return bc.loadLastState()
 
@@ -323,12 +323,6 @@ func (bc *SnailBlockChain) FastSyncCommitHead(hash common.Hash) error {
 	return nil
 }
 
-// GasLimit returns the gas limit of the current HEAD block.
-/*
-func (bc *SnailBlockChain) SnailGasLimit() uint64 {
-	return bc.CurrentSnailBlock().SnailGasLimit()
-}
-*/
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
 func (bc *SnailBlockChain) CurrentBlock() *types.SnailBlock {
@@ -337,8 +331,8 @@ func (bc *SnailBlockChain) CurrentBlock() *types.SnailBlock {
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
-func (bc *SnailBlockChain) CurrentFastBlock() *types.Block {
-	return bc.currentFastBlock.Load().(*types.Block)
+func (bc *SnailBlockChain) CurrentFastBlock() *types.SnailBlock {
+	return bc.currentFastBlock.Load().(*types.SnailBlock)
 }
 
 // SetValidator sets the validator which is used to validate incoming blocks.
@@ -453,7 +447,7 @@ func (bc *SnailBlockChain) insert(block *types.SnailBlock) {
 	if updateHeads {
 		bc.hc.SetCurrentHeader(block.Header())
 		//TODO write Fast Block Hash
-		//rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
+		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
 		bc.currentFastBlock.Store(block)
 	}
@@ -595,15 +589,15 @@ func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-/*
+
 func (bc *SnailBlockChain) GetUnclesInChain(block *types.SnailBlock, length int) []*types.SnailHeader {
-	uncles := []*types.Header{}
+	uncles := []*types.SnailHeader{}
 	for i := 0; block != nil && i < length; i++ {
 		uncles = append(uncles, block.Uncles()...)
 		block = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	}
 	return uncles
-}*/
+}
 
 // TrieNode retrieves a blob of data associated with a trie node (or code hash)
 // either from ephemeral in-memory cache, or from persistent storage.
@@ -670,7 +664,7 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 			newFastBlock := bc.GetBlock(currentFastBlock.ParentHash(), currentFastBlock.NumberU64()-1)
 			bc.currentFastBlock.Store(newFastBlock)
 			//TODO Write Fast Block Hash
-			//rawdb.WriteHeadFastBlockHash(bc.db, newFastBlock.Hash())
+			rawdb.WriteHeadFastBlockHash(bc.db, newFastBlock.Hash())
 		}
 		if currentBlock := bc.CurrentBlock(); currentBlock.Hash() == hash {
 			newBlock := bc.GetBlock(currentBlock.ParentHash(), currentBlock.NumberU64()-1)
@@ -833,6 +827,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
+	log.Debug("WriteCanonicalBlock...")
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -870,7 +865,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 				return NonStatTy, err
 			}
 		}
-
+		log.Debug("Reorganise the chain sine the parent is not the head block")
 		// Write the positional metadata for fruit lookups
 		rawdb.WriteFtLookupEntries(batch, block)
 
@@ -897,6 +892,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 //
 // After insertion is done, all accumulated events will be fired.
 func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
+	log.Debug("InsertChain...")
 	n, events, err := bc.insertChain(chain)
 	bc.PostChainEvents(events)
 	return n, err
@@ -1095,11 +1091,10 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 	if index == len(chain)-1 || elapsed >= statsSnailReportLimit {
 		var (
 			end = chain[index]
-			//txs = countTransactions(chain[st.lastIndex : index+1])
-			txs = 0
+			fts = countSnailFruits(chain[st.lastIndex : index+1])
 		)
 		context := []interface{}{
-			"blocks", st.processed, "txs", txs, "mgas", float64(st.usedGas) / 1000000,
+			"blocks", st.processed, "fts", fts, "mgas", float64(st.usedGas) / 1000000,
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
 			"number", end.Number(), "hash", end.Hash(),
 		}
@@ -1115,15 +1110,14 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 	}
 }
 
-func countSnailTransactions(chain []*types.SnailBlock) (c int) {
-	/*
+func countSnailFruits(chain []*types.SnailBlock) (c int) {
+
 	for _, b := range chain {
-		//c += len(b.Transactions())
-		c += 1
+		c += len(b.Fruits())
 	}
-	*/
+
 	
-	return 1
+	return c
 }
 
 // reorgs takes two blocks, an old chain and a new chain and will reconstruct the blocks and inserts them
@@ -1242,7 +1236,7 @@ func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 		case NewMinedFruitEvent:
 			bc.fruitMinedFeed.Send(ev)
 		case NewFastBlocksEvent:
-			//bc.fastBlockFeed.Send(ev)
+			bc.fastBlockFeed.Send(ev)
 		case FruitFleashEvent:
 
 		 	
@@ -1410,6 +1404,9 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 
 func (bc *SnailBlockChain)GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
 	fruit, hash, number, index :=  rawdb.ReadFruit(bc.db, fastHash)
+	log.Debug("Get fruit by fast hash", "fruit", fruit, "hash", hash, "number", number,
+		"index", index, "fastHash",fastHash)
+
 	if fruit == nil {
 		return nil, 0
 	}

@@ -1,4 +1,4 @@
-// Copyright 2017 The go-ethereum Authors
+// Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,23 +14,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package adapters
+package fastdownloader
 
-type SimStateStore struct {
-	m map[string][]byte
-}
-
-func (st *SimStateStore) Load(s string) ([]byte, error) {
-	return st.m[s], nil
-}
-
-func (st *SimStateStore) Save(s string, data []byte) error {
-	st.m[s] = data
-	return nil
-}
-
-func NewSimStateStore() *SimStateStore {
-	return &SimStateStore{
-		make(map[string][]byte),
-	}
-}
+type DoneEvent struct{}
+type StartEvent struct{}
+type FailedEvent struct{ Err error }

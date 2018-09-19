@@ -19,6 +19,7 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -28,7 +29,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"encoding/hex"
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
@@ -54,12 +54,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
-	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"github.com/truechain/truechain-engineering-code/p2p/nat"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"bytes"
 )
 
 var (
@@ -171,14 +172,23 @@ var (
 		Name:  "singlenode",
 		Usage: "sing node model",
 	}
+	MineFruitFlag = cli.BoolFlag{
+		Name:  "minefruit",
+		Usage: "only mine fruit",
+	}
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
 		Usage: "enable election",
 	}
-	BFTPortFlag = cli.IntFlag{
+	BFTPortFlag = cli.Uint64Flag{
 		Name:  "bftport",
 		Usage: "committee node port ",
-		Value: 10080,
+		//Value: 10080,
+	}
+	BFTStandByPortFlag = cli.Uint64Flag{
+		Name:  "bftport2",
+		Usage: "committee node standBy port ",
+		//Value: 10090,
 	}
 	BFTIPFlag = cli.StringFlag{
 		Name:  "bftip",
@@ -348,7 +358,7 @@ var (
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
 		Usage: "Number of CPU threads to use for mining",
-		Value: runtime.NumCPU(),
+		Value: runtime.NumCPU() - 1,
 	}
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
@@ -703,33 +713,6 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
-// setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
-// flags, reverting to pre-configured ones if none have been specified.
-func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
-	urls := params.DiscoveryV5Bootnodes
-	switch {
-	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV5Flag.Name):
-		if ctx.GlobalIsSet(BootnodesV5Flag.Name) {
-			urls = strings.Split(ctx.GlobalString(BootnodesV5Flag.Name), ",")
-		} else {
-			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
-		}
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case cfg.BootstrapNodesV5 != nil:
-		return // already set, don't apply defaults.
-	}
-
-	cfg.BootstrapNodesV5 = make([]*discv5.Node, 0, len(urls))
-	for _, url := range urls {
-		node, err := discv5.ParseNode(url)
-		if err != nil {
-			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
-			continue
-		}
-		cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
-	}
-}
 
 // setListenAddress creates a TCP listening address string from set command
 // line flags.
@@ -895,7 +878,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	setBootstrapNodesV5(ctx, cfg)
+	//setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalBool(LightModeFlag.Name) || ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
@@ -1129,6 +1112,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(NetworkIdFlag.Name) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
+
+	if ctx.GlobalBool(MineFruitFlag.Name) {
+		cfg.MineFruit = true
+	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
@@ -1136,10 +1123,12 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
 	}
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
-	}else{
-		cfg.Port = BFTPortFlag.Value
+		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
 	}
+	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
+		cfg.StandByPort =int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
+	}
+
 	//set PrivateKey by config,file or hex
 	setBftCommitteeKey(ctx, cfg)
 	if cfg.PrivateKey == nil {
@@ -1147,17 +1136,28 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
-	if ctx.GlobalBool(EnableElectionFlag.Name) && !cfg.NodeType{
+	if bytes.Equal(cfg.CommitteeKey,[]byte{}){
+		Fatalf("init load CommitteeKey  nil.")
+	}
+	if ctx.GlobalBool(EnableElectionFlag.Name){
+		cfg.EnableElection = true
+	}
+	if cfg.EnableElection && !cfg.NodeType{
 		if cfg.Host == "" {
 			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
 		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
-		cfg.EnableElection = true
+		if cfg.StandByPort == 0 {
+			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
+		}
+		if cfg.Port == cfg.StandByPort{
+			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name,BFTStandByPortFlag.Name)
+		}
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
-		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection)
+		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection,"singlenode",cfg.NodeType)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
@@ -1354,7 +1354,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chainDb ethdb.Database) {
+func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain,schain *snailchain.SnailBlockChain, chainDb ethdb.Database) {
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
@@ -1387,15 +1387,25 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
 		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
+	scache := &snailchain.CacheConfig{
+		Disabled:      ctx.GlobalString(GCModeFlag.Name) == "archive",
+		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	}
+
+
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+
+	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, scache, config, engine, vmcfg)
+
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
-	return chain, chainDb
+	return fchain,schain, chainDb
 }
 
 // MakeConsolePreloads retrieves the absolute paths for the console JavaScript

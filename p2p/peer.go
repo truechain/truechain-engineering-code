@@ -165,7 +165,7 @@ func (p *Peer) String() string {
 
 // Inbound returns true if the peer is an inbound connection
 func (p *Peer) Inbound() bool {
-	return p.rw.flags&inboundConn != 0
+	return p.rw.is(inboundConn)
 }
 
 func newPeer(conn *conn, protocols []Protocol) *Peer {
@@ -196,7 +196,8 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
-
+	//fmt.Println("peer.LocalAddr》》》》》》》》》》》",p.LocalAddr().String())
+	//fmt.Println("peer》》》》》》》》》》》",p.Info().ID)
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
 	p.startProtocols(writeStart, writeErr)
@@ -376,7 +377,7 @@ func (p *Peer) getProto(code uint64) (*protoRW, error) {
 
 type protoRW struct {
 	Protocol
-	in     chan Msg        // receices read messages
+	in     chan Msg        // receives read messages
 	closed <-chan struct{} // receives when peer is shutting down
 	wstart <-chan struct{} // receives when write may start
 	werr   chan<- error    // for write results

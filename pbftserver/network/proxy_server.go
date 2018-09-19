@@ -25,7 +25,7 @@ type Server struct {
 func PrintNode(node *Node) {
 start:
 	lock.Lock.Lock()
-	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, len(node.CommitWaitMsg))
+	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, node.CommitWaitQueue.Size())
 	lock.PSLog("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
 		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
 		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),

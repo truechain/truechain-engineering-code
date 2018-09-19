@@ -102,7 +102,7 @@ out:
 
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	//Neo for test
-	log.Info("start to mine and to be consensus", " difficulty ", work.header.Difficulty)
+	log.Info("start to mine and to be consensus", "block", work.Block.Number(), " difficulty ", work.header.Difficulty)
 	// the mine with consensus
 	/*
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
@@ -119,7 +119,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	// the new flow for fruit and block 20180624
 	send := make(chan *types.SnailBlock, 10)
 	abort := make(chan struct{})
-	go self.engine.ConSnailSeal(self.chain, work.Block, abort, send)
+	go self.engine.ConSeal(self.chain, work.Block, abort, send)
 
 	var result *types.SnailBlock
 	mineloop:
