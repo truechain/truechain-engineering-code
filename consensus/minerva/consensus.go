@@ -822,6 +822,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 			log.Info("-------------------------- fruitOkAddr = 0 --------------------------")
 			return consensus.ErrInvalidSignsLength
 		}
+		log.Info("-------------------------- fruitOkAddr = 1 --------------------------")
 
 		// Equal by fruit
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
