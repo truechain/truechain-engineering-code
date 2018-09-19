@@ -43,7 +43,6 @@ const (
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
-	signChanSize     = 8
 )
 
 var (
@@ -211,7 +210,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 	return &Fetcher{
 		notify:        make(chan *announce),
 		inject:        make(chan *inject),
-		injectSign:    make(chan *injectSign, signChanSize),
+		injectSign:    make(chan *injectSign),
 		blockFilter:   make(chan chan []*types.Block),
 		headerFilter:  make(chan chan *headerFilterTask),
 		bodyFilter:    make(chan chan *bodyFilterTask),
@@ -463,6 +462,7 @@ func (f *Fetcher) loop() {
 						log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
 
 						f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
+						height = height + 1
 					} else {
 						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
 						finished = true
