@@ -3,13 +3,14 @@ package consensus
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"sync"
+	"time"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/log"
-	"reflect"
-	"sync"
-	"time"
+	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 )
 
 const (
@@ -1268,11 +1269,25 @@ func (ps *PeerState) StringIndented(indent string) string {
 // ConsensusMessage is a message that can be sent and received on the ConsensusReactor
 type ConsensusMessage interface{}
 
+func RegisterConsensusMessages(cdc *amino.Codec) {
+	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
+	cdc.RegisterConcrete(&NewRoundStepMessage{}, "true/NewRoundStepMessage", nil)
+	cdc.RegisterConcrete(&CommitStepMessage{}, "true/CommitStep", nil)
+	cdc.RegisterConcrete(&ProposalMessage{}, "true/Proposal", nil)
+	cdc.RegisterConcrete(&ProposalPOLMessage{}, "true/ProposalPOL", nil)
+	cdc.RegisterConcrete(&BlockPartMessage{}, "true/BlockPart", nil)
+	cdc.RegisterConcrete(&VoteMessage{}, "true/Vote", nil)
+	cdc.RegisterConcrete(&HasVoteMessage{}, "true/HasVote", nil)
+	cdc.RegisterConcrete(&VoteSetMaj23Message{}, "true/VoteSetMaj23", nil)
+	cdc.RegisterConcrete(&VoteSetBitsMessage{}, "true/VoteSetBits", nil)
+	cdc.RegisterConcrete(&ProposalHeartbeatMessage{}, "true/ProposalHeartbeat", nil)
+}
+
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	if len(bz) > maxMsgSize {
 		return msg, fmt.Errorf("Msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
 	}
-	err = help.UnmarshalBinaryBare(bz, &msg)
+	err = cdc.UnmarshalBinaryBare(bz, &msg)
 	return
 }
 
