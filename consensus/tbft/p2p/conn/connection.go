@@ -13,6 +13,7 @@ import (
 
 	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
 	"github.com/truechain/truechain-engineering-code/log"
+	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -765,12 +766,12 @@ type Packet interface {
 	AssertIsPacket()
 }
 
-// func RegisterPacket(cdc *amino.Codec) {
-// 	cdc.RegisterInterface((*Packet)(nil), nil)
-// 	cdc.RegisterConcrete(PacketPing{}, "tendermint/p2p/PacketPing", nil)
-// 	cdc.RegisterConcrete(PacketPong{}, "tendermint/p2p/PacketPong", nil)
-// 	cdc.RegisterConcrete(PacketMsg{}, "tendermint/p2p/PacketMsg", nil)
-// }
+func RegisterPacket(cdc *amino.Codec) {
+	cdc.RegisterInterface((*Packet)(nil), nil)
+	cdc.RegisterConcrete(PacketPing{}, "true/p2p/PacketPing", nil)
+	cdc.RegisterConcrete(PacketPong{}, "true/p2p/PacketPong", nil)
+	cdc.RegisterConcrete(PacketMsg{}, "true/p2p/PacketMsg", nil)
+}
 
 func (_ PacketPing) AssertIsPacket() {}
 func (_ PacketPong) AssertIsPacket() {}
