@@ -67,6 +67,7 @@ func TestPbftRunForOne(t *testing.T) {
 	pr, _ := crypto.GenerateKey()
 	agent1 := NewPbftAgent("Agent1")
 	n, _ := NewNode(config.DefaultConfig(), "1", pr, agent1)
+
 	c1 := new(types.CommitteeInfo)
 	c1.Id = big.NewInt(1)
 	m1 := new(types.CommitteeMember)
