@@ -254,7 +254,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		return errors.New("wrong ID:" + id.String())
 	}
 	for _, v := range nodes {
-		id := p2p.ID(hex.EncodeToString(v.Publickey))
+		id := p2p.ID(hex.EncodeToString(v.Coinbase[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", v.IP, v.Port)))
 		if err == nil {
