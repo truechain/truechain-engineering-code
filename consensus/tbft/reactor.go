@@ -1268,20 +1268,6 @@ func (ps *PeerState) StringIndented(indent string) string {
 // ConsensusMessage is a message that can be sent and received on the ConsensusReactor
 type ConsensusMessage interface{}
 
-// func RegisterConsensusMessages(cdc *amino.Codec) {
-// 	cdc.RegisterInterface((*ConsensusMessage)(nil), nil)
-// 	cdc.RegisterConcrete(&NewRoundStepMessage{}, "tendermint/NewRoundStepMessage", nil)
-// 	cdc.RegisterConcrete(&CommitStepMessage{}, "tendermint/CommitStep", nil)
-// 	cdc.RegisterConcrete(&ProposalMessage{}, "tendermint/Proposal", nil)
-// 	cdc.RegisterConcrete(&ProposalPOLMessage{}, "tendermint/ProposalPOL", nil)
-// 	cdc.RegisterConcrete(&BlockPartMessage{}, "tendermint/BlockPart", nil)
-// 	cdc.RegisterConcrete(&VoteMessage{}, "tendermint/Vote", nil)
-// 	cdc.RegisterConcrete(&HasVoteMessage{}, "tendermint/HasVote", nil)
-// 	cdc.RegisterConcrete(&VoteSetMaj23Message{}, "tendermint/VoteSetMaj23", nil)
-// 	cdc.RegisterConcrete(&VoteSetBitsMessage{}, "tendermint/VoteSetBits", nil)
-// 	cdc.RegisterConcrete(&ProposalHeartbeatMessage{}, "tendermint/ProposalHeartbeat", nil)
-// }
-
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	if len(bz) > maxMsgSize {
 		return msg, fmt.Errorf("Msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
