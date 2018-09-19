@@ -51,7 +51,7 @@ type Vote struct {
 }
 
 func (vote *Vote) SignBytes(chainID string) []byte {
-	bz, err := help.MarshalJSON(CanonicalVote(chainID, vote))
+	bz, err := cdc.MarshalJSON(CanonicalVote(chainID, vote))
 	if err != nil {
 		panic(err)
 	}

@@ -337,7 +337,7 @@ FOR_LOOP:
 			}
 		case <-c.pingTimer.Chan():
 			log.Debug("Send Ping")
-			_n, err = help.MarshalBinaryWriter(c.bufConnWriter, PacketPing{})
+			_n, err = cdc.MarshalBinaryWriter(c.bufConnWriter, PacketPing{})
 			if err != nil {
 				break SELECTION
 			}
@@ -359,7 +359,7 @@ FOR_LOOP:
 			}
 		case <-c.pong:
 			log.Debug("Send Pong")
-			_n, err = help.MarshalBinaryWriter(c.bufConnWriter, PacketPong{})
+			_n, err = cdc.MarshalBinaryWriter(c.bufConnWriter, PacketPong{})
 			if err != nil {
 				break SELECTION
 			}
@@ -477,7 +477,7 @@ FOR_LOOP:
 		var packet Packet
 		var _n int64
 		var err error
-		_n, err = help.UnmarshalBinaryReader(c.bufConnReader, &packet, int64(c._maxPacketMsgSize))
+		_n, err = cdc.UnmarshalBinaryReader(c.bufConnReader, &packet, int64(c._maxPacketMsgSize))
 		c.recvMonitor.Update(int(_n))
 		if err != nil {
 			if c.IsRunning() {
@@ -723,7 +723,7 @@ func (ch *Channel) nextPacketMsg() PacketMsg {
 // Not goroutine-safe
 func (ch *Channel) writePacketMsgTo(w io.Writer) (n int64, err error) {
 	var packet = ch.nextPacketMsg()
-	n, err = help.MarshalBinaryWriter(w, packet)
+	n, err = cdc.MarshalBinaryWriter(w, packet)
 	ch.recentlySent += n
 	return
 }

@@ -348,11 +348,11 @@ func (pc *peerConn) HandshakeTimeout(
 
 	var trs, _ = help.Parallel(
 		func(_ int) (val interface{}, err error, abort bool) {
-			_, err = help.MarshalBinaryWriter(pc.conn, ourNodeInfo)
+			_, err = cdc.MarshalBinaryWriter(pc.conn, ourNodeInfo)
 			return
 		},
 		func(_ int) (val interface{}, err error, abort bool) {
-			_, err = help.UnmarshalBinaryReader(
+			_, err = cdc.UnmarshalBinaryReader(
 				pc.conn,
 				&peerNodeInfo,
 				int64(MaxNodeInfoSize()),

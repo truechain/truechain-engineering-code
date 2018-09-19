@@ -861,7 +861,7 @@ func (ps *PeerState) ToJSON() ([]byte, error) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	return help.MarshalJSON(ps)
+	return cdc.MarshalJSON(ps)
 }
 
 // GetHeight returns an atomic snapshot of the PeerRoundState's height

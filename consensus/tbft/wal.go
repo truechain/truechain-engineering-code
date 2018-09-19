@@ -301,7 +301,7 @@ func (dec *WALDecoder) Decode() (*TimedWALMessage, error) {
 	}
 
 	var res = new(TimedWALMessage) // nolint: gosimple
-	err = help.UnmarshalBinaryBare(data, res)
+	err = cdc.UnmarshalBinaryBare(data, res)
 	if err != nil {
 		return nil, DataCorruptionError{fmt.Errorf("failed to decode data: %v", err)}
 	}

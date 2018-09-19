@@ -182,7 +182,7 @@ func (cs *ConsensusState) GetRoundStateJSON() ([]byte, error) {
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
 
-	return help.MarshalJSON(cs.RoundState)
+	return cdc.MarshalJSON(cs.RoundState)
 }
 
 // GetRoundStateSimpleJSON returns a json of RoundStateSimple, marshalled using go-amino.
@@ -190,7 +190,7 @@ func (cs *ConsensusState) GetRoundStateSimpleJSON() ([]byte, error) {
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
 
-	return help.MarshalJSON(cs.RoundState.RoundStateSimple())
+	return cdc.MarshalJSON(cs.RoundState.RoundStateSimple())
 }
 
 // SetPrivValidator sets the private validator account for signing votes.
@@ -1321,7 +1321,7 @@ func (cs *ConsensusState) addProposalBlockPart(msg *BlockPartMessage, peerID str
 	}
 	if added && cs.ProposalBlockParts.IsComplete() {
 		// Added and completed!
-		_, err = help.UnmarshalBinaryReader(cs.ProposalBlockParts.GetReader(), &cs.ProposalBlock, int64(ttypes.MaxBlockBytes))
+		_, err = cdc.UnmarshalBinaryReader(cs.ProposalBlockParts.GetReader(), &cs.ProposalBlock, int64(ttypes.MaxBlockBytes))
 		if err != nil {
 			return true, err
 		}
