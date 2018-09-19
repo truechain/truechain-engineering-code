@@ -303,7 +303,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		log.Info("Validate fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
-
+	log.Info("add fruit  1  ") 
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
@@ -325,7 +325,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 		pool.allFruits[fruit.FastHash()] = fruit
 		//the fruit already exists,so remove the fruit's fb from fastBlockPending
-
+		log.Info("mine fruit to del fast block pending","fb number",fruit.FastNumber())
 		pool.muFastBlock.Lock()
 		pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
 		pool.muFastBlock.Unlock()
@@ -731,6 +731,8 @@ func (pool *SnailPool) PendingFastBlocks() ([]*types.Block, error) {
 		fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
 		fastblocks = append(fastblocks, fastBlock)
 	}
+	
+	log.Info("$pending Fast Blocks","min fb num",pool.fastBlockPending.Front().Value.(*types.Block).Number()," ---- max fb num",pool.fastBlockPending.Back().Value.(*types.Block).Number())
 	var blockby types.BlockBy = types.Number
 	blockby.Sort(fastblocks)
 	return fastblocks, nil
