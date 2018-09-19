@@ -45,11 +45,11 @@ func (priv PrivKeyTrue) Sign(msg []byte) ([]byte, error) {
 // PubKey gets the corresponding public key from the private key.
 func (priv PrivKeyTrue) PubKey() PubKey {
 	priv1 := ecdsa.PrivateKey(priv)
-	pub0,ok := priv1.Public().(ecdsa.PublicKey)
+	pub0,ok := priv1.Public().(*ecdsa.PublicKey)
 	if !ok {
 		panic(0)
 	}
-	pub := PubKeyTrue(pub0)
+	pub := PubKeyTrue(*pub0)
 	return &pub
 }
 
