@@ -14,7 +14,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
-	"strconv"
 )
 
 type service struct {
@@ -203,6 +202,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	case Start:
 		if server, ok := n.services[id.Uint64()]; ok {
 			server.start(n)
+			return nil
 		} else {
 			return errors.New("wrong conmmitt ID:" + id.String())
 		}
@@ -216,7 +216,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 		// begin to make network..
 		return nil
 	}
-	return errors.New("wrong action Num:" + strconv.Itoa(action))
+	return nil
 }
 func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	id := committeeInfo.Id
@@ -228,8 +228,8 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("repeat ID:" + id.String())
 	}
 	// Make StateAgent
-	var height uint64 = 100 	// will modify the CommitteeInfo type
-	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo),height)
+	var height uint64 = 100 // will modify the CommitteeInfo type
+	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), height)
 	if state == nil {
 		return errors.New("make the nil state")
 	}
