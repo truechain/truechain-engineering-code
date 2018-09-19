@@ -797,24 +797,23 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr, err := election.VerifySigns(signs)
-		if len(addr) != len(err) {
+		committeeMembers, errs := election.VerifySigns(signs)
+		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
-		for i := 0; i < len(addr); i++ {
-			v := addr[i]
-			if v == nil || err[i] != nil {
+		for i, cm := range committeeMembers {
+			if errs[i] != nil {
 				continue
 			}
 			if signs[i].Result == types.VoteAgree {
-				if _, ok := failAddr[v.Coinbase]; !ok {
-					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
+				if _, ok := failAddr[cm.Coinbase]; !ok {
+					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
 				}
 			} else {
-				failAddr[v.Coinbase] = false
+				failAddr[cm.Coinbase] = false
 			}
 		}
 
