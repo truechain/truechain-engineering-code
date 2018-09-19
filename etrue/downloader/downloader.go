@@ -285,8 +285,8 @@ func (d *Downloader) RegisterPeer(id string, version int, peer etrue.Peer) error
 		logger.Error("Failed to register sync peer", "err", err)
 		return err
 	}
-	d.qosReduceConfidence()
 
+	d.qosReduceConfidence()
 	return nil
 }
 
