@@ -18,6 +18,7 @@ package minerva
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -768,8 +769,18 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		return e
 	}
 
+	var logger func(string, ...interface{})
+	if state.IsMarked() {
+		logger = log.RedisLog
+	} else {
+		logger = func(string, ...interface{}) {
+			return
+		}
+	}
+
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
+	logger("Miner's award:", "address", sBlock.Coinbase().String(), "value", hex.EncodeToString(minerCoin.Bytes()))
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
 
 	//miner fruit award
@@ -779,6 +790,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
+			logger("Mine fruit award:", "address", v.Coinbase().String(), "value", hex.EncodeToString(minerFruitCoinOne.Bytes()))
 			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
 		}
 	} else {

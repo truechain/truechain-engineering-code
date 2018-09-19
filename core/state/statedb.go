@@ -50,8 +50,9 @@ var (
 // * Contracts
 // * Accounts
 type StateDB struct {
-	db   Database
-	trie Trie
+	db     Database
+	trie   Trie
+	marked bool
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects      map[common.Address]*stateObject
@@ -92,6 +93,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	return &StateDB{
 		db:                db,
 		trie:              tr,
+		marked:            false,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
@@ -112,6 +114,18 @@ func (db *StateDB) Balances() []*common.AddressWithBalance {
 		i++
 	}
 	return balances
+}
+
+// MarkUp set a flag to indicate that the result of
+// this StateDB's change will eventually be saved in the chain
+// in order to monitor the corresponding event.
+func (db *StateDB) MarkUp() {
+	db.marked = true
+}
+
+// IsMarked return db.marked flag
+func (db *StateDB) IsMarked() bool {
+	return db.marked
 }
 
 // setError remembers the first non-nil error it is called with.
