@@ -213,7 +213,7 @@ func NewWALEncoder(wr io.Writer) *WALEncoder {
 
 // Encode writes the custom encoding of v to the stream.
 func (enc *WALEncoder) Encode(v *TimedWALMessage) error {
-	data := help.MustMarshalBinaryBare(v)
+	data := cdc.MustMarshalBinaryBare(v)
 
 	crc := crc32.Checksum(data, crc32c)
 	length := uint32(len(data))

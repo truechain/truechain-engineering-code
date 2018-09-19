@@ -198,7 +198,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 				log.Error("Bad VoteSetBitsMessage field Type")
 				return
 			}
-			d1, derr := help.MarshalBinaryBare(&VoteSetBitsMessage{
+			d1, derr := cdc.MarshalBinaryBare(&VoteSetBitsMessage{
 				Height:  msg.Height,
 				Round:   msg.Round,
 				Type:    msg.Type,
@@ -350,16 +350,16 @@ func (conR *ConsensusReactor) broadcastProposalHeartbeatMessage(hb *ttypes.Heart
 	log.Debug("Broadcasting proposal heartbeat message",
 		"height", hb.Height, "round", hb.Round, "sequence", hb.Sequence)
 	msg := &ProposalHeartbeatMessage{hb}
-	conR.Switch.Broadcast(StateChannel, help.MustMarshalBinaryBare(msg))
+	conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(msg))
 }
 
 func (conR *ConsensusReactor) broadcastNewRoundStepMessages(rs *ttypes.RoundState) {
 	nrsMsg, csMsg := makeRoundStepMessages(rs)
 	if nrsMsg != nil {
-		conR.Switch.Broadcast(StateChannel, help.MustMarshalBinaryBare(nrsMsg))
+		conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(nrsMsg))
 	}
 	if csMsg != nil {
-		conR.Switch.Broadcast(StateChannel, help.MustMarshalBinaryBare(csMsg))
+		conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(csMsg))
 	}
 }
 
@@ -371,7 +371,7 @@ func (conR *ConsensusReactor) broadcastHasVoteMessage(vote *ttypes.Vote) {
 		Type:   vote.Type,
 		Index:  vote.ValidatorIndex,
 	}
-	conR.Switch.Broadcast(StateChannel, help.MustMarshalBinaryBare(msg))
+	conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(msg))
 	/*
 		// TODO: Make this broadcast more selective.
 		for _, peer := range conR.Switch.Peers().List() {
@@ -411,10 +411,10 @@ func (conR *ConsensusReactor) sendNewRoundStepMessages(peer p2p.Peer) {
 	rs := conR.conS.GetRoundState()
 	nrsMsg, csMsg := makeRoundStepMessages(rs)
 	if nrsMsg != nil {
-		peer.Send(StateChannel, help.MustMarshalBinaryBare(nrsMsg))
+		peer.Send(StateChannel, cdc.MustMarshalBinaryBare(nrsMsg))
 	}
 	if csMsg != nil {
-		peer.Send(StateChannel, help.MustMarshalBinaryBare(csMsg))
+		peer.Send(StateChannel, cdc.MustMarshalBinaryBare(csMsg))
 	}
 }
 
@@ -441,7 +441,7 @@ OUTER_LOOP:
 					Part:   part,
 				}
 				log.Debug("Sending block part", "height", prs.Height, "round", prs.Round)
-				if peer.Send(DataChannel, help.MustMarshalBinaryBare(msg)) {
+				if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
 					ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
 				}
 				continue OUTER_LOOP
@@ -485,7 +485,7 @@ OUTER_LOOP:
 			{
 				msg := &ProposalMessage{Proposal: rs.Proposal}
 				log.Debug("Sending proposal", "height", prs.Height, "round", prs.Round)
-				if peer.Send(DataChannel, help.MustMarshalBinaryBare(msg)) {
+				if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
 					ps.SetHasProposal(rs.Proposal)
 				}
 			}
@@ -500,7 +500,7 @@ OUTER_LOOP:
 					ProposalPOL:      rs.Votes.Prevotes(int(rs.Proposal.POLRound)).BitArray(),
 				}
 				log.Debug("Sending POL", "height", prs.Height, "round", prs.Round)
-				peer.Send(DataChannel, help.MustMarshalBinaryBare(msg))
+				peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg))
 			}
 			continue OUTER_LOOP
 		}
@@ -543,7 +543,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 			Part:   part,
 		}
 		log.Debug("Sending block part for catchup", "round", prs.Round, "index", index)
-		if peer.Send(DataChannel, help.MustMarshalBinaryBare(msg)) {
+		if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
 			ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
 		} else {
 			log.Debug("Sending block part for catchup failed")
@@ -697,7 +697,7 @@ OUTER_LOOP:
 			prs := ps.GetRoundState()
 			if rs.Height == prs.Height {
 				if maj23, ok := rs.Votes.Prevotes(int(prs.Round)).TwoThirdsMajority(); ok {
-					peer.TrySend(StateChannel, help.MustMarshalBinaryBare(&VoteSetMaj23Message{
+					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
 						Height:  prs.Height,
 						Round:   uint(prs.Round),
 						Type:    ttypes.VoteTypePrevote,
@@ -714,7 +714,7 @@ OUTER_LOOP:
 			prs := ps.GetRoundState()
 			if rs.Height == prs.Height {
 				if maj23, ok := rs.Votes.Precommits(int(prs.Round)).TwoThirdsMajority(); ok {
-					peer.TrySend(StateChannel, help.MustMarshalBinaryBare(&VoteSetMaj23Message{
+					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
 						Height:  prs.Height,
 						Round:   uint(prs.Round),
 						Type:    ttypes.VoteTypePrecommit,
@@ -731,7 +731,7 @@ OUTER_LOOP:
 			prs := ps.GetRoundState()
 			if rs.Height == prs.Height && prs.ProposalPOLRound >= 0 {
 				if maj23, ok := rs.Votes.Prevotes(int(prs.ProposalPOLRound)).TwoThirdsMajority(); ok {
-					peer.TrySend(StateChannel, help.MustMarshalBinaryBare(&VoteSetMaj23Message{
+					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
 						Height:  prs.Height,
 						Round:   uint(prs.ProposalPOLRound),
 						Type:    ttypes.VoteTypePrevote,
@@ -753,7 +753,7 @@ OUTER_LOOP:
 				// commit := conR.conS.LoadCommit(prs.Height)
 				commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
 				if commit != nil {
-					peer.TrySend(StateChannel, help.MustMarshalBinaryBare(&VoteSetMaj23Message{
+					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
 						Height:  prs.Height,
 						Round:   uint(commit.Round()),
 						Type:    ttypes.VoteTypePrecommit,
@@ -922,7 +922,7 @@ func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 	if vote, ok := ps.PickVoteToSend(votes); ok {
 		msg := &VoteMessage{vote}
 		ps.logger.Debug("Sending vote message", "ps", ps, "vote", vote)
-		return ps.peer.Send(VoteChannel, help.MustMarshalBinaryBare(msg))
+		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
 	}
 	return false
 }
