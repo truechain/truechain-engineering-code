@@ -43,7 +43,7 @@ const (
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
-	signChanSize     = 32
+	signChanSize     = 8
 )
 
 var (
@@ -411,6 +411,7 @@ func (f *Fetcher) loop() {
 					// Otherwise if fresh and still unknown, try and import
 					if number-lowCommitteeDist < height {
 						f.forgetBlockHeight(big.NewInt(int64(number)))
+						finished = true
 						break
 					}
 
@@ -419,6 +420,7 @@ func (f *Fetcher) loop() {
 							f.markBroadcastBlock(number, peer, block)
 						}
 						f.forgetBlockHeight(big.NewInt(int64(number)))
+						finished = true
 						break
 					} else {
 						f.markBroadcastBlock(number, peer, block)
@@ -438,30 +440,33 @@ func (f *Fetcher) loop() {
 					}
 				}
 
-				if index != -1 {
-					number := blocks[index].NumberU64()
-					if number > height+1 {
-						break
-					}
-					signHashs := f.signMultiHash[number]
-					signs := []*types.PbftSign{}
-					for _, signHash := range signHashs {
-						if sign, ok := f.queuedSign[signHash]; ok {
-							if f.getBlock(sign.sign.FastHash) != nil {
-								f.forgetBlockHeight(big.NewInt(int64(number)))
-								finished = true
-								break
-							}
-							signs = append(signs, sign.sign)
+				if !finished {
+					if index != -1 {
+						number := blocks[index].NumberU64()
+						if number > height+1 {
+							finished = true
+							break
 						}
+						signHashs := f.signMultiHash[number]
+						signs := []*types.PbftSign{}
+						for _, signHash := range signHashs {
+							if sign, ok := f.queuedSign[signHash]; ok {
+								if f.getBlock(sign.sign.FastHash) != nil {
+									f.forgetBlockHeight(big.NewInt(int64(number)))
+									finished = true
+									break
+								}
+								signs = append(signs, sign.sign)
+							}
+						}
+
+						log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
+
+						f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
+					} else {
+						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
+						finished = true
 					}
-
-					log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
-					f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
-				} else {
-					f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
-					finished = true
 				}
 			}
 			if finished {
@@ -824,13 +829,13 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 					f.queuedSign[sign.Hash()] = op
 
 					// Run the import on a new thread
-					log.Debug("Cache propagated sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
+					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
 
 					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 				}
 			} else {
 				// Run the import on a new thread
-				log.Debug("Discarded propagated sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
+				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
 			}
 		}
 
@@ -839,7 +844,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 
 		if f.getBlock(verifySigns[0].FastHash) != nil || f.agentFetcher.AcquireCommitteeAuth(signs[0].FastHeight) {
-			log.Debug("Discarded propagated sign, has block", "peer", peer, "number", number, "hash", hash)
+			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
 			propSignDropMeter.Mark(1)
 			f.forgetBlockHeight(verifySigns[0].FastHeight)
 			return
@@ -910,7 +915,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash.String(), "queued", f.queue.Size())
+		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
 	}
 }
 
@@ -935,7 +940,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 	hash := block.Hash()
 	f.sendBlockHash[block.NumberU64()] = append(f.sendBlockHash[block.NumberU64()], hash)
 	// Run the import on a new thread
-	log.Debug("Broadcast propagated block", "peer", peer, "number", block.Number(), "hash", hash.String())
+	log.Debug("Broadcast propagated block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())

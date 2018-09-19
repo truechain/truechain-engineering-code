@@ -551,6 +551,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
+	log.Debug("out GenerateFastBlock...")
 	return fastBlock, err
 }
 
@@ -632,7 +633,7 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
-	log.Debug("VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
+	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -662,6 +663,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
+	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	return nil
 }
 
@@ -674,6 +676,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
+	log.Debug("out BroadcastSign.")
 	return nil
 }
 
@@ -924,20 +927,8 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 		return false
 	}*/
 
-	/*_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
-	if err != nil && err != ErrInvalidMember {
-		log.Error("AcquireCommitteeAuth", "err", err)
-		return false
-	}*/
-
 	committeeMembers := self.election.GetCommittee(fastHeight)
 	return self.election.IsCommitteeMember(committeeMembers,self.committeeNode.Publickey)
-
-	/*for _, member := range committeeMembers {
-		if bytes.Equal(self.committeeNode.Publickey, crypto.FromECDSAPub(member.Publickey)) {
-			return true
-		}
-	}*/
 }
 
 func (agent *PbftAgent) singleloop() {

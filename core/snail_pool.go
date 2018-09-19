@@ -569,6 +569,8 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 // Insert rest old fruit into allfruits and fruitPending
 func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
 	for _, fruit := range reinject {
 		pool.allFruits[fruit.FastHash()] = fruit
 		pool.fruitPending[fruit.FastHash()] = fruit
