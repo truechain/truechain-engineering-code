@@ -139,6 +139,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		newPeerCh:   make(chan *peer),
 		noMorePeers: make(chan struct{}),
 		txsyncCh:    make(chan *txsync),
+		fruitsyncCh: make(chan *fruitsync),
 		quitSync:    make(chan struct{}),
 		agentProxy:  agent,
 	}
