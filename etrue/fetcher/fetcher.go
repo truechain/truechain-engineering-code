@@ -899,7 +899,9 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			block:  block,
 		}
 		f.queues[peer] = count
+		f.blockMutex.Lock()
 		f.queued[hash] = op
+		f.blockMutex.Unlock()
 
 		opMulti := &injectMulti{}
 		f.blockMultiHash[number] = append(f.blockMultiHash[number], hash)
