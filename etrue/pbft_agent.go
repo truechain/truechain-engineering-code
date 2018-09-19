@@ -381,6 +381,9 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
+		for _,fb := range fastBlocks{
+			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Header().Number,"len:",len(fastBlocks))
+		}
 		if err != nil {
 			log.Error("self.fastChain.InsertChain error ", "err", err)
 			return err
@@ -540,6 +543,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
+	log.Info("Finalize: leader generateBlock", "Height:", fastBlock.Header().Number)
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -657,6 +661,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 		return err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
+	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
 	if err != nil {
 		return err
 	}
