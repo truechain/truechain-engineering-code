@@ -13,10 +13,12 @@ Building getrue requires both a Go (version 1.7 or later) and a C compiler.
 You can install them using your favourite package manager.
 Once the dependencies are installed, run
 
+    make
     make getrue
 
 or, to build the full suite of utilities:
 
+    make
     make all
 
 The execuable command getrue will be found in the `cmd` directory.
