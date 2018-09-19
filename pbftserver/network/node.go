@@ -336,10 +336,17 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
 
+<<<<<<< .merge_file_FHdD5w
 		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
+=======
+		//if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+		//	node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
+		//	return nil
+		//}
+>>>>>>> .merge_file_xGI4tL
 
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
@@ -463,10 +470,17 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	}
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
+<<<<<<< .merge_file_FHdD5w
 	if state.CurrentStage == consensus.Committed {
 		state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 		return nil
 	}
+=======
+	//if state.CurrentStage == consensus.Committed {
+	//	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
+	//	return nil
+	//}
+>>>>>>> .merge_file_xGI4tL
 
 	if err != nil {
 		return err
