@@ -82,3 +82,10 @@ type NewBlockEvent struct{ Block *types.Block }
 
 // NodeInfoEvent is posted when nodeInfo send
 type NodeInfoEvent struct{ NodeInfo *types.EncryptNodeMessage }
+
+// StateChangeEvent hold the result of the balance change
+// and the amount of rewards.
+type StateChangeEvent struct {
+	Balances []*common.AddressWithBalance
+	Rewards  []*common.AddressWithBalance
+}

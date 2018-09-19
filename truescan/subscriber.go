@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -50,5 +49,5 @@ type Subscriber interface {
 
 	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
 
-	SubscribeStateChangeEvent(chan<- []*common.AddressWithBalance) event.Subscription
+	SubscribeStateChangeEvent(chan<- core.StateChangeEvent) event.Subscription
 }

@@ -235,7 +235,7 @@ func (rc *RedisClient) PruningShortBranch() error {
 // StateChange is triggered when accounts balances changed due to any reason.
 // If a balance change event is rolled back (which in theory should not have happened),
 // then there needs to be a "countervailing event" with the opposite amount of change.
-func (rc *RedisClient) StateChange(scm []*BalanceChangeMsg) error {
+func (rc *RedisClient) StateChange(scm *StateChangeMsg) error {
 	msg, err := json.Marshal(scm)
 	if err != nil {
 		fmt.Println(err)

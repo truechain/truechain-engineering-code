@@ -58,8 +58,14 @@ type ChangeViewMsg struct {
 	BeginFastNumber uint64   `json:"beginFastNumber"`
 }
 
-// BalanceChangeMsg used in corresponding message transmission
-type BalanceChangeMsg struct {
+// Account include address and value
+type Account struct {
 	Address string `json:"address"`
-	Balance string `json:"balance"`
+	Value   string `json:"value"`
+}
+
+// StateChangeMsg used in corresponding message transmission
+type StateChangeMsg struct {
+	Balances []*Account `json:"balances"`
+	Rewards  []*Account `json:"rewards"`
 }

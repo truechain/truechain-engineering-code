@@ -252,6 +252,6 @@ func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) eve
 	return b.etrue.election.SubscribeElectionEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeStateChangeEvent(ch chan<- []*common.AddressWithBalance) event.Subscription {
+func (b *EthAPIBackend) SubscribeStateChangeEvent(ch chan<- core.StateChangeEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeStateChangeEvent(ch)
 }

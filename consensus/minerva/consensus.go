@@ -18,7 +18,6 @@ package minerva
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -769,19 +768,16 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		return e
 	}
 
-	var logger func(string, ...interface{})
-	if state.IsMarked() {
-		logger = log.RedisLog
-	} else {
-		logger = func(string, ...interface{}) {
-			return
-		}
-	}
+	var rewards []*common.AddressWithBalance
 
 	//miner's award
-	state.AddBalance(sBlock.Coinbase(), minerCoin)
-	logger("Miner's award:", "address", sBlock.Coinbase().String(), "value", hex.EncodeToString(minerCoin.Bytes()))
-	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
+	miner := sBlock.Coinbase()
+	state.AddBalance(miner, minerCoin)
+	rewards = append(rewards, &common.AddressWithBalance{
+		Address: miner,
+		Balance: minerCoin,
+	})
+	LogPrint("miner's award", miner, minerCoin)
 
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
@@ -789,9 +785,13 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	if len(blockFruits) > 0 {
 		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 		for _, v := range sBlock.Body().Fruits {
-			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
-			logger("Mine fruit award:", "address", v.Coinbase().String(), "value", hex.EncodeToString(minerFruitCoinOne.Bytes()))
-			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
+			address := v.Coinbase()
+			state.AddBalance(address, minerFruitCoinOne)
+			rewards = append(rewards, &common.AddressWithBalance{
+				Address: address,
+				Balance: minerFruitCoinOne,
+			})
+			LogPrint("minerFruit", address, minerFruitCoinOne)
 		}
 	} else {
 		return consensus.ErrInvalidBlock
@@ -828,6 +828,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		}
 
 		if len(fruitOkAddr) == 0 {
+			log.RedisLog("fruitOkAddr zero")
 			return consensus.ErrInvalidSignsLength
 		}
 
@@ -835,8 +836,16 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
+			rewards = append(rewards, &common.AddressWithBalance{
+				Address: v,
+				Balance: committeeCoinFruitMember,
+			})
 			LogPrint("committee", v, committeeCoinFruitMember)
 		}
+	}
+
+	if state.IsMarked() {
+		state.RecordRewards(rewards)
 	}
 
 	return nil

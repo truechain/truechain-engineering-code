@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -23,7 +22,7 @@ type TrueScan struct {
 	snailChainHeadSub event.Subscription
 	electionCh        chan core.ElectionEvent
 	electionSub       event.Subscription
-	stateChangeCh     chan []*common.AddressWithBalance
+	stateChangeCh     chan core.StateChangeEvent
 	stateChangeSub    event.Subscription
 	redisClient       *RedisClient
 	quit              chan struct{}
@@ -38,7 +37,7 @@ func New(sub Subscriber) *TrueScan {
 		fruitsch:         make(chan snailchain.NewFruitsEvent, fruitChanSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
-		stateChangeCh:    make(chan []*common.AddressWithBalance, stateChangeChanSize),
+		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
 		quit:             make(chan struct{}),
 	}
 	rc, err := NewRedisClient("39.105.126.32:6379", 1)
@@ -118,16 +117,26 @@ func (ts *TrueScan) stateChangeHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleStateChange(awbs []*common.AddressWithBalance) {
-	bcms := make([]*BalanceChangeMsg, len(awbs))
-	for i, awb := range awbs {
-		bcm := &BalanceChangeMsg{
-			Address: awb.Address.String(),
-			Balance: "0x" + hex.EncodeToString(awb.Balance.Bytes()),
+func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
+	balances := make([]*Account, len(bsd.Balances))
+	rewards := make([]*Account, len(bsd.Rewards))
+	for i, b := range bsd.Balances {
+		balances[i] = &Account{
+			Address: b.Address.String(),
+			Value:   "0x" + hex.EncodeToString(b.Balance.Bytes()),
 		}
-		bcms[i] = bcm
 	}
-	ts.redisClient.StateChange(bcms)
+	for i, r := range bsd.Rewards {
+		rewards[i] = &Account{
+			Address: r.Address.String(),
+			Value:   "0x" + hex.EncodeToString(r.Balance.Bytes()),
+		}
+	}
+	scm := &StateChangeMsg{
+		Balances: balances,
+		Rewards:  rewards,
+	}
+	ts.redisClient.StateChange(scm)
 }
 
 func (ts *TrueScan) snailChainHandleLoop() error {

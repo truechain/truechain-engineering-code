@@ -1251,7 +1251,13 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		proctime := time.Since(bstart)
 
-		bc.stateChangeFeed.Send(state.Balances())
+		balances := state.Balances()
+		rewards := state.Rewards()
+		bcd := StateChangeEvent{
+			Balances: balances,
+			Rewards:  rewards,
+		}
+		bc.stateChangeFeed.Send(bcd)
 
 		// Write the block to the chain and get the status.
 		status, err := bc.WriteBlockWithState(block, receipts, state)
@@ -1696,7 +1702,7 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 }
 
 // SubscribeStateChangeEvent registers a subscription of stateDB.Log().
-func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- []*common.AddressWithBalance) event.Subscription {
+func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- StateChangeEvent) event.Subscription {
 	return bc.scope.Track(bc.stateChangeFeed.Subscribe(ch))
 }
 
