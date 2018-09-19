@@ -809,7 +809,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 			if v == nil || err[i] != nil {
 				continue
 			}
-			if signs[i].Result == types.VoteAgreeAgainst {
+			if signs[i].Result == types.VoteAgree {
 				if _, ok := failAddr[v.Coinbase]; !ok {
 					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
 				}
