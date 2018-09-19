@@ -180,12 +180,12 @@ var (
 		Name:  "election",
 		Usage: "enable election",
 	}
-	BFTPortFlag = cli.IntFlag{
+	BFTPortFlag = cli.Uint64Flag{
 		Name:  "bftport",
 		Usage: "committee node port ",
 		//Value: 10080,
 	}
-	BFTStandByPortFlag = cli.IntFlag{
+	BFTStandByPortFlag = cli.Uint64Flag{
 		Name:  "bftport2",
 		Usage: "committee node standBy port ",
 		//Value: 10090,
@@ -1123,10 +1123,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
 	}
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
+		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
 	}
 	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
-		cfg.StandByPort = ctx.GlobalInt(BFTStandByPortFlag.Name)
+		cfg.StandByPort =int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
 	}
 
 	//set PrivateKey by config,file or hex

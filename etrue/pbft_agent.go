@@ -182,9 +182,9 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.commiteePorts = append(self.commiteePorts, config.Port, config.StandByPort)
 	//self.nodeInfoIsComplete = true
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-	log.Info("InitNodeInfo", "singleNode:", self.singleNode, ", port:",
-		config.Port, ",standByPort:", config.StandByPort, ", Host:", config.Host,
-		"coinbase", self.committeeNode.Coinbase)
+	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
+		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
+		", coinbase", self.committeeNode.Coinbase,", self.vmConfig",self.vmConfig.EnablePreimageRecording)
 }
 
 func (self *PbftAgent) Start() {
@@ -381,6 +381,9 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
+		for _,fb := range fastBlocks{
+			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Header().Number,"len:",len(fastBlocks))
+		}
 		if err != nil {
 			log.Error("self.fastChain.InsertChain error ", "err", err)
 			return err
@@ -540,6 +543,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
+	log.Info("Finalize: leader generateBlock", "Height:", fastBlock.Header().Number)
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -551,6 +555,7 @@ func (self *PbftAgent) FetchFastBlock() (*types.Block, error) {
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
+	log.Debug("out GenerateFastBlock...")
 	return fastBlock, err
 }
 
@@ -632,7 +637,7 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
-	log.Debug("VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
+	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
@@ -642,12 +647,13 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
-		log.Error("VerifyFastHeader error", "err", err)
+		log.Error("VerifyFastHeader error","header",fb.Header(), "err", err)
 		return err
 	}
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		log.Error("VerifyFastBlock: validate body error", "err", err)
+		return err
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
@@ -655,6 +661,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 		return err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
+	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
 	if err != nil {
 		return err
 	}
@@ -662,6 +669,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
+	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	return nil
 }
 
@@ -674,6 +682,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
+	log.Debug("out BroadcastSign.")
 	return nil
 }
 
@@ -858,12 +867,12 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool {
 		log.Error("VerifyCommitteeSign sign is nil")
 		return false
 	}
-	_, err := self.election.VerifySign(sign)
+	member, err := self.election.VerifySign(sign)
 	if err != nil {
 		log.Error("VerifyCommitteeSign  error", "err", err)
 		return false
 	}
-	return true
+	return member!= nil
 }
 
 // ChangeCommitteeLeader trigger view change.
@@ -894,8 +903,8 @@ func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *typ
 		self.currentCommitteeInfo = newCommitteeInfo
 	case nextCommittee:
 		self.nextCommitteeInfo = newCommitteeInfo
-	// case preCommittee:
-	// 	self.preCommitteeInfo = newCommitteeInfo
+		// case preCommittee:
+		// 	self.preCommitteeInfo = newCommitteeInfo
 	default:
 		log.Warn("CommitteeType is error ")
 	}
@@ -923,18 +932,9 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	/*if !self.nodeInfoIsComplete {
 		return false
 	}*/
-	_, err := self.election.VerifyPublicKey(fastHeight, self.committeeNode.Publickey)
-	if err != nil && err != ErrInvalidMember {
-		log.Error("AcquireCommitteeAuth", "err", err)
-		return false
-	}
-	/*committeeMembers := self.election.GetCommittee(blockHeight)
-	for _, member := range committeeMembers {
-		if bytes.Equal(self.committeeNode.Publickey, crypto.FromECDSAPub(member.Publickey)) {
-			return true
-		}
-	}*/
-	return true
+
+	committeeMembers := self.election.GetCommittee(fastHeight)
+	return self.election.IsCommitteeMember(committeeMembers,self.committeeNode.Publickey)
 }
 
 func (agent *PbftAgent) singleloop() {
@@ -963,7 +963,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		err =agent.VerifyFastBlock(block)
+		err = agent.VerifyFastBlock(block)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
 		}

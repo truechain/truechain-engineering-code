@@ -32,7 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 )
-
+ 
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
@@ -185,19 +185,28 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
-	return e.GetMemberByPubkey(members, publickey) != nil
+	if len(members) == 0 {
+		log.Error("IsCommitteeMember method len(members)= 0" )
+		return false
+	}
+	for _, member := range members {
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
-		log.Error("GetCommittee members is nil", "err", ErrCommittee)
+		log.Error("GetCommittee members is nil","fastHeight",fastHeight, "err", ErrCommittee)
 		return nil, ErrCommittee
 	}
 	member := e.GetMemberByPubkey(members, pubKeyByte)
-	if member == nil {
+	/*if member == nil {
 		return nil, ErrInvalidMember
-	}
+	}*/
 	return member, nil
 }
 
@@ -208,10 +217,7 @@ func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, err
 	}
 	pubkeyByte := crypto.FromECDSAPub(pubkey)
 	member, err := e.VerifyPublicKey(sign.FastHeight, pubkeyByte)
-	if err != nil {
-		return member, err
-	}
-	return member, nil
+	return member, err
 }
 
 //VerifySigns verify signatures of bft committee in batches
@@ -266,8 +272,6 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	var ids []*big.Int
 
 	committeeNumber := new(big.Int).Div(snailNumber, big.NewInt(z))
-	//lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
-	//lastSwitchoverNumber := new(big.Int).Sub(lastSnailNumber, big.NewInt(lamada))
 	preCommitteeNumber := new(big.Int).Sub(committeeNumber, common.Big1)
 	//nextCommitteeNumber := new(big.Int).Add(committeeNumber, common.Big1)
 
@@ -292,6 +296,7 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	defer e.muList.RUnlock()
 
 	for _, id := range ids {
+		log.Debug("get committee from cache", "id", id)
 		if committee, ok := e.committeeList[id.Uint64()]; ok {
 			if committee.beginFastNumber.Cmp(fastNumber) > 0 {
 				continue

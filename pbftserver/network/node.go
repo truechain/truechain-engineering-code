@@ -8,18 +8,20 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
+	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"sync"
 	"time"
 )
 
 type Node struct {
-	NodeID             string
-	NodeTable          map[string]string // key=nodeID, value=url
-	View               *View
-	States             map[int64]*consensus.State
-	CommittedMsgs      []*consensus.RequestMsg // kinda block.
-	CommitWaitMsg      map[int64]*consensus.VoteMsg
+	NodeID        string
+	NodeTable     map[string]string // key=nodeID, value=url
+	View          *View
+	States        map[int64]*consensus.State
+	CommittedMsgs []*consensus.RequestMsg // kinda block.
+	//CommitWaitMsg      map[int64]*consensus.VoteMsg
+	CommitWaitQueue    *prque.Prque
 	MsgBuffer          *MsgBuffer
 	MsgEntrance        chan interface{}
 	MsgDelivery        chan interface{}
@@ -79,7 +81,8 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 		ID:            id,
 		States:        make(map[int64]*consensus.State),
 		CommittedMsgs: make([]*consensus.RequestMsg, 0),
-		CommitWaitMsg: make(map[int64]*consensus.VoteMsg),
+		//CommitWaitMsg: make(map[int64]*consensus.VoteMsg),
+		CommitWaitQueue: prque.New(),
 		MsgBuffer: &MsgBuffer{
 			ReqMsgs:        make([]*consensus.RequestMsg, 0),
 			PrePrepareMsgs: make([]*consensus.PrePrepareMsg, 0),
@@ -107,7 +110,8 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 	go node.dispatchMsgBackward()
 
 	//start Process message commit wait
-	go node.processCommitWaitMessage()
+	//go node.processCommitWaitMessage()
+	go node.processCommitWaitMessageQueue()
 
 	return node
 }
@@ -335,7 +339,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 		if res != nil && res == types.ErrHeightNotYet {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
-			node.CommitWaitMsg[commitMsg.Height] = prepareMsg
+			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
+			node.CommitWaitQueue.Push(prepareMsg, float32(-prepareMsg.Height))
 		} else {
 			var result uint = types.VoteAgreeAgainst
 			if res == nil {
@@ -358,20 +363,16 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	return nil
 }
 
-func (node *Node) processCommitWaitMessage() {
+func (node *Node) processCommitWaitMessageQueue() {
 	for {
-		node.Count2 += 1
 		var msgSend = make([]*consensus.VoteMsg, 0)
-		for k, v := range node.CommitWaitMsg {
-			lock.PSLog("CommitWaitMsg in")
-			state := node.GetStatus(v.Height)
+		if !node.CommitWaitQueue.Empty() {
+			msg := node.CommitWaitQueue.PopItem().(*consensus.VoteMsg)
+			state := node.GetStatus(int64(msg.Height))
 			if state == nil {
 				continue
 			}
-
-			lock.PSLog("CommitWaitMsg in2")
 			if state.CurrentStage == consensus.Committed {
-				lock.PSLog("CommitWaitMsg committed")
 				for _, msg := range state.MsgLogs.CommitMsgs {
 					msgSend := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -390,18 +391,59 @@ func (node *Node) processCommitWaitMessage() {
 
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
-				delete(node.CommitWaitMsg, k)
-				continue
 			}
-
-			//send back
-			msgSend = append(msgSend, v)
-
+			msgSend = append(msgSend, msg)
+			node.MsgDelivery <- msgSend
 		}
-		node.MsgDelivery <- msgSend
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 300)
 	}
 }
+
+//func (node *Node) processCommitWaitMessage() {
+//	for {
+//		node.Count2 += 1
+//		var msgSend = make([]*consensus.VoteMsg, 0)
+//	start:
+//		for k, v := range node.CommitWaitMsg {
+//			lock.PSLog("CommitWaitMsg in")
+//			state := node.GetStatus(v.Height)
+//			if state == nil {
+//				continue
+//			}
+//
+//			lock.PSLog("CommitWaitMsg in2")
+//			if state.CurrentStage == consensus.Committed {
+//				lock.PSLog("CommitWaitMsg committed")
+//				for _, msg := range state.MsgLogs.CommitMsgs {
+//					msgSend := &consensus.VoteMsg{
+//						NodeID:     node.NodeID,
+//						ViewID:     state.ViewID,
+//						SequenceID: msg.SequenceID,
+//						Digest:     msg.Digest,
+//						MsgType:    consensus.CommitMsg,
+//						Height:     msg.Height,
+//						Pass:       state.BlockResults,
+//					}
+//					lock.PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
+//					if msgSend.Pass == nil {
+//						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
+//						state.BlockResults = msgSend.Pass
+//					}
+//
+//					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
+//				}
+//				delete(node.CommitWaitMsg, k)
+//				break start
+//			}
+//
+//			//send back
+//			msgSend = append(msgSend, v)
+//
+//		}
+//		node.MsgDelivery <- msgSend
+//		time.Sleep(time.Second * 1)
+//	}
+//}
 
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	lock.PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))

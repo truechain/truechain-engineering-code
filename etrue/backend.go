@@ -219,7 +219,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election,etrue.Config().MineFruit)
+	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election,etrue.Config().MineFruit,etrue.Config().NodeType)
 	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	committeeKey, err := crypto.ToECDSA(etrue.config.CommitteeKey)
