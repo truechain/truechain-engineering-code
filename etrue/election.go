@@ -272,8 +272,6 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	var ids []*big.Int
 
 	committeeNumber := new(big.Int).Div(snailNumber, big.NewInt(z))
-	//lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
-	//lastSwitchoverNumber := new(big.Int).Sub(lastSnailNumber, big.NewInt(lamada))
 	preCommitteeNumber := new(big.Int).Sub(committeeNumber, common.Big1)
 	//nextCommitteeNumber := new(big.Int).Add(committeeNumber, common.Big1)
 
@@ -298,6 +296,7 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 	defer e.muList.RUnlock()
 
 	for _, id := range ids {
+		log.Debug("get committee from cache", "id", id)
 		if committee, ok := e.committeeList[id.Uint64()]; ok {
 			if committee.beginFastNumber.Cmp(fastNumber) > 0 {
 				continue

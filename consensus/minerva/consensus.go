@@ -741,7 +741,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 
 //gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
-	log.Info("FinalizeFastGas:", "fastNumber", fastNumber, "gasLimit", gasLimit)
+	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "gasLimit", gasLimit)
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
 	if len(committee) != 0 {
@@ -755,7 +755,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 }
 
 func LogPrint(info string, addr common.Address, amount *big.Int) {
-	log.Info("[AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
+	log.Trace("[AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
