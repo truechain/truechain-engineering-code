@@ -308,8 +308,8 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.syncer()
 	go pm.txsyncLoop()
 	go pm.fruitsyncLoop()
-	atomic.StoreUint32(&pm.acceptTxs, 1)
-	atomic.StoreUint32(&pm.acceptFruits, 1)
+	//atomic.StoreUint32(&pm.acceptTxs, 1)
+	//atomic.StoreUint32(&pm.acceptFruits, 1)
 }
 
 func (pm *ProtocolManager) Stop() {
