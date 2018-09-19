@@ -843,7 +843,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			return
 		}
 
-		if f.getBlock(verifySigns[0].FastHash) != nil || f.agentFetcher.AcquireCommitteeAuth(signs[0].FastHeight) {
+		if f.getBlock(verifySigns[0].FastHash) != nil {
 			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
 			propSignDropMeter.Mark(1)
 			f.forgetBlockHeight(verifySigns[0].FastHeight)
