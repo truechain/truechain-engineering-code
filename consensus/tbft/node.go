@@ -40,7 +40,7 @@ func (s *service) start(node *Node) error {
 
 	s.sw.SetNodeInfo(node.nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
-	s.consensusState.SetPrivValidator(n.privValidator)
+	s.consensusState.SetPrivValidator(s.privValidator)
 	// Start the switch (the P2P server).
 	err := s.sw.Start()
 	if err != nil {
