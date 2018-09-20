@@ -568,6 +568,7 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
+	log.Debug("begininsertRestFruits","len(reinject)", len(reinject))
 	for _, fruit := range reinject {
 		pool.allFruits[fruit.FastHash()] = fruit
 		pool.fruitPending[fruit.FastHash()] = fruit
@@ -575,10 +576,13 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 		if fb == nil {
 			continue
 		}
+		log.Debug("add to fastBlockPending","fb number",fb.Number())
 		pool.insertFastBlockWithLock(pool.fastBlockPending, fb)
+		log.Debug("add to allFastBlocks","fb number",fb.Number())
 		pool.allFastBlocks[fruit.FastHash()] = fb
-	}
 
+	}
+	log.Debug("endinsertRestFruits","len(reinject)", len(reinject))
 	return nil
 }
 
@@ -725,8 +729,9 @@ func (pool *SnailPool) PendingFastBlocks() ([]*types.Block, error) {
 		fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
 		fastblocks = append(fastblocks, fastBlock)
 	}
-
-	//log.Info("$pending Fast Blocks","min fb num",pool.fastBlockPending.Front().Value.(*types.Block).Number()," ---- max fb num",pool.fastBlockPending.Back().Value.(*types.Block).Number())
+	if pool.fastBlockPending.Front() != nil && pool.fastBlockPending.Back() !=nil{
+		log.Info("$pending Fast Blocks","min fb num",pool.fastBlockPending.Front().Value.(*types.Block).Number()," ---- max fb num",pool.fastBlockPending.Back().Value.(*types.Block).Number())
+	}
 	var blockby types.BlockBy = types.Number
 	blockby.Sort(fastblocks)
 	return fastblocks, nil
