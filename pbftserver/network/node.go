@@ -463,7 +463,6 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	if state == nil {
 		return nil
 	}
-	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
 	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
 	if state.CurrentStage == consensus.Committed {
@@ -471,6 +470,8 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 		state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 		return nil
 	}
+
+	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
 	if err != nil {
 		return err
