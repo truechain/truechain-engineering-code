@@ -890,7 +890,8 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 	if self.singleNode {
 		return 1
 	}
-	return int32(len(committees))
+	//return int32(len(committees))
+	return 1
 }
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
