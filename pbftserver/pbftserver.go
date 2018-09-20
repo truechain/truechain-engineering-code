@@ -267,7 +267,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
 	err := ss.Agent.VerifyFastBlock(block)
 	lock.PSLog("AGENT", "VerifyFastBlock", err == nil, "end")
 	if err != nil {
-		lock.PSLog("AGENT", "VerifyFastBlock", "err", err.Error())
+		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())
 		return err
 	}
 	ss.putBlock(height.Uint64(), block)
