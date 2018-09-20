@@ -337,6 +337,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		commitMsg.NodeID = node.NodeID
 
 		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
+			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
@@ -463,8 +465,10 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	}
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
+	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
 	if state.CurrentStage == consensus.Committed {
-		node.CommittedMsgs = append(node.CommittedMsgs, committedMsg)
+		lock.PSLog("[Committed return true]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
+		state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 		return nil
 	}
 
