@@ -38,11 +38,7 @@ func getID() *big.Int {
 	return ID
 }
 
-<<<<<<< .merge_file_cjt7Kf
-func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
-=======
 func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
->>>>>>> .merge_file_cI3OKW
 	header := new(types.Header)
 	header.Number = getID()
 	header.Time = big.NewInt(time.Now().Unix())
@@ -50,17 +46,10 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
-<<<<<<< .merge_file_cjt7Kf
-	//if rand.Intn(100) > 30 {
+	//if rand.Intn(100) > 50 {
 	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
 	//	return types.ErrHeightNotYet
 	//}
-=======
-	if rand.Intn(100) > 50 {
-		println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
-		return types.ErrHeightNotYet
-	}
->>>>>>> .merge_file_cI3OKW
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
 	return nil
 }
