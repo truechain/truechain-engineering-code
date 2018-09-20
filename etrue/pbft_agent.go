@@ -373,6 +373,8 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	}
 	//self.fastChain.CurrentBlock()
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
+	log.Info("getParent:","parent",parent,"height:",parent.Header().Number,
+	"fastChain.CurrentNumber",self.fastChain.CurrentBlock().Number())
 	if parent != nil {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
