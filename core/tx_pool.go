@@ -188,6 +188,7 @@ type TxPool struct {
 	chain        blockChain
 	gasPrice     *big.Int
 	txFeed       event.Feed
+	removeTxFeed event.Feed
 	scope        event.SubscriptionScope
 	chainHeadCh  chan ChainHeadEvent
 	chainHeadSub event.Subscription
@@ -450,6 +451,12 @@ func (pool *TxPool) Stop() {
 // starts sending event to the given channel.
 func (pool *TxPool) SubscribeNewTxsEvent(ch chan<- NewTxsEvent) event.Subscription {
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
+}
+
+// SubscribeRemoveTxEvent registers a subscription of RemoveTxEvent and
+// starts sending event to the given channel.
+func (pool *TxPool) SubscribeRemoveTxEvent(ch chan<- RemoveTxEvent) event.Subscription {
+	return pool.scope.Track(pool.removeTxFeed.Subscribe(ch))
 }
 
 // GasPrice returns the current gas price enforced by the transaction pool.
@@ -867,6 +874,11 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 		return
 	}
 	addr, _ := types.Sender(pool.signer, tx) // already validated during insertion
+
+	// Send event
+	pool.removeTxFeed.Send(RemoveTxEvent{
+		Hash: hash,
+	})
 
 	// Remove it from the list of known transactions
 	pool.all.Remove(hash)

@@ -26,6 +26,9 @@ import (
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
+// RemoveTxEvent is posted when a transactions remove from the transaction pool.
+type RemoveTxEvent struct{ Hash common.Hash }
+
 //for fruit and record
 type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
 

@@ -102,6 +102,7 @@ type BlockChain struct {
 	logsFeed         event.Feed
 	RewardNumberFeed event.Feed
 	stateChangeFeed  event.Feed
+	receiptsFeed     event.Feed
 	scope            event.SubscriptionScope
 	genesisBlock     *types.Block
 
@@ -1256,6 +1257,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			Rewards:  rewards,
 		}
 		bc.stateChangeFeed.Send(bcd)
+		if receipts.Len() > 0 {
+			bc.receiptsFeed.Send(receipts)
+		}
 
 		// Write the block to the chain and get the status.
 		status, err := bc.WriteBlockWithState(block, receipts, state)
@@ -1702,6 +1706,11 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 // SubscribeStateChangeEvent registers a subscription of stateDB.Log().
 func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- StateChangeEvent) event.Subscription {
 	return bc.scope.Track(bc.stateChangeFeed.Subscribe(ch))
+}
+
+// SubscribeReceiptsEvent registers a subscription of transactions receipts.
+func (bc *BlockChain) SubscribeReceiptsEvent(ch chan<- types.Receipts) event.Subscription {
+	return bc.scope.Track(bc.receiptsFeed.Subscribe(ch))
 }
 
 func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward {

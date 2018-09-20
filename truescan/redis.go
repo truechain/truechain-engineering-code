@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
@@ -96,13 +97,8 @@ func (rc *RedisClient) PendingTransaction(ptm *TransactionMsg) error {
 
 // RemoveTransaction is triggered when transaction in the trading pool is discarded before execution,
 // which may be the result of synchronization or transaction coverage event.
-func (rc *RedisClient) RemoveTransaction() error {
-	exampleMsg := struct {
-		Hash string `json:"hash"`
-	}{
-		Hash: "0x3ad653e4ac05237b39b1cb42f054e0c167fed354c838e9cae6fe3871f006a6fc",
-	}
-	msg, err := json.Marshal(exampleMsg)
+func (rc *RedisClient) RemoveTransaction(rtm *RemoveTxMsg) error {
+	msg, err := json.Marshal(rtm)
 	if err != nil {
 		return err
 	}
@@ -113,35 +109,18 @@ func (rc *RedisClient) RemoveTransaction() error {
 	return err
 }
 
-// ExecuteTransaction is triggered when the transaction is executed,
+// TransactionReceipts is triggered when the transaction is executed,
 // and the result of the transaction may be success or failure.
 // Transaction failure is different from transaction discarded.
-func (rc *RedisClient) ExecuteTransaction() error {
-	exampleMsg := struct {
-		Status           bool   `json:"status"`
-		FruitblockNumber int    `json:"fruitblockNumber"`
-		TransactionHash  string `json:"transactionHash"`
-		TransactionIndex int    `json:"transactionIndex"`
-		ContractAddress  string `json:"contractAddress"`
-		GasUsed          int    `json:"gasUsed"`
-		Timestamp        int    `json:"timestamp"`
-	}{
-		Status:           true,
-		FruitblockNumber: 1234,
-		TransactionHash:  "0x3ad653e4ac05237b39b1cb42f054e0c167fed354c838e9cae6fe3871f006a6fc",
-		TransactionIndex: 2,
-		ContractAddress:  "",
-		GasUsed:          21000,
-		Timestamp:        1536633528,
-	}
-	msg, err := json.Marshal(exampleMsg)
+func (rc *RedisClient) TransactionReceipts(receipts types.Receipts) error {
+	msg, err := json.Marshal(receipts)
 	if err != nil {
 		return err
 	}
-	start := `{"type":"executeTransaction","data":`
+	start := `{"type":"transactionReceipts","data":`
 	end := `}`
 	err = rc.publishMsg(start + string(msg) + end)
-	log.RedisLog("emit ExecuteTransaction")
+	log.RedisLog("emit TransactionReceipts")
 	return err
 }
 

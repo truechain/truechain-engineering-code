@@ -14,6 +14,10 @@ type TrueScan struct {
 	sub               Subscriber
 	txsCh             chan core.NewTxsEvent
 	txsSub            event.Subscription
+	removeTxCh        chan core.RemoveTxEvent
+	removeTxSub       event.Subscription
+	receiptsCh        chan types.Receipts
+	receiptsSub       event.Subscription
 	chainHeadCh       chan core.ChainHeadEvent
 	chainHeadSub      event.Subscription
 	fruitsch          chan snailchain.NewFruitsEvent //fruit
@@ -32,7 +36,9 @@ type TrueScan struct {
 func New(sub Subscriber) *TrueScan {
 	ts := &TrueScan{
 		sub:              sub,
-		txsCh:            make(chan core.NewTxsEvent, txChanSize),
+		txsCh:            make(chan core.NewTxsEvent, txsChanSize),
+		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
+		receiptsCh:       make(chan types.Receipts, receiptsChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadChanSize),
 		fruitsch:         make(chan snailchain.NewFruitsEvent, fruitChanSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
@@ -55,6 +61,13 @@ func (ts *TrueScan) Start() {
 	// broadcast transactions
 	ts.txsSub = ts.sub.SubscribeNewTxsEvent(ts.txsCh)
 	go ts.txHandleLoop()
+
+	ts.removeTxSub = ts.sub.SubscribeRemoveTxEvent(ts.removeTxCh)
+	go ts.removeTxHandleLoop()
+
+	ts.receiptsSub = ts.sub.SubscribeReceiptsEvent(ts.receiptsCh)
+	go ts.receiptsHandleLoop()
+
 	// Subscribe events from blockchain
 	ts.chainHeadSub = ts.sub.SubscribeChainHeadEvent(ts.chainHeadCh)
 	go ts.fastChainHandleLoop()
@@ -72,6 +85,61 @@ func (ts *TrueScan) Start() {
 	go ts.stateChangeHandleLoop()
 
 	go ts.loop()
+}
+
+func (ts *TrueScan) txHandleLoop() error {
+	for {
+		select {
+		case event := <-ts.txsCh:
+			ts.handleTx(event.Txs)
+		case <-ts.txsSub.Err():
+			return errResp("tx terminated")
+		}
+	}
+}
+
+func (ts *TrueScan) handleTx(txs []*types.Transaction) {
+	for _, tx := range txs {
+		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
+		if err != nil {
+			continue
+		}
+		var toHex string
+		if to := tx.To(); to == nil {
+			toHex = ""
+		} else {
+			toHex = to.String()
+		}
+		tm := &TransactionMsg{
+			Nonce:    tx.Nonce(),
+			Hash:     tx.Hash().String(),
+			From:     from.String(),
+			To:       toHex,
+			Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
+			Gas:      tx.Gas(),
+			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
+			Input:    "0x" + hex.EncodeToString(tx.Data()),
+		}
+		ts.redisClient.PendingTransaction(tm)
+	}
+}
+
+func (ts *TrueScan) removeTxHandleLoop() error {
+	for {
+		select {
+		case removeTxEvent := <-ts.removeTxCh:
+			ts.handleRemoveTx(removeTxEvent)
+		case <-ts.removeTxSub.Err():
+			return errResp("removeTx terminated")
+		}
+	}
+}
+
+func (ts *TrueScan) handleRemoveTx(rte core.RemoveTxEvent) {
+	rtm := &RemoveTxMsg{
+		Hash: rte.Hash.String(),
+	}
+	ts.redisClient.RemoveTransaction(rtm)
 }
 
 func (ts *TrueScan) electionHandleLoop() error {
@@ -109,10 +177,8 @@ func (ts *TrueScan) stateChangeHandleLoop() error {
 		select {
 		case stateChangeEvent := <-ts.stateChangeCh:
 			ts.handleStateChange(stateChangeEvent)
-
-			// Err() channel will be closed when unsubscribing.
 		case <-ts.stateChangeSub.Err():
-			return errResp("fruit terminated")
+			return errResp("state terminated")
 		}
 	}
 }
@@ -144,8 +210,6 @@ func (ts *TrueScan) snailChainHandleLoop() error {
 		select {
 		case snailChainEvent := <-ts.snailChainHeadCh:
 			ts.handleSnailChain(snailChainEvent.Block)
-
-			// Err() channel will be closed when unsubscribing.
 		case <-ts.fruitsSub.Err():
 			return errResp("fruit terminated")
 		}
@@ -187,8 +251,6 @@ func (ts *TrueScan) fruitHandleLoop() error {
 		select {
 		case fruitsEvent := <-ts.fruitsch:
 			ts.handleFruits(fruitsEvent.Fruits)
-
-			// Err() channel will be closed when unsubscribing.
 		case <-ts.fruitsSub.Err():
 			return errResp("fruit terminated")
 		}
@@ -202,11 +264,8 @@ func (ts *TrueScan) handleFruits(fruits []*types.SnailBlock) {
 func (ts *TrueScan) fastChainHandleLoop() error {
 	for {
 		select {
-		// Handle ChainHeadEvent
 		case ev := <-ts.chainHeadCh:
 			ts.handleFastChain(ev.Block)
-
-			// Be unsubscribed due to system stopped
 		case <-ts.chainHeadSub.Err():
 			return errResp("chain terminated")
 		}
@@ -238,6 +297,7 @@ func (ts *TrueScan) handleFastChain(block *types.Block) {
 			toHex = to.String()
 		}
 		tm := &TransactionMsg{
+			Nonce:    tx.Nonce(),
 			Hash:     tx.Hash().String(),
 			From:     from.String(),
 			To:       toHex,
@@ -252,42 +312,19 @@ func (ts *TrueScan) handleFastChain(block *types.Block) {
 	ts.redisClient.NewFastBlockHeader(fbm)
 }
 
-func (ts *TrueScan) txHandleLoop() error {
+func (ts *TrueScan) receiptsHandleLoop() error {
 	for {
 		select {
-		case event := <-ts.txsCh:
-			ts.handleTx(event.Txs)
-
-			// Err() channel will be closed when unsubscribing.
-		case <-ts.txsSub.Err():
-			return errResp("tx terminated")
+		case receipts := <-ts.receiptsCh:
+			ts.handleReceipts(receipts)
+		case <-ts.receiptsSub.Err():
+			return errResp("receipts terminated")
 		}
 	}
 }
 
-func (ts *TrueScan) handleTx(txs []*types.Transaction) {
-	for _, tx := range txs {
-		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
-		if err != nil {
-			continue
-		}
-		var toHex string
-		if to := tx.To(); to == nil {
-			toHex = ""
-		} else {
-			toHex = to.String()
-		}
-		tm := &TransactionMsg{
-			Hash:     tx.Hash().String(),
-			From:     from.String(),
-			To:       toHex,
-			Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
-			Gas:      tx.Gas(),
-			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
-			Input:    "0x" + hex.EncodeToString(tx.Data()),
-		}
-		ts.redisClient.PendingTransaction(tm)
-	}
+func (ts *TrueScan) handleReceipts(receipts types.Receipts) {
+	ts.redisClient.TransactionReceipts(receipts)
 }
 
 func (ts *TrueScan) loop() error {

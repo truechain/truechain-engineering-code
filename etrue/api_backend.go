@@ -192,8 +192,14 @@ func (b *EthAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, 
 	return b.etrue.TxPool().Content()
 }
 
+// SubscribeNewTxsEvent registers a subscription of NewTxsEvent.
 func (b *EthAPIBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
 	return b.etrue.TxPool().SubscribeNewTxsEvent(ch)
+}
+
+// SubscribeRemoveTxEvent registers a subscription of RemoveTxEvent.
+func (b *EthAPIBackend) SubscribeRemoveTxEvent(ch chan<- core.RemoveTxEvent) event.Subscription {
+	return b.etrue.TxPool().SubscribeRemoveTxEvent(ch)
 }
 
 func (b *EthAPIBackend) Downloader() *downloader.Downloader {
@@ -240,18 +246,27 @@ func NewEthAPIBackend(etrue *Truechain) *EthAPIBackend {
 	return apiBackend
 }
 
+// SubscribeNewFruitEvent registers a subscription of NewFruitsEvent.
 func (b *EthAPIBackend) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeNewFruitEvent(ch)
 }
 
+// SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
 func (b *EthAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainHeadEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeChainHeadEvent(ch)
 }
 
+// SubscribeElectionEvent registers a subscription of ElectionEvent.
 func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {
 	return b.etrue.election.SubscribeElectionEvent(ch)
 }
 
+// SubscribeStateChangeEvent registers a subscription of StateChangeEvent.
 func (b *EthAPIBackend) SubscribeStateChangeEvent(ch chan<- core.StateChangeEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeStateChangeEvent(ch)
+}
+
+// SubscribeReceiptsEvent registers a subscription of TransactionReceipts event.
+func (b *EthAPIBackend) SubscribeReceiptsEvent(ch chan<- types.Receipts) event.Subscription {
+	return b.etrue.BlockChain().SubscribeReceiptsEvent(ch)
 }

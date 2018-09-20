@@ -2,6 +2,7 @@ package truescan
 
 // TransactionMsg used in corresponding message transmission
 type TransactionMsg struct {
+	Nonce    uint64 `json:"nonce"`
 	Hash     string `json:"hash"`
 	From     string `json:"from"`
 	To       string `json:"to"`
@@ -9,6 +10,11 @@ type TransactionMsg struct {
 	Gas      uint64 `json:"gas"`
 	GasPrice string `json:"gasPrice"`
 	Input    string `json:"input"`
+}
+
+// RemoveTxMsg used in corresponding message transmission
+type RemoveTxMsg struct {
+	Hash string `json:"hash"`
 }
 
 // FastBlockHeaderMsg used in corresponding message transmission

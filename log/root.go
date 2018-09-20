@@ -36,7 +36,7 @@ func Trace(msg string, ctx ...interface{}) {
 
 // Debug is a convenient alias for Root().Debug
 func Debug(msg string, ctx ...interface{}) {
-	// root.write(msg, LvlDebug, ctx, skipLevel)
+	root.write(msg, LvlDebug, ctx, skipLevel)
 }
 
 // Info is a convenient alias for Root().Info
@@ -46,7 +46,7 @@ func Info(msg string, ctx ...interface{}) {
 
 // Warn is a convenient alias for Root().Warn
 func Warn(msg string, ctx ...interface{}) {
-	// root.write(msg, LvlWarn, ctx, skipLevel)
+	root.write(msg, LvlWarn, ctx, skipLevel)
 }
 
 // Error is a convenient alias for Root().Error
