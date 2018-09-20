@@ -230,8 +230,6 @@ func (self *PbftAgent) loop() {
 					Id:      ch.CommitteeID,
 					Members: ch.CommitteeMembers,
 				}
-				log.Debug("switch:","m1:",len(receivedCommitteeInfo.Members))
-				log.Debug("switch:","m2:",len(ch.CommitteeMembers))
 
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 				//self.committeeId = ch.CommitteeID
@@ -239,11 +237,12 @@ func (self *PbftAgent) loop() {
 				ticker.Stop()                                //stop ticker send nodeInfo
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 				ticker = time.NewTicker(sendNodeTime)
-				log.Debug("switch:","m3:",len(receivedCommitteeInfo.Members))
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
 					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)
-					self.updateCommitteeNode()
+					if receivedCommitteeInfo.Id != common.Big0{
+						self.updateCommitteeNode()
+					}
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 					go func() {
 						for {
