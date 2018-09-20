@@ -146,17 +146,17 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
 
-	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync {
-		manager.fastSync = uint32(1)
-	}
+	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+	//	log.Warn("Blockchain not empty, fast sync disabled")
+	//	mode = downloader.FullSync
+	//}
+	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+	//	log.Warn("Blockchain not empty, fast sync disabled")
+	//	mode = downloader.FullSync
+	//}
+	//if mode == downloader.FastSync {
+	//	manager.fastSync = uint32(1)
+	//}
 
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
@@ -201,7 +201,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	fmode := fastdownloader.SyncMode(int(mode))
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
-
 
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
 
@@ -555,8 +554,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetFastBlockHeadersMsg:
-
-		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>")
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -644,29 +641,27 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendFastBlockHeaders(headers)
 
 	case msg.Code == FastBlockHeadersMsg:
-
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.Header
 		if err := msg.Decode(&headers); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
-		//filter := len(headers) == 1
-		//if filter {
-		//	// Irrelevant of the fork checks, send the header to the fetcher just in case
-		//	headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
-		//}
-		// mecMark
-		//if len(headers) > 0 {
-		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>","headers:",len(headers))
-		err := pm.fdownloader.DeliverHeaders(p.id, headers)
-		if err != nil {
-			log.Debug("Failed to deliver headers", "err", err)
+		filter := len(headers) == 1
+		if filter {
+			// Irrelevant of the fork checks, send the header to the fetcher just in case
+			headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
 		}
-		//}
+		// mecMark
+		if len(headers) > 0 || !filter {
+			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
+			}
+		}
 
 	case msg.Code == GetFastBlockBodiesMsg:
-		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -694,7 +689,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendFastBlockBodiesRLP(bodies)
 
 	case msg.Code == FastBlockBodiesMsg:
-		log.Debug("FastBlockBodiesMsg>>>>>>>>>>>>")
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
 		if err := msg.Decode(&request); err != nil {
@@ -710,16 +704,16 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		//filter := len(transactions) > 0
-		//if filter {
-		//	transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
-		//}
+		filter := len(transactions) > 0
+		if filter {
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
+		}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
-		if err != nil {
-			log.Debug("Failed to deliver bodies", "err", err)
-		}
+		//err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
+		//if err != nil {
+		//	log.Debug("Failed to deliver bodies", "err", err)
+		//}
 		//}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
@@ -761,7 +755,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		fruits := make([][]*types.SnailBlock, len(request))
 		signs := make([][]*types.PbftSign, len(request))
 
-
 		for i, body := range request {
 			fruits[i] = body.Fruits
 			signs[i] = body.Signs
@@ -773,8 +766,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//}
 		// mecMark
 		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		log.Debug("SnailBlockBodiesMsg>>>>>>>>>>>>","fruits",len(fruits))
-		err := pm.downloader.DeliverBodies(p.id, fruits, signs,nil)
+		log.Debug("SnailBlockBodiesMsg>>>>>>>>>>>>", "fruits", len(fruits))
+		err := pm.downloader.DeliverBodies(p.id, fruits, signs, nil)
 		if err != nil {
 			log.Debug("Failed to deliver bodies", "err", err)
 		}
@@ -885,9 +878,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 			}
 		}
-		//for _, block := range unknown {
-		//	pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
-		//}
+		for _, block := range unknown {
+			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
+		}
 
 	case msg.Code == NewFastBlockMsg:
 		// Retrieve and decode the propagated block
@@ -973,7 +966,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 
 	//fruit structure
-
 	case msg.Code == FruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
@@ -995,7 +987,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.SnailPool.AddRemoteFruits(fruits)
 
 	//snailBlock structure
-
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
 		//var snailBlocks []*types.SnailBlock

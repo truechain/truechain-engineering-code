@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/math"
 	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -92,7 +93,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if (stored == common.Hash{}) {
 		if genesis == nil {
 			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
+			genesis = DefaultTestnetGenesisBlock()
 		} else {
 			log.Info("Writing custom genesis block")
 		}
@@ -228,13 +229,22 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
+	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	key, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"))
 	return &Genesis{
 		Config:     params.TestnetChainConfig,
 		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
+		ExtraData:  nil,
+		GasLimit:   22020096,
+		Difficulty: big.NewInt(256),
 		//Alloc:      decodePrealloc(testnetAllocData),
+		Alloc: map[common.Address]types.GenesisAccount{
+			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
+			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
+		},
+		Committee: []*types.CommitteeMember{
+			&types.CommitteeMember{Coinbase: common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"), Publickey: key},
+		},
 	}
 }
 

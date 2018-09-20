@@ -190,7 +190,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("server stop")
 	}
 
-	fb, err := ss.Agent.FetchFastBlock(nil)
+	fb, err := ss.Agent.FetchFastBlock(id)
 
 	fmt.Println("[pbft server] FetchFastBlock", fb.Header().Time)
 
@@ -267,6 +267,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
 	err := ss.Agent.VerifyFastBlock(block)
 	lock.PSLog("AGENT", "VerifyFastBlock", err == nil, "end")
 	if err != nil {
+		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())
 		return err
 	}
 	ss.putBlock(height.Uint64(), block)
