@@ -24,16 +24,17 @@ import (
 	"runtime"
 	"time"
 
+	"crypto/ecdsa"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"crypto/ecdsa"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -59,9 +60,11 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	MinerThreads: 2,
-	Port:10080,
-	StandByPort:10090,
-
+	Port:         10080,
+	StandByPort:  10090,
+	RedisHost:    "",
+	RedisPort:    6379,
+	ChannelID:    0,
 }
 
 func init() {
@@ -148,6 +151,11 @@ type Config struct {
 
 	//true indicate only mine fruit
 	MineFruit bool `toml:",omitempty"`
+
+	// redis server
+	RedisHost string
+	RedisPort int
+	ChannelID int
 }
 
 type configMarshaling struct {

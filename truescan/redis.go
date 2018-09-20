@@ -24,9 +24,10 @@ type RedisClient struct {
 }
 
 // NewRedisClient returns a redis client with scheduled message sending interface.
-func NewRedisClient(redisServerAddr string, id int) (*RedisClient, error) {
+func NewRedisClient(config *Config) (*RedisClient, error) {
+	redisServerAddr := config.RedisHost + ":" + strconv.Itoa(config.RedisPort)
 	rc := &RedisClient{
-		id:         id,
+		id:         config.ChannelID,
 		serverAddr: redisServerAddr,
 	}
 	const healthCheckPeriod = time.Minute
@@ -37,6 +38,7 @@ func NewRedisClient(redisServerAddr string, id int) (*RedisClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.RedisLog("Redis client start", "touch", redisServerAddr, "channel", config.ChannelID)
 	rc.c = c
 	rc.msgCh = make(chan string, msgChanSize)
 	return rc, nil

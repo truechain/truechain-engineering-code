@@ -1,5 +1,12 @@
 package truescan
 
+// Config about redis service.
+type Config struct {
+	RedisHost string
+	RedisPort int
+	ChannelID int
+}
+
 // TransactionMsg used in corresponding message transmission
 type TransactionMsg struct {
 	Nonce    uint64 `json:"nonce"`

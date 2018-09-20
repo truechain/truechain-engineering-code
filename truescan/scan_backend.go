@@ -13,6 +13,7 @@ import (
 // TrueScan provides the ability to proactively roll out messages to Redis services.
 type TrueScan struct {
 	sub               Subscriber
+	running           bool
 	addTxCh           chan core.AddTxEvent
 	addTxSub          event.Subscription
 	removeTxCh        chan core.RemoveTxEvent
@@ -34,9 +35,10 @@ type TrueScan struct {
 }
 
 // New function return a TrueScan message processing client
-func New(sub Subscriber) *TrueScan {
+func New(sub Subscriber, config *Config) *TrueScan {
 	ts := &TrueScan{
 		sub:              sub,
+		running:          false,
 		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
 		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
 		receiptsCh:       make(chan types.Receipts, receiptsChanSize),
@@ -47,7 +49,7 @@ func New(sub Subscriber) *TrueScan {
 		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
 		quit:             make(chan struct{}),
 	}
-	rc, err := NewRedisClient("39.105.126.32:6379", 1)
+	rc, err := NewRedisClient(config)
 	if err != nil {
 		return nil
 	}
@@ -57,6 +59,7 @@ func New(sub Subscriber) *TrueScan {
 
 // Start TrueScan message processing client
 func (ts *TrueScan) Start() {
+	ts.running = true
 	ts.redisClient.Start()
 
 	// broadcast transactions
@@ -338,6 +341,9 @@ func (ts *TrueScan) loop() error {
 
 // Stop TrueScan message processing client
 func (ts *TrueScan) Stop() {
+	if !ts.running {
+		return
+	}
 	ts.addTxSub.Unsubscribe()
 	ts.chainHeadSub.Unsubscribe()
 	ts.fruitsSub.Unsubscribe()

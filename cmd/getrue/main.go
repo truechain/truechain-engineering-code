@@ -119,6 +119,13 @@ var (
 		configFileFlag,
 	}
 
+	redisFlags = []cli.Flag{
+		utils.RedisDisabledFlag,
+		utils.RedisAddrFlag,
+		utils.RedisPortFlag,
+		utils.ChannelIDFlag,
+	}
+
 	rpcFlags = []cli.Flag{
 		utils.RPCEnabledFlag,
 		utils.RPCListenAddrFlag,
@@ -185,6 +192,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	app.Flags = append(app.Flags, nodeFlags...)
+	app.Flags = append(app.Flags, redisFlags...)
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)

@@ -247,7 +247,11 @@ func NewEthAPIBackend(etrue *Truechain) *EthAPIBackend {
 		etrue: etrue,
 		gpo:   nil,
 	}
-	apiBackend.TrueScan = truescan.New(apiBackend)
+	apiBackend.TrueScan = truescan.New(apiBackend, &truescan.Config{
+		RedisHost: etrue.config.RedisHost,
+		RedisPort: etrue.config.RedisPort,
+		ChannelID: etrue.config.ChannelID,
+	})
 	return apiBackend
 }
 

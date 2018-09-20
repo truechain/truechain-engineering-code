@@ -219,7 +219,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election,etrue.Config().MineFruit,etrue.Config().NodeType)
+	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election, etrue.Config().MineFruit, etrue.Config().NodeType)
 	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	committeeKey, err := crypto.ToECDSA(etrue.config.CommitteeKey)
@@ -491,7 +491,9 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.agent.Start()
 
 	s.election.Start()
-	s.APIBackend.Start()
+	if s.config.RedisHost != "" {
+		s.APIBackend.Start()
+	}
 	//go s.agent.SendBlock()
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
