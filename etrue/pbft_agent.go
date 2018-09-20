@@ -279,7 +279,7 @@ func (self *PbftAgent) loop() {
 				log.Warn("receive cryNodeInfo of node not in Committee.")
 			}
 		case ch := <-self.chainHeadCh:
-			log.Debug("ChainHeadCh putCacheIntoChain.")
+			log.Debug("ChainHeadCh putCacheIntoChain.","ch.Block",ch.Block.Number())
 			go self.putCacheIntoChain(ch.Block)
 		}
 	}
@@ -346,6 +346,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 			break
 		}
 	}
+	log.Info("putCacheIntoChain","fastBlocks",len(fastBlocks))
 	//insertBlock
 	for _, fb := range fastBlocks {
 		_, err := self.fastChain.InsertChain([]*types.Block{fb})
