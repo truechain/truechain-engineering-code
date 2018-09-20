@@ -388,7 +388,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
 		return err
 	}
-	//
+
 	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
 		p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
 		return err
@@ -1031,24 +1031,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				go pm.synchronise(p)
 			}
 		}
-
-		// downloads
-		//var (
-		//	trueHead = request.Block.ParentHash()
-		//	trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
-		//)
-		// Update the peers total difficulty if better than the previous
-		//if _, td := p.Head(); trueTD.Cmp(td) > 0 {
-		//	p.SetHead(trueHead, trueTD)
-		//
-		//	// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-		//	// a singe block (as the true TD is below the propagated block), however this
-		//	// scenario should easily be covered by the fetcher.
-		//	currentBlock := pm.blockchain.CurrentBlock()
-		//	if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-		//		go pm.synchronise(p)
-		//	}
-		//}
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
