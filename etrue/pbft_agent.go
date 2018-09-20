@@ -279,7 +279,7 @@ func (self *PbftAgent) loop() {
 				log.Warn("receive cryNodeInfo of node not in Committee.")
 			}
 		case ch := <-self.chainHeadCh:
-			log.Debug("ChainHeadCh putCacheIntoChain.","ch.Block",ch.Block.Number())
+			log.Debug("ChainHeadCh putCacheIntoChain.", "ch.Block", ch.Block.Number())
 			go self.putCacheIntoChain(ch.Block)
 		}
 	}
@@ -346,7 +346,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 			break
 		}
 	}
-	log.Info("putCacheIntoChain","fastBlocks",len(fastBlocks))
+	log.Info("putCacheIntoChain", "fastBlocks", len(fastBlocks))
 	//insertBlock
 	for _, fb := range fastBlocks {
 		_, err := self.fastChain.InsertChain([]*types.Block{fb})
@@ -369,13 +369,14 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	receiveBlockHeight := receiveBlock.Number()
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
-		log.Error("handleConsensusBlock error: blok already in blockchain", "number", receiveBlockHeight)
+		if err :=self.sendSign(receiveBlock);err !=nil{
+			return err
+		}
+		log.Info("handleConsensusBlock: blok already insert blockchain by fetch", "number", receiveBlockHeight)
 		return nil
 	}
 	//self.fastChain.CurrentBlock()
 	parent := self.fastChain.GetBlock(receiveBlock.ParentHash(), receiveBlock.NumberU64()-1)
-	log.Info("getParent:","height:",parent.Header().Number,"parent",parent!= nil,
-	"fast.CurrentNumber",self.fastChain.CurrentBlock().Number())
 	if parent != nil {
 		var fastBlocks []*types.Block
 		fastBlocks = append(fastBlocks, receiveBlock)
@@ -391,22 +392,28 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		}
 		//test tps
 		GetTps(receiveBlock)
-
-		//generate sign
-		voteSign, err := self.GenerateSign(receiveBlock)
-		if err != nil {
+		if err :=self.sendSign(receiveBlock);err !=nil{
 			return err
 		}
-		log.Info("handleConsensusBlock generate sign ", "FastHeight", voteSign.FastHeight,
-			"FastHash", voteSign.FastHash, "Result", voteSign.Result)
-		//braodcast sign and block
-		self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	} else {
-		log.Info("handleConsensusBlock parent not in fastchain.")
+		log.Warn("handleConsensusBlock parent not in fastchain.")
 		self.cacheBlockMu.Lock()
 		self.cacheBlock[receiveBlockHeight] = receiveBlock
 		self.cacheBlockMu.Unlock()
 	}
+	return nil
+}
+
+func (self *PbftAgent) sendSign(receiveBlock *types.Block) error{
+	//generate sign
+	voteSign, err := self.GenerateSign(receiveBlock)
+	if err != nil {
+		return err
+	}
+	log.Info("handleConsensusBlock generate sign ", "FastHeight", voteSign.FastHeight,
+		"FastHash", voteSign.FastHash, "Result", voteSign.Result)
+	//braodcast sign and block
+	self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	return nil
 }
 
@@ -544,7 +551,6 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	log.Info("Finalize: leader generateBlock", "Height:", fastBlock.Header().Number)
 	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
 
 	voteSign, err := self.GenerateSign(fastBlock)
@@ -650,6 +656,11 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	}
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
+		// if return blockAlready kown ,indicate block already insert chain by fetch
+		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0{
+			log.Info("block already insert chain by fetch .")
+			return nil
+		}
 		log.Error("VerifyFastBlock: validate body error", "err", err)
 		return err
 	}
