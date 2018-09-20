@@ -706,23 +706,22 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		transactions := make([][]*types.Transaction, len(request))
 		signs := make([][]*types.PbftSign, len(request))
 
-		//Signs   []*types.PbftSign
 		for i, body := range request {
 			transactions[i] = body.Transactions
 			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		//filter := len(transactions) > 0
-		//if filter {
-		//	transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
-		//}
-		// mecMark
-		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
-		if err != nil {
-			log.Debug("Failed to deliver bodies", "err", err)
+		filter := len(transactions) > 0
+		if filter {
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
 		}
-		//}
+		// mecMark
+		if len(transactions) > 0 || !filter {
+			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
+			if err != nil {
+				log.Debug("Failed to deliver bodies", "err", err)
+			}
+		}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
 		log.Debug("GetSnailBlockBodiesMsg>>>>>>>>>>>>")
