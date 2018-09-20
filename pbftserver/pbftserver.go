@@ -190,7 +190,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("server stop")
 	}
 
-	fb, err := ss.Agent.FetchFastBlock(nil)
+	fb, err := ss.Agent.FetchFastBlock(id)
 
 	fmt.Println("[pbft server] FetchFastBlock", fb.Header().Time)
 

@@ -113,6 +113,7 @@ func (c *committee) Members() []*types.CommitteeMember {
 	members := make([]*types.CommitteeMember, len(c.members))
 	copy(members, c.members)
 
+	log.Debug("get members", "numbers", len(members))
 	return members
 }
 
@@ -185,6 +186,7 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+	log.Debug("IsCommitteeMember","len(members)",len(members))
 	if len(members) == 0 {
 		log.Error("IsCommitteeMember method len(members)= 0" )
 		return false
@@ -647,6 +649,8 @@ func (e *Election) Start() error {
 
 	e.appendCommittee(currentCommittee)
 	e.committee = currentCommittee
+
+	log.Debug("current committee", "number", len(e.committee.members))
 
 	if currentCommittee.endFastNumber.Cmp(common.Big0) > 0 {
 		// over the switch block, to elect next committee
