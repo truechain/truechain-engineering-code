@@ -686,6 +686,7 @@ func (e *Election) Start() error {
 			Option:           types.CommitteeSwitchover,
 			CommitteeID:      e.committee.id,
 			CommitteeMembers: e.committee.Members(),
+			BeginFastNumber:  e.committee.beginFastNumber,
 		})
 		e.electionFeed.Send(core.ElectionEvent{
 			Option:           types.CommitteeStart,
@@ -695,11 +696,19 @@ func (e *Election) Start() error {
 		})
 
 		if e.startSwitchover {
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeOver,
+				CommitteeID:      e.committee.id,
+				CommitteeMembers: e.committee.Members(),
+				BeginFastNumber:  e.committee.beginFastNumber,
+				EndFastNumber:    e.committee.endFastNumber,
+			})
 			// send switch event to the subscripber
 			e.electionFeed.Send(core.ElectionEvent{
 				Option:           types.CommitteeSwitchover,
 				CommitteeID:      e.nextCommittee.id,
 				CommitteeMembers: e.nextCommittee.Members(),
+				BeginFastNumber:  e.nextCommittee.beginFastNumber,
 			})
 		}
 	}(e)
@@ -751,11 +760,22 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					go e.electionFeed.Send(core.ElectionEvent{
-						Option:           types.CommitteeSwitchover,
-						CommitteeID:      e.nextCommittee.id,
-						CommitteeMembers: e.nextCommittee.Members(),
-					})
+					go func(e *Election) {
+						e.electionFeed.Send(core.ElectionEvent{
+							Option:           types.CommitteeOver,
+							CommitteeID:      e.committee.id,
+							CommitteeMembers: e.committee.Members(),
+							BeginFastNumber:  e.committee.beginFastNumber,
+							EndFastNumber:    e.committee.endFastNumber,
+						})
+
+						e.electionFeed.Send(core.ElectionEvent{
+							Option:           types.CommitteeSwitchover,
+							CommitteeID:      e.nextCommittee.id,
+							CommitteeMembers: e.nextCommittee.Members(),
+							BeginFastNumber:  e.nextCommittee.beginFastNumber,
+						})
+					}(e)
 
 				}
 
@@ -771,6 +791,8 @@ func (e *Election) loop() {
 								Option:           types.CommitteeStop,
 								CommitteeID:      e.committee.id,
 								CommitteeMembers: e.committee.Members(),
+								BeginFastNumber:  e.committee.beginFastNumber,
+								EndFastNumber:    e.committee.endFastNumber,
 							})
 
 							e.committee = e.nextCommittee

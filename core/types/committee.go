@@ -16,6 +16,7 @@ const (
 	CommitteeStart      = iota // start pbft consensus
 	CommitteeStop              // stop pbft consensus
 	CommitteeSwitchover        //switch pbft committee
+	CommitteeOver			   // notify current pbft committee end block
 )
 
 const (
