@@ -138,11 +138,11 @@ type AgentWork struct {
 // NodeInfoEvent is posted when nodeInfo send
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
 	self := &PbftAgent{
-		config:     config,
-		engine:     engine,
-		eth:        eth,
-		fastChain:  eth.BlockChain(),
-		snailChain: eth.SnailBlockChain(),
+		config:               config,
+		engine:               engine,
+		eth:                  eth,
+		fastChain:            eth.BlockChain(),
+		snailChain:           eth.SnailBlockChain(),
 		currentCommitteeInfo: new(types.CommitteeInfo),
 		nextCommitteeInfo:    new(types.CommitteeInfo),
 		committeeId:          new(big.Int).SetInt64(-1),
@@ -179,7 +179,7 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
 		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
-		", coinbase", self.committeeNode.Coinbase,", self.vmConfig",self.vmConfig.EnablePreimageRecording)
+		", coinbase", self.committeeNode.Coinbase, ", self.vmConfig", self.vmConfig.EnablePreimageRecording)
 }
 
 func (self *PbftAgent) Start() {
@@ -240,9 +240,7 @@ func (self *PbftAgent) loop() {
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
 					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)
-					if receivedCommitteeInfo.Id != common.Big0{
-						self.updateCommitteeNode()
-					}
+					self.updateCommitteeNode()
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 					go func() {
 						for {
@@ -289,6 +287,10 @@ func (self *PbftAgent) loop() {
 
 func (self *PbftAgent) updateCommitteeNode() {
 	members := self.currentCommitteeInfo.Members
+	if len(members) == 0 {
+		log.Info("start switch members is nil")
+		return
+	}
 	isCommitteeeMember := self.election.IsCommitteeMember(members, self.committeeNode.Publickey)
 	if isCommitteeeMember {
 		for _, port := range self.commiteePorts {
@@ -351,7 +353,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 			return err
 		}
 		delete(self.cacheBlock, fb.Number())
-		log.Info("delete from cacheBlock","number", fb.Number())
+		log.Info("delete from cacheBlock", "number", fb.Number())
 		//braodcast sign
 		voteSign, err := self.GenerateSign(fb)
 		if err != nil {
@@ -366,7 +368,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	receiveBlockHeight := receiveBlock.Number()
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
-		log.Error("handleConsensusBlock error: blok already in blockchain","number",receiveBlockHeight)
+		log.Error("handleConsensusBlock error: blok already in blockchain", "number", receiveBlockHeight)
 		return nil
 	}
 	//self.fastChain.CurrentBlock()
@@ -377,8 +379,8 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
-		for _,fb := range fastBlocks{
-			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Header().Number,"len:",len(fastBlocks))
+		for _, fb := range fastBlocks {
+			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Header().Number, "len:", len(fastBlocks))
 		}
 		if err != nil {
 			log.Error("self.fastChain.InsertChain error ", "err", err)
@@ -487,7 +489,7 @@ func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 
 //generateBlock and broadcast
 func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
-	log.Debug("into GenerateFastBlock...","committeeId",committeeId)
+	log.Debug("into GenerateFastBlock...", "committeeId", committeeId)
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	var (
@@ -640,7 +642,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
-		log.Error("VerifyFastHeader error","header",fb.Header(), "err", err)
+		log.Error("VerifyFastHeader error", "header", fb.Header(), "err", err)
 		return err
 	}
 	err = bc.Validator().ValidateBody(fb)
@@ -667,7 +669,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 }
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Debug("into BroadcastSign.","fastHeight",fb.Header().Number)
+	log.Debug("into BroadcastSign.", "fastHeight", fb.Header().Number)
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	//insert bockchain
@@ -675,7 +677,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("out BroadcastSign.","fastHeight",fb.Header().Number)
+	log.Debug("out BroadcastSign.", "fastHeight", fb.Header().Number)
 	return nil
 }
 
@@ -811,7 +813,6 @@ func (self *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) boo
 	return self.election.IsCommitteeMember(committeeInfo.Members, self.committeeNode.Publickey)
 }
 
-
 // verify sign of node is in committee
 func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool {
 	if sign == nil {
@@ -823,7 +824,7 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool {
 		log.Error("VerifyCommitteeSign  error", "err", err)
 		return false
 	}
-	return member!= nil
+	return member != nil
 }
 
 // ChangeCommitteeLeader trigger view change.
@@ -879,7 +880,7 @@ func PrintNode(str string, node *types.CommitteeNode) {
 //AcquireCommitteeAuth determine whether the node pubKey  is in the specified committee
 func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	committeeMembers := self.election.GetCommittee(fastHeight)
-	return self.election.IsCommitteeMember(committeeMembers,self.committeeNode.Publickey)
+	return self.election.IsCommitteeMember(committeeMembers, self.committeeNode.Publickey)
 }
 
 func (agent *PbftAgent) singleloop() {
