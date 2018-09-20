@@ -230,8 +230,9 @@ func (self *PbftAgent) loop() {
 					Id:      ch.CommitteeID,
 					Members: ch.CommitteeMembers,
 				}
-				log.Debug("switch:","m1:",receivedCommitteeInfo.Members,
-					"m2:",ch.CommitteeMembers)
+				log.Debug("switch:","m1:",len(receivedCommitteeInfo.Members))
+				log.Debug("switch:","m2:",len(ch.CommitteeMembers))
+
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 				//self.committeeId = ch.CommitteeID
 
