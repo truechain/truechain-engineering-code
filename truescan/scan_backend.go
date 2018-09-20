@@ -10,10 +10,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
+// TrueScan provides the ability to proactively roll out messages to Redis services.
 type TrueScan struct {
 	sub               Subscriber
-	txsCh             chan core.NewTxsEvent
-	txsSub            event.Subscription
+	addTxCh           chan core.AddTxEvent
+	addTxSub          event.Subscription
 	removeTxCh        chan core.RemoveTxEvent
 	removeTxSub       event.Subscription
 	receiptsCh        chan types.Receipts
@@ -36,7 +37,7 @@ type TrueScan struct {
 func New(sub Subscriber) *TrueScan {
 	ts := &TrueScan{
 		sub:              sub,
-		txsCh:            make(chan core.NewTxsEvent, txsChanSize),
+		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
 		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
 		receiptsCh:       make(chan types.Receipts, receiptsChanSize),
 		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadChanSize),
@@ -59,7 +60,7 @@ func (ts *TrueScan) Start() {
 	ts.redisClient.Start()
 
 	// broadcast transactions
-	ts.txsSub = ts.sub.SubscribeNewTxsEvent(ts.txsCh)
+	ts.addTxSub = ts.sub.SubscribeAddTxEvent(ts.addTxCh)
 	go ts.txHandleLoop()
 
 	ts.removeTxSub = ts.sub.SubscribeRemoveTxEvent(ts.removeTxCh)
@@ -90,38 +91,36 @@ func (ts *TrueScan) Start() {
 func (ts *TrueScan) txHandleLoop() error {
 	for {
 		select {
-		case event := <-ts.txsCh:
-			ts.handleTx(event.Txs)
-		case <-ts.txsSub.Err():
+		case addTxEvent := <-ts.addTxCh:
+			ts.handleTx(addTxEvent.Tx)
+		case <-ts.addTxSub.Err():
 			return errResp("tx terminated")
 		}
 	}
 }
 
-func (ts *TrueScan) handleTx(txs []*types.Transaction) {
-	for _, tx := range txs {
-		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
-		if err != nil {
-			continue
-		}
-		var toHex string
-		if to := tx.To(); to == nil {
-			toHex = ""
-		} else {
-			toHex = to.String()
-		}
-		tm := &TransactionMsg{
-			Nonce:    tx.Nonce(),
-			Hash:     tx.Hash().String(),
-			From:     from.String(),
-			To:       toHex,
-			Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
-			Gas:      tx.Gas(),
-			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
-			Input:    "0x" + hex.EncodeToString(tx.Data()),
-		}
-		ts.redisClient.PendingTransaction(tm)
+func (ts *TrueScan) handleTx(tx *types.Transaction) {
+	from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
+	if err != nil {
+		return
 	}
+	var toHex string
+	if to := tx.To(); to == nil {
+		toHex = ""
+	} else {
+		toHex = to.String()
+	}
+	tm := &TransactionMsg{
+		Nonce:    tx.Nonce(),
+		Hash:     tx.Hash().String(),
+		From:     from.String(),
+		To:       toHex,
+		Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
+		Gas:      tx.Gas(),
+		GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
+		Input:    "0x" + hex.EncodeToString(tx.Data()),
+	}
+	ts.redisClient.PendingTransaction(tm)
 }
 
 func (ts *TrueScan) removeTxHandleLoop() error {
@@ -339,7 +338,7 @@ func (ts *TrueScan) loop() error {
 
 // Stop TrueScan message processing client
 func (ts *TrueScan) Stop() {
-	ts.txsSub.Unsubscribe()
+	ts.addTxSub.Unsubscribe()
 	ts.chainHeadSub.Unsubscribe()
 	ts.fruitsSub.Unsubscribe()
 	ts.snailChainHeadSub.Unsubscribe()

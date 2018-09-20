@@ -13,7 +13,7 @@ import (
 const (
 	// txsChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
-	txsChanSize         = 4096
+	addTxChanSize       = 4096
 	removeTxChanSize    = 64
 	receiptsChanSize    = 16
 	chainHeadChanSize   = 16
@@ -33,9 +33,11 @@ func errResp(format string) error {
 
 // Subscriber contains all the events that the redis service needs to subscribe to.
 type Subscriber interface {
-	// SubscribeNewTxsEvent should return an event subscription of
-	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	// SubscribeAddTxEvent should return an event subscription of
+	// AddTxEvent and send events to the given channel.
+	SubscribeAddTxEvent(chan<- core.AddTxEvent) event.Subscription
+	// SubscribeRemoveTxEvent should return an event subscription of
+	// RemoveTxEvent and send events to the given channel.
 	SubscribeRemoveTxEvent(chan<- core.RemoveTxEvent) event.Subscription
 
 	// SubscribeChainHeadEvent should return an event subscription of

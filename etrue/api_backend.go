@@ -197,6 +197,11 @@ func (b *EthAPIBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.S
 	return b.etrue.TxPool().SubscribeNewTxsEvent(ch)
 }
 
+// SubscribeAddTxEvent registers a subscription of AddTxEvent.
+func (b *EthAPIBackend) SubscribeAddTxEvent(ch chan<- core.AddTxEvent) event.Subscription {
+	return b.etrue.TxPool().SubscribeAddTxEvent(ch)
+}
+
 // SubscribeRemoveTxEvent registers a subscription of RemoveTxEvent.
 func (b *EthAPIBackend) SubscribeRemoveTxEvent(ch chan<- core.RemoveTxEvent) event.Subscription {
 	return b.etrue.TxPool().SubscribeRemoveTxEvent(ch)
