@@ -337,6 +337,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		commitMsg.NodeID = node.NodeID
 
 		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
+			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
