@@ -336,10 +336,10 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
 
-		//if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
-		//	node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
-		//	return nil
-		//}
+		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
+			return nil
+		}
 
 		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
