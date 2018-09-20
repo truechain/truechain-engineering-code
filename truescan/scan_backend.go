@@ -10,6 +10,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
+func bytesToHex(input []byte) string {
+	return "0x" + hex.EncodeToString(input)
+}
+
 // TrueScan provides the ability to proactively roll out messages to Redis services.
 type TrueScan struct {
 	sub               Subscriber
@@ -18,10 +22,8 @@ type TrueScan struct {
 	addTxSub          event.Subscription
 	removeTxCh        chan core.RemoveTxEvent
 	removeTxSub       event.Subscription
-	receiptsCh        chan types.Receipts
-	receiptsSub       event.Subscription
-	chainHeadCh       chan core.ChainHeadEvent
-	chainHeadSub      event.Subscription
+	fastBlockCh       chan core.FastBlockEvent
+	fastBlockSub      event.Subscription
 	fruitsch          chan snailchain.NewFruitsEvent //fruit
 	fruitsSub         event.Subscription             // for fruit pool
 	snailChainHeadCh  chan snailchain.ChainHeadEvent
@@ -41,8 +43,7 @@ func New(sub Subscriber, config *Config) *TrueScan {
 		running:          false,
 		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
 		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
-		receiptsCh:       make(chan types.Receipts, receiptsChanSize),
-		chainHeadCh:      make(chan core.ChainHeadEvent, chainHeadChanSize),
+		fastBlockCh:      make(chan core.FastBlockEvent, fastBlockChanSize),
 		fruitsch:         make(chan snailchain.NewFruitsEvent, fruitChanSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
@@ -69,12 +70,9 @@ func (ts *TrueScan) Start() {
 	ts.removeTxSub = ts.sub.SubscribeRemoveTxEvent(ts.removeTxCh)
 	go ts.removeTxHandleLoop()
 
-	ts.receiptsSub = ts.sub.SubscribeReceiptsEvent(ts.receiptsCh)
-	go ts.receiptsHandleLoop()
-
 	// Subscribe events from blockchain
-	ts.chainHeadSub = ts.sub.SubscribeChainHeadEvent(ts.chainHeadCh)
-	go ts.fastChainHandleLoop()
+	ts.fastBlockSub = ts.sub.SubscribeFastBlock(ts.fastBlockCh)
+	go ts.fastBlockHandleLoop()
 
 	ts.fruitsSub = ts.sub.SubscribeNewFruitEvent(ts.fruitsch)
 	go ts.fruitHandleLoop()
@@ -118,10 +116,10 @@ func (ts *TrueScan) handleTx(tx *types.Transaction) {
 		Hash:     tx.Hash().String(),
 		From:     from.String(),
 		To:       toHex,
-		Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
+		Value:    bytesToHex(tx.Value().Bytes()),
 		Gas:      tx.Gas(),
-		GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
-		Input:    "0x" + hex.EncodeToString(tx.Data()),
+		GasPrice: bytesToHex(tx.GasPrice().Bytes()),
+		Input:    bytesToHex(tx.Data()),
 	}
 	ts.redisClient.PendingTransaction(tm)
 }
@@ -191,13 +189,13 @@ func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
 	for i, b := range bsd.Balances {
 		balances[i] = &Account{
 			Address: b.Address.String(),
-			Value:   "0x" + hex.EncodeToString(b.Balance.Bytes()),
+			Value:   bytesToHex(b.Balance.Bytes()),
 		}
 	}
 	for i, r := range bsd.Rewards {
 		rewards[i] = &Account{
 			Address: r.Address.String(),
-			Value:   "0x" + hex.EncodeToString(r.Balance.Bytes()),
+			Value:   bytesToHex(r.Balance.Bytes()),
 		}
 	}
 	scm := &StateChangeMsg{
@@ -226,7 +224,7 @@ func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
 		Nonce:      block.Nonce(),
 		Miner:      block.Coinbase().String(),
 		Difficulty: block.Difficulty().Uint64(),
-		ExtraData:  "0x" + hex.EncodeToString(block.Extra()),
+		ExtraData:  bytesToHex(block.Extra()),
 		Size:       block.Size().Int(),
 		Timestamp:  block.Time().Uint64(),
 	}
@@ -263,70 +261,71 @@ func (ts *TrueScan) handleFruits(fruits []*types.SnailBlock) {
 	fmt.Println("-----------------")
 }
 
-func (ts *TrueScan) fastChainHandleLoop() error {
+func (ts *TrueScan) fastBlockHandleLoop() error {
 	for {
 		select {
-		case ev := <-ts.chainHeadCh:
-			ts.handleFastChain(ev.Block)
-		case <-ts.chainHeadSub.Err():
-			return errResp("chain terminated")
+		case fastBlockEvent := <-ts.fastBlockCh:
+			ts.handleFastChain(fastBlockEvent)
+		case <-ts.fastBlockSub.Err():
+			return errResp("fast block terminated")
 		}
 	}
 }
 
-func (ts *TrueScan) handleFastChain(block *types.Block) {
+func (ts *TrueScan) handleFastChain(fbe core.FastBlockEvent) {
+	block := fbe.Block
+	receipts := fbe.Receipts
 	fbm := &FastBlockHeaderMsg{
 		Number:     block.NumberU64(),
 		Hash:       block.Hash().String(),
 		ParentHash: block.ParentHash().String(),
-		ExtraData:  "0x" + hex.EncodeToString(block.Extra()),
+		ExtraData:  bytesToHex(block.Extra()),
 		Size:       block.Size().Int(),
 		GasLimit:   block.GasLimit(),
 		GasUsed:    block.GasUsed(),
 		Timestamp:  block.Time().Uint64(),
 	}
 	txs := block.Transactions()
-	tms := make([]*TransactionMsg, len(txs))
+	ftms := make([]*FullTransactionMsg, len(txs))
 	for i, tx := range txs {
+		hash := tx.Hash()
+		r := receipts[hash]
+		if r == nil {
+			continue
+		}
 		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
 		if err != nil {
 			continue
 		}
-		var toHex string
+		var toHex, contractHex string
 		if to := tx.To(); to == nil {
 			toHex = ""
+			contractHex = r.ContractAddress.String()
 		} else {
 			toHex = to.String()
+			contractHex = ""
 		}
-		tm := &TransactionMsg{
-			Nonce:    tx.Nonce(),
-			Hash:     tx.Hash().String(),
-			From:     from.String(),
-			To:       toHex,
-			Value:    "0x" + hex.EncodeToString(tx.Value().Bytes()),
-			Gas:      tx.Gas(),
-			GasPrice: "0x" + hex.EncodeToString(tx.GasPrice().Bytes()),
-			Input:    "0x" + hex.EncodeToString(tx.Data()),
+		ftm := &FullTransactionMsg{
+			Nonce:             tx.Nonce(),
+			Hash:              hash.String(),
+			From:              from.String(),
+			To:                toHex,
+			Value:             bytesToHex(tx.Value().Bytes()),
+			Gas:               tx.Gas(),
+			GasPrice:          bytesToHex(tx.GasPrice().Bytes()),
+			Input:             bytesToHex(tx.Data()),
+			PostState:         bytesToHex(r.PostState),
+			Status:            r.Status == 1,
+			CumulativeGasUsed: r.CumulativeGasUsed,
+			Bloom:             bytesToHex(r.Bloom.Bytes()),
+			Logs:              r.Logs,
+			ContractAddress:   contractHex,
+			GasUsed:           r.GasUsed,
 		}
-		tms[i] = tm
+		ftms[i] = ftm
 	}
-	fbm.Txs = tms
+	fbm.Txs = ftms
 	ts.redisClient.NewFastBlockHeader(fbm)
-}
-
-func (ts *TrueScan) receiptsHandleLoop() error {
-	for {
-		select {
-		case receipts := <-ts.receiptsCh:
-			ts.handleReceipts(receipts)
-		case <-ts.receiptsSub.Err():
-			return errResp("receipts terminated")
-		}
-	}
-}
-
-func (ts *TrueScan) handleReceipts(receipts types.Receipts) {
-	ts.redisClient.TransactionReceipts(receipts)
 }
 
 func (ts *TrueScan) loop() error {
@@ -345,9 +344,11 @@ func (ts *TrueScan) Stop() {
 		return
 	}
 	ts.addTxSub.Unsubscribe()
-	ts.chainHeadSub.Unsubscribe()
+	ts.removeTxSub.Unsubscribe()
+	ts.fastBlockSub.Unsubscribe()
 	ts.fruitsSub.Unsubscribe()
 	ts.snailChainHeadSub.Unsubscribe()
 	ts.electionSub.Unsubscribe()
+	ts.stateChangeSub.Unsubscribe()
 	close(ts.quit)
 }

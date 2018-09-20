@@ -1,5 +1,7 @@
 package truescan
 
+import "github.com/truechain/truechain-engineering-code/core/types"
+
 // Config about redis service.
 type Config struct {
 	RedisHost string
@@ -19,6 +21,26 @@ type TransactionMsg struct {
 	Input    string `json:"input"`
 }
 
+// FullTransactionMsg used in corresponding message transmission
+type FullTransactionMsg struct {
+	Nonce    uint64 `json:"nonce"`
+	Hash     string `json:"hash"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Value    string `json:"value"`
+	Gas      uint64 `json:"gas"`
+	GasPrice string `json:"gasPrice"`
+	Input    string `json:"input"`
+	// Receipts
+	PostState         string       `json:"root"`
+	Status            bool         `json:"status"`
+	CumulativeGasUsed uint64       `json:"cumulativeGasUsed"`
+	Bloom             string       `json:"logsBloom"`
+	Logs              []*types.Log `json:"logs"`
+	ContractAddress   string       `json:"contractAddress"`
+	GasUsed           uint64       `json:"gasUsed"`
+}
+
 // RemoveTxMsg used in corresponding message transmission
 type RemoveTxMsg struct {
 	Hash string `json:"hash"`
@@ -26,15 +48,15 @@ type RemoveTxMsg struct {
 
 // FastBlockHeaderMsg used in corresponding message transmission
 type FastBlockHeaderMsg struct {
-	Number     uint64            `json:"number"`
-	Hash       string            `json:"hash"`
-	ParentHash string            `json:"parentHash"`
-	ExtraData  string            `json:"extraData"`
-	Size       uint64            `json:"size"`
-	GasLimit   uint64            `json:"gasLimit"`
-	GasUsed    uint64            `json:"gasUsed"`
-	Timestamp  uint64            `json:"timestamp"`
-	Txs        []*TransactionMsg `json:"txs"`
+	Number     uint64                `json:"number"`
+	Hash       string                `json:"hash"`
+	ParentHash string                `json:"parentHash"`
+	ExtraData  string                `json:"extraData"`
+	Size       uint64                `json:"size"`
+	GasLimit   uint64                `json:"gasLimit"`
+	GasUsed    uint64                `json:"gasUsed"`
+	Timestamp  uint64                `json:"timestamp"`
+	Txs        []*FullTransactionMsg `json:"txs"`
 }
 
 // FruitHeaderMsg used in corresponding message transmission

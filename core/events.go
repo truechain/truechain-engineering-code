@@ -63,6 +63,11 @@ type ChainSideEvent struct {
 
 type ChainHeadEvent struct{ Block *types.Block }
 
+type FastBlockEvent struct {
+	Block    *types.Block
+	Receipts map[common.Hash]*types.Receipt
+}
+
 // for fruit event
 type FruitEvent struct {
 	Block *types.Block

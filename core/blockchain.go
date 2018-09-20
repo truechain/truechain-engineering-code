@@ -102,7 +102,7 @@ type BlockChain struct {
 	logsFeed         event.Feed
 	RewardNumberFeed event.Feed
 	stateChangeFeed  event.Feed
-	receiptsFeed     event.Feed
+	fastBlockFeed    event.Feed
 	scope            event.SubscriptionScope
 	genesisBlock     *types.Block
 
@@ -1257,9 +1257,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			Rewards:  rewards,
 		}
 		bc.stateChangeFeed.Send(bcd)
-		if receipts.Len() > 0 {
-			bc.receiptsFeed.Send(receipts)
+
+		receiptMap := make(map[common.Hash]*types.Receipt)
+		for _, r := range receipts {
+			receiptMap[r.TxHash] = r
 		}
+		bc.fastBlockFeed.Send(FastBlockEvent{
+			Block:    block,
+			Receipts: receiptMap,
+		})
 
 		// Write the block to the chain and get the status.
 		status, err := bc.WriteBlockWithState(block, receipts, state)
@@ -1708,9 +1714,9 @@ func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- StateChangeEvent) even
 	return bc.scope.Track(bc.stateChangeFeed.Subscribe(ch))
 }
 
-// SubscribeReceiptsEvent registers a subscription of transactions receipts.
-func (bc *BlockChain) SubscribeReceiptsEvent(ch chan<- types.Receipts) event.Subscription {
-	return bc.scope.Track(bc.receiptsFeed.Subscribe(ch))
+// SubscribeFastBlock registers a subscription of fast block with tx receipts.
+func (bc *BlockChain) SubscribeFastBlock(ch chan<- FastBlockEvent) event.Subscription {
+	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }
 
 func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward {

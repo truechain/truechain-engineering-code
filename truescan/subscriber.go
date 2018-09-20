@@ -6,7 +6,6 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
@@ -15,8 +14,7 @@ const (
 	// The number is referenced from the size of tx pool.
 	addTxChanSize       = 4096
 	removeTxChanSize    = 64
-	receiptsChanSize    = 16
-	chainHeadChanSize   = 16
+	fastBlockChanSize   = 16
 	fruitChanSize       = 256
 	snailChainHeadSize  = 64
 	electionChanSize    = 64
@@ -40,9 +38,7 @@ type Subscriber interface {
 	// RemoveTxEvent and send events to the given channel.
 	SubscribeRemoveTxEvent(chan<- core.RemoveTxEvent) event.Subscription
 
-	// SubscribeChainHeadEvent should return an event subscription of
-	// ChainHeadEvent and send events to the given channel.
-	SubscribeChainHeadEvent(chan<- core.ChainHeadEvent) event.Subscription
+	SubscribeFastBlock(chan<- core.FastBlockEvent) event.Subscription
 
 	// SubscribeNewFruitEvent should return an event subscription of
 	// NewFruitsEvent and send events to the given channel.
@@ -55,6 +51,4 @@ type Subscriber interface {
 	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
 
 	SubscribeStateChangeEvent(chan<- core.StateChangeEvent) event.Subscription
-
-	SubscribeReceiptsEvent(chan<- types.Receipts) event.Subscription
 }

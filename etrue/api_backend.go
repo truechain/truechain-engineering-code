@@ -255,6 +255,10 @@ func NewEthAPIBackend(etrue *Truechain) *EthAPIBackend {
 	return apiBackend
 }
 
+func (b *EthAPIBackend) SubscribeFastBlock(ch chan<- core.FastBlockEvent) event.Subscription {
+	return b.etrue.BlockChain().SubscribeFastBlock(ch)
+}
+
 // SubscribeNewFruitEvent registers a subscription of NewFruitsEvent.
 func (b *EthAPIBackend) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeNewFruitEvent(ch)
@@ -273,9 +277,4 @@ func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) eve
 // SubscribeStateChangeEvent registers a subscription of StateChangeEvent.
 func (b *EthAPIBackend) SubscribeStateChangeEvent(ch chan<- core.StateChangeEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeStateChangeEvent(ch)
-}
-
-// SubscribeReceiptsEvent registers a subscription of TransactionReceipts event.
-func (b *EthAPIBackend) SubscribeReceiptsEvent(ch chan<- types.Receipts) event.Subscription {
-	return b.etrue.BlockChain().SubscribeReceiptsEvent(ch)
 }
