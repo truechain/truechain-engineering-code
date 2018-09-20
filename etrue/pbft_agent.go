@@ -239,6 +239,7 @@ func (self *PbftAgent) loop() {
 				ticker.Stop()                                //stop ticker send nodeInfo
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 				ticker = time.NewTicker(sendNodeTime)
+				log.Debug("switch:","m3:",len(receivedCommitteeInfo.Members))
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
 					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)

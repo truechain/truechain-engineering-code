@@ -186,6 +186,7 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+	log.Debug("IsCommitteeMember","len(members)",len(members))
 	if len(members) == 0 {
 		log.Error("IsCommitteeMember method len(members)= 0" )
 		return false
