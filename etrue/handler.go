@@ -146,17 +146,17 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
 
-	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-	//	log.Warn("Blockchain not empty, fast sync disabled")
-	//	mode = downloader.FullSync
-	//}
-	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-	//	log.Warn("Blockchain not empty, fast sync disabled")
-	//	mode = downloader.FullSync
-	//}
-	//if mode == downloader.FastSync {
-	//	manager.fastSync = uint32(1)
-	//}
+	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+		log.Warn("Blockchain not empty, fast sync disabled")
+		mode = downloader.FullSync
+	}
+	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+		log.Warn("Blockchain not empty, fast sync disabled")
+		mode = downloader.FullSync
+	}
+	if mode == downloader.FastSync {
+		manager.fastSync = uint32(1)
+	}
 
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
@@ -201,9 +201,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	fmode := fastdownloader.SyncMode(int(mode))
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
-
-
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
+
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
@@ -238,11 +237,12 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	snailInserter := func(blocks types.SnailBlocks) (int, error) {
 		// If fast sync is running, deny importing weird blocks
-		// if atomic.LoadUint32(&manager.fastSync) == 1 {
-		// 	log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
-		// 	return 0, nil
-		// }
-		// atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+		if atomic.LoadUint32(&manager.fastSync) == 1 {
+			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
+			return 0, nil
+		}
+		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
+		atomic.StoreUint32(&manager.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		return manager.snailchain.InsertChain(blocks)
 	}
 
@@ -262,7 +262,8 @@ func (pm *ProtocolManager) removePeer(id string) {
 
 	// TODO: downloader.UnregisterPeer
 	// Unregister the peer from the downloader and Truechain peer set
-	//pm.downloader.UnregisterPeer(id)
+	pm.downloader.UnregisterPeer(id)
+	pm.fdownloader.UnregisterPeer(id)
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
@@ -310,6 +311,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.fruitsyncLoop()
 	//atomic.StoreUint32(&pm.acceptTxs, 1)
 	//atomic.StoreUint32(&pm.acceptFruits, 1)
+
 }
 
 func (pm *ProtocolManager) Stop() {
@@ -381,16 +383,16 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	defer pm.removePeer(p.id)
 
 	// TODO: downloader.RegisterPeer
-	// Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	//if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
-	//	p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
-	//	return err
-	//}
-	//
-	//if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
-	//	p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
-	//	return err
-	//}
+	//Register the peer in the downloader. If the downloader considers it banned, we disconnect
+	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
+		return err
+	}
+
+	if err := pm.fdownloader.RegisterPeer(p.id, p.version, p); err != nil {
+		p.Log().Error("Truechain fdownloader.RegisterPeer registration failed", "err", err)
+		return err
+	}
 
 	// Propagate existing transactions. new transactions appearing
 	// after this will be sent via broadcasts.
@@ -443,7 +445,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
-	// Block header query, collect the requested headers and reply
+		// Block header query, collect the requested headers and reply
 
 	case msg.Code == GetSnailBlockHeadersMsg:
 
@@ -651,19 +653,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
-		//filter := len(headers) == 1
-		//if filter {
-		//	// Irrelevant of the fork checks, send the header to the fetcher just in case
-		//	headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
-		//}
-		// mecMark
-		//if len(headers) > 0 {
-		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>","headers:",len(headers))
-		err := pm.fdownloader.DeliverHeaders(p.id, headers)
-		if err != nil {
-			log.Debug("Failed to deliver headers", "err", err)
+		filter := len(headers) == 1
+		if filter {
+			// Irrelevant of the fork checks, send the header to the fetcher just in case
+			headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
 		}
-		//}
+		// mecMark
+		if len(headers) > 0 {
+			log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>","headers:",len(headers))
+			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
+			}
+		}
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
@@ -704,23 +706,22 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		transactions := make([][]*types.Transaction, len(request))
 		signs := make([][]*types.PbftSign, len(request))
 
-		//Signs   []*types.PbftSign
 		for i, body := range request {
 			transactions[i] = body.Transactions
 			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		//filter := len(transactions) > 0
-		//if filter {
-		//	transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
-		//}
-		// mecMark
-		//if len(transactions) > 0 || len(uncles) > 0 || !filter {
-		err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
-		if err != nil {
-			log.Debug("Failed to deliver bodies", "err", err)
+		filter := len(transactions) > 0
+		if filter {
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
 		}
-		//}
+		// mecMark
+		if len(transactions) > 0 || !filter {
+			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
+			if err != nil {
+				log.Debug("Failed to deliver bodies", "err", err)
+			}
+		}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
 		log.Debug("GetSnailBlockBodiesMsg>>>>>>>>>>>>")
@@ -885,9 +886,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				}
 			}
 		}
-		//for _, block := range unknown {
-		//	pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
-		//}
+		for _, block := range unknown {
+			pm.fetcherFast.Notify(p.id, block.Hash, block.Number, block.Sign, time.Now(), p.RequestOneFastHeader, p.RequestBodies)
+		}
 
 	case msg.Code == NewFastBlockMsg:
 		// Retrieve and decode the propagated block
@@ -903,24 +904,18 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		pm.fetcherFast.Enqueue(p.id, request.Block)
 
 		// TODO: downloader sync func
-		//// Assuming the block is importable by the peer, but possibly not yet done so,
-		//// calculate the head hash and TD that the peer truly must have.
-		//var (
-		//	trueHead = request.Block.ParentHash()
-		//	trueTD   = new(big.Int).Sub(request.td, request.Block.Difficulty())
-		//)
-		//// Update the peers total difficulty if better than the previous
-		//if _, td := p.Head(); trueTD.Cmp(td) > 0 {
-		//	p.SetHead(trueHead, trueTD)
-		//
-		//	// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-		//	// a singe block (as the true TD is below the propagated block), however this
-		//	// scenario should easily be covered by the fetcher.
-		//	currentBlock := pm.blockchain.CurrentBlock()
-		//	if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-		//		go pm.synchronise(p)
-		//	}
-		//}
+		// Assuming the block is importable by the peer, but possibly not yet done so,
+		// calculate the head hash and TD that the peer truly must have.
+
+		// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+		// a singe block (as the true TD is below the propagated block), however this
+		// scenario should easily be covered by the fetcher.
+
+		currentBlock := pm.blockchain.CurrentBlock()
+		if request.Block.NumberU64() - currentBlock.NumberU64() > maxKnownFastBlocks {
+			go pm.synchronise(p)
+		}
+
 
 	case msg.Code == TxMsg:
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
@@ -972,8 +967,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// committee no current block
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 
-	//fruit structure
-
+		//fruit structure
 	case msg.Code == FruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
@@ -994,7 +988,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//pm.hybridpool.AddRemoteFruits(fruits)
 		pm.SnailPool.AddRemoteFruits(fruits)
 
-	//snailBlock structure
+		//snailBlock structure
 
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
@@ -1014,9 +1008,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
 		p.MarkSnailBlock(snailBlock.Hash())
-
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
+		hash ,td :=p.Head()
+		fbNum := snailBlock.Fruits()[0].NumberU64()
 
+		if pm.blockchain.CurrentBlock().NumberU64() == fbNum {
+
+			pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
+		}
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
 		var (
@@ -1024,36 +1023,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
 		)
 		// Update the peers total difficulty if better than the previous
-		if _, td := p.Head(); trueTD.Cmp(td) > 0 {
+		if _, td := p.Head(); trueTD.Cmp(td) > 0 || td == nil {
 			p.SetHead(trueHead, trueTD)
 
 			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 			// a singe block (as the true TD is below the propagated block), however this
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
+			tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+			fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
-				// go pm.synchronise(p)
+				go pm.synchronise(p)
 			}
 		}
-
-		// downloads
-		//var (
-		//	trueHead = request.Block.ParentHash()
-		//	trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
-		//)
-		// Update the peers total difficulty if better than the previous
-		//if _, td := p.Head(); trueTD.Cmp(td) > 0 {
-		//	p.SetHead(trueHead, trueTD)
-		//
-		//	// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-		//	// a singe block (as the true TD is below the propagated block), however this
-		//	// scenario should easily be covered by the fetcher.
-		//	currentBlock := pm.blockchain.CurrentBlock()
-		//	if trueTD.Cmp(pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-		//		go pm.synchronise(p)
-		//	}
-		//}
 
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
@@ -1258,7 +1241,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		case event := <-pm.txsCh:
 			pm.BroadcastTxs(event.Txs)
 
-		// Err() channel will be closed when unsubscribing.
+			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
 			return
 		}
