@@ -238,6 +238,9 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	return dl
 }
 
+func  (d *Downloader) GetBlockChain() BlockChain {
+	return d.blockchain
+}
 
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block

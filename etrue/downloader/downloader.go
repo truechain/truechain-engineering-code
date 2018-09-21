@@ -1396,7 +1396,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		blocks := make([]*types.SnailBlock, 1)
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
-		if len(result.Fruits) > 0 {
+		if len(result.Fruits) > 0 && d.fastDown.GetBlockChain().CurrentBlock().NumberU64() < result.Fruits[0].FastNumber().Uint64() {
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 
