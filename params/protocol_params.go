@@ -85,7 +85,7 @@ var (
 	GenesisDifficulty      = big.NewInt(131072) // Difficulty of the Genesis block.
 	MinimumDifficulty      = big.NewInt(256) // The minimum that the difficulty may ever be.
 	MinimumFruitDifficulty = big.NewInt(1)
-	DurationLimit          = big.NewInt(600)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+	DurationLimit          = big.NewInt(60)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 
 	FruitBlockRatio *big.Int = big.NewInt(600) // difficulty ratio between fruit and snail block
 )

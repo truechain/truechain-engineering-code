@@ -36,7 +36,7 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 1440 // snail block period number
+	z                  = 44  // snail block period number
 	k                  = 1000
 	lamada             = 12
 
