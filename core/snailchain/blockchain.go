@@ -34,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/hashicorp/golang-lru"
 	//"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -41,7 +42,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -1422,6 +1422,40 @@ func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
 		return nil
 	}
 	return committee
+}
+
+
+func (bc *SnailBlockChain) GetBlockDifficulty(b * types.SnailBlock) *big.Int {
+	if diff := b.D.Load(); diff != nil {
+		return diff.(*big.Int)
+	}
+
+	if b.IsFruit() {
+		pointer := bc.GetHeaderByHash(b.PointerHash())
+		if pointer == nil {
+			log.Warn("get pointer block failed", "hash", b.PointerHash())
+			return nil
+		}
+		diff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
+		b.D.Store(diff)
+		return diff
+	} else {
+		td := big.NewInt(0)
+		for _, f := range b.Fruits() {
+			fd := bc.GetBlockDifficulty(f)
+			if fd == nil {
+				log.Warn("get fruit pointer block failed", "fnumber", f.FastNumber(), "fhash", f.FastHash())
+				return nil
+			}
+			td.Add(td, fd)
+		}
+		td = new(big.Int).Div(td, params.FruitBlockRatio)
+		td.Add(td, b.Difficulty())
+
+		b.D.Store(td)
+
+		return td
+	}
 }
 
 // Config retrieves the blockchain's chain configuration.

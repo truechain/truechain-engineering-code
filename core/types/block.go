@@ -482,6 +482,8 @@ type SnailBlock struct {
 	hash atomic.Value
 	size atomic.Value
 
+	D atomic.Value
+
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
 	td *big.Int
@@ -793,3 +795,4 @@ func (b *SnailBlock) Hash() common.Hash {
 	b.hash.Store(v)
 	return v
 }
+
