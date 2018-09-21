@@ -382,9 +382,9 @@ func (f *Fetcher) loop() {
 		finished := false
 		index := -1
 		// Import any queued blocks that could potentially fit
-		height := f.chainHeight()
 		for !f.queue.Empty() && f.enterQueue {
 
+			height := f.chainHeight()
 			opMulti := f.queue.PopItem().(*injectMulti)
 			blocks := opMulti.blocks
 			peers := opMulti.origins
@@ -463,7 +463,6 @@ func (f *Fetcher) loop() {
 							log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
 
 							f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
-							height = height + 1
 							index = -1
 						}
 					} else {
