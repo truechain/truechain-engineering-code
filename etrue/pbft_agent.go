@@ -64,7 +64,6 @@ var (
 	txSlice         []uint64
 	tpsSlice        []float32
 	averageTpsSlice []float32
-	rewardTimes     = 0
 )
 
 type Backend interface {
@@ -373,7 +372,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		if err := self.sendSign(receiveBlock); err != nil {
 			return err
 		}
-		log.Info("handleConsensusBlock: blok already insert blockchain by fetch", "number", receiveBlockHeight)
+		log.Info("handleConsensusBlock: blok already insert blockchain", "number", receiveBlockHeight)
 		return nil
 	}
 	//self.fastChain.CurrentBlock()
@@ -572,11 +571,6 @@ func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 	var rewardSnailHegiht *big.Int
 	blockReward := self.fastChain.CurrentReward()
 	if blockReward == nil {
-		if rewardTimes > 1 {
-			log.Error("reward blockNumber =1 more than one times.")
-			return
-		}
-		rewardTimes++
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
 	} else {
 		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
