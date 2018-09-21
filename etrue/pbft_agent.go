@@ -64,6 +64,7 @@ var (
 	txSlice         []uint64
 	tpsSlice        []float32
 	averageTpsSlice []float32
+	rewardTimes     = 0
 )
 
 type Backend interface {
@@ -369,7 +370,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	receiveBlockHeight := receiveBlock.Number()
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
-		if err :=self.sendSign(receiveBlock);err !=nil{
+		if err := self.sendSign(receiveBlock); err != nil {
 			return err
 		}
 		log.Info("handleConsensusBlock: blok already insert blockchain by fetch", "number", receiveBlockHeight)
@@ -392,7 +393,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		}
 		//test tps
 		GetTps(receiveBlock)
-		if err :=self.sendSign(receiveBlock);err !=nil{
+		if err := self.sendSign(receiveBlock); err != nil {
 			return err
 		}
 	} else {
@@ -404,7 +405,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (self *PbftAgent) sendSign(receiveBlock *types.Block) error{
+func (self *PbftAgent) sendSign(receiveBlock *types.Block) error {
 	//generate sign
 	voteSign, err := self.GenerateSign(receiveBlock)
 	if err != nil {
@@ -571,12 +572,16 @@ func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 	var rewardSnailHegiht *big.Int
 	blockReward := self.fastChain.CurrentReward()
 	if blockReward == nil {
+		if rewardTimes > 1 {
+			log.Error("reward blockNumber =1 more than one times.")
+			return
+		}
+		rewardTimes++
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
 	} else {
 		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-
 	if space >= blockRewordSpace {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
@@ -657,7 +662,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
-		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0{
+		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .")
 			return nil
 		}
