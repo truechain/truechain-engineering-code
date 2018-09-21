@@ -37,7 +37,7 @@ const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
 	z                  = 44  // snail block period number
-	k                  = 1000
+	k                  = 100
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
