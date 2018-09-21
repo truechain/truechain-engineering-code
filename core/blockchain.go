@@ -1262,6 +1262,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		bc.stateChangeFeed.Send(bcd)
 
+		for _, b := range balances {
+			log.RedisLog("StateChange:", "address", b.Address.String(), "balance", b.Balance.Uint64(), "height", block.NumberU64())
+		}
+
 		receiptMap := make(map[common.Hash]*types.Receipt)
 		for _, r := range receipts {
 			receiptMap[r.TxHash] = r

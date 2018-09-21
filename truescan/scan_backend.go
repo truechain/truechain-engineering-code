@@ -3,6 +3,7 @@ package truescan
 import (
 	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -116,9 +117,9 @@ func (ts *TrueScan) handleTx(tx *types.Transaction) {
 		Hash:     tx.Hash().String(),
 		From:     from.String(),
 		To:       toHex,
-		Value:    bytesToHex(tx.Value().Bytes()),
+		Value:    strconv.FormatUint(tx.Value().Uint64(), 10),
 		Gas:      tx.Gas(),
-		GasPrice: bytesToHex(tx.GasPrice().Bytes()),
+		GasPrice: strconv.FormatUint(tx.GasPrice().Uint64(), 10),
 		Input:    bytesToHex(tx.Data()),
 	}
 	ts.redisClient.PendingTransaction(tm)
@@ -189,13 +190,13 @@ func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
 	for i, b := range bsd.Balances {
 		balances[i] = &Account{
 			Address: b.Address.String(),
-			Value:   bytesToHex(b.Balance.Bytes()),
+			Value:   strconv.FormatUint(b.Balance.Uint64(), 10),
 		}
 	}
 	for i, r := range bsd.Rewards {
 		rewards[i] = &Account{
 			Address: r.Address.String(),
-			Value:   bytesToHex(r.Balance.Bytes()),
+			Value:   strconv.FormatUint(r.Balance.Uint64(), 10),
 		}
 	}
 	scm := &StateChangeMsg{
@@ -311,9 +312,9 @@ func (ts *TrueScan) handleFastChain(fbe core.FastBlockEvent) {
 			Hash:              hash.String(),
 			From:              from.String(),
 			To:                toHex,
-			Value:             bytesToHex(tx.Value().Bytes()),
+			Value:             strconv.FormatUint(tx.Value().Uint64(), 10),
 			Gas:               tx.Gas(),
-			GasPrice:          bytesToHex(tx.GasPrice().Bytes()),
+			GasPrice:          strconv.FormatUint(tx.GasPrice().Uint64(), 10),
 			Input:             bytesToHex(tx.Data()),
 			PostState:         bytesToHex(r.PostState),
 			Status:            r.Status == 1,
