@@ -262,8 +262,12 @@ func (pm *ProtocolManager) removePeer(id string) {
 
 	// TODO: downloader.UnregisterPeer
 	// Unregister the peer from the downloader and Truechain peer set
-	pm.downloader.UnregisterPeer(id)
-	pm.fdownloader.UnregisterPeer(id)
+	if err := pm.downloader.UnregisterPeer(id); err != nil {
+		log.Error("downloaderPeer removal failed", "peer", id, "err", err)
+	}
+	if err := pm.fdownloader.UnregisterPeer(id); err != nil {
+		log.Error("fdownloaderPeer removal failed", "peer", id, "err", err)
+	}
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
