@@ -43,7 +43,6 @@ const (
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
-	signChanSize     = 8
 )
 
 var (
@@ -57,7 +56,7 @@ type blockRetrievalFn func(common.Hash) *types.Block
 type headerRequesterFn func(common.Hash) error
 
 // bodyRequesterFn is a callback type for sending a body retrieval request.
-type bodyRequesterFn func([]common.Hash,bool) error
+type bodyRequesterFn func([]common.Hash, bool) error
 
 // headerVerifierFn is a callback type to verify a block's header for fast propagation.
 type headerVerifierFn func(header *types.Header) error
@@ -211,7 +210,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 	return &Fetcher{
 		notify:        make(chan *announce),
 		inject:        make(chan *inject),
-		injectSign:    make(chan *injectSign, signChanSize),
+		injectSign:    make(chan *injectSign),
 		blockFilter:   make(chan chan []*types.Block),
 		headerFilter:  make(chan chan *headerFilterTask),
 		bodyFilter:    make(chan chan *bodyFilterTask),
@@ -383,9 +382,9 @@ func (f *Fetcher) loop() {
 		finished := false
 		index := -1
 		// Import any queued blocks that could potentially fit
-		height := f.chainHeight()
 		for !f.queue.Empty() && f.enterQueue {
 
+			height := f.chainHeight()
 			opMulti := f.queue.PopItem().(*injectMulti)
 			blocks := opMulti.blocks
 			peers := opMulti.origins
@@ -443,26 +442,29 @@ func (f *Fetcher) loop() {
 				if !finished {
 					if index != -1 {
 						number := blocks[index].NumberU64()
-						if number > height+1 {
-							finished = true
-							break
-						}
-						signHashs := f.signMultiHash[number]
-						signs := []*types.PbftSign{}
-						for _, signHash := range signHashs {
-							if sign, ok := f.queuedSign[signHash]; ok {
-								if f.getBlock(sign.sign.FastHash) != nil {
-									f.forgetBlockHeight(big.NewInt(int64(number)))
-									finished = true
-									break
-								}
-								signs = append(signs, sign.sign)
+						if _, ok := f.blockConsensus[number]; ok {
+							if number > height+1 {
+								finished = true
+								break
 							}
+							signHashs := f.signMultiHash[number]
+							signs := []*types.PbftSign{}
+							for _, signHash := range signHashs {
+								if sign, ok := f.queuedSign[signHash]; ok {
+									if f.getBlock(sign.sign.FastHash) != nil {
+										f.forgetBlockHeight(big.NewInt(int64(number)))
+										finished = true
+										break
+									}
+									signs = append(signs, sign.sign)
+								}
+							}
+
+							log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
+
+							f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
+							index = -1
 						}
-
-						log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
-						f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
 					} else {
 						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
 						finished = true
@@ -599,7 +601,7 @@ func (f *Fetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
-				go f.completing[hashes[0]].fetchBodies(hashes,true)
+				go f.completing[hashes[0]].fetchBodies(hashes, true)
 			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleComplete(completeTimer)
@@ -843,7 +845,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			return
 		}
 
-		if f.getBlock(verifySigns[0].FastHash) != nil || f.agentFetcher.AcquireCommitteeAuth(signs[0].FastHeight) {
+		if f.getBlock(verifySigns[0].FastHash) != nil {
 			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
 			propSignDropMeter.Mark(1)
 			f.forgetBlockHeight(verifySigns[0].FastHeight)

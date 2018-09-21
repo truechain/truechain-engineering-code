@@ -1012,7 +1012,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hash ,td :=p.Head()
 		fbNum := snailBlock.Fruits()[0].NumberU64()
 
-		if pm.blockchain.CurrentBlock().NumberU64() == fbNum {
+		if pm.blockchain.CurrentBlock().NumberU64() + 1  == fbNum  {
 
 			pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
 		}
