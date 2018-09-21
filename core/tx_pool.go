@@ -1101,7 +1101,7 @@ func (pool *TxPool) demoteUnexecutables() {
 		for _, tx := range list.Forward(nonce) {
 			hash := tx.Hash()
 			log.Trace("Removed old pending transaction", "hash", hash)
-			pool.all.Remove(hash)
+			pool.all.RemoveWithoutEvent(hash)
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
@@ -1253,4 +1253,12 @@ func (t *txLookup) Remove(hash common.Hash) {
 	t.removeTxFeed.Send(RemoveTxEvent{
 		Hash: hash,
 	})
+}
+
+// RemoveWithoutEvent removes a transaction from the lookup.
+func (t *txLookup) RemoveWithoutEvent(hash common.Hash) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	delete(t.all, hash)
 }

@@ -369,7 +369,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	receiveBlockHeight := receiveBlock.Number()
 	if self.fastChain.CurrentBlock().Number().Cmp(receiveBlockHeight) >= 0 {
-		if err :=self.sendSign(receiveBlock);err !=nil{
+		if err := self.sendSign(receiveBlock); err != nil {
 			return err
 		}
 		log.Info("handleConsensusBlock: blok already insert blockchain by fetch", "number", receiveBlockHeight)
@@ -392,7 +392,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		}
 		//test tps
 		GetTps(receiveBlock)
-		if err :=self.sendSign(receiveBlock);err !=nil{
+		if err := self.sendSign(receiveBlock); err != nil {
 			return err
 		}
 	} else {
@@ -404,7 +404,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (self *PbftAgent) sendSign(receiveBlock *types.Block) error{
+func (self *PbftAgent) sendSign(receiveBlock *types.Block) error {
 	//generate sign
 	voteSign, err := self.GenerateSign(receiveBlock)
 	if err != nil {
@@ -570,6 +570,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 	var rewardSnailHegiht *big.Int
 	blockReward := self.fastChain.CurrentReward()
+	log.RedisLog("RewardSnailBlock:", "height", blockReward.SnailNumber.Uint64(), "hash", blockReward.SnailHash().String())
 	if blockReward == nil {
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
 	} else {
@@ -657,7 +658,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
-		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0{
+		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .")
 			return nil
 		}

@@ -774,6 +774,9 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	if e != nil {
 		return e
 	}
+	if state.IsMarked() {
+		log.RedisLog("Rewards Block:", "hieght", sBlock.NumberU64(), "hash", sBlock.Hash().String())
+	}
 
 	//miner's award
 	miner := sBlock.Coinbase()
