@@ -496,6 +496,7 @@ func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	return nil
 }
 
+
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
 	var fruitsCount map[common.Address]uint = make(map[common.Address]uint)
@@ -547,7 +548,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	td := big.NewInt(0)
 	for _, member := range members {
 		if cnt, ok := fruitsCount[member.address]; ok {
-			log.Trace("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
+			log.Debug("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
 			if cnt >= fruitThreshold {
 				td.Add(td, member.difficulty)
 
@@ -630,7 +631,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	members := e.elect(candidates, seed)
 
 	// for test
-	//members = testCommttee
+	members = testCommttee
 	return members
 }
 

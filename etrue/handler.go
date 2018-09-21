@@ -1088,7 +1088,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash().String(), "recipients", len(peers))
+		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash(), "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
