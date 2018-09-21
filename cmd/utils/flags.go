@@ -35,6 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/consensus"
+
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	"bytes"
 
@@ -1216,6 +1217,8 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			cfg.NetworkId = 3
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
+		cfg.FastGenesis = cfg.Genesis.Fast
+		cfg.SnailGenesis = cfg.Genesis.Snail
 	case ctx.GlobalBool(RinkebyFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 4
