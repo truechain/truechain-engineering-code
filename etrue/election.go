@@ -112,7 +112,6 @@ type committee struct {
 func (c *committee) Members() []*types.CommitteeMember {
 	members := make([]*types.CommitteeMember, len(c.members))
 	copy(members, c.members)
-
 	return members
 }
 

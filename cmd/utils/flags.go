@@ -35,9 +35,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/consensus"
+
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
+	"bytes"
+
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -59,8 +63,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"bytes"
 )
 
 var (
@@ -713,7 +715,6 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
-
 // setListenAddress creates a TCP listening address string from set command
 // line flags.
 func setListenAddress(ctx *cli.Context, cfg *p2p.Config) {
@@ -1126,7 +1127,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
 	}
 	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
-		cfg.StandByPort =int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
+		cfg.StandByPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
 	}
 
 	//set PrivateKey by config,file or hex
@@ -1136,13 +1137,13 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.PrivateKey = stack.Config().BftCommitteeKey()
 	}
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
-	if bytes.Equal(cfg.CommitteeKey,[]byte{}){
+	if bytes.Equal(cfg.CommitteeKey, []byte{}) {
 		Fatalf("init load CommitteeKey  nil.")
 	}
-	if ctx.GlobalBool(EnableElectionFlag.Name){
+	if ctx.GlobalBool(EnableElectionFlag.Name) {
 		cfg.EnableElection = true
 	}
-	if cfg.EnableElection && !cfg.NodeType{
+	if cfg.EnableElection && !cfg.NodeType {
 		if cfg.Host == "" {
 			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
 		}
@@ -1152,12 +1153,12 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		if cfg.StandByPort == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
 		}
-		if cfg.Port == cfg.StandByPort{
-			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name,BFTStandByPortFlag.Name)
+		if cfg.Port == cfg.StandByPort {
+			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name, BFTStandByPortFlag.Name)
 		}
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
-		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection,"singlenode",cfg.NodeType)
+		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection, "singlenode", cfg.NodeType)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
@@ -1196,6 +1197,8 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			cfg.NetworkId = 3
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
+		cfg.FastGenesis = cfg.Genesis.Fast
+		cfg.SnailGenesis = cfg.Genesis.Snail
 	case ctx.GlobalBool(RinkebyFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 4
@@ -1354,7 +1357,7 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain,schain *snailchain.SnailBlockChain, chainDb ethdb.Database) {
+func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, schain *snailchain.SnailBlockChain, chainDb ethdb.Database) {
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
@@ -1393,7 +1396,6 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain,scha
 		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
-
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
@@ -1405,7 +1407,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain,scha
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
-	return fchain,schain, chainDb
+	return fchain, schain, chainDb
 }
 
 // MakeConsolePreloads retrieves the absolute paths for the console JavaScript
