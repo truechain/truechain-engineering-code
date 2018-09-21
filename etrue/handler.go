@@ -975,6 +975,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == FruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
+			log.Debug("refuse accept fruits")
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
@@ -989,10 +990,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkFruit(fruit.Hash())
 		}
-		//pm.hybridpool.AddRemoteFruits(fruits)
 		pm.SnailPool.AddRemoteFruits(fruits)
-
-		//snailBlock structure
 
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them

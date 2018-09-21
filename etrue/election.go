@@ -36,8 +36,8 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 44  // snail block period number
-	k                  = 100
+	z                  = 1440  // snail block period number
+	k                  = 1000
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
