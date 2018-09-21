@@ -257,7 +257,7 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 		return ErrNotExist
 	} else {
 		if err := pool.chain.Validator().ValidateFruit(f); err != nil {
-			log.Info("Validate fruit error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
+			log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
 			delete(pool.allFruits, fastBlock.Hash())
 			delete(pool.fruitPending, fastBlock.Hash())
 			return ErrInvalidHash
@@ -299,10 +299,10 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	// TODO: check signature
 	//fruit validation
 	if err := pool.chain.Validator().ValidateFruit(fruit); err != nil {
-		log.Info("Validate fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+		log.Info("add fruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
-	log.Info("add fruit  1  ")
+	log.Info("add fruit ", "fastnumber", fruit.FastNumber())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {

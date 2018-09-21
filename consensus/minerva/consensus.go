@@ -436,9 +436,14 @@ func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) 
 	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
+		pointer := m.sbc.GetHeaderByHash(header.PointerHash)
+		if pointer == nil {
+			log.Warn("Minerva get difficulty pointer failed.", "pointer", pointer.Hash(), "number", header.FastNumber)
+			return nil, nil
+		}
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
-		fruitDiff := new(big.Int).Div(header.Difficulty, params.FruitBlockRatio)
+		fruitDiff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
 
 		return actDiff, fruitDiff
 	} else {

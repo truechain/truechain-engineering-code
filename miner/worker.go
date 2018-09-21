@@ -426,7 +426,6 @@ func (self *worker) wait() {
 				
 				// add fruit once 
 				if self.FastBlockNumber != nil{
-
 					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
 						log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 						//log.Info("not same fruits")
@@ -436,14 +435,12 @@ func (self *worker) wait() {
 					}else{
 						//log.Info("the same fruits")
 					}
-
 				}else{
 					log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
 				}
-				
 
 				// make sure the fast number has been fruit
 				self.FastBlockNumber.SetUint64(block.FastNumber().Uint64())
@@ -453,13 +450,13 @@ func (self *worker) wait() {
 					self.atCommintNewWoker = false
 				}
 			} else {
-				log.Info("+++++ mined block  ---  "," FB NUMBER",block.FastNumber(),"block number",block.Number())
-				
-				if block.Fruits() != nil{
-					for _,fruit :=range block.Fruits(){
-						log.Info(" ^^^  block fruits","fb number",fruit.FastNumber())
-					}
+				if block.Fruits() == nil{
+					self.atCommintNewWoker = false
+					continue
 				}
+
+				fruits := block.Fruits()
+				log.Info("+++++ mined block  ---  ","block number",block.Number(), "fruits", len(fruits), "first", fruits[0].FastNumber(), "end", fruits[len(fruits) - 1].FastNumber())
 
 				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
@@ -482,9 +479,7 @@ func (self *worker) wait() {
 				self.unconfirmed.Insert(block.NumberU64(), block.Hash())
 
 				self.atCommintNewWoker = false
-
 			}
-
 		}
 	}
 }
@@ -789,12 +784,6 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
 
-	/*
-	for _, fruit := range fs {
-		log.Info("----parent number","fb number",fruit.FastNumber())
-	}
-	*/
-
 	if len(fs) > 0 {
 		lastFastNumber = fs[len(fs) - 1].FastNumber()
 	} else {
@@ -838,7 +827,6 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			env.fruits = append(env.fruits, fruit)
 		}
 	}
-
 }
 
 // find a corect fast block to miner

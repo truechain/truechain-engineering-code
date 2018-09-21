@@ -262,8 +262,12 @@ func (pm *ProtocolManager) removePeer(id string) {
 
 	// TODO: downloader.UnregisterPeer
 	// Unregister the peer from the downloader and Truechain peer set
-	pm.downloader.UnregisterPeer(id)
-	pm.fdownloader.UnregisterPeer(id)
+	if err := pm.downloader.UnregisterPeer(id); err != nil {
+		log.Error("downloaderPeer removal failed", "peer", id, "err", err)
+	}
+	if err := pm.fdownloader.UnregisterPeer(id); err != nil {
+		log.Error("fdownloaderPeer removal failed", "peer", id, "err", err)
+	}
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
@@ -971,6 +975,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == FruitMsg:
 		// Fruit arrived, make sure we have a valid and fresh chain to handle them
 		if atomic.LoadUint32(&pm.acceptFruits) == 0 {
+			log.Debug("refuse accept fruits")
 			break
 		}
 		// Transactions can be processed, parse all of them and deliver to the pool
@@ -985,10 +990,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkFruit(fruit.Hash())
 		}
-		//pm.hybridpool.AddRemoteFruits(fruits)
 		pm.SnailPool.AddRemoteFruits(fruits)
-
-		//snailBlock structure
 
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
@@ -1084,7 +1086,7 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash().String(), "recipients", len(peers))
+		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash(), "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]

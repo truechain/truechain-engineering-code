@@ -19,6 +19,7 @@ package snailchain
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -94,6 +95,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit); err != nil {
+			log.Info("valida fruit error", "err", err)
 			return err
 		}
 	}
@@ -177,31 +179,54 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
+		log.Warn("valid fruit sisn hash failed.")
 		return ErrInvalidSign
 	}
 	// check freshness
 	pointer := v.bc.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
+		log.Warn("valid fruit get pointer failed.", "pointer", fruit.PointerHash())
 		return ErrInvalidPointer
 	}
 	//freshNumber := pool.header.Number().Sub(pool.header.Number(), pointer.Number())
-	freshNumber := new(big.Int).Sub(v.bc.CurrentBlock().Number(), pointer.Number())
+	current := v.bc.CurrentHeader()
+	freshNumber := new(big.Int).Sub(current.Number, pointer.Number())
 	if freshNumber.Cmp(fruitFreshness) > 0 {
+		log.Warn("validate fruit freshness failed.", "poiner", pointer.Number(), "current", current.Number)
 		return ErrFreshness
 	}
 
 	header := fruit.Header()
 	if err := v.engine.VerifySnailHeader(v.bc, header, true); err != nil {
+		log.Warn("validate fruit verify failed.", "err", err)
 		return err
 	}
 
-	//validate the signatures of this fruit
-	//_, errs := v.election.VerifySigns(fruit.Signs())
-	//for _, err := range errs {
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
+	// validate the signatures of this fruit
+	members := v.election.GetCommittee(fruit.FastNumber())
+	if members == nil {
+		log.Warn("validate fruit get committee failed.", "number", fruit.FastNumber())
+		return ErrInvalidSign
+	}
+	count := 0
+	signs := fruit.Signs()
+	for _, sign := range signs {
+		if sign.Result == types.VoteAgree {
+			count ++
+		}
+	}
+	if count <= len(members) * 2 / 3 {
+		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
+		return ErrInvalidSign
+	}
+
+	_, errs := v.election.VerifySigns(signs)
+	for _, err := range errs {
+		if err != nil {
+			log.Warn("validate fruit VerifySigns error", "err", err)
+			return err
+		}
+	}
 
 	return nil
 }

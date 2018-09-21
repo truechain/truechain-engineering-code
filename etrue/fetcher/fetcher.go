@@ -812,7 +812,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 	if len(verifySigns) > 0 {
 		// Run the import on a new thread
-		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash.String())
+		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash)
 		f.broadcastSigns(verifySigns)
 
 		find := false
@@ -831,13 +831,13 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 					f.queuedSign[sign.Hash()] = op
 
 					// Run the import on a new thread
-					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
+					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
 
 					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 				}
 			} else {
 				// Run the import on a new thread
-				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash.String())
+				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
 			}
 		}
 
@@ -859,7 +859,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 				propSignInMeter.Mark(1)
 				f.enterQueue = true
 				f.blockConsensus[number] = ok
-				log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash.String())
+				log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash)
 			}
 		}
 	}
