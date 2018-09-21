@@ -50,6 +50,8 @@ var (
 type BlockValidator struct {
 	config   *params.ChainConfig // Chain configuration options
 	bc       *SnailBlockChain    // Canonical block chain
+	//fastchain *core.BlockChain
+
 	engine   consensus.Engine    // Consensus engine used for validating
 	election consensus.CommitteeElection
 }
@@ -89,9 +91,9 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	//header := block.Header()
-	if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
-		return err
-	}
+	//if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
+	//	return err
+	//}
 
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit); err != nil {
@@ -175,13 +177,16 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 }
 
 func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
-
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
 		log.Warn("valid fruit sisn hash failed.")
 		return ErrInvalidSign
 	}
+
+	// TODO: verify fast block and block hash
+
+
 	// check freshness
 	pointer := v.bc.GetBlockByHash(fruit.PointerHash())
 	if pointer == nil {
