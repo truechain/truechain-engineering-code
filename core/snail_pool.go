@@ -561,6 +561,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	defer pool.muFastBlock.Unlock()
 	//remove all the fruits and fastBlocks included in the new snailblock
 	pool.removeWithLock(newHead.Fruits())
+	pool.header = pool.chain.CurrentBlock()
 }
 
 // Insert rest old fruit into allfruits and fruitPending
@@ -770,6 +771,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	}
 	//freshNumber := pool.header.Number().Sub(pool.header.Number(), pointer.Number())
 	freshNumber := new(big.Int).Sub(pool.header.Number(), pointer.Number())
+	log.Debug("fresh","pool.header.Number()",pool.header.Number(),"pointer.Number()",pointer.Number())
 	if freshNumber.Cmp(fruitFreshness) > 0 {
 		return ErrFreshness
 	}

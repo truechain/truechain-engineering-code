@@ -231,7 +231,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	fmt.Println("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
+	log.Debug("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
 
 	//go dl.qosTuner()
 	//go dl.stateFetcher()
@@ -1055,7 +1055,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 		case packet := <-deliveryCh:
 			log.Debug("deliver <- packet ","packet",packet,"kind",kind)
 
-			//fmt.Println("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
+			//log.Debug("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
