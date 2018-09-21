@@ -1279,7 +1279,7 @@ func (bc *SnailBlockChain) reportBlock(block *types.SnailBlock, err error) {
 	bc.addBadBlock(block)
 
 	log.Error(fmt.Sprintf(`
-########## BAD BLOCK #########
+########## BAD SNAIL BLOCK #########
 Chain config: %v
 
 Number: %v

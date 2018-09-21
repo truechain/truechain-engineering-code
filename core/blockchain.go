@@ -1515,7 +1515,7 @@ func (bc *BlockChain) reportBlock(block *types.Block, receipts types.Receipts, e
 		receiptString += fmt.Sprintf("\t%v\n", receipt)
 	}
 	log.Error(fmt.Sprintf(`
-########## BAD BLOCK #########
+########## BAD FAST BLOCK #########
 Chain config: %v
 
 Number: %v
