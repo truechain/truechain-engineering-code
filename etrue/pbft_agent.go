@@ -570,7 +570,6 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 	var rewardSnailHegiht *big.Int
 	blockReward := self.fastChain.CurrentReward()
-	log.RedisLog("RewardSnailBlock:", "height", blockReward.SnailNumber.Uint64(), "hash", blockReward.SnailHash().String())
 	if blockReward == nil {
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
 	} else {
