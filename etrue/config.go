@@ -59,8 +59,8 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	MinerThreads: 2,
-	Port:10080,
-	StandByPort:10090,
+	Port:30310,
+	StandByPort:30311,
 
 }
 
