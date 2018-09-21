@@ -353,7 +353,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 
 	defer func() {
 
-		log.Debug("synchronise退出")
+		log.Debug("synchronise exit")
 	}()
 	if d.synchroniseMock != nil {
 		return d.synchroniseMock(id, hash)
@@ -427,7 +427,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}()
 	defer func() {
 
-		log.Debug("syncWithPeer退出")
+		log.Debug("syncWithPeer exit")
 	}()
 	if p.GetVersion() < 62 {
 		return errTooOld
@@ -503,7 +503,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 
 	defer func() {
 
-		log.Debug("spawnSync退出")
+		log.Debug("spawnSync exit")
 	}()
 
 	errc := make(chan error, len(fetchers))
