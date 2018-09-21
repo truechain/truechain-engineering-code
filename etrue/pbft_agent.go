@@ -509,6 +509,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
+	log.Info("parent","height:",parent.Number())
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1

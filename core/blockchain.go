@@ -1257,7 +1257,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		switch status {
 		case CanonStatTy:
-			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", 0,
+			log.Debug("Inserted new fast block", "number", block.Number(), "hash", block.Hash(), "uncles", 0,
 				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", "")
 
 			coalescedLogs = append(coalescedLogs, logs...)
