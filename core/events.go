@@ -97,6 +97,7 @@ type NodeInfoEvent struct{ NodeInfo *types.EncryptNodeMessage }
 // StateChangeEvent hold the result of the balance change
 // and the amount of rewards.
 type StateChangeEvent struct {
+	Height   uint64
 	Balances []*common.AddressWithBalance
 	Rewards  []*common.AddressWithBalance
 }

@@ -1256,6 +1256,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		balances := state.Balances()
 		rewards := state.Rewards()
 		bcd := StateChangeEvent{
+			Height:   block.NumberU64(),
 			Balances: balances,
 			Rewards:  rewards,
 		}

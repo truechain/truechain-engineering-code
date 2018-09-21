@@ -199,6 +199,7 @@ func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
 		}
 	}
 	scm := &StateChangeMsg{
+		Height:   bsd.Height,
 		Balances: balances,
 		Rewards:  rewards,
 	}
