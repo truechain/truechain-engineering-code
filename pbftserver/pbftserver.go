@@ -192,6 +192,17 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 
 	fb, err := ss.Agent.FetchFastBlock(id)
 
+	if err != nil {
+		lock.PSLog("[pbft server]", " FetchFastBlock Error", err.Error())
+		return nil, err
+	}
+
+	if fb == nil {
+		err = errors.New("FetchFastBlock is nil")
+		lock.PSLog("[pbft server]", " FetchFastBlock Error", err.Error())
+		return nil, err
+	}
+
 	lock.PSLog("[pbft server]", " FetchFastBlock header", fb.Header().Time)
 
 	if len(fb.Body().Transactions) == 0 {
@@ -448,11 +459,13 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 }
 
 func DelayStop(id *big.Int, ss *PbftServerMgr) {
+	if server, ok := ss.servers[id.Uint64()]; ok {
+		server.server.Node.Stop = true
+	}
 	lock.PSLog("[switch]", "stop wait ", 60)
 	time.Sleep(time.Second * ServerWait)
 
 	if server, ok := ss.servers[id.Uint64()]; ok {
-		server.server.Node.Stop = true
 		server.server.Stop()
 		server.clear = true
 	}
