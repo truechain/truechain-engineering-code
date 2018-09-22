@@ -231,7 +231,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	log.Debug("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
+	//log.Debug("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
 
 	//go dl.qosTuner()
 	//go dl.stateFetcher()

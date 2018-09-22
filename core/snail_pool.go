@@ -477,9 +477,12 @@ func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash co
 
 // remove all the fruits and fastBlocks included in the new snailblock
 func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
+	if len(fruits) == 0 {
+		return
+	}
 	maxFbNumber := fruits[len(fruits)-1].FastNumber()
 	for _, fruit := range pool.allFruits {
-		if fruit.FastNumber().Cmp(maxFbNumber)<1{
+		if fruit.FastNumber().Cmp(maxFbNumber) < 1{
 			log.Info(" ********* del fruit","snail number", fruit.Number(),"fb number",fruit.FastNumber())
 			delete(pool.fruitPending, fruit.FastHash())
 			delete(pool.allFruits, fruit.FastHash())
@@ -490,7 +493,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 		}
 	}
 	for _, fastblcok := range pool.allFastBlocks {
-		if fastblcok.Number().Cmp(maxFbNumber)<1{
+		if fastblcok.Number().Cmp(maxFbNumber) < 1{
 			log.Info(" ********* del fastblcok","fb number",fastblcok.Number())
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fastblcok.Hash())
 			delete(pool.allFastBlocks,  fastblcok.Hash())
