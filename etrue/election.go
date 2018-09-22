@@ -414,7 +414,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	nextCommittee := e.nextCommittee
 
 	if nextCommittee != nil {
-		log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
+		//log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
 		if new(big.Int).Add(nextCommittee.beginFastNumber, big.NewInt(k)).Cmp(fastNumber) < 0 {
 			log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", nextCommittee.beginFastNumber)
 			return nil
@@ -752,7 +752,7 @@ func (e *Election) loop() {
 					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
 
 					nextCommittee := &committee{
-						id:                  snailStartNumber,
+						id:                  new(big.Int).Div(e.committee.switchCheckNumber, big.NewInt(z)),
 						firstElectionNumber: snailStartNumber,
 						lastElectionNumber:  snailEndNumber,
 						beginFastNumber:     new(big.Int).Add(e.committee.endFastNumber, common.Big1),

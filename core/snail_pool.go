@@ -453,17 +453,6 @@ func fruitsDifference(a, b []*types.SnailBlock) []*types.SnailBlock {
 	return keep
 }
 
-// remove the record from pending list and unexecutable list
-/*func (pool *SnailPool) removeRecordWithLock(fastBlockList *list.List, hash common.Hash) {
-	for e := fastBlockList.Front(); e != nil; e = e.Next() {
-		r := e.Value.(*types.PbftRecord)
-		if r.Hash() == hash {
-			fastBlockList.Remove(e)
-			break
-		}
-	}
-}*/
-
 // removeFastBlockWithLock remove the fastblock from pending list and unexecutable list
 func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash common.Hash) {
 	for e := fastBlockList.Front(); e != nil; e = e.Next() {
