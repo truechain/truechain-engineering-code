@@ -1400,7 +1400,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 
-			log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "fbNum",fbNum)
+			log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number)
 
 			for _,fr := range result.Fruits{
 
