@@ -1039,8 +1039,6 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			log.Debug("Inserted new snail block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 				"fts", len(block.Fruits()), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
-
-
 			//coalescedLogs = append(coalescedLogs, logs...)
 
 			blockInsertTimer.UpdateSince(bstart)
@@ -1061,7 +1059,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		stats.processed++
 
 		fruits := block.Fruits()
-		log.Debug("Inserted new snail block fruits", "len", len(fruits),"first", fruits[0].FastNumber(), "last", fruits[len(fruits) - 1].FastNumber())
+		log.Debug("Inserted new snail block fruits", "number", block.Number(), "len", len(fruits),"first", fruits[0].FastNumber(), "last", fruits[len(fruits) - 1].FastNumber())
 
 		stats.report(chain, i)
 	}
