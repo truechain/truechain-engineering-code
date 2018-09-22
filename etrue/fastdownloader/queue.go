@@ -443,7 +443,8 @@ func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRe
 	isNoop := func(header *types.Header) bool {
 		// TODO:
 		//return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
-		return header.TxHash == types.EmptyRootHash
+		//return header.TxHash == types.EmptyRootHash
+		return false
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -457,6 +458,7 @@ func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRe
 func (q *queue) ReserveReceipts(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 	isNoop := func(header *types.Header) bool {
 		return header.ReceiptHash == types.EmptyRootHash
+		//return false
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
