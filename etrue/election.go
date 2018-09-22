@@ -555,7 +555,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 			}
 		}
 	}
-	log.Debug("get final candidate", "count", len(candidates))
+	log.Debug("get final candidate", "count", len(candidates), "td", td)
 	if len(candidates) == 0 {
 		log.Warn("getCandinates not get candidates")
 		return common.Hash{}, nil
@@ -573,6 +573,8 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 		} else {
 			member.upper = new(big.Int).Mul(rate, dd)
 		}
+
+		log.Debug("get power", "member", member.address, "lower", member.lower, "upper", member.upper)
 	}
 
 	return crypto.Keccak256Hash(seed), candidates
@@ -583,7 +585,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	var addrs map[common.Address]uint = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 
-	log.Debug("elect committee members ..")
+	log.Debug("elect committee members ..", "count", len(candidates))
 	round := new(big.Int).Set(common.Big0)
 	for {
 		seedNumber := new(big.Int).Add(seed.Big(), round)
@@ -597,6 +599,8 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 			if prop.Cmp(cm.upper) >= 0 {
 				continue
 			}
+
+			log.Debug("get member", "member", cm.address, "prop", prop)
 			if _, ok := addrs[cm.address]; ok {
 				break
 			}
@@ -760,10 +764,6 @@ func (e *Election) loop() {
 						members:             members,
 					}
 
-					if e.nextCommittee.id.Cmp(nextCommittee.id) == 0 {
-						log.Info("get same committee.")
-						continue
-					}
 					e.appendCommittee(nextCommittee)
 
 					e.nextCommittee = nextCommittee
