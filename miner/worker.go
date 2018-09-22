@@ -659,7 +659,7 @@ func (self *worker) commitNewWork() {
 	
 	// commit fruits make sure it is correct
 	if fruits != nil{
-		work.commitFruits(fruits, self.snailchain, self.coinbase)
+		work.commitFruits(fruits, self.snailchain, self.engine)
 	}
 	
 	// set work block
@@ -751,23 +751,12 @@ func (self *worker) updateSnapshot() {
 }
 
 
-// TODO: check fruit freshness?
-func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, lastNumber *big.Int) error {
+func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
-	if fruit.FastNumber().Cmp(lastNumber) <= 0 {
-		return consensus.ErrInvalidNumber
-	}
-	//TODO should add pointer 
-	pointer := bc.GetBlockByHash(fruit.PointerHash())
-	if pointer == nil {
-		//log.Info("   22  commit fruit","fast num",fruit.FastNumber())
-		return core.ErrInvalidPointer
-	}
-
-	freshNumber := new(big.Int).Sub(env.header.Number, pointer.Number())
- 
-	if freshNumber.Cmp(fruitFreshness) > 0 {
-		return core.ErrFreshness
+	err := engine.VerifyFreshness(fruit, nil)
+	if err != nil {
+		log.Info("commitFruit verify freshness error", "err", err)
+		return err
 	}
 
 	return nil
@@ -776,54 +765,36 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 // TODO: check fruits continue with last snail block
 // find all fruits and start to the last parent fruits number and end continue fruit list 
-func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, coinbase common.Address) {
+func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 
-	var lastFastNumber *big.Int
+	var currentFastNumber *big.Int
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
 
 	if len(fs) > 0 {
-		lastFastNumber = fs[len(fs) - 1].FastNumber()
+		currentFastNumber = fs[len(fs) - 1].FastNumber()
 	} else {
-		lastFastNumber = new(big.Int).Set(common.Big0)
+		// genesis block
+		currentFastNumber = new(big.Int).Set(common.Big0)
 	}
-	var fruitsContine []*types.SnailBlock 
-	startCoypfruits := false
-	
+
+	currentFastNumber.Add(currentFastNumber, common.Big1)
 	// find the continue fruits
-	
 	for _, fruit := range fruits {
-	//	log.Info("----pending number","fb number",fruit.FastNumber())
-		if lastFastNumber.Cmp(common.Big0) == 0{
-			startCoypfruits = true
-		}
-		if lastFastNumber.Cmp(fruit.FastNumber()) == 0 || lastFastNumber.Uint64() == fruit.FastNumber().Uint64()-1{
-			startCoypfruits = true
-			fruitsContine = append(fruitsContine, fruit)
+		if rst := currentFastNumber.Cmp(fruit.FastNumber()); rst > 0 {
+			currentFastNumber.Add(currentFastNumber, common.Big1)
 			continue
-		}
-		if startCoypfruits {
-			if lastFastNumber.Uint64()<fruit.FastNumber().Uint64(){
-				if fruitsContine == nil{
-					fruitsContine = append(fruitsContine, fruit)
-				}else{
-					if fruitsContine[len(fruitsContine)-1].FastNumber().Uint64() == fruit.FastNumber().Uint64()-1{
-						fruitsContine = append(fruitsContine, fruit)
-					}else{
-						break
-					}
-				}
+		} else if rst == 0 {
+			err := env.commitFruit(fruit, bc, engine)
+			if err == nil {
+				env.fruits = append(env.fruits, fruit)
+			} else {
+				break
 			}
+		} else {
+			break
 		}
-	}
-	//log.Info(" end 11 ----------------- not continue number")
-		//log.Info(" start 22 -----------------continue number")
-	for _, fruit := range fruitsContine {
-		//log.Info("---continue number","fb number",fruit.FastNumber())
-		err := env.commitFruit(fruit, bc, lastFastNumber)
-		if err == nil {
-			env.fruits = append(env.fruits, fruit)
-		}
+		currentFastNumber.Add(currentFastNumber, common.Big1)
 	}
 }
 
@@ -836,14 +807,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 
 	if fastBlocks == nil{
 		return core.ErrNoFastBlockToMiner
-	} 
-	
-	/*
-	log.Info("   1111111     fast block number","fb self.FastBlockNumber", self.FastBlockNumber )
-	for _ , fb := range fastBlocks {
-		log.Info(" ====---- fb list","fb number",fb.Number())
 	}
-	*/
 	
 	var fastBlock *types.Block
 	for _ , fb := range fastBlocks {
