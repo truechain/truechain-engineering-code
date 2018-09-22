@@ -585,12 +585,12 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	var addrs map[common.Address]uint = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 
-	log.Debug("elect committee members ..", "count", len(candidates))
+	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
 	round := new(big.Int).Set(common.Big0)
 	for {
 		seedNumber := new(big.Int).Add(seed.Big(), round)
 		hash := crypto.Keccak256Hash(seedNumber.Bytes())
-		prop := new(big.Int).Div(hash.Big(), maxUint256)
+		prop := new(big.Int).Div(maxUint256, hash.Big())
 
 		for _, cm := range candidates {
 			if prop.Cmp(cm.lower) < 0 {
