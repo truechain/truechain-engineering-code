@@ -747,7 +747,7 @@ func (e *Election) loop() {
 
 					sb := e.snailchain.GetBlockByNumber(snailEndNumber.Uint64())
 					fruits := sb.Fruits()
-					e.committee.endFastNumber = new(big.Int).Add(fruits[len(fruits)-1].Number(), big.NewInt(k))
+					e.committee.endFastNumber = new(big.Int).Add(fruits[len(fruits)-1].FastNumber(), big.NewInt(k))
 
 					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
 
@@ -758,6 +758,11 @@ func (e *Election) loop() {
 						beginFastNumber:     new(big.Int).Add(e.committee.endFastNumber, common.Big1),
 						switchCheckNumber:   new(big.Int).Add(e.committee.switchCheckNumber, big.NewInt(z)),
 						members:             members,
+					}
+
+					if e.nextCommittee.id.Cmp(nextCommittee.id) == 0 {
+						log.Info("get same committee.")
+						continue
 					}
 					e.appendCommittee(nextCommittee)
 
@@ -781,9 +786,7 @@ func (e *Election) loop() {
 							BeginFastNumber:  e.nextCommittee.beginFastNumber,
 						})
 					}(e)
-
 				}
-
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent
 		case ev := <-e.fastChainHeadCh:
