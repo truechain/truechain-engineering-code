@@ -1024,7 +1024,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// calculate the head hash and TD that the peer truly must have.
 		var (
 			trueHead = request.Block.ParentHash()
-			trueTD   = new(big.Int).Sub(request.TD, request.Block.Difficulty())
+			trueTD   = new(big.Int).Sub(request.TD, pm.snailchain.GetBlockDifficulty(request.Block))
 		)
 		// Update the peers total difficulty if better than the previous
 		if _, td := p.Head(); trueTD.Cmp(td) > 0 || td == nil {
@@ -1124,7 +1124,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 		// Calculate the TD of the fruit (it's not imported yet, so fruit.Td is not valid)
 		var td *big.Int
 		if parent := pm.snailchain.GetBlock(snailBlock.ParentHash(), snailBlock.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(snailBlock.Difficulty(), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
+			td = new(big.Int).Add(pm.snailchain.GetBlockDifficulty(snailBlock), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
 		} else {
 			log.Error("Propagating dangling block", "number", snailBlock.Number(), "hash", hash)
 			return

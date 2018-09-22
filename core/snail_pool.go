@@ -59,7 +59,7 @@ var (
 
 	ErrInvalidHash = errors.New("invalid hash")
 
-	ErrFreshness          = errors.New("fruit not fresh")
+	//ErrFreshness          = errors.New("fruit not fresh")
 	ErrMined              = errors.New("already mined")
 	ErrNoFastBlockToMiner = errors.New("the fastblocks is null")
 )
@@ -256,7 +256,7 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	if f == nil {
 		return ErrNotExist
 	} else {
-		if err := pool.chain.Validator().ValidateFruit(f); err != nil {
+		if err := pool.chain.Validator().ValidateFruit(f, nil); err != nil {
 			log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
 			delete(pool.allFruits, fastBlock.Hash())
 			delete(pool.fruitPending, fastBlock.Hash())
@@ -298,14 +298,14 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 	// TODO: check signature
 	//fruit validation
-	if err := pool.chain.Validator().ValidateFruit(fruit); err != nil {
+	if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
 		log.Info("add fruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
-	log.Info("add fruit ", "fastnumber", fruit.FastNumber())
+	log.Info("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
+		if rst := pool.chain.GetBlockDifficulty(fruit).Cmp(pool.chain.GetBlockDifficulty(f)); rst < 0 {
 			return nil
 		} else if rst == 0 {
 			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
@@ -355,6 +355,8 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 			return ErrMined
 		}
 	}
+
+	// TODO: check sign numbers
 
 	pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
 
@@ -765,19 +767,16 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return ErrInvalidSign
 	}
 	// check freshness
-	pointer := pool.chain.GetBlockByHash(fruit.PointerHash())
-	if pointer == nil {
-		return ErrInvalidPointer
-	}
-	//freshNumber := pool.header.Number().Sub(pool.header.Number(), pointer.Number())
-	freshNumber := new(big.Int).Sub(pool.header.Number(), pointer.Number())
-	log.Debug("fresh","pool.header.Number()",pool.header.Number(),"pointer.Number()",pointer.Number())
-	if freshNumber.Cmp(fruitFreshness) > 0 {
-		return ErrFreshness
+	err := pool.engine.VerifyFreshness(fruit, nil)
+	if err != nil {
+		log.Info("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
+
+		return nil
 	}
 
 	header := fruit.Header()
 	if err := pool.engine.VerifySnailHeader(pool.chain, header, true); err != nil {
+		log.Info("validateFruit verify header err", "err", err)
 		return err
 	}
 
