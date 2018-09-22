@@ -753,7 +753,7 @@ func (e *Election) loop() {
 					fruits := sb.Fruits()
 					e.committee.endFastNumber = new(big.Int).Add(fruits[len(fruits)-1].FastNumber(), big.NewInt(k))
 
-					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
+					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber, "members", len(members))
 
 					nextCommittee := &committee{
 						id:                  new(big.Int).Div(e.committee.switchCheckNumber, big.NewInt(z)),
@@ -762,6 +762,13 @@ func (e *Election) loop() {
 						beginFastNumber:     new(big.Int).Add(e.committee.endFastNumber, common.Big1),
 						switchCheckNumber:   new(big.Int).Add(e.committee.switchCheckNumber, big.NewInt(z)),
 						members:             members,
+					}
+
+					if e.nextCommittee != nil {
+						if e.nextCommittee.id.Cmp(nextCommittee.id) == 0 {
+							// get next committee twice
+							continue
+						}
 					}
 
 					e.appendCommittee(nextCommittee)
