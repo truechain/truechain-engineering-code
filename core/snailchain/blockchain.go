@@ -861,11 +861,11 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 	if reorg {
 		// Reorganise the chain if the parent is not the head block
 		if block.ParentHash() != currentBlock.Hash() {
+			log.Debug("Reorganise the chain sine the parent is not the head block")
 			if err := bc.reorg(currentBlock, block); err != nil {
 				return NonStatTy, err
 			}
 		}
-		log.Debug("Reorganise the chain sine the parent is not the head block")
 		// Write the positional metadata for fruit lookups
 		rawdb.WriteFtLookupEntries(batch, block)
 
