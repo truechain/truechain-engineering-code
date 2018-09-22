@@ -528,6 +528,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 				rem = pool.chain.GetBlock(oldHead.Hash(), oldHead.Number().Uint64())
 				add = pool.chain.GetBlock(newHead.Hash(), newHead.Number().Uint64())
 			)
+			log.Debug("branching","oldHeadNumber",rem.NumberU64(),"newHeadNumber",add.NumberU64(),"oldHeadMaxFastNumber",rem.Fruits()[len(rem.Fruits())-1].FastNumber(),"newHeadMaxFastNumber",add.Fruits()[len(add.Fruits())-1].FastNumber())
 			for rem.NumberU64() > add.NumberU64() {
 				discarded = append(discarded, rem.Fruits()...)
 				if rem = pool.chain.GetBlock(rem.ParentHash(), rem.NumberU64()-1); rem == nil {
