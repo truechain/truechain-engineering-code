@@ -88,6 +88,7 @@ type PbftAgent struct {
 	currentCommitteeInfo *types.CommitteeInfo
 	nextCommitteeInfo    *types.CommitteeInfo
 	committeeId          *big.Int
+	endFastNumber        map[*big.Int]*big.Int
 	isCommitteeMember    bool
 
 	server   types.PbftServerProxy
@@ -117,7 +118,6 @@ type PbftAgent struct {
 	cacheSign  map[string]types.Sign     //prevent receive same sign
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
 	singleNode bool
-	//nodeInfoIsComplete bool
 }
 
 type AgentWork struct {
@@ -146,6 +146,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		currentCommitteeInfo: new(types.CommitteeInfo),
 		nextCommitteeInfo:    new(types.CommitteeInfo),
 		committeeId:          new(big.Int).SetInt64(-1),
+		endFastNumber:        make(map[*big.Int]*big.Int),
 		electionCh:           make(chan core.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan core.ChainHeadEvent, chainHeadSize),
 		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage),
@@ -211,7 +212,8 @@ func (self *PbftAgent) loop() {
 				}*/
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(ch.CommitteeID, int(ch.Option))
+					copyID := *ch.CommitteeID
+					go self.server.Notify(&copyID, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Debug("CommitteeStop..", "Id", ch.CommitteeID)
@@ -219,21 +221,25 @@ func (self *PbftAgent) loop() {
 					continue
 				}*/
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(ch.CommitteeID, int(ch.Option))
+					copyID := *ch.CommitteeID
+					go self.server.Notify(&copyID, int(ch.Option))
 				}
 			case types.CommitteeSwitchover:
 				log.Debug("CommitteeCh...", "Id", ch.CommitteeID)
 				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeID) {
 					continue
 				}*/
+				copyID := *ch.CommitteeID
+				committeeID := &copyID
+				if self.committeeId == committeeID {
+					continue
+				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
-					Id:      ch.CommitteeID,
+					Id:      committeeID,
 					Members: ch.CommitteeMembers,
 				}
-
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
-				//self.committeeId = ch.CommitteeID
-
+				self.committeeId = committeeID
 				ticker.Stop()                                //stop ticker send nodeInfo
 				self.cacheSign = make(map[string]types.Sign) //clear cacheSign map
 				ticker = time.NewTicker(sendNodeTime)
@@ -254,6 +260,12 @@ func (self *PbftAgent) loop() {
 					log.Info("node not in pbft member")
 					self.isCommitteeMember = false
 				}
+			case types.CommitteeOver:
+				log.Debug("CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
+				copyID := *ch.CommitteeID
+				committeeID := &copyID
+				self.endFastNumber[committeeID] = ch.EndFastNumber
+				self.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64())
 			default:
 				log.Warn("unknown election option:", "option", ch.Option)
 			}
@@ -517,9 +529,13 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		fastBlock *types.Block
 		feeAmount = big.NewInt(0)
 	)
-
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
+	if endNumber := self.endFastNumber[committeeId]; endNumber != nil && endNumber.Cmp(parent.Number()) != 1 {
+		log.Error("FetchFastBlock error", "number:",endNumber,"err", core.ErrExceedNumber)
+		return fastBlock, core.ErrExceedNumber
+	}
+
 	log.Info("parent", "height:", parent.Number())
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
@@ -846,7 +862,7 @@ func (self *PbftAgent) VerifyCommitteeSign(sign *types.PbftSign) bool {
 	}
 	member, err := self.election.VerifySign(sign)
 	if err != nil {
-		log.Error("VerifyCommitteeSign  error", "err", err)
+		log.Warn("VerifyCommitteeSign  error", "err", err)
 		return false
 	}
 	return member != nil
