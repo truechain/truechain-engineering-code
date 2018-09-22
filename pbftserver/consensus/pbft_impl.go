@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
-	"sync"
 	"time"
 )
 
@@ -22,8 +21,6 @@ type State struct {
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
-	LockPrepare sync.Mutex
-	LockCommit  sync.Mutex
 	PrepareMsgs map[string]*VoteMsg
 	CommitMsgs  map[string]*VoteMsg
 }
@@ -77,7 +74,6 @@ func (state *State) StartConsensus(request *RequestMsg) (*PrePrepareMsg, error) 
 	// Get the digest of the request message
 	digest, err := digest(request)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -120,11 +116,9 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	}
 
 	// Append msg to its logs
-	state.MsgLogs.LockPrepare.Lock()
 	state.MsgLogs.PrepareMsgs[prepareMsg.NodeID] = prepareMsg
-	state.MsgLogs.LockPrepare.Unlock()
 
-	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
+	lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
 
 	if state.prepared(f) {
@@ -152,17 +146,12 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	}
 
 	// Append msg to its logs
-	state.MsgLogs.LockCommit.Lock()
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
-	state.MsgLogs.LockCommit.Unlock()
+
 	// Print current voting status
-	//fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
-	//fmt.Println("[LOG]", "Commit", "start", f)
 	if state.committed(f) {
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
-
-		//fmt.Println("[LOG]", "Commit", "end", f, "Return")
 
 		return &ReplyMsg{
 			ViewID:    state.ViewID,
@@ -172,7 +161,6 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 			Height:    state.MsgLogs.ReqMsg.Height,
 		}, state.MsgLogs.ReqMsg, nil
 	}
-	//fmt.Println("[LOG]", "Commit", "end", f, "notReturn")
 	return nil, nil, nil
 }
 
@@ -192,7 +180,7 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 
 	digest, err := digest(state.MsgLogs.ReqMsg)
 	if err != nil {
-		fmt.Println(err)
+		lock.PSLog("[digest]", "error", err.Error())
 		return false
 	}
 
@@ -227,13 +215,11 @@ func (state *State) committed(f int) bool {
 	}
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	var passCount = 0
-	state.MsgLogs.LockCommit.Lock()
 	for _, v := range state.MsgLogs.CommitMsgs {
 		if v.Pass != nil && v.Pass.Result == types.VoteAgree {
 			passCount += 1
 		}
 	}
-	state.MsgLogs.LockCommit.Unlock()
 	lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
 	return passCount >= 2*f
 }
