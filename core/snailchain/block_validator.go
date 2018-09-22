@@ -40,6 +40,8 @@ var (
 
 	ErrInvalidHash = errors.New("invalid hash")
 
+	ErrInvalidFast = errors.New("invalid fast hash")
+
 	ErrNoFruits = errors.New("no fruits included")
 )
 
@@ -50,10 +52,10 @@ var (
 type BlockValidator struct {
 	config   *params.ChainConfig // Chain configuration options
 	bc       *SnailBlockChain    // Canonical block chain
-	//fastchain *core.BlockChain
 
 	engine   consensus.Engine    // Consensus engine used for validating
 	election consensus.CommitteeElection
+	fastchain consensus.ChainReader
 }
 
 // freshFruitSize is the freshness of fruit according to the paper
@@ -69,8 +71,9 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *SnailBlockChain, 
 	return validator
 }
 
-func (v *BlockValidator) SetElection(e consensus.CommitteeElection) error {
+func (v *BlockValidator) SetElection(e consensus.CommitteeElection, fc consensus.ChainReader) error {
 	v.election = e
+	v.fastchain = fc
 
 	return nil
 }
@@ -101,7 +104,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			log.Info("valida fruit error", "err", err)
+			log.Info("ValidateBody snail validate fruit error", "err", err)
 			return err
 		}
 	}
@@ -181,6 +184,18 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 }
 
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
+	//check number(fb)
+	//
+	currentNumber := v.fastchain.CurrentHeader().Number
+	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+		return consensus.ErrFutureBlock
+	}
+
+	fb := v.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
+	if fb == nil {
+		return ErrInvalidFast
+	}
+
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
@@ -188,25 +203,11 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 		return ErrInvalidSign
 	}
 
-	var current *types.SnailHeader
-	if block == nil {
-		current = v.bc.CurrentHeader()
-	} else {
-		current = block.Header()
-	}
-
 	// check freshness
-	pointer := v.bc.GetBlockByHash(fruit.PointerHash())
-	if pointer == nil {
-		log.Warn("valid fruit get pointer failed.", "pointer", fruit.PointerHash())
-		return ErrInvalidPointer
-	}
-	//freshNumber := pool.header.Number().Sub(pool.header.Number(), pointer.Number())
-
-	freshNumber := new(big.Int).Sub(current.Number, pointer.Number())
-	if freshNumber.Cmp(fruitFreshness) > 0 {
-		log.Warn("validate fruit freshness failed.", "poiner", pointer.Number(), "current", current.Number)
-		return consensus.ErrFreshness
+	err := v.engine.VerifyFreshness(fruit, block)
+	if err != nil {
+		log.Warn("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
+		return err
 	}
 
 	header := fruit.Header()
