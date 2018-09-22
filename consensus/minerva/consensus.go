@@ -432,13 +432,41 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
+
+func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
+	var header *types.SnailHeader
+	if block == nil {
+		header = m.sbc.CurrentHeader()
+	} else {
+		header = block.Header()
+	}
+	// check freshness
+	pointer := m.sbc.GetHeaderByHash(header.PointerHash)
+	if pointer == nil {
+		log.Warn("VerifyFreshness get pointer failed.", "pointer", fruit.PointerHash())
+		return consensus.ErrUnknownPointer
+	}
+	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
+	if freshNumber.Cmp(params.FruitFreshness) > 0 {
+		log.Warn("VerifyFreshness failed.", "poiner", pointer.Number, "current", header.Number)
+		return consensus.ErrFreshness
+	}
+
+	return nil
+}
+
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
 	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
+		pointer := m.sbc.GetHeaderByHash(header.PointerHash)
+		if pointer == nil {
+			log.Warn("Minerva get difficulty pointer failed.", "pointer", pointer.Hash(), "number", header.FastNumber)
+			return nil, nil
+		}
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
-		fruitDiff := new(big.Int).Div(header.Difficulty, params.FruitBlockRatio)
+		fruitDiff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
 
 		return actDiff, fruitDiff
 	} else {
@@ -467,6 +495,21 @@ var (
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 )
+
+
+func calcFruitDifficulty(time uint64, proposedTime uint64, pointerDiff * big.Int ) *big.Int {
+	diff := new(big.Int).Div(pointerDiff, params.FruitBlockRatio)
+
+	delta := time - proposedTime
+
+	if delta > 20 {
+		return new(big.Int).Mul(diff, big.NewInt(4))
+	} else if delta > 10 && delta <= 20 {
+		return new(big.Int).Mul(diff, big.NewInt(2))
+	} else {
+		return diff
+	}
+}
 
 // calcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the

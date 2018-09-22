@@ -25,10 +25,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -39,13 +39,12 @@ var errGenesisNoConfig = errors.New("genesis has no chain configuration")
 // Genesis specifies the header fields, state of a genesis block. It also defines hard
 // fork switch-over blocks through the chain configuration.
 type Genesis struct {
-	Snail *snailchain.Genesis
-	Fast  *fastchain.Genesis
-	Config     *params.ChainConfig
+	Snail  *snailchain.Genesis
+	Fast   *fastchain.Genesis
+	Config *params.ChainConfig
 }
 
 type GenesisAlloc map[common.Address]types.GenesisAccount
-
 
 // SetupGenesisBlock writes or updates the genesis block in db.
 // The block that will be used is:
@@ -66,23 +65,23 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 			return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 		}
 		if genesis.Fast != nil && genesis.Fast.Config == nil {
-			return params.AllEthashProtocolChanges, common.Hash{},  errGenesisNoConfig
+			return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 		}
 
-		config, fastHash, err:= fastchain.SetupGenesisBlock(db, genesis.Fast)
+		config, fastHash, err := fastchain.SetupGenesisBlock(db, genesis.Fast)
 		if err != nil {
 			return config, fastHash, err
 		}
-		config, snailHash, err:= snailchain.SetupGenesisBlock(db, genesis.Snail)
+		config, snailHash, err := snailchain.SetupGenesisBlock(db, genesis.Snail)
 
 		return config, snailHash, err
 	}
 
-	config, fastHash, err:= fastchain.SetupGenesisBlock(db, nil)
+	config, fastHash, err := fastchain.SetupGenesisBlock(db, nil)
 	if err != nil {
 		return config, fastHash, err
 	}
-	config, snailHash, err:= snailchain.SetupGenesisBlock(db, nil)
+	config, snailHash, err := snailchain.SetupGenesisBlock(db, nil)
 
 	return config, snailHash, err
 }
@@ -166,24 +165,10 @@ func DefaultRinkebyGenesisBlock() *Genesis {
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
-	snailGenesis := snailchain.Genesis{
-		Config:     params.TestnetChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
-		// Alloc:      types. DecodePrealloc(testnetAllocData),
-	}
-	fastGenesis := fastchain.Genesis{
-		Config:     params.TestnetChainConfig,
-		Nonce:      66,
-		ExtraData:  hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535"),
-		GasLimit:   16777216,
-		Difficulty: big.NewInt(1048576),
-		Alloc:      types.DecodePrealloc(testnetAllocData),
-	}
+	snailGenesis := snailchain.DefaultTestnetGenesisBlock()
+	fastGenesis := fastchain.DefaultTestnetGenesisBlock()
 	return &Genesis{
-		Snail: &snailGenesis,
-		Fast:  &fastGenesis,
+		Snail: snailGenesis,
+		Fast:  fastGenesis,
 	}
 }

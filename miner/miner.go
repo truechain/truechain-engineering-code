@@ -115,7 +115,9 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 
 	go miner.update()
 	return miner
-} 
+}
+
+
 func (self *Miner) loop() {
 	
 	defer self.electionSub.Unsubscribe()

@@ -353,7 +353,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 
 	defer func() {
 
-		fmt.Println("synchronise退出")
+		log.Debug("synchronise exit")
 	}()
 	if d.synchroniseMock != nil {
 		return d.synchroniseMock(id, hash)
@@ -427,7 +427,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}()
 	defer func() {
 
-		fmt.Println("syncWithPeer退出")
+		log.Debug("syncWithPeer exit")
 	}()
 	if p.GetVersion() < 62 {
 		return errTooOld
@@ -503,7 +503,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 
 	defer func() {
 
-		fmt.Println("spawnSync退出")
+		log.Debug("spawnSync exit")
 	}()
 
 	errc := make(chan error, len(fetchers))
@@ -1396,11 +1396,16 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		blocks := make([]*types.SnailBlock, 1)
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
-		if len(result.Fruits) > 0 {
+		if len(result.Fruits) > 0 && d.fastDown.GetBlockChain().CurrentBlock().NumberU64() < result.Fruits[0].FastNumber().Uint64() {
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 
-			log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "fbNum",fbNum)
+			log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number)
+
+			for _,fr := range result.Fruits{
+
+				log.Debug("Fruits:","Fruit Number",fr.NumberU64())
+			}
 			errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, uint64(len(result.Fruits)))
 			//time.Sleep(1*time.Second)
 			if errs != nil {

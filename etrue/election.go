@@ -36,8 +36,8 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 1440 // snail block period number
-	k                  = 1000
+	z                  = 44  // snail block period number
+	k                  = 100
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -112,7 +112,6 @@ type committee struct {
 func (c *committee) Members() []*types.CommitteeMember {
 	members := make([]*types.CommitteeMember, len(c.members))
 	copy(members, c.members)
-
 	return members
 }
 
@@ -497,6 +496,7 @@ func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	return nil
 }
 
+
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
 	var fruitsCount map[common.Address]uint = make(map[common.Address]uint)
@@ -548,7 +548,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	td := big.NewInt(0)
 	for _, member := range members {
 		if cnt, ok := fruitsCount[member.address]; ok {
-			log.Trace("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
+			log.Debug("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
 			if cnt >= fruitThreshold {
 				td.Add(td, member.difficulty)
 
@@ -631,7 +631,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	members := e.elect(candidates, seed)
 
 	// for test
-	//members = testCommttee
+	members = testCommttee
 	return members
 }
 
@@ -686,6 +686,7 @@ func (e *Election) Start() error {
 			Option:           types.CommitteeSwitchover,
 			CommitteeID:      e.committee.id,
 			CommitteeMembers: e.committee.Members(),
+			BeginFastNumber:  e.committee.beginFastNumber,
 		})
 		e.electionFeed.Send(core.ElectionEvent{
 			Option:           types.CommitteeStart,
@@ -695,11 +696,19 @@ func (e *Election) Start() error {
 		})
 
 		if e.startSwitchover {
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeOver,
+				CommitteeID:      e.committee.id,
+				CommitteeMembers: e.committee.Members(),
+				BeginFastNumber:  e.committee.beginFastNumber,
+				EndFastNumber:    e.committee.endFastNumber,
+			})
 			// send switch event to the subscripber
 			e.electionFeed.Send(core.ElectionEvent{
 				Option:           types.CommitteeSwitchover,
 				CommitteeID:      e.nextCommittee.id,
 				CommitteeMembers: e.nextCommittee.Members(),
+				BeginFastNumber:  e.nextCommittee.beginFastNumber,
 			})
 		}
 	}(e)
@@ -751,11 +760,22 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					go e.electionFeed.Send(core.ElectionEvent{
-						Option:           types.CommitteeSwitchover,
-						CommitteeID:      e.nextCommittee.id,
-						CommitteeMembers: e.nextCommittee.Members(),
-					})
+					go func(e *Election) {
+						e.electionFeed.Send(core.ElectionEvent{
+							Option:           types.CommitteeOver,
+							CommitteeID:      e.committee.id,
+							CommitteeMembers: e.committee.Members(),
+							BeginFastNumber:  e.committee.beginFastNumber,
+							EndFastNumber:    e.committee.endFastNumber,
+						})
+
+						e.electionFeed.Send(core.ElectionEvent{
+							Option:           types.CommitteeSwitchover,
+							CommitteeID:      e.nextCommittee.id,
+							CommitteeMembers: e.nextCommittee.Members(),
+							BeginFastNumber:  e.nextCommittee.beginFastNumber,
+						})
+					}(e)
 
 				}
 
@@ -771,6 +791,8 @@ func (e *Election) loop() {
 								Option:           types.CommitteeStop,
 								CommitteeID:      e.committee.id,
 								CommitteeMembers: e.committee.Members(),
+								BeginFastNumber:  e.committee.beginFastNumber,
+								EndFastNumber:    e.committee.endFastNumber,
 							})
 
 							e.committee = e.nextCommittee
