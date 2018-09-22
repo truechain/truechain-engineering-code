@@ -1011,8 +1011,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
-		p.MarkSnailBlock(snailBlock.Hash())
-		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 		hash ,td :=p.Head()
 		fbNum := snailBlock.Fruits()[0].NumberU64()
 
@@ -1020,6 +1018,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
 		}
+
+		p.MarkSnailBlock(snailBlock.Hash())
+		pm.fetcherSnail.Enqueue(p.id, snailBlock)
+
+
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
 		trueHead := request.Block.ParentHash()
