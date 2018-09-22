@@ -35,6 +35,7 @@ type serverInfo struct {
 	server *network.Server
 	Height *big.Int
 	clear  bool
+	Stop   uint64
 }
 
 type PbftServerMgr struct {
@@ -340,6 +341,10 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
 				if server, ok := ss.servers[cid.Uint64()]; ok {
+					if server.Height.Uint64() == server.Stop {
+						lock.PSLog("ActionFecth", "Stop", "height stop")
+						continue
+					}
 					if !server.clear {
 						req, err := ss.GetRequest(cid)
 						if err == nil && req != nil {
@@ -359,6 +364,14 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 			}
 		}
 	}
+}
+
+func (ss *PbftServerMgr) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
+	if server, ok := ss.servers[committeeId.Uint64()]; ok {
+		server.Stop = stop
+		return nil
+	}
+	return errors.New("SetCommitteeStop Server is not have")
 }
 
 func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error {
