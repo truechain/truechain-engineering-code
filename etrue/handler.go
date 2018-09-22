@@ -1009,7 +1009,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
 		hash, td := p.Head()
-		fbNum := snailBlock.Fruits()[0].NumberU64()
+		fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
 
 		log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
 		if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
