@@ -261,7 +261,7 @@ func (self *PbftAgent) loop() {
 					self.isCommitteeMember = false
 				}
 			case types.CommitteeOver:
-				log.Debug("CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
+				log.Debug("CommitteeOver...","CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
 				copyID := *ch.CommitteeID
 				committeeID := &copyID
 				self.endFastNumber[committeeID] = ch.EndFastNumber
