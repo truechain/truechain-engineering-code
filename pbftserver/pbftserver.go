@@ -192,7 +192,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 
 	fb, err := ss.Agent.FetchFastBlock(id)
 
-	fmt.Println("[pbft server] FetchFastBlock", fb.Header().Time)
+	lock.PSLog("[pbft server]", " FetchFastBlock header", fb.Header().Time)
 
 	if len(fb.Body().Transactions) == 0 {
 		if ss.blockSleep < BlockSleepMax {
@@ -211,7 +211,6 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("same height:" + fb.Number().String())
 	}
 
-	//fmt.Println(len(ss.blocks))
 	sum := ss.getBlockLen()
 
 	if sum > 0 {
@@ -283,7 +282,6 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
 	}
 	lock.PSLog("[Agent]", "BroadcastConsensus", "start")
 	err := ss.Agent.BroadcastConsensus(block)
-	fmt.Println("[pbft server] BroadcastConsensus", block.Header().Time)
 	lock.PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	//ss.removeBlock(height)
 	if err != nil {
@@ -296,7 +294,6 @@ func (ss *PbftServerMgr) Broadcast(height *big.Int) {
 	if fb := ss.getBlock(height.Uint64()); fb != nil {
 		lock.PSLog("[Agent]", "BroadcastFastBlock", "start")
 		ss.Agent.BroadcastFastBlock(fb)
-		fmt.Println("[leader]", "BroadcastFastBlock")
 		lock.PSLog("[Agent]", "BroadcastFastBlock", "end")
 	}
 }
@@ -380,7 +377,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 }
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if nodes[0] != nil {
-		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP)
+		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP, "committee id", id.Int64())
 	} else {
 		lock.PSLog("PutNodes nodes error")
 	}
@@ -427,13 +424,17 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, _ := serverCheck(server)
-			//fmt.Println("server count:", c)
+			lock.PSLog("[leader]", "server count", b)
 			if b {
 				time.Sleep(time.Second * ServerWait)
 				break
 			}
 			time.Sleep(time.Second)
 		}
+	}
+	if id.Int64() > 0 {
+		lock.PSLog("[switch]", "leader wait ", 60)
+		time.Sleep(time.Second * ServerWait)
 	}
 
 	server.server.Start(ss.work)
@@ -446,8 +447,20 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	server.server.ActionChan <- ac
 }
 
+func DelayStop(id *big.Int, ss *PbftServerMgr) {
+	lock.PSLog("[switch]", "stop wait ", 60)
+	time.Sleep(time.Second * ServerWait)
+
+	if server, ok := ss.servers[id.Uint64()]; ok {
+		server.server.Node.Stop = true
+		server.server.Stop()
+		server.clear = true
+	}
+	ss.clear(id)
+}
+
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
-	lock.PSLog("PutNodes", id, action)
+	lock.PSLog("Notify", id, action)
 	switch action {
 	case Start:
 		if server, ok := ss.servers[id.Uint64()]; ok {
@@ -456,11 +469,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 			return errors.New("wrong conmmitt ID:" + id.String())
 		}
 	case Stop:
-		if server, ok := ss.servers[id.Uint64()]; ok {
-			server.server.Stop()
-			server.clear = true
-		}
-		ss.clear(id)
+		DelayStop(id, ss)
 		return nil
 	case Switch:
 		// begin to make network..
