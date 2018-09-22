@@ -496,6 +496,21 @@ var (
 	big2999999    = big.NewInt(2999999)
 )
 
+
+func calcFruitDifficulty(time uint64, proposedTime uint64, pointerDiff * big.Int ) *big.Int {
+	diff := new(big.Int).Div(pointerDiff, params.FruitBlockRatio)
+
+	delta := time - proposedTime
+
+	if delta > 20 {
+		return new(big.Int).Mul(diff, big.NewInt(4))
+	} else if delta > 10 && delta <= 20 {
+		return new(big.Int).Mul(diff, big.NewInt(2))
+	} else {
+		return diff
+	}
+}
+
 // calcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty.
