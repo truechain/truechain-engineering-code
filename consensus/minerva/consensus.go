@@ -441,7 +441,7 @@ func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
 		header = block.Header()
 	}
 	// check freshness
-	pointer := m.sbc.GetHeaderByHash(header.PointerHash)
+	pointer := m.sbc.GetHeaderByHash(fruit.PointerHash())
 	if pointer == nil {
 		log.Warn("VerifyFreshness get pointer failed.", "pointer", fruit.PointerHash())
 		return consensus.ErrUnknownPointer

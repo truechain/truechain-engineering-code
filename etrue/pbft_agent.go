@@ -295,8 +295,9 @@ func (self *PbftAgent) updateCommitteeNode() {
 	if isCommitteeeMember {
 		for _, port := range self.commiteePorts {
 			if self.committeeNode.Port != uint(port) {
-				log.Info("switch port..")
+				log.Info("switch port..","port",port)
 				self.committeeNode.Port = uint(port)
+				break;
 			}
 		}
 	}
