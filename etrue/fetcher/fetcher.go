@@ -853,7 +853,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 
 		committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
-		log.Info("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]), "peer", peer)
+		log.Debug("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]), "peer", peer)
 		if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 			if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
 				propSignInMeter.Mark(1)
@@ -919,7 +919,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Info("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queue", f.queue.Size())
+		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queue", f.queue.Size())
 	}
 }
 

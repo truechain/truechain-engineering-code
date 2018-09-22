@@ -40,7 +40,7 @@ var (
 
 	ErrInvalidHash = errors.New("invalid hash")
 
-	ErrFreshness = errors.New("fruit not fresh")
+	ErrNoFruits = errors.New("no fruits included")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -95,8 +95,12 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	//	return err
 	//}
 
+	if len(block.Fruits()) == 0 {
+		return ErrNoFruits
+	}
+
 	for _, fruit := range block.Fruits() {
-		if err := v.ValidateFruit(fruit); err != nil {
+		if err := v.ValidateFruit(fruit, block); err != nil {
 			log.Info("valida fruit error", "err", err)
 			return err
 		}
@@ -176,7 +180,7 @@ func CalcGasLimit(parent *types.SnailBlock) uint64 {
 	*/
 }
 
-func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
+func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
@@ -184,8 +188,12 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
 		return ErrInvalidSign
 	}
 
-	// TODO: verify fast block and block hash
-
+	var current *types.SnailHeader
+	if block == nil {
+		current = v.bc.CurrentHeader()
+	} else {
+		current = block.Header()
+	}
 
 	// check freshness
 	pointer := v.bc.GetBlockByHash(fruit.PointerHash())
@@ -194,11 +202,11 @@ func (v *BlockValidator) ValidateFruit(fruit *types.SnailBlock) error {
 		return ErrInvalidPointer
 	}
 	//freshNumber := pool.header.Number().Sub(pool.header.Number(), pointer.Number())
-	current := v.bc.CurrentHeader()
+
 	freshNumber := new(big.Int).Sub(current.Number, pointer.Number())
 	if freshNumber.Cmp(fruitFreshness) > 0 {
 		log.Warn("validate fruit freshness failed.", "poiner", pointer.Number(), "current", current.Number)
-		return ErrFreshness
+		return consensus.ErrFreshness
 	}
 
 	header := fruit.Header()

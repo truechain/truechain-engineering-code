@@ -88,6 +88,8 @@ var (
 	DurationLimit          = big.NewInt(600)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 
 	FruitBlockRatio *big.Int = big.NewInt(600) // difficulty ratio between fruit and snail block
+
+	FruitFreshness		    = big.NewInt(17)
 )
 
 
