@@ -1014,6 +1014,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hash ,td :=p.Head()
 		fbNum := snailBlock.Fruits()[0].NumberU64()
 
+		log.Debug("snail block msg ","number",pm.blockchain.CurrentBlock().NumberU64() ,"fbNum", fbNum)
 		if pm.blockchain.CurrentBlock().NumberU64() + 1  == fbNum  {
 
 			pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
