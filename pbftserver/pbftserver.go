@@ -341,7 +341,7 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
 				if server, ok := ss.servers[cid.Uint64()]; ok {
-					if server.Height.Uint64() == server.Stop {
+					if server.Height.Uint64() == server.Stop && server.Stop != 0 {
 						lock.PSLog("ActionFecth", "Stop", "height stop")
 						continue
 					}
@@ -392,6 +392,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 		info:   infos,
 		Height: new(big.Int).Set(common.Big0),
 		clear:  false,
+		Stop:   0,
 	}
 	for _, v := range members {
 		server.insertMember(v)

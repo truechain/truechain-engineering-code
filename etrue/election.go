@@ -58,6 +58,7 @@ var (
 	ErrInvalidSign   = errors.New("invalid sign")
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
+
 )
 
 var testCommitteeNodes = []*types.CommitteeNode{
@@ -199,7 +200,7 @@ func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
-		log.Error("GetCommittee members is nil","fastHeight",fastHeight, "err", ErrCommittee)
+		log.Info("GetCommittee members is nil","fastHeight",fastHeight)
 		return nil, ErrCommittee
 	}
 	member := e.GetMemberByPubkey(members, pubKeyByte)
