@@ -392,6 +392,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 		info:   infos,
 		Height: new(big.Int).Set(common.Big0),
 		clear:  false,
+		Stop:   0,
 	}
 	for _, v := range members {
 		server.insertMember(v)
