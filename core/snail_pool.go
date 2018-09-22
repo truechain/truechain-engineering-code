@@ -552,7 +552,6 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
 	}
-
 	// Inject any fastblocks discarded due to reorgs
 	log.Debug("Reinjecting stale fruits", "count", len(reinject))
 
@@ -561,8 +560,10 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
+
 	//remove all the fruits and fastBlocks included in the new snailblock
 	pool.removeWithLock(newHead.Fruits())
+
 	pool.header = pool.chain.CurrentBlock()
 }
 
@@ -652,37 +653,6 @@ func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 		rtfruits = append(rtfruits, v)
 	}
 	return rtfruits, nil
-
-	/*
-		pool.muFruit.Lock()
-		defer pool.muFruit.Unlock()
-
-		var fruits types.SnailBlocks
-		var rtfruits types.SnailBlocks
-
-		for _, fruit := range pool.fruitPending {
-			fruits=append(fruits,types.CopyFruit(fruit))
-		}
-
-		var blockby types.SnailBlockBy = types.FruitNumber
-		blockby.Sort(fruits)
-
-		var number *big.Int
-		for k, v := range fruits {
-			if k == 0 {
-				rtfruits=append(rtfruits,v)
-				number = v.Number()
-
-				continue
-			}
-			number = new(big.Int).Add(number, common.Big1)
-			if number.Cmp(v.Number()) != 0 {
-				break
-			}
-			rtfruits = append(rtfruits, v)
-		}
-		return rtfruits, nil
-	*/
 }
 
 // SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
