@@ -1400,11 +1400,11 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 
-			log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number)
+			log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
 
 			for _,fr := range result.Fruits{
 
-				log.Debug("Fruits:","Fruit Number",fr.NumberU64())
+				log.Debug("Fruits:","Fruit Number",fr.FastNumber())
 			}
 			errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, uint64(len(result.Fruits)))
 			//time.Sleep(1*time.Second)
