@@ -341,7 +341,7 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
 				if server, ok := ss.servers[cid.Uint64()]; ok {
-					if server.Height.Uint64() == server.Stop {
+					if server.Height.Uint64() == server.Stop && server.Stop != 0 {
 						lock.PSLog("ActionFecth", "Stop", "height stop")
 						continue
 					}
