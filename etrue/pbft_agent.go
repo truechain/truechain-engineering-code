@@ -295,6 +295,7 @@ func (self *PbftAgent) updateCommitteeNode() {
 	if isCommitteeeMember {
 		for _, port := range self.commiteePorts {
 			if self.committeeNode.Port != uint(port) {
+				log.Info("switch port..")
 				self.committeeNode.Port = uint(port)
 			}
 		}
@@ -333,12 +334,18 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 
 //  when receive block insert chain event ,put cacheBlock into fastchain
 func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
+	self.cacheBlockMu.Lock()
+	defer self.cacheBlockMu.Unlock()
+	if len(self.cacheBlock) ==0{
+		log.Debug("len(self.cacheBlock) ==0")
+		return nil
+	}else{
+		log.Debug("len(self.cacheBlock) !=0")
+	}
 	var (
 		fastBlocks         []*types.Block
 		receiveBlockHeight = receiveBlock.Number()
 	)
-	self.cacheBlockMu.Lock()
-	defer self.cacheBlockMu.Unlock()
 	for i := receiveBlockHeight.Uint64() + 1; ; i++ {
 		if block, ok := self.cacheBlock[big.NewInt(int64(i))]; ok {
 			fastBlocks = append(fastBlocks, block)
@@ -351,6 +358,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 	for _, fb := range fastBlocks {
 		_, err := self.fastChain.InsertChain([]*types.Block{fb})
 		if err != nil {
+			log.Error("putCacheIntoChain Insertchain error", "number", fb.Number())
 			return err
 		}
 		delete(self.cacheBlock, fb.Number())

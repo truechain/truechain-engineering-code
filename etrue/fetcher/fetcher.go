@@ -311,7 +311,7 @@ func (f *Fetcher) EnqueueSign(peer string, signs []*types.PbftSign) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	log.Trace("Filtering headers", "peer", peer, "headers", len(headers))
+	log.Debug("Filtering headers", "peer", peer, "headers", len(headers))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
@@ -339,7 +339,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, time time.Time) [][]*types.Transaction {
-	log.Trace("Filtering bodies", "peer", peer, "txs", len(transactions))
+	log.Debug("Filtering bodies", "peer", peer, "txs", len(transactions))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -556,6 +556,7 @@ func (f *Fetcher) loop() {
 						request[announce.origin] = append(request[announce.origin], hash)
 						f.fetching[hash] = announce
 					}
+					log.Debug("Fetching headers fetchTimer", "count", len(request), "hash", hash, "peer", announce.origin)
 				}
 			}
 			// Send out all block header requests
@@ -640,7 +641,7 @@ func (f *Fetcher) loop() {
 
 						// If the block is empty (header only), short circuit into the final import queue
 						if header.TxHash == types.DeriveSha(types.Transactions{}) {
-							log.Info("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash(), "sign", announce.sign.Hash())
+							log.Debug("Block empty, skipping body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash(), "sign", announce.sign.Hash())
 
 							block := types.NewBlockWithHeader(header)
 							block.ReceivedAt = task.time
@@ -1084,7 +1085,7 @@ func (f *Fetcher) forgetBlockAndSigns(hash common.Hash, signHashs []common.Hash)
 // state.
 func (f *Fetcher) forgetBlockHeight(height *big.Int) {
 	number := height.Uint64()
-	log.Trace("forgetBlockHeight", "height", height, "block len", len(f.blockMultiHash[number]), "sign len", len(f.signMultiHash[number]))
+	log.Trace("Forget block height", "height", height, "block len", len(f.blockMultiHash[number]), "sign len", len(f.signMultiHash[number]))
 	if blockHashs, ok := f.blockMultiHash[number]; ok {
 		for _, hash := range blockHashs {
 			f.forgetBlock(hash)
@@ -1109,7 +1110,7 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 	defer f.blockMutex.Unlock()
 	if insert := f.queued[hash]; insert != nil {
 		f.queues[insert.origin]--
-		log.Trace("forgetBlock", "number", insert.block.Number(), "queues", f.queues[insert.origin])
+		log.Trace("Forget block", "number", insert.block.Number(), "queues", f.queues[insert.origin])
 		if f.queues[insert.origin] == 0 {
 			delete(f.queues, insert.origin)
 		}
@@ -1122,7 +1123,7 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 func (f *Fetcher) forgetSign(hash common.Hash) {
 	if insert := f.queuedSign[hash]; insert != nil {
 		f.queuesSign[insert.origin]--
-		log.Trace("forgetSign", "number", insert.sign.FastHeight, "queuesSign", f.queuesSign[insert.origin])
+		log.Trace("Forget sign", "number", insert.sign.FastHeight, "queuesSign", f.queuesSign[insert.origin])
 		if f.queuesSign[insert.origin] == 0 {
 			delete(f.queuesSign, insert.origin)
 		}
