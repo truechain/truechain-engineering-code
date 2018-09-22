@@ -36,8 +36,8 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 1440  // snail block period number
-	k                  = 1000
+	z                  = 44  // snail block period number
+	k                  = 100
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -312,7 +312,6 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 
 // getCommittee returns the committee members who propose this fast block
 func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *committee {
-
 	log.Info("get committee ..", "fastnumber", fastNumber, "snailnumber", snailNumber)
 	committeeNumber := new(big.Int).Div(snailNumber, big.NewInt(z))
 	lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
@@ -403,7 +402,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 // GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
-	log.Debug("get committee ..", "fastNumber", fastNumber)
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
 	newestFast := new(big.Int).Add(fastHeadNumber, big.NewInt(k))
@@ -422,11 +420,12 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 			return nil
 		}
 		if fastNumber.Cmp(nextCommittee.beginFastNumber) >= 0 {
+			log.Debug("get committee nextCommittee", "fastNumber", fastNumber, "nextfast", nextCommittee.beginFastNumber)
 			return nextCommittee.Members()
 		}
 	}
 	if currentCommittee != nil {
-		log.Debug("current committee info..", "id", currentCommittee.id, "firstNumber", currentCommittee.beginFastNumber)
+		//log.Debug("current committee info..", "id", currentCommittee.id, "firstNumber", currentCommittee.beginFastNumber)
 		if fastNumber.Cmp(currentCommittee.beginFastNumber) >= 0 {
 			return currentCommittee.Members()
 		}
@@ -557,6 +556,10 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 		}
 	}
 	log.Debug("get final candidate", "count", len(candidates))
+	if len(candidates) == 0 {
+		log.Warn("getCandinates not get candidates")
+		return common.Hash{}, nil
+	}
 
 	dd := big.NewInt(0)
 	rate := new(big.Int).Div(maxUint256, td)
@@ -625,7 +628,9 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", fruitThreshold, "min", minCommitteeNumber, "max", maxCommitteeNumber)
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
-		return nil
+		log.Info("can't get new committee, retain current committee")
+		return testCommttee
+		return e.committee.Members()
 	}
 
 	members := e.elect(candidates, seed)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"math/big"
@@ -20,6 +21,42 @@ type Server struct {
 	help       consensus.ConsensusHelp
 	server     *http.Server
 	ActionChan chan *consensus.ActionIn
+}
+
+func PrintNode(node *Node) {
+start:
+	lock.Lock.Lock()
+	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.CommitWaitQueue.Size())
+	lock.PSLog("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
+		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
+		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
+		"len(node.MsgBuffer.CommitMsgs):", len(node.MsgBuffer.CommitMsgs))
+
+	lock.PSLog("Node info", fmt.Sprintf("%+v", node.NodeTable))
+
+	for i := 0; i < len(node.MsgBuffer.ReqMsgs); i++ {
+		lock.PSLog("ReqMsgs:", fmt.Sprintf("%+v \n", *node.MsgBuffer.ReqMsgs[i]))
+	}
+
+	for i := 0; i < len(node.MsgBuffer.PrePrepareMsgs); i++ {
+		lock.PSLog("PrePrepareMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.PrePrepareMsgs[i]))
+	}
+
+	for i := 0; i < len(node.MsgBuffer.PrepareMsgs); i++ {
+		lock.PSLog("PrepareMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.PrepareMsgs[i]))
+	}
+	for i := 0; i < len(node.MsgBuffer.CommitMsgs); i++ {
+		lock.PSLog("CommitMsgs:", fmt.Sprintf(" %+v  \n", *node.MsgBuffer.CommitMsgs[i]))
+	}
+
+	lock.PSLog("states count:", len(node.States))
+	for k, v := range node.States {
+		lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
+	}
+	lock.PSLog("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
+	lock.Lock.Unlock()
+	time.Sleep(time.Second * 10)
+	goto start
 }
 
 func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
@@ -37,6 +74,7 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	}
 	server.ActionChan = make(chan *consensus.ActionIn)
 	server.setRoute()
+	//go PrintNode(server.Node)
 	return server
 }
 func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.ActionIn)) {
@@ -45,7 +83,7 @@ func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.Act
 }
 func (server *Server) startHttpServer() {
 	if err := server.server.ListenAndServe(); err != nil {
-		fmt.Println(err)
+		log.Error("startHttpServer", "error", err.Error())
 		return
 	}
 }
@@ -75,7 +113,7 @@ func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) 
 	var msg consensus.RequestMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getReq", "error", err.Error())
 		return
 	}
 	lock.PSLog("getReq msg:", fmt.Sprintf("%+v", msg))
@@ -87,7 +125,7 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 	var msg consensus.PrePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getReq", "error", err.Error())
 		return
 	}
 	lock.PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
@@ -100,7 +138,7 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	var tmp consensus.StorgePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&tmp)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getPrepare", "error", err.Error())
 		return
 	}
 	msg.Digest, msg.NodeID, msg.ViewID = tmp.Digest, tmp.NodeID, tmp.ViewID
@@ -116,7 +154,7 @@ func (server *Server) getCommit(writer http.ResponseWriter, request *http.Reques
 	var msg consensus.VoteMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getReq", "error", err.Error())
 		return
 	}
 	lock.PSLog("getCommit msg:", fmt.Sprintf("%+v", msg))

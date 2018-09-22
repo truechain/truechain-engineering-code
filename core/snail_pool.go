@@ -477,15 +477,26 @@ func (pool *SnailPool) removeFastBlockWithLock(fastBlockList *list.List, hash co
 
 // remove all the fruits and fastBlocks included in the new snailblock
 func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
-	for _, fruit := range fruits {
-		//log.Info(" ********* del fruit","snail number", fruit.Number(),"fb number",fruit.FastNumber())
-		delete(pool.fruitPending, fruit.FastHash())
-		delete(pool.allFruits, fruit.FastHash())
-
-		if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
-			//pool.removeFastBlockWithLock(pool.fastBlockList, fruit.FastHash())
-			pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-			delete(pool.allFastBlocks, fruit.FastHash())
+	if len(fruits) == 0 {
+		return
+	}
+	maxFbNumber := fruits[len(fruits)-1].FastNumber()
+	for _, fruit := range pool.allFruits {
+		if fruit.FastNumber().Cmp(maxFbNumber) < 1{
+			log.Info(" ********* del fruit","snail number", fruit.Number(),"fb number",fruit.FastNumber())
+			delete(pool.fruitPending, fruit.FastHash())
+			delete(pool.allFruits, fruit.FastHash())
+			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
+				pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
+				delete(pool.allFastBlocks, fruit.FastHash())
+			}*/
+		}
+	}
+	for _, fastblcok := range pool.allFastBlocks {
+		if fastblcok.Number().Cmp(maxFbNumber) < 1{
+			log.Info(" ********* del fastblcok","fb number",fastblcok.Number())
+			pool.removeFastBlockWithLock(pool.fastBlockPending, fastblcok.Hash())
+			delete(pool.allFastBlocks,  fastblcok.Hash())
 		}
 	}
 }
@@ -517,6 +528,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 				rem = pool.chain.GetBlock(oldHead.Hash(), oldHead.Number().Uint64())
 				add = pool.chain.GetBlock(newHead.Hash(), newHead.Number().Uint64())
 			)
+			log.Debug("branching","oldHeadNumber",rem.NumberU64(),"newHeadNumber",add.NumberU64(),"oldHeadMaxFastNumber",rem.Fruits()[len(rem.Fruits())-1].FastNumber(),"newHeadMaxFastNumber",add.Fruits()[len(add.Fruits())-1].FastNumber())
 			for rem.NumberU64() > add.NumberU64() {
 				discarded = append(discarded, rem.Fruits()...)
 				if rem = pool.chain.GetBlock(rem.ParentHash(), rem.NumberU64()-1); rem == nil {
@@ -552,7 +564,6 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
 	}
-
 	// Inject any fastblocks discarded due to reorgs
 	log.Debug("Reinjecting stale fruits", "count", len(reinject))
 
@@ -561,8 +572,10 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 
 	pool.muFastBlock.Lock()
 	defer pool.muFastBlock.Unlock()
+
 	//remove all the fruits and fastBlocks included in the new snailblock
 	pool.removeWithLock(newHead.Fruits())
+
 	pool.header = pool.chain.CurrentBlock()
 }
 
@@ -652,37 +665,6 @@ func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 		rtfruits = append(rtfruits, v)
 	}
 	return rtfruits, nil
-
-	/*
-		pool.muFruit.Lock()
-		defer pool.muFruit.Unlock()
-
-		var fruits types.SnailBlocks
-		var rtfruits types.SnailBlocks
-
-		for _, fruit := range pool.fruitPending {
-			fruits=append(fruits,types.CopyFruit(fruit))
-		}
-
-		var blockby types.SnailBlockBy = types.FruitNumber
-		blockby.Sort(fruits)
-
-		var number *big.Int
-		for k, v := range fruits {
-			if k == 0 {
-				rtfruits=append(rtfruits,v)
-				number = v.Number()
-
-				continue
-			}
-			number = new(big.Int).Add(number, common.Big1)
-			if number.Cmp(v.Number()) != 0 {
-				break
-			}
-			rtfruits = append(rtfruits, v)
-		}
-		return rtfruits, nil
-	*/
 }
 
 // SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
