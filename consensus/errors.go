@@ -43,4 +43,6 @@ var (
 	ErrUnknownPointer = errors.New("unknown pointer hash")
 
 	ErrFreshness = errors.New("invalid fruit freshness")
+
+	ErrInvalidSign = errors.New("invalid sign")
 )

@@ -433,6 +433,39 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 }
 
 
+// VerifySigns check the sings included in fast block or fruit
+//
+func (m*Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error {
+
+	// validate the signatures of this fruit
+	members := m.election.GetCommittee(fastnumber)
+	if members == nil {
+		log.Warn("validate fruit get committee failed.", "number", fastnumber)
+		return consensus.ErrInvalidSign
+	}
+	count := 0
+	for _, sign := range signs {
+		if sign.Result == types.VoteAgree {
+			count ++
+		}
+	}
+	if count <= len(members) * 2 / 3 {
+		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
+		return consensus.ErrInvalidSign
+	}
+
+	_, errs := m.election.VerifySigns(signs)
+	for _, err := range errs {
+		if err != nil {
+			log.Warn("validate fruit VerifySigns error", "err", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+
 func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
 	var header *types.SnailHeader
 	if block == nil {
