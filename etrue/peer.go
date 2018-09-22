@@ -374,13 +374,6 @@ func (p *peer) SendFruits(fruits types.Fruits) error {
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
-func (p *peer) SendSnailBlocks(snailBlocks types.SnailBlocks) error {
-	for _, snailBlock := range snailBlocks {
-		p.knownSnailBlocks.Add(snailBlock.Hash())
-	}
-	return p2p.Send(p.rw, SnailBlockMsg, snailBlocks)
-}
-
 //for record;the same as transactions
 func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {

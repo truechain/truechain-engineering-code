@@ -17,7 +17,6 @@
 package etrue
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/hex"
@@ -40,6 +39,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"bytes"
 )
 
 const (
@@ -262,22 +262,24 @@ func (self *PbftAgent) loop() {
 			//if cryNodeInfo of  node in Committee,
 			if self.encryptoNodeInCommittee(cryNodeInfo) {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
-				signStr := hex.EncodeToString(cryNodeInfo.Sign)
-				if len(signStr) > subSignStr {
-					signStr = signStr[:subSignStr]
+				if self.isCommitteeMember {
+					signStr := hex.EncodeToString(cryNodeInfo.Sign)
+					if len(signStr) > subSignStr {
+						signStr = signStr[:subSignStr]
+					}
+					// if  node  is in committee  and the sign is not received
+					//TODO every time getcommittee
+					//if bytes.Equal(self.cacheSign[signStr], []byte{}) && self.IsCommitteeMember(self.nextCommitteeInfo) {
+					if bytes.Equal(self.cacheSign[signStr], []byte{}) {
+						self.cacheSign[signStr] = cryNodeInfo.Sign
+						self.receivePbftNode(cryNodeInfo)
+					} else {
+						log.Debug("not received pbftnode.")
+					}
 				}
-				// if  node  is in committee  and the sign is not received
-				//TODO every time getcommittee
-				//if bytes.Equal(self.cacheSign[signStr], []byte{}) && self.IsCommitteeMember(self.nextCommitteeInfo) {
-				if self.isCommitteeMember && bytes.Equal(self.cacheSign[signStr], []byte{}) {
-					self.cacheSign[signStr] = cryNodeInfo.Sign
-					self.receivePbftNode(cryNodeInfo)
-				} else {
-					log.Debug("not received pbftnode.")
-				}
-			} else {
+			} /*else {
 				log.Warn("receive cryNodeInfo of node not in Committee.")
-			}
+			}*/
 		case ch := <-self.chainHeadCh:
 			log.Debug("ChainHeadCh putCacheIntoChain.", "ch.Block", ch.Block.Number())
 			go self.putCacheIntoChain(ch.Block)
@@ -295,7 +297,7 @@ func (self *PbftAgent) updateCommitteeNode() {
 	if isCommitteeeMember {
 		for _, port := range self.commiteePorts {
 			if self.committeeNode.Port != uint(port) {
-				log.Info("switch port..","port",port)
+				log.Info("switch port..", "port", port)
 				self.committeeNode.Port = uint(port)
 				break;
 			}
@@ -337,10 +339,10 @@ func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *
 func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 	self.cacheBlockMu.Lock()
 	defer self.cacheBlockMu.Unlock()
-	if len(self.cacheBlock) ==0{
+	if len(self.cacheBlock) == 0 {
 		log.Debug("len(self.cacheBlock) ==0")
 		return nil
-	}else{
+	} else {
 		log.Debug("len(self.cacheBlock) !=0")
 	}
 	var (
@@ -427,20 +429,20 @@ func (self *PbftAgent) sendSign(receiveBlock *types.Block) error {
 }
 
 func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMessage) bool {
+	nextCommitteeInfo := self.nextCommitteeInfo
+	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
+		//log.Debug("received nodeInfo CommitteeId not consistence  ...")
+		return false
+	}
+
 	hash := cryNodeInfo.HashWithoutSign().Bytes()
 	pubKey, err := crypto.SigToPub(hash, cryNodeInfo.Sign)
 	if err != nil {
 		log.Error("encryptoNode SigToPub error", "err", err)
 		return false
 	}
-
-	nextCommitteeInfo := self.nextCommitteeInfo
 	if len(nextCommitteeInfo.Members) == 0 {
 		log.Error("encryptoNodeInCommittee method NextCommitteeInfo.Members = 0")
-		return false
-	}
-	if nextCommitteeInfo.Id.Cmp(cryNodeInfo.CommitteeId) != 0 {
-		log.Warn("received nodeInfo CommitteeId not consistence  ...")
 		return false
 	}
 
@@ -518,7 +520,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
-	log.Info("parent","height:",parent.Number())
+	log.Info("parent", "height:", parent.Number())
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
