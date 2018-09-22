@@ -43,7 +43,7 @@ const (
 	fruitThreshold = 1 // fruit size threshold for committee election
 
 	maxCommitteeNumber = 40
-	minCommitteeNumber = 7
+	minCommitteeNumber = 1
 
 	powUnit = 1
 )
@@ -618,9 +618,9 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 
 		round = new(big.Int).Add(round, common.Big1)
 		if round.Cmp(big.NewInt(maxCommitteeNumber)) > 0 {
-			if len(members) >= minCommitteeNumber {
+			//if len(members) >= minCommitteeNumber {
 				break
-			}
+			//}
 		}
 	}
 
