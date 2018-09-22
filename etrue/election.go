@@ -43,7 +43,7 @@ const (
 	fruitThreshold = 1 // fruit size threshold for committee election
 
 	maxCommitteeNumber = 40
-	minCommitteeNumber = 1
+	minCommitteeNumber = 7
 
 	powUnit = 1
 )
@@ -587,11 +587,12 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	var members []*types.CommitteeMember
 
 	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
-	round := new(big.Int).Set(common.Big0)
+	round := new(big.Int).Set(common.Big1)
 	for {
 		seedNumber := new(big.Int).Add(seed.Big(), round)
 		hash := crypto.Keccak256Hash(seedNumber.Bytes())
-		prop := new(big.Int).Div(maxUint256, hash.Big())
+		//prop := new(big.Int).Div(maxUint256, hash.Big())
+		prop := hash.Big()
 
 		for _, cm := range candidates {
 			if prop.Cmp(cm.lower) < 0 {
@@ -601,7 +602,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 				continue
 			}
 
-			log.Debug("get member", "member", cm.address, "prop", prop)
+			log.Debug("get member", "seed", hash, "member", cm.address, "prop", prop)
 			if _, ok := addrs[cm.address]; ok {
 				break
 			}
@@ -616,7 +617,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 		}
 
 		round = new(big.Int).Add(round, common.Big1)
-		if round.Cmp(big.NewInt(maxCommitteeNumber)) >= 0 {
+		if round.Cmp(big.NewInt(maxCommitteeNumber)) > 0 {
 			if len(members) >= minCommitteeNumber {
 				break
 			}
