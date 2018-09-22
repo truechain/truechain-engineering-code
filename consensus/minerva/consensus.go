@@ -432,6 +432,29 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
+
+func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
+	var header *types.SnailHeader
+	if block == nil {
+		header = m.sbc.CurrentHeader()
+	} else {
+		header = block.Header()
+	}
+	// check freshness
+	pointer := m.sbc.GetHeaderByHash(header.PointerHash)
+	if pointer == nil {
+		log.Warn("VerifyFreshness get pointer failed.", "pointer", fruit.PointerHash())
+		return consensus.ErrUnknownPointer
+	}
+	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
+	if freshNumber.Cmp(params.FruitFreshness) > 0 {
+		log.Warn("VerifyFreshness failed.", "poiner", pointer.Number, "current", header.Number)
+		return consensus.ErrFreshness
+	}
+
+	return nil
+}
+
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
 	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
