@@ -229,6 +229,7 @@ func (pm *ProtocolManager) syncer() {
 	defer pm.fetcherFast.Stop()
 	defer pm.fetcherSnail.Stop()
 	defer pm.downloader.Terminate()
+	defer pm.fdownloader.Terminate()
 
 	// Wait for different events to fire synchronisation operations
 	forceSync := time.NewTicker(forceSyncCycle)
@@ -264,6 +265,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
+	log.Debug("pm_synchronise >>>> ","pTd",pTd,"td",td,"NumberU64",currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		return
 	}
