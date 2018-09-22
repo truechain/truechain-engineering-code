@@ -1022,10 +1022,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
-		var (
-			trueHead = request.Block.ParentHash()
-			trueTD   = new(big.Int).Sub(request.TD, pm.snailchain.GetBlockDifficulty(request.Block))
-		)
+		trueHead := request.Block.ParentHash()
+		diff := pm.snailchain.GetBlockDifficulty(request.Block)
+		if diff == nil {
+			log.Info("get request block diff failed.")
+			return errResp(ErrDecode, "snail block diff is nil")
+		}
+		trueTD := new(big.Int).Sub(request.TD, pm.snailchain.GetBlockDifficulty(request.Block))
+
 		// Update the peers total difficulty if better than the previous
 		if _, td := p.Head(); trueTD.Cmp(td) > 0 || td == nil {
 			p.SetHead(trueHead, trueTD)
