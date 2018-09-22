@@ -26,8 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
-	"fmt"
-)
+	)
 
 const (
 	forceSyncCycle      = 10 * time.Second // Time interval to force syncs, even if few peers are available
@@ -246,7 +245,7 @@ func (pm *ProtocolManager) syncer() {
 
 		case <-forceSync.C:
 			// Force a sync even if not enough peers are present
-			pm.synchronise(pm.peers.BestPeer())
+			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
 			return
@@ -292,7 +291,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
-		fmt.Println(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<")
+		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<")
 		return
 	}
 
@@ -303,6 +302,15 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	atomic.StoreUint32(&pm.acceptTxs, 1)         // Mark initial sync done
 	atomic.StoreUint32(&pm.acceptFruits, 1)      // Mark initial sync done on any fetcher import
 	//atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
+	if head := pm.snailchain.CurrentBlock(); head.NumberU64() > 0 {
+		// We've completed a sync cycle, notify all peers of new state. This path is
+		// essential in star-topology networks where a gateway node needs to notify
+		// all its out-of-date peers of the availability of a new block. This failure
+		// scenario will most often crop up in private and hackathon networks with
+		// degenerate connectivity, but it should be healthy for the mainnet too to
+		// more reliably update peers or the local TD state.
+		go pm.BroadcastSnailBlock(head, false)
+	}
 	if head := pm.blockchain.CurrentBlock(); head.NumberU64() > 0 {
 		// We've completed a sync cycle, notify all peers of new state. This path is
 		// essential in star-topology networks where a gateway node needs to notify
@@ -310,6 +318,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// scenario will most often crop up in private and hackathon networks with
 		// degenerate connectivity, but it should be healthy for the mainnet too to
 		// more reliably update peers or the local TD state.
-		//go pm.BroadcastFastBlock(head, false)
+		go pm.BroadcastFastBlock(head, false)
 	}
 }

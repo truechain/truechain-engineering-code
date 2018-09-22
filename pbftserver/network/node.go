@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -36,8 +37,7 @@ type Node struct {
 	CommitLock         sync.Mutex
 	CurrentHeight      int64
 	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
-	Count              int64
-	Count2             int64
+	Stop               bool
 }
 
 type MsgBuffer struct {
@@ -172,7 +172,6 @@ func (node *Node) ClearStatus(height int64) {
 	if dHeight < 0 {
 		dHeight += StateMax
 	}
-	//fmt.Println("[status]", "delete", dHeight)
 	delete(node.States, dHeight)
 }
 
@@ -259,7 +258,9 @@ func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg)
 	if prePrepareMsg.Height == node.CurrentHeight {
 		node.Broadcast(prePrepareMsg, "/preprepare")
 		time.Sleep(time.Second * 10)
-		node.delayPrePrepareMessage(prePrepareMsg)
+		if !node.Stop {
+			node.delayPrePrepareMessage(prePrepareMsg)
+		}
 	}
 }
 
@@ -275,7 +276,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	}
 
 	if !node.Verify.InsertBlock(prePrepareMsg) {
-		fmt.Println("[BlockInsertError]", node.NodeID, prePrepareMsg.Height)
+		lock.PSLog("[BlockInsertError]", node.NodeID, prePrepareMsg.Height)
 	}
 
 	prePareMsg, err := node.GetStatus(prePrepareMsg.Height).PrePrepare(prePrepareMsg)
@@ -337,6 +338,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		commitMsg.NodeID = node.NodeID
 
 		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
+			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
@@ -463,8 +466,10 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	}
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
+	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
 	if state.CurrentStage == consensus.Committed {
-		node.CommittedMsgs = append(node.CommittedMsgs, committedMsg)
+		lock.PSLog("[Committed return true]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
+		state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 		return nil
 	}
 
@@ -493,7 +498,7 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 }
 
 func (node *Node) GetReply(msg *consensus.ReplyMsg) {
-	fmt.Printf("Result: %s by %s\n", msg.Result, msg.NodeID)
+	log.Trace("GetReply", "info", fmt.Sprintf("Result: %s by %s\n", msg.Result, msg.NodeID))
 }
 
 func (node *Node) createStateForNewConsensus(height int64) error {
@@ -513,8 +518,6 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 	}
 
 	// Create a new state for this new consensus process in the Primary
-	//fmt.Println("[create]", node.NodeID, lastSequenceID, height)
-
 	node.PutStatus(height, consensus.CreateState(node.View.ID, lastSequenceID))
 
 	LogStage("Create the replica status", true)
@@ -528,13 +531,13 @@ func (node *Node) dispatchMsg() {
 		case msg := <-node.MsgEntrance:
 			err := node.routeMsg(msg)
 			if err != nil {
-				fmt.Println(err)
+				log.Error("dispatchMsg", "error", err[0].Error())
 				// TODO: send err to ErrorChannel
 			}
 		case <-node.Alarm:
 			err := node.routeMsgWhenAlarmed()
 			if err != nil {
-				fmt.Println(err)
+				log.Error("dispatchMsg", "error", err[0].Error())
 				// TODO: send err to ErrorChannel
 			}
 		case msgHeight := <-node.FinishChan:
@@ -627,7 +630,7 @@ func (node *Node) dispatchMsgBackward() {
 		case msg := <-node.MsgBackward:
 			err := node.routeMsgBackward(msg)
 			if err != nil {
-				fmt.Println(err)
+				log.Error("getPrepare", "error", err.Error())
 				// TODO: send err to ErrorChannel
 			}
 		}
@@ -790,7 +793,7 @@ func (node *Node) resolveMsg() {
 			errs := node.resolvePrePrepareMsg(msgs.([]*consensus.PrePrepareMsg))
 			if len(errs) != 0 {
 				for _, err := range errs {
-					fmt.Println(err)
+					log.Error("getPrepare", "error", err.Error())
 				}
 				// TODO: send err to ErrorChannel
 			}
@@ -812,7 +815,7 @@ func (node *Node) resolveMsg() {
 				errs := node.resolveCommitMsg(voteMsgs)
 				if len(errs) != 0 {
 					for _, err := range errs {
-						fmt.Println(err)
+						log.Error("getPrepare", "error", err.Error())
 					}
 					// TODO: send err to ErrorChannel
 				}
@@ -823,7 +826,6 @@ func (node *Node) resolveMsg() {
 
 func (node *Node) alarmToDispatcher() {
 	for {
-		node.Count += 1
 		time.Sleep(ResolvingTimeDuration)
 		node.Alarm <- true
 	}

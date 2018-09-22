@@ -36,8 +36,8 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 1440 // snail block period number
-	k                  = 1000
+	z                  = 44  // snail block period number
+	k                  = 100
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -112,7 +112,6 @@ type committee struct {
 func (c *committee) Members() []*types.CommitteeMember {
 	members := make([]*types.CommitteeMember, len(c.members))
 	copy(members, c.members)
-
 	return members
 }
 
@@ -313,7 +312,6 @@ func (e *Election) getCommitteeFromCache(fastNumber *big.Int, snailNumber *big.I
 
 // getCommittee returns the committee members who propose this fast block
 func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *committee {
-
 	log.Info("get committee ..", "fastnumber", fastNumber, "snailnumber", snailNumber)
 	committeeNumber := new(big.Int).Div(snailNumber, big.NewInt(z))
 	lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
@@ -404,7 +402,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 // GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
-	log.Debug("get committee ..", "fastNumber", fastNumber)
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
 	newestFast := new(big.Int).Add(fastHeadNumber, big.NewInt(k))
@@ -417,17 +414,18 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	nextCommittee := e.nextCommittee
 
 	if nextCommittee != nil {
-		log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
+		//log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
 		if new(big.Int).Add(nextCommittee.beginFastNumber, big.NewInt(k)).Cmp(fastNumber) < 0 {
 			log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", nextCommittee.beginFastNumber)
 			return nil
 		}
 		if fastNumber.Cmp(nextCommittee.beginFastNumber) >= 0 {
+			log.Debug("get committee nextCommittee", "fastNumber", fastNumber, "nextfast", nextCommittee.beginFastNumber)
 			return nextCommittee.Members()
 		}
 	}
 	if currentCommittee != nil {
-		log.Debug("current committee info..", "id", currentCommittee.id, "firstNumber", currentCommittee.beginFastNumber)
+		//log.Debug("current committee info..", "id", currentCommittee.id, "firstNumber", currentCommittee.beginFastNumber)
 		if fastNumber.Cmp(currentCommittee.beginFastNumber) >= 0 {
 			return currentCommittee.Members()
 		}
@@ -497,6 +495,7 @@ func (e *Election) GetComitteeById(id *big.Int) []*types.CommitteeMember {
 	return nil
 }
 
+
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
 	var fruitsCount map[common.Address]uint = make(map[common.Address]uint)
@@ -548,7 +547,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	td := big.NewInt(0)
 	for _, member := range members {
 		if cnt, ok := fruitsCount[member.address]; ok {
-			log.Trace("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
+			log.Debug("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
 			if cnt >= fruitThreshold {
 				td.Add(td, member.difficulty)
 
@@ -557,6 +556,10 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 		}
 	}
 	log.Debug("get final candidate", "count", len(candidates))
+	if len(candidates) == 0 {
+		log.Warn("getCandinates not get candidates")
+		return common.Hash{}, nil
+	}
 
 	dd := big.NewInt(0)
 	rate := new(big.Int).Div(maxUint256, td)
@@ -625,13 +628,15 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", fruitThreshold, "min", minCommitteeNumber, "max", maxCommitteeNumber)
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
-		return nil
+		log.Info("can't get new committee, retain current committee")
+		return testCommttee
+		return e.committee.Members()
 	}
 
 	members := e.elect(candidates, seed)
 
 	// for test
-	//members = testCommttee
+	members = testCommttee
 	return members
 }
 
@@ -686,6 +691,7 @@ func (e *Election) Start() error {
 			Option:           types.CommitteeSwitchover,
 			CommitteeID:      e.committee.id,
 			CommitteeMembers: e.committee.Members(),
+			BeginFastNumber:  e.committee.beginFastNumber,
 		})
 		e.electionFeed.Send(core.ElectionEvent{
 			Option:           types.CommitteeStart,
@@ -695,11 +701,19 @@ func (e *Election) Start() error {
 		})
 
 		if e.startSwitchover {
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeOver,
+				CommitteeID:      e.committee.id,
+				CommitteeMembers: e.committee.Members(),
+				BeginFastNumber:  e.committee.beginFastNumber,
+				EndFastNumber:    e.committee.endFastNumber,
+			})
 			// send switch event to the subscripber
 			e.electionFeed.Send(core.ElectionEvent{
 				Option:           types.CommitteeSwitchover,
 				CommitteeID:      e.nextCommittee.id,
 				CommitteeMembers: e.nextCommittee.Members(),
+				BeginFastNumber:  e.nextCommittee.beginFastNumber,
 			})
 		}
 	}(e)
@@ -738,7 +752,7 @@ func (e *Election) loop() {
 					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "end fast", e.committee.endFastNumber)
 
 					nextCommittee := &committee{
-						id:                  snailStartNumber,
+						id:                  new(big.Int).Div(e.committee.switchCheckNumber, big.NewInt(z)),
 						firstElectionNumber: snailStartNumber,
 						lastElectionNumber:  snailEndNumber,
 						beginFastNumber:     new(big.Int).Add(e.committee.endFastNumber, common.Big1),
@@ -751,11 +765,22 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					go e.electionFeed.Send(core.ElectionEvent{
-						Option:           types.CommitteeSwitchover,
-						CommitteeID:      e.nextCommittee.id,
-						CommitteeMembers: e.nextCommittee.Members(),
-					})
+					go func(e *Election) {
+						e.electionFeed.Send(core.ElectionEvent{
+							Option:           types.CommitteeOver,
+							CommitteeID:      e.committee.id,
+							CommitteeMembers: e.committee.Members(),
+							BeginFastNumber:  e.committee.beginFastNumber,
+							EndFastNumber:    e.committee.endFastNumber,
+						})
+
+						e.electionFeed.Send(core.ElectionEvent{
+							Option:           types.CommitteeSwitchover,
+							CommitteeID:      e.nextCommittee.id,
+							CommitteeMembers: e.nextCommittee.Members(),
+							BeginFastNumber:  e.nextCommittee.beginFastNumber,
+						})
+					}(e)
 
 				}
 
@@ -771,6 +796,8 @@ func (e *Election) loop() {
 								Option:           types.CommitteeStop,
 								CommitteeID:      e.committee.id,
 								CommitteeMembers: e.committee.Members(),
+								BeginFastNumber:  e.committee.beginFastNumber,
+								EndFastNumber:    e.committee.endFastNumber,
 							})
 
 							e.committee = e.nextCommittee
