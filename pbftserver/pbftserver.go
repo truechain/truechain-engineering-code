@@ -423,8 +423,8 @@ func serverCheck(server *serverInfo) (bool, int) {
 func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
-			b, _ := serverCheck(server)
-			lock.PSLog("[leader]", "server count", b)
+			b, c := serverCheck(server)
+			lock.PSLog("[leader]", "server count", c)
 			if b {
 				time.Sleep(time.Second * ServerWait)
 				break
