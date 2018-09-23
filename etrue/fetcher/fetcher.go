@@ -460,10 +460,12 @@ func (f *Fetcher) loop() {
 								}
 							}
 
-							log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
+							if !finished {
+								log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
 
-							f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
-							index = -1
+								f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
+								index = -1
+							}
 						}
 					} else {
 						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
