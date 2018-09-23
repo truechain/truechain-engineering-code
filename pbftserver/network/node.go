@@ -740,20 +740,22 @@ func sendSameHightMessage(node *Node) {
 	msgVoteBackward := make([]*consensus.VoteMsg, 0)
 	for i := len(node.MsgBuffer.CommitMsgs) - 1; i >= 0; i-- {
 		status := node.GetStatus(node.MsgBuffer.CommitMsgs[i].Height)
-		status.MsgLogs.LockCommit.Lock()
 		if status != nil && status.CurrentStage == consensus.Prepared {
+			status.MsgLogs.LockCommit.Lock()
 			msgVote = append(msgVote, node.MsgBuffer.CommitMsgs[i])
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
+			status.MsgLogs.LockCommit.Unlock()
 		}
 		if status != nil && status.CurrentStage > consensus.Prepared {
+			status.MsgLogs.LockCommit.Lock()
 			tmp := node.MsgBuffer.CommitMsgs[i]
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
 			if _, ok := status.MsgLogs.CommitMsgs[tmp.NodeID]; !ok {
 				status.MsgLogs.CommitMsgs[tmp.NodeID] = tmp
 				msgVoteBackward = append(msgVoteBackward, tmp)
 			}
+			status.MsgLogs.LockCommit.Unlock()
 		}
-		status.MsgLogs.LockCommit.Unlock()
 	}
 	//lock.PSLog("sendSameHightMessage", 11)
 	if len(msgVoteBackward) > 0 {
@@ -769,12 +771,14 @@ func sendSameHightMessage(node *Node) {
 	for i := len(node.MsgBuffer.PrepareMsgs) - 1; i >= 0; i-- {
 		lock.PSLog("PrepareMsgs in")
 		status := node.GetStatus(node.MsgBuffer.PrepareMsgs[i].Height)
-		status.MsgLogs.LockPrepare.Lock()
 		if status != nil && status.CurrentStage == consensus.PrePrepared {
+			status.MsgLogs.LockPrepare.Lock()
 			msgVote = append(msgVote, node.MsgBuffer.PrepareMsgs[i])
 			node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs[:i], node.MsgBuffer.PrepareMsgs[i+1:]...)
+			status.MsgLogs.LockPrepare.Unlock()
 		}
 		if status != nil && status.CurrentStage > consensus.PrePrepared {
+			status.MsgLogs.LockPrepare.Lock()
 			tmp := node.MsgBuffer.PrepareMsgs[i]
 			node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs[:i], node.MsgBuffer.PrepareMsgs[i+1:]...)
 			if _, ok := status.MsgLogs.PrepareMsgs[tmp.NodeID]; !ok {
@@ -782,8 +786,8 @@ func sendSameHightMessage(node *Node) {
 				msgVoteBackward2 = append(msgVoteBackward2, tmp)
 				lock.PSLog("PrepareMsgs out MsgBackward", msgVoteBackward2)
 			}
+			status.MsgLogs.LockPrepare.Unlock()
 		}
-		status.MsgLogs.LockPrepare.Unlock()
 	}
 	//lock.PSLog("sendSameHightMessage", 3)
 	if len(msgVoteBackward2) > 0 {
