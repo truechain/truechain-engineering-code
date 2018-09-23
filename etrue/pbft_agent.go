@@ -111,7 +111,6 @@ type PbftAgent struct {
 	chainHeadAgentSub event.Subscription
 
 	committeeNode *types.CommitteeNode
-	//commiteePorts []int
 	privateKey    *ecdsa.PrivateKey
 	vmConfig      vm.Config
 
@@ -176,7 +175,6 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		Coinbase:  crypto.PubkeyToAddress(pubKey),
 		Publickey: pubBytes,
 	}
-	//self.nodeInfoIsComplete = true
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
 		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
@@ -207,27 +205,20 @@ func (self *PbftAgent) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				log.Debug("CommitteeStart...", "Id", ch.CommitteeID)
-				/*if !self.verifyCommitteeId(types.CommitteeStart, ch.CommitteeID) {
-					continue
-				}*/
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					copyID := *ch.CommitteeID
-					go self.server.Notify(&copyID, int(ch.Option))
+					committeeID := copyCommitteeId(ch.CommitteeID)
+					go self.server.Notify(committeeID, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				log.Debug("CommitteeStop..", "Id", ch.CommitteeID)
-				/*if !self.verifyCommitteeId(types.CommitteeStop, ch.CommitteeID) {
-					continue
-				}*/
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					copyID := *ch.CommitteeID
-					go self.server.Notify(&copyID, int(ch.Option))
+					committeeID := copyCommitteeId(ch.CommitteeID)
+					go self.server.Notify(committeeID, int(ch.Option))
 				}
 			case types.CommitteeSwitchover:
 				log.Debug("CommitteeCh...", "Id", ch.CommitteeID)
-				copyID := *ch.CommitteeID
-				committeeID := &copyID
+				committeeID := copyCommitteeId(ch.CommitteeID)
 				if self.committeeId == committeeID {
 					continue
 				}
@@ -243,7 +234,6 @@ func (self *PbftAgent) loop() {
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
 					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)
-					//self.updateCommitteeNode()
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 					go func() {
 						for {
@@ -259,8 +249,7 @@ func (self *PbftAgent) loop() {
 				}
 			case types.CommitteeOver:
 				log.Debug("CommitteeOver...","CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
-				copyID := *ch.CommitteeID
-				committeeID := &copyID
+				committeeID := copyCommitteeId(ch.CommitteeID)
 				self.endFastNumber[committeeID] = ch.EndFastNumber
 				self.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64())
 			default:
@@ -296,23 +285,11 @@ func (self *PbftAgent) loop() {
 	}
 }
 
-/*func (self *PbftAgent) updateCommitteeNode() {
-	members := self.currentCommitteeInfo.Members
-	if len(members) == 0 {
-		log.Info("start switch members is nil")
-		return
-	}
-	isCommitteeeMember := self.election.IsCommitteeMember(members, self.committeeNode.Publickey)
-	if isCommitteeeMember {
-		for _, port := range self.commiteePorts {
-			if self.committeeNode.Port != uint(port) {
-				log.Info("switch port..", "port", port)
-				self.committeeNode.Port = uint(port)
-				break;
-			}
-		}
-	}
-}*/
+func copyCommitteeId(CommitteeID *big.Int) *big.Int{
+	copyID := *CommitteeID
+	return &copyID
+}
+
 
 func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *big.Int) bool {
 	if committeeId == nil {
