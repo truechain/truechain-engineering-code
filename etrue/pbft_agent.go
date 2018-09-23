@@ -111,7 +111,7 @@ type PbftAgent struct {
 	chainHeadAgentSub event.Subscription
 
 	committeeNode *types.CommitteeNode
-	commiteePorts []int
+	//commiteePorts []int
 	privateKey    *ecdsa.PrivateKey
 	vmConfig      vm.Config
 
@@ -172,10 +172,10 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
 		Port:      uint(config.Port),
+		Port2:      uint(config.StandByPort),
 		Coinbase:  crypto.PubkeyToAddress(pubKey),
 		Publickey: pubBytes,
 	}
-	self.commiteePorts = append(self.commiteePorts, config.Port, config.StandByPort)
 	//self.nodeInfoIsComplete = true
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
@@ -226,9 +226,6 @@ func (self *PbftAgent) loop() {
 				}
 			case types.CommitteeSwitchover:
 				log.Debug("CommitteeCh...", "Id", ch.CommitteeID)
-				/*if !self.verifyCommitteeId(types.CommitteeSwitchover, ch.CommitteeID) {
-					continue
-				}*/
 				copyID := *ch.CommitteeID
 				committeeID := &copyID
 				if self.committeeId == committeeID {
@@ -246,7 +243,7 @@ func (self *PbftAgent) loop() {
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
 					self.isCommitteeMember = true
 					self.server.PutCommittee(receivedCommitteeInfo)
-					self.updateCommitteeNode()
+					//self.updateCommitteeNode()
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 					go func() {
 						for {
@@ -299,7 +296,7 @@ func (self *PbftAgent) loop() {
 	}
 }
 
-func (self *PbftAgent) updateCommitteeNode() {
+/*func (self *PbftAgent) updateCommitteeNode() {
 	members := self.currentCommitteeInfo.Members
 	if len(members) == 0 {
 		log.Info("start switch members is nil")
@@ -315,7 +312,7 @@ func (self *PbftAgent) updateCommitteeNode() {
 			}
 		}
 	}
-}
+}*/
 
 func (self *PbftAgent) verifyCommitteeId(committeeEventType int64, committeeId *big.Int) bool {
 	if committeeId == nil {
