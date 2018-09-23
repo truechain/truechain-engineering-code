@@ -419,21 +419,22 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 		server.insertNode(v)
 	}
 
-	server.server.Node.NTLock.Lock()
 	if server.server == nil {
 		server.server = network.NewServer(server.nodeid, id, ss, ss, server.info)
 	} else {
 		//update node table
 		for _, v := range server.info {
 			name := common.ToHex(v.Publickey)
+			server.server.Node.NTLock.Lock()
 			if ID%2 > 0 {
 				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
 			} else {
 				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port2)
 			}
+			server.server.Node.NTLock.Unlock()
 		}
 	}
-	server.server.Node.NTLock.Unlock()
+
 	//lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
 	return nil
 }
