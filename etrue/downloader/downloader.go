@@ -1396,23 +1396,24 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		blocks := make([]*types.SnailBlock, 1)
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
+		for _,fr := range result.Fruits{
+
+			log.Debug("Fruits:","Fruit Number",fr.FastNumber())
+		}
+
 		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
 
-		fruitLen := len(result.Fruits)
+		fruitLen := uint64(len(result.Fruits))
 		if fruitLen > 0 {
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
-			heigth :=  uint64(len(result.Fruits))
+			heigth := fruitLen
+			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
+			currentNum := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 
-			if d.fastDown.GetBlockChain().CurrentBlock().NumberU64() >= result.Fruits[0].FastNumber().Uint64(){
-
-				fbNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
-				heigth = result.Fruits[fruitLen-1].FastNumber().Uint64() - fbNum
-			}
-
-			for _,fr := range result.Fruits{
-
-				log.Debug("Fruits:","Fruit Number",fr.FastNumber())
+			if  fbNumLast > currentNum && currentNum > 0{
+				fbNum = currentNum
+				heigth = fbNumLast - fbNum
 			}
 
 			if heigth >0{
