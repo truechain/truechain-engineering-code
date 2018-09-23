@@ -1400,7 +1400,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 		for _,fr := range result.Fruits{
 
-			log.Debug("Fruits:","Fruit Number",fr.FastNumber())
+			log.Debug("Fruits:","Fruit Number",fr.FastNumber(),"fruit phash",fr.ParentHash(),"hash",fr.Hash())
 		}
 
 		if len(result.Fruits) > 0 && d.fastDown.GetBlockChain().CurrentBlock().NumberU64() < result.Fruits[0].FastNumber().Uint64() {
