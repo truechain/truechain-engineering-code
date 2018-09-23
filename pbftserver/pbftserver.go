@@ -403,7 +403,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	ID := id.Uint64()
 	if nodes[0] != nil {
-		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP, "committee id", id.Int64())
+		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP, nodes[0].Port2, "committee id", id.Int64())
 	} else {
 		lock.PSLog("PutNodes nodes error")
 	}
