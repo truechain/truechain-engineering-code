@@ -1416,6 +1416,8 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				heigth = fbNumLast - fbNum
 			}
 
+			log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",heigth,"fbNumLast",fbNumLast,"currentNum",currentNum)
+
 			if heigth >0{
 				errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1,heigth)
 				//time.Sleep(1*time.Second)
