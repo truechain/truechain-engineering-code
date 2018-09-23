@@ -419,6 +419,7 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 		server.insertNode(v)
 	}
 
+	server.server.Node.NTLock.Lock()
 	if server.server == nil {
 		server.server = network.NewServer(server.nodeid, id, ss, ss, server.info)
 	} else {
@@ -432,8 +433,8 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 			}
 		}
 	}
-
-	lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
+	server.server.Node.NTLock.Unlock()
+	//lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
 	return nil
 }
 
