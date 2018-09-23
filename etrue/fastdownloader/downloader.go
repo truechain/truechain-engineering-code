@@ -231,13 +231,16 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	fmt.Println("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
+	//log.Debug("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
 
 	//go dl.qosTuner()
 	//go dl.stateFetcher()
 	return dl
 }
 
+func  (d *Downloader) GetBlockChain() BlockChain {
+	return d.blockchain
+}
 
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
@@ -1055,7 +1058,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 		case packet := <-deliveryCh:
 			log.Debug("deliver <- packet ","packet",packet,"kind",kind)
 
-			//fmt.Println("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
+			//log.Debug("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -1404,8 +1407,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
+		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "snailNumber",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
-
+		log.Debug("Fast downloader signs:","block signs:",blocks[i].Signs())
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {

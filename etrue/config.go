@@ -38,7 +38,7 @@ import (
 
 // DefaultConfig contains default settings for use on the Truechain main net.
 var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
+	SyncMode: downloader.FullSync,
 	Ethash: ethash.Config{
 		CacheDir:       "minerva",
 		CachesInMem:    2,
@@ -59,8 +59,8 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	MinerThreads: 2,
-	Port:10080,
-	StandByPort:10090,
+	Port:30310,
+	StandByPort:30311,
 
 }
 

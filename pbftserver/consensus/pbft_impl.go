@@ -74,7 +74,6 @@ func (state *State) StartConsensus(request *RequestMsg) (*PrePrepareMsg, error) 
 	// Get the digest of the request message
 	digest, err := digest(request)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -150,13 +149,9 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 
 	// Print current voting status
-	//fmt.Printf("[Commit-Vote]: %d\n", len(state.MsgLogs.CommitMsgs))
-	//fmt.Println("[LOG]", "Commit", "start", f)
 	if state.committed(f) {
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
-
-		//fmt.Println("[LOG]", "Commit", "end", f, "Return")
 
 		return &ReplyMsg{
 			ViewID:    state.ViewID,
@@ -166,7 +161,6 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 			Height:    state.MsgLogs.ReqMsg.Height,
 		}, state.MsgLogs.ReqMsg, nil
 	}
-	//fmt.Println("[LOG]", "Commit", "end", f, "notReturn")
 	return nil, nil, nil
 }
 
@@ -186,7 +180,7 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 
 	digest, err := digest(state.MsgLogs.ReqMsg)
 	if err != nil {
-		fmt.Println(err)
+		lock.PSLog("[digest]", "error", err.Error())
 		return false
 	}
 

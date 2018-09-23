@@ -38,7 +38,7 @@ func getID() *big.Int {
 	return ID
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getID()
 	header.Time = big.NewInt(time.Now().Unix())
@@ -46,7 +46,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
-	//if rand.Intn(100) > 30 {
+	//if rand.Intn(100) > 50 {
 	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
 	//	return types.ErrHeightNotYet
 	//}
@@ -280,16 +280,19 @@ func TestPbftServerStart3(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10012
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
-	node2.Port = 10012
+	node2.Port = 10021
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
-	node3.Port = 10013
+	node3.Port = 10031
+	node2.Port2 = 10032
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode

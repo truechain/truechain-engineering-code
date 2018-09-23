@@ -34,6 +34,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/hashicorp/golang-lru"
 	//"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -41,7 +42,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -839,7 +839,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 
 	currentBlock := bc.CurrentBlock()
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-	externTd := new(big.Int).Add(block.Difficulty(), ptd)
+	externTd := new(big.Int).Add(bc.GetBlockDifficulty(block), ptd)
 
 	// Irrelevant of the canonical status, write the block itself to the database
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
@@ -861,11 +861,11 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 	if reorg {
 		// Reorganise the chain if the parent is not the head block
 		if block.ParentHash() != currentBlock.Hash() {
+			log.Debug("Reorganise the chain sine the parent is not the head block")
 			if err := bc.reorg(currentBlock, block); err != nil {
 				return NonStatTy, err
 			}
 		}
-		log.Debug("Reorganise the chain sine the parent is not the head block")
 		// Write the positional metadata for fruit lookups
 		rawdb.WriteFtLookupEntries(batch, block)
 
@@ -993,7 +993,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			// until the competitor TD goes above the canonical TD
 			currentBlock := bc.CurrentBlock()
 			localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			externTd := new(big.Int).Add(bc.GetTd(block.ParentHash(), block.NumberU64()-1), block.Difficulty())
+			externTd := new(big.Int).Add(bc.GetTd(block.ParentHash(), block.NumberU64()-1), bc.GetBlockDifficulty(block))
 			if localTd.Cmp(externTd) > 0 {
 				if err = bc.WriteBlock(block, externTd); err != nil {
 					return i, events, err
@@ -1036,7 +1036,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		switch status {
 		case CanonStatTy:
 
-			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+			log.Debug("Inserted new snail block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 				"fts", len(block.Fruits()), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
 			//coalescedLogs = append(coalescedLogs, logs...)
@@ -1057,6 +1057,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			events = append(events, ChainSideEvent{block})
 		}
 		stats.processed++
+
+		fruits := block.Fruits()
+		log.Debug("Inserted new snail block fruits", "number", block.Number(), "len", len(fruits),"first", fruits[0].FastNumber(), "last", fruits[len(fruits) - 1].FastNumber())
 
 		stats.report(chain, i)
 	}
@@ -1279,7 +1282,7 @@ func (bc *SnailBlockChain) reportBlock(block *types.SnailBlock, err error) {
 	bc.addBadBlock(block)
 
 	log.Error(fmt.Sprintf(`
-########## BAD BLOCK #########
+########## BAD SNAIL BLOCK #########
 Chain config: %v
 
 Number: %v
@@ -1422,6 +1425,40 @@ func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
 		return nil
 	}
 	return committee
+}
+
+
+func (bc *SnailBlockChain) GetBlockDifficulty(b * types.SnailBlock) *big.Int {
+	if diff := b.D.Load(); diff != nil {
+		return diff.(*big.Int)
+	}
+
+	if b.IsFruit() {
+		pointer := bc.GetHeaderByHash(b.PointerHash())
+		if pointer == nil {
+			log.Warn("get pointer block failed", "hash", b.PointerHash())
+			return nil
+		}
+		diff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
+		b.D.Store(diff)
+		return diff
+	} else {
+		td := big.NewInt(0)
+		for _, f := range b.Fruits() {
+			fd := bc.GetBlockDifficulty(f)
+			if fd == nil {
+				log.Warn("get fruit pointer block failed", "fnumber", f.FastNumber(), "fhash", f.FastHash())
+				return nil
+			}
+			td.Add(td, fd)
+		}
+		td = new(big.Int).Div(td, params.FruitBlockRatio)
+		td.Add(td, b.Difficulty())
+
+		b.D.Store(td)
+
+		return td
+	}
 }
 
 // Config retrieves the blockchain's chain configuration.

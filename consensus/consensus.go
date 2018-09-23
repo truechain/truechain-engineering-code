@@ -107,6 +107,8 @@ type Engine interface {
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header, pointer *types.SnailHeader) error
 
+	VerifyFreshness(fruit , block *types.SnailBlock) error
+
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error

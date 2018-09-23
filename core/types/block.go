@@ -444,23 +444,24 @@ func (b *Block) Hash() common.Hash {
 
 // Header represents a block header in the Ethereum truechain.
 type SnailHeader struct {
-	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
-	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
-	Coinbase    common.Address `json:"miner"            gencodec:"required"`
-	PointerHash common.Hash    `json:"PointerHash"      gencodec:"required"`
-	FruitsHash  common.Hash    `json:"fruitsHash"       gencodec:"required"`
-	FastHash    common.Hash    `json:"fastHash"         gencodec:"required"`
-	FastNumber  *big.Int       `json:"fastNumber"       gencodec:"required"`
-	SignHash    common.Hash    `json:"signHash"  		gencodec:"required"`
-	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
-	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
-	Number      *big.Int       `json:"number"           gencodec:"required"`
-	Publickey   []byte         `json:"Publickey"        gencodec:"required"`
-	ToElect     bool           `json:"ToElect"          gencodec:"required"`
-	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
-	Extra       []byte         `json:"extraData"        gencodec:"required"`
-	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
-	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
+	ParentHash      common.Hash    `json:"parentHash"       gencodec:"required"`
+	UncleHash       common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+	Coinbase        common.Address `json:"miner"            gencodec:"required"`
+	PointerHash     common.Hash    `json:"PointerHash"      gencodec:"required"`
+	FruitsHash      common.Hash    `json:"fruitsHash"       gencodec:"required"`
+	FastHash        common.Hash    `json:"fastHash"         gencodec:"required"`
+	FastNumber      *big.Int       `json:"fastNumber"       gencodec:"required"`
+	SignHash        common.Hash    `json:"signHash"  		gencodec:"required"`
+	Bloom           Bloom          `json:"logsBloom"        gencodec:"required"`
+	Difficulty      *big.Int       `json:"difficulty"       gencodec:"required"`
+	//FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
+	Number          *big.Int       `json:"number"           gencodec:"required"`
+	Publickey       []byte         `json:"publicKey"        gencodec:"required"`
+	ToElect         bool           `json:"toElect"          gencodec:"required"`
+	Time            *big.Int       `json:"timestamp"        gencodec:"required"`
+	Extra           []byte         `json:"extraData"        gencodec:"required"`
+	MixDigest       common.Hash    `json:"mixHash"          gencodec:"required"`
+	Nonce           BlockNonce     `json:"nonce"            gencodec:"required"`
 
 	Fruit bool
 }
@@ -481,6 +482,8 @@ type SnailBlock struct {
 	// caches
 	hash atomic.Value
 	size atomic.Value
+
+	D atomic.Value
 
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
@@ -793,3 +796,4 @@ func (b *SnailBlock) Hash() common.Hash {
 	b.hash.Store(v)
 	return v
 }
+

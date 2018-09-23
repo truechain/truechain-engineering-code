@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"math/big"
@@ -25,7 +26,7 @@ type Server struct {
 func PrintNode(node *Node) {
 start:
 	lock.Lock.Lock()
-	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.Count, node.CommitWaitQueue.Size())
+	lock.PSLog("start>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID, node.CommitWaitQueue.Size())
 	lock.PSLog("len(node.MsgBuffer.ReqMsgs):", len(node.MsgBuffer.ReqMsgs),
 		"len(node.MsgBuffer.PrePrepareMsgs):", len(node.MsgBuffer.PrePrepareMsgs),
 		"len(node.MsgBuffer.PrepareMsgs):", len(node.MsgBuffer.PrepareMsgs),
@@ -81,8 +82,9 @@ func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.Act
 	go work(server.ID, server.ActionChan)
 }
 func (server *Server) startHttpServer() {
+	lock.PSLog("startHttpServer", "server", server.server.Addr)
 	if err := server.server.ListenAndServe(); err != nil {
-		fmt.Println(err)
+		log.Error("startHttpServer", "error", err.Error())
 		return
 	}
 }
@@ -112,7 +114,7 @@ func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) 
 	var msg consensus.RequestMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getReq", "error", err.Error())
 		return
 	}
 	lock.PSLog("getReq msg:", fmt.Sprintf("%+v", msg))
@@ -124,7 +126,7 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 	var msg consensus.PrePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getReq", "error", err.Error())
 		return
 	}
 	lock.PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
@@ -137,7 +139,7 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	var tmp consensus.StorgePrepareMsg
 	err := json.NewDecoder(request.Body).Decode(&tmp)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getPrepare", "error", err.Error())
 		return
 	}
 	msg.Digest, msg.NodeID, msg.ViewID = tmp.Digest, tmp.NodeID, tmp.ViewID
@@ -153,7 +155,7 @@ func (server *Server) getCommit(writer http.ResponseWriter, request *http.Reques
 	var msg consensus.VoteMsg
 	err := json.NewDecoder(request.Body).Decode(&msg)
 	if err != nil {
-		fmt.Println(err)
+		log.Error("getReq", "error", err.Error())
 		return
 	}
 	lock.PSLog("getCommit msg:", fmt.Sprintf("%+v", msg))

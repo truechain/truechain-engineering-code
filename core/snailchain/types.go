@@ -27,11 +27,11 @@ import (
 //
 type Validator interface {
 	// SetElection set election
-	SetElection(e consensus.CommitteeElection) error
+	SetElection(e consensus.CommitteeElection, fc consensus.ChainReader) error
 
 	// ValidateBody validates the given block's content.
 	ValidateBody(block *types.SnailBlock) error
 
 	// ValidateFruit validates the given fruit's content
-	ValidateFruit(fruit *types.SnailBlock) error
+	ValidateFruit(fruit, block *types.SnailBlock) error
 }
