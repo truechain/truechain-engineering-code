@@ -197,13 +197,13 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
-		allFastBlocks: make(map[common.Hash]*types.Block),
+		allFastBlocks: make(map[common.Hash]*types.Block, 8192),
 
 		//fastBlockList: 	list.New(),
 		fastBlockPending: list.New(),
 
 		newFruitCh:   make(chan *types.SnailBlock, fruitChanSize),
-		allFruits:    make(map[common.Hash]*types.SnailBlock),
+		allFruits:    make(map[common.Hash]*types.SnailBlock, 8192),
 		fruitPending: make(map[common.Hash]*types.SnailBlock),
 	}
 	pool.reset(nil, chain.CurrentBlock())
