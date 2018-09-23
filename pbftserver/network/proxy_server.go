@@ -68,7 +68,9 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	server := &Server{ID: new(big.Int).Set(id), help: help}
 	node := NewNode(nodeID, verify, server, addrs, id)
 	server.Node = node
+	server.Node.NTLock.Lock()
 	server.url = node.NodeTable[nodeID]
+	server.Node.NTLock.Unlock()
 	server.server = &http.Server{
 		Addr: server.url,
 	}
@@ -82,6 +84,7 @@ func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.Act
 	go work(server.ID, server.ActionChan)
 }
 func (server *Server) startHttpServer() {
+	lock.PSLog("startHttpServer", "server", server.server.Addr)
 	if err := server.server.ListenAndServe(); err != nil {
 		log.Error("startHttpServer", "error", err.Error())
 		return
@@ -176,6 +179,7 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 	lock.PSLog("PutRequest in", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- msg
+	lock.PSLog("PutRequest in2", msg.Height)
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionBroadcast,
@@ -183,7 +187,9 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 		Height: height,
 	}
 	go func() {
+		lock.PSLog("PutRequest in3", msg.Height)
 		server.ActionChan <- ac
+		lock.PSLog("PutRequest in4", msg.Height)
 	}()
 }
 func (server *Server) ConsensusFinish() {

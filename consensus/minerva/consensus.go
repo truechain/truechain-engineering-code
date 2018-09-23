@@ -467,14 +467,13 @@ func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uin
 	return CalcDifficulty(chain.Config(), time, parents)
 }
 
-
 func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uint64, fastTime uint64, pointer *types.SnailHeader) *big.Int {
 	return CalcFruitDifficulty(chain.Config(), time, fastTime, pointer)
 }
 
 // VerifySigns check the sings included in fast block or fruit
 //
-func (m*Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error {
+func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error {
 
 	// validate the signatures of this fruit
 	members := m.election.GetCommittee(fastnumber)
@@ -485,10 +484,10 @@ func (m*Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error
 	count := 0
 	for _, sign := range signs {
 		if sign.Result == types.VoteAgree {
-			count ++
+			count++
 		}
 	}
-	if count <= len(members) * 2 / 3 {
+	if count <= len(members)*2/3 {
 		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
@@ -504,8 +503,7 @@ func (m*Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error
 	return nil
 }
 
-
-func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
+func (m *Minerva) VerifyFreshness(fruit, block *types.SnailBlock) error {
 	var header *types.SnailHeader
 	if block == nil {
 		header = m.sbc.CurrentHeader()
@@ -513,9 +511,9 @@ func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
 		header = block.Header()
 	}
 	// check freshness
-	pointer := m.sbc.GetHeaderByHash(fruit.PointerHash())
+	pointer := m.sbc.GetHeader(fruit.PointerHash(), fruit.PointNumber().Uint64())
 	if pointer == nil {
-		log.Warn("VerifyFreshness get pointer failed.", "pointer", fruit.PointerHash())
+		log.Warn("VerifyFreshness get pointer failed.", "number", fruit.PointNumber(), "pointer", fruit.PointerHash())
 		return consensus.ErrUnknownPointer
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
@@ -587,7 +585,6 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 
 	return diff
 }
-
 
 func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 	// algorithm:
@@ -780,6 +777,10 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
+			bTm := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
+			if bTm != nil {
+				log.Info("Finalize:Error GetHeaderByNumber", "header.SnailHash", bTm.Hash(), "header.SnailNumber", bTm.Number)
+			}
 			return nil, consensus.ErrInvalidNumber
 		}
 		err := accumulateRewardsFast(m.election, state, header, sBlock)

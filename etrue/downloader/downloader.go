@@ -92,6 +92,7 @@ var (
 	errCancelContentProcessing = errors.New("content processing canceled (requested)")
 	errNoSyncActive            = errors.New("no sync active")
 	errTooOld                  = errors.New("peer doesn't speak recent enough protocol version (need version >= 62)")
+	errFruits                 = errors.New("fruits err")
 )
 
 type Downloader struct {
@@ -1396,21 +1397,43 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		blocks := make([]*types.SnailBlock, 1)
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 
-		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
-
 		for _,fr := range result.Fruits{
 
 			log.Debug("Fruits:","Fruit Number",fr.FastNumber())
 		}
 
-		if len(result.Fruits) > 0 && d.fastDown.GetBlockChain().CurrentBlock().NumberU64() <= result.Fruits[0].FastNumber().Uint64() {
+		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
+
+		fruitLen := uint64(len(result.Fruits))
+		if fruitLen > 0 {
+
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
-			errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, uint64(len(result.Fruits)))
-			//time.Sleep(1*time.Second)
-			if errs != nil {
-				log.Debug("fast sync: ", "err>>>>>>>>>", errs)
-				return errs
+			height := fruitLen
+			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
+			currentNum := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+
+			if fbNumLast < fbNum || fbNumLast-fbNum != height - 1 || fbNum < 1 {
+				return errFruits
+			}
+
+			log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+			if  fbNumLast > currentNum && currentNum > 0{
+
+				fbNum = currentNum
+				height = fbNumLast - fbNum
+
+				log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+
+				if height >0{
+					errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum,height)
+					//time.Sleep(1*time.Second)
+					if errs != nil {
+						log.Debug("fast sync: ", "err>>>>>>>>>", errs)
+						return errs
+					}
+				}
+
 			}
 
 		} else {
