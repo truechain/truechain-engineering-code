@@ -457,7 +457,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 			b, c := serverCheck(server)
 			lock.PSLog("[leader]", "server count", c)
 			if b {
-				time.Sleep(time.Second * ServerWait * 6)
+				time.Sleep(time.Second * ServerWait * 18)
 				break
 			}
 			time.Sleep(time.Second)
