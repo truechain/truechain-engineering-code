@@ -1409,9 +1409,10 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 			heigth := fruitLen
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
+			currentNum := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 
-			if  fbNumLast > d.fastDown.GetBlockChain().CurrentBlock().NumberU64(){
-				fbNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+			if  fbNumLast > currentNum && currentNum > 0{
+				fbNum = currentNum
 				heigth = fbNumLast - fbNum
 			}
 
