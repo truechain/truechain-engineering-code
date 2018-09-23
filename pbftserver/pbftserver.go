@@ -401,6 +401,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 	return nil
 }
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
+	ID := id.Uint64()
 	if nodes[0] != nil {
 		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP, "committee id", id.Int64())
 	} else {
@@ -409,7 +410,7 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
-	server, ok := ss.servers[id.Uint64()]
+	server, ok := ss.servers[ID]
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
 	}
@@ -423,7 +424,11 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 		//update node table
 		for _, v := range server.info {
 			name := common.ToHex(v.Publickey)
-			server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+			if ID%2 > 0 {
+				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+			} else {
+				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port2)
+			}
 		}
 	}
 
@@ -446,6 +451,7 @@ func serverCheck(server *serverInfo) (bool, int) {
 }
 
 func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
+	id64 := id.Uint64()
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, c := serverCheck(server)
@@ -457,7 +463,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 			time.Sleep(time.Second)
 		}
 	}
-	if id.Int64() > 0 {
+	if id64 > 0 {
 		lock.PSLog("[switch]", "leader wait ", 5)
 		time.Sleep(time.Second * ServerWait)
 	}
@@ -466,7 +472,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	// start to fetch
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFecth,
-		ID:     id,
+		ID:     big.NewInt(int64(id64)),
 		Height: common.Big0,
 	}
 	server.server.ActionChan <- ac

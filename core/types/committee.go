@@ -56,6 +56,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 type CommitteeNode struct {
 	IP        string
 	Port      uint
+	Port2     uint
 	Coinbase  common.Address
 	Publickey []byte
 }
