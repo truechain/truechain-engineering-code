@@ -1417,6 +1417,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				return errFruits
 			}
 			fbNum = fbNum - 1
+			log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 			if  fbNumLast > currentNum && currentNum > 0{
 				fbNum = currentNum
 				height = fbNumLast - fbNum
