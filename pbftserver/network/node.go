@@ -744,7 +744,6 @@ func sendSameHightMessage(node *Node) {
 		if status != nil && status.CurrentStage == consensus.Prepared {
 			msgVote = append(msgVote, node.MsgBuffer.CommitMsgs[i])
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
-			continue
 		}
 		if status != nil && status.CurrentStage > consensus.Prepared {
 			tmp := node.MsgBuffer.CommitMsgs[i]
@@ -756,6 +755,7 @@ func sendSameHightMessage(node *Node) {
 		}
 		status.MsgLogs.LockCommit.Unlock()
 	}
+	lock.PSLog("sendSameHightMessage", 11)
 	if len(msgVoteBackward) > 0 {
 		node.MsgBackward <- msgVoteBackward
 	}
@@ -788,6 +788,7 @@ func sendSameHightMessage(node *Node) {
 	lock.PSLog("sendSameHightMessage", 3)
 	if len(msgVoteBackward2) > 0 {
 		node.MsgBackward <- msgVoteBackward2
+
 	}
 
 	if len(msgVote) > 0 {
