@@ -37,7 +37,7 @@ const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
 	z                  = 44  // snail block period number
-	k                  = 100
+	k                  = 300
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -58,6 +58,7 @@ var (
 	ErrInvalidSign   = errors.New("invalid sign")
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
+
 )
 
 var testCommitteeNodes = []*types.CommitteeNode{
@@ -199,7 +200,7 @@ func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
-		log.Error("GetCommittee members is nil","fastHeight",fastHeight, "err", ErrCommittee)
+		log.Info("GetCommittee members is nil","fastHeight",fastHeight)
 		return nil, ErrCommittee
 	}
 	member := e.GetMemberByPubkey(members, pubKeyByte)
@@ -586,11 +587,12 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	var members []*types.CommitteeMember
 
 	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
-	round := new(big.Int).Set(common.Big0)
+	round := new(big.Int).Set(common.Big1)
 	for {
 		seedNumber := new(big.Int).Add(seed.Big(), round)
 		hash := crypto.Keccak256Hash(seedNumber.Bytes())
-		prop := new(big.Int).Div(maxUint256, hash.Big())
+		//prop := new(big.Int).Div(maxUint256, hash.Big())
+		prop := hash.Big()
 
 		for _, cm := range candidates {
 			if prop.Cmp(cm.lower) < 0 {
@@ -600,7 +602,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 				continue
 			}
 
-			log.Debug("get member", "member", cm.address, "prop", prop)
+			log.Debug("get member", "seed", hash, "member", cm.address, "prop", prop)
 			if _, ok := addrs[cm.address]; ok {
 				break
 			}
@@ -615,10 +617,10 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 		}
 
 		round = new(big.Int).Add(round, common.Big1)
-		if round.Cmp(big.NewInt(maxCommitteeNumber)) >= 0 {
-			if len(members) >= minCommitteeNumber {
+		if round.Cmp(big.NewInt(maxCommitteeNumber)) > 0 {
+			//if len(members) >= minCommitteeNumber {
 				break
-			}
+			//}
 		}
 	}
 
@@ -777,7 +779,7 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					go func(e *Election) {
+					//go func(e *Election) {
 						e.electionFeed.Send(core.ElectionEvent{
 							Option:           types.CommitteeOver,
 							CommitteeID:      e.committee.id,
@@ -792,7 +794,7 @@ func (e *Election) loop() {
 							CommitteeMembers: e.nextCommittee.Members(),
 							BeginFastNumber:  e.nextCommittee.beginFastNumber,
 						})
-					}(e)
+					//}(e)
 				}
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent
@@ -800,7 +802,7 @@ func (e *Election) loop() {
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
-						go func(e *Election) {
+						//go func(e *Election) {
 							log.Info("Election stop committee..", "id", e.committee.id)
 							e.electionFeed.Send(core.ElectionEvent{
 								Option:           types.CommitteeStop,
@@ -823,7 +825,7 @@ func (e *Election) loop() {
 								CommitteeMembers: e.committee.Members(),
 								BeginFastNumber:  e.committee.beginFastNumber,
 							})
-						}(e)
+						//}(e)
 					}
 				}
 			}

@@ -1009,12 +1009,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
 		hash, td := p.Head()
-		fbNum := snailBlock.Fruits()[0].NumberU64()
+		fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
 
 		log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
 		if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
 
-			pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
+			go pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
 		}
 
 		p.MarkSnailBlock(snailBlock.Hash())
@@ -1077,7 +1077,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
