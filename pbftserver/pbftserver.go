@@ -487,7 +487,7 @@ func DelayStop(id uint64, ss *PbftServerMgr) {
 
 	if server, ok := ss.servers[id]; ok {
 		lock.PSLog("http server stop", "id", id)
-		server.server.Node.Stop = true
+		//server.server.Node.Stop = true
 		server.server.Stop()
 		server.clear = true
 	}

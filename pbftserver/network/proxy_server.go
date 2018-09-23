@@ -179,6 +179,7 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 	lock.PSLog("PutRequest in", fmt.Sprintf("%+v", msg))
 	server.Node.MsgEntrance <- msg
+	lock.PSLog("PutRequest in2", msg.Height)
 	height := big.NewInt(msg.Height)
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionBroadcast,
@@ -186,7 +187,9 @@ func (server *Server) PutRequest(msg *consensus.RequestMsg) {
 		Height: height,
 	}
 	go func() {
+		lock.PSLog("PutRequest in3", msg.Height)
 		server.ActionChan <- ac
+		lock.PSLog("PutRequest in4", msg.Height)
 	}()
 }
 func (server *Server) ConsensusFinish() {

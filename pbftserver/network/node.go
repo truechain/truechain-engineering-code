@@ -38,7 +38,7 @@ type Node struct {
 	CommitLock         sync.Mutex
 	CurrentHeight      int64
 	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
-	Stop               bool
+	//stop               bool
 }
 
 type MsgBuffer struct {
@@ -268,9 +268,9 @@ func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg)
 	if prePrepareMsg.Height == node.CurrentHeight {
 		node.Broadcast(prePrepareMsg, "/preprepare")
 		time.Sleep(time.Second * 30)
-		if !node.Stop {
-			node.delayPrePrepareMessage(prePrepareMsg)
-		}
+		//if !node.Stop {
+		node.delayPrePrepareMessage(prePrepareMsg)
+		//}
 	}
 }
 
@@ -387,9 +387,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 func (node *Node) processCommitWaitMessageQueue() {
 	for {
-		if node.Stop {
-			return
-		}
+		//if node.Stop {
+		//	return
+		//}
 		var msgSend = make([]*consensus.VoteMsg, 0)
 		if !node.CommitWaitQueue.Empty() {
 			msg := node.CommitWaitQueue.PopItem().(*consensus.VoteMsg)
@@ -548,11 +548,9 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 
 func (node *Node) dispatchMsg() {
 	for {
-		if node.Stop {
-			return
-		}
 		select {
 		case msg := <-node.MsgEntrance:
+			lock.PSLog("node.MsgEntrance", msg)
 			err := node.routeMsg(msg)
 			if err != nil {
 				log.Error("dispatchMsg", "error", err[0].Error())
@@ -650,9 +648,9 @@ func (node *Node) routeMsg(msg interface{}) []error {
 
 func (node *Node) dispatchMsgBackward() {
 	for {
-		if node.Stop {
-			return
-		}
+		//if node.Stop {
+		//	return
+		//}
 		select {
 		case msg := <-node.MsgBackward:
 			err := node.routeMsgBackward(msg)
@@ -815,9 +813,9 @@ func (node *Node) routeMsgWhenAlarmed() []error {
 func (node *Node) resolveMsg() {
 	for {
 		// Get buffered messages from the dispatcher.
-		if node.Stop {
-			return
-		}
+		//if node.Stop {
+		//	return
+		//}
 		msgs := <-node.MsgDelivery
 		switch msgs.(type) {
 		case []*consensus.RequestMsg:
@@ -865,9 +863,9 @@ func (node *Node) resolveMsg() {
 
 func (node *Node) alarmToDispatcher() {
 	for {
-		if node.Stop {
-			return
-		}
+		//if node.Stop {
+		//	return
+		//}
 		time.Sleep(ResolvingTimeDuration)
 		node.Alarm <- true
 	}
