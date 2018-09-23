@@ -267,7 +267,7 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg) {
 	if prePrepareMsg.Height == node.CurrentHeight {
 		node.Broadcast(prePrepareMsg, "/preprepare")
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 30)
 		if !node.Stop {
 			node.delayPrePrepareMessage(prePrepareMsg)
 		}
