@@ -20,7 +20,6 @@ package types
 import (
 	"crypto/ecdsa"
 	"encoding/binary"
-	"github.com/truechain/truechain-engineering-code/params"
 	"io"
 	"math/big"
 	"sort"
@@ -28,12 +27,12 @@ import (
 	"time"
 	"unsafe"
 
+	"bytes"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"bytes"
 )
 
 var (
@@ -822,10 +821,10 @@ func (b *SnailBlock) Difficulty() *big.Int {
 	} else {
 		td := big.NewInt(0)
 		for _, f := range b.Fruits() {
-			td.Add(td, f.BlockDifficulty())
+			td.Add(td, f.Difficulty())
 		}
-		td = new(big.Int).Div(td, params.FruitBlockRatio)
-		td.Add(td, b.Difficulty())
+		//td = new(big.Int).Div(td, params.FruitBlockRatio)
+		td.Add(td, b.BlockDifficulty())
 
 		b.difficulty.Store(td)
 

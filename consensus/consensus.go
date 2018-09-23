@@ -130,7 +130,7 @@ type Engine interface {
 	// seal place on top.
 	ConSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
 
-	CalcSnailDifficulty(chain SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int
+	CalcSnailDifficulty(chain SnailChainReader, time uint64, parents []*types.SnailHeader) *big.Int
 
 	GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int)
 

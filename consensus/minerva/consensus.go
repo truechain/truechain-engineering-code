@@ -94,6 +94,32 @@ func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header
 	return m.verifyHeader(chain, header, parent)
 }
 
+
+func (m *Minerva) getParents(chain consensus.SnailChainReader, header *types.SnailHeader) []*types.SnailHeader {
+	number := header.Number.Uint64()
+	period := params.DifficultyPeriod.Uint64()
+	if number < period {
+		period = number
+	}
+	log.Info("getParents", "number", header.Number, "period", period)
+	parents := make([]*types.SnailHeader, period)
+	hash := header.ParentHash
+	for i := uint64(1); i <= period; i++ {
+		if number - i < 0 {
+			break
+		}
+		parent := chain.GetHeader(hash, number-i)
+		if parent == nil {
+			log.Warn("getParents get parent failed.", "number", number-i,  "hash", hash)
+			return nil
+		}
+		parents[period - i] = parent
+		hash = parent.ParentHash
+	}
+
+	return parents
+}
+
 func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header *types.SnailHeader, seal bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if m.config.PowMode == ModeFullFake {
@@ -106,35 +132,19 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain 
 		if pointer == nil {
 			return consensus.ErrUnknownPointer
 		}
-		return m.verifySnailHeader(chain, fastchain, header, nil, pointer, false, seal)
+		return m.verifySnailHeader(chain, fastchain, header, pointer, nil, false, seal)
 	} else {
 		// Short circuit if the header is known, or it's parent not
-		var parents []*types.SnailHeader
-		number := header.Number.Uint64()
-		period := params.DifficultyPeriod.Uint64()
-		hash := header.ParentHash
-		for i := uint64(1); i <= period; i++ {
-			if number - i < 0 {
-				break
-			}
-			parent := chain.GetHeader(hash, number-i)
-			if parent == nil {
-				return consensus.ErrUnknownAncestor
-			}
-			parents = append(parents, parent)
-			hash = parent.ParentHash
-		}
-
-		parent := chain.GetHeader(header.ParentHash, number-1)
-		if parent == nil {
-			return consensus.ErrUnknownAncestor
-		}
-		if chain.GetHeader(header.Hash(), number) != nil {
+		if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
 			return nil
+		}
+		parents := m.getParents(chain, header)
+		if parents == nil {
+			return consensus.ErrUnknownAncestor
 		}
 
 		// Sanity checks passed, do a proper verification
-		return m.verifySnailHeader(chain, fastchain, header, parent, nil, false, seal)
+		return m.verifySnailHeader(chain, fastchain, header, nil, parents, false, seal)
 	}
 }
 
@@ -392,8 +402,8 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 
 	return nil
 }
-func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header, parent, pointer *types.SnailHeader,
-	uncle bool, seal bool) error {
+func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header, pointer *types.SnailHeader,
+	parents []*types.SnailHeader, uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -411,12 +421,12 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 		}
 	}
 	if !header.Fruit {
-		if header.Time.Cmp(parent.Time) <= 0 {
+		if header.Time.Cmp(parents[len(parents) - 1].Time) <= 0 {
 			return errZeroBlockTime
 		}
 
 		// Verify the block's difficulty based in it's timestamp and parent's difficulty
-		expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
+		expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parents)
 
 		if expected.Cmp(header.Difficulty) != 0 {
 			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
@@ -453,8 +463,8 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int {
-	return CalcDifficulty(chain.Config(), time, parent)
+func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uint64, parents []*types.SnailHeader) *big.Int {
+	return CalcDifficulty(chain.Config(), time, parents)
 }
 
 
@@ -558,8 +568,9 @@ var (
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.SnailHeader) *big.Int {
-	return calcDifficulty(time, parent)
+func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
+	return calcDifficulty2(time, parents)
+	//return calcDifficulty(time, parents[0])
 }
 
 
@@ -578,7 +589,7 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 		diff.Set(params.MinimumFruitDifficulty)
 	}
 
-	log.Info("CalcFruitDifficulty", "delta", delta, "diff", diff)
+	//log.Debug("CalcFruitDifficulty", "delta", delta, "diff", diff)
 
 	return diff
 }
@@ -590,19 +601,29 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 	//         (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
 	//        )
 
-	diff := big.NewInt(0)
+	period := big.NewInt(int64(len(parents)))
+	parentHeaders := parents
 
-	for _, parent := range parents {
-		diff.Add(diff, parent.Difficulty)
+	/* get average diff */
+	diff := big.NewInt(0)
+	if parents[0].Number.Cmp(common.Big0) == 0 {
+		period.Sub(period, common.Big1)
+		parentHeaders = parents[1:]
+	}
+	if period.Cmp(common.Big0) == 0 {
+		// only have genesis block
+		return parents[0].Difficulty
 	}
 
-	period := big.NewInt(int64(len(parents)))
+	for _, parent := range parentHeaders {
+		diff.Add(diff, parent.Difficulty)
+	}
 	average_diff := new(big.Int).Div(diff, period)
 
 	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
 
 	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parents[0].Time)
+	bigParentTime := new(big.Int).Set(parentHeaders[0].Time)
 
 	// holds intermediate values to make the algo easier to read & audit
 	x := new(big.Int)
@@ -731,14 +752,15 @@ func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) err
 	return nil
 }
 func (m *Minerva) PrepareSnail(chain consensus.ChainReader, header *types.SnailHeader) error {
-	parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if parent == nil {
+	parents := m.getParents(m.sbc, header)
+	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if parents == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = m.CalcSnailDifficulty(m.sbc, header.Time.Uint64(), parent)
+	header.Difficulty = m.CalcSnailDifficulty(m.sbc, header.Time.Uint64(), parents)
 
 	if header.FastNumber == nil {
-		header.FruitDifficulty = big.NewInt(0)
+		header.FruitDifficulty = new(big.Int).Set(params.MinimumFruitDifficulty)
 	} else {
 		pointer := m.sbc.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
 		if pointer == nil {

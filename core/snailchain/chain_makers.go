@@ -135,7 +135,8 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = b.engine.CalcSnailDifficulty(b.chainReader, b.header.Time.Uint64(), b.parent.Header())
+
+	b.header.Difficulty = b.engine.CalcSnailDifficulty(b.chainReader, b.header.Time.Uint64(), []*types.SnailHeader{b.parent.Header()})
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -206,12 +207,12 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 	return &types.SnailHeader{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), &types.SnailHeader{
+		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), []*types.SnailHeader{&types.SnailHeader{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.BlockDifficulty(),
 			UncleHash:  parent.UncleHash(),
-		}),
+		}}),
 		Number:   new(big.Int).Add(parent.Number(), common.Big1),
 		Time:     time,
 	}
