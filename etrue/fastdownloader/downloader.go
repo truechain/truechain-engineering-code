@@ -427,7 +427,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		return errTooOld
 	}
 
-	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode)
+	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode,"origin", origin, "height", height)
 	defer func(start time.Time) {
 		log.Debug("Fast Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
@@ -514,13 +514,13 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			log.Debug("d.queue.Close()>>>>>>>>>>>>>>>>>>")
 			d.queue.Close()
 		}
-		log.Debug("fetchers  start","index",i)
+		//log.Debug("fetchers  start","index",i)
 		//if len(errc
 		if err = <-errc; err != nil {
 			log.Debug("err = <-errc; err != nil","err:",err)
 			break
 		}
-		log.Debug("fetchers  end","index",i)
+		//log.Debug("fetchers  end","index",i)
 	}
 
 	d.queue.Close()
@@ -813,7 +813,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 		//	p.GetLog().Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
 		//	go p.GetPeer().RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false,true)
 		//} else {
-		p.GetLog().Trace("Fast Fetching full headers", "count", height, "from", from)
+		p.GetLog().Debug("Fast Fetching full headers", "count", height, "from", from)
 		go p.GetPeer().RequestHeadersByNumber(from, height, 0, false, true)
 		//}
 	}
@@ -864,6 +864,9 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				}
 			}
 			headers := packet.(*headerPack).headers
+			for _,head := range headers{
+				p.GetLog().Debug("d.headerProcCh <- headers headers", "count", len(headers), "number", head.Number)
+			}
 
 			// If we received a skeleton batch, resolve internals concurrently
 			//if skeleton {
