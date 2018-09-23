@@ -736,7 +736,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 }
 
 func sendSameHightMessage(node *Node) {
-
+	lock.PSLog("sendSameHightMessage", 1)
 	msgVote := make([]*consensus.VoteMsg, 0)
 	for i := len(node.MsgBuffer.CommitMsgs) - 1; i >= 0; i-- {
 		status := node.GetStatus(node.MsgBuffer.CommitMsgs[i].Height)
@@ -756,6 +756,7 @@ func sendSameHightMessage(node *Node) {
 		}
 		//status.MsgLogs.LockCommit.Unlock()
 	}
+	lock.PSLog("sendSameHightMessage", 2)
 	if len(msgVote) > 0 {
 		node.MsgDelivery <- msgVote
 		lock.PSLog("PrepareMsgs out MsgDelivery")
@@ -781,6 +782,7 @@ func sendSameHightMessage(node *Node) {
 		}
 		//status.MsgLogs.LockPrepare.Unlock()
 	}
+	lock.PSLog("sendSameHightMessage", 3)
 	if len(msgVote) > 0 {
 		node.MsgDelivery <- msgVote
 		lock.PSLog("PrepareMsgs out MsgDelivery")
@@ -794,6 +796,7 @@ func sendSameHightMessage(node *Node) {
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
 		}
 	}
+	lock.PSLog("sendSameHightMessage", 4)
 	if len(msgPrePrepare) > 0 {
 		node.MsgDelivery <- msgPrePrepare
 	}
@@ -806,9 +809,11 @@ func sendSameHightMessage(node *Node) {
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs[:i], node.MsgBuffer.ReqMsgs[i+1:]...)
 		}
 	}
+	lock.PSLog("sendSameHightMessage", 5)
 	if len(msgRequest) > 0 {
 		node.MsgDelivery <- msgRequest
 	}
+	lock.PSLog("sendSameHightMessage", 6)
 }
 
 func (node *Node) routeMsgWhenAlarmed() []error {
