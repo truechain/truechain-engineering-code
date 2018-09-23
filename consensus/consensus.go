@@ -84,7 +84,7 @@ type Engine interface {
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
 	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
-	VerifySnailHeader(chain SnailChainReader, header *types.SnailHeader, seal bool) error
+	VerifySnailHeader(chain SnailChainReader, fastchain ChainReader, header *types.SnailHeader, seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
@@ -105,14 +105,14 @@ type Engine interface {
 
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySnailSeal(chain SnailChainReader, header, pointer *types.SnailHeader) error
+	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
 
 	VerifyFreshness(fruit , block *types.SnailBlock) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
-	PrepareSnail(chain SnailChainReader, header *types.SnailHeader) error
+	PrepareSnail(chain ChainReader, header *types.SnailHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.

@@ -19,7 +19,6 @@ package minerva
 import (
 	crand "crypto/rand"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"math/big"
 	"math/rand"
@@ -75,7 +74,7 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 		pend.Add(1)
 		go func(id int, nonce uint64) {
 			defer pend.Done()
-			m.mineSnail(block, pointer.Difficulty, id, nonce, abort, found)
+			m.mineSnail(block, id, nonce, abort, found)
 		}(i, uint64(m.rand.Int63()))
 	}
 	// Wait until sealing is terminated or a nonce is found
@@ -116,12 +115,6 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		m.shared.ConSeal(chain, block, stop, send)
 	}
 
-	pointer := chain.GetHeaderByHash(block.PointerHash())
-	if pointer == nil {
-		log.Warn("Conseal get pointer block failed.", "pointer", block.PointerHash(), "block", block.Number())
-		send <- nil
-	}
-
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
 	found := make(chan *types.SnailBlock)
@@ -157,7 +150,7 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		pend.Add(1)
 		go func(id int, nonce uint64) {
 			defer pend.Done()
-			m.mineSnail(block, pointer.Difficulty, id, nonce, abort, found)
+			m.mineSnail(block, id, nonce, abort, found)
 		}(i, uint64(m.rand.Int63()))
 	}
 	// Wait until sealing is terminated or a nonce is found
@@ -204,20 +197,15 @@ mineloop:
 	//return result, nil
 }
 
-func (m *Minerva) mineSnail(block *types.SnailBlock, pointerDifficulty *big.Int, id int, seed uint64, abort chan struct{}, found chan *types.SnailBlock) {
+func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort chan struct{}, found chan *types.SnailBlock) {
 	// Extract some data from the header
 	var (
 		header = block.Header()
 		hash   = header.HashNoNonce().Bytes()
 		target = new(big.Int).Div(maxUint128, header.Difficulty)
+		fruitTarget = new(big.Int).Div(maxUint128, header.FruitDifficulty)
 	)
 
-	fruitDifficulty := new(big.Int).Div(pointerDifficulty, params.FruitBlockRatio)
-
-	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
-		fruitDifficulty.Set(params.MinimumFruitDifficulty)
-	}
-	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)

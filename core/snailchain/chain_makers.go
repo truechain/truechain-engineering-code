@@ -209,7 +209,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), &types.SnailHeader{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
-			Difficulty: parent.Difficulty(),
+			Difficulty: parent.BlockDifficulty(),
 			UncleHash:  parent.UncleHash(),
 		}),
 		Number:   new(big.Int).Add(parent.Number(), common.Big1),

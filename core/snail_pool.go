@@ -305,7 +305,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	log.Info("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if rst := pool.chain.GetBlockDifficulty(fruit).Cmp(pool.chain.GetBlockDifficulty(f)); rst < 0 {
+		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
 			return nil
 		} else if rst == 0 {
 			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
@@ -746,7 +746,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	}
 
 	header := fruit.Header()
-	if err := pool.engine.VerifySnailHeader(pool.chain, header, true); err != nil {
+	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
 		log.Info("validateFruit verify header err", "err", err)
 		return err
 	}

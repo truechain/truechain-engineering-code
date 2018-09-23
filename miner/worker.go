@@ -132,7 +132,7 @@ type worker struct {
 
 	etrue     Backend
 	chain   *chain.SnailBlockChain
-	snailchain  *chain.SnailBlockChain
+	fastchain  *core.BlockChain
 	proc    chain.Validator
 	chainDb ethdb.Database
 
@@ -177,7 +177,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		recv:           make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
 		chain:          etrue.SnailBlockChain(),
-		snailchain:     etrue.SnailBlockChain(),
+		fastchain:     etrue.BlockChain(),
 		proc:           etrue.SnailBlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.SnailBlock),
 		coinbase:       coinbase,
@@ -568,18 +568,7 @@ func (self *worker) commitNewWork() {
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
 	}
-	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
-		log.Error("Failed to prepare header for mining", "err", err)
-		self.atCommintNewWoker  = false
-		return
-	}
-	// Set the pointerHash 
-	pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
-	if pointerNum.Cmp(common.Big0) < 0 {
-		pointerNum = new(big.Int).Set(common.Big0)
-	}
-	header.PointerHash = self.chain.GetBlockByNumber(pointerNum.Uint64()).Hash()
-	
+
 	// If we are care about TheDAO hard-fork check whether to override the extra-data or not
 	if daoBlock := self.config.DAOForkBlock; daoBlock != nil {
 		// Check whether the block is among the fork extra-override range
@@ -635,11 +624,26 @@ func (self *worker) commitNewWork() {
 	
 	// commit fruits make sure it is correct
 	if fruits != nil{
-		work.commitFruits(fruits, self.snailchain, self.engine)
+		work.commitFruits(fruits, self.chain, self.engine)
 	}
 
 	if work.fruits != nil {
 		log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
+	}
+
+	// Set the pointerHash
+	pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
+	if pointerNum.Cmp(common.Big0) < 0 {
+		pointerNum = new(big.Int).Set(common.Big0)
+	}
+	pointer := self.chain.GetBlockByNumber(pointerNum.Uint64())
+	header.PointerHash = pointer.Hash()
+	header.PointerNumber = pointer.Number()
+
+	if err := self.engine.PrepareSnail(self.fastchain, header); err != nil {
+		log.Error("Failed to prepare header for mining", "err", err)
+		self.atCommintNewWoker  = false
+		return
 	}
 	
 	// set work block
