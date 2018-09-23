@@ -210,7 +210,6 @@ func generateDataset(dest []uint32, epoch uint64, cache []uint32) {
 func truehash(plookup []uint64, hash []byte, nonce uint64) ([]byte, []byte) {
 	// Calculate the number of theoretical rows (we use one buffer nonetheless)
 	return fchainmining(plookup[:], hash[:], nonce)
-
 }
 
 // truehashLight aggregates data from the full dataset (using only a small

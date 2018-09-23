@@ -343,7 +343,7 @@ func New(config Config) *Minerva {
 		hashrate: metrics.NewMeter(),
 	}
 
-	MinervaLocal.CheckDataSetState(0)
+	MinervaLocal.CheckDataSetState(1)
 
 	return MinervaLocal
 }

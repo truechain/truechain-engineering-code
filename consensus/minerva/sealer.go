@@ -201,6 +201,8 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		fruitTarget = new(big.Int).Div(maxUint128, header.FruitDifficulty)
 	)
 
+	//m.CheckDataSetState(block.Number().Uint64())
+
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
