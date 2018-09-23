@@ -26,7 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
-	)
+)
 
 const (
 	forceSyncCycle      = 10 * time.Second // Time interval to force syncs, even if few peers are available
@@ -34,7 +34,7 @@ const (
 
 	// This is the target size for the packs of transactions sent by txsyncLoop.
 	// A pack can get larger than this if a single transactions exceeds this size.
-	txsyncPackSize = 100 * 1024
+	txsyncPackSize    = 100 * 1024
 	fruitsyncPackSize = 100 * 1024
 )
 
@@ -44,9 +44,10 @@ type txsync struct {
 }
 
 type fruitsync struct {
-	p   *peer
+	p      *peer
 	fruits []*types.SnailBlock
 }
+
 // syncTransactions starts sending all currently pending transactions to the given peer.
 func (pm *ProtocolManager) syncTransactions(p *peer) {
 	var txs types.Transactions
@@ -78,6 +79,7 @@ func (pm *ProtocolManager) syncFruits(p *peer) {
 	case <-pm.quitSync:
 	}
 }
+
 // txsyncLoop takes care of the initial transaction sync for each new
 // connection. When a new peer appears, we relay all currently pending
 // transactions. In order to minimise egress bandwidth usage, we send
@@ -157,7 +159,7 @@ func (pm *ProtocolManager) fruitsyncLoop() {
 	var (
 		pending = make(map[discover.NodeID]*fruitsync)
 		sending = false               // whether a send is active
-		pack    = new(fruitsync)         // the pack that is being sent
+		pack    = new(fruitsync)      // the pack that is being sent
 		done    = make(chan error, 1) // result of the send
 	)
 
@@ -179,7 +181,7 @@ func (pm *ProtocolManager) fruitsyncLoop() {
 		// Send the pack in the background.
 		f.p.Log().Trace("Sending batch of fruits", "count", len(pack.fruits), "bytes", size)
 		sending = true
-		go func() { done <- pack.p.SendFruits(pack.fruits)}()
+		go func() { done <- pack.p.SendFruits(pack.fruits) }()
 	}
 
 	// pick chooses the next pending sync.
@@ -229,6 +231,7 @@ func (pm *ProtocolManager) syncer() {
 	defer pm.fetcherFast.Stop()
 	defer pm.fetcherSnail.Stop()
 	defer pm.downloader.Terminate()
+	defer pm.fdownloader.Terminate()
 
 	// Wait for different events to fire synchronisation operations
 	forceSync := time.NewTicker(forceSyncCycle)
@@ -264,6 +267,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
+	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		return
 	}
@@ -299,8 +303,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Info("Fast sync complete, auto disabling")
 		atomic.StoreUint32(&pm.fastSync, 0)
 	}
-	atomic.StoreUint32(&pm.acceptTxs, 1)         // Mark initial sync done
-	atomic.StoreUint32(&pm.acceptFruits, 1)      // Mark initial sync done on any fetcher import
+	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
+	atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 	//atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
 	if head := pm.snailchain.CurrentBlock(); head.NumberU64() > 0 {
 		// We've completed a sync cycle, notify all peers of new state. This path is
@@ -318,6 +322,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// scenario will most often crop up in private and hackathon networks with
 		// degenerate connectivity, but it should be healthy for the mainnet too to
 		// more reliably update peers or the local TD state.
+		log.Debug("synchronise", "number", head.Number(), "sign", head.GetLeaderSign())
 		go pm.BroadcastFastBlock(head, false)
 	}
 }

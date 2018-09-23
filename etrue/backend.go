@@ -202,7 +202,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.EventMux())
 
-	etrue.snailblockchain.Validator().SetElection(etrue.election)
+	etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
 	ethash.SetElection(etrue.election)
 	ethash.SetSnailChainReader(etrue.snailblockchain)

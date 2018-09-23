@@ -82,6 +82,7 @@ func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.Act
 	go work(server.ID, server.ActionChan)
 }
 func (server *Server) startHttpServer() {
+	lock.PSLog("startHttpServer", "server", server.server.Addr)
 	if err := server.server.ListenAndServe(); err != nil {
 		log.Error("startHttpServer", "error", err.Error())
 		return

@@ -24,7 +24,7 @@ const (
 	Stop
 	Switch
 
-	ServerWait    = 60
+	ServerWait    = 5
 	BlockSleepMax = 5
 )
 
@@ -35,6 +35,7 @@ type serverInfo struct {
 	server *network.Server
 	Height *big.Int
 	clear  bool
+	Stop   uint64
 }
 
 type PbftServerMgr struct {
@@ -340,6 +341,10 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
 				if server, ok := ss.servers[cid.Uint64()]; ok {
+					if server.Height.Uint64() == server.Stop && server.Stop != 0 {
+						lock.PSLog("ActionFecth", "Stop", "height stop")
+						continue
+					}
 					if !server.clear {
 						req, err := ss.GetRequest(cid)
 						if err == nil && req != nil {
@@ -361,6 +366,14 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 	}
 }
 
+func (ss *PbftServerMgr) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
+	if server, ok := ss.servers[committeeId.Uint64()]; ok {
+		server.Stop = stop
+		return nil
+	}
+	return errors.New("SetCommitteeStop Server is not have")
+}
+
 func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	lock.PSLog("PutCommittee", committeeInfo.Id, committeeInfo.Members)
 	id := committeeInfo.Id
@@ -379,6 +392,7 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 		info:   infos,
 		Height: new(big.Int).Set(common.Big0),
 		clear:  false,
+		Stop:   0,
 	}
 	for _, v := range members {
 		server.insertMember(v)
@@ -387,15 +401,16 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 	return nil
 }
 func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
+	ID := id.Uint64()
 	if nodes[0] != nil {
-		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP, "committee id", id.Int64())
+		lock.PSLog("PutNodes", nodes[0].Port, nodes[0].IP, nodes[0].Port2, "committee id", id.Int64())
 	} else {
 		lock.PSLog("PutNodes nodes error")
 	}
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
-	server, ok := ss.servers[id.Uint64()]
+	server, ok := ss.servers[ID]
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
 	}
@@ -409,7 +424,11 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 		//update node table
 		for _, v := range server.info {
 			name := common.ToHex(v.Publickey)
-			server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+			if ID%2 > 0 {
+				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+			} else {
+				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port2)
+			}
 		}
 	}
 
@@ -432,19 +451,20 @@ func serverCheck(server *serverInfo) (bool, int) {
 }
 
 func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
+	id64 := id.Uint64()
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, c := serverCheck(server)
 			lock.PSLog("[leader]", "server count", c)
 			if b {
-				time.Sleep(time.Second * ServerWait)
+				time.Sleep(time.Second * ServerWait * 6)
 				break
 			}
 			time.Sleep(time.Second)
 		}
 	}
-	if id.Int64() > 0 {
-		lock.PSLog("[switch]", "leader wait ", 60)
+	if id64 > 0 {
+		lock.PSLog("[switch]", "leader wait ", 5)
 		time.Sleep(time.Second * ServerWait)
 	}
 
@@ -452,24 +472,25 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	// start to fetch
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFecth,
-		ID:     id,
+		ID:     big.NewInt(int64(id64)),
 		Height: common.Big0,
 	}
 	server.server.ActionChan <- ac
 }
 
-func DelayStop(id *big.Int, ss *PbftServerMgr) {
-	if server, ok := ss.servers[id.Uint64()]; ok {
+func DelayStop(id uint64, ss *PbftServerMgr) {
+	if server, ok := ss.servers[id]; ok {
 		server.server.Node.Stop = true
 	}
 	lock.PSLog("[switch]", "stop wait ", 60)
 	time.Sleep(time.Second * ServerWait)
 
-	if server, ok := ss.servers[id.Uint64()]; ok {
+	if server, ok := ss.servers[id]; ok {
+		lock.PSLog("http server stop", "id", id)
 		server.server.Stop()
 		server.clear = true
 	}
-	ss.clear(id)
+	ss.clear(big.NewInt(int64(id)))
 }
 
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
@@ -482,7 +503,7 @@ func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
 			return errors.New("wrong conmmitt ID:" + id.String())
 		}
 	case Stop:
-		DelayStop(id, ss)
+		DelayStop(id.Uint64(), ss)
 		return nil
 	case Switch:
 		// begin to make network..

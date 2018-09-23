@@ -1058,6 +1058,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		}
 		stats.processed++
 
+		fruits := block.Fruits()
+		log.Debug("Inserted new snail block fruits", "number", block.Number(), "len", len(fruits),"first", fruits[0].FastNumber(), "last", fruits[len(fruits) - 1].FastNumber())
+
 		stats.report(chain, i)
 	}
 	// Append a single chain head event if we've progressed the chain

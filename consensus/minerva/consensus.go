@@ -515,6 +515,11 @@ func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Snail
 	return calcDifficulty(time, parent)
 }
 
+
+func CalcFruitDifficulty() *big.Int {
+	return nil
+}
+
 // Some weird constants to avoid constant memory allocs for them.
 var (
 	expDiffPeriod = big.NewInt(100000)
@@ -542,6 +547,57 @@ func calcFruitDifficulty(time uint64, proposedTime uint64, pointerDiff * big.Int
 	} else {
 		return diff
 	}
+}
+
+
+func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
+	// algorithm:
+	// diff = (average_diff +
+	//         (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	//        )
+
+	diff := big.NewInt(0)
+
+	for _, parent := range parents {
+		diff.Add(diff, parent.Difficulty)
+	}
+
+	period := big.NewInt(int64(len(parents)))
+	average_diff := new(big.Int).Div(diff, period)
+
+	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
+
+	bigTime := new(big.Int).SetUint64(time)
+	bigParentTime := new(big.Int).Set(parents[0].Time)
+
+	// holds intermediate values to make the algo easier to read & audit
+	x := new(big.Int)
+	y := new(big.Int)
+
+	// 86400 - (block_timestamp - parent_timestamp)
+	x.Add(durationDivisor, bigParentTime)
+	x.Sub(x, bigTime)
+
+	// (max(86400 - (block_timestamp - parent_timestamp), -86400)
+	y.Mul(durationDivisor, bigMinus1)
+	if x.Cmp(y) < 0 {
+		x.Set(y)
+	}
+
+	// (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	y.Div(average_diff, params.DifficultyBoundDivisor)
+	x.Mul(y, x)
+
+	x.Div(x, durationDivisor)
+
+	x.Add(average_diff, x)
+
+	// minimum difficulty can ever be (before exponential factor)
+	if x.Cmp(params.MinimumDifficulty) < 0 {
+		x.Set(params.MinimumDifficulty)
+	}
+
+	return x
 }
 
 // calcDifficulty is the difficulty adjustment algorithm. It returns
