@@ -66,9 +66,15 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 	}
 	primary := common.ToHex(addrs[0].Publickey)
 	nodeTable := make(map[string]string)
+	ID := id.Uint64()
 	for _, v := range addrs {
 		name := common.ToHex(v.Publickey)
-		nodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+		if ID%2 > 0 {
+			nodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
+		} else {
+			nodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port2)
+		}
+
 	}
 	node := &Node{
 		// Hard-coded for test.
