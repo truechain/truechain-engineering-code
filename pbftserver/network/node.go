@@ -296,15 +296,17 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	}
 
 	//Add self
+	status := node.GetStatus(prePrepareMsg.Height)
+	status.MsgLogs.LockPrepare.Lock()
 	if _, ok := node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID]; !ok {
 		lock.PSLog("node GetPrePrepare3")
 		myPrepareMsg := prePareMsg
 		myPrepareMsg.NodeID = node.NodeID
 		node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs[node.NodeID] = myPrepareMsg
 	}
-
-	lock.PSLog("node GetPrePrepare", "Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs),
-		len(node.GetStatus(prePrepareMsg.Height).MsgLogs.CommitMsgs))
+	status.MsgLogs.LockPrepare.Unlock()
+	//lock.PSLog("node GetPrePrepare", "Len", len(node.GetStatus(prePrepareMsg.Height).MsgLogs.PrepareMsgs),
+	//	len(node.GetStatus(prePrepareMsg.Height).MsgLogs.CommitMsgs))
 	if prePareMsg != nil {
 		// Attach node ID to the message
 		prePareMsg.NodeID = node.NodeID
@@ -396,6 +398,7 @@ func (node *Node) processCommitWaitMessageQueue() {
 				continue
 			}
 			if state.CurrentStage == consensus.Committed {
+				state.MsgLogs.LockCommit.Lock()
 				for _, msg := range state.MsgLogs.CommitMsgs {
 					msgSend := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -414,6 +417,7 @@ func (node *Node) processCommitWaitMessageQueue() {
 
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
+				state.MsgLogs.LockCommit.Unlock()
 			}
 			msgSend = append(msgSend, msg)
 			node.MsgDelivery <- msgSend
@@ -484,7 +488,9 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
 	if state.CurrentStage == consensus.Committed {
 		lock.PSLog("[Committed return true]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
+		state.MsgLogs.LockCommit.Lock()
 		state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
+		state.MsgLogs.LockCommit.Unlock()
 		return nil
 	}
 
@@ -664,6 +670,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 		for _, v := range msg.([]*consensus.VoteMsg) {
 			state := node.GetStatus(v.Height)
 			if v.MsgType == consensus.CommitMsg {
+				state.MsgLogs.LockCommit.Lock()
 				for _, msg := range state.MsgLogs.CommitMsgs {
 					msgSend := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -681,7 +688,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					break
 				}
+				state.MsgLogs.LockCommit.Unlock()
 			} else if v.MsgType == consensus.PrepareMsg {
+				state.MsgLogs.LockPrepare.Lock()
 				if v1, ok := state.MsgLogs.PrepareMsgs[node.NodeID]; ok {
 					msg := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -693,6 +702,8 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 					}
 					node.BroadcastOne(msg, "/prepare", v.NodeID)
 				}
+				state.MsgLogs.LockPrepare.Unlock()
+				state.MsgLogs.LockCommit.Lock()
 				for _, msg := range state.MsgLogs.CommitMsgs {
 					msgSend := &consensus.VoteMsg{
 						NodeID:     node.NodeID,
@@ -710,6 +721,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					break
 				}
+				state.MsgLogs.LockCommit.Unlock()
 			}
 
 		}
@@ -722,9 +734,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 func sendSameHightMessage(node *Node) {
 
 	msgVote := make([]*consensus.VoteMsg, 0)
-
 	for i := len(node.MsgBuffer.CommitMsgs) - 1; i >= 0; i-- {
 		status := node.GetStatus(node.MsgBuffer.CommitMsgs[i].Height)
+		status.MsgLogs.LockCommit.Lock()
 		if status != nil && status.CurrentStage == consensus.Prepared {
 			msgVote = append(msgVote, node.MsgBuffer.CommitMsgs[i])
 			node.MsgBuffer.CommitMsgs = append(node.MsgBuffer.CommitMsgs[:i], node.MsgBuffer.CommitMsgs[i+1:]...)
@@ -738,6 +750,7 @@ func sendSameHightMessage(node *Node) {
 				node.MsgBackward <- msgVoteBackward
 			}
 		}
+		status.MsgLogs.LockCommit.Unlock()
 	}
 	if len(msgVote) > 0 {
 		node.MsgDelivery <- msgVote
@@ -747,6 +760,7 @@ func sendSameHightMessage(node *Node) {
 	for i := len(node.MsgBuffer.PrepareMsgs) - 1; i >= 0; i-- {
 		lock.PSLog("PrepareMsgs in")
 		status := node.GetStatus(node.MsgBuffer.PrepareMsgs[i].Height)
+		status.MsgLogs.LockPrepare.Lock()
 		if status != nil && status.CurrentStage == consensus.PrePrepared {
 			msgVote = append(msgVote, node.MsgBuffer.PrepareMsgs[i])
 			node.MsgBuffer.PrepareMsgs = append(node.MsgBuffer.PrepareMsgs[:i], node.MsgBuffer.PrepareMsgs[i+1:]...)
@@ -761,6 +775,7 @@ func sendSameHightMessage(node *Node) {
 				lock.PSLog("PrepareMsgs out MsgBackward", msgVoteBackward)
 			}
 		}
+		status.MsgLogs.LockPrepare.Unlock()
 	}
 	if len(msgVote) > 0 {
 		node.MsgDelivery <- msgVote
