@@ -224,7 +224,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() == 0 {
 		/* genesis block */
-		minFbNumber = new(big.Int).Set(common.Big1)
+		minFbNumber = new(big.Int).Set(common.Big0)
 	} else {
 		fruits := headSnailBlock.Fruits()
 		minFbNumber = fruits[len(fruits)-1].FastNumber()
