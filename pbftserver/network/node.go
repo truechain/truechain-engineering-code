@@ -18,6 +18,7 @@ import (
 type Node struct {
 	NodeID        string
 	NodeTable     map[string]string // key=nodeID, value=url
+	NTLock        sync.Mutex
 	View          *View
 	States        map[int64]*consensus.State
 	CommittedMsgs []*consensus.RequestMsg // kinda block.
@@ -118,13 +119,14 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 	go node.dispatchMsgBackward()
 
 	//start Process message commit wait
-	//go node.processCommitWaitMessage()
 	go node.processCommitWaitMessageQueue()
 
 	return node
 }
 
 func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
+	node.NTLock.Lock()
+	defer node.NTLock.Unlock()
 	errorMap := make(map[string]error)
 	for nodeID, url := range node.NodeTable {
 		if nodeID == node.NodeID {
@@ -153,6 +155,8 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 }
 
 func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (err error) {
+	node.NTLock.Lock()
+	defer node.NTLock.Unlock()
 	for nodeID, url := range node.NodeTable {
 		if nodeID != node_id {
 			continue
@@ -325,8 +329,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	node.PrePareLock.Lock()
 	defer node.PrePareLock.Unlock()
 	lock.PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
+	node.NTLock.Lock()
 	f := len(node.NodeTable) / 3
-
+	node.NTLock.Unlock()
 	CurrentState := node.GetStatus(prepareMsg.Height)
 
 	if CurrentState == nil ||
@@ -380,6 +385,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 func (node *Node) processCommitWaitMessageQueue() {
 	for {
+		if node.Stop {
+			return
+		}
 		var msgSend = make([]*consensus.VoteMsg, 0)
 		if !node.CommitWaitQueue.Empty() {
 			msg := node.CommitWaitQueue.PopItem().(*consensus.VoteMsg)
@@ -464,8 +472,9 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	node.CommitLock.Lock()
 	defer node.CommitLock.Unlock()
 	lock.PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))
+	node.NTLock.Lock()
 	f := len(node.NodeTable) / 3
-
+	node.NTLock.Unlock()
 	state := node.GetStatus(commitMsg.Height)
 	if state == nil {
 		return nil
@@ -533,6 +542,9 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 
 func (node *Node) dispatchMsg() {
 	for {
+		if node.Stop {
+			return
+		}
 		select {
 		case msg := <-node.MsgEntrance:
 			err := node.routeMsg(msg)
@@ -632,6 +644,9 @@ func (node *Node) routeMsg(msg interface{}) []error {
 
 func (node *Node) dispatchMsgBackward() {
 	for {
+		if node.Stop {
+			return
+		}
 		select {
 		case msg := <-node.MsgBackward:
 			err := node.routeMsgBackward(msg)
@@ -785,6 +800,9 @@ func (node *Node) routeMsgWhenAlarmed() []error {
 func (node *Node) resolveMsg() {
 	for {
 		// Get buffered messages from the dispatcher.
+		if node.Stop {
+			return
+		}
 		msgs := <-node.MsgDelivery
 		switch msgs.(type) {
 		case []*consensus.RequestMsg:
@@ -832,6 +850,9 @@ func (node *Node) resolveMsg() {
 
 func (node *Node) alarmToDispatcher() {
 	for {
+		if node.Stop {
+			return
+		}
 		time.Sleep(ResolvingTimeDuration)
 		node.Alarm <- true
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"github.com/truechain/truechain-engineering-code/pbftserver/network"
@@ -418,6 +419,7 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 		server.insertNode(v)
 	}
 
+	server.server.Node.NTLock.Lock()
 	if server.server == nil {
 		server.server = network.NewServer(server.nodeid, id, ss, ss, server.info)
 	} else {
@@ -431,8 +433,8 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 			}
 		}
 	}
-
-	lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
+	server.server.Node.NTLock.Unlock()
+	//lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
 	return nil
 }
 
@@ -455,9 +457,9 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, c := serverCheck(server)
-			lock.PSLog("[leader]", "server count", c)
+			log.Info("[leader]", "server count", c)
 			if b {
-				time.Sleep(time.Second * ServerWait * 6)
+				time.Sleep(time.Second * ServerWait * 18)
 				break
 			}
 			time.Sleep(time.Second)
@@ -479,14 +481,12 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 }
 
 func DelayStop(id uint64, ss *PbftServerMgr) {
-	if server, ok := ss.servers[id]; ok {
-		server.server.Node.Stop = true
-	}
 	lock.PSLog("[switch]", "stop wait ", 60)
 	time.Sleep(time.Second * ServerWait)
 
 	if server, ok := ss.servers[id]; ok {
 		lock.PSLog("http server stop", "id", id)
+		server.server.Node.Stop = true
 		server.server.Stop()
 		server.clear = true
 	}

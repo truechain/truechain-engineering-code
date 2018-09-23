@@ -130,16 +130,6 @@ func send(count int, ip string) {
 		}
 	}
 	waitMain.Wait()
-
-	//// get balance
-	//err = client.Call(&result, "etrue_getBalance", account[from], "latest")
-	//if err != nil {
-	//	fmt.Println("etrue_getBalance Error:", err)
-	//	return
-	//} else {
-	//	b := new(big.Int).SetBytes([]byte(result))
-	//	fmt.Println("etrue_getBalance Ok:", b)
-	//}
 }
 
 //send count transaction
