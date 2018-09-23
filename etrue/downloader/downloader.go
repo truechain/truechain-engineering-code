@@ -1398,19 +1398,30 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
 
-		for _,fr := range result.Fruits{
-
-			log.Debug("Fruits:","Fruit Number",fr.FastNumber())
-		}
-
-		if len(result.Fruits) > 0 && d.fastDown.GetBlockChain().CurrentBlock().NumberU64() <= result.Fruits[0].FastNumber().Uint64() {
+		fruitLen := len(result.Fruits)
+		if fruitLen > 0 {
 
 			fbNum := result.Fruits[0].FastNumber().Uint64()
-			errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1, uint64(len(result.Fruits)))
-			//time.Sleep(1*time.Second)
-			if errs != nil {
-				log.Debug("fast sync: ", "err>>>>>>>>>", errs)
-				return errs
+			heigth :=  uint64(len(result.Fruits))
+
+			if d.fastDown.GetBlockChain().CurrentBlock().NumberU64() >= result.Fruits[0].FastNumber().Uint64(){
+
+				fbNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+				heigth = result.Fruits[fruitLen-1].FastNumber().Uint64() - fbNum
+			}
+
+			for _,fr := range result.Fruits{
+
+				log.Debug("Fruits:","Fruit Number",fr.FastNumber())
+			}
+
+			if heigth >0{
+				errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum-1,heigth)
+				//time.Sleep(1*time.Second)
+				if errs != nil {
+					log.Debug("fast sync: ", "err>>>>>>>>>", errs)
+					return errs
+				}
 			}
 
 		} else {
