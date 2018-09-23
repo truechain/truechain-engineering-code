@@ -550,20 +550,26 @@ func (node *Node) dispatchMsg() {
 	for {
 		select {
 		case msg := <-node.MsgEntrance:
+			lock.PSLog("dispatchMsg", "111111111111111111111111111111111111111111111111111", "start")
 			lock.PSLog("node.MsgEntrance", msg)
 			err := node.routeMsg(msg)
 			if err != nil {
 				log.Error("dispatchMsg", "error", err[0].Error())
 				// TODO: send err to ErrorChannel
 			}
+			lock.PSLog("dispatchMsg", "111111111111111111111111111111111111111111111111111", "end")
 		case <-node.Alarm:
+			lock.PSLog("dispatchMsg", "222222222222222222222222222222222222222222222222222", "start")
 			err := node.routeMsgWhenAlarmed()
 			if err != nil {
 				log.Error("dispatchMsg", "error", err[0].Error())
 				// TODO: send err to ErrorChannel
 			}
+			lock.PSLog("dispatchMsg", "2222222222222222222222222222222222222222222222222222", "end")
 		case msgHeight := <-node.FinishChan:
+			lock.PSLog("dispatchMsg", "333333333333333333333333333333333333333333333333333", "start")
 			node.ReplyResult(msgHeight)
+			lock.PSLog("dispatchMsg", "333333333333333333333333333333333333333333333333333", "end")
 		}
 	}
 }
