@@ -1413,25 +1413,27 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
 			currentNum := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 
-			if fbNumLast < fbNum || fbNumLast-fbNum != height - 1 || fbNum < 1{
+			if fbNumLast < fbNum || fbNumLast-fbNum != height - 1 || fbNum < 1 {
 				return errFruits
 			}
-			fbNum = fbNum - 1
+
 			log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 			if  fbNumLast > currentNum && currentNum > 0{
+
 				fbNum = currentNum
 				height = fbNumLast - fbNum
-			}
 
-			log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+				log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
-			if height >0{
-				errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum,height)
-				//time.Sleep(1*time.Second)
-				if errs != nil {
-					log.Debug("fast sync: ", "err>>>>>>>>>", errs)
-					return errs
+				if height >0{
+					errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum,height)
+					//time.Sleep(1*time.Second)
+					if errs != nil {
+						log.Debug("fast sync: ", "err>>>>>>>>>", errs)
+						return errs
+					}
 				}
+
 			}
 
 		} else {
