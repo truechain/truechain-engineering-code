@@ -21,6 +21,7 @@ var interval = time.Millisecond * 0
 
 //get all account
 var account []string
+
 // get par
 func main() {
 	if len(os.Args) < 4 {
@@ -76,7 +77,6 @@ func send(count int, ip string) {
 		return
 	}
 
-
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
@@ -119,18 +119,27 @@ func send(count int, ip string) {
 			break
 		}
 		time.Sleep(interval)
+		// get balance
+		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
+		if err != nil {
+			fmt.Println("etrue_getBalance Error:", err)
+			return
+		} else {
+			b := new(big.Int).SetBytes([]byte(result))
+			fmt.Println("etrue_getBalance Ok:", b)
+		}
 	}
 	waitMain.Wait()
 
-	// get balance
-	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
-	if err != nil {
-		fmt.Println("etrue_getBalance Error:", err)
-		return
-	} else {
-		b := new(big.Int).SetBytes([]byte(result))
-		fmt.Println("etrue_getBalance Ok:", b)
-	}
+	//// get balance
+	//err = client.Call(&result, "etrue_getBalance", account[from], "latest")
+	//if err != nil {
+	//	fmt.Println("etrue_getBalance Error:", err)
+	//	return
+	//} else {
+	//	b := new(big.Int).SetBytes([]byte(result))
+	//	fmt.Println("etrue_getBalance Ok:", b)
+	//}
 }
 
 //send count transaction
