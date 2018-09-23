@@ -528,25 +528,18 @@ func (m *Minerva) VerifyFreshness(fruit , block *types.SnailBlock) error {
 }
 
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
-	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	_, result := truehashLight(*m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
-		pointer := m.sbc.GetHeaderByHash(header.PointerHash)
-		if pointer == nil {
-			log.Warn("Minerva get difficulty pointer failed.", "pointer", pointer.Hash(), "number", header.FastNumber)
-			return nil, nil
-		}
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
-		fruitDiff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
 
-		return actDiff, fruitDiff
+		return actDiff, header.FruitDifficulty
 	} else {
-		actDiff := new(big.Int).Div(maxUint256, new(big.Int).SetBytes(result))
+		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(result[:16]))
 		return actDiff, header.Difficulty
 	}
 }
-
 
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -719,7 +712,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	// Recompute the digest and PoW value and verify against the header
 	//number := header.Number.Uint64()
 
-	digest, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	digest, result := truehashLight(*m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest
