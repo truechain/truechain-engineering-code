@@ -80,6 +80,7 @@ type ElectionEvent struct {
 	CommitteeID      *big.Int
 	CommitteeMembers []*types.CommitteeMember
 	BeginFastNumber  *big.Int
+	EndFastNumber	 *big.Int
 	//CommitteeInfo *types.CommitteeInfo
 }
 

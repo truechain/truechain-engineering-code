@@ -1282,7 +1282,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		switch status {
 		case CanonStatTy:
-			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", 0,
+			log.Debug("Inserted new fast block", "number", block.Number(), "hash", block.Hash(), "uncles", 0,
 				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", "")
 
 			coalescedLogs = append(coalescedLogs, logs...)
@@ -1540,7 +1540,7 @@ func (bc *BlockChain) reportBlock(block *types.Block, receipts types.Receipts, e
 		receiptString += fmt.Sprintf("\t%v\n", receipt)
 	}
 	log.Error(fmt.Sprintf(`
-########## BAD BLOCK #########
+########## BAD FAST BLOCK #########
 Chain config: %v
 
 Number: %v

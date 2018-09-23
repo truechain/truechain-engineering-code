@@ -1116,14 +1116,15 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
 
-	switch {
+	/*switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	case ctx.GlobalBool(FastSyncFlag.Name):
 		cfg.SyncMode = downloader.FastSync
 	case ctx.GlobalBool(LightModeFlag.Name):
 		cfg.SyncMode = downloader.LightSync
-	}
+	}*/
+
 	if ctx.GlobalIsSet(LightServFlag.Name) {
 		cfg.LightServ = ctx.GlobalInt(LightServFlag.Name)
 	}
@@ -1261,6 +1262,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.RedisPort = ctx.GlobalInt(RedisPortFlag.Name)
 	}
 	cfg.ChannelID = ctx.GlobalInt(ChannelIDFlag.Name)
+	log.Info("","cfg.SyncMode",cfg.SyncMode)
 }
 
 // SetDashboardConfig applies dashboard related command line flags to the config.

@@ -16,6 +16,7 @@ const (
 	CommitteeStart      = iota // start pbft consensus
 	CommitteeStop              // stop pbft consensus
 	CommitteeSwitchover        //switch pbft committee
+	CommitteeOver              // notify current pbft committee end block
 )
 
 const (
@@ -55,6 +56,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 type CommitteeNode struct {
 	IP        string
 	Port      uint
+	Port2     uint
 	Coinbase  common.Address
 	Publickey []byte
 }
@@ -79,8 +81,8 @@ type PbftServerProxy interface {
 	PutCommittee(committeeInfo *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
+	SetCommitteeStop(committeeId *big.Int, stop uint64) error
 }
-
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
 // RLP encoding.
@@ -108,7 +110,7 @@ type EncryptNodeMessage struct {
 	CreatedAt   time.Time
 	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
-	Sign //sign msg
+	Sign        //sign msg
 }
 
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {

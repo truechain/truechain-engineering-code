@@ -13,5 +13,7 @@ RUN apk add --no-cache ca-certificates
 COPY --from=construction /truechain-engineering-code/build/bin/getrue /usr/local/bin/
 CMD ["getrue"]
 
-EXPOSE 8545 8545 30303 30303/udp 10080 10080/tcp
+EXPOSE 8545 8545 9215 9215 30310 30310 30311 30311 30303 30303
 ENTRYPOINT ["getrue"]
+
+
