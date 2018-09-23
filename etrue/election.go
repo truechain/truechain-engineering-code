@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"sync"
 
@@ -36,9 +37,8 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 44  // snail block period number
+	z                  = 60  // snail block period number
 	k                  = 300
-	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
 
@@ -316,7 +316,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	log.Info("get committee ..", "fastnumber", fastNumber, "snailnumber", snailNumber)
 	committeeNumber := new(big.Int).Div(snailNumber, big.NewInt(z))
 	lastSnailNumber := new(big.Int).Mul(committeeNumber, big.NewInt(z))
-	switchCheckNumber := new(big.Int).Sub(lastSnailNumber, big.NewInt(lamada))
+	switchCheckNumber := new(big.Int).Sub(lastSnailNumber, params.SnailConfirmInterval)
 
 	log.Debug("get pre committee ", "committee", committeeNumber, "last", lastSnailNumber, "switchcheck", switchCheckNumber)
 
@@ -742,7 +742,7 @@ func (e *Election) loop() {
 				if e.committee.switchCheckNumber.Cmp(se.Block.Number()) == 0 {
 					// get end fast block number
 					var snailStartNumber *big.Int
-					snailEndNumber := new(big.Int).Sub(se.Block.Number(), big.NewInt(lamada))
+					snailEndNumber := new(big.Int).Sub(se.Block.Number(), params.SnailConfirmInterval)
 					if snailEndNumber.Cmp(big.NewInt(z)) < 0 {
 						snailStartNumber = new(big.Int).Set(common.Big1)
 					} else {
