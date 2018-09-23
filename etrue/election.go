@@ -37,7 +37,7 @@ const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
 	z                  = 44  // snail block period number
-	k                  = 100
+	k                  = 300
 	lamada             = 12
 
 	fruitThreshold = 1 // fruit size threshold for committee election
@@ -779,7 +779,7 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					go func(e *Election) {
+					//go func(e *Election) {
 						e.electionFeed.Send(core.ElectionEvent{
 							Option:           types.CommitteeOver,
 							CommitteeID:      e.committee.id,
@@ -794,7 +794,7 @@ func (e *Election) loop() {
 							CommitteeMembers: e.nextCommittee.Members(),
 							BeginFastNumber:  e.nextCommittee.beginFastNumber,
 						})
-					}(e)
+					//}(e)
 				}
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent
@@ -802,7 +802,7 @@ func (e *Election) loop() {
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
-						go func(e *Election) {
+						//go func(e *Election) {
 							log.Info("Election stop committee..", "id", e.committee.id)
 							e.electionFeed.Send(core.ElectionEvent{
 								Option:           types.CommitteeStop,
@@ -825,7 +825,7 @@ func (e *Election) loop() {
 								CommitteeMembers: e.committee.Members(),
 								BeginFastNumber:  e.committee.beginFastNumber,
 							})
-						}(e)
+						//}(e)
 					}
 				}
 			}
