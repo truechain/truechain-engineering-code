@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"github.com/truechain/truechain-engineering-code/pbftserver/network"
@@ -455,7 +456,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, c := serverCheck(server)
-			lock.PSLog("[leader]", "server count", c)
+			log.Info("[leader]", "server count", c)
 			if b {
 				time.Sleep(time.Second * ServerWait * 18)
 				break
