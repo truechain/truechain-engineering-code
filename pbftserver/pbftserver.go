@@ -252,11 +252,11 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	return val, nil
 }
 
-func (ss *PbftServerMgr) RepeatFetch(id *big.Int) {
+func (ss *PbftServerMgr) RepeatFetch(id *big.Int, height int64) {
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFecth,
 		ID:     new(big.Int).Set(id),
-		Height: common.Big0,
+		Height: big.NewInt(int64(height)),
 	}
 	if server, ok := ss.servers[id.Uint64()]; ok {
 		server.server.ActionChan <- ac
@@ -358,6 +358,9 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 						continue
 					}
 					if !server.clear {
+						if ac.Height.Uint64() < server.Height.Uint64() && ac.Height.Uint64() != 0 {
+							continue
+						}
 						req, err := ss.GetRequest(cid)
 						if err == nil && req != nil {
 							if server, ok := ss.servers[cid.Uint64()]; ok {
