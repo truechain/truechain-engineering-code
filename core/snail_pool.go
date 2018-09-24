@@ -79,6 +79,9 @@ type SnailPoolConfig struct {
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+
+	FruitCount	int
+	FastCount   int
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -97,6 +100,8 @@ var DefaultHybridPoolConfig = SnailPoolConfig{
 	GlobalQueue:  1024,
 
 	Lifetime: 3 * time.Hour,
+	FruitCount: 8192,
+	FastCount:8192,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -197,13 +202,13 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
-		allFastBlocks: make(map[common.Hash]*types.Block, 8192),
+		allFastBlocks: make(map[common.Hash]*types.Block),
 
 		//fastBlockList: 	list.New(),
 		fastBlockPending: list.New(),
 
 		newFruitCh:   make(chan *types.SnailBlock, fruitChanSize),
-		allFruits:    make(map[common.Hash]*types.SnailBlock, 8192),
+		allFruits:    make(map[common.Hash]*types.SnailBlock),
 		fruitPending: make(map[common.Hash]*types.SnailBlock),
 	}
 	pool.reset(nil, chain.CurrentBlock())
@@ -285,6 +290,9 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	//check number(fb)
 	currentNumber := pool.fastchain.CurrentBlock().Number()
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+		if len(pool.allFruits) >= pool.config.FruitCount {
+			return ErrExceedNumber
+		}
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
@@ -320,6 +328,10 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		}
 	} else {
+		if len(pool.allFruits) >= pool.config.FruitCount {
+			return ErrExceedNumber
+		}
+
 		pool.fruitPending[fruit.FastHash()] = fruit
 
 		pool.allFruits[fruit.FastHash()] = fruit
@@ -342,6 +354,10 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	//check exist
 	if _, ok := pool.allFastBlocks[fastBlock.Hash()]; ok {
 		return ErrExist
+	}
+
+	if len(pool.allFastBlocks) >= pool.config.FastCount {
+		return ErrExceedNumber
 	}
 
 	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
