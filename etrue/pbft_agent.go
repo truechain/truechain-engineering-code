@@ -52,7 +52,7 @@ const (
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
-	subSignStr       = 8
+	subSignStr       = 12
 
 	fetchBlockTime = 5
 	blockInterval  = 20
@@ -531,6 +531,11 @@ func (self *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	if err != nil {
 		log.Error("sign node error", "err", err)
 	}
+	signStr := hex.EncodeToString(cryNodeInfo.Sign)
+	if len(signStr) > subSignStr {
+		signStr = signStr[:subSignStr]
+	}
+	log.Info("sendPbftNode","signStr",signStr)
 	self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 }
 
