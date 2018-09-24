@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	IfPrint = true
-	Less    = true
+	IfPrint = false
+	//Less    = true
 )
 
 func PSLog(a ...interface{}) {
