@@ -302,7 +302,7 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
-	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	//i, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	return &Genesis{
 		Config:    params.TestnetChainConfig,
 		Nonce:     66,
