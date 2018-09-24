@@ -359,6 +359,7 @@ func (self *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-self.cryNodeInfoCh:
+			log.Debug("cryNodeInfo...","committeeId",cryNodeInfo.CommitteeId)
 			if isCommittee, nodeInfoWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 				self.handlePbftNode(cryNodeInfo, nodeInfoWork)
