@@ -518,12 +518,12 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
 func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
-	if nodeWork.cryptoNode != nil {
+	/*if nodeWork.cryptoNode != nil {
 		log.Debug("into sendPbftNode already")
 		nodeWork.cryptoNode.CreatedAt = time.Now()
 		self.nodeInfoFeed.Send(core.NodeInfoEvent{nodeWork.cryptoNode})
 		return
-	}
+	}*/
 	log.Debug("into sendPbftNode")
 	var (
 		err           error
