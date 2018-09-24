@@ -7,7 +7,7 @@ import (
 
 const (
 	IfPrint = false
-	Less    = true
+	//Less    = true
 )
 
 func PSLog(a ...interface{}) {

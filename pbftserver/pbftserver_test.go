@@ -291,8 +291,8 @@ func TestPbftServerStart3(t *testing.T) {
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
-	node3.Port = 10031
-	node2.Port2 = 10032
+	node3.Port = 1003111
+	node2.Port2 = 1003211
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
