@@ -100,8 +100,8 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 		MsgEntrance:        make(chan interface{}, 1024),
 		MsgDelivery:        make(chan interface{}, 1024),
 		MsgBackward:        make(chan interface{}, 1024),
-		Alarm:              make(chan bool),
-		FinishChan:         make(chan int64),
+		Alarm:              make(chan bool, 100),
+		FinishChan:         make(chan int64, 100),
 		RetryPrePrepareMsg: make(map[int64]*consensus.PrePrepareMsg),
 	}
 
@@ -261,7 +261,7 @@ func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg)
 		node.Broadcast(prePrepareMsg, "/preprepare")
 		time.Sleep(time.Second * 60)
 		if prePrepareMsg.Height == node.CurrentHeight {
-			node.Verify.RepeatFetch(node.ID)
+			node.Verify.RepeatFetch(node.ID, prePrepareMsg.Height)
 		}
 	}
 }
@@ -288,9 +288,9 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	}
 
 	//Add self
-	status := node.GetStatus(prePrepareMsg.Height)
 
-	if status.MsgLogs.GetPrepareMsg(node.NodeID) != nil {
+	status := node.GetStatus(prePrepareMsg.Height)
+	if status.MsgLogs.GetPrepareMsg(node.NodeID) == nil {
 		myPrepareMsg := prePareMsg
 		myPrepareMsg.NodeID = node.NodeID
 		status.MsgLogs.SetPrepareMsg(node.NodeID, myPrepareMsg)
@@ -673,7 +673,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 }
 
 func sendSameHightMessage(node *Node) {
-	log.Info("sendSameHightMessage", "flag", 1)
+	//fmt.Println("sendSameHightMessage", "flag", 1)
 	msgVote := make([]*consensus.VoteMsg, 0)
 	msgVoteBackward := make([]*consensus.VoteMsg, 0)
 	for i := len(node.MsgBuffer.CommitMsgs) - 1; i >= 0; i-- {
@@ -691,11 +691,11 @@ func sendSameHightMessage(node *Node) {
 			}
 		}
 	}
-	log.Info("sendSameHightMessage", "flag", 2)
+	//fmt.Println("sendSameHightMessage", "flag", 2)
 	if len(msgVoteBackward) > 0 {
 		node.MsgBackward <- msgVoteBackward
 	}
-	log.Info("sendSameHightMessage", "flag", 3)
+	//fmt.Println("sendSameHightMessage", "flag", 3)
 	if len(msgVote) > 0 {
 		node.MsgDelivery <- msgVote
 	}
@@ -718,7 +718,7 @@ func sendSameHightMessage(node *Node) {
 			}
 		}
 	}
-	log.Info("sendSameHightMessage", "flag", 4)
+	//fmt.Println("sendSameHightMessage", "flag", 4)
 	if len(msgVoteBackward2) > 0 {
 		node.MsgBackward <- msgVoteBackward2
 
@@ -737,7 +737,7 @@ func sendSameHightMessage(node *Node) {
 			node.MsgBuffer.PrePrepareMsgs = append(node.MsgBuffer.PrePrepareMsgs[:i], node.MsgBuffer.PrePrepareMsgs[i+1:]...)
 		}
 	}
-	log.Info("sendSameHightMessage", "flag", 5)
+	//fmt.Println("sendSameHightMessage", "flag", 5)
 	if len(msgPrePrepare) > 0 {
 		node.MsgDelivery <- msgPrePrepare
 	}
@@ -750,11 +750,11 @@ func sendSameHightMessage(node *Node) {
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs[:i], node.MsgBuffer.ReqMsgs[i+1:]...)
 		}
 	}
-	log.Info("sendSameHightMessage", "flag", 6)
+	//fmt.Println("sendSameHightMessage", "flag", 6)
 	if len(msgRequest) > 0 {
 		node.MsgDelivery <- msgRequest
 	}
-	log.Info("sendSameHightMessage", "flag", 7)
+	//fmt.Println("sendSameHightMessage", "flag", 7)
 }
 
 func (node *Node) routeMsgWhenAlarmed() []error {
