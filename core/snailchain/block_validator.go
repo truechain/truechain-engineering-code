@@ -211,7 +211,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 
 	header := fruit.Header()
-	if err := v.engine.VerifySnailHeader(v.bc, header, true); err != nil {
+	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true); err != nil {
 		log.Warn("validate fruit verify failed.", "err", err)
 		return err
 	}

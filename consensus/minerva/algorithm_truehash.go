@@ -27,6 +27,8 @@ const		PMTSIZE	 =	4
 const     	TBLSIZE	 =	16
 const		HEADSIZE	 =	32
 const		DGSTSIZE	 =	32
+const		UPDATABLOCKLENGTH  = 12000
+const		STARTUPDATENUM = 10240
 
 
 func genLookupTable(plookup []uint64, ptable []uint32 ) int {
@@ -220,7 +222,7 @@ func fchainmining( plookup []uint64, header []byte, nonce uint64) ([]byte, []byt
 	sha256(output, dat_in[:])
 	// reverse byte
 	for k := 0; k < DGSTSIZE; k++	{
-		dgst[k] = output[DGSTSIZE - k - 1];
+		dgst[k] = output[k];
 	}
 
 	return  dgst, dgst

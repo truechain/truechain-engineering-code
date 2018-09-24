@@ -37,6 +37,7 @@ type ConsensusVerify interface {
 	CheckMsg(msg *RequestMsg) error
 	ReplyResult(msg *RequestMsg, res uint) bool
 	InsertBlock(msg *PrePrepareMsg) bool
+	RepeatFetch(id *big.Int, height int64)
 }
 type ConsensusFinish interface {
 	ConsensusFinish()

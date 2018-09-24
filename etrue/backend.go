@@ -200,7 +200,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.snailPool = core.NewSnailPool(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 
-	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.EventMux())
+	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 

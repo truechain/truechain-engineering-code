@@ -205,21 +205,25 @@ func TestPbftServerStart(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	node4 := new(types.CommitteeNode)
 	node4.IP = "127.0.0.1"
 	node4.Port = 10014
+	node4.Port2 = 10024
 	node4.Publickey = crypto.FromECDSAPub(m4.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -292,7 +296,7 @@ func TestPbftServerStart3(t *testing.T) {
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10031
-	node2.Port2 = 10032
+	node3.Port2 = 10032
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -755,16 +759,19 @@ func TestPbftServerStart31(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -821,16 +828,19 @@ func TestPbftServerStart32(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -891,16 +901,19 @@ func TestPbftServerStart33(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode

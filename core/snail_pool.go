@@ -79,6 +79,9 @@ type SnailPoolConfig struct {
 	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+
+	FruitCount	int
+	FastCount   int
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -97,6 +100,8 @@ var DefaultHybridPoolConfig = SnailPoolConfig{
 	GlobalQueue:  1024,
 
 	Lifetime: 3 * time.Hour,
+	FruitCount: 8192,
+	FastCount:8192,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -224,7 +229,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() == 0 {
 		/* genesis block */
-		minFbNumber = new(big.Int).Set(common.Big1)
+		minFbNumber = new(big.Int).Set(common.Big0)
 	} else {
 		fruits := headSnailBlock.Fruits()
 		minFbNumber = fruits[len(fruits)-1].FastNumber()
@@ -285,6 +290,9 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	//check number(fb)
 	currentNumber := pool.fastchain.CurrentBlock().Number()
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+		if len(pool.allFruits) >= pool.config.FruitCount {
+			return ErrExceedNumber
+		}
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
@@ -305,7 +313,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	log.Info("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if rst := pool.chain.GetBlockDifficulty(fruit).Cmp(pool.chain.GetBlockDifficulty(f)); rst < 0 {
+		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
 			return nil
 		} else if rst == 0 {
 			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
@@ -320,6 +328,10 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		}
 	} else {
+		if len(pool.allFruits) >= pool.config.FruitCount {
+			return ErrExceedNumber
+		}
+
 		pool.fruitPending[fruit.FastHash()] = fruit
 
 		pool.allFruits[fruit.FastHash()] = fruit
@@ -342,6 +354,10 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	//check exist
 	if _, ok := pool.allFastBlocks[fastBlock.Hash()]; ok {
 		return ErrExist
+	}
+
+	if len(pool.allFastBlocks) >= pool.config.FastCount {
+		return ErrExceedNumber
 	}
 
 	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
@@ -746,7 +762,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	}
 
 	header := fruit.Header()
-	if err := pool.engine.VerifySnailHeader(pool.chain, header, true); err != nil {
+	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
 		log.Info("validateFruit verify header err", "err", err)
 		return err
 	}

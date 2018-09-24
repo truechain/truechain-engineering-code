@@ -49,19 +49,7 @@ const (
 
 //var trueInit int = 0;
 //var tableLookup [16 * 2048 * 32 * 4]uint64
-func truehashTableInit(tableLookup []uint64){
-	var table [TBLSIZE*DATALENGTH*PMTSIZE]uint32
 
-	for k := 0; k < TBLSIZE; k++	{
-		for x := 0; x < DATALENGTH*PMTSIZE; x++	{
-			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
-		}
-		//fmt.Printf("%d,", k+1)
-	}
-
-	genLookupTable(tableLookup[:], table[:]);
-	//trueInit = 1
-}
 
 
 
@@ -222,7 +210,6 @@ func generateDataset(dest []uint32, epoch uint64, cache []uint32) {
 func truehash(plookup []uint64, hash []byte, nonce uint64) ([]byte, []byte) {
 	// Calculate the number of theoretical rows (we use one buffer nonetheless)
 	return fchainmining(plookup[:], hash[:], nonce)
-
 }
 
 // truehashLight aggregates data from the full dataset (using only a small

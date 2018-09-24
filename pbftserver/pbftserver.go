@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"github.com/truechain/truechain-engineering-code/pbftserver/network"
@@ -251,6 +252,17 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	return val, nil
 }
 
+func (ss *PbftServerMgr) RepeatFetch(id *big.Int, height int64) {
+	ac := &consensus.ActionIn{
+		AC:     consensus.ActionFecth,
+		ID:     new(big.Int).Set(id),
+		Height: big.NewInt(int64(height)),
+	}
+	if server, ok := ss.servers[id.Uint64()]; ok {
+		server.server.ActionChan <- ac
+	}
+}
+
 func (ss *PbftServerMgr) InsertBlock(msg *consensus.PrePrepareMsg) bool {
 	data := msg.RequestMsg.Operation
 	fbByte, err := hex.DecodeString(data)
@@ -346,6 +358,9 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 						continue
 					}
 					if !server.clear {
+						if ac.Height.Uint64() < server.Height.Uint64() && ac.Height.Uint64() != 0 {
+							continue
+						}
 						req, err := ss.GetRequest(cid)
 						if err == nil && req != nil {
 							if server, ok := ss.servers[cid.Uint64()]; ok {
@@ -424,15 +439,17 @@ func (ss *PbftServerMgr) PutNodes(id *big.Int, nodes []*types.CommitteeNode) err
 		//update node table
 		for _, v := range server.info {
 			name := common.ToHex(v.Publickey)
+			server.server.Node.NTLock.Lock()
 			if ID%2 > 0 {
 				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port)
 			} else {
 				server.server.Node.NodeTable[name] = fmt.Sprintf("%s:%d", v.IP, v.Port2)
 			}
+			server.server.Node.NTLock.Unlock()
 		}
 	}
 
-	lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
+	//lock.PSLog("PutNodes update", fmt.Sprintf("%+v", server.server.Node.NodeTable))
 	return nil
 }
 
@@ -455,9 +472,9 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, c := serverCheck(server)
-			lock.PSLog("[leader]", "server count", c)
+			log.Info("[leader]", "server count", c)
 			if b {
-				time.Sleep(time.Second * ServerWait * 6)
+				time.Sleep(time.Second * ServerWait * 18)
 				break
 			}
 			time.Sleep(time.Second)
@@ -484,7 +501,7 @@ func DelayStop(id uint64, ss *PbftServerMgr) {
 
 	if server, ok := ss.servers[id]; ok {
 		lock.PSLog("http server stop", "id", id)
-		server.server.Node.Stop = true
+		//server.server.Node.Stop = true
 		server.server.Stop()
 		server.clear = true
 	}

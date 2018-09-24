@@ -41,7 +41,7 @@ import (
 type Backend interface {
 	AccountManager() *accounts.Manager
 	SnailBlockChain() *snailchain.SnailBlockChain
-	//BlockChain() *chain.BlockChain
+	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
 	SnailPool() *core.SnailPool
 	ChainDb() ethdb.Database

@@ -1023,12 +1023,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
 		trueHead := request.Block.ParentHash()
-		diff := pm.snailchain.GetBlockDifficulty(request.Block)
+		diff := request.Block.Difficulty()
 		if diff == nil {
 			log.Info("get request block diff failed.")
 			return errResp(ErrDecode, "snail block diff is nil")
 		}
-		trueTD := new(big.Int).Sub(request.TD, pm.snailchain.GetBlockDifficulty(request.Block))
+		trueTD := new(big.Int).Sub(request.TD, request.Block.Difficulty())
 
 		// Update the peers total difficulty if better than the previous
 		if _, td := p.Head(); trueTD.Cmp(td) > 0 || td == nil {
@@ -1125,7 +1125,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 
 	var td *big.Int
 	if parent := pm.snailchain.GetBlock(snailBlock.ParentHash(), snailBlock.NumberU64()-1); parent != nil {
-		td = new(big.Int).Add(pm.snailchain.GetBlockDifficulty(snailBlock), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
+		td = new(big.Int).Add(snailBlock.Difficulty(), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
 	} else {
 		log.Error("Propagating dangling block", "number", snailBlock.Number(), "hash", hash)
 		return
@@ -1149,7 +1149,7 @@ func (pm *ProtocolManager) BroadcastSnailBlock(snailBlock *types.SnailBlock, pro
 		td := pm.snailchain.GetTd(snailBlock.Hash(), snailBlock.NumberU64())
 		if td == nil {
 			log.Info("BroadcastSnailBlock get td failed.", "number", snailBlock.Number(), "hash", snailBlock.Hash())
-			td = new(big.Int).Add(pm.snailchain.GetBlockDifficulty(snailBlock), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
+			td = new(big.Int).Add(snailBlock.Difficulty(), pm.snailchain.GetTd(snailBlock.ParentHash(), snailBlock.NumberU64()-1))
 		}
 		for _, peer := range peers {
 			peer.AsyncSendNewSnailBlock(snailBlock, td)
