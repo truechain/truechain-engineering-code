@@ -45,4 +45,6 @@ var (
 	ErrFreshness = errors.New("invalid fruit freshness")
 
 	ErrInvalidSign = errors.New("invalid sign")
+
+	ErrUnknownFast = errors.New("unknown fast block")
 )

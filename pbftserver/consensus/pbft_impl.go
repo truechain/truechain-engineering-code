@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
+	"sync"
 	"time"
 )
 
@@ -21,6 +22,8 @@ type State struct {
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
+	LockPrepare sync.Mutex
+	LockCommit  sync.Mutex
 	PrepareMsgs map[string]*VoteMsg
 	CommitMsgs  map[string]*VoteMsg
 }
@@ -116,9 +119,11 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	}
 
 	// Append msg to its logs
+	state.MsgLogs.LockPrepare.Lock()
 	state.MsgLogs.PrepareMsgs[prepareMsg.NodeID] = prepareMsg
+	state.MsgLogs.LockPrepare.Unlock()
 
-	lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
+	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
 
 	if state.prepared(f) {
@@ -146,8 +151,9 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	}
 
 	// Append msg to its logs
+	state.MsgLogs.LockCommit.Lock()
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
-
+	state.MsgLogs.LockCommit.Unlock()
 	// Print current voting status
 	if state.committed(f) {
 		// This node executes the requested operation locally and gets the result.
@@ -196,7 +202,8 @@ func (state *State) prepared(f int) bool {
 	if state.MsgLogs.ReqMsg == nil {
 		return false
 	}
-
+	state.MsgLogs.LockPrepare.Lock()
+	state.MsgLogs.LockPrepare.Unlock()
 	if len(state.MsgLogs.PrepareMsgs) < 2*f {
 		return false
 	}
@@ -210,6 +217,8 @@ func (state *State) committed(f int) bool {
 		return false
 	}
 	lock.PSLog("committed prepared")
+	state.MsgLogs.LockCommit.Lock()
+	defer state.MsgLogs.LockCommit.Unlock()
 	if len(state.MsgLogs.CommitMsgs) < 2*f {
 		return false
 	}

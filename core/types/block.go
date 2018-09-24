@@ -27,12 +27,12 @@ import (
 	"time"
 	"unsafe"
 
+	"bytes"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"bytes"
 )
 
 var (
@@ -447,14 +447,15 @@ type SnailHeader struct {
 	ParentHash      common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash       common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase        common.Address `json:"miner"            gencodec:"required"`
-	PointerHash     common.Hash    `json:"PointerHash"      gencodec:"required"`
+	PointerHash     common.Hash    `json:"pointerHash"      gencodec:"required"`
+	PointerNumber	*big.Int	   `json:"pointerNumber"    gencodec:"required"`
 	FruitsHash      common.Hash    `json:"fruitsHash"       gencodec:"required"`
 	FastHash        common.Hash    `json:"fastHash"         gencodec:"required"`
 	FastNumber      *big.Int       `json:"fastNumber"       gencodec:"required"`
 	SignHash        common.Hash    `json:"signHash"  		gencodec:"required"`
 	Bloom           Bloom          `json:"logsBloom"        gencodec:"required"`
 	Difficulty      *big.Int       `json:"difficulty"       gencodec:"required"`
-	//FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
+	FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
 	Number          *big.Int       `json:"number"           gencodec:"required"`
 	Publickey       []byte         `json:"publicKey"        gencodec:"required"`
 	ToElect         bool           `json:"toElect"          gencodec:"required"`
@@ -483,7 +484,7 @@ type SnailBlock struct {
 	hash atomic.Value
 	size atomic.Value
 
-	D atomic.Value
+	difficulty atomic.Value
 
 	// Td is used by package core to store the total difficulty
 	// of the chain up to and including the block.
@@ -547,11 +548,13 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 		h.UncleHash,
 		h.Coinbase,
 		h.PointerHash,
+		h.PointerNumber,
 		h.FruitsHash,
 		h.FastHash,
 		h.FastNumber,
 		h.Bloom,
 		h.Difficulty,
+		h.FruitDifficulty,
 		h.Number,
 		h.Publickey,
 		h.ToElect,
@@ -564,8 +567,8 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 // to approximate and limit the memory consumption of various caches.
 func (h *SnailHeader) Size() common.StorageSize {
 	return common.StorageSize(unsafe.Sizeof(*h)) + common.StorageSize(len(h.Extra)+
-		len(h.Publickey)+(h.Difficulty.BitLen()+h.FastNumber.BitLen()+
-		h.Number.BitLen()+h.Time.BitLen())/8)
+		len(h.Publickey)+(h.Difficulty.BitLen()+h.FastNumber.BitLen()+h.FruitDifficulty.BitLen()+
+			h.PointerNumber.BitLen()+h.Number.BitLen()+h.Time.BitLen())/8)
 }
 
 // DeprecatedTd is an old relic for extracting the TD of a block. It is in the
@@ -657,11 +660,17 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	if cpy.Difficulty = new(big.Int); h.Difficulty != nil {
 		cpy.Difficulty.Set(h.Difficulty)
 	}
+	if cpy.FruitDifficulty = new(big.Int); h.FruitDifficulty != nil {
+		cpy.FruitDifficulty.Set(h.FruitDifficulty)
+	}
 	if cpy.Number = new(big.Int); h.Number != nil {
 		cpy.Number.Set(h.Number)
 	}
 	if cpy.FastNumber = new(big.Int); h.FastNumber != nil {
 		cpy.FastNumber.Set(h.FastNumber)
+	}
+	if cpy.PointerNumber = new(big.Int); h.PointerNumber != nil {
+		cpy.PointerNumber.Set(h.PointerNumber)
 	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
@@ -709,7 +718,8 @@ func (b *SnailBlock) GetPubKey() (*ecdsa.PublicKey, error) {
 	return crypto.UnmarshalPubkey(b.header.Publickey)
 }
 func (b *SnailBlock) PublicKey() []byte {return b.header.Publickey}
-func (b *SnailBlock) Difficulty() *big.Int     { return new(big.Int).Set(b.header.Difficulty) }
+func (b *SnailBlock) BlockDifficulty() *big.Int     { return new(big.Int).Set(b.header.Difficulty) }
+func (b *SnailBlock) FruitDifficulty() *big.Int{ return new(big.Int).Set(b.header.FruitDifficulty) }
 func (b *SnailBlock) Time() *big.Int           { return new(big.Int).Set(b.header.Time) }
 func (b *SnailBlock) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *SnailBlock) MixDigest() common.Hash   { return b.header.MixDigest }
@@ -719,6 +729,7 @@ func (b *SnailBlock) Coinbase() common.Address { return b.header.Coinbase }
 func (b *SnailBlock) ParentHash() common.Hash  { return b.header.ParentHash }
 func (b *SnailBlock) UncleHash() common.Hash   { return b.header.UncleHash }
 func (b *SnailBlock) PointerHash() common.Hash { return b.header.PointerHash }
+func (b *SnailBlock) PointNumber() *big.Int     { return new(big.Int).Set(b.header.PointerNumber) }
 func (b *SnailBlock) FruitsHash() common.Hash  { return b.header.FruitsHash }
 func (b *SnailBlock) FastHash() common.Hash    { return b.header.FastHash }
 func (b *SnailBlock) FastNumber() *big.Int     { return new(big.Int).Set(b.header.FastNumber) }
@@ -795,5 +806,29 @@ func (b *SnailBlock) Hash() common.Hash {
 	v := b.header.Hash()
 	b.hash.Store(v)
 	return v
+}
+
+
+func (b *SnailBlock) Difficulty() *big.Int {
+	if diff := b.difficulty.Load(); diff != nil {
+		return diff.(*big.Int)
+	}
+
+	if b.IsFruit() {
+		diff := b.FruitDifficulty()
+		b.difficulty.Store(diff)
+		return diff
+	} else {
+		td := big.NewInt(0)
+		for _, f := range b.Fruits() {
+			td.Add(td, f.Difficulty())
+		}
+		//td = new(big.Int).Div(td, params.FruitBlockRatio)
+		td.Add(td, b.BlockDifficulty())
+
+		b.difficulty.Store(td)
+
+		return td
+	}
 }
 
