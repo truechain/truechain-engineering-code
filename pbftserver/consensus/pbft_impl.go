@@ -23,8 +23,8 @@ type State struct {
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
-	LockPrepare sync.Mutex
-	LockCommit  sync.Mutex
+	lockPrepare sync.Mutex
+	lockCommit  sync.Mutex
 	PrepareMsgs map[string]*VoteMsg
 	CommitMsgs  map[string]*VoteMsg
 }
@@ -37,6 +37,70 @@ const (
 	Prepared                 // Same with `prepared` stage explained in the original paper.
 	Committed                // Same with `committed-local` stage explained in the original paper.
 )
+
+func (m MsgLogs) SetPrepareMsg(key string, data *VoteMsg) {
+	m.lockPrepare.Lock()
+	defer m.lockPrepare.Unlock()
+	m.PrepareMsgs[key] = data
+}
+
+func (m MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
+	m.lockPrepare.Lock()
+	defer m.lockPrepare.Unlock()
+	data, ok := m.PrepareMsgs[key]
+	if ok {
+		return
+	} else {
+		return nil
+	}
+}
+
+func (m MsgLogs) GetPrepareOne() (data *VoteMsg) {
+	m.lockPrepare.Lock()
+	defer m.lockPrepare.Unlock()
+	for _, v := range m.PrepareMsgs {
+		return v
+	}
+	return nil
+}
+
+func (m MsgLogs) SetCommitMsgs(key string, data *VoteMsg) {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	m.CommitMsgs[key] = data
+}
+
+func (m MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	data, ok := m.CommitMsgs[key]
+	if ok {
+		return
+	} else {
+		return nil
+	}
+}
+
+func (m MsgLogs) GetCommitPassCount() int {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	cnt := 0
+	for _, v := range m.CommitMsgs {
+		if v.Pass != nil && v.Pass.Result == types.VoteAgree {
+			cnt += 1
+		}
+	}
+	return cnt
+}
+
+func (m MsgLogs) GetCommitOne() (data *VoteMsg) {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	for _, v := range m.CommitMsgs {
+		return v
+	}
+	return nil
+}
 
 // f: # of Byzantine faulty node
 // f = (n­1) / 3
@@ -120,15 +184,13 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	}
 
 	// Append msg to its logs
-	state.MsgLogs.LockPrepare.Lock()
-	state.MsgLogs.PrepareMsgs[prepareMsg.NodeID] = prepareMsg
-	state.MsgLogs.LockPrepare.Unlock()
+	state.MsgLogs.SetPrepareMsg(prepareMsg.NodeID, prepareMsg)
 
 	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
-	log.Warn("Prepare ", "count", f)
+	log.Info("Prepare ", "count", f)
 	if state.prepared(f) {
-		log.Warn("Prepare ok", "count", f)
+		log.Info("Prepare ok", "count", f)
 		//// Change the stage to prepared.
 		//state.CurrentStage = Prepared
 
@@ -153,13 +215,11 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	}
 
 	// Append msg to its logs
-	state.MsgLogs.LockCommit.Lock()
-	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
-	state.MsgLogs.LockCommit.Unlock()
+	state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
 	// Print current voting status
-	log.Warn("Commit ", "count", f)
+	log.Info("Commit ", "count", f)
 	if state.committed(f) {
-		log.Warn("Commit ok", "count", f)
+		log.Info("Commit ok", "count", f)
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 
@@ -206,8 +266,6 @@ func (state *State) prepared(f int) bool {
 	if state.MsgLogs.ReqMsg == nil {
 		return false
 	}
-	state.MsgLogs.LockPrepare.Lock()
-	state.MsgLogs.LockPrepare.Unlock()
 	if len(state.MsgLogs.PrepareMsgs) < 2*f {
 		return false
 	}
@@ -221,18 +279,11 @@ func (state *State) committed(f int) bool {
 		return false
 	}
 	lock.PSLog("committed prepared")
-	state.MsgLogs.LockCommit.Lock()
-	defer state.MsgLogs.LockCommit.Unlock()
 	if len(state.MsgLogs.CommitMsgs) < 2*f {
 		return false
 	}
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
-	var passCount = 0
-	for _, v := range state.MsgLogs.CommitMsgs {
-		if v.Pass != nil && v.Pass.Result == types.VoteAgree {
-			passCount += 1
-		}
-	}
+	passCount := state.MsgLogs.GetCommitPassCount()
 	lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
 	return passCount >= 2*f
 }
