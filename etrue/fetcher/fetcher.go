@@ -837,10 +837,10 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 					// Run the import on a new thread
 					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
 
-					if _, ok := f.signMultiHash[number]; !ok {
+					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
+					if len(f.signMultiHash[number]) == 1 {
 						committeeNumber = f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 					}
-					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 				}
 			} else {
 				// Run the import on a new thread
