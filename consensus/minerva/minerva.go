@@ -246,17 +246,27 @@ type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset []uint64  // The actual cache data content
+	dataset  *[]uint64  // The actual cache data content
+	oddDataset []uint64
+	evenDataset []uint64
 	once    sync.Once // Ensures the cache is generated only once
+	dateInit	int
+	oddFlag		int
+	evenFlag	int
 }
 
 // newDataset creates a new truehash mining dataset
 func newDataset(epoch uint64) *dataset {
 	ds := &dataset{
 		epoch:   epoch,
-		dataset: make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		dateInit : 0,
+		//dataset: make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		oddFlag  : 0,
+		evenFlag : 0,
+		oddDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		evenDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
-	truehashTableInit(ds.dataset)
+	//truehashTableInit(ds.evenDataset)
 
 	return ds
 }
@@ -332,6 +342,8 @@ func New(config Config) *Minerva {
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
+
+	MinervaLocal.CheckDataSetState(1)
 
 	return MinervaLocal
 }

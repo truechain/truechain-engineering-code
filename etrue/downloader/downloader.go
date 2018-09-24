@@ -1417,13 +1417,13 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				return errFruits
 			}
 
-			log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
-			if  fbNumLast > currentNum && currentNum > 0{
+			log.Debug(">>>>>>>>>>>>>>111", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+			if  fbNumLast > currentNum {
 
 				fbNum = currentNum
 				height = fbNumLast - fbNum
 
-				log.Debug(">>>>>>>>>>>>>>", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+				log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
 				if height >0{
 					errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum,height)
