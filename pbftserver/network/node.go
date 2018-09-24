@@ -98,9 +98,9 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 			PrepareMsgs:    make([]*consensus.VoteMsg, 0),
 			CommitMsgs:     make([]*consensus.VoteMsg, 0),
 		},
-		MsgEntrance:        make(chan interface{}, 100),
-		MsgDelivery:        make(chan interface{}, 100),
-		MsgBackward:        make(chan interface{}, 100),
+		MsgEntrance:        make(chan interface{}, 1024),
+		MsgDelivery:        make(chan interface{}, 1024),
+		MsgBackward:        make(chan interface{}, 1024),
 		Alarm:              make(chan bool),
 		FinishChan:         make(chan int64),
 		RetryPrePrepareMsg: make(map[int64]*consensus.PrePrepareMsg),
@@ -142,7 +142,7 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 			errorMap[nodeID] = err
 			continue
 		}
-		lock.PSLog("Broadcast", url+path, string(jsonMsg))
+		lock.PSLog("Broadcast", url+path)
 		go send(url+path, jsonMsg)
 
 	}
@@ -170,7 +170,7 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 		if err != nil {
 			break
 		}
-		lock.PSLog("Broadcast One", url+path, string(jsonMsg))
+		lock.PSLog("Broadcast One", url+path)
 		go send(url+path, jsonMsg)
 	}
 	return
