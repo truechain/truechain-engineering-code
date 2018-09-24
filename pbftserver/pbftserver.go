@@ -252,6 +252,17 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 	return val, nil
 }
 
+func (ss *PbftServerMgr) RepeatFetch(id *big.Int) {
+	ac := &consensus.ActionIn{
+		AC:     consensus.ActionFecth,
+		ID:     new(big.Int).Set(id),
+		Height: common.Big0,
+	}
+	if server, ok := ss.servers[id.Uint64()]; ok {
+		server.server.ActionChan <- ac
+	}
+}
+
 func (ss *PbftServerMgr) InsertBlock(msg *consensus.PrePrepareMsg) bool {
 	data := msg.RequestMsg.Operation
 	fbByte, err := hex.DecodeString(data)

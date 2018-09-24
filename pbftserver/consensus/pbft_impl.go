@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"sync"
 	"time"
@@ -125,8 +126,9 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 
 	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
-
+	log.Warn("Prepare ", "count", f)
 	if state.prepared(f) {
+		log.Warn("Prepare ok", "count", f)
 		//// Change the stage to prepared.
 		//state.CurrentStage = Prepared
 
@@ -155,7 +157,9 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	state.MsgLogs.CommitMsgs[commitMsg.NodeID] = commitMsg
 	state.MsgLogs.LockCommit.Unlock()
 	// Print current voting status
+	log.Warn("Commit ", "count", f)
 	if state.committed(f) {
+		log.Warn("Commit ok", "count", f)
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 

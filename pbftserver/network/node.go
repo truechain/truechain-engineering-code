@@ -16,13 +16,12 @@ import (
 )
 
 type Node struct {
-	NodeID        string
-	NodeTable     map[string]string // key=nodeID, value=url
-	NTLock        sync.Mutex
-	View          *View
-	States        map[int64]*consensus.State
-	CommittedMsgs []*consensus.RequestMsg // kinda block.
-	//CommitWaitMsg      map[int64]*consensus.VoteMsg
+	NodeID             string
+	NodeTable          map[string]string // key=nodeID, value=url
+	NTLock             sync.Mutex
+	View               *View
+	States             map[int64]*consensus.State
+	CommittedMsgs      []*consensus.RequestMsg // kinda block.
 	CommitWaitQueue    *prque.Prque
 	MsgBuffer          *MsgBuffer
 	MsgEntrance        chan interface{}
@@ -249,13 +248,6 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 
 	LogStage(fmt.Sprintf("Consensus Process (ViewID:%d)", node.GetStatus(reqMsg.Height).ViewID), false)
 
-	//// Send getPrePrepare message
-	//if prePrepareMsg != nil {
-	//	node.Broadcast(prePrepareMsg, "/preprepare")
-	//	node.RetryPrePrepareMsg[prePrepareMsg.Height] = prePrepareMsg
-	//	LogStage("Pre-prepare", true)
-	//}
-	// Send getPrePrepare message
 	if prePrepareMsg != nil {
 		go node.delayPrePrepareMessage(prePrepareMsg)
 	}
@@ -267,17 +259,17 @@ func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
 func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg) {
 	if prePrepareMsg.Height == node.CurrentHeight {
 		node.Broadcast(prePrepareMsg, "/preprepare")
-		time.Sleep(time.Second * 30)
-		//if !node.Stop {
-		node.delayPrePrepareMessage(prePrepareMsg)
-		//}
+		time.Sleep(time.Second * 60)
+		if prePrepareMsg.Height == node.CurrentHeight {
+			node.Verify.RepeatFetch(node.ID)
+		}
 	}
 }
 
 // GetPrePrepare can be called when the node's CurrentState is nil.
 // Consensus start procedure for normal participants.
 func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
-	lock.PSLog("node GetPrePrepare", fmt.Sprintf("%+v", prePrepareMsg))
+	//lock.PSLog("node GetPrePrepare", fmt.Sprintf("%+v", prePrepareMsg))
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(prePrepareMsg.Height)
 	if err != nil {
@@ -426,56 +418,10 @@ func (node *Node) processCommitWaitMessageQueue() {
 	}
 }
 
-//func (node *Node) processCommitWaitMessage() {
-//	for {
-//		node.Count2 += 1
-//		var msgSend = make([]*consensus.VoteMsg, 0)
-//	start:
-//		for k, v := range node.CommitWaitMsg {
-//			lock.PSLog("CommitWaitMsg in")
-//			state := node.GetStatus(v.Height)
-//			if state == nil {
-//				continue
-//			}
-//
-//			lock.PSLog("CommitWaitMsg in2")
-//			if state.CurrentStage == consensus.Committed {
-//				lock.PSLog("CommitWaitMsg committed")
-//				for _, msg := range state.MsgLogs.CommitMsgs {
-//					msgSend := &consensus.VoteMsg{
-//						NodeID:     node.NodeID,
-//						ViewID:     state.ViewID,
-//						SequenceID: msg.SequenceID,
-//						Digest:     msg.Digest,
-//						MsgType:    consensus.CommitMsg,
-//						Height:     msg.Height,
-//						Pass:       state.BlockResults,
-//					}
-//					lock.PSLog("CommitWaitMsg message:", msgSend.Height, msgSend.Pass)
-//					if msgSend.Pass == nil {
-//						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
-//						state.BlockResults = msgSend.Pass
-//					}
-//
-//					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
-//				}
-//				delete(node.CommitWaitMsg, k)
-//				break start
-//			}
-//
-//			//send back
-//			msgSend = append(msgSend, v)
-//
-//		}
-//		node.MsgDelivery <- msgSend
-//		time.Sleep(time.Second * 1)
-//	}
-//}
-
 func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	node.CommitLock.Lock()
 	defer node.CommitLock.Unlock()
-	lock.PSLog("node GetCommit", fmt.Sprintf("%+v", commitMsg))
+	//lock.PSLog("node GetCommit in", fmt.Sprintf("%+v", commitMsg))
 	node.NTLock.Lock()
 	f := len(node.NodeTable) / 3
 	node.NTLock.Unlock()
@@ -551,7 +497,7 @@ func (node *Node) dispatchMsg() {
 		select {
 		case msg := <-node.MsgEntrance:
 
-			lock.PSLog("node.MsgEntrance", msg)
+			//lock.PSLog("node.MsgEntrance", msg)
 			err := node.routeMsg(msg)
 			if err != nil {
 				log.Error("dispatchMsg", "error", err[0].Error())
@@ -576,7 +522,8 @@ func (node *Node) dispatchMsg() {
 func (node *Node) routeMsg(msg interface{}) []error {
 	switch msg.(type) {
 	case *consensus.RequestMsg:
-		lock.PSLog("node routeMsg", fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
+		//lock.PSLog("node routeMsg",msg.(*consensus.RequestMsg).Height, fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
+		lock.PSLog("node routeMsg", msg.(*consensus.RequestMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 			// Copy buffered messages first.
@@ -591,7 +538,8 @@ func (node *Node) routeMsg(msg interface{}) []error {
 			node.MsgBuffer.ReqMsgs = append(node.MsgBuffer.ReqMsgs, msg.(*consensus.RequestMsg))
 		}
 	case *consensus.PrePrepareMsg:
-		lock.PSLog("node PrePrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.PrePrepareMsg)))
+		//lock.PSLog("node PrePrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.PrePrepareMsg)))
+		lock.PSLog("node routeMsg", msg.(*consensus.PrePrepareMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.PrePrepareMsg).Height)
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 
@@ -613,7 +561,8 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		}
 	case *consensus.VoteMsg:
 		if msg.(*consensus.VoteMsg).MsgType == consensus.PrepareMsg {
-			lock.PSLog("node VoteMsg_PrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
+			//lock.PSLog("node VoteMsg_PrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
+			lock.PSLog("node VoteMsg_PrepareMsg", msg.(*consensus.VoteMsg).Height)
 			CurrentStage := node.GetStatus(msg.(*consensus.VoteMsg).Height)
 			if CurrentStage == nil || CurrentStage.CurrentStage != consensus.PrePrepared {
 				lock.PSLog("PrepareMsg to PrepareMsgs")
@@ -630,7 +579,8 @@ func (node *Node) routeMsg(msg interface{}) []error {
 				node.MsgDelivery <- msgs
 			}
 		} else if msg.(*consensus.VoteMsg).MsgType == consensus.CommitMsg {
-			lock.PSLog("node VoteMsg_CommitMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
+			//lock.PSLog("node VoteMsg_CommitMsg", fmt.Sprintf("%+v", msg.(*consensus.VoteMsg)))
+			lock.PSLog("node VoteMsg_CommitMsg", msg.(*consensus.VoteMsg).Height)
 			CurrentStage := node.GetStatus(msg.(*consensus.VoteMsg).Height)
 
 			if CurrentStage == nil || CurrentStage.CurrentStage != consensus.Prepared {
@@ -898,7 +848,8 @@ func (node *Node) resolveRequestMsg(msgs []*consensus.RequestMsg) []error {
 	errs := make([]error, 0)
 	// Resolve messages
 	for _, reqMsg := range msgs {
-		lock.PSLog("node resolveRequestMsg", fmt.Sprintf("%+v", reqMsg))
+		//lock.PSLog("node resolveRequestMsg", fmt.Sprintf("%+v", reqMsg))
+		lock.PSLog("node resolveRequestMsg", reqMsg.Height)
 		err := node.GetReq(reqMsg)
 		if err != nil {
 			errs = append(errs, err)
@@ -916,7 +867,8 @@ func (node *Node) resolvePrePrepareMsg(msgs []*consensus.PrePrepareMsg) []error 
 	errs := make([]error, 0)
 	// Resolve messages
 	for _, prePrepareMsg := range msgs {
-		lock.PSLog("node resolvePrePrepareMsg", fmt.Sprintf("%+v", prePrepareMsg))
+		//lock.PSLog("node resolvePrePrepareMsg", fmt.Sprintf("%+v", prePrepareMsg))
+		lock.PSLog("node resolvePrePrepareMsg", prePrepareMsg.Height)
 		err := node.GetPrePrepare(prePrepareMsg)
 		if err != nil {
 			errs = append(errs, err)
@@ -934,7 +886,8 @@ func (node *Node) resolvePrepareMsg(msgs []*consensus.VoteMsg) []error {
 	errs := make([]error, 0)
 	// Resolve messages
 	for _, prepareMsg := range msgs {
-		lock.PSLog("node resolvePrepareMsg", fmt.Sprintf("%+v", prepareMsg))
+		//lock.PSLog("node resolvePrepareMsg", fmt.Sprintf("%+v", prepareMsg))
+		lock.PSLog("node resolvePrepareMsg", prepareMsg.Height)
 		err := node.GetPrepare(prepareMsg)
 		if err != nil {
 			errs = append(errs, err)

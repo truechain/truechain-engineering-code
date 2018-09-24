@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	IfPrint = false
+	IfPrint = true
 	Less    = true
 )
 
