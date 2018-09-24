@@ -101,7 +101,7 @@ func (m *Minerva) getParents(chain consensus.SnailChainReader, header *types.Sna
 	if number < period {
 		period = number
 	}
-	log.Info("getParents", "number", header.Number, "period", period)
+	//log.Info("getParents", "number", header.Number, "period", period)
 	parents := make([]*types.SnailHeader, period)
 	hash := header.ParentHash
 	for i := uint64(1); i <= period; i++ {
@@ -126,7 +126,6 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain 
 		return nil
 	}
 
-	//TODO for fruit
 	if header.Fruit {
 		pointer := chain.GetHeaderByHash(header.PointerHash)
 		if pointer == nil {

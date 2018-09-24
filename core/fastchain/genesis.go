@@ -302,7 +302,7 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
-	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	//i, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	return &Genesis{
 		Config:    params.TestnetChainConfig,
 		Nonce:     66,
@@ -311,8 +311,6 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		GasLimit:   22020096,
 		Difficulty: big.NewInt(256),
 		Alloc: map[common.Address]types.GenesisAccount{
-			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
-			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
 		},
 		//Coinbase: common.HexToAddress("0x0000000000000000000000000000000000000000"),
 	}
