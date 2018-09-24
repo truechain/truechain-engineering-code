@@ -250,9 +250,16 @@ func (self *PbftAgent) stopSend() {
 	debugNodeInfoWork(n, "stopSend...After...")
 }
 func debugNodeInfoWork(node *nodeInfoWork, str string) {
-	log.Debug(str, "isMember", node.isCommitteeMember,
-		"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-		"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
+	if node.cryptoNode == nil{
+		log.Debug(str, "isMember", node.isCommitteeMember,
+			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
+			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)","0")
+	}else{
+		log.Debug(str, "isMember", node.isCommitteeMember,
+			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
+			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)",len(node.cryptoNode.Nodes))
+	}
+
 }
 
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
