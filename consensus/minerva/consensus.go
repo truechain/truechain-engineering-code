@@ -235,13 +235,25 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 	var (
 		inputs = make(chan int)
 		done   = make(chan int, workers)
-		errors = make([]error, len(headers))
+		errs = make([]error, len(headers))
 		abort  = make(chan struct{})
 	)
+
+	parents := m.getParents(chain, headers[0])
+	if parents == nil {
+		abort, results := make(chan struct{}), make(chan error, len(headers))
+		for i := 0; i < len(headers); i++ {
+			results <- errors.New("invalid parents")
+		}
+		return abort, results
+	}
+	parents = append(parents, headers...)
+
 	for i := 0; i < workers; i++ {
+		//m.verifySnailHeader(chain, nil, nil, par, false, seals[i])
 		go func() {
 			for index := range inputs {
-				errors[index] = m.verifySnailHeaderWorker(chain, headers, seals, index)
+				errs[index] = m.verifySnailHeaderWorker(chain, headers, parents, seals, index)
 				done <- index
 			}
 		}()
@@ -264,7 +276,7 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 				}
 			case index := <-done:
 				for checked[index] = true; checked[out]; out++ {
-					errorsOut <- errors[out]
+					errorsOut <- errs[out]
 					if out == len(headers)-1 {
 						return
 					}
@@ -296,10 +308,13 @@ func (m *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*typ
 	return m.verifyHeader(chain, headers[index], parent)
 	//return nil
 }
-func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers []*types.SnailHeader,
-	seals []bool, index int) error {
-	var parent *types.SnailHeader
 
+
+func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers, parents []*types.SnailHeader,
+	seals []bool, index int) error {
+	//var parent *types.SnailHeader
+
+	/*
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
 	} else if headers[index-1].Hash() == headers[index].ParentHash {
@@ -308,11 +323,14 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
+	*/
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
 		return nil // known block
 	}
+	count := len(parents) - len(headers) + index
+	parentHeaders := parents[:count]
 
-	return m.verifySnailHeader(chain, nil, headers[index], parent, nil, false, seals[index])
+	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index])
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
