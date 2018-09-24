@@ -785,7 +785,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	hash := signs[0].Hash()
 	number := signs[0].FastHeight.Uint64()
 	height := f.chainHeight()
-	var committeeNumber int32 = -1
 
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
@@ -837,9 +836,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 					// Run the import on a new thread
 					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
 
-					if _, ok := f.signMultiHash[number]; !ok {
-						committeeNumber = f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
-					}
 					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 				}
 			} else {
@@ -859,6 +855,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			return
 		}
 
+		committeeNumber := f.agentFetcher.GetCommitteeNumber(signs[0].FastHeight)
 		log.Debug("Consensus estimates", "num", signs[0].FastHeight, "committee number", committeeNumber, "sign length", len(f.signMultiHash[number]), "peer", peer)
 		if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 			if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
