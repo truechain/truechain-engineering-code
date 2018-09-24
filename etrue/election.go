@@ -152,7 +152,8 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		}
 		members = append(members, member)
 	}
-	election.defaultMembers = members
+	//election.defaultMembers = members
+
 
 	return election
 }
