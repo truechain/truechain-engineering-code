@@ -162,7 +162,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		cacheBlock:           make(map[*big.Int]*types.Block),
 	}
 	nodeInfoWork := &nodeInfoWork{
-		cacheSign: make(map[string]types.Sign),
+		cacheSign:     make(map[string]types.Sign),
 		ticker:        time.NewTicker(sendNodeTime),
 		committeeInfo: new(types.CommitteeInfo),
 	}
@@ -212,6 +212,7 @@ func (self *PbftAgent) stop() {
 
 type nodeInfoWork struct {
 	committeeInfo     *types.CommitteeInfo
+	cryptoNode        *types.EncryptNodeMessage
 	cacheSign         map[string]types.Sign //prevent receive same sign
 	ticker            *time.Ticker
 	isCommitteeMember bool
@@ -240,53 +241,54 @@ func (self *PbftAgent) getStopNodeWork() *nodeInfoWork {
 
 func (self *PbftAgent) stopSend() {
 	n := self.getStopNodeWork()
-	debugNodeInfoWork(n, "stopSend")
+	debugNodeInfoWork(n, "stopSend...Before...")
 	n.cacheSign = make(map[string]types.Sign) //clear cacheSign map
+	n.cryptoNode = nil
 	if n.isCommitteeMember {
 		n.ticker.Stop() //stop ticker send nodeInfo
 	}
+	debugNodeInfoWork(n, "stopSend...After...")
 }
 func debugNodeInfoWork(node *nodeInfoWork, str string) {
 	log.Debug(str, "isMember", node.isCommitteeMember,
-		"receivedId", node.committeeInfo.Id, "receivedLen", len(node.committeeInfo.Members),
-		"cacheSignLen", len(node.cacheSign))
+		"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
+		"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
 }
 
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
-	n := self.getStartNodeWork()
-	n.isCommitteeMember = isCommitteeMember
-	n.cacheSign = make(map[string]types.Sign) //clear cacheSign map
-	n.committeeInfo = receivedCommitteeInfo
+	nodeWork := self.getStartNodeWork()
+	debugNodeInfoWork(nodeWork, "into startSend...Before...")
+	nodeWork.isCommitteeMember = isCommitteeMember
+	nodeWork.cacheSign = make(map[string]types.Sign) //clear cacheSign map
+	nodeWork.committeeInfo = receivedCommitteeInfo
 	if isCommitteeMember {
-		n.ticker = time.NewTicker(sendNodeTime)
+		nodeWork.ticker = time.NewTicker(sendNodeTime)
 		go func() {
 			for {
 				select {
-				case <-n.ticker.C:
-					self.sendPbftNode(receivedCommitteeInfo)
+				case <-nodeWork.ticker.C:
+					self.sendPbftNode(nodeWork)
 				}
 			}
 		}()
 	} else {
 		log.Debug("not pbft committee member")
 	}
-	debugNodeInfoWork(n, "into startSend...")
+	debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
 
 func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
-	if nodeWork.isCommitteeMember {
-		debugNodeInfoWork(nodeWork, "into handlePbftNode1...")
-		signStr := hex.EncodeToString(cryNodeInfo.Sign)
-		if len(signStr) > subSignStr {
-			signStr = signStr[:subSignStr]
-		}
-		if bytes.Equal(nodeWork.cacheSign[signStr], []byte{}) {
-			debugNodeInfoWork(nodeWork, "into handlePbftNode2...")
-			nodeWork.cacheSign[signStr] = cryNodeInfo.Sign
-			self.receivePbftNode(cryNodeInfo)
-		} else {
-			log.Debug("not received pbftnode.")
-		}
+	debugNodeInfoWork(nodeWork, "into handlePbftNode1...")
+	signStr := hex.EncodeToString(cryNodeInfo.Sign)
+	if len(signStr) > subSignStr {
+		signStr = signStr[:subSignStr]
+	}
+	if bytes.Equal(nodeWork.cacheSign[signStr], []byte{}) {
+		debugNodeInfoWork(nodeWork, "into handlePbftNode2...")
+		nodeWork.cacheSign[signStr] = cryNodeInfo.Sign
+		self.receivePbftNode(cryNodeInfo)
+	} else {
+		log.Debug("not received pbftnode.")
 	}
 }
 
@@ -359,10 +361,12 @@ func (self *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-self.cryNodeInfoCh:
-			log.Debug("cryNodeInfo...","committeeId",cryNodeInfo.CommitteeId)
-			if isCommittee, nodeInfoWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
+			log.Debug("cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
+			if isCommittee, nodeWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
-				self.handlePbftNode(cryNodeInfo, nodeInfoWork)
+				if nodeWork.isCommitteeMember {
+					self.handlePbftNode(cryNodeInfo, nodeWork)
+				}
 			}
 		case ch := <-self.chainHeadCh:
 			log.Debug("ChainHeadCh putCacheIntoChain.", "ch.Block", ch.Block.Number())
@@ -503,11 +507,16 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 }
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
-func (self *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
+func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	log.Debug("into sendPbftNode.")
+	if nodeWork.cryptoNode != nil {
+		nodeWork.cryptoNode.CreatedAt = time.Now()
+		self.nodeInfoFeed.Send(core.NodeInfoEvent{nodeWork.cryptoNode})
+	}
 	var (
-		err         error
-		cryNodeInfo = &types.EncryptNodeMessage{
+		err           error
+		committeeInfo = nodeWork.committeeInfo
+		cryNodeInfo   = &types.EncryptNodeMessage{
 			CreatedAt:   time.Now(),
 			CommitteeId: committeeInfo.Id,
 		}
@@ -532,11 +541,13 @@ func (self *PbftAgent) sendPbftNode(committeeInfo *types.CommitteeInfo) {
 	if err != nil {
 		log.Error("sign node error", "err", err)
 	}
+
 	signStr := hex.EncodeToString(cryNodeInfo.Sign)
 	if len(signStr) > subSignStr {
 		signStr = signStr[:subSignStr]
 	}
-	log.Info("sendPbftNode","signStr",signStr)
+	log.Info("sendPbftNode", "signStr", signStr)
+	nodeWork.cryptoNode = cryNodeInfo
 	self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 }
 
