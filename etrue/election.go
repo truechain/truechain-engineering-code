@@ -37,10 +37,10 @@ import (
 const (
 	fastChainHeadSize  = 256
 	snailchainHeadSize = 64
-	z                  = 60  // snail block period number
+	z                  = 144  // snail block period number
 	k                  = 300
 
-	fruitThreshold = 1 // fruit size threshold for committee election
+	fruitThreshold 		= 10 // fruit size threshold for committee election
 
 	maxCommitteeNumber = 40
 	minCommitteeNumber = 1
@@ -63,33 +63,23 @@ var (
 
 var testCommitteeNodes = []*types.CommitteeNode{
 	{
-		IP:        "192.168.46.8",
-		Port:      10080,
-		Coinbase:  common.HexToAddress("831151b7eb8e650dc442cd623fbc6ae20279df85"),
-		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
-	},
-	{
-		IP:        "192.168.46.33",
-		Port:      10080,
-		Coinbase:  common.HexToAddress("76ea2f3a002431fede1141b660dbb75c26ba6d97"),
+		Coinbase:  common.HexToAddress("0"),
 		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
 	},
 	{
-		IP:        "192.168.46.24",
-		Port:      10080,
-		Coinbase:  common.HexToAddress("1074f7deccf8c66efcd0106e034d3356b7db3f2c"),
+		Coinbase:  common.HexToAddress("0"),
+		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
+	},
+	{
+		Coinbase:  common.HexToAddress("0"),
 		Publickey: common.Hex2Bytes("04013151837b19e4b0e7402ac576e4352091892d82504450864fc9fd156ddf15d22014a0f6bf3c8f9c12d03e75f628736f0c76b72322be28e7b6f0220cf7f4f5fb"),
 	},
-
 	{
-		IP:        "192.168.46.4",
-		Port:      10080,
-		Coinbase:  common.HexToAddress("d985e9871d1be109af5a7f6407b1d6b686901fff"),
+		Coinbase:  common.HexToAddress("0"),
 		Publickey: common.Hex2Bytes("04e3e59c07b320b5d35d65917d50806e1ee99e3d5ed062ed24d3435f61a47d29fb2f2ebb322011c1d2941b4853ce2dc71e8c4af57b59bbf40db66f76c3c740d41b"),
 	},
 }
 
-var testCommttee []*types.CommitteeMember
 
 type candidateMember struct {
 	coinbase   common.Address
@@ -118,6 +108,8 @@ func (c *committee) Members() []*types.CommitteeMember {
 
 type Election struct {
 	genesisCommittee []*types.CommitteeMember
+	defaultMembers   []*types.CommitteeMember
+
 	committeeList    map[uint64]*committee
 	muList           sync.RWMutex
 
@@ -125,6 +117,7 @@ type Election struct {
 	nextCommittee *committee
 
 	startSwitchover bool //Flag bit for handling event switching
+	singleNode		bool
 
 	electionFeed event.Feed
 	scope        event.SubscriptionScope
@@ -141,7 +134,7 @@ type Election struct {
 	engine consensus.Engine
 }
 
-func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain, mux *event.TypeMux) *Election {
+func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain, config *Config) *Election {
 	// init
 	election := &Election{
 		fastchain:        fastBlockChain,
@@ -149,6 +142,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		committeeList:    make(map[uint64]*committee),
 		fastChainHeadCh:  make(chan core.ChainHeadEvent, fastChainHeadSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailchainHeadSize),
+		singleNode:       config.NodeType,
 	}
 
 	// get genesis committee
@@ -158,14 +152,16 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
 	//
+	var members []*types.CommitteeMember
 	for _, node := range testCommitteeNodes {
 		pubkey, _ := crypto.UnmarshalPubkey(node.Publickey)
 		member := &types.CommitteeMember{
 			Coinbase:  node.Coinbase,
 			Publickey: pubkey,
 		}
-		testCommttee = append(testCommttee, member)
+		members = append(members, member)
 	}
+	election.defaultMembers = members
 
 	return election
 }
@@ -548,7 +544,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	td := big.NewInt(0)
 	for _, member := range members {
 		if cnt, ok := fruitsCount[member.address]; ok {
-			log.Debug("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
+			log.Trace("get committee candidate", "keyAddr", member.address, "count", cnt, "diff", member.difficulty)
 			if cnt >= fruitThreshold {
 				td.Add(td, member.difficulty)
 
@@ -575,7 +571,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 			member.upper = new(big.Int).Mul(rate, dd)
 		}
 
-		log.Debug("get power", "member", member.address, "lower", member.lower, "upper", member.upper)
+		log.Trace("get power", "member", member.address, "lower", member.lower, "upper", member.upper)
 	}
 
 	return crypto.Keccak256Hash(seed), candidates
@@ -602,7 +598,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 				continue
 			}
 
-			log.Debug("get member", "seed", hash, "member", cm.address, "prop", prop)
+			log.Trace("get member", "seed", hash, "member", cm.address, "prop", prop)
 			if _, ok := addrs[cm.address]; ok {
 				break
 			}
@@ -632,18 +628,28 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 // electCommittee elect committee members from snail block.
 func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big.Int) []*types.CommitteeMember {
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", fruitThreshold, "min", minCommitteeNumber, "max", maxCommitteeNumber)
+
+	var committee []*types.CommitteeMember
+	if e.singleNode {
+		committee = append(committee, e.genesisCommittee[0])
+		return committee
+	}
+
+	for _, member := range e.defaultMembers {
+		committee = append(committee, member)
+	}
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
 		log.Info("can't get new committee, retain current committee")
-		return testCommttee
-		return e.committee.Members()
+	} else {
+		members := e.elect(candidates, seed)
+
+		for _, member := range members {
+			committee = append(committee, member)
+		}
 	}
 
-	members := e.elect(candidates, seed)
-
-	// for test
-	members = testCommttee
-	return members
+	return committee
 }
 
 func (e *Election) Start() error {
