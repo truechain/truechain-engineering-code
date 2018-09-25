@@ -246,6 +246,7 @@ func (self *PbftAgent) stopSend() {
 	self.debugNodeInfoWork(nodeWork, "stopSend...Before...")
 	//clear nodeWork
 	if nodeWork.isCommitteeMember {
+		log.Info("nodeWork ticker stop","committeeId",nodeWork.committeeInfo.Id)
 		nodeWork.ticker.Stop() //stop ticker send nodeInfo
 	}
 	nodeWork.cacheSign = make(map[string]types.Sign)
