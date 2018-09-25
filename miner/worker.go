@@ -416,14 +416,14 @@ func (self *worker) wait() {
 				// add fruit once 
 				if self.FastBlockNumber != nil{
 					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
-						log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber(),"hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("🍒  mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						//log.Info("not same fruits")
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
 					}
 				}else{
-					log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("🍒 mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -682,7 +682,7 @@ func (self *worker) commitNewWork() {
 
 	// We only care about logging if we're actually mining.
 	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("________Commit new mining work", "number", work.Block.Number(), "txs", len(work.txs), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Info("____Commit new mining work", "number", work.Block.Number(), "txs", len(work.txs), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
 	
