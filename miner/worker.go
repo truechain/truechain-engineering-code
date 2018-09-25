@@ -416,14 +416,14 @@ func (self *worker) wait() {
 				// add fruit once 
 				if self.FastBlockNumber != nil{
 					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
-						log.Info("🍒  mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("🍒  ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						//log.Info("not same fruits")
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
 					}
 				}else{
-					log.Info("🍒 mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("🍒 ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)

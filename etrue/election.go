@@ -64,12 +64,13 @@ var testCommitteeNodes = []*types.CommitteeNode{
 	},
 	{
 		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef"),
+		Publickey: common.Hex2Bytes("049620df839696f4451842fd543b38d171f7f215dcd2c7fcd813c0206f097206a67b25ad719fbb62570c4a4ba467ec61aa396788e3ae79c704a62ea759beca3175"),
 	},
 	{
 		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04574194462132a05d45923f322f13bfa12dbe2e536c3743915ef16d412353d7e060a835cded6f9883efc1ce1feec99c04c930e7561741b0da5286185328edeff5"),
+		Publickey: common.Hex2Bytes("04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef"),
 	},
+
 }
 
 
@@ -145,6 +146,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 
 	//
 	var members []*types.CommitteeMember
+	var genesis []*types.CommitteeMember
 	for _, node := range testCommitteeNodes {
 		pubkey, _ := crypto.UnmarshalPubkey(node.Publickey)
 		member := &types.CommitteeMember{
@@ -153,7 +155,22 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		}
 		members = append(members, member)
 	}
-	//election.defaultMembers = members
+	for _, member := range election.genesisCommittee {
+		m := &types.CommitteeMember{
+			Coinbase:  member.Coinbase,
+			Publickey: member.Publickey,
+		}
+		genesis = append(genesis, m)
+	}
+	for _, member := range members {
+		m := &types.CommitteeMember{
+			Coinbase:  member.Coinbase,
+			Publickey: member.Publickey,
+		}
+		genesis = append(genesis, m)
+	}
+	election.defaultMembers = members
+	election.genesisCommittee = genesis
 
 	return election
 }
