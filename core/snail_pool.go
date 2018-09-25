@@ -323,7 +323,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		log.Info("add fruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
-	log.Info("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
+	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
@@ -506,7 +506,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	maxFbNumber := fruits[len(fruits)-1].FastNumber()
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1{
-			log.Debug(" removeWithLock del fruit","fb number",fruit.FastNumber())
+			log.Trace(" removeWithLock del fruit","fb number",fruit.FastNumber())
 			delete(pool.fruitPending, fruit.FastHash())
 			delete(pool.allFruits, fruit.FastHash())
 			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
@@ -517,7 +517,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	}
 	for _, fastblcok := range pool.allFastBlocks {
 		if fastblcok.Number().Cmp(maxFbNumber) < 1{
-			log.Debug(" removeWithLock del fastblcok","fb number",fastblcok.Number())
+			log.Trace(" removeWithLock del fastblcok","fb number",fastblcok.Number())
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fastblcok.Hash())
 			delete(pool.allFastBlocks,  fastblcok.Hash())
 		}
@@ -651,7 +651,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	errs := make([]error, len(fruits))
 
 	for i, fruit := range fruits {
-		log.Debug("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
+		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
 			log.Info("AddRemoteFruits validate fruit failed", "err", err)
 			errs[i] = err
