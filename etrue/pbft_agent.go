@@ -265,6 +265,7 @@ func debugNodeInfoWork(node *nodeInfoWork, str string) {
 }
 
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
+	log.Info("node in pbft member")
 	nodeWork := self.getStartNodeWork()
 	debugNodeInfoWork(nodeWork, "into startSend...Before...")
 	nodeWork.isCommitteeMember = isCommitteeMember
@@ -282,7 +283,7 @@ func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isC
 			}
 		}()
 	} else {
-		log.Debug("not pbft committee member")
+		log.Info("node not in pbft member")
 	}
 	debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
@@ -361,7 +362,6 @@ func (self *PbftAgent) loop() {
 					self.server.PutCommittee(receivedCommitteeInfo)
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 				} else {
-					log.Info("node not in pbft member")
 					self.startSend(receivedCommitteeInfo, false)
 				}
 			case types.CommitteeOver:
