@@ -425,6 +425,10 @@ var (
 		Usage: "Redis server port",
 		Value: 6379,
 	}
+	RedisPasswordFlag = cli.StringFlag{
+		Name:  "redispassword",
+		Usage: "Redis server password",
+	}
 	ChannelIDFlag = cli.IntFlag{
 		Name:  "redischannelid",
 		Usage: "Redis server channel ID",
@@ -1260,9 +1264,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(RedisDisabledFlag.Name) {
 		cfg.RedisHost = ctx.GlobalString(RedisAddrFlag.Name)
 		cfg.RedisPort = ctx.GlobalInt(RedisPortFlag.Name)
+		cfg.Password = ctx.GlobalString(RedisPasswordFlag.Name)
 	}
 	cfg.ChannelID = ctx.GlobalInt(ChannelIDFlag.Name)
-	log.Info("","cfg.SyncMode",cfg.SyncMode)
+	log.Info("", "cfg.SyncMode", cfg.SyncMode)
 }
 
 // SetDashboardConfig applies dashboard related command line flags to the config.

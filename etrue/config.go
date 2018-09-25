@@ -156,6 +156,7 @@ type Config struct {
 	RedisHost string
 	RedisPort int
 	ChannelID int
+	Password  string
 }
 
 type configMarshaling struct {

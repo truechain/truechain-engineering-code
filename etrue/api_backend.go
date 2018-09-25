@@ -251,6 +251,7 @@ func NewEthAPIBackend(etrue *Truechain) *EthAPIBackend {
 		RedisHost: etrue.config.RedisHost,
 		RedisPort: etrue.config.RedisPort,
 		ChannelID: etrue.config.ChannelID,
+		Password:  etrue.config.Password,
 	})
 	return apiBackend
 }

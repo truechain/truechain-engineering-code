@@ -124,6 +124,7 @@ var (
 		utils.RedisAddrFlag,
 		utils.RedisPortFlag,
 		utils.ChannelIDFlag,
+		utils.RedisPasswordFlag,
 	}
 
 	rpcFlags = []cli.Flag{

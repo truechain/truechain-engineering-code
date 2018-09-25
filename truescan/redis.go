@@ -34,7 +34,8 @@ func NewRedisClient(config *Config) (*RedisClient, error) {
 	c, err := redis.Dial("tcp", redisServerAddr,
 		// Read timeout on server should be greater than ping period.
 		redis.DialReadTimeout(healthCheckPeriod+10*time.Second),
-		redis.DialWriteTimeout(10*time.Second))
+		redis.DialWriteTimeout(10*time.Second),
+		redis.DialPassword(config.Password))
 	if err != nil {
 		return nil, err
 	}

@@ -147,6 +147,16 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
+		Name: "REDIS",
+		Flags: []cli.Flag{
+			utils.RedisDisabledFlag,
+			utils.RedisAddrFlag,
+			utils.RedisPortFlag,
+			utils.ChannelIDFlag,
+			utils.RedisPasswordFlag,
+		},
+	},
+	{
 		Name: "NETWORKING",
 		Flags: []cli.Flag{
 			utils.BootnodesFlag,
