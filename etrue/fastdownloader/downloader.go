@@ -528,6 +528,51 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	return err
 }
 
+
+// fetchHeight retrieves the head header of the remote peer to aid in estimating
+// the total time a pending synchronisation would take.
+func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
+
+	p := d.peers.Peer(id)
+	p.GetLog().Debug("Retrieving remote chain height")
+	// Request the advertised remote head block and wait for the response
+	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false,true)
+
+	ttl := d.requestTTL()
+	timeout := time.After(ttl)
+	for {
+		select {
+		case <-d.cancelCh:
+			return nil, errCancelBlockFetch
+
+		case packet := <-d.headerCh:
+			// Discard anything not from the origin peer
+			if packet.PeerId() != p.GetID() {
+				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
+				break
+			}
+			// Make sure the peer actually gave something valid
+			headers := packet.(*headerPack).headers
+			if len(headers) != 1 {
+				p.GetLog().Debug("Multiple headers for single request", "headers", len(headers))
+				return nil, errBadPeer
+			}
+
+			head := headers[0]
+			p.GetLog().Debug("Remote head header identified", "number", head.Number, "hash", head.Hash())
+			return head, nil
+
+		case <-timeout:
+			p.GetLog().Debug("Waiting for head header timed out", "elapsed", ttl)
+			return nil, errTimeout
+
+		case <-d.bodyCh:
+		}
+	}
+}
+
+
+
 // cancel aborts all of the operations and resets the queue. However, cancel does
 // not wait for the running download goroutines to finish. This method should be
 // used when cancelling the downloads from inside the downloader.

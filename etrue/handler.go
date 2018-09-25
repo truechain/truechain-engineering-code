@@ -648,8 +648,28 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug(">>>>p.SendFastBlockHeaders", "headers:", len(headers))
+		log.Debug(">>>>p.SendFastBlockHeaders", "num", headers[0].Number, "headers:", len(headers))
 		return p.SendFastBlockHeaders(headers)
+
+
+
+
+	case msg.Code == GetFastOneBlockHeadersMsg:
+
+		log.Debug("GetFastOneBlockHeadersMsg>>>>>>>>>>>>")
+		// Decode the complex header query
+		// Gather headers until the fetch or network limits is reached
+		var (
+			headers []*types.Header
+		)
+
+		fheader := pm.blockchain.CurrentBlock().Header()
+		headers = append(headers,fheader)
+		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
+
+		return p.SendFastBlockHeaders(headers)
+
+
 
 	case msg.Code == FastBlockHeadersMsg:
 
@@ -993,7 +1013,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "fruit %d is nil", i)
 			}
 			p.MarkFruit(fruit.Hash())
-			log.Debug("add fruit from p2p", "number", fruit.FastNumber(), "hash", fruit.Hash())
+			log.Trace("add fruit from p2p", "number", fruit.FastNumber(), "hash", fruit.Hash())
 		}
 
 		pm.SnailPool.AddRemoteFruits(fruits)
@@ -1099,11 +1119,11 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash(), "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, signs := range pbSignSet {
+		log.Debug("Broadcast sign", "number", signs[0].FastHeight, "sign count", len(signs), "hash", signs[0].Hash(), "peer", peer)
 		peer.AsyncSendSign(signs)
 	}
 }
@@ -1194,7 +1214,7 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 		for _, peer := range peers {
 			fruitset[peer] = append(fruitset[peer], fruit)
 		}
-		log.Debug("Broadcast fruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "recipients", len(peers), "hash", fruit.Hash())
+		log.Trace("Broadcast fruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "recipients", len(peers), "hash", fruit.Hash())
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, fruits := range fruitset {
