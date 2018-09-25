@@ -651,6 +651,26 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug(">>>>p.SendFastBlockHeaders", "num", headers[0].Number, "headers:", len(headers))
 		return p.SendFastBlockHeaders(headers)
 
+
+
+
+	case msg.Code == GetFastOneBlockHeadersMsg:
+
+		log.Debug("GetFastOneBlockHeadersMsg>>>>>>>>>>>>")
+		// Decode the complex header query
+		// Gather headers until the fetch or network limits is reached
+		var (
+			headers []*types.Header
+		)
+
+		fheader := pm.blockchain.CurrentBlock().Header()
+		headers = append(headers,fheader)
+		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
+
+		return p.SendFastBlockHeaders(headers)
+
+
+
 	case msg.Code == FastBlockHeadersMsg:
 
 		// A batch of headers arrived to one of our previous requests

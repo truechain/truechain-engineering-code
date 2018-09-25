@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"math/big"
 )
 
 const (
@@ -270,6 +271,28 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
+
+		header,err := pm.fdownloader.FetchHeight(peer.id);
+		if err!=nil{
+			return
+		}
+
+		if  header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
+
+			fbNum := pm.blockchain.CurrentBlock().NumberU64()
+			height := header.Number.Uint64() - fbNum
+			log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"currentNum",fbNum)
+
+			if height >0{
+
+				err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+				//time.Sleep(1*time.Second)
+				if err != nil {
+					log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+					return
+				}
+			}
+		}
 		return
 	}
 	// Otherwise try to sync with the downloader
