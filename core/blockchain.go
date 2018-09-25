@@ -1063,7 +1063,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		bc.insert(block)
 	}
 	bc.futureBlocks.Remove(block.Hash())
-	return status, nil
+	return status, err
 }
 
 func (bc *BlockChain) InsertSign(block *types.Block, signs []*types.PbftSign) (int, error) {

@@ -1404,13 +1404,13 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	}
 	// Retrieve the a batch of results to import
 	first, last := results[0].Fheader, results[len(results)-1].Fheader
-	log.Debug("Inserting downloaded chain", "items", len(results),
+	log.Debug("Inserting downloaded fast chain", "items", len(results),
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
-		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "snailNumber",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
+		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
 		log.Debug("Fast downloader signs:","block signs:",blocks[i].Signs())
 	}
