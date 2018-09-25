@@ -260,11 +260,6 @@ func (b *EthAPIBackend) SubscribeFastBlock(ch chan<- core.FastBlockEvent) event.
 	return b.etrue.BlockChain().SubscribeFastBlock(ch)
 }
 
-// SubscribeNewFruitEvent registers a subscription of NewFruitsEvent.
-func (b *EthAPIBackend) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {
-	return b.etrue.SnailBlockChain().SubscribeNewFruitEvent(ch)
-}
-
 // SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
 func (b *EthAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainHeadEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeChainHeadEvent(ch)

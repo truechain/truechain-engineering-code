@@ -2,7 +2,6 @@ package truescan
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strconv"
 
 	"github.com/truechain/truechain-engineering-code/core"
@@ -25,8 +24,6 @@ type TrueScan struct {
 	removeTxSub       event.Subscription
 	fastBlockCh       chan core.FastBlockEvent
 	fastBlockSub      event.Subscription
-	fruitsch          chan snailchain.NewFruitsEvent //fruit
-	fruitsSub         event.Subscription             // for fruit pool
 	snailChainHeadCh  chan snailchain.ChainHeadEvent
 	snailChainHeadSub event.Subscription
 	electionCh        chan core.ElectionEvent
@@ -45,7 +42,6 @@ func New(sub Subscriber, config *Config) *TrueScan {
 		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
 		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
 		fastBlockCh:      make(chan core.FastBlockEvent, fastBlockChanSize),
-		fruitsch:         make(chan snailchain.NewFruitsEvent, fruitChanSize),
 		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
@@ -74,9 +70,6 @@ func (ts *TrueScan) Start() {
 	// Subscribe events from blockchain
 	ts.fastBlockSub = ts.sub.SubscribeFastBlock(ts.fastBlockCh)
 	go ts.fastBlockHandleLoop()
-
-	ts.fruitsSub = ts.sub.SubscribeNewFruitEvent(ts.fruitsch)
-	go ts.fruitHandleLoop()
 
 	ts.snailChainHeadSub = ts.sub.SubscribeSnailChainHeadEvent(ts.snailChainHeadCh)
 	go ts.snailChainHandleLoop()
@@ -212,7 +205,7 @@ func (ts *TrueScan) snailChainHandleLoop() error {
 		select {
 		case snailChainEvent := <-ts.snailChainHeadCh:
 			ts.handleSnailChain(snailChainEvent.Block)
-		case <-ts.fruitsSub.Err():
+		case <-ts.snailChainHeadSub.Err():
 			return errResp("fruit terminated")
 		}
 	}
@@ -246,21 +239,6 @@ func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
 	sbm.EndFruitNumber = fms[len(fms)-1].Number
 	sbm.Fruits = fms
 	ts.redisClient.NewSnailBlockHeader(sbm)
-}
-
-func (ts *TrueScan) fruitHandleLoop() error {
-	for {
-		select {
-		case fruitsEvent := <-ts.fruitsch:
-			ts.handleFruits(fruitsEvent.Fruits)
-		case <-ts.fruitsSub.Err():
-			return errResp("fruit terminated")
-		}
-	}
-}
-
-func (ts *TrueScan) handleFruits(fruits []*types.SnailBlock) {
-	fmt.Println("-----------------")
 }
 
 func (ts *TrueScan) fastBlockHandleLoop() error {
@@ -348,7 +326,6 @@ func (ts *TrueScan) Stop() {
 	ts.addTxSub.Unsubscribe()
 	ts.removeTxSub.Unsubscribe()
 	ts.fastBlockSub.Unsubscribe()
-	ts.fruitsSub.Unsubscribe()
 	ts.snailChainHeadSub.Unsubscribe()
 	ts.electionSub.Unsubscribe()
 	ts.stateChangeSub.Unsubscribe()

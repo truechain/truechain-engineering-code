@@ -15,7 +15,6 @@ const (
 	addTxChanSize       = 4096
 	removeTxChanSize    = 64
 	fastBlockChanSize   = 16
-	fruitChanSize       = 256
 	snailChainHeadSize  = 64
 	electionChanSize    = 64
 	stateChangeChanSize = 64
@@ -39,10 +38,6 @@ type Subscriber interface {
 	SubscribeRemoveTxEvent(chan<- core.RemoveTxEvent) event.Subscription
 
 	SubscribeFastBlock(chan<- core.FastBlockEvent) event.Subscription
-
-	// SubscribeNewFruitEvent should return an event subscription of
-	// NewFruitsEvent and send events to the given channel.
-	SubscribeNewFruitEvent(chan<- snailchain.NewFruitsEvent) event.Subscription
 
 	// SubscribeSnailChainHeadEvent should return an event subscription of
 	// ChainHeadEvent and send events to the given channel.
