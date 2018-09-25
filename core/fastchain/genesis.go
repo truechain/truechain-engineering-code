@@ -309,7 +309,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		ExtraData: nil,
 		//hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535")
 		GasLimit:   20971520,
-		Difficulty: big.NewInt(1048576),
+		Difficulty: big.NewInt(8192),
 		Timestamp:	1537891200,
 		Coinbase: 	common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Mixhash: 	common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),

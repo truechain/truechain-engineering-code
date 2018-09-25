@@ -288,7 +288,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		ExtraData:  nil,
 		GasLimit:   20971520,
 		Timestamp:	1537891200,
-		Difficulty: big.NewInt(1048576),
+		Difficulty: big.NewInt(8192),
 		Coinbase: 	common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Mixhash: 	common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
