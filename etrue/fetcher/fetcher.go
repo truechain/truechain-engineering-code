@@ -27,7 +27,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"math"
 	"math/big"
 	"sync"
 )
@@ -1161,18 +1160,10 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash, commit
 
 // verifyCommitteesReachedTwoThirds decide whether number reaches two-thirds of the committeeNumber.
 func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool {
-	if committeeNumber%3 == 0 {
-		if number >= committeeNumber/3*2 {
-			return true
-		} else {
-			return false
-		}
+	value := int32(committeeNumber/3*2) + 1
+	if number >= value {
+		return true
 	} else {
-		value := int32(math.Ceil(float64(committeeNumber) / 3 * 2))
-		if number >= value {
-			return true
-		} else {
-			return false
-		}
+		return false
 	}
 }
