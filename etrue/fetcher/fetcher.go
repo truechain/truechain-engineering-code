@@ -41,7 +41,7 @@ const (
 	maxSignDist      = 8192                   // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
-	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
+	signLimit        = 2560                   // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
 )
 
