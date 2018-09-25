@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"bytes"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -39,7 +40,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"bytes"
 )
 
 const (
@@ -246,7 +246,7 @@ func (self *PbftAgent) stopSend() {
 	self.debugNodeInfoWork(nodeWork, "stopSend...Before...")
 	//clear nodeWork
 	if nodeWork.isCommitteeMember {
-		log.Info("nodeWork ticker stop","committeeId",nodeWork.committeeInfo.Id)
+		log.Info("nodeWork ticker stop", "committeeId", nodeWork.committeeInfo.Id)
 		nodeWork.ticker.Stop() //stop ticker send nodeInfo
 	}
 	nodeWork.cacheSign = make(map[string]types.Sign)
@@ -258,12 +258,12 @@ func (self *PbftAgent) stopSend() {
 func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 	if node.cryptoNode == nil {
 		log.Info(str, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
-			"nodeWork1",self.nodeInfoWork1.isCurrent,"nodeWork2",self.nodeInfoWork2.isCurrent,
+			"nodeWork1", self.nodeInfoWork1.isCurrent, "nodeWork2", self.nodeInfoWork2.isCurrent,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
 			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", "nil")
 	} else {
 		log.Info(str, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
-			"nodeWork1",self.nodeInfoWork1.isCurrent,"nodeWork2",self.nodeInfoWork2.isCurrent,
+			"nodeWork1", self.nodeInfoWork1.isCurrent, "nodeWork2", self.nodeInfoWork2.isCurrent,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
 			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
 	}
@@ -379,7 +379,6 @@ func (self *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-self.cryNodeInfoCh:
-			log.Debug("cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
 			if isCommittee, nodeWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
@@ -567,7 +566,6 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 }
 
 func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
-	log.Debug("into AddRemoteNodeInfo.")
 	if cryNodeInfo == nil {
 		log.Error("AddRemoteNodeInfo cryNodeInfo nil")
 		return errors.New("AddRemoteNodeInfo cryNodeInfo nil")
