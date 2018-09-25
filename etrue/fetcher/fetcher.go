@@ -485,6 +485,7 @@ func (f *Fetcher) loop() {
 
 		case notification := <-f.notify:
 			// A block was announced, make sure the peer isn't DOSing us
+			f.blockMutex.Lock()
 			propAnnounceInMeter.Mark(1)
 
 			count := f.announces[notification.origin] + 1
@@ -513,9 +514,11 @@ func (f *Fetcher) loop() {
 			if f.announceChangeHook != nil && len(f.announced[notification.hash]) == 1 {
 				f.announceChangeHook(notification.hash, true)
 			}
+			log.Debug("Announce hash", "num", notification.number, "annouce len", len(f.announced), "peer", notification.origin)
 			if len(f.announced) == 1 {
 				f.rescheduleFetch(fetchTimer)
 			}
+			f.blockMutex.Unlock()
 
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
