@@ -52,22 +52,23 @@ var (
 
 )
 
+
 var testCommitteeNodes = []*types.CommitteeNode{
 	{
 		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"),
+		Publickey: common.Hex2Bytes("042afba5a6680b5361bb57761ca67a7ea309d2883bda93c5d9521078258bb97b03610002865fb27993fcea4918023144eb516706ea33c7c94fef7b2f330cb9d0a6"),
 	},
 	{
 		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04ae5b1e301e167f9676937a2733242429ce7eb5dd2ad9f354669bc10eff23015d9810d17c0c680a1178b2f7d9abd925d5b62c7a463d157aa2e3e121d2e266bfc6"),
+		Publickey: common.Hex2Bytes("04e444bc40b6d1372a955fb9bb9a986ceb1c13a450794151fbf48033189351f6bddddcbebfa5c6d205887551e9527e6deff2cbee9f233ffe14fd15db4beb9c9f34"),
 	},
 	{
 		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04013151837b19e4b0e7402ac576e4352091892d82504450864fc9fd156ddf15d22014a0f6bf3c8f9c12d03e75f628736f0c76b72322be28e7b6f0220cf7f4f5fb"),
+		Publickey: common.Hex2Bytes("04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef"),
 	},
 	{
 		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04e3e59c07b320b5d35d65917d50806e1ee99e3d5ed062ed24d3435f61a47d29fb2f2ebb322011c1d2941b4853ce2dc71e8c4af57b59bbf40db66f76c3c740d41b"),
+		Publickey: common.Hex2Bytes("04574194462132a05d45923f322f13bfa12dbe2e536c3743915ef16d412353d7e060a835cded6f9883efc1ce1feec99c04c930e7561741b0da5286185328edeff5"),
 	},
 }
 
@@ -153,7 +154,6 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		members = append(members, member)
 	}
 	//election.defaultMembers = members
-
 
 	return election
 }
