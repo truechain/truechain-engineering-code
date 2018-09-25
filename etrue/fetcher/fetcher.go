@@ -461,7 +461,7 @@ func (f *Fetcher) loop() {
 							}
 
 							if !finished {
-								log.Info("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
+								log.Debug("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
 
 								f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
 								index = -1
