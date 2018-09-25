@@ -271,6 +271,19 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	return nil
 }
 
+
+func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
+	if rst := f1.FruitDifficulty().Cmp(f2.FruitDifficulty()); rst < 0 {
+		return -1
+	} else if rst == 0 {
+		if f1.Hash().Big().Cmp(f2.Hash().Big()) >= 0 {
+			return -1
+		}
+	}
+
+	return 1
+}
+
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	//if the new fruit's fbnumber less than,don't add
@@ -761,11 +774,12 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return nil
 	}
 
+	/*
 	header := fruit.Header()
 	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
 		log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 		return err
-	}
+	}*/
 
 	return nil
 }
