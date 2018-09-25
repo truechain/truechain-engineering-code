@@ -357,11 +357,12 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
+	/*
 	newestFast := new(big.Int).Add(fastHeadNumber, params.ElectionSwitchoverNumber)
 	if fastNumber.Cmp(newestFast) > 0 {
 		log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
 		return nil
-	}
+	}*/
 
 	currentCommittee := e.committee
 	nextCommittee := e.nextCommittee
