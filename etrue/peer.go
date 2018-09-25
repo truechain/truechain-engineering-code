@@ -38,7 +38,7 @@ var (
 
 const (
 	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownSigns       = 1024  // Maximum signs to keep in the known list
+	maxKnownSigns       = 32768 // Maximum signs to keep in the known list
 	maxKnownNodeInfo    = 1024  // Maximum node info to keep in the known list
 	maxKnownFruits      = 1024  // Maximum fruits hashes to keep in the known list (prevent DOS)
 	maxKnownSnailBlocks = 1024  // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
