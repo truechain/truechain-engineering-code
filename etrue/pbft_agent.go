@@ -265,7 +265,7 @@ func debugNodeInfoWork(node *nodeInfoWork, str string) {
 }
 
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
-	log.Info("node in pbft member")
+	log.Info("node in pbft member","committeeId",receivedCommitteeInfo.Id)
 	nodeWork := self.getStartNodeWork()
 	debugNodeInfoWork(nodeWork, "into startSend...Before...")
 	nodeWork.isCommitteeMember = isCommitteeMember
@@ -283,7 +283,7 @@ func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isC
 			}
 		}()
 	} else {
-		log.Info("node not in pbft member")
+		log.Info("node not in pbft member","committeeId",receivedCommitteeInfo.Id)
 	}
 	debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
@@ -376,7 +376,7 @@ func (self *PbftAgent) loop() {
 		case cryNodeInfo := <-self.cryNodeInfoCh:
 			log.Debug("cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
 			if isCommittee, nodeWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				log.Debug("broadcast cryNodeInfo...")
+				log.Debug("broadcast cryNodeInfo...","committeeId", cryNodeInfo.CommitteeId)
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
 					self.handlePbftNode(cryNodeInfo, nodeWork)
@@ -528,7 +528,7 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 		self.nodeInfoFeed.Send(core.NodeInfoEvent{nodeWork.cryptoNode})
 		return
 	}*/
-	log.Debug("into sendPbftNode")
+	log.Debug("into sendPbftNode","committeeId",nodeWork.committeeInfo.Id)
 	var (
 		err           error
 		committeeInfo = nodeWork.committeeInfo
