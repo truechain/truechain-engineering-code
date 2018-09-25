@@ -452,7 +452,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetSnailBlockHeadersMsg:
 
-		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>")
+		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>","peer>>>",p.id)
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -537,6 +537,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
+		log.Debug(" p.SendSnailBlockHeaders(headers) ","headers",len(headers))
 		return p.SendSnailBlockHeaders(headers)
 
 	case msg.Code == SnailBlockHeadersMsg:

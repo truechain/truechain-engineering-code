@@ -127,8 +127,9 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain 
 	}
 
 	if header.Fruit {
-		pointer := chain.GetHeaderByHash(header.PointerHash)
+		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
 		if pointer == nil {
+			log.Warn("VerifySnailHeader get pointer failed.", "fNumber", header.FastNumber, "pNumber", header.PointerNumber, "pHash", header.PointerHash)
 			return consensus.ErrUnknownPointer
 		}
 		return m.verifySnailHeader(chain, fastchain, header, pointer, nil, false, seal)
@@ -451,6 +452,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 	} else {
 		fastHeader := fastchain.GetHeader(header.FastHash, header.FastNumber.Uint64())
 		if fastHeader == nil {
+			log.Warn("verifySnailHeader get fast failed.", "fNumber", header.FastNumber, "fHash", header.FastHash)
 			return errInvalidFast
 		}
 		// Verify the block's difficulty based in it's timestamp and parent's difficulty
