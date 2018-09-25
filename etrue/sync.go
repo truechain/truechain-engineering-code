@@ -259,6 +259,7 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
+	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
 		return
 	}
@@ -293,6 +294,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 	}
 
+	mode = downloader.FullSync
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
