@@ -537,6 +537,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
+		log.Debug(" p.SendSnailBlockHeaders(headers) ","headers",len(headers))
 		return p.SendSnailBlockHeaders(headers)
 
 	case msg.Code == SnailBlockHeadersMsg:
