@@ -52,16 +52,9 @@ type ChainEvent struct {
 	Hash  common.Hash
 }
 
-// fruit event
-type FruitEvent struct {
-	Block *types.SnailBlock
-	Hash  common.Hash
-}
-
 
 type ChainSideEvent struct {
 	Block *types.SnailBlock
 }
 
 type ChainHeadEvent struct{ Block *types.SnailBlock }
-type FruitFleashEvent struct{ Block *types.SnailBlock }
