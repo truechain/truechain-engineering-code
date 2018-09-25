@@ -293,6 +293,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		}
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
+		log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		return nil
 	}
@@ -319,10 +320,12 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			}
 			pool.allFruits[fruit.FastHash()] = fruit
 			pool.fruitPending[fruit.FastHash()] = fruit
+			log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
 			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		} else {
 			pool.allFruits[fruit.FastHash()] = fruit
 			pool.fruitPending[fruit.FastHash()] = fruit
+			log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
 			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		}
 	} else {
@@ -339,6 +342,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
 		pool.muFastBlock.Unlock()
 		// send out
+		log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 	}
 
@@ -631,7 +635,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	errs := make([]error, len(fruits))
 
 	for i, fruit := range fruits {
+		log.Debug("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
+			log.Info("AddRemoteFruits validate fruit failed", "err", err)
 			errs[i] = err
 			continue
 		}
