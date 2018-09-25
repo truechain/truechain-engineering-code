@@ -155,13 +155,6 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		}
 		members = append(members, member)
 	}
-	for _, member := range election.genesisCommittee {
-		m := &types.CommitteeMember{
-			Coinbase:  member.Coinbase,
-			Publickey: member.Publickey,
-		}
-		genesis = append(genesis, m)
-	}
 	for _, member := range members {
 		m := &types.CommitteeMember{
 			Coinbase:  member.Coinbase,
@@ -169,6 +162,14 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		}
 		genesis = append(genesis, m)
 	}
+	for _, member := range election.genesisCommittee {
+		m := &types.CommitteeMember{
+			Coinbase:  member.Coinbase,
+			Publickey: member.Publickey,
+		}
+		genesis = append(genesis, m)
+	}
+
 	election.defaultMembers = members
 	election.genesisCommittee = genesis
 
