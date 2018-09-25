@@ -23,8 +23,8 @@ type State struct {
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
-	lockPrepare sync.Mutex
-	lockCommit  sync.Mutex
+	lockPrepare *sync.Mutex
+	lockCommit  *sync.Mutex
 	PrepareMsgs map[string]*VoteMsg
 	CommitMsgs  map[string]*VoteMsg
 }
@@ -64,6 +64,12 @@ func (m MsgLogs) GetPrepareOne() (data *VoteMsg) {
 	return nil
 }
 
+func (m MsgLogs) GetPrepareCount() int {
+	m.lockPrepare.Lock()
+	defer m.lockPrepare.Unlock()
+	return len(m.PrepareMsgs)
+}
+
 func (m MsgLogs) SetCommitMsgs(key string, data *VoteMsg) {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
@@ -100,6 +106,12 @@ func (m MsgLogs) GetCommitOne() (data *VoteMsg) {
 		return v
 	}
 	return nil
+}
+
+func (m MsgLogs) GetCommitCount() int {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	return len(m.CommitMsgs)
 }
 
 // f: # of Byzantine faulty node
@@ -266,7 +278,7 @@ func (state *State) prepared(f int) bool {
 	if state.MsgLogs.ReqMsg == nil {
 		return false
 	}
-	if len(state.MsgLogs.PrepareMsgs) < 2*f {
+	if state.MsgLogs.GetPrepareCount() < 2*f {
 		return false
 	}
 
@@ -279,7 +291,7 @@ func (state *State) committed(f int) bool {
 		return false
 	}
 	lock.PSLog("committed prepared")
-	if len(state.MsgLogs.CommitMsgs) < 2*f {
+	if state.MsgLogs.GetCommitCount() < 2*f {
 		return false
 	}
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
