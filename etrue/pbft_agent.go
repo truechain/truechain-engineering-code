@@ -52,7 +52,7 @@ const (
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
-	subSignStr       = 12
+	subSignStr       = 24
 
 	fetchBlockTime = 5
 	blockInterval  = 20
@@ -253,18 +253,19 @@ func (self *PbftAgent) stopSend() {
 	debugNodeInfoWork(nodeWork, "stopSend...After...")
 }
 func debugNodeInfoWork(node *nodeInfoWork, str string) {
-	if node.cryptoNode == nil{
-		log.Debug(str, "isMember", node.isCommitteeMember,
+	if node.cryptoNode == nil {
+		log.Info(str, "isMember", node.isCommitteeMember,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)","0")
-	}else{
-		log.Debug(str, "isMember", node.isCommitteeMember,
+			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", "nil")
+	} else {
+		log.Info(str, "isMember", node.isCommitteeMember,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)",len(node.cryptoNode.Nodes))
+			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
 	}
 }
 
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
+	log.Info("node in pbft member")
 	nodeWork := self.getStartNodeWork()
 	debugNodeInfoWork(nodeWork, "into startSend...Before...")
 	nodeWork.isCommitteeMember = isCommitteeMember
@@ -282,13 +283,13 @@ func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isC
 			}
 		}()
 	} else {
-		log.Debug("not pbft committee member")
+		log.Info("node not in pbft member")
 	}
 	debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
 
 func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
-	debugNodeInfoWork(nodeWork, "into handlePbftNode1...")
+	log.Debug("into handlePbftNode...")
 	signStr := hex.EncodeToString(cryNodeInfo.Sign)
 	if len(signStr) > subSignStr {
 		signStr = signStr[:subSignStr]
@@ -346,6 +347,9 @@ func (self *PbftAgent) loop() {
 					log.Warn("CommitteeSwitchover two times", "committeeId", committeeID)
 					continue
 				}
+				if len(ch.CommitteeMembers) == 0 {
+					log.Error("CommitteeSwitchover receivedMembers is nil ", "committeeId", committeeID)
+				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:      committeeID,
 					Members: ch.CommitteeMembers,
@@ -358,7 +362,6 @@ func (self *PbftAgent) loop() {
 					self.server.PutCommittee(receivedCommitteeInfo)
 					self.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{self.committeeNode})
 				} else {
-					log.Info("node not in pbft member")
 					self.startSend(receivedCommitteeInfo, false)
 				}
 			case types.CommitteeOver:
@@ -373,6 +376,7 @@ func (self *PbftAgent) loop() {
 		case cryNodeInfo := <-self.cryNodeInfoCh:
 			log.Debug("cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
 			if isCommittee, nodeWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
+				log.Debug("broadcast cryNodeInfo...")
 				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
 					self.handlePbftNode(cryNodeInfo, nodeWork)
@@ -553,7 +557,7 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	if err != nil {
 		log.Error("sign node error", "err", err)
 	}
-	nodeWork.cryptoNode = cryNodeInfo
+	//nodeWork.cryptoNode = cryNodeInfo
 	self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
 }
 

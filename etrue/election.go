@@ -53,26 +53,6 @@ var (
 )
 
 
-var testCommitteeNodes = []*types.CommitteeNode{
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("042afba5a6680b5361bb57761ca67a7ea309d2883bda93c5d9521078258bb97b03610002865fb27993fcea4918023144eb516706ea33c7c94fef7b2f330cb9d0a6"),
-	},
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04e444bc40b6d1372a955fb9bb9a986ceb1c13a450794151fbf48033189351f6bddddcbebfa5c6d205887551e9527e6deff2cbee9f233ffe14fd15db4beb9c9f34"),
-	},
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef"),
-	},
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04574194462132a05d45923f322f13bfa12dbe2e536c3743915ef16d412353d7e060a835cded6f9883efc1ce1feec99c04c930e7561741b0da5286185328edeff5"),
-	},
-}
-
-
 type candidateMember struct {
 	coinbase   common.Address
 	address    common.Address
@@ -143,17 +123,13 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
 	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
-	//
-	var members []*types.CommitteeMember
-	for _, node := range testCommitteeNodes {
-		pubkey, _ := crypto.UnmarshalPubkey(node.Publickey)
-		member := &types.CommitteeMember{
-			Coinbase:  node.Coinbase,
-			Publickey: pubkey,
-		}
-		members = append(members, member)
+	if election.singleNode {
+		var members []*types.CommitteeMember
+		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
+		election.defaultMembers = members
+	} else {
+		election.defaultMembers = election.genesisCommittee[:4]
 	}
-	//election.defaultMembers = members
 
 	return election
 }
@@ -610,10 +586,6 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", params.ElectionFruitsThreshold, "max", params.MaximumCommitteeNumber)
 
 	var committee []*types.CommitteeMember
-	if e.singleNode {
-		committee = append(committee, e.genesisCommittee[0])
-		return committee
-	}
 
 	for _, member := range e.defaultMembers {
 		committee = append(committee, member)
