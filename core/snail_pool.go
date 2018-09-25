@@ -178,8 +178,6 @@ type SnailPool struct {
 	gasPool *GasPool // available gas used to pack transactions
 
 	wg sync.WaitGroup // for shutdown sync
-
-	homestead bool
 }
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
@@ -409,9 +407,6 @@ func (pool *SnailPool) loop() {
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
 				pool.mu.Lock()
-				if pool.chainconfig.IsHomestead(ev.Block.Number()) {
-					pool.homestead = true
-				}
 				pool.reset(head, ev.Block)
 				head = ev.Block
 
@@ -619,7 +614,7 @@ func (pool *SnailPool) Stop() {
 	//if pool.journal != nil {
 	//	pool.journal.close()
 	//}
-	log.Info("Transaction pool stopped")
+	log.Info("Snail pool stopped")
 }
 
 // GasPrice returns the current gas price enforced by the transaction pool.
