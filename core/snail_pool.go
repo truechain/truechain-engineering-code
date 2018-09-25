@@ -763,7 +763,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 
 	header := fruit.Header()
 	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
-		log.Info("validateFruit verify header err", "err", err)
+		log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 		return err
 	}
 
