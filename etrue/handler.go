@@ -971,7 +971,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		log.Debug("Receive sign", "num", signs[0].FastHeight, "peer", p.id)
 		// committee no current block
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 

@@ -814,7 +814,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 	if len(verifySigns) > 0 {
 		// Run the import on a new thread
-		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash)
 		f.broadcastSigns(verifySigns)
 
 		find := false
@@ -831,9 +830,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 					find = true
 					f.queuesSign[peer] = count
 					f.queuedSign[sign.Hash()] = op
-
-					// Run the import on a new thread
-					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
 
 					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 				}
