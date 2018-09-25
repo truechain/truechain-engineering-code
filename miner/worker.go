@@ -114,10 +114,6 @@ type worker struct {
 	fruitCh   chan chain.NewFruitsEvent
 	fruitSub  event.Subscription // for fruit pool
 
-	fruitChainCh   chan chain.NewMinedFruitEvent // for chain event not pool
-	fruitChainSub  event.Subscription // for chain event not pool
-
-
 	fastBlockCh  chan chain.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
 
@@ -169,7 +165,6 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		mux:            mux,	
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
-		fruitChainCh:        make(chan chain.NewMinedFruitEvent, txChanSize),
 		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
 		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
@@ -192,7 +187,6 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
-	worker.fruitChainSub = etrue.SnailBlockChain().SubscribeNewMinedFruitEvent(worker.fruitChainCh)
 
 	go worker.update()
 
@@ -338,7 +332,6 @@ func (self *worker) update() {
 	defer self.chainSideSub.Unsubscribe()
 	defer self.fastBlockSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
-	defer self.fruitChainSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
@@ -382,16 +375,12 @@ func (self *worker) update() {
 			}else{
 				log.Info("------------start commit new work  true?????")
 			}
-		case <-self.fruitChainCh:
-			//self.commitNewWork()
 
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
 			
 			return
 		case <-self.fruitSub.Err():
-			return
-		case <-self.fruitChainSub.Err():
 			return
 		case <-self.chainHeadSub.Err():
 			return

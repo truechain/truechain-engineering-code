@@ -23,8 +23,8 @@ type State struct {
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
-	lockPrepare *sync.Mutex
-	lockCommit  *sync.Mutex
+	lockPrepare sync.Mutex
+	lockCommit  sync.Mutex
 	PrepareMsgs map[string]*VoteMsg
 	CommitMsgs  map[string]*VoteMsg
 }
