@@ -360,6 +360,9 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 		return ErrExceedNumber
 	}
 
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
 	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
 	//check fruit already exist
 	if _, ok := pool.fruitPending[fastBlock.Hash()]; ok {
@@ -367,7 +370,7 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	}
 
 	if _, ok := pool.allFruits[fastBlock.Hash()]; ok {
-		if err := pool.updateFruit(fastBlock, true); err == nil {
+		if err := pool.updateFruit(fastBlock, false); err == nil {
 			return ErrMined
 		}
 	}
@@ -488,7 +491,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	maxFbNumber := fruits[len(fruits)-1].FastNumber()
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1{
-			log.Info(" ********* del fruit","fb number",fruit.FastNumber())
+			log.Debug(" removeWithLock del fruit","fb number",fruit.FastNumber())
 			delete(pool.fruitPending, fruit.FastHash())
 			delete(pool.allFruits, fruit.FastHash())
 			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
@@ -499,7 +502,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	}
 	for _, fastblcok := range pool.allFastBlocks {
 		if fastblcok.Number().Cmp(maxFbNumber) < 1{
-			log.Info(" ********* del fastblcok","fb number",fastblcok.Number())
+			log.Debug(" removeWithLock del fastblcok","fb number",fastblcok.Number())
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fastblcok.Hash())
 			delete(pool.allFastBlocks,  fastblcok.Hash())
 		}
@@ -509,13 +512,6 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 // reset retrieves the current state of the blockchain and ensures the content
 // of the fastblock pool is valid with regard to the chain state.
 func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
-	// If we're reorging an old state, reinject all dropped fastblocks
-
-	/*
-		for _ , fb := range newHead.Fruits() {
-			log.Info(" -----------------------------------reset fb list","sb number",newHead.Number(),"fb number",fb.FastNumber())
-		}
-	*/
 	var reinject []*types.SnailBlock
 
 	if oldHead != nil && oldHead.Hash() != newHead.ParentHash() {
@@ -586,9 +582,12 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 
 // Insert rest old fruit into allfruits and fruitPending
 func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
-
 	pool.muFruit.Lock()
+	pool.muFastBlock.Lock()
+
 	defer pool.muFruit.Unlock()
+	defer pool.muFastBlock.Unlock()
+
 	log.Debug("begininsertRestFruits","len(reinject)", len(reinject))
 	for _, fruit := range reinject {
 		pool.allFruits[fruit.FastHash()] = fruit
@@ -601,8 +600,8 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 		pool.insertFastBlockWithLock(pool.fastBlockPending, fb)
 		log.Debug("add to allFastBlocks","fb number",fb.Number())
 		pool.allFastBlocks[fruit.FastHash()] = fb
-
 	}
+
 	log.Debug("endinsertRestFruits","len(reinject)", len(reinject))
 	return nil
 }
