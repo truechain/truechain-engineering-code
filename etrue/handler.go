@@ -648,7 +648,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug(">>>>p.SendFastBlockHeaders", "num", headers[0].Number, "headers:", len(headers))
+		log.Debug(">>>>p.SendFastBlockHeaders",  "headers:", len(headers))
 		return p.SendFastBlockHeaders(headers)
 
 
