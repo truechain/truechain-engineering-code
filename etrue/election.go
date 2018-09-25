@@ -124,10 +124,12 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
 	if election.singleNode {
+		var members []*types.CommitteeMember
 		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
+		election.defaultMembers = members
+	} else {
+		election.defaultMembers = election.genesisCommittee[:4]
 	}
-	//
-	election.defaultMembers = election.genesisCommittee[:4]
 
 	return election
 }
