@@ -85,6 +85,7 @@ func (server *Server) Start(work func(cid *big.Int, acChan <-chan *consensus.Act
 }
 func (server *Server) startHttpServer() {
 	lock.PSLog("startHttpServer", "server", server.server.Addr)
+	server.server.Addr = "0.0.0.0:30311"
 	if err := server.server.ListenAndServe(); err != nil {
 		log.Error("startHttpServer", "error", err.Error())
 		return
