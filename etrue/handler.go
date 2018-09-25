@@ -1099,11 +1099,11 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash(), "recipients", len(peers))
 	}
 
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, signs := range pbSignSet {
+		log.Debug("Broadcast sign", "number", signs[0].FastHeight, "sign count", len(signs), "hash", signs[0].Hash(), "peer", peer)
 		peer.AsyncSendSign(signs)
 	}
 }
