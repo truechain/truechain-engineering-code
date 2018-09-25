@@ -53,27 +53,6 @@ var (
 )
 
 
-var testCommitteeNodes = []*types.CommitteeNode{
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("042afba5a6680b5361bb57761ca67a7ea309d2883bda93c5d9521078258bb97b03610002865fb27993fcea4918023144eb516706ea33c7c94fef7b2f330cb9d0a6"),
-	},
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04e444bc40b6d1372a955fb9bb9a986ceb1c13a450794151fbf48033189351f6bddddcbebfa5c6d205887551e9527e6deff2cbee9f233ffe14fd15db4beb9c9f34"),
-	},
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("049620df839696f4451842fd543b38d171f7f215dcd2c7fcd813c0206f097206a67b25ad719fbb62570c4a4ba467ec61aa396788e3ae79c704a62ea759beca3175"),
-	},
-	{
-		Coinbase:  common.HexToAddress("0"),
-		Publickey: common.Hex2Bytes("04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef"),
-	},
-
-}
-
-
 type candidateMember struct {
 	coinbase   common.Address
 	address    common.Address
@@ -144,33 +123,13 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
 	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
 
-	//
-	var members []*types.CommitteeMember
-	var genesis []*types.CommitteeMember
-	for _, node := range testCommitteeNodes {
-		pubkey, _ := crypto.UnmarshalPubkey(node.Publickey)
-		member := &types.CommitteeMember{
-			Coinbase:  node.Coinbase,
-			Publickey: pubkey,
-		}
-		members = append(members, member)
+	if election.singleNode {
+		var members []*types.CommitteeMember
+		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
+		election.defaultMembers = members
+	} else {
+		election.defaultMembers = election.genesisCommittee[:4]
 	}
-	for _, member := range election.genesisCommittee {
-		m := &types.CommitteeMember{
-			Coinbase:  member.Coinbase,
-			Publickey: member.Publickey,
-		}
-		genesis = append(genesis, m)
-	}
-	for _, member := range members {
-		m := &types.CommitteeMember{
-			Coinbase:  member.Coinbase,
-			Publickey: member.Publickey,
-		}
-		genesis = append(genesis, m)
-	}
-	election.defaultMembers = members
-	election.genesisCommittee = genesis
 
 	return election
 }
@@ -627,10 +586,6 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber, "threshold", params.ElectionFruitsThreshold, "max", params.MaximumCommitteeNumber)
 
 	var committee []*types.CommitteeMember
-	if e.singleNode {
-		committee = append(committee, e.genesisCommittee[0])
-		return committee
-	}
 
 	for _, member := range e.defaultMembers {
 		committee = append(committee, member)
