@@ -55,7 +55,7 @@ func (m MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
 	}
 }
 
-func (m MsgLogs) GetPrepareOne() (data *VoteMsg) {
+func (m MsgLogs) GetPrepareOne() *VoteMsg {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
 	for _, v := range m.PrepareMsgs {
@@ -99,7 +99,7 @@ func (m MsgLogs) GetCommitPassCount() int {
 	return cnt
 }
 
-func (m MsgLogs) GetCommitOne() (data *VoteMsg) {
+func (m MsgLogs) GetCommitOne() *VoteMsg {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	for _, v := range m.CommitMsgs {
