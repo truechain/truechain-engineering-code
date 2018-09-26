@@ -490,6 +490,11 @@ func (p *peer) SendFastBlockHeaders(headers []*types.Header) error {
 	return p2p.Send(p.rw, FastBlockHeadersMsg, headers)
 }
 
+// SendFastBlockHeaders sends a batch of block headers to the remote peer.
+func (p *peer) SendOneFastBlockHeader(headers []*types.Header) error {
+	return p2p.Send(p.rw, FastOneBlockHeadersMsg, headers)
+}
+
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
 func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {

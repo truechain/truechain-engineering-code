@@ -542,8 +542,6 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 	timeout := time.After(ttl)
 	for {
 		select {
-		case <-d.cancelCh:
-			return nil, errCancelBlockFetch
 
 		case packet := <-d.headerCh:
 			// Discard anything not from the origin peer
@@ -557,7 +555,6 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 				p.GetLog().Debug("Multiple headers for single request", "headers", len(headers))
 				return nil, errBadPeer
 			}
-
 			head := headers[0]
 			p.GetLog().Debug("Remote head header identified", "number", head.Number, "hash", head.Hash())
 			return head, nil
@@ -565,8 +562,6 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 		case <-timeout:
 			p.GetLog().Debug("Waiting for head header timed out", "elapsed", ttl)
 			return nil, errTimeout
-
-		case <-d.bodyCh:
 		}
 	}
 }
@@ -1629,6 +1624,11 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err err
 	return d.deliver(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
 }
 
+// TODO
+func (d *Downloader) DeliverOneHeader(id string, headers []*types.Header) (err error) {
+	return d.deliverOne(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
+}
+
 // DeliverBodies injects a new batch of block bodies received from a remote node.
 func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign) (err error) {
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs}, bodyInMeter, bodyDropMeter)
@@ -1670,6 +1670,31 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 		return errNoSyncActive
 	}
 }
+
+
+func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
+	// Update the delivery metrics for both good and failed deliveries
+
+
+	if atomic.LoadInt32(&d.synchronising) == 1{
+		return errBusy
+	}
+
+	inMeter.Mark(int64(packet.Items()))
+	defer func() {
+		if err != nil {
+			dropMeter.Mark(int64(packet.Items()))
+		}
+	}()
+	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliverOne", "packet.Items()==", packet.Items())
+	// Deliver or abort if the sync is canceled while queuing
+	log.Debug("deliver <- packet ","packet",packet)
+	select {
+	case destCh <- packet:
+		return nil
+	}
+}
+
 
 // qosTuner is the quality of service tuning loop that occasionally gathers the
 // peer latency statistics and updates the estimated request round trip time.

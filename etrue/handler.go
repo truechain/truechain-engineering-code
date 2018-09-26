@@ -441,7 +441,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
 	defer msg.Discard()
-
+	now := time.Now()
 	// Handle the message depending on its contents
 	switch {
 	case msg.Code == StatusMsg:
@@ -665,7 +665,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		headers = append(headers, fheader)
 		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
 
-		return p.SendFastBlockHeaders(headers)
+		return p.SendOneFastBlockHeader(headers)
 
 	case msg.Code == FastBlockHeadersMsg:
 
@@ -689,6 +689,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
+
+	case msg.Code == FastOneBlockHeadersMsg:
+
+		// A batch of headers arrived to one of our previous requests
+		var headers []*types.Header
+		if err := msg.Decode(&headers); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+
+		// mecMark
+		if len(headers) > 0 {
+
+			err := pm.fdownloader.DeliverOneHeader(p.id, headers)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
+			}
+		}
+		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
+
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
@@ -1072,6 +1091,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
+	log.Info("Handler", "code", msg.Code, "time", time.Now().Sub(now))
 	return nil
 }
 
