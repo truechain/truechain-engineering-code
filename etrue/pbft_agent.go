@@ -185,11 +185,6 @@ func (self *PbftAgent) initNodeWork() {
 	self.nodeInfoWorks =append(self.nodeInfoWorks,nodeWork1,nodeWork2)
 }
 
-func copyNodeWork(nodeWork *nodeInfoWork)	*nodeInfoWork {
-	nodeWorkCopy :=&nodeWork
-	return *nodeWorkCopy
-}
-
 func (self *PbftAgent) InitNodeInfo(config *Config) {
 	self.singleNode = config.NodeType
 	self.privateKey = config.PrivateKey
@@ -802,6 +797,21 @@ func GetTps(currentBlock *types.Block) {
 	}
 }
 
+func (self *PbftAgent) GenerateSignWithVote(fb *types.Block,vote uint) (*types.PbftSign, error) {
+	voteSign := &types.PbftSign{
+		Result:     vote,
+		FastHeight: fb.Header().Number,
+		FastHash:   fb.Hash(),
+	}
+	var err error
+	signHash := voteSign.HashWithNoSign().Bytes()
+	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
+	if err != nil {
+		log.Error("fb GenerateSign error ", "err", err)
+	}
+	return voteSign, err
+}
+
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     types.VoteAgree,
@@ -819,49 +829,77 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 
 //broadcast blockAndSign
 func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
-	go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
+	//go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 }
 
-func (self *PbftAgent) VerifyFastBlock(fb *types.Block) error {
+func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign , error) {
 	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	if parent == nil { //if cannot find parent return ErrUnSyncParentBlock
-		return types.ErrHeightNotYet
+		return nil,types.ErrHeightNotYet
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
 		log.Error("VerifyFastHeader error", "header", fb.Header(), "err", err)
-		return err
+		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		if err != nil {
+			return nil,err
+		}
+		return voteSign,err
 	}
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .")
-			return nil
+			voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgree)
+			if err != nil {
+				return nil,err
+			}
+			return voteSign,nil
+		}
+		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		if err != nil {
+			return nil,err
 		}
 		log.Error("VerifyFastBlock: validate body error", "err", err)
-		return err
+		return voteSign,err
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
-		return err
+		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		if err != nil {
+			return nil,err
+		}
+		return voteSign,err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
 	if err != nil {
-		return err
+		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		if err != nil {
+			return nil,err
+		}
+		return voteSign,err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
-		return err
+		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		if err != nil {
+			return nil,err
+		}
+		return voteSign, err
+	}
+	voteSign, _ := self.GenerateSignWithVote(fb,types.VoteAgree)
+	if err != nil {
+		return nil,err
 	}
 	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
-	return nil
+	return voteSign,nil
 }
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
@@ -1105,7 +1143,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		err = agent.VerifyFastBlock(block)
+		_,err = agent.VerifyFastBlock(block)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
 		}
