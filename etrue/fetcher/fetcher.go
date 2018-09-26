@@ -27,7 +27,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-	"math"
 	"math/big"
 	"sync"
 )
@@ -461,8 +460,7 @@ func (f *Fetcher) loop() {
 							}
 
 							if !finished {
-								log.Debug("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
+								log.Debug("Block come agreement", "num", number, "parent number", height, "block count", len(blocks), "sign number", len(signHashs))
 								f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
 								index = -1
 							}
@@ -486,6 +484,7 @@ func (f *Fetcher) loop() {
 
 		case notification := <-f.notify:
 			// A block was announced, make sure the peer isn't DOSing us
+			f.blockMutex.Lock()
 			propAnnounceInMeter.Mark(1)
 
 			count := f.announces[notification.origin] + 1
@@ -514,9 +513,11 @@ func (f *Fetcher) loop() {
 			if f.announceChangeHook != nil && len(f.announced[notification.hash]) == 1 {
 				f.announceChangeHook(notification.hash, true)
 			}
+			log.Debug("Announce hash", "num", notification.number, "annouce len", len(f.announced), "peer", notification.origin)
 			if len(f.announced) == 1 {
 				f.rescheduleFetch(fetchTimer)
 			}
+			f.blockMutex.Unlock()
 
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
@@ -815,8 +816,14 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 	if len(verifySigns) > 0 {
 		// Run the import on a new thread
-		log.Debug("Propagated verify sign", "peer", peer, "number", number, "verify count", len(verifySigns), "hash", hash)
-		f.broadcastSigns(verifySigns)
+		//f.broadcastSigns(verifySigns)
+
+		if f.getBlock(verifySigns[0].FastHash) != nil {
+			log.Trace("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
+			propSignDropMeter.Mark(1)
+			f.forgetBlockHeight(verifySigns[0].FastHeight)
+			return
+		}
 
 		find := false
 		for _, sign := range verifySigns {
@@ -833,9 +840,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 					f.queuesSign[peer] = count
 					f.queuedSign[sign.Hash()] = op
 
-					// Run the import on a new thread
-					log.Debug("Cache sign", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
-
 					f.signMultiHash[number] = append(f.signMultiHash[number], sign.Hash())
 				}
 			} else {
@@ -845,13 +849,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 
 		if !find {
-			return
-		}
-
-		if f.getBlock(verifySigns[0].FastHash) != nil {
-			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
-			propSignDropMeter.Mark(1)
-			f.forgetBlockHeight(verifySigns[0].FastHeight)
 			return
 		}
 
@@ -884,7 +881,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < lowCommitteeDist || dist > maxQueueDist {
-		log.Info("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
+		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
 		return
@@ -898,6 +895,8 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			propBroadcastInvaildMeter.Mark(1)
 			return
 		}
+
+		f.enqueueSign(peer, block.Signs())
 
 		op := &inject{
 			origin: peer,
@@ -979,15 +978,14 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 
 // verifyComeAgreement verify consensus and insert block.
 func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*types.PbftSign, signHashs []common.Hash) {
-	height := block.Number()
-	log.Debug("Verify come agreement", "number", height, "sign number", len(signs))
 	go func() {
+		height := block.Number()
 		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil)
 		find := f.insert(peer, inBlock, signHashs)
 		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
 
 		propSignOutTimer.Mark(int64(len(signs)))
-		f.broadcastSigns(signs)
+		//f.broadcastSigns(signs)
 
 		f.doneConsensus <- height
 	}()
@@ -1161,18 +1159,10 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash, commit
 
 // verifyCommitteesReachedTwoThirds decide whether number reaches two-thirds of the committeeNumber.
 func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool {
-	if committeeNumber%3 == 0 {
-		if number >= committeeNumber/3*2 {
-			return true
-		} else {
-			return false
-		}
+	value := int32(committeeNumber/3*2) + 1
+	if number >= value {
+		return true
 	} else {
-		value := int32(math.Ceil(float64(committeeNumber) / 3 * 2))
-		if number >= value {
-			return true
-		} else {
-			return false
-		}
+		return false
 	}
 }

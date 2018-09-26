@@ -1395,8 +1395,7 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 
 func (bc *SnailBlockChain)GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
 	fruit, hash, number, index :=  rawdb.ReadFruit(bc.db, fastHash)
-	log.Debug("Get fruit by fast hash", "fruit", fruit, "hash", hash, "number", number,
-		"index", index, "fastHash",fastHash)
+	//log.Debug("Get fruit by fast hash", "fruit", fruit, "hash", hash, "number", number, "index", index, "fastHash",fastHash)
 
 	if fruit == nil {
 		return nil, 0

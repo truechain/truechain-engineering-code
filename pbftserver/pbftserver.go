@@ -118,6 +118,21 @@ func (ss *PbftServerMgr) getBlock(h uint64) *types.Block {
 	return nil
 }
 
+func (ss *PbftServerMgr) getBlockSigns(h uint64, signs []*types.PbftSign) *types.Block {
+	ss.blockLock.Lock()
+	defer ss.blockLock.Unlock()
+
+	if fb, ok := ss.blocks[h]; ok {
+		fb.SetSign(signs)
+		return fb
+	}
+
+	if (h - 500) >= 0 {
+		delete(ss.blocks, h-500)
+	}
+	return nil
+}
+
 func (ss *PbftServerMgr) getBlockLen() int {
 	ss.blockLock.Lock()
 	defer ss.blockLock.Unlock()
@@ -279,32 +294,33 @@ func (ss *PbftServerMgr) InsertBlock(msg *consensus.PrePrepareMsg) bool {
 	return true
 }
 
-func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) error {
+func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (*types.PbftSign, error) {
 	height := big.NewInt(msg.Height)
 
 	block := ss.getBlock(height.Uint64())
 	if block == nil {
-		return errors.New("block not have")
+		return nil, errors.New("block not have")
 	}
 	lock.PSLog("AGENT", "VerifyFastBlock", "start")
-	err := ss.Agent.VerifyFastBlock(block)
+	sign, err := ss.Agent.VerifyFastBlock(block)
 	lock.PSLog("AGENT", "VerifyFastBlock", err == nil, "end")
 	if err != nil {
 		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())
-		return err
+		return nil, err
 	}
 	ss.putBlock(height.Uint64(), block)
-	return nil
+	return sign, nil
 }
 
-func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, res uint) bool {
+func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, signs []*types.PbftSign, res uint) bool {
 	height := big.NewInt(msg.Height)
 
-	block := ss.getBlock(height.Uint64())
+	block := ss.getBlockSigns(height.Uint64(), signs)
 	if block == nil {
 		return false
 	}
 	lock.PSLog("[Agent]", "BroadcastConsensus", "start")
+
 	err := ss.Agent.BroadcastConsensus(block)
 	lock.PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	//ss.removeBlock(height)
@@ -472,7 +488,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 	if bytes.Equal(crypto.FromECDSAPub(server.leader), crypto.FromECDSAPub(ss.pk)) {
 		for {
 			b, c := serverCheck(server)
-			log.Info("[leader]", "server count", c)
+			log.Debug("[leader]", "server count", c)
 			if b {
 				time.Sleep(time.Second * ServerWait * 18)
 				break

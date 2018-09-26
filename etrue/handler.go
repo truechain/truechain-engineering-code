@@ -452,7 +452,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetSnailBlockHeadersMsg:
 
-		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>","peer>>>",p.id)
+		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "peer>>>", p.id)
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -537,7 +537,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug(" p.SendSnailBlockHeaders() ","headers",len(headers))
+		log.Debug(" p.SendSnailBlockHeaders() ", "headers", len(headers))
 		return p.SendSnailBlockHeaders(headers)
 
 	case msg.Code == SnailBlockHeadersMsg:
@@ -596,6 +596,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
+				log.Error("GetFastBlockHeadersMsg", "hash", query.Origin.Hash, "peer", p.id)
 				break
 			}
 			headers = append(headers, origin)
@@ -651,6 +652,21 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug(">>>>p.SendFastBlockHeaders", "headers:", len(headers))
 		return p.SendFastBlockHeaders(headers)
 
+	case msg.Code == GetFastOneBlockHeadersMsg:
+
+		log.Debug("GetFastOneBlockHeadersMsg>>>>>>>>>>>>")
+		// Decode the complex header query
+		// Gather headers until the fetch or network limits is reached
+		var (
+			headers []*types.Header
+		)
+
+		fheader := pm.blockchain.CurrentBlock().Header()
+		headers = append(headers, fheader)
+		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
+
+		return p.SendFastBlockHeaders(headers)
+
 	case msg.Code == FastBlockHeadersMsg:
 
 		// A batch of headers arrived to one of our previous requests
@@ -701,7 +717,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-		log.Debug(">>>>p.SendFastBlockBodiesRLP","bodies",len(bodies))
+		log.Debug(">>>>p.SendFastBlockBodiesRLP", "bodies", len(bodies))
 		return p.SendFastBlockBodiesRLP(bodies)
 
 	case msg.Code == FastBlockBodiesMsg:
@@ -758,7 +774,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug(">>>>>>p.SendSnailBlockBodiesRLP()","bodies",len(bodies))
+		log.Debug(">>>>>>p.SendSnailBlockBodiesRLP()", "bodies", len(bodies))
 		return p.SendSnailBlockBodiesRLP(bodies)
 
 	case msg.Code == SnailBlockBodiesMsg:
@@ -971,7 +987,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		log.Debug("Receive sign", "num", signs[0].FastHeight, "peer", p.id)
 		// committee no current block
 		pm.fetcherFast.EnqueueSign(p.id, signs)
 
@@ -994,7 +1009,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "fruit %d is nil", i)
 			}
 			p.MarkFruit(fruit.Hash())
-			log.Debug("add fruit from p2p", "number", fruit.FastNumber(), "hash", fruit.Hash())
+			log.Trace("add fruit from p2p", "number", fruit.FastNumber(), "hash", fruit.Hash())
 		}
 
 		pm.SnailPool.AddRemoteFruits(fruits)
@@ -1083,9 +1098,10 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
-			peer.AsyncSendNewFastBlockHash(block)
+			peer.AsyncSendNewFastBlock(block)
+			//peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign() != nil, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -1100,9 +1116,9 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		for _, peer := range peers {
 			pbSignSet[peer] = append(pbSignSet[peer], pbSign)
 		}
-		log.Debug("Broadcast sign", "number", pbSign.FastHeight, "hash", pbSign.Hash(), "recipients", len(peers))
 	}
 
+	log.Trace("Broadcast sign", "number", pbSigns[0].FastHeight, "sign count", len(pbSigns), "hash", pbSigns[0].Hash(), "peer count", len(pm.peers.peers))
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, signs := range pbSignSet {
 		peer.AsyncSendSign(signs)
@@ -1195,7 +1211,7 @@ func (pm *ProtocolManager) BroadcastFruits(fruits types.Fruits) {
 		for _, peer := range peers {
 			fruitset[peer] = append(fruitset[peer], fruit)
 		}
-		log.Debug("Broadcast fruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "recipients", len(peers), "hash", fruit.Hash())
+		log.Trace("Broadcast fruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "recipients", len(peers), "hash", fruit.Hash())
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, fruits := range fruitset {
@@ -1223,7 +1239,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		case signEvent := <-pm.pbSignsCh:
 			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
 			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
-			pm.BroadcastPbSign([]*types.PbftSign{signEvent.PbftSign})
+			//pm.BroadcastPbSign(signEvent.Block.Signs())
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
 
 			// Err() channel will be closed when unsubscribing.

@@ -38,7 +38,7 @@ var (
 
 const (
 	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownSigns       = 1024  // Maximum signs to keep in the known list
+	maxKnownSigns       = 32768 // Maximum signs to keep in the known list
 	maxKnownNodeInfo    = 1024  // Maximum node info to keep in the known list
 	maxKnownFruits      = 1024  // Maximum fruits hashes to keep in the known list (prevent DOS)
 	maxKnownSnailBlocks = 1024  // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
@@ -526,7 +526,7 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
 	if isFastchain {
 		p.Log().Debug("Fetching batch of headers  GetFastBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+		return p2p.Send(p.rw, GetFastOneBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
 	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})

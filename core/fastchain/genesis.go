@@ -195,7 +195,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return g.Config
 	case ghash == params.MainnetGenesisHash:
 		return params.MainnetChainConfig
-	case ghash == params.TestnetGenesisHash:
+	case ghash == params.TestnetGenesisFHash:
 		return params.TestnetChainConfig
 	default:
 		return params.AllEthashProtocolChanges
@@ -302,17 +302,22 @@ func DefaultGenesisBlock() *Genesis {
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
 func DefaultTestnetGenesisBlock() *Genesis {
-	//i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	// amount, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	return &Genesis{
 		Config:    params.TestnetChainConfig,
 		Nonce:     66,
 		ExtraData: nil,
 		//hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535")
-		GasLimit:   22020096,
-		Difficulty: big.NewInt(256),
+		GasLimit:   20971520,
+		Difficulty: big.NewInt(8192),
+		Timestamp:	1537891200,
+		Coinbase: 	common.HexToAddress("0x0000000000000000000000000000000000000000"),
+		Mixhash: 	common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		Alloc: map[common.Address]types.GenesisAccount{
+			// common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: amount},
+			// common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: amount},
 		},
-		//Coinbase: common.HexToAddress("0x0000000000000000000000000000000000000000"),
 	}
 }
 

@@ -38,10 +38,10 @@ import (
 const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	//recordChanSize = 100
-	fastBlockChanSize = 100
-	fruitChanSize     = 100
+	fastBlockChanSize = 1024
+	fruitChanSize     = 1024
 
-	fastchainHeadChanSize = 100
+	fastchainHeadChanSize = 1024
 )
 
 // freshFruitSize is the freshness of fruit according to the paper
@@ -271,6 +271,19 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	return nil
 }
 
+
+func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
+	if rst := f1.FruitDifficulty().Cmp(f2.FruitDifficulty()); rst < 0 {
+		return -1
+	} else if rst == 0 {
+		if f1.Hash().Big().Cmp(f2.Hash().Big()) >= 0 {
+			return -1
+		}
+	}
+
+	return 1
+}
+
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	//if the new fruit's fbnumber less than,don't add
@@ -293,13 +306,14 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		}
 		pool.allFruits[fruit.FastHash()] = fruit
 		// now can't confirm
-		log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
+		log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "hash", fruit.Hash(), "fHash", fruit.FastHash())
 		go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		return nil
 	}
 	//judge is the fb exist
 	fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
 	if fb == nil {
+		log.Info("addFruit get block failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "fHash", fruit.FastHash())
 		return ErrNotExist
 	}
 
@@ -309,7 +323,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		log.Info("add fruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
-	log.Info("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
+	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
@@ -320,12 +334,12 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			}
 			pool.allFruits[fruit.FastHash()] = fruit
 			pool.fruitPending[fruit.FastHash()] = fruit
-			log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
+			log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "hash", fruit.Hash())
 			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		} else {
 			pool.allFruits[fruit.FastHash()] = fruit
 			pool.fruitPending[fruit.FastHash()] = fruit
-			log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty())
+			log.Debug("addFruit send fruit feed", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "hash", fruit.Hash())
 			go pool.fruitFeed.Send(snailchain.NewFruitsEvent{types.SnailBlocks{fruit}})
 		}
 	} else {
@@ -365,6 +379,8 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
+	log.Debug("addFastBlock", "fast", fastBlock.Number(), "hash", fastBlock.Hash())
+
 	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
 	//check fruit already exist
 	if _, ok := pool.fruitPending[fastBlock.Hash()]; ok {
@@ -378,7 +394,6 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	}
 
 	// TODO: check sign numbers
-
 	pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
 
 	go pool.fastBlockFeed.Send(snailchain.NewFastBlocksEvent{types.Blocks{fastBlock}})
@@ -419,7 +434,8 @@ func (pool *SnailPool) loop() {
 
 		case ev := <-pool.fastchainHeadCh:
 			if ev.Block != nil {
-				pool.addFastBlock(ev.Block)
+				pool.AddRemoteFastBlock([]*types.Block{ev.Block})
+				//pool.addFastBlock(ev.Block)
 			}
 
 		case fruit := <-pool.newFruitCh:
@@ -490,7 +506,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	maxFbNumber := fruits[len(fruits)-1].FastNumber()
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1{
-			log.Debug(" removeWithLock del fruit","fb number",fruit.FastNumber())
+			log.Trace(" removeWithLock del fruit","fb number",fruit.FastNumber())
 			delete(pool.fruitPending, fruit.FastHash())
 			delete(pool.allFruits, fruit.FastHash())
 			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
@@ -501,7 +517,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	}
 	for _, fastblcok := range pool.allFastBlocks {
 		if fastblcok.Number().Cmp(maxFbNumber) < 1{
-			log.Debug(" removeWithLock del fastblcok","fb number",fastblcok.Number())
+			log.Trace(" removeWithLock del fastblcok","fb number",fastblcok.Number())
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fastblcok.Hash())
 			delete(pool.allFastBlocks,  fastblcok.Hash())
 		}
@@ -635,7 +651,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	errs := make([]error, len(fruits))
 
 	for i, fruit := range fruits {
-		log.Debug("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
+		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
 			log.Info("AddRemoteFruits validate fruit failed", "err", err)
 			errs[i] = err
@@ -761,11 +777,12 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return nil
 	}
 
+	/*
 	header := fruit.Header()
 	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
 		log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 		return err
-	}
+	}*/
 
 	return nil
 }

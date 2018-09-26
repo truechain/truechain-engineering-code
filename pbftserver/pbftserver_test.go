@@ -45,13 +45,13 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	return types.NewBlock(header, nil, nil, nil), nil
 }
-func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
+func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
 	//if rand.Intn(100) > 50 {
 	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
+	return new(types.PbftSign), nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
@@ -143,6 +143,15 @@ func addServer2(id int, agent *PbftAgentProxyImp) *PbftServerMgr {
 }
 
 func TestPbftServerTemp(t *testing.T) {
+	b := types.NewBlock(&types.Header{GasLimit: 1}, nil, nil, nil)
+	s := new(types.PbftSign)
+	c := make([]*types.PbftSign, 0)
+	c = append(c, s)
+	b.SetSign(c)
+
+	fmt.Println(b)
+	return
+
 	for {
 		fmt.Println(rand.Intn(100) > 70)
 
@@ -155,20 +164,20 @@ func TestPbftServerTemp(t *testing.T) {
 	fmt.Println(a)
 	return
 
-	s := []int{1, 2, 3}
-
-	fmt.Println(s[1:])
-
-	for i := len(s) - 1; i >= 0; i-- {
-		if i != 0 {
-			z := append(s[:i], s[i+1:]...)
-			fmt.Println(i, z)
-		} else {
-			z := s[1:]
-			fmt.Println(i, z)
-		}
-
-	}
+	//s := []int{1, 2, 3}
+	//
+	//fmt.Println(s[1:])
+	//
+	//for i := len(s) - 1; i >= 0; i-- {
+	//	if i != 0 {
+	//		z := append(s[:i], s[i+1:]...)
+	//		fmt.Println(i, z)
+	//	} else {
+	//		z := s[1:]
+	//		fmt.Println(i, z)
+	//	}
+	//
+	//}
 }
 
 func TestPbftServerStart(t *testing.T) {

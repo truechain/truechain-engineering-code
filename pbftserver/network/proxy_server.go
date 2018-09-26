@@ -51,9 +51,9 @@ start:
 	}
 
 	lock.PSLog("states count:", len(node.States))
-	for k, v := range node.States {
-		lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
-	}
+	//for k, v := range node.States {
+	//	//lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
+	//}
 	lock.PSLog("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
 	lock.Lock.Unlock()
 	time.Sleep(time.Second * 10)

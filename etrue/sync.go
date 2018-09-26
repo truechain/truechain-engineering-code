@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"math/big"
 )
 
 const (
@@ -259,6 +260,7 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
+	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
 		return
 	}
@@ -269,6 +271,28 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
+
+		header,err := pm.fdownloader.FetchHeight(peer.id);
+		if err!=nil{
+			return
+		}
+
+		if  header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
+
+			fbNum := pm.blockchain.CurrentBlock().NumberU64()
+			height := header.Number.Uint64() - fbNum
+			log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"currentNum",fbNum)
+
+			if height >0{
+
+				err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+				//time.Sleep(1*time.Second)
+				if err != nil {
+					log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+					return
+				}
+			}
+		}
 		return
 	}
 	// Otherwise try to sync with the downloader
@@ -293,9 +317,10 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 	}
 
+	mode = downloader.FullSync
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
-		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<","err",err)
+		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
 		return
 	}
 
@@ -322,7 +347,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// scenario will most often crop up in private and hackathon networks with
 		// degenerate connectivity, but it should be healthy for the mainnet too to
 		// more reliably update peers or the local TD state.
-		log.Debug("synchronise", "number", head.Number(), "sign", head.GetLeaderSign())
+		log.Debug("synchronise", "number", head.Number(), "sign", head.GetLeaderSign() != nil)
 		go pm.BroadcastFastBlock(head, false)
 	}
 }
