@@ -42,7 +42,7 @@ var ProtocolName = "etrue"
 var ProtocolVersions = []uint{eth63, eth62}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{26, 8}
+var ProtocolLengths = []uint64{27, 8}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -76,6 +76,7 @@ const (
 	GetSnailBlockBodiesMsg  = 0x13
 	SnailBlockBodiesMsg     = 0x14
 	GetFastOneBlockHeadersMsg = 0x15
+	FastOneBlockHeadersMsg = 0x16
 
 )
 
