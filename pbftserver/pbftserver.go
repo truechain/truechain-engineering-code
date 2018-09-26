@@ -123,7 +123,7 @@ func (ss *PbftServerMgr) getBlockSigns(h uint64, signs []*types.PbftSign) *types
 	defer ss.blockLock.Unlock()
 
 	if fb, ok := ss.blocks[h]; ok {
-		fb.AppendSigns(signs)
+		fb.SetSign(signs)
 		return fb
 	}
 
