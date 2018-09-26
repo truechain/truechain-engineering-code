@@ -29,6 +29,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	//	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
+	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	//"github.com/truechain/truechain-engineering-code/core/vm"
@@ -36,7 +37,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"gopkg.in/fatih/set.v0"
 )
 
@@ -83,7 +83,7 @@ type Work struct {
 	gasPool   *core.GasPool  // available gas used to pack transactions
 
 	Block *types.SnailBlock // the new block
-	
+
 	FruitSet []*types.SnailBlock //the for fruitset
 
 	header   *types.SnailHeader
@@ -91,7 +91,7 @@ type Work struct {
 	receipts []*types.Receipt
 	fruits   []*types.SnailBlock // for the fresh
 	signs    []*types.PbftSign
-	body   *types.SnailBody
+	body     *types.SnailBody
 
 	createdAt time.Time
 }
@@ -111,8 +111,8 @@ type worker struct {
 	// update loop
 	mux *event.TypeMux
 
-	fruitCh   chan chain.NewFruitsEvent
-	fruitSub  event.Subscription // for fruit pool
+	fruitCh  chan chain.NewFruitsEvent
+	fruitSub event.Subscription // for fruit pool
 
 	fastBlockCh  chan chain.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
@@ -127,16 +127,16 @@ type worker struct {
 	recv   chan *Result
 
 	etrue     Backend
-	chain   *chain.SnailBlockChain
-	fastchain  *core.BlockChain
-	proc    chain.Validator
-	chainDb ethdb.Database
+	chain     *chain.SnailBlockChain
+	fastchain *core.BlockChain
+	proc      chain.Validator
+	chainDb   ethdb.Database
 
-	coinbase common.Address
-	extra    []byte
-	toElect   bool // for elect
-	FruitOnly  bool // only miner fruit
-	publickey   []byte// for publickey	
+	coinbase  common.Address
+	extra     []byte
+	toElect   bool   // for elect
+	FruitOnly bool   // only miner fruit
+	publickey []byte // for publickey
 
 	currentMu sync.Mutex
 	current   *Work
@@ -151,33 +151,33 @@ type worker struct {
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
 
 	// atomic status counters
-	mining int32
-	atWork int32
+	mining            int32
+	atWork            int32
 	atCommintNewWoker bool
 	FastBlockNumber   *big.Int
-} 
- 
+}
+
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, etrue Backend, mux *event.TypeMux) *worker {
 	worker := &worker{
-		config:         config,
-		engine:         engine,
-		etrue:          etrue,
-		mux:            mux,	
+		config: config,
+		engine: engine,
+		etrue:  etrue,
+		mux:    mux,
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
-		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
-		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
-		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
-		chainDb:        etrue.ChainDb(),
-		recv:           make(chan *Result, resultQueueSize),
-		//TODO need konw how to 
-		chain:          etrue.SnailBlockChain(),
-		fastchain:     etrue.BlockChain(),
-		proc:           etrue.SnailBlockChain().Validator(),
-		possibleUncles: make(map[common.Hash]*types.SnailBlock),
-		coinbase:       coinbase,
-		agents:         make(map[Agent]struct{}),
-		unconfirmed:    newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
+		fruitCh:     make(chan chain.NewFruitsEvent, txChanSize),
+		fastBlockCh: make(chan chain.NewFastBlocksEvent, txChanSize),
+		chainHeadCh: make(chan chain.ChainHeadEvent, chainHeadChanSize),
+		chainSideCh: make(chan chain.ChainSideEvent, chainSideChanSize),
+		chainDb:     etrue.ChainDb(),
+		recv:        make(chan *Result, resultQueueSize),
+		//TODO need konw how to
+		chain:           etrue.SnailBlockChain(),
+		fastchain:       etrue.BlockChain(),
+		proc:            etrue.SnailBlockChain().Validator(),
+		possibleUncles:  make(map[common.Hash]*types.SnailBlock),
+		coinbase:        coinbase,
+		agents:          make(map[Agent]struct{}),
+		unconfirmed:     newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
 		FastBlockNumber: big.NewInt(0),
 	}
 	//worker.txsSub = etrue.TxPool().SubscribeNewTxsEvent(worker.txsCh)
@@ -204,7 +204,7 @@ func (self *worker) setEtherbase(addr common.Address) {
 
 func (self *worker) setElection(toElect bool, pubkey []byte) {
 	self.mu.Lock()
-	defer  self.mu.Unlock()
+	defer self.mu.Unlock()
 
 	self.toElect = toElect
 	self.publickey = make([]byte, len(pubkey))
@@ -213,11 +213,10 @@ func (self *worker) setElection(toElect bool, pubkey []byte) {
 
 func (self *worker) SetFruitOnly(FruitOnly bool) {
 	self.mu.Lock()
-	defer  self.mu.Unlock()
+	defer self.mu.Unlock()
 
 	self.FruitOnly = FruitOnly
 }
-
 
 func (self *worker) setExtra(extra []byte) {
 	self.mu.Lock()
@@ -231,12 +230,12 @@ func (self *worker) pending() (*types.Block, *state.StateDB) {
 		self.snapshotMu.RLock()
 		defer self.snapshotMu.RUnlock()
 		//return self.snapshotBlock, self.snapshotState.Copy()
-		return nil,nil
+		return nil, nil
 	}
 
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
-	return nil,nil
+	return nil, nil
 	//return self.current.Block, self.current.state.Copy()
 }
 
@@ -269,7 +268,6 @@ func (self *worker) pendingBlock() *types.Block {
 	return nil
 }
 
-
 func (self *worker) pendingSnailBlock() *types.SnailBlock {
 	if atomic.LoadInt32(&self.mining) == 0 {
 		// return a snapshot to avoid contention on currentMu mutex
@@ -282,7 +280,6 @@ func (self *worker) pendingSnailBlock() *types.SnailBlock {
 	defer self.currentMu.Unlock()
 	return self.current.Block
 }
-
 
 func (self *worker) start() {
 	self.mu.Lock()
@@ -309,7 +306,7 @@ func (self *worker) stop() {
 	self.atCommintNewWoker = false
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.atWork, 0)
-	
+
 }
 
 func (self *worker) register(agent Agent) {
@@ -340,45 +337,45 @@ func (self *worker) update() {
 		case <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  chainHeadCh")
-				if atomic.LoadInt32(&self.mining) == 1{
+				if atomic.LoadInt32(&self.mining) == 1 {
 					self.commitNewWork()
 				}
-				
+
 			}
 
-		// Handle ChainSideEvent
+			// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
 			log.Info("chain slide", "number", ev.Block.Number(), "hash", ev.Block.Hash())
 			//self.uncleMu.Lock()
 			//self.possibleUncles[ev.Block.Hash()] = ev.Block
 			//self.uncleMu.Unlock()
 
-		//TODO　fruit event
+			//TODO　fruit event
 		case <-self.fruitCh:
 			//log.Info("----------------start commit new work  fruitCh")
 			// if only fruit only not need care about fruit event
 			if !self.atCommintNewWoker && !self.FruitOnly {
 				// after get the fruit event should star mining if have not mining
 				log.Info("star commit new work  fruitCh")
-				
-				if atomic.LoadInt32(&self.mining) == 1{
+
+				if atomic.LoadInt32(&self.mining) == 1 {
 					self.commitNewWork()
-				}	
+				}
 			}
-		case  <-self.fastBlockCh:
+		case <-self.fastBlockCh:
 			log.Info("------------start commit new work  fastBlockCh")
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  fastBlockCh")
-				if atomic.LoadInt32(&self.mining) == 1{
+				if atomic.LoadInt32(&self.mining) == 1 {
 					self.commitNewWork()
 				}
-			}else{
+			} else {
 				log.Info("------------start commit new work  true?????")
 			}
 
-		// TODO fast block event
+			// TODO fast block event
 		case <-self.fastBlockSub.Err():
-			
+
 			return
 		case <-self.fruitSub.Err():
 			return
@@ -412,18 +409,18 @@ func (self *worker) wait() {
 				}
 
 				//log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
-				
-				// add fruit once 
-				if self.FastBlockNumber != nil{
-					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
-						log.Info("🍒  ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+
+				// add fruit once
+				if self.FastBlockNumber != nil {
+					if self.FastBlockNumber.Cmp(block.FastNumber()) != 0 {
+						log.Info("🍒  ----mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						//log.Info("not same fruits")
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
 					}
-				}else{
-					log.Info("🍒 ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+				} else {
+					log.Info("🍒 ----mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -433,24 +430,24 @@ func (self *worker) wait() {
 				self.FastBlockNumber.SetUint64(block.FastNumber().Uint64())
 
 				// only have fast block not fruits we need commit new work
-				if self.current.fruits == nil{
+				if self.current.fruits == nil {
 					self.atCommintNewWoker = false
 				}
 			} else {
-				if block.Fruits() == nil{
+				if block.Fruits() == nil {
 					self.atCommintNewWoker = false
 					continue
 				}
 
 				fruits := block.Fruits()
-				log.Info("+++++ mined block  ---  ","block number",block.Number(), "fruits", len(fruits), "first", fruits[0].FastNumber(), "end", fruits[len(fruits) - 1].FastNumber())
+				log.Info("+++++ mined block  ---  ", "block number", block.Number(), "fruits", len(fruits), "first", fruits[0].FastNumber(), "end", fruits[len(fruits)-1].FastNumber())
 
 				stat, err := self.chain.WriteCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
 					continue
 				}
- 
+
 				// Broadcast the block and announce chain insertion event
 				self.mux.Post(chain.NewMinedBlockEvent{Block: block})
 				var (
@@ -501,9 +498,9 @@ func (self *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHea
 	for _, ancestor := range self.chain.GetBlocksFromHash(parent.Hash(), 7) {
 		//TODO need add snail uncles 20180804
 		/*
-		for _, uncle := range ancestor.Uncles() {
-			work.family.Add(uncle.Hash())
-		}
+			for _, uncle := range ancestor.Uncles() {
+				work.family.Add(uncle.Hash())
+			}
 		*/
 		work.family.Add(ancestor.Hash())
 		work.ancestors.Add(ancestor.Hash())
@@ -516,7 +513,6 @@ func (self *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHea
 	return nil
 }
 
-
 // TODO: if there are no fast blocks and fruits, can't mine a new snail block or fruit
 func (self *worker) commitNewWork() {
 	self.mu.Lock()
@@ -525,12 +521,12 @@ func (self *worker) commitNewWork() {
 	defer self.uncleMu.Unlock()
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
-	
+
 	tstart := time.Now()
 	parent := self.chain.CurrentBlock()
-	self.atCommintNewWoker  = true
-	
-	//can not start miner when  fruits and fast block 
+	self.atCommintNewWoker = true
+
+	//can not start miner when  fruits and fast block
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
@@ -545,14 +541,14 @@ func (self *worker) commitNewWork() {
 	num := parent.Number()
 	//TODO need add more struct member
 	header := &types.SnailHeader{
-		ParentHash:  parent.Hash(),
-		ToElect:	 self.toElect,
-		Publickey:   self.publickey,
-		Number:      num.Add(num, common.Big1),
-		Extra:       self.extra,
-		Time:        big.NewInt(tstamp),
+		ParentHash: parent.Hash(),
+		ToElect:    self.toElect,
+		Publickey:  self.publickey,
+		Number:     num.Add(num, common.Big1),
+		Extra:      self.extra,
+		Time:       big.NewInt(tstamp),
 	}
-	
+
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
@@ -575,7 +571,7 @@ func (self *worker) commitNewWork() {
 	err := self.makeCurrent(parent, header)
 	if err != nil {
 		log.Error("Failed to create mining context", "err", err)
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
 	// Create the current work task and check any fork transitions needed
@@ -586,38 +582,38 @@ func (self *worker) commitNewWork() {
 
 	fastblock, errFb := self.etrue.SnailPool().PendingFastBlocks()
 	if errFb != nil {
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
 
 	fruits, errFruit := self.etrue.SnailPool().PendingFruits()
 	if errFruit != nil {
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
 
 	// only miner fruit if not fruit set only miner the fruit
 	if self.FruitOnly {
-		fruits = nil 
+		fruits = nil
 	}
 
-	if fastblock == nil && fruits == nil{
+	if fastblock == nil && fruits == nil {
 		log.Info("__commit new work no fruits and fast block not start miner")
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
 
-	if fastblock != nil{
+	if fastblock != nil {
 		self.commitFastBlocks(fastblock)
 	}
-	
+
 	// commit fruits make sure it is correct
-	if fruits != nil{
+	if fruits != nil {
 		work.commitFruits(fruits, self.chain, self.engine)
 	}
 
 	if work.fruits != nil {
-		log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
+		log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits)-1].FastNumber())
 	}
 
 	// Set the pointerHash
@@ -631,21 +627,21 @@ func (self *worker) commitNewWork() {
 
 	if err := self.engine.PrepareSnail(self.fastchain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
-	
+
 	// set work block
 	work.Block = types.NewSnailBlock(
 		self.current.header,
 		self.current.fruits,
 		self.current.signs,
-		nil, 
+		nil,
 	)
 
-	if self.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && self.current.Block.Fruits() == nil{
+	if self.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && self.current.Block.Fruits() == nil {
 		log.Info("__commit new work have not fruits and fast block do not start miner  again")
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
 
@@ -656,7 +652,7 @@ func (self *worker) commitNewWork() {
 	)
 	for hash, uncle := range self.possibleUncles {
 		if len(uncles) == 2 {
-			
+
 			break
 		}
 		if err := self.commitUncle(work, uncle.Header()); err != nil {
@@ -676,7 +672,7 @@ func (self *worker) commitNewWork() {
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, uncles, work.fruits, work.signs); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
-		self.atCommintNewWoker  = false
+		self.atCommintNewWoker = false
 		return
 	}
 
@@ -685,7 +681,7 @@ func (self *worker) commitNewWork() {
 		log.Info("____Commit new mining work", "number", work.Block.Number(), "txs", len(work.txs), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
-	
+
 	self.push(work)
 	self.updateSnapshot()
 }
@@ -719,7 +715,6 @@ func (self *worker) updateSnapshot() {
 	//self.snapshotState = self.current.state.Copy()
 }
 
-
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
 	err := engine.VerifyFreshness(fruit, env.Block)
@@ -731,9 +726,8 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 	return nil
 }
 
-
 // TODO: check fruits continue with last snail block
-// find all fruits and start to the last parent fruits number and end continue fruit list 
+// find all fruits and start to the last parent fruits number and end continue fruit list
 func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
@@ -742,7 +736,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	fs := parent.Fruits()
 
 	if len(fs) > 0 {
-		currentFastNumber = fs[len(fs) - 1].FastNumber()
+		currentFastNumber = fs[len(fs)-1].FastNumber()
 	} else {
 		// genesis block
 		currentFastNumber = new(big.Int).Set(common.Big0)
@@ -772,28 +766,28 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 }
 
 // find a corect fast block to miner
-func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
+func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error {
 
-	if atomic.LoadInt32(&self.mining) == 0{
+	if atomic.LoadInt32(&self.mining) == 0 {
 		return nil
 	}
 
-	if fastBlocks == nil{
+	if fastBlocks == nil {
 		return core.ErrNoFastBlockToMiner
 	}
-	
+
 	var fastBlock *types.Block
-	for _ , fb := range fastBlocks {
-		if self.FastBlockNumber.Uint64() == 0{
+	for _, fb := range fastBlocks {
+		if self.FastBlockNumber.Uint64() == 0 {
 			log.Info("1")
 			self.FastBlockNumber = new(big.Int).Set(common.Big0)
-			//self.FastBlockNumber.SetUint64(fb.NumberU64()) 
+			//self.FastBlockNumber.SetUint64(fb.NumberU64())
 			fastBlock = fb
 			break
 		}
 
 		// this fast block has been minered but pending not update
-		if self.FastBlockNumber.Uint64() >= fb.NumberU64(){
+		if self.FastBlockNumber.Uint64() >= fb.NumberU64() {
 			continue
 		}
 		//self.FastBlockNumber.SetUint64(fb.NumberU64())
@@ -801,16 +795,18 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 		break
 	}
 
-	if fastBlock != nil{
+	if fastBlock != nil {
 		self.current.header.FastNumber = fastBlock.Number()
 		self.current.header.FastHash = fastBlock.Hash()
 		signs := fastBlock.Signs()
 		self.current.signs = make([]*types.PbftSign, len(signs))
+		log.Info("worker signs ", "len", len(signs), "v", fmt.Sprintf("%+v", signs))
 		for i := range signs {
+			log.Info("worker signs ", "signs[i]", signs[i])
 			self.current.signs[i] = types.CopyPbftSign(signs[i])
 		}
 
-		log.Info("commitFastBlocks","fb", self.FastBlockNumber)
+		log.Info("commitFastBlocks", "fb", self.FastBlockNumber)
 	}
 	return nil
 }

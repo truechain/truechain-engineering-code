@@ -18,6 +18,7 @@ type State struct {
 	FastStage      Stage
 	BlockResults   *SignedVoteMsg
 	Clear          bool
+	MySign         *types.PbftSign
 }
 
 type MsgLogs struct {
