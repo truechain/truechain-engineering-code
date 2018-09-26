@@ -1674,6 +1674,12 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 
 func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
+
+
+	if atomic.LoadInt32(&d.synchronising) == 1{
+		return errBusy
+	}
+
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
 		if err != nil {
