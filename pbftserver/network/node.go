@@ -141,7 +141,7 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 			errorMap[nodeID] = err
 			continue
 		}
-		lock.PSLog("Broadcast", url+path, string(jsonMsg))
+		lock.PSLog("Broadcast", url+path)
 		go send(url+path, jsonMsg)
 
 	}
