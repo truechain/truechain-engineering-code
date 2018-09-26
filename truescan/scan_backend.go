@@ -3,6 +3,7 @@ package truescan
 import (
 	"encoding/hex"
 	"strconv"
+	"sync"
 
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -32,6 +33,11 @@ type TrueScan struct {
 	stateChangeSub    event.Subscription
 	redisClient       *RedisClient
 	quit              chan struct{}
+
+	viewNow         uint64
+	viewStartNumber uint64
+	viewEndNumber   uint64
+	viewMutex       sync.Mutex
 }
 
 // New function return a TrueScan message processing client
@@ -150,25 +156,31 @@ func (ts *TrueScan) electionHandleLoop() error {
 	}
 }
 func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
-	bfn := ee.BeginFastNumber
-	if bfn == nil {
-		return
+	viewNumber := ee.CommitteeID.Uint64()
+	bfn := ee.BeginFastNumber.Uint64()
+	var efn uint64
+	if ee.EndFastNumber != nil {
+		efn = ee.EndFastNumber.Uint64()
+	} else {
+		efn = 0
 	}
-	efn := ee.EndFastNumber
+	ts.viewMutex.Lock()
+	if ts.viewNow < viewNumber || ts.viewEndNumber < efn {
+		ts.viewNow = viewNumber
+		ts.viewStartNumber = bfn
+		ts.viewEndNumber = efn
+	}
+	ts.viewMutex.Unlock()
 	members := ee.CommitteeMembers
 	mas := make([]string, len(members))
 	for i, member := range members {
 		mas[i] = member.Coinbase.String()
 	}
 	cvm := &ChangeViewMsg{
-		ViewNumber:      ee.CommitteeID.Uint64(),
+		ViewNumber:      viewNumber,
 		Members:         mas,
-		BeginFastNumber: bfn.Uint64(),
-	}
-	if efn != nil {
-		cvm.EndFastNumber = efn.Uint64()
-	} else {
-		cvm.EndFastNumber = 0
+		BeginFastNumber: bfn,
+		EndFastNumber:   efn,
 	}
 	ts.redisClient.ChangeView(cvm)
 }
@@ -272,6 +284,7 @@ func (ts *TrueScan) handleFastChain(fbe core.FastBlockEvent) {
 		GasUsed:    block.GasUsed(),
 		Timestamp:  block.Time().Uint64(),
 	}
+	fbm.ViewNumber = ts.getViewNumber(block.NumberU64())
 	txs := block.Transactions()
 	ftms := make([]*FullTransactionMsg, len(txs))
 	for i, tx := range txs {
@@ -323,6 +336,17 @@ func (ts *TrueScan) loop() error {
 			return errTerminated
 		}
 	}
+}
+
+func (ts *TrueScan) getViewNumber(height uint64) uint64 {
+	ts.viewMutex.Lock()
+	defer ts.viewMutex.Unlock()
+	if height < ts.viewStartNumber {
+		return ts.viewNow - 1
+	} else if ts.viewEndNumber == 0 || height <= ts.viewEndNumber {
+		return ts.viewNow
+	}
+	return ts.viewNow + 1
 }
 
 // Stop TrueScan message processing client

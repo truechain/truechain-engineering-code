@@ -17,29 +17,35 @@ var writeChanSize = 16
 // RedisClient is used only at specific nodes, which needs to push messages to redis services.
 // Now mainly provide service for TrueScan.
 type RedisClient struct {
-	id          int
-	serverAddr  string
-	c           redis.Conn
-	msgCh       chan string
-	writeCh     chan [2]string
-	fastHeight  uint64
-	fruitHeight uint64
-	snailHeight uint64
-	txsCount    uint64
-	viewNumber  uint64
+	id         int
+	serverAddr string
+	c          redis.Conn
+	msgCh      chan string
+	writeCh    chan string
+	basicData  *basicData
+}
+
+type basicData struct {
+	FastHeight  uint64 `json:"fastHeight"`
+	FruitHeight uint64 `json:"fruitHeight"`
+	SnailHeight uint64 `json:"snailHeight"`
+	TxsCount    uint64 `json:"txsCount"`
+	ViewNumber  uint64 `json:"viewNumber"`
 }
 
 // NewRedisClient returns a redis client with scheduled message sending interface.
 func NewRedisClient(config *Config) (*RedisClient, error) {
 	redisServerAddr := config.RedisHost + ":" + strconv.Itoa(config.RedisPort)
 	rc := &RedisClient{
-		id:          config.ChannelID,
-		serverAddr:  redisServerAddr,
-		fastHeight:  0,
-		fruitHeight: 0,
-		snailHeight: 0,
-		txsCount:    0,
-		viewNumber:  0,
+		id:         config.ChannelID,
+		serverAddr: redisServerAddr,
+	}
+	rc.basicData = &basicData{
+		FastHeight:  0,
+		FruitHeight: 0,
+		SnailHeight: 0,
+		TxsCount:    0,
+		ViewNumber:  0,
 	}
 	const healthCheckPeriod = time.Minute
 	c, err := redis.Dial("tcp", redisServerAddr,
@@ -53,7 +59,7 @@ func NewRedisClient(config *Config) (*RedisClient, error) {
 	log.RedisLog("Redis client start", "touch", redisServerAddr, "channel", config.ChannelID)
 	rc.c = c
 	rc.msgCh = make(chan string, msgChanSize)
-	rc.writeCh = make(chan [2]string, writeChanSize)
+	rc.writeCh = make(chan string, writeChanSize)
 	return rc, nil
 }
 
@@ -70,8 +76,12 @@ func (rc *RedisClient) publish(channel string, message string) error {
 	return err
 }
 
-func (rc *RedisClient) set(key string, value string) error {
-	_, err := rc.c.Do("SET", key, value)
+func (rc *RedisClient) updateBasicData() error {
+	data, err := json.Marshal(rc.basicData)
+	if err != nil {
+		return err
+	}
+	_, err = rc.c.Do("SET", "basicData"+":"+strconv.Itoa(rc.id), data)
 	return err
 }
 
@@ -88,7 +98,9 @@ func (rc *RedisClient) msgSendLoop() {
 			if !ok {
 				return
 			}
-			rc.set(msg[0], msg[1])
+			if msg == "update" {
+				rc.updateBasicData()
+			}
 		}
 	}
 }
@@ -115,11 +127,8 @@ func (rc *RedisClient) PendingTransaction(ptm *TransactionMsg) error {
 	}
 	start := `{"type":"pendingTransaction","data":`
 	end := `}`
-	rc.txsCount++
-	rc.writeCh <- [2]string{
-		"txsCount",
-		strconv.Itoa(int(rc.txsCount)),
-	}
+	rc.basicData.TxsCount++
+	rc.writeCh <- "update"
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit PendingTransaction")
 	return err
@@ -134,11 +143,8 @@ func (rc *RedisClient) RemoveTransaction(rtm *RemoveTxMsg) error {
 	}
 	start := `{"type":"removeTransaction","data":`
 	end := `}`
-	rc.txsCount--
-	rc.writeCh <- [2]string{
-		"txsCount",
-		strconv.Itoa(int(rc.txsCount)),
-	}
+	rc.basicData.TxsCount--
+	rc.writeCh <- "update"
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit RemoveTransaction")
 	return err
@@ -153,12 +159,9 @@ func (rc *RedisClient) NewFastBlockHeader(fbm *FastBlockHeaderMsg) error {
 	}
 	start := `{"type":"newFastBlockHeader","data":`
 	end := `}`
-	if fbm.Number > rc.fastHeight {
-		rc.fastHeight = fbm.Number
-		rc.writeCh <- [2]string{
-			"fastHeight",
-			strconv.Itoa(int(fbm.Number)),
-		}
+	if fbm.Number > rc.basicData.FastHeight {
+		rc.basicData.FastHeight = fbm.Number
+		rc.writeCh <- "update"
 	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit NewFastBlockHeader")
@@ -205,19 +208,13 @@ func (rc *RedisClient) NewSnailBlockHeader(sbm *SnailBlockHeaderMsg) error {
 	}
 	start := `{"type":"newSnailBlockHeader","data":`
 	end := `}`
-	if sbm.Number > rc.snailHeight {
-		rc.snailHeight = sbm.Number
-		rc.writeCh <- [2]string{
-			"snailHeight",
-			strconv.Itoa(int(sbm.Number)),
-		}
+	if sbm.Number > rc.basicData.SnailHeight {
+		rc.basicData.SnailHeight = sbm.Number
+		rc.writeCh <- "update"
 	}
-	if sbm.EndFruitNumber > rc.fruitHeight {
-		rc.fruitHeight = sbm.EndFruitNumber
-		rc.writeCh <- [2]string{
-			"fruitHeight",
-			strconv.Itoa(int(sbm.EndFruitNumber)),
-		}
+	if sbm.EndFruitNumber > rc.basicData.FruitHeight {
+		rc.basicData.FruitHeight = sbm.EndFruitNumber
+		rc.writeCh <- "update"
 	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit NewSnailBlockHeader")
@@ -276,12 +273,9 @@ func (rc *RedisClient) ChangeView(cvm *ChangeViewMsg) error {
 	}
 	start := `{"type":"changeView","data":`
 	end := `}`
-	if cvm.EndFastNumber == 0 && cvm.ViewNumber > rc.viewNumber {
-		rc.viewNumber = cvm.ViewNumber
-		rc.writeCh <- [2]string{
-			"viewNumber",
-			strconv.Itoa(int(cvm.ViewNumber)),
-		}
+	if cvm.EndFastNumber == 0 && cvm.ViewNumber > rc.basicData.ViewNumber {
+		rc.basicData.ViewNumber = cvm.ViewNumber
+		rc.writeCh <- "update"
 	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit ChangeView")

@@ -57,6 +57,7 @@ type FastBlockHeaderMsg struct {
 	GasLimit   uint64                `json:"gasLimit"`
 	GasUsed    uint64                `json:"gasUsed"`
 	Timestamp  uint64                `json:"timestamp"`
+	ViewNumber uint64                `json:"viewNumber"`
 	Txs        []*FullTransactionMsg `json:"txs"`
 }
 
