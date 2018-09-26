@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"sync"
 	"time"
@@ -18,6 +17,7 @@ type State struct {
 	FastStage      Stage
 	BlockResults   *SignedVoteMsg
 	Clear          bool
+	MySign         *types.PbftSign
 }
 
 type MsgLogs struct {
@@ -199,7 +199,7 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 }
 
 func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
-	lock.PSLog("Prepare in")
+	//lock.PSLog("Prepare in")
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
 	}
@@ -209,9 +209,9 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 
 	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
-	log.Debug("Prepare ", "count", f)
+	//log.Debug("Prepare ", "count", f)
 	if state.prepared(f) {
-		log.Debug("Prepare ok", "count", f)
+		//log.Debug("Prepare ok", "count", f)
 		//// Change the stage to prepared.
 		//state.CurrentStage = Prepared
 
@@ -239,9 +239,9 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
 
 	// Print current voting status
-	log.Debug("Commit ", "count", f)
+	//log.Debug("Commit ", "count", f)
 	if state.committed(f) {
-		log.Debug("Commit ok", "count", f)
+		//log.Debug("Commit ok", "count", f)
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 

@@ -213,6 +213,9 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 
 	if msg.ViewID == CurrentState.ViewID {
 		signs := CurrentState.MsgLogs.GetCommitMsgsSigns()
+		//fmt.Println("----------------------------------------pbft signs len", len(signs))
+		signs = append(signs, CurrentState.MySign)
+		//fmt.Println("----------------------------------------pbft signs my", CurrentState.MySign)
 		node.Verify.ReplyResult(CurrentState.MsgLogs.ReqMsg, signs, res)
 	} else {
 		// wrong state
@@ -222,7 +225,7 @@ func (node *Node) ReplyResult(msgHeight int64) {
 	go node.Finish.ConsensusFinish()
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
-	lock.PSLog("node Reply", fmt.Sprintf("%+v", msg))
+	lock.PSLog("node Reply", msg.Height)
 	node.handleResult(msg)
 	go func() {
 		node.FinishChan <- msg.Height
@@ -233,7 +236,7 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 // GetReq can be called when the node's CurrentState is nil.
 // Consensus start procedure for the Primary.
 func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
-	lock.PSLog("node GetReq", fmt.Sprintf("%+v", reqMsg))
+	lock.PSLog("node GetReq", reqMsg.Height)
 
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(reqMsg.Height)
@@ -322,7 +325,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	node.PrePareLock.Lock()
 	defer node.PrePareLock.Unlock()
-	lock.PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
+	lock.PSLog("node GetPrepare", prepareMsg.Height)
 	node.NTLock.Lock()
 	f := len(node.NodeTable) / 3
 	node.NTLock.Unlock()
@@ -345,12 +348,13 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
 			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
+			commitMsg.Signs = node.GetStatus(commitMsg.Height).MySign
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
 
 		sign, res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
-
+		//fmt.Println("---------------------------------------1,sign == nil", sign == nil, "res=nil", res == nil)
 		if res != nil && res == types.ErrHeightNotYet {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
@@ -361,6 +365,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 				result = types.VoteAgree
 			}
 
+			//fmt.Println("---------------------------------------,sign == nil", sign == nil, "res=nil", res == nil)
+			CurrentState.MySign = sign
 			lock.PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 			commitMsg.Signs = sign
@@ -403,6 +409,9 @@ func (node *Node) processCommitWaitMessageQueue() {
 							msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 							state.BlockResults = msgSend.Pass
 						}
+						if msgSend.Signs == nil && state.MySign != nil {
+							msgSend.Signs = state.MySign
+						}
 						node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					}
 				}
@@ -425,6 +434,8 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	if state == nil {
 		return nil
 	}
+
+	//fmt.Println("_-----------------------------------------------------sings", commitMsg.Signs)
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
 	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
@@ -632,6 +643,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
+					if msgSend.Signs == nil && state.MySign != nil {
+						msgSend.Signs = state.MySign
+					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
 			} else if v.MsgType == consensus.PrepareMsg {
@@ -662,6 +676,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 					if msgSend.Pass == nil {
 						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
+					}
+					if msgSend.Signs == nil && state.MySign != nil {
+						msgSend.Signs = state.MySign
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
@@ -885,7 +902,7 @@ func (node *Node) resolveCommitMsg(msgs []*consensus.VoteMsg) []error {
 
 	// Resolve messages
 	for _, commitMsg := range msgs {
-		lock.PSLog("node resolveCommitMsg", fmt.Sprintf("%+v", commitMsg))
+		lock.PSLog("node resolveCommitMsg", commitMsg.Height)
 		err := node.GetCommit(commitMsg)
 		if err != nil {
 			errs = append(errs, err)

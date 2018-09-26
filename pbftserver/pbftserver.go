@@ -123,7 +123,7 @@ func (ss *PbftServerMgr) getBlockSigns(h uint64, signs []*types.PbftSign) *types
 	defer ss.blockLock.Unlock()
 
 	if fb, ok := ss.blocks[h]; ok {
-		fb.Body().Signs = append(make([]*types.PbftSign, 0), signs...)
+		fb.SetSign(signs)
 		return fb
 	}
 
@@ -303,7 +303,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (*types.PbftSign, e
 	}
 	lock.PSLog("AGENT", "VerifyFastBlock", "start")
 	sign, err := ss.Agent.VerifyFastBlock(block)
-	lock.PSLog("AGENT", "VerifyFastBlock", err == nil, "end")
+	lock.PSLog("AGENT", "VerifyFastBlock", sign == nil, err == nil, "end")
 	if err != nil {
 		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())
 		return nil, err
