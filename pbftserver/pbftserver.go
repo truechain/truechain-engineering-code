@@ -303,7 +303,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (*types.PbftSign, e
 	}
 	lock.PSLog("AGENT", "VerifyFastBlock", "start")
 	sign, err := ss.Agent.VerifyFastBlock(block)
-	lock.PSLog("AGENT", "VerifyFastBlock", err == nil, "end")
+	lock.PSLog("AGENT", "VerifyFastBlock", sign == nil, err == nil, "end")
 	if err != nil {
 		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())
 		return nil, err
