@@ -7,8 +7,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"math/big"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -143,41 +143,36 @@ func addServer2(id int, agent *PbftAgentProxyImp) *PbftServerMgr {
 }
 
 func TestPbftServerTemp(t *testing.T) {
-	b := types.NewBlock(&types.Header{GasLimit: 1}, nil, nil, nil)
-	s := new(types.PbftSign)
-	c := make([]*types.PbftSign, 0)
-	c = append(c, s)
-	b.SetSign(c)
+	d := make(chan int)
 
-	fmt.Println(b)
-	return
+	msg := &consensus.MsgLogs{}
 
-	for {
-		fmt.Println(rand.Intn(100) > 70)
+	msg.SetCommitMsgs("1", nil)
+	msg.SetCommitMsgs("2", nil)
+	msg.SetCommitMsgs("3", nil)
+	msg.SetCommitMsgs("4", nil)
+	msg.SetCommitMsgs("5", nil)
+	msg.SetCommitMsgs("6", nil)
 
-	}
+	go func() {
+		for {
+			msg.GetCommitOne()
+			time.Sleep(time.Millisecond * 50)
+		}
+	}()
 
-	a := 0
-	for i := 49; i >= 0; i-- {
-		a += i
-	}
-	fmt.Println(a)
-	return
+	go func() {
+		for {
+			msg.SetCommitMsgs("1", nil)
+			msg.SetCommitMsgs("2", nil)
+			msg.SetCommitMsgs("3", nil)
+			msg.SetCommitMsgs("4", nil)
+			msg.SetCommitMsgs("5", nil)
+			msg.SetCommitMsgs("6", nil)
+		}
+	}()
 
-	//s := []int{1, 2, 3}
-	//
-	//fmt.Println(s[1:])
-	//
-	//for i := len(s) - 1; i >= 0; i-- {
-	//	if i != 0 {
-	//		z := append(s[:i], s[i+1:]...)
-	//		fmt.Println(i, z)
-	//	} else {
-	//		z := s[1:]
-	//		fmt.Println(i, z)
-	//	}
-	//
-	//}
+	<-d
 }
 
 func TestPbftServerStart(t *testing.T) {

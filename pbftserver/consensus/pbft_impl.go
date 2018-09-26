@@ -22,8 +22,8 @@ type State struct {
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
-	lockPrepare sync.Mutex
-	lockCommit  sync.Mutex
+	lockPrepare *sync.Mutex
+	lockCommit  *sync.Mutex
 	prepareMsgs map[string]*VoteMsg
 	commitMsgs  map[string]*VoteMsg
 }
@@ -136,6 +136,8 @@ func CreateState(viewID int64, lastSequenceID int64) *State {
 			ReqMsg:      nil,
 			prepareMsgs: make(map[string]*VoteMsg),
 			commitMsgs:  make(map[string]*VoteMsg),
+			lockPrepare: new(sync.Mutex),
+			lockCommit:  new(sync.Mutex),
 		},
 		LastSequenceID: lastSequenceID,
 		CurrentStage:   Idle,
