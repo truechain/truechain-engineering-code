@@ -225,7 +225,7 @@ func (node *Node) ReplyResult(msgHeight int64) {
 	go node.Finish.ConsensusFinish()
 }
 func (node *Node) Reply(msg *consensus.ReplyMsg) error {
-	lock.PSLog("node Reply", fmt.Sprintf("%+v", msg))
+	lock.PSLog("node Reply", msg.Height)
 	node.handleResult(msg)
 	go func() {
 		node.FinishChan <- msg.Height
@@ -236,7 +236,7 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 // GetReq can be called when the node's CurrentState is nil.
 // Consensus start procedure for the Primary.
 func (node *Node) GetReq(reqMsg *consensus.RequestMsg) error {
-	lock.PSLog("node GetReq", fmt.Sprintf("%+v", reqMsg))
+	lock.PSLog("node GetReq", reqMsg.Height)
 
 	// Create a new state for the new consensus.
 	err := node.createStateForNewConsensus(reqMsg.Height)
@@ -325,7 +325,7 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	node.PrePareLock.Lock()
 	defer node.PrePareLock.Unlock()
-	lock.PSLog("node GetPrepare", fmt.Sprintf("%+v", prepareMsg))
+	lock.PSLog("node GetPrepare", prepareMsg.Height)
 	node.NTLock.Lock()
 	f := len(node.NodeTable) / 3
 	node.NTLock.Unlock()
@@ -902,7 +902,7 @@ func (node *Node) resolveCommitMsg(msgs []*consensus.VoteMsg) []error {
 
 	// Resolve messages
 	for _, commitMsg := range msgs {
-		lock.PSLog("node resolveCommitMsg", fmt.Sprintf("%+v", commitMsg))
+		lock.PSLog("node resolveCommitMsg", commitMsg.Height)
 		err := node.GetCommit(commitMsg)
 		if err != nil {
 			errs = append(errs, err)
