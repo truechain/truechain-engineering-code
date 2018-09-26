@@ -818,6 +818,13 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		// Run the import on a new thread
 		f.broadcastSigns(verifySigns)
 
+		if f.getBlock(verifySigns[0].FastHash) != nil {
+			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
+			propSignDropMeter.Mark(1)
+			f.forgetBlockHeight(verifySigns[0].FastHeight)
+			return
+		}
+
 		find := false
 		for _, sign := range verifySigns {
 
@@ -842,13 +849,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 
 		if !find {
-			return
-		}
-
-		if f.getBlock(verifySigns[0].FastHash) != nil {
-			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
-			propSignDropMeter.Mark(1)
-			f.forgetBlockHeight(verifySigns[0].FastHeight)
 			return
 		}
 
