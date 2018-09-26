@@ -140,7 +140,8 @@ func (ts *TrueScan) electionHandleLoop() error {
 	for {
 		select {
 		case electionEvent := <-ts.electionCh:
-			if electionEvent.Option == types.CommitteeStart {
+			if electionEvent.Option == types.CommitteeStart ||
+				electionEvent.Option == types.CommitteeOver {
 				ts.handleElection(&electionEvent)
 			}
 		case <-ts.electionSub.Err():
@@ -153,6 +154,7 @@ func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
 	if bfn == nil {
 		return
 	}
+	efn := ee.EndFastNumber
 	members := ee.CommitteeMembers
 	mas := make([]string, len(members))
 	for i, member := range members {
@@ -162,6 +164,11 @@ func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
 		ViewNumber:      ee.CommitteeID.Uint64(),
 		Members:         mas,
 		BeginFastNumber: bfn.Uint64(),
+	}
+	if efn != nil {
+		cvm.EndFastNumber = efn.Uint64()
+	} else {
+		cvm.EndFastNumber = 0
 	}
 	ts.redisClient.ChangeView(cvm)
 }
@@ -183,13 +190,13 @@ func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
 	for i, b := range bsd.Balances {
 		balances[i] = &Account{
 			Address: b.Address.String(),
-			Value:   strconv.FormatUint(b.Balance.Uint64(), 10),
+			Value:   bytesToHex(b.Balance.Bytes()),
 		}
 	}
 	for i, r := range bsd.Rewards {
 		rewards[i] = &Account{
 			Address: r.Address.String(),
-			Value:   strconv.FormatUint(r.Balance.Uint64(), 10),
+			Value:   bytesToHex(r.Balance.Bytes()),
 		}
 	}
 	scm := &StateChangeMsg{

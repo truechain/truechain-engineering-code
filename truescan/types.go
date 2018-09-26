@@ -92,6 +92,7 @@ type ChangeViewMsg struct {
 	ViewNumber      uint64   `json:"viewNumber"`
 	Members         []string `json:"members"`
 	BeginFastNumber uint64   `json:"beginFastNumber"`
+	EndFastNumber   uint64   `json:"endFastNumber"`
 }
 
 // Account include address and value
