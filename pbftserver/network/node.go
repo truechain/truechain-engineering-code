@@ -353,7 +353,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		}
 
 		sign, res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
-
+		fmt.Println("---------------------------------------1,sign == nil", sign == nil, "res=nil", res == nil)
 		if res != nil && res == types.ErrHeightNotYet {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
@@ -364,7 +364,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 				result = types.VoteAgree
 			}
 
-			fmt.Println("---------------------------------------,sTmp == nil", sign == nil)
+			fmt.Println("---------------------------------------,sign == nil", sign == nil, "res=nil", res == nil)
 			CurrentState.MySign = sign
 			lock.PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
