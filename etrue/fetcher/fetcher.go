@@ -460,8 +460,7 @@ func (f *Fetcher) loop() {
 							}
 
 							if !finished {
-								log.Debug("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
+								log.Debug("Block come agreement", "num", number, "parent number", height, "block count", len(blocks), "sign number", len(signHashs))
 								f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
 								index = -1
 							}
@@ -977,9 +976,8 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 
 // verifyComeAgreement verify consensus and insert block.
 func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*types.PbftSign, signHashs []common.Hash) {
-	height := block.Number()
-	log.Debug("Verify come agreement", "number", height, "sign number", len(signs))
 	go func() {
+		height := block.Number()
 		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil)
 		find := f.insert(peer, inBlock, signHashs)
 		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
