@@ -364,11 +364,12 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 				result = types.VoteAgree
 			}
 
-			CurrentState.MySign = sign
-
+			sTmp := types.CopyPbftSign(sign)
+			fmt.Println("---------------------------------------,sTmp == nil", sTmp == nil)
+			CurrentState.MySign = sTmp
 			lock.PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
-			commitMsg.Signs = sign
+			commitMsg.Signs = sTmp
 			//save Pass
 			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 
