@@ -665,7 +665,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		headers = append(headers, fheader)
 		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
 
-		return p.SendFastBlockHeaders(headers)
+		return p.SendOneFastBlockHeader(headers)
 
 	case msg.Code == FastBlockHeadersMsg:
 
@@ -689,6 +689,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
+
+	case msg.Code == FastOneBlockHeadersMsg:
+
+		// A batch of headers arrived to one of our previous requests
+		var headers []*types.Header
+		if err := msg.Decode(&headers); err != nil {
+			return errResp(ErrDecode, "msg %v: %v", msg, err)
+		}
+
+		// mecMark
+		if len(headers) > 0 {
+
+			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
+			}
+		}
+		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
+
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
