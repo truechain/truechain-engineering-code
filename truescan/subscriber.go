@@ -13,11 +13,11 @@ const (
 	// txsChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	addTxChanSize       = 4096
-	removeTxChanSize    = 64
-	fastBlockChanSize   = 16
-	snailChainHeadSize  = 64
-	electionChanSize    = 64
-	stateChangeChanSize = 64
+	removeTxChanSize    = 2048
+	fastBlockChanSize   = 2048
+	snailChainHeadSize  = 2048
+	electionChanSize    = 2048
+	stateChangeChanSize = 2048
 )
 
 var (
