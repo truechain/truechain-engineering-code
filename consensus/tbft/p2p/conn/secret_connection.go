@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 
+	tcrypyo "github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"golang.org/x/crypto/hkdf"
@@ -94,7 +95,14 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 		return nil, err
 	}
 
-	remPubKey, remSignature := authSigMsg.Key, authSigMsg.Sig
+	remPubKeyBytes, remSignature := authSigMsg.Key, authSigMsg.Sig
+
+	remPubKeyEcdsa, err := tcrypyo.UnmarshalPubkey(remPubKeyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	remPubKey := crypto.PubKeyTrue(*remPubKeyEcdsa)
 	if !remPubKey.VerifyBytes(challenge[:], remSignature) {
 		return nil, errors.New("Challenge verification failed")
 	}
@@ -295,7 +303,8 @@ func signChallenge(challenge *[32]byte, locPrivKey crypto.PrivKey) (signature []
 }
 
 type authSigMessage struct {
-	Key crypto.PubKey
+	//Key crypto.PubKey
+	Key []byte
 	Sig []byte
 }
 
@@ -304,7 +313,7 @@ func shareAuthSignature(sc *SecretConnection, pubKey crypto.PubKey, signature []
 	// Send our info and receive theirs in tandem.
 	var trs, _ = help.Parallel(
 		func(_ int) (val interface{}, err error, abort bool) {
-			var _, err1 = cdc.MarshalBinaryWriter(sc, authSigMessage{pubKey, signature})
+			var _, err1 = cdc.MarshalBinaryWriter(sc, authSigMessage{pubKey.Bytes(), signature})
 			if err1 != nil {
 				return nil, err1, true // abort
 			}

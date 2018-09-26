@@ -3,6 +3,7 @@ package p2p
 import (
 	"net"
 	"sync"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // IPeerSet has a (immutable) subset of the methods of PeerSet.
@@ -42,6 +43,8 @@ func NewPeerSet() *PeerSet {
 func (ps *PeerSet) Add(peer Peer) error {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
+
+	log.Info("add peerIP ", "peerip", peer.NodeInfo().NetAddress())
 
 	if ps.lookup[peer.ID()] != nil {
 		return ErrSwitchDuplicatePeerID{peer.ID()}
@@ -101,7 +104,7 @@ func (ps *PeerSet) Get(peerKey ID) Peer {
 func (ps *PeerSet) Remove(peer Peer) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-
+	log.Info("remove peerIP ", "peerip", peer.NodeInfo().NetAddress())
 	item := ps.lookup[peer.ID()]
 	if item == nil {
 		return

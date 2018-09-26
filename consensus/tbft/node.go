@@ -15,6 +15,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
+	"encoding/json"
 )
 
 type service struct {
@@ -37,6 +38,9 @@ func (s *service) start(node *Node) error {
 		node.config.P2P.UPNP,
 		log.New("p2p"))
 	s.sw.AddListener(l)
+
+	ni,_ := json.Marshal(node.nodeinfo)
+	fmt.Printf("node.nodeInfo %v\n", string(ni))
 
 	s.sw.SetNodeInfo(node.nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
@@ -138,14 +142,19 @@ func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 
 // OnStart starts the Node. It implements help.Service.
 func (n *Node) OnStart() error {
+	fmt.Println("tempprint Node On Start")
 	err := n.eventBus.Start()
 	if err != nil {
 		return err
 	}
 
-	nodeInfo := n.makeNodeInfo()
+	n.nodeinfo = n.makeNodeInfo()
+
+	//m,_ := json.Marshal(n.nodeinfo)
+
+	//fmt.Printf("tempprint Node Info %v\n", string(m))
 	// Add ourselves to addrbook to prevent dialing ourselves
-	n.addrBook.AddOurAddress(nodeInfo.NetAddress())
+	n.addrBook.AddOurAddress(n.nodeinfo.NetAddress())
 
 	// Add private IDs to addrbook to block those peers being added
 	n.addrBook.AddPrivateIDs(help.SplitAndTrim(n.config.P2P.PrivatePeerIDs, ",", " "))
@@ -248,6 +257,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	return nil
 }
 func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
+	fmt.Println("enter PutNode")
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
@@ -265,7 +275,12 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", v.IP, v.Port)))
 		if err == nil {
-			server.sw.DialPeerWithAddress(addr, true)
+			errDialErr := server.sw.DialPeerWithAddress(addr, true)
+			if errDialErr != nil{
+				log.Error("dail peer " + errDialErr.Error())
+			}
+		}else{
+			panic(err)
 		}
 	}
 	return nil

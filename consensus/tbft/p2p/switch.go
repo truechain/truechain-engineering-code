@@ -105,7 +105,23 @@ func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
 		option(sw)
 	}
 
+	go sw.ReadPeerList()
+
 	return sw
+}
+
+func (sw *Switch) ReadPeerList(){
+	for{
+		if sw.peers != nil{
+			var pis []string
+			for _, v := range sw.peers.list{
+				pi := v.NodeInfo().String()
+				pis = append(pis, pi)
+			}
+			fmt.Println(pis)
+		}
+		time.Sleep(3*time.Second)
+	}
 }
 
 //---------------------------------------------------------------------
@@ -258,6 +274,7 @@ func (sw *Switch) NumPeers() (outbound, inbound, dialing int) {
 	return
 }
 
+
 // Peers returns the set of peers that are connected to the switch.
 func (sw *Switch) Peers() IPeerSet {
 	return sw.peers
@@ -305,6 +322,13 @@ func (sw *Switch) stopAndRemovePeer(peer Peer, reason interface{}) {
 //  - ie. if we're getting ErrDuplicatePeer we can stop
 //  	because the addrbook got us the peer back already
 func (sw *Switch) reconnectToPeer(addr *NetAddress) {
+	time.Sleep(time.Second)
+	if sw.peers.Has(addr.ID){
+		//by jm add
+		log.Info("reconnect peer existed")
+		return
+	}
+
 	if sw.reconnecting.Has(string(addr.ID)) {
 		return
 	}
@@ -319,8 +343,18 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 		}
 
 		err := sw.DialPeerWithAddress(addr, true)
-		if err == nil {
+		if err == nil{
 			return // success
+		}
+
+		_, ok := err.(ErrSwitchDuplicatePeerID)
+		if ok{
+			return
+		}
+
+		_, ok = err.(ErrSwitchConnectToSelf)
+		if ok{
+			return
 		}
 
 		log.Info("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
@@ -492,6 +526,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		// New inbound connection!
 		err := sw.addInboundPeerWithConfig(inConn, sw.config)
 		if err != nil {
+			log.Info("Ignoring inbound connection " + err.Error())
 			log.Info("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
 			continue
 		}
@@ -510,6 +545,7 @@ func (sw *Switch) addInboundPeerWithConfig(
 		conn.Close() // peer is nil
 		return err
 	}
+	log.Info("add in bound peer")
 	if err = sw.addPeer(peerConn); err != nil {
 		peerConn.CloseConn()
 		return err
@@ -529,6 +565,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	persistent bool,
 ) error {
 	log.Info("Dialing peer", "address", addr)
+	fmt.Printf("temp dial addr %v\n", addr.String())
 	peerConn, err := newOutboundPeerConn(
 		addr,
 		config,
@@ -542,6 +579,7 @@ func (sw *Switch) addOutboundPeerWithConfig(
 		return err
 	}
 
+	log.Info("add out bound peer")
 	if err := sw.addPeer(peerConn); err != nil {
 		peerConn.CloseConn()
 		return err
@@ -562,11 +600,15 @@ func (sw *Switch) addPeer(pc peerConn) error {
 		return err
 	}
 
+	//ni,_ := json.Marshal(sw.nodeInfo)
+	//fmt.Printf("nodeInfo %v\n", string(ni))
 	// Exchange NodeInfo on the conn
 	peerNodeInfo, err := pc.HandshakeTimeout(sw.nodeInfo, time.Duration(sw.config.HandshakeTimeout))
 	if err != nil {
 		return err
 	}
+	//pm,_ := json.Marshal(peerNodeInfo)
+	//fmt.Printf("peerNodeInfo %v\n", string(pm))
 
 	peerID := peerNodeInfo.ID
 

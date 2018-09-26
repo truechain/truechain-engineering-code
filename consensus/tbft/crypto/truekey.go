@@ -92,10 +92,13 @@ func (pub PubKeyTrue) Address() help.Address {
 
 // Bytes marshals the PubKey using amino encoding.
 func (pub PubKeyTrue) Bytes() []byte {
-	bz, err := cdc.MarshalBinaryBare(pub)
-	if err != nil {
-		panic(err)
-	}
+	//bz, err := cdc.MarshalBinaryBare(pub)
+	pub1 := ecdsa.PublicKey(pub)
+	bz := tcrypyo.FromECDSAPub(&pub1)
+	//bz := elliptic.Marshal(tcrypyo.S256(), pub.X, pub.Y)
+	//if err != nil {
+	//	panic(err)
+	//}
 	return bz
 }
 

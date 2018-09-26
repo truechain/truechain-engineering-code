@@ -15,6 +15,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"crypto/elliptic"
 )
 
 const (
@@ -202,6 +203,7 @@ func (c *MConnection) OnStart() error {
 
 // OnStop implements BaseService
 func (c *MConnection) OnStop() {
+	log.Debug("Mconnection OnStop")
 	c.BaseService.OnStop()
 	c.flushTimer.Stop()
 	c.pingTimer.Stop()
@@ -263,6 +265,7 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 
 	success := channel.sendBytes(msgBytes)
 	if success {
+		log.Info("Send Succ")
 		// Wake up sendRoutine if necessary
 		select {
 		case c.send <- struct{}{}:
@@ -330,6 +333,7 @@ FOR_LOOP:
 		case <-c.flushTimer.Ch:
 			// NOTE: flushTimer.Set() must be called every time
 			// something is written to .bufConnWriter.
+			log.Debug("flushTimer flush")
 			c.flush()
 		case <-c.chStatsTimer.Chan():
 			for _, channel := range c.channels {
@@ -412,6 +416,7 @@ func (c *MConnection) sendSomePacketMsgs() bool {
 
 // Returns true if messages from channels were exhausted.
 func (c *MConnection) sendPacketMsg() bool {
+
 	// Choose a channel to create a PacketMsg from.
 	// The chosen channel will be the one whose recentlySent/priority is the least.
 	var leastRatio float32 = math.MaxFloat32
@@ -442,7 +447,9 @@ func (c *MConnection) sendPacketMsg() bool {
 		c.stopForError(err)
 		return true
 	}
+
 	c.sendMonitor.Update(int(_n))
+	log.Info("set flush timer")
 	c.flushTimer.Set()
 	return false
 }
@@ -731,7 +738,7 @@ func (ch *Channel) writePacketMsgTo(w io.Writer) (n int64, err error) {
 // complete. NOTE message bytes may change on next call to recvPacketMsg.
 // Not goroutine-safe
 func (ch *Channel) recvPacketMsg(packet PacketMsg) ([]byte, error) {
-	ch.Logger.Debug("Read PacketMsg", "conn", ch.conn, "packet", packet)
+	//ch.Logger.Debug("Read PacketMsg", "conn", ch.conn, "packet", packet)
 	var recvCap, recvReceived = ch.desc.RecvMessageCapacity, len(ch.recving) + len(packet.Bytes)
 	if recvCap < recvReceived {
 		return nil, fmt.Errorf("Received message exceeds available capacity: %v < %v", recvCap, recvReceived)
@@ -767,6 +774,8 @@ type Packet interface {
 
 func RegisterPacket(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Packet)(nil), nil)
+	cdc.RegisterInterface((*elliptic.Curve)(nil),nil)
+	cdc.RegisterConcrete(elliptic.CurveParams{}, "true/p2p/p256", nil)
 	cdc.RegisterConcrete(PacketPing{}, "true/p2p/PacketPing", nil)
 	cdc.RegisterConcrete(PacketPong{}, "true/p2p/PacketPong", nil)
 	cdc.RegisterConcrete(PacketMsg{}, "true/p2p/PacketMsg", nil)

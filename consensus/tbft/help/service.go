@@ -126,7 +126,7 @@ func (bs *BaseService) Start() error {
 			log.Error("Not starting ",bs.name," -- already stopped,impl ",bs.impl)
 			return ErrAlreadyStopped
 		}
-		log.Info("Starting ",bs.name," impl ",bs.impl)
+		log.Info("Starting "," impl ",bs.impl)
 		err := bs.impl.OnStart()
 		if err != nil {
 			// revert flag
@@ -148,12 +148,12 @@ func (bs *BaseService) OnStart() error { return nil }
 // channel. An error will be returned if the service is already stopped.
 func (bs *BaseService) Stop() error {
 	if atomic.CompareAndSwapUint32(&bs.stopped, 0, 1) {
-		log.Info("Stopping ",bs.name," impl ",bs.impl)
+		log.Info("Stopping "," impl ",bs.impl)
 		bs.impl.OnStop()
 		close(bs.quit)
 		return nil
 	}
-	log.Debug("Stopping ",bs.name," (ignoring: already stopped),impl ",bs.impl)
+	log.Debug("Stopping "," (ignoring: already stopped),impl ",bs.impl)
 	return ErrAlreadyStopped
 }
 

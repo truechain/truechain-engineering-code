@@ -1,0 +1,89 @@
+{
+  "RootDir": "",
+  "Genesis": "config/genesis.json",
+  "PrivValidator": "config/priv_validator.json",
+  "NodeKey": "config/node_key.json",
+  "Moniker": "ubuntu",
+  "PrivValidatorListenAddr": "",
+  "ProxyApp": "tcp://127.0.0.1:26658",
+  "ABCI": "socket",
+  "LogLevel": "main:info,state:info,*:error",
+  "ProfListenAddress": "",
+  "FastSync": true,
+  "FilterPeers": false,
+  "DBBackend": "leveldb",
+  "DBPath": "data",
+  "RPC": {
+    "RootDir": "",
+    "ListenAddress": "tcp://0.0.0.0:26657",
+    "GRPCListenAddress": "",
+    "GRPCMaxOpenConnections": 900,
+    "Unsafe": false,
+    "MaxOpenConnections": 900
+  },
+  "P2P": {
+    "RootDir": "",
+    "ListenAddress": "tcp://127.0.0.1:3333",
+    "ExternalAddress": "tcp://127.0.0.1:26666",
+    "Seeds": "",
+    "PersistentPeers": "",
+    "UPNP": false,
+    "AddrBook": "config/addrbook.json",
+    "AddrBookStrict": true,
+    "MaxNumPeers": 50,
+    "FlushThrottleTimeout": 100,
+    "MaxPacketMsgPayloadSize": 1024,
+    "SendRate": 5120000,
+    "RecvRate": 5120000,
+    "PexReactor": true,
+    "SeedMode": false,
+    "PrivatePeerIDs": "",
+    "AllowDuplicateIP": true,
+    "HandshakeTimeout": 20000000000,
+    "DialTimeout": 3000000000,
+    "TestDialFail": false,
+    "TestFuzz": false,
+    "TestFuzzConfig": {
+      "Mode": 0,
+      "MaxDelay": 3000000000,
+      "ProbDropRW": 0.2,
+      "ProbDropConn": 0,
+      "ProbSleep": 0
+    }
+  },
+  "Mempool": {
+    "RootDir": "",
+    "Recheck": true,
+    "RecheckEmpty": true,
+    "Broadcast": true,
+    "WalPath": "data/mempool.wal",
+    "Size": 100000,
+    "CacheSize": 100000
+  },
+  "Consensus": {
+    "RootDir": "",
+    "WalPath": "data/cs.wal/wal",
+    "TimeoutPropose": 3000,
+    "TimeoutProposeDelta": 500,
+    "TimeoutPrevote": 1000,
+    "TimeoutPrevoteDelta": 500,
+    "TimeoutPrecommit": 1000,
+    "TimeoutPrecommitDelta": 500,
+    "TimeoutCommit": 1000,
+    "SkipTimeoutCommit": false,
+    "CreateEmptyBlocks": true,
+    "CreateEmptyBlocksInterval": 0,
+    "PeerGossipSleepDuration": 1000,
+    "PeerQueryMaj23SleepDuration": 2000
+  },
+  "TxIndex": {
+    "Indexer": "kv",
+    "IndexTags": "",
+    "IndexAllTags": false
+  },
+  "Instrumentation": {
+    "Prometheus": false,
+    "PrometheusListenAddr": ":26660",
+    "MaxOpenConnections": 3
+  }
+}
