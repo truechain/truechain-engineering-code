@@ -460,8 +460,7 @@ func (f *Fetcher) loop() {
 							}
 
 							if !finished {
-								log.Debug("Block come agreement", "number", height, "height count", len(blocks), "sign number", len(signHashs))
-
+								log.Debug("Block come agreement", "num", number, "parent number", height, "block count", len(blocks), "sign number", len(signHashs))
 								f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
 								index = -1
 							}
@@ -819,6 +818,13 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		// Run the import on a new thread
 		f.broadcastSigns(verifySigns)
 
+		if f.getBlock(verifySigns[0].FastHash) != nil {
+			log.Trace("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
+			propSignDropMeter.Mark(1)
+			f.forgetBlockHeight(verifySigns[0].FastHeight)
+			return
+		}
+
 		find := false
 		for _, sign := range verifySigns {
 
@@ -843,13 +849,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		}
 
 		if !find {
-			return
-		}
-
-		if f.getBlock(verifySigns[0].FastHash) != nil {
-			log.Debug("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
-			propSignDropMeter.Mark(1)
-			f.forgetBlockHeight(verifySigns[0].FastHeight)
 			return
 		}
 
@@ -882,7 +881,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < lowCommitteeDist || dist > maxQueueDist {
-		log.Info("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
+		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
 		return
@@ -977,9 +976,8 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 
 // verifyComeAgreement verify consensus and insert block.
 func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*types.PbftSign, signHashs []common.Hash) {
-	height := block.Number()
-	log.Debug("Verify come agreement", "number", height, "sign number", len(signs))
 	go func() {
+		height := block.Number()
 		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil)
 		find := f.insert(peer, inBlock, signHashs)
 		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
