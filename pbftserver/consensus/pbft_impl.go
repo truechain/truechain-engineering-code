@@ -200,9 +200,9 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 
 	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
-	log.Info("Prepare ", "count", f)
+	log.Debug("Prepare ", "count", f)
 	if state.prepared(f) {
-		log.Info("Prepare ok", "count", f)
+		log.Debug("Prepare ok", "count", f)
 		//// Change the stage to prepared.
 		//state.CurrentStage = Prepared
 
@@ -229,9 +229,9 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 	// Append msg to its logs
 	state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
 	// Print current voting status
-	log.Info("Commit ", "count", f)
+	log.Debug("Commit ", "count", f)
 	if state.committed(f) {
-		log.Info("Commit ok", "count", f)
+		log.Debug("Commit ok", "count", f)
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 
