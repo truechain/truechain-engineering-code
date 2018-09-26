@@ -213,8 +213,9 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 
 	if msg.ViewID == CurrentState.ViewID {
 		signs := CurrentState.MsgLogs.GetCommitMsgsSigns()
-		fmt.Println("pbft signs len", len(signs))
+		fmt.Println("----------------------------------------pbft signs len", len(signs))
 		signs = append(signs, CurrentState.MySign)
+		fmt.Println("----------------------------------------pbft signs my", CurrentState.MySign)
 		node.Verify.ReplyResult(CurrentState.MsgLogs.ReqMsg, signs, res)
 	} else {
 		// wrong state
@@ -429,6 +430,8 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	if state == nil {
 		return nil
 	}
+
+	fmt.Println("_-----------------------------------------------------sings", commitMsg.Signs)
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
 	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
