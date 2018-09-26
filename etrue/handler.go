@@ -441,7 +441,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
 	defer msg.Discard()
-
+	now := time.Now()
 	// Handle the message depending on its contents
 	switch {
 	case msg.Code == StatusMsg:
@@ -1072,6 +1072,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
+	log.Info("Handler", "code", msg.Code, "time", time.Now().Sub(now))
 	return nil
 }
 
