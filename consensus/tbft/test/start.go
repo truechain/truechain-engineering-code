@@ -134,6 +134,7 @@ var iplist  = []string{"127.0.0.1","127.0.0.1","127.0.0.1","127.0.0.1"}
 var portlist = []uint{1111, 2222, 3333, 4444}
 
 func main() {
+        //与true log日志结合
 	handler, _ := log.FileHandler("./test.log", log.LogfmtFormat())
 	log.Root().SetHandler(handler)
 
