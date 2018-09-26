@@ -216,6 +216,8 @@ func (self *PbftAgent) stop() {
 	self.electionSub.Unsubscribe()
 	self.chainHeadAgentSub.Unsubscribe()
 	self.scope.Close()
+
+
 }
 
 type nodeInfoWork struct {
@@ -267,7 +269,7 @@ func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 		log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
 			"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", "nil")
+			"cacheSignLen", len(node.cacheSign))
 	} else {
 		log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
 			"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
@@ -314,13 +316,6 @@ func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nod
 		log.Debug("not received pbftnode.")
 	}
 }
-
-/*func (self *PbftAgent) verifyCommitteeId(committeeID *big.Int,optionType int) bool{
-	switch optionType {
-	case :CommitteeStart
-
-	}
-}*/
 
 func (self *PbftAgent) loop() {
 	defer self.stop()
