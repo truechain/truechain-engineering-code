@@ -51,9 +51,9 @@ start:
 	}
 
 	lock.PSLog("states count:", len(node.States))
-	for k, v := range node.States {
-		lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
-	}
+	//for k, v := range node.States {
+	//	//lock.PSLog("height:", k, "Stage:", v.CurrentStage, "len(v.MsgLogs.PrepareMsgs):", len(v.MsgLogs.PrepareMsgs), "len(v.MsgLogs.CommitMsgs):", len(v.MsgLogs.CommitMsgs))
+	//}
 	lock.PSLog("end>>>>>>>>>>>>>>>>>>>>>>>>", "NodeID", node.NodeID)
 	lock.Lock.Unlock()
 	time.Sleep(time.Second * 10)
@@ -122,7 +122,7 @@ func (server *Server) getReq(writer http.ResponseWriter, request *http.Request) 
 		log.Error("getReq", "error", err.Error())
 		return
 	}
-	lock.PSLog("getReq msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getReq msg:", msg.Height)
 	server.Node.MsgEntrance <- &msg
 }
 
@@ -134,7 +134,7 @@ func (server *Server) getPrePrepare(writer http.ResponseWriter, request *http.Re
 		log.Error("getReq", "error", err.Error())
 		return
 	}
-	lock.PSLog("getPrePrepare msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getPrePrepare msg:", msg.Height)
 	server.Node.MsgEntrance <- &msg
 }
 
@@ -151,7 +151,7 @@ func (server *Server) getPrepare(writer http.ResponseWriter, request *http.Reque
 	msg.SequenceID, msg.MsgType = tmp.SequenceID, tmp.MsgType
 	msg.Pass = nil
 	msg.Height = tmp.Height
-	lock.PSLog("getPrepare msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getPrepare msg:", msg.Height)
 	server.Node.MsgEntrance <- &msg
 }
 
@@ -163,7 +163,7 @@ func (server *Server) getCommit(writer http.ResponseWriter, request *http.Reques
 		log.Error("getReq", "error", err.Error())
 		return
 	}
-	lock.PSLog("getCommit msg:", fmt.Sprintf("%+v", msg))
+	lock.PSLog("getCommit msg:", msg.Height)
 	server.Node.MsgEntrance <- &msg
 }
 
@@ -180,7 +180,7 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 }
 
 func (server *Server) PutRequest(msg *consensus.RequestMsg) {
-	lock.PSLog("PutRequest in", fmt.Sprintf("%+v", msg))
+	lock.PSLog("PutRequest in", msg.Height)
 	server.Node.MsgEntrance <- msg
 	lock.PSLog("PutRequest in2", msg.Height)
 	height := big.NewInt(msg.Height)

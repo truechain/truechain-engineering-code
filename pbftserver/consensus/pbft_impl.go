@@ -3,9 +3,7 @@ package consensus
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"sync"
 	"time"
@@ -19,14 +17,15 @@ type State struct {
 	FastStage      Stage
 	BlockResults   *SignedVoteMsg
 	Clear          bool
+	MySign         *types.PbftSign
 }
 
 type MsgLogs struct {
 	ReqMsg      *RequestMsg
 	lockPrepare sync.Mutex
 	lockCommit  sync.Mutex
-	PrepareMsgs map[string]*VoteMsg
-	CommitMsgs  map[string]*VoteMsg
+	prepareMsgs map[string]*VoteMsg
+	commitMsgs  map[string]*VoteMsg
 }
 
 type Stage int
@@ -41,13 +40,13 @@ const (
 func (m MsgLogs) SetPrepareMsg(key string, data *VoteMsg) {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
-	m.PrepareMsgs[key] = data
+	m.prepareMsgs[key] = data
 }
 
 func (m MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
-	data, ok := m.PrepareMsgs[key]
+	data, ok := m.prepareMsgs[key]
 	if ok {
 		return
 	} else {
@@ -55,10 +54,10 @@ func (m MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
 	}
 }
 
-func (m MsgLogs) GetPrepareOne() (data *VoteMsg) {
+func (m MsgLogs) GetPrepareOne() *VoteMsg {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
-	for _, v := range m.PrepareMsgs {
+	for _, v := range m.prepareMsgs {
 		return v
 	}
 	return nil
@@ -67,19 +66,19 @@ func (m MsgLogs) GetPrepareOne() (data *VoteMsg) {
 func (m MsgLogs) GetPrepareCount() int {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
-	return len(m.PrepareMsgs)
+	return len(m.prepareMsgs)
 }
 
 func (m MsgLogs) SetCommitMsgs(key string, data *VoteMsg) {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
-	m.CommitMsgs[key] = data
+	m.commitMsgs[key] = data
 }
 
 func (m MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
-	data, ok := m.CommitMsgs[key]
+	data, ok := m.commitMsgs[key]
 	if ok {
 		return
 	} else {
@@ -87,11 +86,21 @@ func (m MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
 	}
 }
 
+func (m MsgLogs) GetCommitMsgsSigns() []*types.PbftSign {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	signs := make([]*types.PbftSign, 0)
+	for _, v := range m.commitMsgs {
+		signs = append(signs, v.Signs)
+	}
+	return signs
+}
+
 func (m MsgLogs) GetCommitPassCount() int {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	cnt := 0
-	for _, v := range m.CommitMsgs {
+	for _, v := range m.commitMsgs {
 		if v.Pass != nil && v.Pass.Result == types.VoteAgree {
 			cnt += 1
 		}
@@ -99,10 +108,10 @@ func (m MsgLogs) GetCommitPassCount() int {
 	return cnt
 }
 
-func (m MsgLogs) GetCommitOne() (data *VoteMsg) {
+func (m MsgLogs) GetCommitOne() *VoteMsg {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
-	for _, v := range m.CommitMsgs {
+	for _, v := range m.commitMsgs {
 		return v
 	}
 	return nil
@@ -111,7 +120,7 @@ func (m MsgLogs) GetCommitOne() (data *VoteMsg) {
 func (m MsgLogs) GetCommitCount() int {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
-	return len(m.CommitMsgs)
+	return len(m.commitMsgs)
 }
 
 // f: # of Byzantine faulty node
@@ -125,8 +134,8 @@ func CreateState(viewID int64, lastSequenceID int64) *State {
 		ViewID: viewID,
 		MsgLogs: &MsgLogs{
 			ReqMsg:      nil,
-			PrepareMsgs: make(map[string]*VoteMsg),
-			CommitMsgs:  make(map[string]*VoteMsg),
+			prepareMsgs: make(map[string]*VoteMsg),
+			commitMsgs:  make(map[string]*VoteMsg),
 		},
 		LastSequenceID: lastSequenceID,
 		CurrentStage:   Idle,
@@ -190,7 +199,7 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 }
 
 func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
-	lock.PSLog("Prepare in")
+	//lock.PSLog("Prepare in")
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
 	}
@@ -200,9 +209,9 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 
 	//lock.PSLog("Prepare PrepareMsgs cnt", len(state.MsgLogs.PrepareMsgs))
 	// Print current voting status
-	log.Info("Prepare ", "count", f)
+	//log.Debug("Prepare ", "count", f)
 	if state.prepared(f) {
-		log.Info("Prepare ok", "count", f)
+		//log.Debug("Prepare ok", "count", f)
 		//// Change the stage to prepared.
 		//state.CurrentStage = Prepared
 
@@ -228,10 +237,11 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 
 	// Append msg to its logs
 	state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
+
 	// Print current voting status
-	log.Info("Commit ", "count", f)
+	//log.Debug("Commit ", "count", f)
 	if state.committed(f) {
-		log.Info("Commit ok", "count", f)
+		//log.Debug("Commit ok", "count", f)
 		// This node executes the requested operation locally and gets the result.
 		result := "Executed"
 
@@ -296,7 +306,7 @@ func (state *State) committed(f int) bool {
 	}
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	passCount := state.MsgLogs.GetCommitPassCount()
-	lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
+	//lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
 	return passCount >= 2*f
 }
 

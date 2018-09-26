@@ -816,7 +816,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 
 	if len(verifySigns) > 0 {
 		// Run the import on a new thread
-		f.broadcastSigns(verifySigns)
+		//f.broadcastSigns(verifySigns)
 
 		if f.getBlock(verifySigns[0].FastHash) != nil {
 			log.Trace("Discarded sign, has block", "peer", peer, "number", number, "hash", hash)
@@ -881,7 +881,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < lowCommitteeDist || dist > maxQueueDist {
-		log.Info("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
+		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
 		return
@@ -895,6 +895,8 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			propBroadcastInvaildMeter.Mark(1)
 			return
 		}
+
+		f.enqueueSign(peer, block.Signs())
 
 		op := &inject{
 			origin: peer,
@@ -983,7 +985,7 @@ func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*
 		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
 
 		propSignOutTimer.Mark(int64(len(signs)))
-		f.broadcastSigns(signs)
+		//f.broadcastSigns(signs)
 
 		f.doneConsensus <- height
 	}()
