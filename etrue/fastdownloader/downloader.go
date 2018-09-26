@@ -1680,7 +1680,7 @@ func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet et
 			dropMeter.Mark(int64(packet.Items()))
 		}
 	}()
-	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliver", "packet.Items()==", packet.Items())
+	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliverOne", "packet.Items()==", packet.Items())
 	// Deliver or abort if the sync is canceled while queuing
 	log.Debug("deliver <- packet ","packet",packet)
 	select {

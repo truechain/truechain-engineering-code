@@ -701,7 +701,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(headers) > 0 {
 
-			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			err := pm.fdownloader.DeliverOneHeader(p.id, headers)
 			if err != nil {
 				log.Debug("Failed to deliver headers", "err", err)
 			}

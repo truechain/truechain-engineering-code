@@ -273,9 +273,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	if pTd.Cmp(td) <= 0 {
 
 		header,err := pm.fdownloader.FetchHeight(peer.id);
-		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header",header.Number.Uint64())
-		if err!=nil{
-			log.Debug("pTd.Cmp(td) <= 0 ","err",err)
+		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header",header)
+		if err!=nil || header == nil{
+			log.Debug("pTd.Cmp(td) <= 0 ","err",err,"header",header)
 			return
 		}
 
