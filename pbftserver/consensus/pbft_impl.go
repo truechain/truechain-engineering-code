@@ -86,6 +86,16 @@ func (m MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
 	}
 }
 
+func (m MsgLogs) GetCommitMsgsSigns() []*types.PbftSign {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	signs := make([]*types.PbftSign, 0)
+	for _, v := range m.commitMsgs {
+		signs = append(signs, v.Signs)
+	}
+	return signs
+}
+
 func (m MsgLogs) GetCommitPassCount() int {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
@@ -227,6 +237,7 @@ func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, e
 
 	// Append msg to its logs
 	state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
+
 	// Print current voting status
 	log.Debug("Commit ", "count", f)
 	if state.committed(f) {

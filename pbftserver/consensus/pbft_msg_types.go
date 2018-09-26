@@ -1,5 +1,7 @@
 package consensus
 
+import "github.com/truechain/truechain-engineering-code/core/types"
+
 type RequestMsg struct {
 	Timestamp  int64  `json:"timestamp"`
 	ClientID   string `json:"clientID"`
@@ -26,12 +28,13 @@ type PrePrepareMsg struct {
 }
 
 type VoteMsg struct {
-	ViewID     int64          `json:"viewID"`
-	SequenceID int64          `json:"sequenceID"`
-	Digest     string         `json:"digest"`
-	NodeID     string         `json:"nodeID"`
-	Pass       *SignedVoteMsg `json:"Pass"`
-	Height     int64          `json:"Height"`
+	ViewID     int64           `json:"viewID"`
+	SequenceID int64           `json:"sequenceID"`
+	Digest     string          `json:"digest"`
+	NodeID     string          `json:"nodeID"`
+	Pass       *SignedVoteMsg  `json:"Pass"`
+	Height     int64           `json:"Height"`
+	Signs      *types.PbftSign `json:"signs"`
 	MsgType    `json:"msgType"`
 }
 

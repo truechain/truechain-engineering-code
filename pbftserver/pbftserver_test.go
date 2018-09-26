@@ -45,13 +45,13 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	return types.NewBlock(header, nil, nil, nil), nil
 }
-func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
+func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
 	//if rand.Intn(100) > 50 {
 	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
+	return nil, nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {

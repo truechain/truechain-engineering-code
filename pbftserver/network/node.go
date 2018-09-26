@@ -212,7 +212,8 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 	CurrentState := node.GetStatus(msg.Height)
 
 	if msg.ViewID == CurrentState.ViewID {
-		node.Verify.ReplyResult(CurrentState.MsgLogs.ReqMsg, res)
+		signs := CurrentState.MsgLogs.GetCommitMsgsSigns()
+		node.Verify.ReplyResult(CurrentState.MsgLogs.ReqMsg, signs, res)
 	} else {
 		// wrong state
 	}
@@ -348,7 +349,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			return nil
 		}
 
-		res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
+		sign, res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 
 		if res != nil && res == types.ErrHeightNotYet {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
@@ -362,7 +363,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 			lock.PSLog("CheckMsg Result ", result)
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
-
+			commitMsg.Signs = sign
 			//save Pass
 			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 
