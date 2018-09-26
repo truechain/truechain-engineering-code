@@ -409,6 +409,9 @@ func (node *Node) processCommitWaitMessageQueue() {
 							msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 							state.BlockResults = msgSend.Pass
 						}
+						if msgSend.Signs == nil && state.MySign != nil {
+							msgSend.Signs = state.MySign
+						}
 						node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 					}
 				}
@@ -640,6 +643,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
 					}
+					if msgSend.Signs == nil && state.MySign != nil {
+						msgSend.Signs = state.MySign
+					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
 			} else if v.MsgType == consensus.PrepareMsg {
@@ -670,6 +676,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 					if msgSend.Pass == nil {
 						msgSend.Pass = node.Verify.SignMsg(state.MsgLogs.ReqMsg.Height, types.VoteAgree)
 						state.BlockResults = msgSend.Pass
+					}
+					if msgSend.Signs == nil && state.MySign != nil {
+						msgSend.Signs = state.MySign
 					}
 					node.BroadcastOne(msgSend, "/commit", msg.NodeID)
 				}
