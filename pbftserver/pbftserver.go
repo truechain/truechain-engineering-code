@@ -303,13 +303,14 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (*types.PbftSign, e
 	}
 	lock.PSLog("AGENT", "VerifyFastBlock", "start")
 	sign, err := ss.Agent.VerifyFastBlock(block)
+	sTmp := types.CopyPbftSign(sign)
 	lock.PSLog("AGENT", "VerifyFastBlock", sign == nil, err == nil, "end")
 	if err != nil {
 		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())
 		return nil, err
 	}
 	ss.putBlock(height.Uint64(), block)
-	return sign, nil
+	return sTmp, nil
 }
 
 func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, signs []*types.PbftSign, res uint) bool {
