@@ -8,27 +8,38 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
 var msgChanSize = 16
+var writeChanSize = 16
 
 // RedisClient is used only at specific nodes, which needs to push messages to redis services.
 // Now mainly provide service for TrueScan.
 type RedisClient struct {
-	id         int
-	serverAddr string
-	c          redis.Conn
-	msgCh      chan string
+	id          int
+	serverAddr  string
+	c           redis.Conn
+	msgCh       chan string
+	writeCh     chan [2]string
+	fastHeight  uint64
+	fruitHeight uint64
+	snailHeight uint64
+	txsCount    uint64
+	viewNumber  uint64
 }
 
 // NewRedisClient returns a redis client with scheduled message sending interface.
 func NewRedisClient(config *Config) (*RedisClient, error) {
 	redisServerAddr := config.RedisHost + ":" + strconv.Itoa(config.RedisPort)
 	rc := &RedisClient{
-		id:         config.ChannelID,
-		serverAddr: redisServerAddr,
+		id:          config.ChannelID,
+		serverAddr:  redisServerAddr,
+		fastHeight:  0,
+		fruitHeight: 0,
+		snailHeight: 0,
+		txsCount:    0,
+		viewNumber:  0,
 	}
 	const healthCheckPeriod = time.Minute
 	c, err := redis.Dial("tcp", redisServerAddr,
@@ -42,6 +53,7 @@ func NewRedisClient(config *Config) (*RedisClient, error) {
 	log.RedisLog("Redis client start", "touch", redisServerAddr, "channel", config.ChannelID)
 	rc.c = c
 	rc.msgCh = make(chan string, msgChanSize)
+	rc.writeCh = make(chan [2]string, writeChanSize)
 	return rc, nil
 }
 
@@ -58,6 +70,11 @@ func (rc *RedisClient) publish(channel string, message string) error {
 	return err
 }
 
+func (rc *RedisClient) set(key string, value string) error {
+	_, err := rc.c.Do("SET", key, value)
+	return err
+}
+
 func (rc *RedisClient) msgSendLoop() {
 	channel := "truescan:ch:" + strconv.Itoa(rc.id)
 	for {
@@ -67,6 +84,11 @@ func (rc *RedisClient) msgSendLoop() {
 				return
 			}
 			rc.publish(channel, msg)
+		case msg, ok := <-rc.writeCh:
+			if !ok {
+				return
+			}
+			rc.set(msg[0], msg[1])
 		}
 	}
 }
@@ -93,6 +115,11 @@ func (rc *RedisClient) PendingTransaction(ptm *TransactionMsg) error {
 	}
 	start := `{"type":"pendingTransaction","data":`
 	end := `}`
+	rc.txsCount++
+	rc.writeCh <- [2]string{
+		"txsCount",
+		strconv.Itoa(int(rc.txsCount)),
+	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit PendingTransaction")
 	return err
@@ -107,23 +134,13 @@ func (rc *RedisClient) RemoveTransaction(rtm *RemoveTxMsg) error {
 	}
 	start := `{"type":"removeTransaction","data":`
 	end := `}`
+	rc.txsCount--
+	rc.writeCh <- [2]string{
+		"txsCount",
+		strconv.Itoa(int(rc.txsCount)),
+	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit RemoveTransaction")
-	return err
-}
-
-// TransactionReceipts is triggered when the transaction is executed,
-// and the result of the transaction may be success or failure.
-// Transaction failure is different from transaction discarded.
-func (rc *RedisClient) TransactionReceipts(receipts types.Receipts) error {
-	msg, err := json.Marshal(receipts)
-	if err != nil {
-		return err
-	}
-	start := `{"type":"transactionReceipts","data":`
-	end := `}`
-	err = rc.publishMsg(start + string(msg) + end)
-	log.RedisLog("emit TransactionReceipts")
 	return err
 }
 
@@ -136,6 +153,13 @@ func (rc *RedisClient) NewFastBlockHeader(fbm *FastBlockHeaderMsg) error {
 	}
 	start := `{"type":"newFastBlockHeader","data":`
 	end := `}`
+	if fbm.Number > rc.fastHeight {
+		rc.fastHeight = fbm.Number
+		rc.writeCh <- [2]string{
+			"fastHeight",
+			strconv.Itoa(int(fbm.Number)),
+		}
+	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit NewFastBlockHeader")
 	return err
@@ -181,6 +205,20 @@ func (rc *RedisClient) NewSnailBlockHeader(sbm *SnailBlockHeaderMsg) error {
 	}
 	start := `{"type":"newSnailBlockHeader","data":`
 	end := `}`
+	if sbm.Number > rc.snailHeight {
+		rc.snailHeight = sbm.Number
+		rc.writeCh <- [2]string{
+			"snailHeight",
+			strconv.Itoa(int(sbm.Number)),
+		}
+	}
+	if sbm.EndFruitNumber > rc.fruitHeight {
+		rc.fruitHeight = sbm.EndFruitNumber
+		rc.writeCh <- [2]string{
+			"fruitHeight",
+			strconv.Itoa(int(sbm.EndFruitNumber)),
+		}
+	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit NewSnailBlockHeader")
 	return err
@@ -238,6 +276,13 @@ func (rc *RedisClient) ChangeView(cvm *ChangeViewMsg) error {
 	}
 	start := `{"type":"changeView","data":`
 	end := `}`
+	if cvm.EndFastNumber == 0 && cvm.ViewNumber > rc.viewNumber {
+		rc.viewNumber = cvm.ViewNumber
+		rc.writeCh <- [2]string{
+			"viewNumber",
+			strconv.Itoa(int(cvm.ViewNumber)),
+		}
+	}
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit ChangeView")
 	return err
