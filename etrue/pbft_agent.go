@@ -121,8 +121,7 @@ type PbftAgent struct {
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
 	singleNode bool
 
-	nodeInfoWork1 *nodeInfoWork
-	nodeInfoWork2 *nodeInfoWork
+	nodeInfoWorks []*nodeInfoWork
 }
 
 type AgentWork struct {
@@ -171,15 +170,24 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 }
 
 func (self *PbftAgent) initNodeWork() {
-	nodeInfoWork := &nodeInfoWork{
+	nodeWork1 := &nodeInfoWork{
 		cacheSign:     make(map[string]types.Sign),
 		ticker:        time.NewTicker(sendNodeTime),
 		committeeInfo: new(types.CommitteeInfo),
+		tag :1,
 	}
-	self.nodeInfoWork1 = nodeInfoWork
-	self.nodeInfoWork1.tag = 1
-	self.nodeInfoWork2 = nodeInfoWork
-	self.nodeInfoWork2.tag = 2
+	nodeWork2 := &nodeInfoWork{
+		cacheSign:     make(map[string]types.Sign),
+		ticker:        time.NewTicker(sendNodeTime),
+		committeeInfo: new(types.CommitteeInfo),
+		tag :2,
+	}
+	self.nodeInfoWorks =append(self.nodeInfoWorks,nodeWork1,nodeWork2)
+}
+
+func copyNodeWork(nodeWork *nodeInfoWork)	*nodeInfoWork {
+	nodeWorkCopy :=&nodeWork
+	return *nodeWorkCopy
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
@@ -226,22 +234,22 @@ type nodeInfoWork struct {
 }
 
 func (self *PbftAgent) getStartNodeWork() *nodeInfoWork {
-	if self.nodeInfoWork1.isCurrent {
-		self.nodeInfoWork1.isCurrent = false
-		self.nodeInfoWork2.isCurrent = true
-		return self.nodeInfoWork2
+	if self.nodeInfoWorks[0].isCurrent {
+		self.nodeInfoWorks[0].isCurrent = false
+		self.nodeInfoWorks[1].isCurrent = true
+		return self.nodeInfoWorks[1]
 	} else {
-		self.nodeInfoWork1.isCurrent = true
-		self.nodeInfoWork2.isCurrent = false
-		return self.nodeInfoWork1
+		self.nodeInfoWorks[0].isCurrent = true
+		self.nodeInfoWorks[1].isCurrent = false
+		return self.nodeInfoWorks[0]
 	}
 }
 
 func (self *PbftAgent) getStopNodeWork() *nodeInfoWork {
-	if !self.nodeInfoWork1.isCurrent {
-		return self.nodeInfoWork1
+	if !self.nodeInfoWorks[0].isCurrent {
+		return self.nodeInfoWorks[0]
 	} else {
-		return self.nodeInfoWork2
+		return self.nodeInfoWorks[1]
 	}
 }
 
@@ -262,12 +270,12 @@ func (self *PbftAgent) stopSend() {
 func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 	if node.cryptoNode == nil {
 		log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
-			"nodeWork1", self.nodeInfoWork1.isCurrent, "nodeWork2", self.nodeInfoWork2.isCurrent,
+			"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
 			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", "nil")
 	} else {
 		log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
-			"nodeWork1", self.nodeInfoWork1.isCurrent, "nodeWork2", self.nodeInfoWork2.isCurrent,
+			"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
 			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
 			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
 	}
@@ -321,6 +329,80 @@ func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nod
 
 func (self *PbftAgent) loop() {
 	defer self.stop()
+	/*e := self.election
+	go func() {
+		members := e.snailchain.GetGenesisCommittee()[:3]
+		fmt.Println("loop")
+		if self.singleNode {
+			time.Sleep(time.Second * 10)
+			fmt.Println("len(members)", len(members))
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      big.NewInt(0),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStart,
+				CommitteeID:      big.NewInt(0),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      big.NewInt(1),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStop,
+				CommitteeID:      big.NewInt(0),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStart,
+				CommitteeID:      big.NewInt(1),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      big.NewInt(2),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStop,
+				CommitteeID:      big.NewInt(1),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStart,
+				CommitteeID:      big.NewInt(2),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeSwitchover,
+				CommitteeID:      big.NewInt(3),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStop,
+				CommitteeID:      big.NewInt(2),
+				CommitteeMembers: members,
+			})
+
+			e.electionFeed.Send(core.ElectionEvent{
+				Option:           types.CommitteeStart,
+				CommitteeID:      big.NewInt(3),
+				CommitteeMembers: members,
+			})
+		}
+	}()*/
 	for {
 		select {
 		case ch := <-self.electionCh:
@@ -496,14 +578,14 @@ func (self *PbftAgent) sendSign(receiveBlock *types.Block) error {
 }
 
 func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMessage) (bool, *nodeInfoWork) {
-	members1 := self.nodeInfoWork1.committeeInfo.Members
-	members2 := self.nodeInfoWork2.committeeInfo.Members
+	members1 := self.nodeInfoWorks[0].committeeInfo.Members
+	members2 := self.nodeInfoWorks[1].committeeInfo.Members
 	if len(members1) == 0 && len(members2) == 0 {
 		log.Error("received cryNodeInfo members = 0")
 		return false, nil
 	}
-	committeeId1 := self.nodeInfoWork1.committeeInfo.Id
-	committeeId2 := self.nodeInfoWork2.committeeInfo.Id
+	committeeId1 := self.nodeInfoWorks[0].committeeInfo.Id
+	committeeId2 := self.nodeInfoWorks[1].committeeInfo.Id
 	if committeeId1 == nil && committeeId2 == nil {
 		log.Error("received cryNodeInfo committeeId1 and committeeId2 is nil")
 		return false, nil
@@ -519,11 +601,11 @@ func (self *PbftAgent) encryptoNodeInCommittee(cryNodeInfo *types.EncryptNodeMes
 
 	if committeeId1 != nil && committeeId1.Cmp(cryNodeInfo.CommitteeId) == 0 &&
 		self.election.IsCommitteeMember(members1, pubKeyByte) {
-		return true, self.nodeInfoWork1
+		return true, self.nodeInfoWorks[0]
 	}
 	if committeeId2 != nil && committeeId2.Cmp(cryNodeInfo.CommitteeId) == 0 &&
 		self.election.IsCommitteeMember(members2, pubKeyByte) {
-		return true, self.nodeInfoWork2
+		return true, self.nodeInfoWorks[1]
 	}
 	return false, nil
 }
