@@ -596,6 +596,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
+				log.Error("GetFastBlockHeadersMsg", "hash", query.Origin.Hash, "peer", p.id)
 				break
 			}
 			headers = append(headers, origin)
@@ -648,11 +649,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug(">>>>p.SendFastBlockHeaders",  "headers:", len(headers))
+		log.Debug(">>>>p.SendFastBlockHeaders", "headers:", len(headers))
 		return p.SendFastBlockHeaders(headers)
-
-
-
 
 	case msg.Code == GetFastOneBlockHeadersMsg:
 
@@ -664,12 +662,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		)
 
 		fheader := pm.blockchain.CurrentBlock().Header()
-		headers = append(headers,fheader)
+		headers = append(headers, fheader)
 		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
 
 		return p.SendFastBlockHeaders(headers)
-
-
 
 	case msg.Code == FastBlockHeadersMsg:
 
@@ -1102,7 +1098,8 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
-			peer.AsyncSendNewFastBlockHash(block)
+			peer.AsyncSendNewFastBlock(block)
+			//peer.AsyncSendNewFastBlockHash(block)
 		}
 		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign() != nil, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
@@ -1121,9 +1118,9 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 		}
 	}
 
+	log.Debug("Broadcast sign", "number", pbSigns[0].FastHeight, "sign count", len(pbSigns), "hash", pbSigns[0].Hash(), "peer count", len(pm.peers.peers))
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, signs := range pbSignSet {
-		log.Debug("Broadcast sign", "number", signs[0].FastHeight, "sign count", len(signs), "hash", signs[0].Hash(), "peer", peer)
 		peer.AsyncSendSign(signs)
 	}
 }
