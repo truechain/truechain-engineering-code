@@ -96,10 +96,10 @@ var (
 
 
 var (
-	ElectionPeriodNumber      	= big.NewInt(144) 			// snail block period number
+	ElectionPeriodNumber      	= big.NewInt(70) 			// snail block period number
 	ElectionSwitchoverNumber  	= big.NewInt(10000)
 
-	ElectionFruitsThreshold 	uint64 = 100		 // fruit size threshold for committee election
+	ElectionFruitsThreshold 	uint64 = 10		 // fruit size threshold for committee election
 
 	MaximumCommitteeNumber 		= big.NewInt(30)
 	MinimumCommitteeNumber 		= big.NewInt(4)
