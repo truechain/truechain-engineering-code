@@ -296,20 +296,10 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	}
 
 	// find the last committee end fastblock number
-	endElectionBlock := e.snailchain.GetBlockByNumber(switchCheckNumber.Uint64())
-	if endElectionBlock == nil {
+	lastFastNumber := e.getLastNumber(beginElectionNumber, endElectionNumber)
+	if lastFastNumber == nil {
 		return nil
 	}
-	beginElectionBlock := e.snailchain.GetBlockByNumber(beginElectionNumber.Uint64())
-	if beginElectionBlock == nil {
-		return nil
-	}
-	fruits := endElectionBlock.Fruits()
-	lastFruitNumber := fruits[len(fruits)-1].Number()
-	firstFruitNumber := beginElectionBlock.Fruits()[0].Number()
-	periodNumber := new(big.Int).Sub(lastFruitNumber, firstFruitNumber)
-	periodNumber.Sub(periodNumber, big.NewInt(2))
-	lastFastNumber := new(big.Int).Add(lastFruitNumber, periodNumber)
 
 	log.Debug("check last fast block", "committee", committeeNumber, "last fast", lastFastNumber, "current", fastNumber)
 	if lastFastNumber.Cmp(fastNumber) >= 0 {
@@ -333,17 +323,12 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			//
 			preBeginElectionNumber = new(big.Int).Set(common.Big1)
 		}
-		endElectionBlock := e.snailchain.GetBlockByNumber(preEndElectionNumber.Uint64())
-		preFirstBlock := e.snailchain.GetBlockByNumber(preBeginElectionNumber.Uint64())
-		preFruits := endElectionBlock.Fruits()
-		preLastFruitNumber := preFruits[len(preFruits)-1].Number()
-		preFirstFruitNumber := preFirstBlock.Fruits()[0].Number()
+		preEndFast := e.getLastNumber(preBeginElectionNumber, preEndElectionNumber)
+		if preEndFast == nil {
+			return nil
+		}
 
-		prePeriodNumber := new(big.Int).Sub(preLastFruitNumber, preFirstFruitNumber)
-		prePeriodNumber.Sub(prePeriodNumber, big.NewInt(2))
-		preEndFast := new(big.Int).Add(preLastFruitNumber, prePeriodNumber)
-
-		log.Debug("get committee", "electFirst", preBeginElectionNumber, "electLast", preEndElectionNumber, "lastFast", lastFastNumber)
+		log.Debug("get committee", "electFirst", preBeginElectionNumber, "electLast", preEndElectionNumber, "lastFast", preEndFast)
 
 		members := e.electCommittee(preBeginElectionNumber, preEndElectionNumber)
 		return &committee{
@@ -554,6 +539,30 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	return crypto.Keccak256Hash(seed), candidates
 }
 
+
+func (e *Election) getLastNumber(beginSnail, endSnail *big.Int) *big.Int {
+
+	beginElectionBlock := e.snailchain.GetBlockByNumber(beginSnail.Uint64())
+	if beginElectionBlock == nil {
+		return nil
+	}
+	endElectionBlock := e.snailchain.GetBlockByNumber(endSnail.Uint64())
+	if endElectionBlock == nil {
+		return nil
+	}
+
+	fruits := endElectionBlock.Fruits()
+	lastFruitNumber := fruits[len(fruits)-1].FastNumber()
+	firstFruitNumber := beginElectionBlock.Fruits()[0].FastNumber()
+
+	periodNumber := new(big.Int).Sub(lastFruitNumber, firstFruitNumber)
+	periodNumber.Div(periodNumber, big.NewInt(2))
+
+	lastFastNumber := new(big.Int).Add(lastFruitNumber, periodNumber)
+
+	return lastFastNumber
+}
+
 // elect is a lottery function that select committee members from candidates miners
 func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
 	var addrs map[common.Address]uint = make(map[common.Address]uint)
@@ -731,16 +740,7 @@ func (e *Election) loop() {
 
 					members := e.electCommittee(snailStartNumber, snailEndNumber)
 
-					firstBlock := e.snailchain.GetBlockByNumber(snailStartNumber.Uint64())
-
-					sb := e.snailchain.GetBlockByNumber(snailEndNumber.Uint64())
-					fruits := sb.Fruits()
-
-					lastFruitNumber := fruits[len(fruits)-1].Number()
-					firstFruitNumber := firstBlock.Fruits()[0].Number()
-					periodNumber := new(big.Int).Sub(lastFruitNumber, firstFruitNumber)
-					periodNumber.Sub(periodNumber, big.NewInt(2))
-					lastFastNumber := new(big.Int).Add(lastFruitNumber, periodNumber)
+					lastFastNumber := e.getLastNumber(snailStartNumber, snailEndNumber)
 
 					e.committee.endFastNumber = new(big.Int).Set(lastFastNumber)
 
