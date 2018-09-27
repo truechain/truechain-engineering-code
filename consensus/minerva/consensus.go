@@ -64,7 +64,7 @@ var (
 	errInvalidDifficulty = errors.New("non-positive difficulty")
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
-	errInvalidFast		 = errors.New("invalid fast number")
+	errInvalidFast       = errors.New("invalid fast number")
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -94,7 +94,6 @@ func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header
 	return m.verifyHeader(chain, header, parent)
 }
 
-
 func (m *Minerva) getParents(chain consensus.SnailChainReader, header *types.SnailHeader) []*types.SnailHeader {
 	number := header.Number.Uint64()
 	period := params.DifficultyPeriod.Uint64()
@@ -105,15 +104,15 @@ func (m *Minerva) getParents(chain consensus.SnailChainReader, header *types.Sna
 	parents := make([]*types.SnailHeader, period)
 	hash := header.ParentHash
 	for i := uint64(1); i <= period; i++ {
-		if number - i < 0 {
+		if number-i < 0 {
 			break
 		}
 		parent := chain.GetHeader(hash, number-i)
 		if parent == nil {
-			log.Warn("getParents get parent failed.", "number", number-i,  "hash", hash)
+			log.Warn("getParents get parent failed.", "number", number-i, "hash", hash)
 			return nil
 		}
-		parents[period - i] = parent
+		parents[period-i] = parent
 		hash = parent.ParentHash
 	}
 
@@ -235,7 +234,7 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 	var (
 		inputs = make(chan int)
 		done   = make(chan int, workers)
-		errs = make([]error, len(headers))
+		errs   = make([]error, len(headers))
 		abort  = make(chan struct{})
 	)
 
@@ -309,20 +308,19 @@ func (m *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*typ
 	//return nil
 }
 
-
 func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers, parents []*types.SnailHeader,
 	seals []bool, index int) error {
 	//var parent *types.SnailHeader
 
 	/*
-	if index == 0 {
-		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
-	} else if headers[index-1].Hash() == headers[index].ParentHash {
-		parent = headers[index-1]
-	}
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
+		if index == 0 {
+			parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
+		} else if headers[index-1].Hash() == headers[index].ParentHash {
+			parent = headers[index-1]
+		}
+		if parent == nil {
+			return consensus.ErrUnknownAncestor
+		}
 	*/
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
 		return nil // known block
@@ -439,7 +437,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 		}
 	}
 	if !header.Fruit {
-		if header.Time.Cmp(parents[len(parents) - 1].Time) <= 0 {
+		if header.Time.Cmp(parents[len(parents)-1].Time) <= 0 {
 			return errZeroBlockTime
 		}
 
@@ -559,7 +557,6 @@ func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) 
 	}
 }
 
-
 // Some weird constants to avoid constant memory allocs for them.
 var (
 	expDiffPeriod = big.NewInt(100000)
@@ -574,8 +571,6 @@ var (
 	big2999999    = big.NewInt(2999999)
 )
 
-
-
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
@@ -583,7 +578,6 @@ func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.Sn
 	return calcDifficulty2(time, parents)
 	//return calcDifficulty(time, parents[0])
 }
-
 
 func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint64, pointer *types.SnailHeader) *big.Int {
 	diff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
@@ -702,7 +696,6 @@ func calcDifficulty(time uint64, parent *types.SnailHeader) *big.Int {
 
 	return x
 }
-
 
 // VerifySeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
@@ -840,7 +833,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 }
 
 func LogPrint(info string, addr common.Address, amount *big.Int) {
-	log.Trace("[AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
+	log.Info("[Consensus AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
