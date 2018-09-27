@@ -821,7 +821,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
 	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	if feeAmount.Uint64() == 0 {
-		return
+		return nil
 	}
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
