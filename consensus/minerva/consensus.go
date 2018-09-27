@@ -591,9 +591,10 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 	delta := time - fastTime
 
 	if delta > 20 {
-		diff = new(big.Int).Mul(diff, big.NewInt(4))
+		diff = new(big.Int).Div(diff, big.NewInt(2))
 	} else if delta > 10 && delta <= 20 {
 		diff = new(big.Int).Mul(diff, big.NewInt(2))
+		diff = new(big.Int).Div(diff, big.NewInt(3))
 	}
 
 	if diff.Cmp(params.MinimumFruitDifficulty) < 0 {
