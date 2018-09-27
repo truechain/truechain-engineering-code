@@ -25,7 +25,6 @@ import (
 	"sync"
 	"time"
 
-	"bytes"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -174,15 +173,15 @@ func (self *PbftAgent) initNodeWork() {
 		cacheSign:     make(map[string]types.Sign),
 		ticker:        time.NewTicker(sendNodeTime),
 		committeeInfo: new(types.CommitteeInfo),
-		tag :1,
+		tag:           1,
 	}
 	nodeWork2 := &nodeInfoWork{
 		cacheSign:     make(map[string]types.Sign),
 		ticker:        time.NewTicker(sendNodeTime),
 		committeeInfo: new(types.CommitteeInfo),
-		tag :2,
+		tag:           2,
 	}
-	self.nodeInfoWorks =append(self.nodeInfoWorks,nodeWork1,nodeWork2)
+	self.nodeInfoWorks = append(self.nodeInfoWorks, nodeWork1, nodeWork2)
 }
 
 func (self *PbftAgent) InitNodeInfo(config *Config) {
@@ -216,8 +215,6 @@ func (self *PbftAgent) stop() {
 	self.electionSub.Unsubscribe()
 	self.chainHeadAgentSub.Unsubscribe()
 	self.scope.Close()
-
-
 }
 
 type nodeInfoWork struct {
@@ -265,16 +262,12 @@ func (self *PbftAgent) stopSend() {
 	self.debugNodeInfoWork(nodeWork, "stopSend...After...")
 }
 func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
-	if node.cryptoNode == nil {
-		log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
-			"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
-			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-			"cacheSignLen", len(node.cacheSign))
-	} else {
-		log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
-			"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
-			"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-			"cacheSignLen", len(node.cacheSign), "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
+	log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
+		"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
+		"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
+		"cacheSignLen", len(node.cacheSign))
+	if node.cryptoNode != nil {
+		log.Info(str, "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
 	}
 }
 
@@ -304,7 +297,7 @@ func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isC
 
 func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
 	log.Debug("into handlePbftNode...", "commiteeId", cryNodeInfo.CommitteeId)
-	signStr := hex.EncodeToString(cryNodeInfo.Sign)
+	/*signStr := hex.EncodeToString(cryNodeInfo.Sign)
 	if len(signStr) > subSignStr {
 		signStr = signStr[:subSignStr]
 	}
@@ -314,85 +307,14 @@ func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nod
 		self.receivePbftNode(cryNodeInfo)
 	} else {
 		log.Debug("not received pbftnode.")
-	}
+	}*/
+
+	self.debugNodeInfoWork(nodeWork, "into handlePbftNode2...")
+	self.receivePbftNode(cryNodeInfo)
 }
 
 func (self *PbftAgent) loop() {
 	defer self.stop()
-	/*e := self.election
-	go func() {
-		members := e.snailchain.GetGenesisCommittee()[:3]
-		fmt.Println("loop")
-		if self.singleNode {
-			time.Sleep(time.Second * 10)
-			fmt.Println("len(members)", len(members))
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(0),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(0),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(1),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStop,
-				CommitteeID:      big.NewInt(0),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(1),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(2),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStop,
-				CommitteeID:      big.NewInt(1),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(2),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeSwitchover,
-				CommitteeID:      big.NewInt(3),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStop,
-				CommitteeID:      big.NewInt(2),
-				CommitteeMembers: members,
-			})
-
-			e.electionFeed.Send(core.ElectionEvent{
-				Option:           types.CommitteeStart,
-				CommitteeID:      big.NewInt(3),
-				CommitteeMembers: members,
-			})
-		}
-	}()*/
 	for {
 		select {
 		case ch := <-self.electionCh:
@@ -792,7 +714,7 @@ func GetTps(currentBlock *types.Block) {
 	}
 }
 
-func (self *PbftAgent) GenerateSignWithVote(fb *types.Block,vote uint) (*types.PbftSign, error) {
+func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     vote,
 		FastHeight: fb.Header().Number,
@@ -827,74 +749,74 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 	//go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
 }
 
-func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign , error) {
+func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error) {
 	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	if parent == nil { //if cannot find parent return ErrUnSyncParentBlock
-		return nil,types.ErrHeightNotYet
+		return nil, types.ErrHeightNotYet
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
 		log.Error("VerifyFastHeader error", "header", fb.Header(), "err", err)
-		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
-		return voteSign,err
+		return voteSign, err
 	}
 	err = bc.Validator().ValidateBody(fb)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .")
-			voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgree)
+			voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgree)
 			if err != nil {
-				return nil,err
+				return nil, err
 			}
-			return voteSign,nil
+			return voteSign, nil
 		}
-		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 		log.Error("VerifyFastBlock: validate body error", "err", err)
-		return voteSign,err
+		return voteSign, err
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
-		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
-		return voteSign,err
+		return voteSign, err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
 	if err != nil {
-		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
+		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
-			return nil,err
-		}
-		return voteSign,err
-	}
-	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
-	if err != nil {
-		voteSign, err := self.GenerateSignWithVote(fb,types.VoteAgreeAgainst)
-		if err != nil {
-			return nil,err
+			return nil, err
 		}
 		return voteSign, err
 	}
-	voteSign, _ := self.GenerateSignWithVote(fb,types.VoteAgree)
+	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
-		return nil,err
+		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		if err != nil {
+			return nil, err
+		}
+		return voteSign, err
+	}
+	voteSign, _ := self.GenerateSignWithVote(fb, types.VoteAgree)
+	if err != nil {
+		return nil, err
 	}
 	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
-	return voteSign,nil
+	return voteSign, nil
 }
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
@@ -1138,7 +1060,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		_,err = agent.VerifyFastBlock(block)
+		_, err = agent.VerifyFastBlock(block)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
 		}

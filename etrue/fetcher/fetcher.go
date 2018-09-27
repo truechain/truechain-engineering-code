@@ -424,15 +424,13 @@ func (f *Fetcher) loop() {
 						f.markBroadcastBlock(number, peer, block)
 						if _, ok := f.blockConsensus[number]; ok {
 							signHashs := f.signMultiHash[number]
-							if len(signHashs) > 0 {
-								log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
-								if signInject, ok := f.queuedSign[signHashs[0]]; ok {
-									if signInject.sign.FastHash == hash {
-										index = i
-									}
-								} else {
-									log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
+							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
+							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
+								if signInject.sign.FastHash == hash {
+									index = i
 								}
+							} else {
+								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
 							}
 						}
 					}
@@ -441,29 +439,28 @@ func (f *Fetcher) loop() {
 				if !finished {
 					if index != -1 {
 						number := blocks[index].NumberU64()
-						if _, ok := f.blockConsensus[number]; ok {
-							if number > height+1 {
-								finished = true
-								break
-							}
+						if number > height+1 {
+							finished = true
+						}
+
+						if f.getBlock(blocks[index].Hash()) != nil {
+							f.forgetBlockHeight(big.NewInt(int64(number)))
+							finished = true
+						}
+
+						if !finished {
+
 							signHashs := f.signMultiHash[number]
 							signs := []*types.PbftSign{}
 							for _, signHash := range signHashs {
 								if sign, ok := f.queuedSign[signHash]; ok {
-									if f.getBlock(sign.sign.FastHash) != nil {
-										f.forgetBlockHeight(big.NewInt(int64(number)))
-										finished = true
-										break
-									}
 									signs = append(signs, sign.sign)
 								}
 							}
 
-							if !finished {
-								log.Debug("Block come agreement", "num", number, "parent number", height, "block count", len(blocks), "sign number", len(signHashs))
-								f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
-								index = -1
-							}
+							log.Debug("Block come agreement", "num", number, "parent number", height, "block count", len(blocks), "sign number", len(signHashs))
+							f.verifyComeAgreement(peers[index], blocks[index], signs, signHashs)
+							index = -1
 						}
 					} else {
 						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
@@ -858,7 +855,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			if ok, _ := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
 				propSignInMeter.Mark(1)
 				f.enterQueue = true
-				f.blockConsensus[number] = ok
+				f.blockConsensus[number] = true
 				log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash)
 			}
 		}
@@ -887,6 +884,8 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 
+	f.enqueueSign(peer, block.Signs())
+
 	// Schedule the block for future importing
 	if f.getPendingBlock(hash) == nil {
 
@@ -895,8 +894,6 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			propBroadcastInvaildMeter.Mark(1)
 			return
 		}
-
-		f.enqueueSign(peer, block.Signs())
 
 		op := &inject{
 			origin: peer,
