@@ -533,13 +533,18 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 // the total time a pending synchronisation would take.
 func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 
+	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
+		return nil, errBusy
+	}
+	defer atomic.StoreInt32(&d.synchronising, 0)
+
 	p := d.peers.Peer(id)
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
 	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false,true)
 
-	ttl := d.requestTTL()
-	timeout := time.After(ttl)
+
+	timeout := time.After(time.Duration(10 * time.Second))
 	for {
 		select {
 
@@ -1454,7 +1459,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
 		log.Debug("Fast downloader signs:","block signs:",blocks[i].Signs())
 	}
-
+	log.Debug("Fast Downloaded>>>>","CurrentBlock:",d.blockchain.CurrentBlock().NumberU64())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain
