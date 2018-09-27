@@ -565,7 +565,7 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 			return head, nil
 
 		case <-timeout:
-			p.GetLog().Debug("Waiting for head header timed out", "elapsed", ttl)
+			p.GetLog().Debug("Waiting for head header timed out")
 			return nil, errTimeout
 		}
 	}
