@@ -434,7 +434,8 @@ func (pool *SnailPool) loop() {
 
 		case ev := <-pool.fastchainHeadCh:
 			if ev.Block != nil {
-				pool.AddRemoteFastBlock([]*types.Block{ev.Block})
+				log.Debug("get new fastblock", "number", ev.Block.Number())
+				go pool.AddRemoteFastBlock([]*types.Block{ev.Block})
 				//pool.addFastBlock(ev.Block)
 			}
 
