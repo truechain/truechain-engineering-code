@@ -303,7 +303,7 @@ func (state *State) committed(f int) bool {
 		return false
 	}
 	lock.PSLog("committed prepared")
-	if state.MsgLogs.GetCommitCount() < 2*f {
+	if state.MsgLogs.GetCommitCount() <= 2*f {
 		return false
 	}
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
