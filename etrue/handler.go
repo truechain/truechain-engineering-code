@@ -708,7 +708,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
 
-
 	case msg.Code == GetFastBlockBodiesMsg:
 		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
 		// Decode the retrieval message
@@ -1091,7 +1090,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Info("Handler", "code", msg.Code, "time", time.Now().Sub(now))
+	log.Info("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
 	return nil
 }
 

@@ -23,7 +23,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 )
 
-
 // Tests whether the truehash lookup works for both light as well as the full
 // datasets.
 func TestTruehash(t *testing.T) {
@@ -33,7 +32,7 @@ func TestTruehash(t *testing.T) {
 
 	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 
-	truehashTableInit(dataset)
+	//truehashTableInit(dataset)
 	//generateDataset(dataset, 0, cache)
 
 	// Create a block to verify
@@ -66,7 +65,7 @@ func BenchmarkTruehashLight(b *testing.B) {
 
 	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 
-	truehashTableInit(dataset)
+	//truehashTableInit(dataset)
 
 	hash := hexutil.MustDecode("0xc9149cc0386e689d789a1c2f3d5d169a61a6218ed30e74414dc736e442ef3d1f")
 
@@ -86,7 +85,7 @@ func BenchmarkTruehashFullSmall(b *testing.B) {
 
 	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 
-	truehashTableInit(dataset)
+	//truehashTableInit(dataset)
 
 	hash := hexutil.MustDecode("0xc9149cc0386e689d789a1c2f3d5d169a61a6218ed30e74414dc736e442ef3d1f")
 
