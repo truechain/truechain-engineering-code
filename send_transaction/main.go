@@ -95,6 +95,7 @@ func send(count int, ip string) {
 		fmt.Println("etrue_getBalance Error:", err)
 		return
 	} else {
+
 		bl, _ := new(big.Int).SetString(result, 10)
 		fmt.Println("etrue_getBalance Ok:", bl)
 	}
