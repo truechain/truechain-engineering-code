@@ -8,6 +8,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
@@ -146,16 +147,17 @@ func (ts *TrueScan) electionHandleLoop() error {
 	for {
 		select {
 		case electionEvent := <-ts.electionCh:
-			if electionEvent.Option == types.CommitteeStart ||
-				electionEvent.Option == types.CommitteeOver {
+			if electionEvent.Option == types.CommitteeStart {
 				ts.handleElection(&electionEvent)
+			} else if electionEvent.Option == types.CommitteeOver {
+				ts.updateTermofOffice(&electionEvent)
 			}
 		case <-ts.electionSub.Err():
 			return errResp("election terminated")
 		}
 	}
 }
-func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
+func (ts *TrueScan) updateTermofOffice(ee *core.ElectionEvent) {
 	viewNumber := ee.CommitteeID.Uint64()
 	bfn := ee.BeginFastNumber.Uint64()
 	var efn uint64
@@ -165,21 +167,34 @@ func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
 		efn = 0
 	}
 	ts.viewMutex.Lock()
+	defer ts.viewMutex.Unlock()
 	if ts.viewNow < viewNumber || ts.viewEndNumber < efn {
 		ts.viewNow = viewNumber
 		ts.viewStartNumber = bfn
 		ts.viewEndNumber = efn
 	}
-	ts.viewMutex.Unlock()
+}
+func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
+	ts.updateTermofOffice(ee)
+	var efn uint64
+	if ee.EndFastNumber != nil {
+		efn = ee.EndFastNumber.Uint64()
+	} else {
+		efn = 0
+	}
 	members := ee.CommitteeMembers
-	mas := make([]string, len(members))
+	mas := make([]*pbftMemberMsg, len(members))
 	for i, member := range members {
-		mas[i] = member.Coinbase.String()
+		bs := crypto.FromECDSAPub(member.Publickey)
+		mas[i] = &pbftMemberMsg{
+			Coinbase: member.Coinbase.String(),
+			PubKey:   "0x" + hex.EncodeToString(bs),
+		}
 	}
 	cvm := &ChangeViewMsg{
-		ViewNumber:      viewNumber,
+		ViewNumber:      ee.CommitteeID.Uint64(),
 		Members:         mas,
-		BeginFastNumber: bfn,
+		BeginFastNumber: ee.BeginFastNumber.Uint64(),
 		EndFastNumber:   efn,
 	}
 	ts.redisClient.ChangeView(cvm)

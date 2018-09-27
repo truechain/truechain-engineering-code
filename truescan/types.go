@@ -88,12 +88,17 @@ type SnailBlockHeaderMsg struct {
 	EndFruitNumber   uint64            `json:"endFruitNumber"`
 }
 
+type pbftMemberMsg struct {
+	Coinbase string `json:"coinbase"`
+	PubKey   string `json:"pubKey"`
+}
+
 // ChangeViewMsg used in corresponding message transmission
 type ChangeViewMsg struct {
-	ViewNumber      uint64   `json:"viewNumber"`
-	Members         []string `json:"members"`
-	BeginFastNumber uint64   `json:"beginFastNumber"`
-	EndFastNumber   uint64   `json:"endFastNumber"`
+	ViewNumber      uint64           `json:"viewNumber"`
+	Members         []*pbftMemberMsg `json:"members"`
+	BeginFastNumber uint64           `json:"beginFastNumber"`
+	EndFastNumber   uint64           `json:"endFastNumber"`
 }
 
 // Account include address and value
