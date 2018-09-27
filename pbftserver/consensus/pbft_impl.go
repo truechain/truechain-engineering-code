@@ -37,13 +37,13 @@ const (
 	Committed                // Same with `committed-local` stage explained in the original paper.
 )
 
-func (m MsgLogs) SetPrepareMsg(key string, data *VoteMsg) {
+func (m *MsgLogs) SetPrepareMsg(key string, data *VoteMsg) {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
 	m.prepareMsgs[key] = data
 }
 
-func (m MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
+func (m *MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
 	data, ok := m.prepareMsgs[key]
@@ -54,7 +54,7 @@ func (m MsgLogs) GetPrepareMsg(key string) (data *VoteMsg) {
 	}
 }
 
-func (m MsgLogs) GetPrepareOne() *VoteMsg {
+func (m *MsgLogs) GetPrepareOne() *VoteMsg {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
 	for _, v := range m.prepareMsgs {
@@ -63,19 +63,19 @@ func (m MsgLogs) GetPrepareOne() *VoteMsg {
 	return nil
 }
 
-func (m MsgLogs) GetPrepareCount() int {
+func (m *MsgLogs) GetPrepareCount() int {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()
 	return len(m.prepareMsgs)
 }
 
-func (m MsgLogs) SetCommitMsgs(key string, data *VoteMsg) {
+func (m *MsgLogs) SetCommitMsgs(key string, data *VoteMsg) {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	m.commitMsgs[key] = data
 }
 
-func (m MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
+func (m *MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	data, ok := m.commitMsgs[key]
@@ -86,7 +86,7 @@ func (m MsgLogs) GetCommitMsgs(key string) (data *VoteMsg) {
 	}
 }
 
-func (m MsgLogs) GetCommitMsgsSigns() []*types.PbftSign {
+func (m *MsgLogs) GetCommitMsgsSigns() []*types.PbftSign {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	signs := make([]*types.PbftSign, 0)
@@ -96,7 +96,7 @@ func (m MsgLogs) GetCommitMsgsSigns() []*types.PbftSign {
 	return signs
 }
 
-func (m MsgLogs) GetCommitPassCount() int {
+func (m *MsgLogs) GetCommitPassCount() int {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	cnt := 0
@@ -108,7 +108,7 @@ func (m MsgLogs) GetCommitPassCount() int {
 	return cnt
 }
 
-func (m MsgLogs) GetCommitOne() *VoteMsg {
+func (m *MsgLogs) GetCommitOne() *VoteMsg {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	for _, v := range m.commitMsgs {
@@ -117,7 +117,7 @@ func (m MsgLogs) GetCommitOne() *VoteMsg {
 	return nil
 }
 
-func (m MsgLogs) GetCommitCount() int {
+func (m *MsgLogs) GetCommitCount() int {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()
 	return len(m.commitMsgs)

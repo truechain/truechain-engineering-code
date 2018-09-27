@@ -9,6 +9,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 )
@@ -142,7 +143,52 @@ func addServer2(id int, agent *PbftAgentProxyImp) *PbftServerMgr {
 	return NewPbftServerMgr(pk, priv, agent)
 }
 
+type Node struct {
+	lock sync.Mutex
+	Data map[int]int
+}
+
 func TestPbftServerTemp(t *testing.T) {
+
+	n := &Node{Data: make(map[int]int)}
+	n.Data[1] = 1
+	go func() {
+		for i := 0; i < 10000; i++ {
+			n.lock.Lock()
+			fmt.Println(fmt.Sprintf("%p", &n.lock))
+			n.Data[i] = i
+			n.lock.Unlock()
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 10000; i++ {
+			n.lock.Lock()
+			fmt.Println(fmt.Sprintf("%p", &n.lock))
+			n.Data[i] = i
+			n.lock.Unlock()
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 10000; i++ {
+			n.lock.Lock()
+			for _, v := range n.Data {
+				fmt.Println(v)
+			}
+			n.lock.Unlock()
+		}
+	}()
+
+	for i := 0; i < 10000; i++ {
+		n.lock.Lock()
+		c := n.Data[i]
+		fmt.Println(fmt.Sprintf("%p", &n.lock), c)
+		n.lock.Unlock()
+	}
+
+	return
+
 	d := make(chan int)
 
 	msg := &consensus.MsgLogs{}
