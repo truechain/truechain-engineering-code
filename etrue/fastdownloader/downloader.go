@@ -1107,7 +1107,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			return errCancel
 
 		case packet := <-deliveryCh:
-			log.Debug("deliver <- packet ","packet",packet,"kind",kind)
+			//log.Debug("deliver <- packet ","packet",packet,"kind",kind)
 
 			//log.Debug("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
