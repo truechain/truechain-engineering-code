@@ -262,7 +262,7 @@ func (self *PbftAgent) stopSend() {
 	self.debugNodeInfoWork(nodeWork, "stopSend...After...")
 }
 func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
-	log.Info(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
+	log.Debug(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
 		"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
 		"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
 		"cacheSignLen", len(node.cacheSign))
@@ -1024,7 +1024,7 @@ func DebugCryptNode(node *types.EncryptNodeMessage) {
 }
 
 func PrintNode(str string, node *types.CommitteeNode) {
-	log.Info(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
+	log.Debug(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
 		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey)[:6]+"***")
 }
 
