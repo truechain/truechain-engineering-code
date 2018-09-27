@@ -273,12 +273,14 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	if pTd.Cmp(td) <= 0 {
 		log.Debug("Fast FetchHeight start ","NOW TIME",time.Now().String(),"currentBlockNumber",pm.blockchain.CurrentBlock().NumberU64())
 		header,err := pm.fdownloader.FetchHeight(peer.id);
-		log.Debug("Fast FetchHeight end","NOW TIME",time.Now().String(),"currentBlockNumber",pm.blockchain.CurrentBlock().NumberU64(),"PeerCurrentBlockNumber",header.Number.Uint64())
+
 
 		if err!=nil || header == nil{
 			log.Debug("pTd.Cmp(td) <= 0 ","err",err,"header",header)
 			return
 		}
+
+		log.Debug("Fast FetchHeight end","NOW TIME",time.Now().String(),"currentBlockNumber",pm.blockchain.CurrentBlock().NumberU64(),"PeerCurrentBlockNumber",header.Number.Uint64())
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header",header.Number.Uint64())
 		if  header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 

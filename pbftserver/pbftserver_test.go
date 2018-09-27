@@ -149,6 +149,11 @@ type Node struct {
 }
 
 func TestPbftServerTemp(t *testing.T) {
+	var a map[string]interface{}
+	a = make(map[string]interface{}, 0)
+	a["1"] = 1
+	fmt.Println(a)
+	return
 
 	n := &Node{Data: make(map[int]int)}
 	n.Data[1] = 1
