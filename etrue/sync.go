@@ -271,8 +271,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
-
+		log.Debug("Fast FetchHeight start ","NOW TIME",time.Now().String())
 		header,err := pm.fdownloader.FetchHeight(peer.id);
+		log.Debug("Fast FetchHeight end","NOW TIME",time.Now().String())
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header",header)
 		if err!=nil || header == nil{
 			log.Debug("pTd.Cmp(td) <= 0 ","err",err,"header",header)

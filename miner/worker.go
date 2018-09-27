@@ -785,7 +785,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 	var fastBlock *types.Block
 	for _ , fb := range fastBlocks {
 		if self.FastBlockNumber.Uint64() == 0{
-			//log.Info("1")
+			log.Info("1")
 			self.FastBlockNumber = new(big.Int).Set(common.Big0)
 			//self.FastBlockNumber.SetUint64(fb.NumberU64()) 
 			fastBlock = fb

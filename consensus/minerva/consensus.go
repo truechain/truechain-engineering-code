@@ -530,12 +530,12 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailBlock) error {
 	// check freshness
 	pointer := m.sbc.GetHeader(fruit.PointerHash(), fruit.PointNumber().Uint64())
 	if pointer == nil {
-		log.Warn("VerifyFreshness get pointer failed.", "number", fruit.PointNumber(), "pointer", fruit.PointerHash())
+		log.Warn("VerifyFreshness get pointer failed.", "fruit", fruit.Number(), "number", fruit.PointNumber(), "pointer", fruit.PointerHash())
 		return consensus.ErrUnknownPointer
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
-		log.Warn("VerifyFreshness failed.", "poiner", pointer.Number, "current", header.Number)
+		log.Warn("VerifyFreshness failed.", "fruit", fruit.Number(), "poiner", pointer.Number, "current", header.Number)
 		return consensus.ErrFreshness
 	}
 
@@ -820,6 +820,9 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 // gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
 	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
+	if feeAmount.Uint64() == 0 {
+		return
+	}
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
 	if len(committee) == 0 {
@@ -834,7 +837,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 }
 
 func LogPrint(info string, addr common.Address, amount *big.Int) {
-	log.Info("[Consensus AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
+	log.Debug("[Consensus AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
