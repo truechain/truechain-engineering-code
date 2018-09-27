@@ -91,6 +91,7 @@ var (
 	errCancelContentProcessing = errors.New("fast content processing canceled (requested)")
 	errNoSyncActive            = errors.New("fast no sync active")
 	errTooOld                  = errors.New("fast peer doesn't speak recent enough protocol version (need version >= 62)")
+	errPeerNil				   = errors.New("peer is nil")
 )
 
 type Downloader struct {
@@ -539,6 +540,9 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	p := d.peers.Peer(id)
+	if p == nil {
+		return nil ,errPeerNil
+	}
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
 	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false,true)
