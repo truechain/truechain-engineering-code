@@ -95,8 +95,9 @@ func send(count int, ip string) {
 		fmt.Println("etrue_getBalance Error:", err)
 		return
 	} else {
-		b := new(big.Int).SetBytes([]byte(result))
-		fmt.Println("etrue_getBalance Ok:", b)
+
+		bl, _ := new(big.Int).SetString(result, 10)
+		fmt.Println("etrue_getBalance Ok:", bl, result)
 	}
 
 	//unlock account
@@ -125,8 +126,8 @@ func send(count int, ip string) {
 			fmt.Println("etrue_getBalance Error:", err)
 			return
 		} else {
-			b := new(big.Int).SetBytes([]byte(result))
-			fmt.Println("etrue_getBalance Ok:", b)
+			bl, _ := new(big.Int).SetString(result, 10)
+			fmt.Println("etrue_getBalance Ok:", bl, result)
 		}
 	}
 	waitMain.Wait()
