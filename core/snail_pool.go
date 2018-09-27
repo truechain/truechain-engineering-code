@@ -236,6 +236,8 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	if maxFbNumber != nil && minFbNumber != nil {
 		for i := new(big.Int).Add(minFbNumber, common.Big1); i.Cmp(maxFbNumber) <= 0; i = new(big.Int).Add(i, common.Big1) {
 			fastblock := pool.fastchain.GetBlockByNumber(i.Uint64())
+
+			log.Debug("add fastblock", "number", fastblock.Number())
 			pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
 			pool.allFastBlocks[fastblock.Hash()] = fastblock
 		}
@@ -434,7 +436,8 @@ func (pool *SnailPool) loop() {
 
 		case ev := <-pool.fastchainHeadCh:
 			if ev.Block != nil {
-				pool.AddRemoteFastBlock([]*types.Block{ev.Block})
+				log.Debug("get new fastblock", "number", ev.Block.Number())
+				go pool.AddRemoteFastBlock([]*types.Block{ev.Block})
 				//pool.addFastBlock(ev.Block)
 			}
 

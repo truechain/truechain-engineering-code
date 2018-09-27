@@ -492,6 +492,12 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.election.Start()
 	//go s.agent.SendBlock()
 
+	// Start the networking layer and the light server if requested
+	s.protocolManager.Start2(maxPeers)
+	if s.lesServer != nil {
+		s.lesServer.Start(srvr)
+	}
+
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
 	//sender.Start()
 	return nil
