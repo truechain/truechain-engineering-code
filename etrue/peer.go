@@ -530,7 +530,7 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 // specified header query, based on the hash of an origin block.
 func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
 	if isFastchain {
-		p.Log().Debug("Fetching batch of headers  GetFastBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		return p2p.Send(p.rw, GetFastOneBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
 	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)

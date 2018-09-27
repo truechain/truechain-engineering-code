@@ -543,7 +543,6 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 	// Request the advertised remote head block and wait for the response
 	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false,true)
 
-
 	timeout := time.After(time.Duration(10 * time.Second))
 	for {
 		select {
@@ -1680,10 +1679,6 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
 
-
-	if atomic.LoadInt32(&d.synchronising) == 1{
-		return errBusy
-	}
 
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
