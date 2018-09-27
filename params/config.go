@@ -54,7 +54,7 @@ var (
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(18927),
+		ChainID:             big.NewInt(18928),
 		HomesteadBlock:      big.NewInt(0),
 		DAOForkBlock:        nil,
 		DAOForkSupport:      false,
