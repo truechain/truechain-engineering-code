@@ -366,14 +366,14 @@ func (self *worker) update() {
 				}	
 			}
 		case  <-self.fastBlockCh:
-			log.Info("------------start commit new work  fastBlockCh")
+			log.Debug("------------start commit new work  fastBlockCh")
 			if !self.atCommintNewWoker {
 				log.Info("star commit new work  fastBlockCh")
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
 			}else{
-				log.Info("------------start commit new work  true?????")
+				log.Debug("------------start commit new work  true?????")
 			}
 
 		// TODO fast block event
@@ -724,7 +724,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 	err := engine.VerifyFreshness(fruit, env.Block)
 	if err != nil {
-		log.Info("commitFruit verify freshness error", "err", err)
+		log.Info("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.Block.Number())
 		return err
 	}
 
@@ -785,7 +785,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 	var fastBlock *types.Block
 	for _ , fb := range fastBlocks {
 		if self.FastBlockNumber.Uint64() == 0{
-			log.Info("1")
+			//log.Info("1")
 			self.FastBlockNumber = new(big.Int).Set(common.Big0)
 			//self.FastBlockNumber.SetUint64(fb.NumberU64()) 
 			fastBlock = fb
@@ -810,7 +810,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 			self.current.signs[i] = types.CopyPbftSign(signs[i])
 		}
 
-		log.Info("commitFastBlocks","fb", self.FastBlockNumber)
+		log.Debug("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
 	}
 	return nil
 }

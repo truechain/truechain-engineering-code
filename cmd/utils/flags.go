@@ -1219,7 +1219,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	switch {
 	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 18927
+			cfg.NetworkId = 18928
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
 		cfg.FastGenesis = cfg.Genesis.Fast

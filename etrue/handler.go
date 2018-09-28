@@ -276,6 +276,17 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
+func (pm *ProtocolManager) Start2(maxPeers int) {
+
+	// start sync handlers
+	go pm.syncer()
+	go pm.txsyncLoop()
+	go pm.fruitsyncLoop()
+	//atomic.StoreUint32(&pm.acceptTxs, 1)
+	//atomic.StoreUint32(&pm.acceptFruits, 1)
+
+}
+
 func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
 
@@ -309,9 +320,9 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	go pm.minedSnailBlockLoop()
 
 	// start sync handlers
-	go pm.syncer()
-	go pm.txsyncLoop()
-	go pm.fruitsyncLoop()
+	//go pm.syncer()
+	//go pm.txsyncLoop()
+	//go pm.fruitsyncLoop()
 	//atomic.StoreUint32(&pm.acceptTxs, 1)
 	//atomic.StoreUint32(&pm.acceptFruits, 1)
 
@@ -1090,7 +1101,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Info("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
+	log.Debug("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
 	return nil
 }
 

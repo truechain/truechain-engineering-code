@@ -236,6 +236,8 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	if maxFbNumber != nil && minFbNumber != nil {
 		for i := new(big.Int).Add(minFbNumber, common.Big1); i.Cmp(maxFbNumber) <= 0; i = new(big.Int).Add(i, common.Big1) {
 			fastblock := pool.fastchain.GetBlockByNumber(i.Uint64())
+
+			log.Debug("add fastblock", "number", fastblock.Number())
 			pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
 			pool.allFastBlocks[fastblock.Hash()] = fastblock
 		}
@@ -434,7 +436,8 @@ func (pool *SnailPool) loop() {
 
 		case ev := <-pool.fastchainHeadCh:
 			if ev.Block != nil {
-				pool.AddRemoteFastBlock([]*types.Block{ev.Block})
+				log.Debug("get new fastblock", "number", ev.Block.Number())
+				go pool.AddRemoteFastBlock([]*types.Block{ev.Block})
 				//pool.addFastBlock(ev.Block)
 			}
 
@@ -541,9 +544,11 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 			var discarded, included []*types.SnailBlock
 
 			var (
-				rem = pool.chain.GetBlock(oldHead.Hash(), oldHead.Number().Uint64())
-				add = pool.chain.GetBlock(newHead.Hash(), newHead.Number().Uint64())
+				//rem = pool.chain.GetBlock(oldHead.Hash(), oldHead.Number().Uint64())
+				//add = pool.chain.GetBlock(newHead.Hash(), newHead.Number().Uint64())
 			)
+			rem := oldHead
+			add := newHead
 			//log.Debug("branching","oldHeadNumber",rem.NumberU64(),"newHeadNumber",add.NumberU64(),"oldHeadMaxFastNumber",rem.Fruits()[len(rem.Fruits())-1].FastNumber(),"newHeadMaxFastNumber",add.Fruits()[len(add.Fruits())-1].FastNumber())
 			for rem.NumberU64() > add.NumberU64() {
 				discarded = append(discarded, rem.Fruits()...)
