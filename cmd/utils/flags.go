@@ -412,7 +412,7 @@ var (
 	}
 	// Redis settings
 	RedisDisabledFlag = cli.BoolFlag{
-		Name:  "reidsdisable",
+		Name:  "redisdisable",
 		Usage: "Disable the Redis server",
 	}
 	RedisAddrFlag = cli.StringFlag{
