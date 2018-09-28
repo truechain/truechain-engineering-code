@@ -337,9 +337,9 @@ func (self *worker) update() {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case <-self.chainHeadCh:
+		case ev := <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
-				log.Info("star commit new work  chainHeadCh")
+				log.Info("star commit new work  chainHeadCh","chain block number",ev.Block.Number(),"fb",ev.Block.FastNumber())
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
@@ -635,6 +635,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	
+	
 	// set work block
 	work.Block = types.NewSnailBlock(
 		self.current.header,
@@ -642,12 +643,9 @@ func (self *worker) commitNewWork() {
 		self.current.signs,
 		nil, 
 	)
+	
 
-	if self.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && self.current.Block.Fruits() == nil{
-		log.Info("__commit new work have not fruits and fast block do not start miner  again")
-		self.atCommintNewWoker  = false
-		return
-	}
+
 
 	// compute uncles for the new block.
 	var (
@@ -676,6 +674,12 @@ func (self *worker) commitNewWork() {
 	// Create the new block to seal with the consensus engine
 	if work.Block, err = self.engine.FinalizeSnail(self.chain, header, uncles, work.fruits, work.signs); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
+		self.atCommintNewWoker  = false
+		return
+	}
+
+	if self.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && self.current.Block.Fruits() == nil{
+		log.Info("__commit new work have not fruits and fast block do not start miner  again")
 		self.atCommintNewWoker  = false
 		return
 	}
@@ -748,6 +752,8 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		currentFastNumber = new(big.Int).Set(common.Big0)
 	}
 
+	log.Info("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
+
 	currentFastNumber.Add(currentFastNumber, common.Big1)
 	// find the continue fruits
 	for _, fruit := range fruits {
@@ -810,7 +816,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 			self.current.signs[i] = types.CopyPbftSign(signs[i])
 		}
 
-		log.Debug("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
+		log.Info("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
 	}
 	return nil
 }
