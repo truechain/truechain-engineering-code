@@ -309,7 +309,7 @@ func (state *State) committed(f int) bool {
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	passCount := state.MsgLogs.GetCommitPassCount()
 	//lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
-	return passCount >= 2*f
+	return passCount > 2*f
 }
 
 func digest(object interface{}) (string, error) {
