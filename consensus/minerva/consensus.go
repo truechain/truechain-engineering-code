@@ -535,7 +535,7 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailBlock) error {
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
-		log.Warn("VerifyFreshness failed.", "fruit", fruit.Number(), "poiner", pointer.Number, "current", header.Number)
+		log.Info("VerifyFreshness failed.", "fruit", fruit.Number(), "poiner", pointer.Number, "current", header.Number)
 		return consensus.ErrFreshness
 	}
 
