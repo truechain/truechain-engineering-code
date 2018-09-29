@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"math/big"
 	"runtime"
 	"time"
@@ -877,6 +878,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		signs := fruit.Body().Signs
 
 		committeeMembers, errs := election.VerifySigns(signs)
+
 		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}
@@ -887,17 +889,20 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 			if errs[i] != nil {
 				continue
 			}
+			cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
+
 			if signs[i].Result == types.VoteAgree {
-				if _, ok := failAddr[cm.Coinbase]; !ok {
+				if _, ok := failAddr[cmPubAddr]; !ok {
 					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
 				}
 			} else {
-				failAddr[cm.Coinbase] = false
+				failAddr[cmPubAddr] = false
 			}
 		}
 
 		if len(fruitOkAddr) == 0 {
-			return consensus.ErrInvalidSignsLength
+			log.Error("fruitOkAddr", "Error", consensus.ErrInvalidSignsLength.Error())
+			return nil
 		}
 
 		// Equal by fruit
