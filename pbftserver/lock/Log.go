@@ -18,3 +18,12 @@ func PSLog(a ...interface{}) {
 
 	log.Debug("[PbftServer]", "[PSLog]", a)
 }
+
+func PSLogInfo(a ...interface{}) {
+	if IfPrint {
+		fmt.Println("[PSLog]", a)
+		return
+	}
+
+	log.Info("[PbftServer]", "[PSLog]", a)
+}

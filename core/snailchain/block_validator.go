@@ -229,7 +229,9 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 			count ++
 		}
 	}
-	if count <= len(members) * 2 / 3 {
+	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
+	// will fix this bug at next release version
+	if count <= len(members) / 3 * 2 {
 		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return ErrInvalidSign
 	}
