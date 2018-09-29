@@ -373,6 +373,8 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			//save Pass
 			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 
+			node.GetStatus(commitMsg.Height).MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
+
 			// Change the stage to prepared.
 			node.GetStatus(commitMsg.Height).CurrentStage = consensus.Prepared
 			LogStage("Prepare", true)
@@ -435,19 +437,15 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 		return nil
 	}
 
-	if state.MsgLogs.GetCommitMsgs(commitMsg.NodeID) == nil {
-		state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
-	}
-
 	//fmt.Println("_-----------------------------------------------------sings", commitMsg.Signs)
 	replyMsg, committedMsg, err := node.GetStatus(commitMsg.Height).Commit(commitMsg, f)
 
-	//lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
-	//if state.CurrentStage == consensus.Committed {
-	//	lock.PSLog("[Committed return true]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
-	//	state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
-	//	return nil
-	//}
+	lock.PSLog("[Committed return]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
+	if state.CurrentStage == consensus.Committed {
+		lock.PSLog("[Committed return true]", "commitMsg.Height", commitMsg.Height, "CurrentStage", state.CurrentStage)
+		state.MsgLogs.SetCommitMsgs(commitMsg.NodeID, commitMsg)
+		return nil
+	}
 
 	if err != nil {
 		return err

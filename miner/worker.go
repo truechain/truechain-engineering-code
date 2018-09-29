@@ -337,9 +337,9 @@ func (self *worker) update() {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case <-self.chainHeadCh:
+		case ev := <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
-				log.Info("star commit new work  chainHeadCh")
+				log.Info("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
@@ -634,6 +634,7 @@ func (self *worker) commitNewWork() {
 		self.atCommintNewWoker  = false
 		return
 	}
+	
 	
 	// set work block
 	work.Block = types.NewSnailBlock(
