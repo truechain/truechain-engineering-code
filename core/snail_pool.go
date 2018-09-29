@@ -775,7 +775,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return ErrInvalidSign
 	}
 	// check freshness
-	err := pool.engine.VerifyFreshness(fruit, nil)
+	err := pool.engine.VerifyFreshness(fruit.Header(), nil)
 	if err != nil {
 		log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 

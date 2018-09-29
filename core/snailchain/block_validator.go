@@ -204,7 +204,11 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 
 	// check freshness
-	err := v.engine.VerifyFreshness(fruit, block)
+	var blockHeader *types.SnailHeader
+	if block != nil {
+		blockHeader = block.Header()
+	}
+	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader)
 	if err != nil {
 		log.Warn("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
