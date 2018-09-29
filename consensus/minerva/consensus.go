@@ -522,22 +522,22 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 	return nil
 }
 
-func (m *Minerva) VerifyFreshness(fruit, block *types.SnailBlock) error {
+func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
 	var header *types.SnailHeader
 	if block == nil {
 		header = m.sbc.CurrentHeader()
 	} else {
-		header = block.Header()
+		header = block
 	}
 	// check freshness
-	pointer := m.sbc.GetHeader(fruit.PointerHash(), fruit.PointNumber().Uint64())
+	pointer := m.sbc.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
 	if pointer == nil {
-		log.Warn("VerifyFreshness get pointer failed.", "fruit", fruit.Number(), "number", fruit.PointNumber(), "pointer", fruit.PointerHash())
+		log.Warn("VerifyFreshness get pointer failed.", "fruit", fruit.Number, "number", fruit.PointerNumber, "pointer", fruit.PointerHash)
 		return consensus.ErrUnknownPointer
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
-		log.Info("VerifyFreshness failed.", "fruit sb", fruit.Number(),"fruit fb", fruit.FastNumber(), "poiner", pointer.Number, "current", header.Number)
+		log.Info("VerifyFreshness failed.", "fruit sb", fruit.Number,"fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", header.Number)
 		return consensus.ErrFreshness
 	}
 
