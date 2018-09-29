@@ -40,13 +40,6 @@ func NewRedisClient(config *Config) (*RedisClient, error) {
 		id:         config.ChannelID,
 		serverAddr: redisServerAddr,
 	}
-	rc.basicData = &basicData{
-		FastHeight:  0,
-		FruitHeight: 0,
-		SnailHeight: 0,
-		TxsCount:    0,
-		ViewNumber:  0,
-	}
 	const healthCheckPeriod = time.Minute
 	c, err := redis.Dial("tcp", redisServerAddr,
 		// Read timeout on server should be greater than ping period.
@@ -56,6 +49,18 @@ func NewRedisClient(config *Config) (*RedisClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	v, _ := redis.String(c.Do("GET", "basicData"+":"+strconv.Itoa(rc.id)))
+	basicData := &basicData{
+		FastHeight:  0,
+		FruitHeight: 0,
+		SnailHeight: 0,
+		TxsCount:    0,
+		ViewNumber:  0,
+	}
+	json.Unmarshal([]byte(v), basicData)
+	rc.basicData = basicData
+	log.RedisLog("BasicData", "String", v)
+	log.RedisLog("BasicData", "FastHeight", basicData.FastHeight, "TxsCount", basicData.TxsCount)
 	log.RedisLog("Redis client start", "touch", redisServerAddr, "channel", config.ChannelID)
 	rc.c = c
 	rc.msgCh = make(chan string, msgChanSize)
