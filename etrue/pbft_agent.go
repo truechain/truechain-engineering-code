@@ -756,11 +756,12 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	if parent == nil { //if cannot find parent return ErrUnSyncParentBlock
+		log.Warn("VerifyFastBlock ErrHeightNotYet error","header", fb.Header())
 		return nil, types.ErrHeightNotYet
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
-		log.Error("VerifyFastHeader error", "header", fb.Header(), "err", err)
+		log.Error("verifyFastBlock verifyHeader error", "header", fb.Header(), "err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -778,16 +779,17 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 			}
 			return voteSign, nil
 		}
+		log.Error("verifyFastBlock validateBody error", "height:", fb.Header().Number,"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
 		}
-		log.Error("VerifyFastBlock: validate body error", "err", err)
 		return voteSign, err
 	}
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
+		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Header().Number,"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -797,6 +799,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
 	if err != nil {
+		log.Error("verifyFastBlock process error", "height:", fb.Header().Number,"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -805,6 +808,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
+		log.Error("verifyFastBlock validateState error", "Height:", fb.Header().Number,"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
