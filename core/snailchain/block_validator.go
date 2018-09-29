@@ -104,7 +104,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "err", err)
+			log.Info("ValidateBody snail validate fruit error",  "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err
 		}
 	}

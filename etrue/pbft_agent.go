@@ -456,7 +456,7 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		//insertBlock
 		_, err := self.fastChain.InsertChain(fastBlocks)
 		for _, fb := range fastBlocks {
-			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Header().Number, "len:", len(fastBlocks))
+			log.Info("Finalize: BroadcastConsensus", "Height:", fb.Number(), "len:", len(fastBlocks))
 		}
 		if err != nil {
 			log.Error("self.fastChain.InsertChain error ", "err", err)
@@ -603,7 +603,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		return fastBlock, core.ErrExceedNumber
 	}
 
-	log.Info("parent", "height:", parent.Number())
+	log.Debug("parent", "height:", parent.Number())
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
@@ -646,7 +646,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return fastBlock, err
 	}
-	log.Debug("generateFastBlock", "Height:", fastBlock.Header().Number)
+	log.Debug("generateFastBlock", "Height:", fastBlock.Number())
 
 	voteSign, err := self.GenerateSign(fastBlock)
 	if err != nil {
@@ -697,7 +697,7 @@ func GetTps(currentBlock *types.Block) {
 	if len(txSlice) > 1 && len(timeSlice) > 1 {
 		eachTimeInterval := nowTime - timeSlice[len(timeSlice)-1-1]
 		tps := 1000 * float32(txNum) / float32(eachTimeInterval)
-		log.Info("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx", txNum, "time", eachTimeInterval)
+		log.Debug("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx", txNum, "time", eachTimeInterval)
 		tpsSlice = append(tpsSlice, tps)
 
 		var timeInterval, txInterval uint64
@@ -709,7 +709,7 @@ func GetTps(currentBlock *types.Block) {
 			txInterval = txSum - txSlice[0]
 		}
 		averageTps := 1000 * float32(txInterval) / float32(timeInterval)
-		log.Info("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
+		log.Debug("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
 		averageTpsSlice = append(averageTpsSlice, averageTps)
 	}
 }
@@ -750,18 +750,18 @@ func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error) {
-	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
+	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	bc := self.fastChain
 	// get current head
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	if parent == nil { //if cannot find parent return ErrUnSyncParentBlock
-		log.Warn("VerifyFastBlock ErrHeightNotYet error","header", fb.Header())
+		log.Warn("VerifyFastBlock ErrHeightNotYet error","header", fb.Number())
 		return nil, types.ErrHeightNotYet
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
-		log.Error("verifyFastBlock verifyHeader error", "header", fb.Header(), "err", err)
+		log.Error("verifyFastBlock verifyHeader error", "header", fb.Number(), "err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -779,7 +779,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 			}
 			return voteSign, nil
 		}
-		log.Error("verifyFastBlock validateBody error", "height:", fb.Header().Number,"err", err)
+		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(),"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -789,7 +789,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
-		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Header().Number,"err", err)
+		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Number(),"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -797,9 +797,9 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 		return voteSign, err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
-	log.Info("Finalize: verifyFastBlock", "Height:", fb.Header().Number)
+	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
-		log.Error("verifyFastBlock process error", "height:", fb.Header().Number,"err", err)
+		log.Error("verifyFastBlock process error", "height:", fb.Number(),"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -808,7 +808,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
-		log.Error("verifyFastBlock validateState error", "Height:", fb.Header().Number,"err", err)
+		log.Error("verifyFastBlock validateState error", "Height:", fb.Number(),"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -819,12 +819,12 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	if err != nil {
 		return nil, err
 	}
-	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Header().Number, "parentHash:", fb.ParentHash())
+	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	return voteSign, nil
 }
 
 func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Debug("into BroadcastSign.", "fastHeight", fb.Header().Number)
+	log.Debug("into BroadcastSign.", "fastHeight", fb.Number())
 	self.mu.Lock()
 	defer self.mu.Unlock()
 	//insert bockchain
@@ -832,7 +832,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
-	log.Debug("out BroadcastSign.", "fastHeight", fb.Header().Number)
+	log.Debug("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
 
