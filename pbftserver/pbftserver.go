@@ -490,6 +490,7 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 			b, c := serverCheck(server)
 			log.Debug("[leader]", "server count", c)
 			if b {
+				lock.PSLogInfo("[leader]", "server count", c, "server", "start")
 				time.Sleep(time.Second * ServerWait * 18)
 				break
 			}
