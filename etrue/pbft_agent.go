@@ -603,7 +603,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		return fastBlock, core.ErrExceedNumber
 	}
 
-	log.Info("parent", "height:", parent.Number())
+	log.Debug("parent", "height:", parent.Number())
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
@@ -697,7 +697,7 @@ func GetTps(currentBlock *types.Block) {
 	if len(txSlice) > 1 && len(timeSlice) > 1 {
 		eachTimeInterval := nowTime - timeSlice[len(timeSlice)-1-1]
 		tps := 1000 * float32(txNum) / float32(eachTimeInterval)
-		log.Info("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx", txNum, "time", eachTimeInterval)
+		log.Debug("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx", txNum, "time", eachTimeInterval)
 		tpsSlice = append(tpsSlice, tps)
 
 		var timeInterval, txInterval uint64
@@ -709,7 +709,7 @@ func GetTps(currentBlock *types.Block) {
 			txInterval = txSum - txSlice[0]
 		}
 		averageTps := 1000 * float32(txInterval) / float32(timeInterval)
-		log.Info("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
+		log.Debug("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
 		averageTpsSlice = append(averageTpsSlice, averageTps)
 	}
 }
