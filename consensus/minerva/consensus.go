@@ -566,6 +566,9 @@ var (
 	big9          = big.NewInt(9)
 	big10         = big.NewInt(10)
 	big32         = big.NewInt(32)
+
+	big90         = big.NewInt(90)
+
 	bigMinus1     = big.NewInt(-1)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
@@ -575,7 +578,14 @@ var (
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
-	return calcDifficulty2(time, parents)
+	count := len(parents)
+	next := new(big.Int).Add(parents[count - 1].Number, common.Big1)
+	if next.Cmp(big90) > 0 {
+		return calcDifficulty90(time, parents)
+	} else {
+		return calcDifficulty2(time, parents)
+	}
+
 	//return calcDifficulty(time, parents[0])
 }
 
@@ -598,6 +608,69 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 	//log.Debug("CalcFruitDifficulty", "delta", delta, "diff", diff)
 
 	return diff
+}
+
+
+func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
+	// algorithm:
+	// diff = (average_diff +
+	//         (average_diff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	//        )
+
+	period := big.NewInt(int64(len(parents)))
+	parentHeaders := parents
+
+	/* get average diff */
+	diff := big.NewInt(0)
+	if parents[0].Number.Cmp(common.Big0) == 0 {
+		period.Sub(period, common.Big1)
+		parentHeaders = parents[1:]
+	}
+	if period.Cmp(common.Big0) == 0 {
+		// only have genesis block
+		return parents[0].Difficulty
+	}
+
+	for _, parent := range parentHeaders {
+		diff.Add(diff, parent.Difficulty)
+	}
+	average_diff := new(big.Int).Div(diff, period)
+
+	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
+
+	bigTime := new(big.Int).SetUint64(time)
+	bigParentTime := new(big.Int).Set(parentHeaders[0].Time)
+
+	// holds intermediate values to make the algo easier to read & audit
+	x := new(big.Int)
+	y := new(big.Int)
+
+	// 86400 - (block_timestamp - parent_timestamp)
+	x.Add(durationDivisor, bigParentTime)
+	x.Sub(x, bigTime)
+
+	// (max(86400 - (block_timestamp - parent_timestamp), -86400)
+	y.Mul(durationDivisor, bigMinus1)
+	if x.Cmp(y) < 0 {
+		x.Set(y)
+	}
+
+	// (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	y.Div(average_diff, params.DifficultyBoundDivisor90)
+	x.Mul(y, x)
+
+	x.Div(x, durationDivisor)
+
+	x.Add(average_diff, x)
+
+	// minimum difficulty can ever be (before exponential factor)
+	if x.Cmp(params.MinimumDifficulty) < 0 {
+		x.Set(params.MinimumDifficulty)
+	}
+
+	log.Info("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+
+	return x
 }
 
 func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
@@ -656,6 +729,8 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 	if x.Cmp(params.MinimumDifficulty) < 0 {
 		x.Set(params.MinimumDifficulty)
 	}
+
+	log.Info("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
 
 	return x
 }
@@ -897,7 +972,8 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		}
 
 		if len(fruitOkAddr) == 0 {
-			return consensus.ErrInvalidSignsLength
+			//return consensus.ErrInvalidSignsLength
+			return nil
 		}
 
 		// Equal by fruit
