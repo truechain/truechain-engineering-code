@@ -337,9 +337,9 @@ func (self *worker) update() {
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case <-self.chainHeadCh:
+		case ev := <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
-				log.Info("star commit new work  chainHeadCh")
+				log.Info("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
@@ -359,7 +359,7 @@ func (self *worker) update() {
 			// if only fruit only not need care about fruit event
 			if !self.atCommintNewWoker && !self.FruitOnly {
 				// after get the fruit event should star mining if have not mining
-				log.Info("star commit new work  fruitCh")
+				log.Debug("star commit new work  fruitCh")
 				
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
@@ -368,7 +368,7 @@ func (self *worker) update() {
 		case  <-self.fastBlockCh:
 			log.Debug("------------start commit new work  fastBlockCh")
 			if !self.atCommintNewWoker {
-				log.Info("star commit new work  fastBlockCh")
+				log.Debug("star commit new work  fastBlockCh")
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
@@ -635,6 +635,7 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	
+	
 	// set work block
 	work.Block = types.NewSnailBlock(
 		self.current.header,
@@ -747,6 +748,8 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		// genesis block
 		currentFastNumber = new(big.Int).Set(common.Big0)
 	}
+
+	log.Info("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
 
 	currentFastNumber.Add(currentFastNumber, common.Big1)
 	// find the continue fruits
