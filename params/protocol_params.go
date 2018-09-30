@@ -93,6 +93,9 @@ var (
 	FruitBlockRatio			= big.NewInt(600) // difficulty ratio between fruit and snail block
 
 	FruitFreshness		    = big.NewInt(17)		// fruit freshness
+
+	MinimumFruits           int = 50
+	MaximumFruits			int = 500
 )
 
 
