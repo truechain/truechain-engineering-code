@@ -657,7 +657,7 @@ func (e *Election) Start() error {
 
 		// get next committee
 		nextCommittee := &committee{
-			id:                  electBeginSnailNumber,
+			id:                  new(big.Int).Add(currentCommittee.id, common.Big1),
 			beginFastNumber:     new(big.Int).Add(currentCommittee.endFastNumber, common.Big1),
 			endFastNumber:       new(big.Int).Set(common.Big0),
 			firstElectionNumber: electBeginSnailNumber,
