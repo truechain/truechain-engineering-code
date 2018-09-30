@@ -19,6 +19,7 @@ package etrue
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
@@ -681,6 +682,8 @@ func (e *Election) Start() error {
 
 	// send event to the subscripber
 	go func(e *Election) {
+
+		PrintCommittee(e.committee)
 		e.electionFeed.Send(core.ElectionEvent{
 			Option:           types.CommitteeSwitchover,
 			CommitteeID:      e.committee.id,
@@ -695,6 +698,7 @@ func (e *Election) Start() error {
 		})
 
 		if e.startSwitchover {
+			PrintCommittee(e.nextCommittee)
 			e.electionFeed.Send(core.ElectionEvent{
 				Option:           types.CommitteeOver,
 				CommitteeID:      e.committee.id,
@@ -768,6 +772,7 @@ func (e *Election) loop() {
 					e.startSwitchover = true
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
+					PrintCommittee(e.nextCommittee)
 					//go func(e *Election) {
 						e.electionFeed.Send(core.ElectionEvent{
 							Option:           types.CommitteeOver,
@@ -828,4 +833,13 @@ func (e *Election) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Su
 
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
+}
+
+
+func PrintCommittee(c *committee) {
+	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
+	for _, member := range c.members {
+		key := crypto.FromECDSAPub(member.Publickey)
+		log.Info("Committee member: ", "coinbase", member.Coinbase, "PKey", hex.EncodeToString(key))
+	}
 }

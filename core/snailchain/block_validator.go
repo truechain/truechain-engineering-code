@@ -42,7 +42,7 @@ var (
 
 	ErrInvalidFast = errors.New("invalid fast hash")
 
-	ErrNoFruits = errors.New("no fruits included")
+	ErrNoFruits = errors.New("invalid fruits count")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -98,8 +98,14 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	//	return err
 	//}
 
-	if len(block.Fruits()) == 0 {
+	count := len(block.Fruits())
+	if count == 0 {
 		return ErrNoFruits
+	}
+	if block.Number().Cmp(big.NewInt(315)) >= 0 {
+		if count > params.MaximumFruits || count < params.MinimumFruits {
+			return ErrNoFruits
+		}
 	}
 
 	for _, fruit := range block.Fruits() {

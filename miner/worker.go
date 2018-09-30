@@ -618,6 +618,11 @@ func (self *worker) commitNewWork() {
 
 	if work.fruits != nil {
 		log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
+		if count := len(work.fruits); count < params.MinimumFruits {
+			work.fruits = nil
+		} else if count > params.MaximumFruits {
+			work.fruits = work.fruits[:params.MaximumFruits]
+		}
 	}
 
 	// Set the pointerHash
