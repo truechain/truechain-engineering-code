@@ -523,12 +523,10 @@ func (srv *Server) Start() (err error) {
 
 	dynPeers := srv.maxDialedConns()
 	dialer := newDialState(srv.StaticNodes, srv.BootstrapNodes, srv.ntab, dynPeers, srv.NetRestrict)
-	version := MakeVersion(Major,SubVersion,Revision,baseProtocolVersion)
 	// handshake
-	srv.ourHandshake = &protoHandshake{Version: version, 
+	srv.ourHandshake = &protoHandshake{Version: baseProtocolVersion, 
 		Name: srv.Name, 
 		ID: discover.PubkeyID(&srv.PrivateKey.PublicKey),
-		PerVersion:	PermitVersion,
 	}
 	for _, p := range srv.Protocols {
 		srv.ourHandshake.Caps = append(srv.ourHandshake.Caps, p.cap())

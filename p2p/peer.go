@@ -45,10 +45,6 @@ const (
 	snappyProtocolVersion = 5
 
 	pingInterval = 15 * time.Second
-	PermitVersion = "0.8.3"
-	Major = uint8(0)
-	SubVersion = uint8(8)
-	Revision = uint8(3)
 )
 
 const (
@@ -62,7 +58,6 @@ const (
 // protoHandshake is the RLP structure of the protocol handshake.
 type protoHandshake struct {
 	Version    uint64
-	PerVersion	string
 	Name       string
 	Caps       []Cap
 	ListenPort uint64
