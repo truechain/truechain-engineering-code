@@ -24,7 +24,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-	"encoding/binary"
 
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -114,22 +113,7 @@ type Peer struct {
 	// events receives message send / receive events if set
 	events *event.Feed
 }
-func MakeVersion(major,sub,revision uint8, version uint32) uint64 {
-    o := make([]byte,4)
-    o[1],o[2],o[3] = major,sub,revision
-    t := make([]byte,4)
-    binary.BigEndian.PutUint32(t,version)
-    o = append(o,t...)
-    return uint64(binary.BigEndian.Uint64(o))
-}
-func ResolveVersion(Version uint64) (uint8,uint8,uint8,uint32) {
-    t := make([]byte,8)
-    binary.BigEndian.PutUint64(t,Version)
-    major,sub,revision := t[1],t[2],t[3]
-    o := t[4:]
-    version := uint32(binary.BigEndian.Uint32(o))
-    return major,sub,revision,version
-}
+
 // NewPeer returns a peer for testing purposes.
 func NewPeer(id discover.NodeID, name string, caps []Cap) *Peer {
 	pipe, _ := net.Pipe()

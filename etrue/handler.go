@@ -363,10 +363,12 @@ func (pm *ProtocolManager) Stop() {
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return newPeer(pv, p, newMeteredMsgWriter(rw))
 }
+
+
 func resolveVersionFromName(name string) bool {
 	str := name
     flag := "Getrue/v0.8.2"
-    if !strings.Contains(str,"Getrue") {
+    if !strings.Contains(str,"Getrue/v0.8") {
         return false
     }
     pos := strings.Index(str,"-")
@@ -380,6 +382,8 @@ func resolveVersionFromName(name string) bool {
     }
     return false    
 }
+
+
 // handle is the callback invoked to manage the life cycle of an etrue peer. When
 // this function terminates, the peer is disconnected.
 func (pm *ProtocolManager) handle(p *peer) error {

@@ -136,24 +136,9 @@ func (t *rlpx) doProtoHandshake(our *protoHandshake) (their *protoHandshake, err
 		return nil, fmt.Errorf("write error: %v", err)
 	}
 	// If the protocol version supports Snappy encoding, upgrade immediately
-	// ourM,ourS,ourR,_ := ResolveVersion(our.Version)
-	// theirM,theirS,theirR,theirV := ResolveVersion(their.Version)
 	t.rw.snappy = their.Version >= snappyProtocolVersion
 
-	// must be great 0.8.3
-	// err = fmt.Errorf("Version Not Match,our:%v.%v.%v,their:%v.%v.%v",
-	// ourM,ourS,ourR,theirM,theirS,theirR)
-
-	// if theirM <= 0 {
-	// 	if theirS >= 8 {
-	// 		if theirR < 3 {
-	// 			return nil,err
-	// 		}
-	// 		return their,nil
-	// 	}
-	// 	return nil,err
-	// }
-	return their,nil
+	return their, nil
 }
 
 func readProtocolHandshake(rw MsgReader, our *protoHandshake) (*protoHandshake, error) {
