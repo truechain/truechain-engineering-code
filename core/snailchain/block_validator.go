@@ -42,7 +42,7 @@ var (
 
 	ErrInvalidFast = errors.New("invalid fast hash")
 
-	ErrNoFruits = errors.New("no fruits included")
+	ErrNoFruits = errors.New("invalid fruits count")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -98,13 +98,19 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	//	return err
 	//}
 
-	if len(block.Fruits()) == 0 {
+	count := len(block.Fruits())
+	if count == 0 {
 		return ErrNoFruits
+	}
+	if block.Number().Cmp(big.NewInt(315)) >= 0 {
+		if count > params.MaximumFruits || count < params.MinimumFruits {
+			return ErrNoFruits
+		}
 	}
 
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "err", err)
+			log.Info("ValidateBody snail validate fruit error",  "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err
 		}
 	}
@@ -204,7 +210,11 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 
 	// check freshness
-	err := v.engine.VerifyFreshness(fruit, block)
+	var blockHeader *types.SnailHeader
+	if block != nil {
+		blockHeader = block.Header()
+	}
+	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader)
 	if err != nil {
 		log.Warn("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
@@ -229,7 +239,9 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 			count ++
 		}
 	}
-	if count <= len(members) * 2 / 3 {
+	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
+	// will fix this bug at next release version
+	if count <= len(members) / 3 * 2 {
 		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return ErrInvalidSign
 	}

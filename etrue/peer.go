@@ -437,7 +437,6 @@ func (p *peer) SendNewFruit(fruit *types.SnailBlock, td *big.Int) error {
 }
 
 func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
-	p.Log().Debug("SendNewSnailBlock ","sb num",snailBlock.Number(),"fb num",snailBlock.FastNumber())
 	p.knownSnailBlocks.Add(snailBlock.Hash())
 	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock, td})
 }

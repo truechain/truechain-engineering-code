@@ -603,7 +603,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		return fastBlock, core.ErrExceedNumber
 	}
 
-	log.Debug("parent", "height:", parent.Number())
+	log.Info("FetchFastBlock ", "parent:", parent.Number(), "hash", parent.Hash())
 	tstamp := tstart.Unix()
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1

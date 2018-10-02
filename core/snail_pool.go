@@ -322,7 +322,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	// TODO: check signature
 	//fruit validation
 	if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
-		log.Info("add fruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+		log.Info("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
 	//log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
@@ -353,7 +353,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 		pool.allFruits[fruit.FastHash()] = fruit
 		//the fruit already exists,so remove the fruit's fb from fastBlockPending
-		log.Info("mine fruit to del fast block pending", "fb number", fruit.FastNumber())
+		log.Info("addFruit to del fast block pending", "fb number", fruit.FastNumber())
 		pool.muFastBlock.Lock()
 		pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
 		pool.muFastBlock.Unlock()
@@ -519,7 +519,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 		}
 	}
 	for _, fastblcok := range pool.allFastBlocks {
-		if fastblcok.Number().Cmp(maxFbNumber) < 1{
+		if fastblcok.Number().Cmp(maxFbNumber) < 1 {
 			log.Trace(" removeWithLock del fastblcok","fb number",fastblcok.Number())
 			pool.removeFastBlockWithLock(pool.fastBlockPending, fastblcok.Hash())
 			delete(pool.allFastBlocks,  fastblcok.Hash())
@@ -775,9 +775,9 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return ErrInvalidSign
 	}
 	// check freshness
-	err := pool.engine.VerifyFreshness(fruit, nil)
+	err := pool.engine.VerifyFreshness(fruit.Header(), nil)
 	if err != nil {
-		log.Info("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
+		log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 
 		return nil
 	}
