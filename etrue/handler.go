@@ -377,6 +377,10 @@ func resolveVersionFromName(name string) bool {
     }
     var r = []rune(str)
     sub := string(r[:pos])
+    if len(sub) > len(flag) {
+    	// v0.8.10
+    	return true
+	}
     if sub >= flag {
         return true
     }
