@@ -803,10 +803,10 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 		}
 
 		// this fast block has been minered but pending not update
-		/*
-		if self.FastBlockNumber.Uint64() >= fb.NumberU64(){
+		
+		if self.FastBlockNumber.Uint64() == fb.NumberU64(){
 			continue
-		}*/
+		}
 		//self.FastBlockNumber.SetUint64(fb.NumberU64())
 		fastBlock = fb
 		break
