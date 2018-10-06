@@ -730,7 +730,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 	err := engine.VerifyFreshness(fruit.Header(), env.header)
 	if err != nil {
-		log.Info("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
+		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err
 	}
 
@@ -822,7 +822,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 			self.current.signs[i] = types.CopyPbftSign(signs[i])
 		}
 
-		log.Info("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
+		log.Debug("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
 	}
 	return nil
 }

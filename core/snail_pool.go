@@ -658,7 +658,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
-			log.Info("AddRemoteFruits validate fruit failed", "err", err)
+			log.Debug("AddRemoteFruits validate fruit failed", "err", err)
 			errs[i] = err
 			continue
 		}
@@ -740,9 +740,10 @@ func (pool *SnailPool) PendingFastBlocks() ([]*types.Block, error) {
 		fastBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), block.Signs(), nil)
 		fastblocks = append(fastblocks, fastBlock)
 	}
+	/*
 	if pool.fastBlockPending.Front() != nil && pool.fastBlockPending.Back() !=nil{
 		log.Info("$pending Fast Blocks","min fb num",pool.fastBlockPending.Front().Value.(*types.Block).Number()," ---- max fb num",pool.fastBlockPending.Back().Value.(*types.Block).Number())
-	}
+	}*/
 	var blockby types.BlockBy = types.Number
 	blockby.Sort(fastblocks)
 	return fastblocks, nil

@@ -532,12 +532,12 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
 	// check freshness
 	pointer := m.sbc.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
 	if pointer == nil {
-		log.Warn("VerifyFreshness get pointer failed.", "fruit", fruit.Number, "number", fruit.PointerNumber, "pointer", fruit.PointerHash)
+		log.Info("VerifyFreshness get pointer failed.", "fruit", fruit.Number, "number", fruit.PointerNumber, "pointer", fruit.PointerHash)
 		return consensus.ErrUnknownPointer
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
-		log.Info("VerifyFreshness failed.", "fruit sb", fruit.Number,"fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", header.Number)
+		log.Debug("VerifyFreshness failed.", "fruit sb", fruit.Number,"fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", header.Number)
 		return consensus.ErrFreshness
 	}
 
