@@ -373,7 +373,7 @@ func resolveVersionFromName(name string) bool {
     }
     pos := strings.Index(str,"-")
     if pos == -1 {
-        return false 
+        return true
     }
     var r = []rune(str)
     sub := string(r[:pos])
