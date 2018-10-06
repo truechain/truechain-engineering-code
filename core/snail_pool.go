@@ -301,7 +301,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	defer pool.muFruit.Unlock()
 
 	//check number(fb)
-	currentNumber := pool.fastchain.CurrentBlock().Number()
+	currentNumber := pool.fastchain.CurrentHeader().Number
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
 		if len(pool.allFruits) >= pool.config.FruitCount {
 			return ErrExceedNumber
@@ -325,7 +325,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		log.Info("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
-	//log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
+	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {

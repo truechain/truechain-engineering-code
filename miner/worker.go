@@ -754,7 +754,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		currentFastNumber = new(big.Int).Set(common.Big0)
 	}
 
-	log.Info("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
+	log.Debug("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
 
 	currentFastNumber.Add(currentFastNumber, common.Big1)
 	// find the continue fruits
