@@ -790,6 +790,8 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 		return core.ErrNoFastBlockToMiner
 	}
 	
+	//log.Info("commitFastBlocks fast block list","min fb",fastBlocks[0].Number(),"max fb",fastBlocks[len(fastBlocks)-1].Number())
+
 	var fastBlock *types.Block
 	for _ , fb := range fastBlocks {
 		if self.FastBlockNumber.Uint64() == 0{
@@ -801,13 +803,15 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 		}
 
 		// this fast block has been minered but pending not update
+		/*
 		if self.FastBlockNumber.Uint64() >= fb.NumberU64(){
 			continue
-		}
+		}*/
 		//self.FastBlockNumber.SetUint64(fb.NumberU64())
 		fastBlock = fb
 		break
 	}
+	log.Info("commitFastBlocks fast block list","min fb",fastBlocks[0].Number(),"max fb",fastBlocks[len(fastBlocks)-1].Number())
 
 	if fastBlock != nil{
 		self.current.header.FastNumber = fastBlock.Number()
@@ -818,7 +822,7 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 			self.current.signs[i] = types.CopyPbftSign(signs[i])
 		}
 
-		log.Debug("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
+		log.Info("commitFastBlocks","pre", self.FastBlockNumber, "fb", fastBlock.Number())
 	}
 	return nil
 }
