@@ -353,7 +353,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 		pool.allFruits[fruit.FastHash()] = fruit
 		//the fruit already exists,so remove the fruit's fb from fastBlockPending
-		log.Info("addFruit to del fast block pending", "fb number", fruit.FastNumber())
+		log.Debug("addFruit to del fast block pending", "fb number", fruit.FastNumber())
 		pool.muFastBlock.Lock()
 		pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
 		pool.muFastBlock.Unlock()

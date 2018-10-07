@@ -18,11 +18,10 @@ package miner
 
 import (
 	"sync"
-
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
@@ -101,8 +100,8 @@ out:
 }
 
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
-	//Neo for test
-	log.Info("start to mine and to be consensus", "block", work.Block.Number(), " difficulty ", work.header.Difficulty)
+	log.Info("start to mine", "block", work.Block.Number(), "fruits", len(work.Block.Fruits()),
+		" fast", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty())
 	// the mine with consensus
 	/*
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
