@@ -529,6 +529,31 @@ func (s *PublicBlockChainAPI) GetBlockByHash(ctx context.Context, blockHash comm
 	return nil, err
 }
 
+// GetSnailBlockByNumber returns the requested snail block. When blockNr is -1 the chain head is returned.
+func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	block, err := s.b.SnailBlockByNumber(ctx, blockNr)
+	if block != nil {
+		response, err := s.rpcOutputSnailBlock(block, true)
+		if err == nil && blockNr == rpc.PendingBlockNumber {
+			// Pending blocks need to nil out a few fields
+			for _, field := range []string{"hash", "nonce", "miner"} {
+				response[field] = nil
+			}
+		}
+		return response, err
+	}
+	return nil, err
+}
+
+// GetSnailBlockByHash returns the requested snail block.
+func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash common.Hash) (map[string]interface{}, error) {
+	block, err := s.b.GetSnailBlock(ctx, blockHash)
+	if block != nil {
+		return s.rpcOutputSnailBlock(block, true)
+	}
+	return nil, err
+}
+
 // GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index. When fullTx is true
 // all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
 func (s *PublicBlockChainAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) (map[string]interface{}, error) {
@@ -835,6 +860,62 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		fields["transactions"] = transactions
 	}
 
+	// remove nonexistent field: uncles
+	// uncles := b.Uncles()
+	// uncleHashes := make([]common.Hash, len(uncles))
+	// for i, uncle := range uncles {
+	// 	uncleHashes[i] = uncle.Hash()
+	// }
+	// fields["uncles"] = uncleHashes
+
+	return fields, nil
+}
+
+// rpcOutputBlock uses the generalized output filler.
+func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
+	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
+	if err != nil {
+		return nil, err
+	}
+	// remove nonexistent field: totalDifficulty
+	// fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(b.Hash()))
+	return fields, err
+}
+
+// RPCMarshalSnailBlock converts the given snail block to the RPC output.
+func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
+	head := b.Header() // copies the header once
+	fields := map[string]interface{}{
+		"number":          (*hexutil.Big)(head.Number),
+		"hash":            b.Hash(),
+		"parentHash":      head.ParentHash,
+		"nonce":           head.Nonce,
+		"mixHash":         head.MixDigest,
+		"sha3Uncles":      head.UncleHash,
+		"logsBloom":       head.Bloom,
+		"miner":           head.Coinbase,
+		"difficulty":      (*hexutil.Big)(head.Difficulty),
+		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
+		"extraData":       hexutil.Bytes(head.Extra),
+		"size":            hexutil.Uint64(b.Size()),
+		"timestamp":       (*hexutil.Big)(head.Time),
+	}
+
+	if inclFruit {
+		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
+			return fruit.Hash(), nil
+		}
+		fs := b.Fruits()
+		fruits := make([]interface{}, len(fs))
+		var err error
+		for i, f := range fs {
+			if fruits[i], err = formatFruit(f); err != nil {
+				return nil, err
+			}
+		}
+		fields["fruits"] = fruits
+	}
+
 	uncles := b.Uncles()
 	uncleHashes := make([]common.Hash, len(uncles))
 	for i, uncle := range uncles {
@@ -845,14 +926,13 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	return fields, nil
 }
 
-// rpcOutputBlock uses the generalized output filler, then adds the total difficulty field, which requires
-// a `PublicBlockchainAPI`.
-func (s *PublicBlockChainAPI) rpcOutputBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
-	fields, err := RPCMarshalBlock(b, inclTx, fullTx)
+// rpcOutputSnailBlock uses the generalized output filler.
+// TODO: maybe add argument/flag: fullFruit to return block with full fruit details
+func (s *PublicBlockChainAPI) rpcOutputSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
+	fields, err := RPCMarshalSnailBlock(b, inclFruit)
 	if err != nil {
 		return nil, err
 	}
-	fields["totalDifficulty"] = (*hexutil.Big)(s.b.GetTd(b.Hash()))
 	return fields, err
 }
 

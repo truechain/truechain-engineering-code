@@ -40,7 +40,7 @@ import (
 
 type LesApiBackend struct {
 	etrue *LightEthereum
-	gpo *gasprice.Oracle
+	gpo   *gasprice.Oracle
 }
 
 func (b *LesApiBackend) ChainConfig() *params.ChainConfig {
@@ -72,6 +72,11 @@ func (b *LesApiBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	return b.GetBlock(ctx, header.Hash())
 }
 
+// TODO: fixed lightchain func.
+func (b *LesApiBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailBlock, error) {
+	return nil, nil
+}
+
 func (b *LesApiBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	header, err := b.HeaderByNumber(ctx, blockNr)
 	if header == nil || err != nil {
@@ -82,6 +87,11 @@ func (b *LesApiBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 
 func (b *LesApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error) {
 	return b.etrue.blockchain.GetBlockByHash(ctx, blockHash)
+}
+
+// TODO: fixed lightchain func.
+func (b *LesApiBackend) GetSnailBlock(ctx context.Context, blockHash common.Hash) (*types.SnailBlock, error) {
+	return nil, nil
 }
 
 func (b *LesApiBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
