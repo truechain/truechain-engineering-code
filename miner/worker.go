@@ -339,7 +339,7 @@ func (self *worker) update() {
 		// Handle ChainHeadEvent
 		case ev := <-self.chainHeadCh:
 			if !self.atCommintNewWoker {
-				log.Info("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
+				log.Debug("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
@@ -602,7 +602,7 @@ func (self *worker) commitNewWork() {
 	}
 
 	if fastblock == nil && fruits == nil{
-		log.Info("__commit new work no fruits and fast block not start miner")
+		log.Debug("__commit new work no fruits and fast block not start miner")
 		self.atCommintNewWoker  = false
 		return
 	}
@@ -617,10 +617,11 @@ func (self *worker) commitNewWork() {
 	}
 
 	if work.fruits != nil {
-		log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
+		log.Debug("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
 		if count := len(work.fruits); count < params.MinimumFruits {
 			work.fruits = nil
 		} else if count > params.MaximumFruits {
+			log.Info("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
 			work.fruits = work.fruits[:params.MaximumFruits]
 		}
 	}
@@ -650,7 +651,7 @@ func (self *worker) commitNewWork() {
 	)
 
 	if self.current.Block.FastNumber().Cmp(big.NewInt(0)) == 0 && self.current.Block.Fruits() == nil{
-		log.Info("__commit new work have not fruits and fast block do not start miner  again")
+		log.Debug("__commit new work have not fruits and fast block do not start miner  again")
 		self.atCommintNewWoker  = false
 		return
 	}
@@ -688,7 +689,7 @@ func (self *worker) commitNewWork() {
 
 	// We only care about logging if we're actually mining.
 	if atomic.LoadInt32(&self.mining) == 1 {
-		log.Info("____Commit new mining work", "number", work.Block.Number(), "txs", len(work.txs), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Debug("____Commit new mining work", "number", work.Block.Number(), "txs", len(work.txs), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
 	
@@ -730,7 +731,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 	err := engine.VerifyFreshness(fruit.Header(), env.header)
 	if err != nil {
-		log.Info("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
+		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err
 	}
 
@@ -754,7 +755,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		currentFastNumber = new(big.Int).Set(common.Big0)
 	}
 
-	log.Info("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
+	log.Debug("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
 
 	currentFastNumber.Add(currentFastNumber, common.Big1)
 	// find the continue fruits
@@ -790,6 +791,8 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 		return core.ErrNoFastBlockToMiner
 	}
 	
+	//log.Info("commitFastBlocks fast block list","min fb",fastBlocks[0].Number(),"max fb",fastBlocks[len(fastBlocks)-1].Number())
+
 	var fastBlock *types.Block
 	for _ , fb := range fastBlocks {
 		if self.FastBlockNumber.Uint64() == 0{
@@ -801,13 +804,15 @@ func (self *worker) commitFastBlocks(fastBlocks types.Blocks) error{
 		}
 
 		// this fast block has been minered but pending not update
-		if self.FastBlockNumber.Uint64() >= fb.NumberU64(){
+		
+		if self.FastBlockNumber.Uint64() == fb.NumberU64(){
 			continue
 		}
 		//self.FastBlockNumber.SetUint64(fb.NumberU64())
 		fastBlock = fb
 		break
 	}
+	log.Debug("commitFastBlocks fast block list","min fb",fastBlocks[0].Number(),"max fb",fastBlocks[len(fastBlocks)-1].Number())
 
 	if fastBlock != nil{
 		self.current.header.FastNumber = fastBlock.Number()

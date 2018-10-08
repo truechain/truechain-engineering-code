@@ -369,11 +369,11 @@ func resolveVersionFromName(name string) bool {
 	str := name
     flag := "Getrue/v0.8.2"
     if !strings.Contains(str,"Getrue/v0.8") {
-        return false
+        return true
     }
     pos := strings.Index(str,"-")
     if pos == -1 {
-        return false 
+        return false
     }
     var r = []rune(str)
     sub := string(r[:pos])

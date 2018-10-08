@@ -3829,12 +3829,45 @@ var outputBlockFormatter = function(block) {
         block.number = utils.toDecimal(block.number);
 
     block.difficulty = utils.toBigNumber(block.difficulty);
-    block.totalDifficulty = utils.toBigNumber(block.totalDifficulty);
+    // block.totalDifficulty = utils.toBigNumber(block.totalDifficulty);
 
     if (utils.isArray(block.transactions)) {
         block.transactions.forEach(function(item){
             if(!utils.isString(item))
                 return outputTransactionFormatter(item);
+        });
+    }
+
+    return block;
+};
+
+/**
+ * Formats the output of a snail block to its proper values
+ *
+ * @method outputSnailFormatter
+ * @param {Object} block
+ * @returns {Object}
+*/
+var outputSnailFormatter = function(block) {
+
+    // transform to number
+    block.size = utils.toDecimal(block.size);
+    block.timestamp = utils.toDecimal(block.timestamp);
+    if(block.number !== null)
+        block.number = utils.toDecimal(block.number);
+
+    block.difficulty = utils.toBigNumber(block.difficulty);
+    block.fruitDifficulty = utils.toBigNumber(block.fruitDifficulty);
+
+    block.beginFruitNumber = utils.toDecimal(block.beginFruitNumber);
+    block.endFruitNumber = utils.toDecimal(block.endFruitNumber);
+
+    if (utils.isArray(block.fruits)) {
+        block.fruits.forEach(function(item){
+            if(!utils.isString(item)) {
+                // TODO: Format full fruit data
+                // return outputFruitFormatter(item);
+            }
         });
     }
 
@@ -3958,6 +3991,7 @@ module.exports = {
     outputTransactionFormatter: outputTransactionFormatter,
     outputTransactionReceiptFormatter: outputTransactionReceiptFormatter,
     outputBlockFormatter: outputBlockFormatter,
+    outputSnailFormatter: outputSnailFormatter,
     outputLogFormatter: outputLogFormatter,
     outputPostFormatter: outputPostFormatter,
     outputSyncingFormatter: outputSyncingFormatter
@@ -5210,6 +5244,10 @@ var blockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "etrue_getBlockByHash" : "etrue_getBlockByNumber";
 };
 
+var snailBlockCall = function (args) {
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "etrue_getSnailBlockByHash" : "etrue_getSnailBlockByNumber";
+};
+
 var transactionFromBlockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getTransactionByBlockHashAndIndex' : 'etrue_getTransactionByBlockNumberAndIndex';
 };
@@ -5295,6 +5333,14 @@ var methods = function () {
         params: 2,
         inputFormatter: [formatters.inputBlockNumberFormatter, function (val) { return !!val; }],
         outputFormatter: formatters.outputBlockFormatter
+    });
+
+    var getSnail = new Method({
+        name: 'getSnail',
+        call: snailBlockCall,
+        params: 2,
+        inputFormatter: [formatters.inputBlockNumberFormatter, function (val) { return !!val; }],
+        outputFormatter: formatters.outputSnailFormatter
     });
 
     var getUncle = new Method({
@@ -5436,6 +5482,7 @@ var methods = function () {
         getStorageAt,
         getCode,
         getBlock,
+        getSnail,
         getUncle,
         getCompilers,
         getBlockTransactionCount,

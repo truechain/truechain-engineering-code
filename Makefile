@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: getrue android ios getrue-cross swarm evm all test clean
+.PHONY: getrue deps android ios getrue-cross swarm evm all test clean
 .PHONY: getrue-linux getrue-linux-386 getrue-linux-amd64 getrue-linux-mips64 getrue-linux-mips64le
 .PHONY: getrue-linux-arm getrue-linux-arm-5 getrue-linux-arm-6 getrue-linux-arm-7 getrue-linux-arm64
 .PHONY: getrue-darwin getrue-darwin-386 getrue-darwin-amd64
@@ -10,6 +10,7 @@
 
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
+DEPS = $(shell pwd)/internal/jsre/deps
 
 init:
 	build/env.sh go get github.com/gomodule/redigo/redis
@@ -18,6 +19,11 @@ getrue:
 	build/env.sh go run build/ci.go install ./cmd/getrue
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/getrue\" to launch getrue."
+
+deps:
+	cd $(DEPS) &&	go-bindata -nometadata -pkg deps -o bindata.go bignumber.js web3.js
+	cd $(DEPS) &&	gofmt -w -s bindata.go
+	@echo "Done generate deps."
 
 swarm:
 	build/env.sh go run build/ci.go install ./cmd/swarm
