@@ -1424,14 +1424,26 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				fbNum = currentNum
 				height = fbNumLast - fbNum
 
-				log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+				log.Info("fastDownloader", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
 				if height >0{
-					errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum,height)
-					//time.Sleep(1*time.Second)
-					if errs != nil {
-						log.Debug("fast sync: ", "err>>>>>>>>>", errs)
-						return errs
+					for {
+						errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum,height)
+						//time.Sleep(1*time.Second)
+						if errs != nil {
+							log.Error("fast sync: ", "err>>>>>>>>>", errs)
+							return errs
+						}
+
+						currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+						if fbNumLast >  currentNum{
+							log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+
+							fbNum = currentNum
+							height = fbNumLast - fbNum
+							continue
+						}
+						break
 					}
 				}
 
@@ -1442,6 +1454,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			log.Debug("Snail--->>>", "blocks>>>>", blocks[0], "fruits>>", result.Fruits)
 		}
 
+		log.Info("fastCurrentNum", "number",d.fastDown.GetBlockChain().CurrentBlock().NumberU64())
 		if index, err := d.blockchain.InsertChain(blocks); err != nil {
 			log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
 			return errInvalidChain
