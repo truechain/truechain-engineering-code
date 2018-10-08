@@ -3859,6 +3859,9 @@ var outputSnailFormatter = function(block) {
     block.difficulty = utils.toBigNumber(block.difficulty);
     block.fruitDifficulty = utils.toBigNumber(block.fruitDifficulty);
 
+    block.beginFruitNumber = utils.toDecimal(block.beginFruitNumber);
+    block.endFruitNumber = utils.toDecimal(block.endFruitNumber);
+
     if (utils.isArray(block.fruits)) {
         block.fruits.forEach(function(item){
             if(!utils.isString(item)) {
@@ -5335,8 +5338,8 @@ var methods = function () {
     var getSnail = new Method({
         name: 'getSnail',
         call: snailBlockCall,
-        params: 1,
-        inputFormatter: [formatters.inputBlockNumberFormatter],
+        params: 2,
+        inputFormatter: [formatters.inputBlockNumberFormatter, function (val) { return !!val; }],
         outputFormatter: formatters.outputSnailFormatter
     });
 

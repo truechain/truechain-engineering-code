@@ -530,10 +530,10 @@ func (s *PublicBlockChainAPI) GetBlockByHash(ctx context.Context, blockHash comm
 }
 
 // GetSnailBlockByNumber returns the requested snail block. When blockNr is -1 the chain head is returned.
-func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber, inclFruit bool) (map[string]interface{}, error) {
 	block, err := s.b.SnailBlockByNumber(ctx, blockNr)
 	if block != nil {
-		response, err := s.rpcOutputSnailBlock(block, true)
+		response, err := s.rpcOutputSnailBlock(block, inclFruit)
 		if err == nil && blockNr == rpc.PendingBlockNumber {
 			// Pending blocks need to nil out a few fields
 			for _, field := range []string{"hash", "nonce", "miner"} {
@@ -546,10 +546,10 @@ func (s *PublicBlockChainAPI) GetSnailBlockByNumber(ctx context.Context, blockNr
 }
 
 // GetSnailBlockByHash returns the requested snail block.
-func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash common.Hash) (map[string]interface{}, error) {
+func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash common.Hash, inclFruit bool) (map[string]interface{}, error) {
 	block, err := s.b.GetSnailBlock(ctx, blockHash)
 	if block != nil {
-		return s.rpcOutputSnailBlock(block, true)
+		return s.rpcOutputSnailBlock(block, inclFruit)
 	}
 	return nil, err
 }
@@ -901,11 +901,11 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"timestamp":       (*hexutil.Big)(head.Time),
 	}
 
+	fs := b.Fruits()
 	if inclFruit {
 		formatFruit := func(fruit *types.SnailBlock) (interface{}, error) {
 			return fruit.Hash(), nil
 		}
-		fs := b.Fruits()
 		fruits := make([]interface{}, len(fs))
 		var err error
 		for i, f := range fs {
@@ -914,6 +914,12 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 			}
 		}
 		fields["fruits"] = fruits
+	} else {
+		fields["fruits"] = len(fs)
+	}
+	if len(fs) > 0 {
+		fields["beginFruitNumber"] = (*hexutil.Big)(fs[0].FastNumber())
+		fields["endFruitNumber"] = (*hexutil.Big)(fs[len(fs)-1].FastNumber())
 	}
 
 	uncles := b.Uncles()
