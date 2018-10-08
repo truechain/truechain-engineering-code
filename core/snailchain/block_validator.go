@@ -19,8 +19,9 @@ package snailchain
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
+
+	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -43,6 +44,8 @@ var (
 	ErrInvalidFast = errors.New("invalid fast hash")
 
 	ErrNoFruits = errors.New("invalid fruits count")
+
+	ErrInvalidFruits = errors.New("invalid fruits number")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -50,11 +53,11 @@ var (
 //
 // BlockValidator implements Validator.
 type BlockValidator struct {
-	config   *params.ChainConfig // Chain configuration options
-	bc       *SnailBlockChain    // Canonical block chain
+	config *params.ChainConfig // Chain configuration options
+	bc     *SnailBlockChain    // Canonical block chain
 
-	engine   consensus.Engine    // Consensus engine used for validating
-	election consensus.CommitteeElection
+	engine    consensus.Engine // Consensus engine used for validating
+	election  consensus.CommitteeElection
 	fastchain consensus.ChainReader
 }
 
@@ -108,9 +111,16 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		}
 	}
 
+	localFruits := v.bc.CurrentBlock().Fruits()
+	localBlock := localFruits[len(localFruits)-1]
+	temp := localBlock.FastNumber().Uint64()
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			log.Info("ValidateBody snail validate fruit error",  "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
+			if fruit.FastNumber().Uint64()-temp != 1 {
+				return ErrInvalidFruits
+			}
+			temp = fruit.FastNumber().Uint64()
+			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err
 		}
 	}
@@ -151,7 +161,6 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 
 // CalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
-
 
 func CalcGasLimit(parent *types.SnailBlock) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
@@ -236,12 +245,12 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	signs := fruit.Signs()
 	for _, sign := range signs {
 		if sign.Result == types.VoteAgree {
-			count ++
+			count++
 		}
 	}
 	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
 	// will fix this bug at next release version
-	if count <= len(members) / 3 * 2 {
+	if count <= len(members)/3*2 {
 		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return ErrInvalidSign
 	}
