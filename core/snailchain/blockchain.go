@@ -1098,6 +1098,7 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 			"blocks", st.processed, "fts", fts, "mgas", float64(st.usedGas) / 1000000,
 			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
 			"number", end.Number(), "hash", end.Hash(),
+			"fruit", end.Fruits()[0].FastNumber(),
 		}
 		if st.queued > 0 {
 			context = append(context, []interface{}{"queued", st.queued}...)
