@@ -326,6 +326,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	err := d.synchronise(id, head, td, mode, origin, height)
+	defer log.Info("fastDownloader Synchronise exit","origin",origin,"height",height)
 	switch err {
 	case nil:
 	case errBusy:
