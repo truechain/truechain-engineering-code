@@ -139,7 +139,7 @@ type AgentWork struct {
 }
 
 // NodeInfoEvent is posted when nodeInfo send
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election,coinbase common.Address) *PbftAgent {
 	self := &PbftAgent{
 		config:               config,
 		engine:               engine,
@@ -160,7 +160,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		cacheBlock:           make(map[*big.Int]*types.Block),
 	}
 	self.initNodeWork()
-	self.InitNodeInfo(eth.Config())
+	self.InitNodeInfo(eth.Config(),coinbase)
 	if !self.singleNode {
 		self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
 		self.chainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.chainHeadCh)
@@ -184,7 +184,7 @@ func (self *PbftAgent) initNodeWork() {
 	self.nodeInfoWorks = append(self.nodeInfoWorks, nodeWork1, nodeWork2)
 }
 
-func (self *PbftAgent) InitNodeInfo(config *Config) {
+func (self *PbftAgent) InitNodeInfo(config *Config,coinbase common.Address) {
 	self.singleNode = config.NodeType
 	self.privateKey = config.PrivateKey
 	pubKey := self.privateKey.PublicKey
@@ -193,13 +193,15 @@ func (self *PbftAgent) InitNodeInfo(config *Config) {
 		IP:        config.Host,
 		Port:      uint(config.Port),
 		Port2:     uint(config.StandByPort),
-		Coinbase:  crypto.PubkeyToAddress(pubKey),
+		//Coinbase:  crypto.PubkeyToAddress(pubKey),
+		Coinbase:  coinbase,
 		Publickey: pubBytes,
 	}
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
 		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
 		", coinbase", self.committeeNode.Coinbase, ", self.vmConfig", self.vmConfig.EnablePreimageRecording)
+	//log.Info("","coinbaseGenerate",crypto.PubkeyToAddress(pubKey))
 }
 
 func (self *PbftAgent) Start() {

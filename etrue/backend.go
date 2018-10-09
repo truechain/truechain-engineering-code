@@ -208,8 +208,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	ethash.SetSnailChainReader(etrue.snailblockchain)
 
 	etrue.election.SetEngine(etrue.engine)
-
-	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election)
+	coinbase, err := etrue.Etherbase()
+	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election,coinbase)
 
 	if etrue.protocolManager, err = NewProtocolManager(
 		etrue.chainConfig, config.SyncMode, config.NetworkId,
