@@ -214,7 +214,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
-		log.Warn("valid fruit sign hash failed.")
+		log.Info("valid fruit sign hash failed.")
 		return ErrInvalidSign
 	}
 
@@ -225,20 +225,20 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader)
 	if err != nil {
-		log.Warn("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
+		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
 	}
 
 	header := fruit.Header()
 	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true); err != nil {
-		log.Warn("validate fruit verify failed.", "err", err)
+		log.Info("validate fruit verify failed.", "err", err)
 		return err
 	}
 
 	// validate the signatures of this fruit
 	members := v.election.GetCommittee(fruit.FastNumber())
 	if members == nil {
-		log.Warn("validate fruit get committee failed.", "number", fruit.FastNumber())
+		log.Info("validate fruit get committee failed.", "number", fruit.FastNumber())
 		return ErrInvalidSign
 	}
 	count := 0
@@ -251,14 +251,14 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
 	// will fix this bug at next release version
 	if count <= len(members)/3*2 {
-		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
+		log.Info("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return ErrInvalidSign
 	}
 
 	_, errs := v.election.VerifySigns(signs)
 	for _, err := range errs {
 		if err != nil {
-			log.Warn("validate fruit VerifySigns error", "err", err)
+			log.Info("validate fruit VerifySigns error", "err", err)
 			return err
 		}
 	}
