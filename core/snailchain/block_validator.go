@@ -96,7 +96,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		return consensus.ErrPrunedAncestor
 	}
 	// Header validity is known at this point, check the uncles and transactions
-	//header := block.Header()
+	header := block.Header()
 	//if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
 	//	return err
 	//}
@@ -116,23 +116,23 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	temp := localBlock.FastNumber().Uint64()
 	for _, fruit := range block.Fruits() {
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			if fruit.FastNumber().Uint64()-temp != 1 {
-				return ErrInvalidFruits
-			}
-			temp = fruit.FastNumber().Uint64()
 			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err
 		}
+		if fruit.FastNumber().Uint64() - temp != 1 {
+			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "pre", temp)
+			return ErrInvalidFruits
+		}
+		temp = fruit.FastNumber().Uint64()
 	}
 
-	// TODO need add uncles or transaction at snail block 20180804
 	/*
 		if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 			return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-		}
-		if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
-			return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 		}*/
+	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
+		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
+	}
 	return nil
 }
 
@@ -214,7 +214,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
-		log.Warn("valid fruit sisn hash failed.")
+		log.Warn("valid fruit sign hash failed.")
 		return ErrInvalidSign
 	}
 
