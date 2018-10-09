@@ -458,7 +458,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 		expected := m.CalcFruitDifficulty(chain, header.Time.Uint64(), fastHeader.Time.Uint64(), pointer)
 
 		if expected.Cmp(header.FruitDifficulty) != 0 {
-			return fmt.Errorf("invalid difficulty: have %v, want %v", header.FruitDifficulty, expected)
+			return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.FruitDifficulty, expected)
 		}
 	}
 
@@ -670,7 +670,7 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Info("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
 
 	return x
 }
@@ -732,7 +732,7 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Info("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
 
 	return x
 }
