@@ -305,9 +305,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
 
 					if fbNumLast >  fbNum{
-						log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
-						fbNum = fbNumLast
+						log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"currentNum",fbNumLast)
 						height = fbNumLast - fbNum
+						fbNum = fbNumLast
 						continue
 					}
 					break
