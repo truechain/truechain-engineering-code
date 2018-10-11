@@ -120,18 +120,14 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 	for _, fruit := range block.Fruits() {
 		if fruit.FastNumber().Uint64() - temp != 1 {
+			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "pre", temp)
 			return ErrInvalidFruits
 		}
-		temp = fruit.FastNumber().Uint64()
 		if err := v.ValidateFruit(fruit, block); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err
 		}
-		// TODO: check fruit order
-		if fruit.FastNumber().Uint64() - temp != 1 {
-			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "pre", temp)
-			return ErrInvalidFruits
-		}
+
 		temp = fruit.FastNumber().Uint64()
 	}
 
