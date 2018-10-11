@@ -228,7 +228,7 @@ func DefaultGenesisBlock() *Genesis {
 		Nonce:      66,
 		ExtraData:  nil,
 		GasLimit:   88080384,
-		Difficulty: big.NewInt(256),
+		Difficulty: big.NewInt(600000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
@@ -288,7 +288,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		ExtraData:  nil,
 		GasLimit:   20971520,
 		Timestamp:	1537891200,
-		Difficulty: big.NewInt(600000),
+		Difficulty: big.NewInt(6000000),
 		Coinbase: 	common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Mixhash: 	common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
