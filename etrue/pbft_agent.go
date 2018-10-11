@@ -201,7 +201,6 @@ func (self *PbftAgent) InitNodeInfo(config *Config,coinbase common.Address) {
 	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
 		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
 		", coinbase", self.committeeNode.Coinbase, ", self.vmConfig", self.vmConfig.EnablePreimageRecording)
-	//log.Info("","coinbaseGenerate",crypto.PubkeyToAddress(pubKey))
 }
 
 func (self *PbftAgent) Start() {
@@ -722,6 +721,9 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 		FastHeight: fb.Header().Number,
 		FastHash:   fb.Hash(),
 	}
+	if vote == types.VoteAgreeAgainst{
+		log.Warn("vote AgreeAgainst","number",fb.Number())
+	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
 	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
@@ -779,7 +781,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 			if err != nil {
 				return nil, err
 			}
-			return voteSign, nil
+			return voteSign, err
 		}
 		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(),"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
