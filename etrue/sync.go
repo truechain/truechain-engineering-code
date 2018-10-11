@@ -290,13 +290,31 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 			if height >0{
 
-				err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+				//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
 				//time.Sleep(1*time.Second)
-				if err != nil {
-					log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
-					return
+
+
+				for {
+					err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+					//time.Sleep(1*time.Second)
+					if err != nil {
+						log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+						return
+					}
+
+					fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
+
+					if fbNumLast >  fbNum{
+						log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"currentNum",fbNumLast)
+						height = fbNumLast - fbNum
+						fbNum = fbNumLast
+						continue
+					}
+					break
 				}
 			}
+
+
 		}
 		return
 	}

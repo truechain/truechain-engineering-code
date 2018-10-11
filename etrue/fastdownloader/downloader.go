@@ -35,6 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
 var (
@@ -330,7 +331,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	switch err {
 	case nil:
 	case errBusy:
-
+	case consensus.ErrInvalidNumber:
 	case errTimeout, errBadPeer, errStallingPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:

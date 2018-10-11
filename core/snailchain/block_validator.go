@@ -115,6 +115,10 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	localBlock := localFruits[len(localFruits)-1]
 	temp := localBlock.FastNumber().Uint64()
 	for _, fruit := range block.Fruits() {
+		if fruit.FastNumber().Uint64()-temp != 1 {
+			return ErrInvalidFruits
+		}
+		temp = fruit.FastNumber().Uint64()
 		if err := v.ValidateFruit(fruit, block); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err

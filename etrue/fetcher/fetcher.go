@@ -1156,7 +1156,7 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash, commit
 
 // verifyCommitteesReachedTwoThirds decide whether number reaches two-thirds of the committeeNumber.
 func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool {
-	value := int32(committeeNumber/3*2) + 1
+	value := int32(committeeNumber*2/3) + 1
 	if number >= value {
 		return true
 	} else {
