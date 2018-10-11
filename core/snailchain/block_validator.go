@@ -19,6 +19,7 @@ package snailchain
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/log"
@@ -111,11 +112,14 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		}
 	}
 
-	localFruits := v.bc.CurrentBlock().Fruits()
-	localBlock := localFruits[len(localFruits)-1]
-	temp := localBlock.FastNumber().Uint64()
+	temp := uint64(0)
+	if v.bc.CurrentBlock().Number().Cmp(common.Big0) > 0 {
+		localFruits := v.bc.CurrentBlock().Fruits()
+		localBlock := localFruits[len(localFruits)-1]
+		temp = localBlock.FastNumber().Uint64()
+	}
 	for _, fruit := range block.Fruits() {
-		if fruit.FastNumber().Uint64()-temp != 1 {
+		if fruit.FastNumber().Uint64() - temp != 1 {
 			return ErrInvalidFruits
 		}
 		temp = fruit.FastNumber().Uint64()
