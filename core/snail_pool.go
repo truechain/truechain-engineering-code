@@ -596,7 +596,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 
 	//remove all the fruits and fastBlocks included in the new snailblock
 	pool.removeWithLock(newHead.Fruits())
-
+	pool.removeUnFreshFruit()
 	pool.header = pool.chain.CurrentBlock()
 }
 
@@ -624,6 +624,19 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 
 	log.Debug("endinsertRestFruits","len(reinject)", len(reinject))
 	return nil
+}
+
+//remove unfresh fruit after rest
+func (pool *SnailPool) removeUnFreshFruit() {
+	for _, fruit := range pool.allFruits {
+		// check freshness
+		err := pool.engine.VerifyFreshness(fruit.Header(), nil)
+		if err != nil {
+			log.Debug(" removeUnFreshFruit del fruit","fb number",fruit.FastNumber())
+			delete(pool.fruitPending, fruit.FastHash())
+			delete(pool.allFruits, fruit.FastHash())
+		}
+	}
 }
 
 // Stop terminates the transaction pool.
