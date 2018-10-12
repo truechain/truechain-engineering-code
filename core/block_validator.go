@@ -23,6 +23,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -71,6 +72,14 @@ func (fv *BlockValidator) ValidateBody(block *types.Block) error {
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
+
+	if err :=fv.bc.engine.VerifySigns(block.Number(),block.Signs()); err!=nil{
+		log.Info("Fast VerifySigns Err","number",block.NumberU64(),"signs",block.Signs())
+		return err
+	}
+
+
+
 	return nil
 }
 
