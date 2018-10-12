@@ -322,7 +322,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	// TODO: check signature
 	//fruit validation
 	if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
-		log.Info("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+		log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 		return err
 	}
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
@@ -776,12 +776,13 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 		return ErrInvalidSign
 	}
 	// check freshness
+	/*
 	err := pool.engine.VerifyFreshness(fruit.Header(), nil)
 	if err != nil {
 		log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 
 		return nil
-	}
+	}*/
 
 	/*
 	header := fruit.Header()

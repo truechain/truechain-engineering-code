@@ -458,7 +458,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 		expected := m.CalcFruitDifficulty(chain, header.Time.Uint64(), fastHeader.Time.Uint64(), pointer)
 
 		if expected.Cmp(header.FruitDifficulty) != 0 {
-			return fmt.Errorf("invalid difficulty: have %v, want %v", header.FruitDifficulty, expected)
+			return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.FruitDifficulty, expected)
 		}
 	}
 
@@ -532,7 +532,7 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
 	// check freshness
 	pointer := m.sbc.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
 	if pointer == nil {
-		log.Info("VerifyFreshness get pointer failed.", "fruit", fruit.Number, "number", fruit.PointerNumber, "pointer", fruit.PointerHash)
+		log.Debug("VerifyFreshness get pointer failed.", "fruit", fruit.Number, "number", fruit.PointerNumber, "pointer", fruit.PointerHash)
 		return consensus.ErrUnknownPointer
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
@@ -670,7 +670,7 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Info("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
 
 	return x
 }
@@ -732,7 +732,7 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Info("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
 
 	return x
 }
@@ -871,6 +871,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			if bTm != nil {
 				log.Info("Finalize:Error GetHeaderByNumber", "header.SnailHash", bTm.Hash(), "header.SnailNumber", bTm.Number)
 			}
+			// Slow chain is not high enough, put in future blocks and do not return errors
 			return nil, consensus.ErrInvalidNumber
 		}
 		err := accumulateRewardsFast(m.election, state, header, sBlock)

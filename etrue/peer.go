@@ -107,9 +107,10 @@ type peer struct {
 	version  int         // Protocol version negotiated
 	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
 
-	head common.Hash
-	td   *big.Int
-	lock sync.RWMutex
+	head     common.Hash
+	fastHead common.Hash
+	td       *big.Int
+	lock     sync.RWMutex
 
 	knownTxs         *set.Set                       // Set of transaction hashes known to be known by this peer
 	knownSign        *set.Set                       // Set of sign  known to be known by this peer
@@ -578,22 +579,24 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 
 // Handshake executes the etrue protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
-func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash) error {
+func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastGenesis common.Hash) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 	var status statusData // safe to read after two values have been received from errc
 
 	go func() {
 		errc <- p2p.Send(p.rw, StatusMsg, &statusData{
-			ProtocolVersion: uint32(p.version),
-			NetworkId:       network,
-			TD:              td,
-			CurrentBlock:    head,
-			GenesisBlock:    genesis,
+			ProtocolVersion:  uint32(p.version),
+			NetworkId:        network,
+			TD:               td,
+			CurrentBlock:     head,
+			GenesisBlock:     genesis,
+			CurrentFastBlock: fastHead,
+			GenesisFastBlock: fastGenesis,
 		})
 	}()
 	go func() {
-		errc <- p.readStatus(network, &status, genesis)
+		errc <- p.readStatus(network, &status, genesis, fastGenesis)
 	}()
 	timeout := time.NewTimer(handshakeTimeout)
 	defer timeout.Stop()
@@ -611,7 +614,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 	return nil
 }
 
-func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash) (err error) {
+func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash, fastGenesis common.Hash) (err error) {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -628,6 +631,9 @@ func (p *peer) readStatus(network uint64, status *statusData, genesis common.Has
 	}
 	if status.GenesisBlock != genesis {
 		return errResp(ErrGenesisBlockMismatch, "%x (!= %x)", status.GenesisBlock[:8], genesis[:8])
+	}
+	if status.GenesisFastBlock != fastGenesis {
+		return errResp(ErrFastGenesisBlockMismatch, "%x (!= %x)", status.GenesisFastBlock[:8], fastGenesis[:8])
 	}
 	if status.NetworkId != network {
 		return errResp(ErrNetworkIdMismatch, "%d (!= %d)", status.NetworkId, network)

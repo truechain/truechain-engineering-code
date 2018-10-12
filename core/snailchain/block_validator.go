@@ -19,6 +19,7 @@ package snailchain
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/log"
@@ -96,7 +97,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		return consensus.ErrPrunedAncestor
 	}
 	// Header validity is known at this point, check the uncles and transactions
-	//header := block.Header()
+	header := block.Header()
 	//if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
 	//	return err
 	//}
@@ -111,28 +112,32 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		}
 	}
 
-	localFruits := v.bc.CurrentBlock().Fruits()
-	localBlock := localFruits[len(localFruits)-1]
-	temp := localBlock.FastNumber().Uint64()
+	temp := uint64(0)
+	if v.bc.CurrentBlock().Number().Cmp(common.Big0) > 0 {
+		localFruits := v.bc.CurrentBlock().Fruits()
+		localBlock := localFruits[len(localFruits)-1]
+		temp = localBlock.FastNumber().Uint64()
+	}
 	for _, fruit := range block.Fruits() {
-		if fruit.FastNumber().Uint64()-temp != 1 {
+		if fruit.FastNumber().Uint64() - temp != 1 {
+			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "pre", temp)
 			return ErrInvalidFruits
 		}
-		temp = fruit.FastNumber().Uint64()
 		if err := v.ValidateFruit(fruit, block); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
 			return err
 		}
+
+		temp = fruit.FastNumber().Uint64()
 	}
 
-	// TODO need add uncles or transaction at snail block 20180804
 	/*
 		if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 			return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-		}
-		if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
-			return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 		}*/
+	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
+		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
+	}
 	return nil
 }
 
@@ -214,7 +219,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
-		log.Warn("valid fruit sisn hash failed.")
+		log.Info("valid fruit sign hash failed.")
 		return ErrInvalidSign
 	}
 
@@ -225,20 +230,20 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader)
 	if err != nil {
-		log.Warn("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
+		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
 	}
 
 	header := fruit.Header()
 	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true); err != nil {
-		log.Warn("validate fruit verify failed.", "err", err)
+		log.Info("validate fruit verify failed.", "err", err)
 		return err
 	}
 
 	// validate the signatures of this fruit
 	members := v.election.GetCommittee(fruit.FastNumber())
 	if members == nil {
-		log.Warn("validate fruit get committee failed.", "number", fruit.FastNumber())
+		log.Info("validate fruit get committee failed.", "number", fruit.FastNumber())
 		return ErrInvalidSign
 	}
 	count := 0
@@ -251,14 +256,14 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
 	// will fix this bug at next release version
 	if count <= len(members)/3*2 {
-		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
+		log.Info("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return ErrInvalidSign
 	}
 
 	_, errs := v.election.VerifySigns(signs)
 	for _, err := range errs {
 		if err != nil {
-			log.Warn("validate fruit VerifySigns error", "err", err)
+			log.Info("validate fruit VerifySigns error", "err", err)
 			return err
 		}
 	}

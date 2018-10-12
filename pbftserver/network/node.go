@@ -360,11 +360,11 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 			node.CommitWaitQueue.Push(prepareMsg, float32(-prepareMsg.Height))
 		} else {
-			var result uint = types.VoteAgreeAgainst
-			if res == nil {
-				result = types.VoteAgree
-			}
-
+			// var result uint = types.VoteAgreeAgainst
+			// if res == nil {
+			// 	result = types.VoteAgree
+			// }
+			result := sign.Result
 			//fmt.Println("---------------------------------------,sign == nil", sign == nil, "res=nil", res == nil)
 			CurrentState.MySign = sign
 			lock.PSLog("CheckMsg Result ", result)

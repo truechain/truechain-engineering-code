@@ -39,7 +39,7 @@ const (
 	maxQueueDist     = 1024                   // Maximum allowed distance from the chain head to queue
 	maxSignDist      = 8192                   // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit       = 64                     // Maximum number of unique blocks a peer may have delivered
+	blockLimit       = 256                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 2560                   // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
 )
@@ -871,14 +871,14 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
 	if count > blockLimit {
-		log.Info("Discarded propagated block, exceeded allowance", "peer", peer, "number", block.Number(), "hash", hash, "limit", blockLimit)
+		log.Info("iscarded propagated fast block, exceeded allowance", "peer", peer, "number", block.Number(), "hash", hash, "limit", blockLimit)
 		propBroadcastDOSMeter.Mark(1)
 		f.forgetHash(hash)
 		return
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < lowCommitteeDist || dist > maxQueueDist {
-		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
+		log.Debug("Discarded propagated fast block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		f.forgetHash(hash)
 		return
@@ -1156,7 +1156,7 @@ func (f *Fetcher) agreeAtSameHeight(height uint64, blockHash common.Hash, commit
 
 // verifyCommitteesReachedTwoThirds decide whether number reaches two-thirds of the committeeNumber.
 func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool {
-	value := int32(committeeNumber/3*2) + 1
+	value := int32(committeeNumber*2/3) + 1
 	if number >= value {
 		return true
 	} else {

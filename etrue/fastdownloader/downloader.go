@@ -35,6 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/consensus"
 )
 
 var (
@@ -330,7 +331,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	switch err {
 	case nil:
 	case errBusy:
-
+	case consensus.ErrInvalidNumber:
 	case errTimeout, errBadPeer, errStallingPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
@@ -408,6 +409,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	// Retrieve the origin peer and initiate the downloading process
 	p := d.peers.Peer(id)
 	if p == nil {
+		log.Debug("fast synchronise err", "id", id)
 		return errUnknownPeer
 	}
 	return d.syncWithPeer(p, hash, td, origin, height)
