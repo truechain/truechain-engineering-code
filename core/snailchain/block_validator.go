@@ -241,31 +241,9 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 
 	// validate the signatures of this fruit
-	members := v.election.GetCommittee(fruit.FastNumber())
-	if members == nil {
-		log.Info("validate fruit get committee failed.", "number", fruit.FastNumber())
-		return ErrInvalidSign
-	}
-	count := 0
-	signs := fruit.Signs()
-	for _, sign := range signs {
-		if sign.Result == types.VoteAgree {
-			count++
-		}
-	}
-	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
-	// will fix this bug at next release version
-	if count <= len(members)/3*2 {
-		log.Info("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
-		return ErrInvalidSign
-	}
-
-	_, errs := v.election.VerifySigns(signs)
-	for _, err := range errs {
-		if err != nil {
-			log.Info("validate fruit VerifySigns error", "err", err)
-			return err
-		}
+	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.Signs()); err != nil {
+		log.Info("validate fruit VerifySigns failed.", "err", err)
+		return err
 	}
 
 	return nil

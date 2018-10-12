@@ -506,7 +506,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 		}
 	}
 	// pbft signs check bug will fix next release
-	if count <= len(members) / 3 * 2 {
+	if count <= len(members) * 2 / 3 {
 		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
