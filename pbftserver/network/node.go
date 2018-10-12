@@ -327,7 +327,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	defer node.PrePareLock.Unlock()
 	lock.PSLog("node GetPrepare", prepareMsg.Height)
 	node.NTLock.Lock()
-	f := len(node.NodeTable) / 3
+	f := float64(len(node.NodeTable)) / 3
 	node.NTLock.Unlock()
 	CurrentState := node.GetStatus(prepareMsg.Height)
 
@@ -430,7 +430,7 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	defer node.CommitLock.Unlock()
 	//lock.PSLog("node GetCommit in", fmt.Sprintf("%+v", commitMsg))
 	node.NTLock.Lock()
-	f := len(node.NodeTable) / 3
+	f := float64(len(node.NodeTable)) / 3
 	node.NTLock.Unlock()
 	state := node.GetStatus(commitMsg.Height)
 	if state == nil {
