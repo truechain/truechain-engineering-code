@@ -32,7 +32,7 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-var ID = big.NewInt(0)
+var ID = big.NewInt(1)
 
 func getID() *big.Int {
 	ID = new(big.Int).Add(ID, big.NewInt(1))

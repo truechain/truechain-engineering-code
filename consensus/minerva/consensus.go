@@ -872,7 +872,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 				log.Info("Finalize:Error GetHeaderByNumber", "header.SnailHash", bTm.Hash(), "header.SnailNumber", bTm.Number)
 			}
 			// Slow chain is not high enough, put in future blocks and do not return errors
-			return nil, nil
+			return nil, consensus.ErrInvalidNumber
 		}
 		err := accumulateRewardsFast(m.election, state, header, sBlock)
 		if err != nil {

@@ -214,7 +214,7 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 	if msg.ViewID == CurrentState.ViewID {
 		signs := CurrentState.MsgLogs.GetCommitMsgsSigns()
 		//fmt.Println("----------------------------------------pbft signs len", len(signs))
-		signs = append(signs, CurrentState.MySign)
+		//signs = append(signs, CurrentState.MySign)
 		//fmt.Println("----------------------------------------pbft signs my", CurrentState.MySign)
 		node.Verify.ReplyResult(CurrentState.MsgLogs.ReqMsg, signs, res)
 	} else {
@@ -532,6 +532,9 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		//lock.PSLog("node routeMsg",msg.(*consensus.RequestMsg).Height, fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
 		lock.PSLog("node routeMsg", msg.(*consensus.RequestMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
+		if node.CurrentHeight == msg.(*consensus.RequestMsg).Height {
+			CurrentStage.CurrentStage = consensus.Idle
+		}
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 			// Copy buffered messages first.
 			msgs := make([]*consensus.RequestMsg, 0)
