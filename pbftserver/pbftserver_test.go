@@ -52,7 +52,9 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSi
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return new(types.PbftSign), nil
+	s := new(types.PbftSign)
+	s.Result = 1
+	return s, nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {

@@ -264,8 +264,9 @@ func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg)
 	if prePrepareMsg.Height == node.CurrentHeight {
 		node.Broadcast(prePrepareMsg, "/preprepare")
 		time.Sleep(time.Second * 60)
-		if prePrepareMsg.Height == node.CurrentHeight {
-			node.Verify.RepeatFetch(node.ID, prePrepareMsg.Height)
+		tmpHeight := prePrepareMsg.Height
+		if tmpHeight == node.CurrentHeight {
+			node.Verify.RepeatFetch(node.ID, tmpHeight)
 		}
 	}
 }
