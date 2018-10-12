@@ -235,22 +235,22 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, err
 	}
 
-	if fb := ss.getBlock(fb.NumberU64()); fb != nil {
-		return nil, errors.New("same height:" + fb.Number().String())
-	}
+	//if fb := ss.getBlock(fb.NumberU64()); fb != nil {
+	//	return nil, errors.New("same height:" + fb.Number().String())
+	//}
 
-	sum := ss.getBlockLen()
-
-	if sum > 0 {
-		last := ss.getLastBlock()
-		if last != nil {
-			cur := last.Number()
-			cur.Add(cur, common.Big1)
-			if cur.Cmp(fb.Number()) != 0 {
-				return nil, errors.New("wrong fastblock,lastheight:" + cur.String() + " cur:" + fb.Number().String())
-			}
-		}
-	}
+	//sum := ss.getBlockLen()
+	//
+	//if sum > 0 {
+	//	last := ss.getLastBlock()
+	//	if last != nil {
+	//		cur := last.Number()
+	//		cur.Add(cur, common.Big1)
+	//		if cur.Cmp(fb.Number()) != 0 {
+	//			return nil, errors.New("wrong fastblock,lastheight:" + cur.String() + " cur:" + fb.Number().String())
+	//		}
+	//	}
+	//}
 
 	ss.putBlock(fb.NumberU64(), fb)
 	data, err := rlp.EncodeToBytes(fb)
