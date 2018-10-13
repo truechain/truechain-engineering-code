@@ -168,7 +168,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check number(fb)
 	//
-	currentNumber := v.fastchain.CurrentBlock().Number()
+	currentNumber := v.fastchain.CurrentHeader().Number
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
 		return consensus.ErrFutureBlock
 	}
