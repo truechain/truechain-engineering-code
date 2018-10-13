@@ -122,6 +122,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
 	chainDb, err := CreateDB(ctx, config, "chaindata")
+	//chainDb, err := CreateDB(ctx, config, path)
 	if err != nil {
 		return nil, err
 	}
@@ -208,9 +209,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	ethash.SetSnailChainReader(etrue.snailblockchain)
 
 	etrue.election.SetEngine(etrue.engine)
-	coinbase, err := etrue.Etherbase()
-	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election,coinbase)
-
+	coinbase, _ := etrue.Etherbase()
+	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, coinbase)
 	if etrue.protocolManager, err = NewProtocolManager(
 		etrue.chainConfig, config.SyncMode, config.NetworkId,
 		etrue.eventMux, etrue.txPool, etrue.snailPool, etrue.engine,
@@ -219,7 +219,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election,etrue.Config().MineFruit,etrue.Config().NodeType)
+	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election, etrue.Config().MineFruit, etrue.Config().NodeType)
 	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	committeeKey, err := crypto.ToECDSA(etrue.config.CommitteeKey)
@@ -233,7 +233,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		gpoParams.Default = config.GasPrice
 	}
 	etrue.APIBackend.gpo = gasprice.NewOracle(etrue.APIBackend, gpoParams)
-
 	return etrue, nil
 }
 

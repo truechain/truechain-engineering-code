@@ -109,6 +109,8 @@ type Engine interface {
 
 	VerifyFreshness(fruit , block *types.SnailHeader) error
 
+	VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error
+
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error

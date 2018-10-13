@@ -214,7 +214,7 @@ func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 	if msg.ViewID == CurrentState.ViewID {
 		signs := CurrentState.MsgLogs.GetCommitMsgsSigns()
 		//fmt.Println("----------------------------------------pbft signs len", len(signs))
-		signs = append(signs, CurrentState.MySign)
+		//signs = append(signs, CurrentState.MySign)
 		//fmt.Println("----------------------------------------pbft signs my", CurrentState.MySign)
 		node.Verify.ReplyResult(CurrentState.MsgLogs.ReqMsg, signs, res)
 	} else {
@@ -264,8 +264,9 @@ func (node *Node) delayPrePrepareMessage(prePrepareMsg *consensus.PrePrepareMsg)
 	if prePrepareMsg.Height == node.CurrentHeight {
 		node.Broadcast(prePrepareMsg, "/preprepare")
 		time.Sleep(time.Second * 60)
-		if prePrepareMsg.Height == node.CurrentHeight {
-			node.Verify.RepeatFetch(node.ID, prePrepareMsg.Height)
+		tmpHeight := prePrepareMsg.Height
+		if tmpHeight == node.CurrentHeight {
+			node.Verify.RepeatFetch(node.ID, tmpHeight)
 		}
 	}
 }
@@ -327,7 +328,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	defer node.PrePareLock.Unlock()
 	lock.PSLog("node GetPrepare", prepareMsg.Height)
 	node.NTLock.Lock()
-	f := len(node.NodeTable) / 3
+	f := float64(len(node.NodeTable)) / 3
 	node.NTLock.Unlock()
 	CurrentState := node.GetStatus(prepareMsg.Height)
 
@@ -355,16 +356,16 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 		sign, res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 		//fmt.Println("---------------------------------------1,sign == nil", sign == nil, "res=nil", res == nil)
-		if res != nil && res == types.ErrHeightNotYet {
+		if res != nil && (res == types.ErrHeightNotYet || res == types.ErrSnailHeightNotYet) {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 			node.CommitWaitQueue.Push(prepareMsg, float32(-prepareMsg.Height))
 		} else {
-			var result uint = types.VoteAgreeAgainst
-			if res == nil {
-				result = types.VoteAgree
-			}
-
+			// var result uint = types.VoteAgreeAgainst
+			// if res == nil {
+			// 	result = types.VoteAgree
+			// }
+			result := sign.Result
 			//fmt.Println("---------------------------------------,sign == nil", sign == nil, "res=nil", res == nil)
 			CurrentState.MySign = sign
 			lock.PSLog("CheckMsg Result ", result)
@@ -430,7 +431,7 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	defer node.CommitLock.Unlock()
 	//lock.PSLog("node GetCommit in", fmt.Sprintf("%+v", commitMsg))
 	node.NTLock.Lock()
-	f := len(node.NodeTable) / 3
+	f := float64(len(node.NodeTable)) / 3
 	node.NTLock.Unlock()
 	state := node.GetStatus(commitMsg.Height)
 	if state == nil {
@@ -532,6 +533,9 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		//lock.PSLog("node routeMsg",msg.(*consensus.RequestMsg).Height, fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
 		lock.PSLog("node routeMsg", msg.(*consensus.RequestMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
+		if CurrentStage != nil && node.CurrentHeight == msg.(*consensus.RequestMsg).Height {
+			CurrentStage.CurrentStage = consensus.Idle
+		}
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 			// Copy buffered messages first.
 			msgs := make([]*consensus.RequestMsg, 0)
