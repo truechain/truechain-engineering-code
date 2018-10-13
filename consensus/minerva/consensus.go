@@ -580,13 +580,8 @@ var (
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
-	count := len(parents)
-	next := new(big.Int).Add(parents[count-1].Number, common.Big1)
-	if next.Cmp(big90) > 0 {
-		return calcDifficulty90(time, parents)
-	} else {
-		return calcDifficulty2(time, parents)
-	}
+
+	return calcDifficulty90(time, parents)
 
 	//return calcDifficulty(time, parents[0])
 }

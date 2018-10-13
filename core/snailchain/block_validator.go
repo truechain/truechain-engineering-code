@@ -106,10 +106,8 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	if count == 0 {
 		return ErrNoFruits
 	}
-	if block.Number().Cmp(big.NewInt(315)) >= 0 {
-		if count > params.MaximumFruits || count < params.MinimumFruits {
-			return ErrNoFruits
-		}
+	if count > params.MaximumFruits || count < params.MinimumFruits {
+		return ErrNoFruits
 	}
 
 	temp := uint64(0)
@@ -118,13 +116,15 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		localBlock := localFruits[len(localFruits)-1]
 		temp = localBlock.FastNumber().Uint64()
 	}
-	for _, fruit := range block.Fruits() {
+	fruits := block.Fruits()
+	for _, fruit := range fruits {
 		if fruit.FastNumber().Uint64() - temp != 1 {
-			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "pre", temp)
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "first", fruits[0].FastNumber(), "count", len(fruits),
+				"fruit", fruit.FastNumber(),  "pre", temp)
 			return ErrInvalidFruits
 		}
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(),  "err", err)
 			return err
 		}
 
