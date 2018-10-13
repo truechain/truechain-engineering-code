@@ -669,8 +669,8 @@ func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 	snailBlock := self.snailChain.CurrentBlock()
 	blockFruits := snailBlock.Body().Fruits
 	if blockFruits != nil && len(blockFruits) > 0 {
-		lastFruit := blockFruits[len(blockFruits)-1].FastNumber()
-		space := new(big.Int).Sub(header.Number, lastFruit).Int64()
+		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
+		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
 		if space >= fastToFruitSpace {
 			return types.ErrSnailBlockTooSlow
 		}
@@ -820,6 +820,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
+			log.Warn("verifyFastBlock :Snail height not yet")
 			return nil, err
 		}
 		log.Error("verifyFastBlock process error", "height:", fb.Number(), "err", err)
