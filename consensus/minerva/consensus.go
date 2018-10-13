@@ -506,7 +506,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 		}
 	}
 	// pbft signs check bug will fix next release
-	if count <= len(members) * 2 / 3 {
+	if count <= len(members)*2/3 {
 		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
@@ -537,7 +537,7 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
 	}
 	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
-		log.Debug("VerifyFreshness failed.", "fruit sb", fruit.Number,"fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", header.Number)
+		log.Debug("VerifyFreshness failed.", "fruit sb", fruit.Number, "fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", header.Number)
 		return consensus.ErrFreshness
 	}
 
@@ -569,11 +569,11 @@ var (
 	big10         = big.NewInt(10)
 	big32         = big.NewInt(32)
 
-	big90         = big.NewInt(90)
+	big90 = big.NewInt(90)
 
-	bigMinus1     = big.NewInt(-1)
-	bigMinus99    = big.NewInt(-99)
-	big2999999    = big.NewInt(2999999)
+	bigMinus1  = big.NewInt(-1)
+	bigMinus99 = big.NewInt(-99)
+	big2999999 = big.NewInt(2999999)
 )
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
@@ -581,7 +581,7 @@ var (
 // given the parent block's time and difficulty.
 func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
 	count := len(parents)
-	next := new(big.Int).Add(parents[count - 1].Number, common.Big1)
+	next := new(big.Int).Add(parents[count-1].Number, common.Big1)
 	if next.Cmp(big90) > 0 {
 		return calcDifficulty90(time, parents)
 	} else {
@@ -611,7 +611,6 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 
 	return diff
 }
-
 
 func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 	// algorithm:
@@ -670,7 +669,7 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", average_diff, "diff", x, "period", period)
 
 	return x
 }
@@ -732,7 +731,7 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg",average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", average_diff, "diff", x, "period", period)
 
 	return x
 }
@@ -865,14 +864,16 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
+		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
+		if sBlockHeader == nil {
+			return nil, types.ErrSnailHeightNotYet
+		}
+		if sBlockHeader.Hash() != header.Hash() {
+			return nil, types.ErrSnailBlockNotOnTheCain
+		}
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
-			bTm := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
-			if bTm != nil {
-				log.Info("Finalize:Error GetHeaderByNumber", "header.SnailHash", bTm.Hash(), "header.SnailNumber", bTm.Number)
-			}
-			// Slow chain is not high enough, put in future blocks and do not return errors
-			return nil, consensus.ErrInvalidNumber
+			return nil, types.ErrSnailHeightNotYet
 		}
 		err := accumulateRewardsFast(m.election, state, header, sBlock)
 		if err != nil {

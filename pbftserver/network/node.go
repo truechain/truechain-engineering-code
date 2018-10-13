@@ -356,7 +356,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 		sign, res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
 		//fmt.Println("---------------------------------------1,sign == nil", sign == nil, "res=nil", res == nil)
-		if res != nil && res == types.ErrHeightNotYet {
+		if res != nil && (res == types.ErrHeightNotYet || res == types.ErrSnailHeightNotYet) {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 			node.CommitWaitQueue.Push(prepareMsg, float32(-prepareMsg.Height))
