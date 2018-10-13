@@ -48,6 +48,7 @@ const (
 )
 const (
 	blockRewordSpace = 12
+	fastToFruitSpace = 1200
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
@@ -139,7 +140,7 @@ type AgentWork struct {
 }
 
 // NodeInfoEvent is posted when nodeInfo send
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election,coinbase common.Address) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election, coinbase common.Address) *PbftAgent {
 	self := &PbftAgent{
 		config:               config,
 		engine:               engine,
@@ -160,7 +161,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		cacheBlock:           make(map[*big.Int]*types.Block),
 	}
 	self.initNodeWork()
-	self.InitNodeInfo(eth.Config(),coinbase)
+	self.InitNodeInfo(eth.Config(), coinbase)
 	if !self.singleNode {
 		self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
 		self.chainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.chainHeadCh)
@@ -184,15 +185,15 @@ func (self *PbftAgent) initNodeWork() {
 	self.nodeInfoWorks = append(self.nodeInfoWorks, nodeWork1, nodeWork2)
 }
 
-func (self *PbftAgent) InitNodeInfo(config *Config,coinbase common.Address) {
+func (self *PbftAgent) InitNodeInfo(config *Config, coinbase common.Address) {
 	self.singleNode = config.NodeType
 	self.privateKey = config.PrivateKey
 	pubKey := self.privateKey.PublicKey
 	pubBytes := crypto.FromECDSAPub(&pubKey)
 	self.committeeNode = &types.CommitteeNode{
-		IP:        config.Host,
-		Port:      uint(config.Port),
-		Port2:     uint(config.StandByPort),
+		IP:    config.Host,
+		Port:  uint(config.Port),
+		Port2: uint(config.StandByPort),
 		//Coinbase:  crypto.PubkeyToAddress(pubKey),
 		Coinbase:  coinbase,
 		Publickey: pubBytes,
@@ -624,6 +625,9 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
+	if err := self.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
+		return nil, err
+	}
 	//validate height and hash
 	if err := self.engine.Prepare(self.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
@@ -660,6 +664,18 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 	}
 	log.Debug("out GenerateFastBlock...")
 	return fastBlock, err
+}
+func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
+	snailBlock := self.snailChain.CurrentBlock()
+	blockFruits := snailBlock.Body().Fruits
+	if blockFruits != nil && len(blockFruits) > 0 {
+		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
+		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
+		if space >= fastToFruitSpace {
+			return types.ErrSnailBlockTooSlow
+		}
+	}
+	return nil
 }
 
 //generate rewardSnailHegiht
@@ -721,8 +737,8 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 		FastHeight: fb.Header().Number,
 		FastHash:   fb.Hash(),
 	}
-	if vote == types.VoteAgreeAgainst{
-		log.Warn("vote AgreeAgainst","number",fb.Number(),"hash",fb.Hash())
+	if vote == types.VoteAgreeAgainst {
+		log.Warn("vote AgreeAgainst", "number", fb.Number(), "hash", fb.Hash())
 	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
@@ -760,7 +776,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	var parent *types.Block
 	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
 	if parent == nil { //if cannot find parent return ErrUnSyncParentBlock
-		log.Warn("VerifyFastBlock ErrHeightNotYet error","header", fb.Number())
+		log.Warn("VerifyFastBlock ErrHeightNotYet error", "header", fb.Number())
 		return nil, types.ErrHeightNotYet
 	}
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
@@ -783,7 +799,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 			}
 			return voteSign, err
 		}
-		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(),"err", err)
+		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(), "err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -793,7 +809,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	//abort, results  :=bc.Engine().VerifyPbftFastHeader(bc, fb.Header(),parent.Header())
 	state, err := bc.State()
 	if err != nil {
-		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Number(),"err", err)
+		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Number(), "err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -803,10 +819,11 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
-		if err ==types.ErrSnailHeightNotYet{
+		if err == types.ErrSnailHeightNotYet {
+			log.Warn("verifyFastBlock :Snail height not yet")
 			return nil, err
 		}
-		log.Error("verifyFastBlock process error", "height:", fb.Number(),"err", err)
+		log.Error("verifyFastBlock process error", "height:", fb.Number(), "err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
@@ -815,7 +832,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
-		log.Error("verifyFastBlock validateState error", "Height:", fb.Number(),"err", err)
+		log.Error("verifyFastBlock validateState error", "Height:", fb.Number(), "err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {
 			return nil, err
