@@ -232,7 +232,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 		fruits := headSnailBlock.Fruits()
 		minFbNumber = fruits[len(fruits)-1].FastNumber()
 	}
-	maxFbNumber := pool.fastchain.CurrentHeader().Number
+	maxFbNumber := pool.fastchain.CurrentBlock().Number()
 	if maxFbNumber != nil && minFbNumber != nil {
 		for i := new(big.Int).Add(minFbNumber, common.Big1); i.Cmp(maxFbNumber) <= 0; i = new(big.Int).Add(i, common.Big1) {
 			fastblock := pool.fastchain.GetBlockByNumber(i.Uint64())
@@ -321,7 +321,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	defer pool.muFruit.Unlock()
 
 	//check number(fb)
-	currentNumber := pool.fastchain.CurrentHeader().Number
+	currentNumber := pool.fastchain.CurrentBlock().Number()
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
 		return pool.appendFruit(fruit, false)
 	}
