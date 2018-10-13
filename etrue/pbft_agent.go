@@ -788,7 +788,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 		}
 		return voteSign, err
 	}
-	err = bc.Validator().ValidateBody(fb)
+	err = bc.Validator().ValidateBody(fb,false)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {

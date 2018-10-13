@@ -18,12 +18,11 @@ package core
 
 import (
 	"fmt"
- 
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -49,7 +48,7 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
-func (fv *BlockValidator) ValidateBody(block *types.Block) error {
+func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) error {
 	// Check whether the block's known, and if not, that it's linkable
 	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
@@ -73,12 +72,12 @@ func (fv *BlockValidator) ValidateBody(block *types.Block) error {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 
-	if err :=fv.bc.engine.VerifySigns(block.Number(),block.Signs()); err!=nil{
-		log.Info("Fast VerifySigns Err","number",block.NumberU64(),"signs",block.Signs())
-		return err
+	if validateSign {
+		if err := fv.bc.engine.VerifySigns(block.Number(), block.Signs()); err != nil {
+			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())
+			return err
+		}
 	}
-
-
 
 	return nil
 }
