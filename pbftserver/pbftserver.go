@@ -380,7 +380,7 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 					GetReq:
 						req, err := ss.GetRequest(cid)
 						if err == types.ErrSnailBlockTooSlow {
-							time.Sleep(BlockSleepMax)
+							time.Sleep(BlockSleepMax * time.Second)
 							goto GetReq
 						}
 
