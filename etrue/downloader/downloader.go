@@ -31,9 +31,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
-	"github.com/truechain/truechain-engineering-code/consensus"
-
-	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
+		etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -330,7 +328,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	switch err {
 	case nil:
 	case errBusy:
-	case consensus.ErrInvalidNumber:
+	case types.ErrSnailHeightNotYet:
 	case errTimeout, errBadPeer, errStallingPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
@@ -1405,7 +1403,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			log.Debug("Fruits:","Fruit Number",fr.FastNumber())
 		}
 
-		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
+		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
 
 		fruitLen := uint64(len(result.Fruits))
 		if fruitLen > 0 {
@@ -1426,7 +1424,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				fbNum = currentNum
 				height = fbNumLast - fbNum
 
-				log.Info("fastDownloader", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+				log.Trace("fastDownloader", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
 				if height >0{
 					for {
@@ -1439,7 +1437,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 						currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 						if fbNumLast >  currentNum{
-							log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+							log.Trace("fastDownloader while", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
 							fbNum = currentNum
 							height = fbNumLast - fbNum
@@ -1459,6 +1457,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		log.Info("fastCurrentNum", "number",d.fastDown.GetBlockChain().CurrentBlock().NumberU64())
 		if index, err := d.blockchain.InsertChain(blocks); err != nil {
 			log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
+			if err == types.ErrSnailHeightNotYet{
+				return err
+			}
 			return errInvalidChain
 		}
 

@@ -722,7 +722,7 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 		FastHash:   fb.Hash(),
 	}
 	if vote == types.VoteAgreeAgainst{
-		log.Warn("vote AgreeAgainst","number",fb.Number())
+		log.Warn("vote AgreeAgainst","number",fb.Number(),"hash",fb.Hash())
 	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
@@ -803,6 +803,9 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, self.vmConfig) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
+		if err ==types.ErrSnailHeightNotYet{
+			return nil, err
+		}
 		log.Error("verifyFastBlock process error", "height:", fb.Number(),"err", err)
 		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
 		if err != nil {

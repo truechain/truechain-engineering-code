@@ -35,8 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/consensus"
-)
+	)
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
@@ -331,7 +330,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 	switch err {
 	case nil:
 	case errBusy:
-	case consensus.ErrInvalidNumber:
+	case types.ErrSnailHeightNotYet:
 	case errTimeout, errBadPeer, errStallingPeer,
 		errEmptyHeaderSet, errPeersUnavailable, errTooOld,
 		errInvalidAncestor, errInvalidChain:
@@ -1461,13 +1460,16 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
-		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
+		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
 		log.Debug("Fast downloader signs:","block signs:",blocks[i].Signs())
 	}
 	log.Debug("Fast Downloaded>>>>","CurrentBlock:",d.blockchain.CurrentBlock().NumberU64())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
+		if err == types.ErrSnailHeightNotYet{
+			return err
+		}
 		return errInvalidChain
 	}
 	return nil
