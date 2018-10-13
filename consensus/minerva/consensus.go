@@ -863,7 +863,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlockHeader == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		if sBlockHeader.Hash() != header.Hash() {
+		if sBlockHeader.Hash() != header.SnailHash {
 			return nil, types.ErrSnailBlockNotOnTheCain
 		}
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())

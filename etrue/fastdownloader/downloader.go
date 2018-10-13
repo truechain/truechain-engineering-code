@@ -1460,9 +1460,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
-		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
+		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
-		log.Debug("Fast downloader signs:","block signs:",blocks[i].Signs())
+		log.Trace("Fast downloader signs:","block signs:",blocks[i].Signs())
 	}
 	log.Debug("Fast Downloaded>>>>","CurrentBlock:",d.blockchain.CurrentBlock().NumberU64())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {

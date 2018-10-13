@@ -1403,7 +1403,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			log.Debug("Fruits:","Fruit Number",fr.FastNumber())
 		}
 
-		log.Debug(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
+		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber",result.Sheader.Number,"Phash",result.Sheader.ParentHash,"hash",result.Sheader.Hash())
 
 		fruitLen := uint64(len(result.Fruits))
 		if fruitLen > 0 {
@@ -1424,7 +1424,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				fbNum = currentNum
 				height = fbNumLast - fbNum
 
-				log.Info("fastDownloader", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+				log.Trace("fastDownloader", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
 				if height >0{
 					for {
@@ -1437,7 +1437,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 						currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 						if fbNumLast >  currentNum{
-							log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
+							log.Trace("fastDownloader while", "fbNum",fbNum,"heigth",height,"fbNumLast",fbNumLast,"currentNum",currentNum)
 
 							fbNum = currentNum
 							height = fbNumLast - fbNum

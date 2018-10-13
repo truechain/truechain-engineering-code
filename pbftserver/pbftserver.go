@@ -377,7 +377,13 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 						if ac.Height.Uint64() < server.Height.Uint64() && ac.Height.Uint64() != 0 {
 							continue
 						}
+					GetReq:
 						req, err := ss.GetRequest(cid)
+						if err == types.ErrSnailBlockTooSlow {
+							time.Sleep(BlockSleepMax)
+							goto GetReq
+						}
+
 						if err == nil && req != nil {
 							if server, ok := ss.servers[cid.Uint64()]; ok {
 								server.Height = big.NewInt(req.Height)
