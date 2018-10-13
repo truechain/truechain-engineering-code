@@ -625,8 +625,8 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
-	if err := self.validateBlockSpace(header);err ==types.ErrSnailBlockTooSlow{
-		return nil,err
+	if err := self.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
+		return nil, err
 	}
 	//validate height and hash
 	if err := self.engine.Prepare(self.fastChain, header); err != nil {
@@ -668,9 +668,8 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 	snailBlock := self.snailChain.CurrentBlock()
 	blockFruits := snailBlock.Body().Fruits
-	fruitsLen := len(blockFruits)
-	if fruitsLen != 0 {
-		lastFruit := blockFruits[fruitsLen-1].FastNumber()
+	if blockFruits != nil && len(blockFruits) > 0 {
+		lastFruit := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruit).Int64()
 		if space >= fastToFruitSpace {
 			return types.ErrSnailBlockTooSlow
