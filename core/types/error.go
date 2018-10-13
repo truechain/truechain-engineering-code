@@ -11,4 +11,7 @@ var (
 
 	//ErrSnailBlockNotOnTheCain Snail block not on the cain
 	ErrSnailBlockNotOnTheCain = errors.New("Snail block not on the cain")
+
+	//ErrSnailBlockTooSlow Snail block too slow
+	ErrSnailBlockTooSlow = errors.New("Snail block too slow")
 )
