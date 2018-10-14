@@ -766,7 +766,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	log.Debug("commitFruits fruit pool list","f min fb",fruits[0].FastNumber(),"f max fb",fruits[len(fruits)-1].FastNumber())
 
 	// one commit the fruits len bigger then 50
-	if len(fruits) > params.MinimumFruits{
+	if len(fruits) >= params.MinimumFruits{
 
 		currentFastNumber.Add(currentFastNumber, common.Big1)
 		// find the continue fruits
@@ -778,11 +778,15 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			}else if rst == 0{
 				err := env.commitFruit(fruit, bc, engine)
 				if err == nil {
-					if fruitset[len(fruitset)-1].FastNumber().Uint64()+1 == fruit.FastNumber().Uint64(){
-						fruitset = append(fruitset, fruit)
+					if fruitset != nil{
+						if fruitset[len(fruitset) -1 ].FastNumber().Uint64()+1 == fruit.FastNumber().Uint64(){
+							fruitset = append(fruitset, fruit)
+						}else{
+							log.Info("there is not continue fruits","fruitset[len(fruitset)-1].FastNumber()",fruitset[len(fruitset)-1].FastNumber(),"fruit.FastNumber()",fruit.FastNumber())
+							break
+						}
 					}else{
-						log.Info("there is not continue fruits","fruitset[len(fruitset)-1].FastNumber()",fruitset[len(fruitset)-1].FastNumber(),"fruit.FastNumber()",fruit.FastNumber())
-						break
+						fruitset = append(fruitset, fruit)
 					}
 				} else {
 					break
