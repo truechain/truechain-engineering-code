@@ -114,6 +114,10 @@ type worker struct {
 	fruitCh   chan chain.NewFruitsEvent
 	fruitSub  event.Subscription // for fruit pool
 
+	minedfruitCh   chan chain.NewMinedFruitEvent
+	minedfruitSub  event.Subscription // for fruit pool
+
+
 	fastBlockCh  chan chain.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
 
@@ -168,6 +172,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
 		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
+		minedfruitCh:  make(chan chain.NewMinedFruitEvent, txChanSize),
 		chainDb:        etrue.ChainDb(),
 		recv:           make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
@@ -184,6 +189,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	// Subscribe events for blockchain
 	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = etrue.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.minedfruitSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.minedfruitCh)
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
@@ -332,6 +338,7 @@ func (self *worker) update() {
 	defer self.chainSideSub.Unsubscribe()
 	defer self.fastBlockSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
+	defer self.minedfruitSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
@@ -375,7 +382,16 @@ func (self *worker) update() {
 			}else{
 				log.Debug("------------start commit new work  true?????")
 			}
-
+		case <-self.minedfruitCh:
+			if !self.atCommintNewWoker {
+				log.Debug("star commit new work  minedfruitCh")
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}
+				
+			}
+		case <-self.minedfruitSub.Err():
+			return
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
 			
@@ -435,6 +451,12 @@ func (self *worker) wait() {
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil{
 					self.atCommintNewWoker = false
+					// post msg for commitnew work
+					var (
+						events []interface{}
+					)
+					events = append(events, chain.NewMinedFruitEvent{Block: block})
+					self.chain.PostChainEvents(events)
 				}
 			} else {
 				if block.Fruits() == nil{

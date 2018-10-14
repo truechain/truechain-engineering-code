@@ -99,6 +99,7 @@ type SnailBlockChain struct {
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
 	fastBlockFeed event.Feed
+	fruitFeed     event.Feed // for worker mined fruit
 	logsFeed      event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.SnailBlock
@@ -1232,6 +1233,9 @@ func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 		case NewFastBlocksEvent:
 			bc.fastBlockFeed.Send(ev)
 
+		case NewMinedFruitEvent:
+			bc.fruitFeed.Send(ev)
+
 		}
 	}
 }
@@ -1450,6 +1454,10 @@ func (bc *SnailBlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subs
 // SubscribeNewFruitEvent registers a subscription of fruits.
 func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- NewFastBlocksEvent) event.Subscription {
 	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
+}
+// SubscribeNewFruitEvent registers a subscription of fruits.
+func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- NewMinedFruitEvent) event.Subscription {
+	return bc.scope.Track(bc.fruitFeed.Subscribe(ch))
 }
 
 
