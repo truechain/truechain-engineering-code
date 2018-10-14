@@ -617,7 +617,7 @@ func (self *worker) commitNewWork() {
 
 	// commit fruits make sure it is correct
 	if fruits != nil{
-		work.commitFruits(fruits, self.chain, self.engine)
+		self.commitFruits(fruits, self.chain, self.engine)
 		//self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
 	}
   
@@ -751,7 +751,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 // TODO: check fruits continue with last snail block
 // find all fruits and start to the last parent fruits number and end continue fruit list 
-func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
@@ -778,7 +778,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 				// the fruit less then current fruit fb number so move to next
 				continue
 			}else if rst == 0{
-				err := env.commitFruit(fruit, bc, engine)
+				err := self.current.commitFruit(fruit, bc, engine)
 				if err == nil {
 					if fruitset != nil{
 						if fruitset[len(fruitset) -1 ].FastNumber().Uint64()+1 == fruit.FastNumber().Uint64(){
@@ -793,7 +793,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 				} else {
 					//need del the fruit
 					log.Debug("commitFruits  remove unVerifyFreshness fruit","fb num",fruit.FastNumber())
-					worker.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
+					self.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
 					break
 				} 
 			}else{
@@ -821,7 +821,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		}
 		*/
 		if len(fruitset) > 0 {
-			env.fruits = fruitset
+			self.current.fruits = fruitset
 		}
 	}
 }
