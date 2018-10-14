@@ -848,7 +848,7 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 	}else{
 	// find the realy need miner fastblock
 		for i , fb := range fruits {
-			log.Info(" pending fruit fb num", fb.FastNumber())
+			//log.Info(" pending fruit fb num", fb.FastNumber())
 			if i == 0{
 				tempfruits = fb
 				continue
@@ -877,8 +877,8 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 
 				//find the miner fb number int the 2,3,4  like 1,5,6,7
 				for j:= uint64(1); j < lenfb ; j++ {
-					needMinerFBNumber :=  tempfruits.Number().Uint64()+j
-					
+					needMinerFBNumber :=  tempfruits.FastNumber().Uint64()+j
+					log.Info(" pending fruit fb num needMinerFBNumber", needMinerFBNumber )
 					if needMinerFBNumber > fastBlockHight{
 						return fmt.Errorf("fruit list have one heghter fast chain fb hight(%x),fruit fb hight(%x) ",fastBlockHight,tempfruits.FastNumber().Uint64())
 					}
