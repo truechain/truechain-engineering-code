@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/elastos/Elastos.ELA.SideChain/common"
 	"errors"
 	"math"
 	"math/big"
