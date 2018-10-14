@@ -822,7 +822,16 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 	//get current snailblock block and fruits
 	var tempfruits *types.SnailBlock
 	snailblockFruits := bc.CurrentBlock().Fruits()
-	snailFruitsLastFastNumber := snailblockFruits[len(snailblockFruits)-1].FastNumber()
+
+	var snailFruitsLastFastNumber *big.Int
+	if len(snailblockFruits) > 0 {
+		snailFruitsLastFastNumber = snailblockFruits[len(snailblockFruits)-1].FastNumber()
+	} else {
+		// genesis block
+		snailFruitsLastFastNumber = new(big.Int).Set(common.Big0)
+	}
+
+
 	isFind := false
 
 	//get current fast block hight
