@@ -600,6 +600,10 @@ func (self *worker) commitNewWork() {
 		return
 	}
 
+
+	self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
+
+
 	// only miner fruit if not fruit set only miner the fruit
 	if self.FruitOnly {
 		fruits = nil 
@@ -620,8 +624,6 @@ func (self *worker) commitNewWork() {
 	if fastblock != nil{
 		//self.commitFastBlocks(fastblock)
 	}
-
-	self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
 
 
 	if work.fruits != nil {
@@ -789,8 +791,11 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 						fruitset = append(fruitset, fruit)
 					}
 				} else {
+					//need del the fruit
+					log.Debug("commitFruits  remove unVerifyFreshness fruit","fb num",fruit.FastNumber())
+					worker.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
 					break
-				}
+				} 
 			}else{
 				break
 			}

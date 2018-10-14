@@ -209,7 +209,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
-	log.Debug("mineSnail","miner",id,"block num",block.Number(),"fb num",block.FastNumber())
+	//log.Debug("mineSnail","miner",id,"block num",block.Number(),"fb num",block.FastNumber())
 	logger.Trace("Started truehash search for new nonces", "seed", seed)
 search:
 	for {
@@ -260,7 +260,7 @@ search:
 						header.MixDigest = common.BytesToHash(digest)
 						//TODO need add fruit flow
 						header.Fruit = true
-
+						log.Debug("sealer mineSnail","miner fruit fb",header.Number)
 						// Seal and return a block (if still needed)
 						select {
 						case found <- block.WithSeal(header):

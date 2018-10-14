@@ -137,6 +137,7 @@ type SnailPool interface {
 	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
+	RemovePendingFruitByFastHash(fasthash common.Hash) 
 }
 
 type AgentNetworkProxy interface {
