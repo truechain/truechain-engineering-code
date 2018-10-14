@@ -650,9 +650,10 @@ func (pool *SnailPool) removeUnfreshFruit() {
 }
 
 func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash){
-	if pool.PendingFruits == nil{
-		return
-	}
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	delete(pool.fruitPending, fasthash)
 	delete(pool.allFruits, fasthash)
 }
 	

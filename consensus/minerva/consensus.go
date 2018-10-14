@@ -523,11 +523,12 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 }
 
 func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
-	var header *types.SnailHeader
+	var headerNumber *big.Int
 	if block == nil {
-		header = m.sbc.CurrentHeader()
+		// when block is nil, is used to verify new fruits for next block
+		headerNumber = new(big.Int).Add(m.sbc.CurrentHeader().Number, common.Big1)
 	} else {
-		header = block
+		headerNumber = block.Number
 	}
 	// check freshness
 	pointer := m.sbc.GetHeaderByNumber(fruit.PointerNumber.Uint64())
@@ -539,9 +540,9 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
 			"fruitNumber", fruit.Number, "pointer", pointer.Hash())
 		return consensus.ErrUnknownPointer
 	}
-	freshNumber := new(big.Int).Sub(header.Number, pointer.Number)
+	freshNumber := new(big.Int).Sub(headerNumber, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
-		log.Debug("VerifyFreshness failed.", "fruit sb", fruit.Number, "fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", header.Number)
+		log.Debug("VerifyFreshness failed.", "fruit sb", fruit.Number, "fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", headerNumber)
 		return consensus.ErrFreshness
 	}
 
