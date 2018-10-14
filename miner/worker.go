@@ -875,7 +875,7 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 
 			if fb.FastNumber().Uint64()-1 > fruits[i-1].FastNumber().Uint64(){
 				//there have fruit need to miner 1 3 4 5,so need mine 2，or 1 5 6 7 need mine 2，3，4，5
-				log.Info("fruit fb number ","fruits[i-1].FastNumber().Uint64()",fruits[i-1].FastNumber().Uint64(),"fb.FastNumber().Uint64()",fb.FastNumber().Uint64())
+				log.Info("fruit fb number ","fruits[i-1].FastNumber().Uint64()",fruits[i-1].FastNumber(),"fb.FastNumber().Uint64()",fb.FastNumber())
 				tempfruits = fruits[i-1]
 				lenfb := fb.FastNumber().Uint64() - fruits[i-1].FastNumber().Uint64()
 
