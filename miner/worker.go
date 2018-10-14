@@ -622,10 +622,6 @@ func (self *worker) commitNewWork() {
 		return
 	}
 
-
-	self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
-
-
 	// only miner fruit if not fruit set only miner the fruit
 	if self.FruitOnly {
 		fruits = nil 
@@ -647,6 +643,7 @@ func (self *worker) commitNewWork() {
 		//self.commitFastBlocks(fastblock)
 	}
 
+	self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
 
 	if work.fruits != nil {
 		log.Debug("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits) - 1].FastNumber())
@@ -870,25 +867,30 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 
 	log.Info("--------commitFastBlocksByWoker Info","snailFruitsLastFastNumber",snailFruitsLastFastNumber,"fastBlockHight",fastBlockHight)
 
+	// get pending fruits again 
+	pendingFruits , errFruit := self.etrue.SnailPool().PendingFruits()
+	if errFruit != nil {
+		return nil
+	}
 	// not fruits in pengding list
-	if fruits == nil{
+	if pendingFruits == nil{
 		if snailFruitsLastFastNumber.Uint64()+1 < fastBlockHight {
 			isFind = true
 			self.FastBlockNumber.SetUint64(snailFruitsLastFastNumber.Uint64()+1)
 		}
 	}else{
 	// find the realy need miner fastblock
-		for i , fb := range fruits {
+		for i , fb := range pendingFruits {
 			//log.Info(" pending fruit fb num", fb.FastNumber())
 			if i == 0{
 				tempfruits = fb
 				continue
 			}
 			//cmp
-			if fb.FastNumber().Uint64()-1 == fruits[i-1].FastNumber().Uint64(){
+			if fb.FastNumber().Uint64()-1 == pendingFruits[i-1].FastNumber().Uint64(){
 
 				// all fruits are continuous need mine the next one
-				if i == len(fruits)-1 {
+				if i == len(pendingFruits)-1 {
 					if fb.FastNumber().Uint64()+1 <= fastBlockHight{
 						isFind = true
 						self.FastBlockNumber.SetUint64(fb.FastNumber().Uint64()+1)
@@ -900,11 +902,11 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 				continue
 			}
 
-			if fb.FastNumber().Uint64()-1 > fruits[i-1].FastNumber().Uint64(){
+			if fb.FastNumber().Uint64()-1 > pendingFruits[i-1].FastNumber().Uint64(){
 				//there have fruit need to miner 1 3 4 5,so need mine 2，or 1 5 6 7 need mine 2，3，4，5
-				log.Info("fruit fb number ","fruits[i-1].FastNumber().Uint64()",fruits[i-1].FastNumber(),"fb.FastNumber().Uint64()",fb.FastNumber())
-				tempfruits = fruits[i-1]
-				lenfb := fb.FastNumber().Uint64() - fruits[i-1].FastNumber().Uint64()
+				log.Info("fruit fb number ","fruits[i-1].FastNumber().Uint64()",pendingFruits[i-1].FastNumber(),"fb.FastNumber().Uint64()",fb.FastNumber())
+				tempfruits = pendingFruits[i-1]
+				lenfb := fb.FastNumber().Uint64() - pendingFruits[i-1].FastNumber().Uint64()
 
 				//find the miner fb number int the 2,3,4  like 1,5,6,7
 				for j:= uint64(1); j < lenfb ; j++ {
