@@ -411,7 +411,7 @@ func (self *worker) wait() {
 					continue
 				}
 
-				//log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
+				log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
 				// add fruit once 
 				if self.FastBlockNumber != nil{
@@ -600,6 +600,10 @@ func (self *worker) commitNewWork() {
 		return
 	}
 
+
+	self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
+
+
 	// only miner fruit if not fruit set only miner the fruit
 	if self.FruitOnly {
 		fruits = nil 
@@ -613,15 +617,13 @@ func (self *worker) commitNewWork() {
 
 	// commit fruits make sure it is correct
 	if fruits != nil{
-		work.commitFruits(fruits, self.chain, self.engine)
+		self.commitFruits(fruits, self.chain, self.engine)
 		//self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
 	}
   
 	if fastblock != nil{
 		//self.commitFastBlocks(fastblock)
 	}
-
-	self.commitFastBlocksByWoker(fruits,self.chain,self.fastchain,self.engine)
 
 
 	if work.fruits != nil {
@@ -749,7 +751,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 // TODO: check fruits continue with last snail block
 // find all fruits and start to the last parent fruits number and end continue fruit list 
-func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
@@ -776,7 +778,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 				// the fruit less then current fruit fb number so move to next
 				continue
 			}else if rst == 0{
-				err := env.commitFruit(fruit, bc, engine)
+				err := self.current.commitFruit(fruit, bc, engine)
 				if err == nil {
 					if fruitset != nil{
 						if fruitset[len(fruitset) -1 ].FastNumber().Uint64()+1 == fruit.FastNumber().Uint64(){
@@ -789,8 +791,11 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 						fruitset = append(fruitset, fruit)
 					}
 				} else {
+					//need del the fruit
+					log.Debug("commitFruits  remove unVerifyFreshness fruit","fb num",fruit.FastNumber())
+					self.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
 					break
-				}
+				} 
 			}else{
 				break
 			}
@@ -816,7 +821,7 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		}
 		*/
 		if len(fruitset) > 0 {
-			env.fruits = fruitset
+			self.current.fruits = fruitset
 		}
 	}
 }
@@ -882,7 +887,7 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 				//find the miner fb number int the 2,3,4  like 1,5,6,7
 				for j:= uint64(1); j < lenfb ; j++ {
 					needMinerFBNumber :=  tempfruits.FastNumber().Uint64()+j
-					log.Info(" pending fruit fb num needMinerFBNumber", needMinerFBNumber )
+					log.Info(" pending fruit fb num needMinerFBNumber", "needMinerFBNumber",needMinerFBNumber )
 					if needMinerFBNumber > fastBlockHight{
 						return fmt.Errorf("fruit list have one heghter fast chain fb hight(%x),fruit fb hight(%x) ",fastBlockHight,tempfruits.FastNumber().Uint64())
 					}

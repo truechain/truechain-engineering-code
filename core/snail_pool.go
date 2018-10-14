@@ -649,6 +649,14 @@ func (pool *SnailPool) removeUnfreshFruit() {
 	}
 }
 
+func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash){
+	if pool.PendingFruits == nil{
+		return
+	}
+	delete(pool.allFruits, fasthash)
+}
+	
+
 // Stop terminates the transaction pool.
 func (pool *SnailPool) Stop() {
 	// Unsubscribe all subscriptions registered from txpool
