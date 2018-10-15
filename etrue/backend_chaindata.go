@@ -96,8 +96,8 @@ func PrintSequenceFastBlock(etrue *Truechain) {
 		if fb == nil {
 			break
 		}
-		fmt.Println("number", "isConsistence", bytes.Equal(preBlock.Hash().Bytes(), fb.ParentHash().Bytes()),
-			fb.NumberU64(), "hash", hex.EncodeToString(fb.Hash().Bytes()),
+		fmt.Println("number", fb.NumberU64(),"isConsistence", bytes.Equal(preBlock.Hash().Bytes(), fb.ParentHash().Bytes()),
+			 "hash", hex.EncodeToString(fb.Hash().Bytes()),
 			"parentHash", hex.EncodeToString(fb.ParentHash().Bytes()))
 
 	}
@@ -117,8 +117,9 @@ func PrintSequenceSnailBlock(etrue *Truechain) {
 		if fb == nil {
 			break
 		}
-		fmt.Println("snailNum", "isConsistence", bytes.Equal(preBlock.Hash().Bytes(), fb.ParentHash().Bytes()),
-			fb.NumberU64(), "hash", hex.EncodeToString(fb.Hash().Bytes()),
+		fmt.Println("snailNum",fb.NumberU64(),
+			"isConsistence", bytes.Equal(preBlock.Hash().Bytes(), fb.ParentHash().Bytes()),
+			 "hash", hex.EncodeToString(fb.Hash().Bytes()),
 			"parentHash", hex.EncodeToString(fb.ParentHash().Bytes()))
 	}
 }
