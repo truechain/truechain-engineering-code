@@ -503,7 +503,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-
+		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "query>>>", query)
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -614,7 +614,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-
+		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>","query",query)
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
