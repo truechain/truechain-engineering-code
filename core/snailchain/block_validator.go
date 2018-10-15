@@ -19,8 +19,10 @@ package snailchain
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
+
+	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -43,6 +45,8 @@ var (
 	ErrInvalidFast = errors.New("invalid fast hash")
 
 	ErrNoFruits = errors.New("invalid fruits count")
+
+	ErrInvalidFruits = errors.New("invalid fruits number")
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -50,11 +54,11 @@ var (
 //
 // BlockValidator implements Validator.
 type BlockValidator struct {
-	config   *params.ChainConfig // Chain configuration options
-	bc       *SnailBlockChain    // Canonical block chain
+	config *params.ChainConfig // Chain configuration options
+	bc     *SnailBlockChain    // Canonical block chain
 
-	engine   consensus.Engine    // Consensus engine used for validating
-	election consensus.CommitteeElection
+	engine    consensus.Engine // Consensus engine used for validating
+	election  consensus.CommitteeElection
 	fastchain consensus.ChainReader
 }
 
@@ -93,7 +97,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		return consensus.ErrPrunedAncestor
 	}
 	// Header validity is known at this point, check the uncles and transactions
-	//header := block.Header()
+	header := block.Header()
 	//if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
 	//	return err
 	//}
@@ -102,27 +106,42 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	if count == 0 {
 		return ErrNoFruits
 	}
-	if block.Number().Cmp(big.NewInt(315)) >= 0 {
-		if count > params.MaximumFruits || count < params.MinimumFruits {
-			return ErrNoFruits
-		}
+	if count > params.MaximumFruits || count < params.MinimumFruits {
+		return ErrNoFruits
 	}
 
-	for _, fruit := range block.Fruits() {
+	temp := uint64(0)
+	preBlock := v.bc.GetBlock(block.ParentHash(), block.NumberU64() - 1)
+	if preBlock == nil {
+		log.Info("ValidateBody snail get parent block error", "block", block.Number(), "hash", block.Hash(), "parent", block.ParentHash())
+		return consensus.ErrUnknownAncestor
+	}
+	if preBlock.Number().Cmp(common.Big0) > 0 {
+		localFruits := preBlock.Fruits()
+		temp = localFruits[len(localFruits)-1].FastNumber().Uint64()
+	}
+	fruits := block.Fruits()
+	for _, fruit := range fruits {
+		if fruit.FastNumber().Uint64() - temp != 1 {
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "first", fruits[0].FastNumber(), "count", len(fruits),
+				"fruit", fruit.FastNumber(),  "pre", temp)
+			return ErrInvalidFruits
+		}
 		if err := v.ValidateFruit(fruit, block); err != nil {
-			log.Info("ValidateBody snail validate fruit error",  "fruit", fruit.FastNumber(), "block", block.Number(), "err", err)
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(),  "err", err)
 			return err
 		}
+
+		temp = fruit.FastNumber().Uint64()
 	}
 
-	// TODO need add uncles or transaction at snail block 20180804
 	/*
 		if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
 			return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-		}
-		if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
-			return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 		}*/
+	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
+		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
+	}
 	return nil
 }
 
@@ -133,12 +152,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
-	//TODO need add gas for snail block 20180804
-	/*
-		if block.GasUsed() != usedGas {
-			return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
-		}
-	*/
+
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
 	rbloom := types.CreateBloom(receipts)
@@ -149,45 +163,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 	return nil
 }
 
-// CalcGasLimit computes the gas limit of the next block after parent.
-// This is miner strategy, not consensus protocol.
 
-
-func CalcGasLimit(parent *types.SnailBlock) uint64 {
-	// contrib = (parentGasUsed * 3 / 2) / 1024
-
-	// TODO need add gas limit 20180804
-	//fmt.Printf("Block_Validator calcGasLimit not function")
-	return 0
-	/*
-		contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
-
-		// decay = parentGasLimit / 1024 -1
-		decay := parent.GasLimit()/params.GasLimitBoundDivisor - 1
-	*/
-	/*
-		strategy: gasLimit of block-to-mine is set based on parent's
-		gasUsed value.  if parentGasUsed > parentGasLimit * (2/3) then we
-		increase it, otherwise lower it (or leave it unchanged if it's right
-		at that usage) the amount increased/decreased depends on how far away
-		from parentGasLimit * (2/3) parentGasUsed is.
-	*/
-	/*
-		limit := parent.GasLimit() - decay + contrib
-		if limit < params.MinGasLimit {
-			limit = params.MinGasLimit
-		}
-		// however, if we're now below the target (TargetGasLimit) we increase the
-		// limit as much as we can (parentGasLimit / 1024 -1)
-		if limit < params.TargetGasLimit {
-			limit = parent.GasLimit() + decay
-			if limit > params.TargetGasLimit {
-				limit = params.TargetGasLimit
-			}
-		}
-		return limit
-	*/
-}
 
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check number(fb)
@@ -205,7 +181,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
-		log.Warn("valid fruit sisn hash failed.")
+		log.Info("valid fruit sign hash failed.")
 		return ErrInvalidSign
 	}
 
@@ -216,42 +192,20 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	}
 	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader)
 	if err != nil {
-		log.Warn("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
+		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err
 	}
 
 	header := fruit.Header()
 	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true); err != nil {
-		log.Warn("validate fruit verify failed.", "err", err)
+		log.Info("validate fruit verify failed.", "err", err)
 		return err
 	}
 
 	// validate the signatures of this fruit
-	members := v.election.GetCommittee(fruit.FastNumber())
-	if members == nil {
-		log.Warn("validate fruit get committee failed.", "number", fruit.FastNumber())
-		return ErrInvalidSign
-	}
-	count := 0
-	signs := fruit.Signs()
-	for _, sign := range signs {
-		if sign.Result == types.VoteAgree {
-			count ++
-		}
-	}
-	// TODO: a bug to verify PBFT signs should len(members) * 2 / 3
-	// will fix this bug at next release version
-	if count <= len(members) / 3 * 2 {
-		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
-		return ErrInvalidSign
-	}
-
-	_, errs := v.election.VerifySigns(signs)
-	for _, err := range errs {
-		if err != nil {
-			log.Warn("validate fruit VerifySigns error", "err", err)
-			return err
-		}
+	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.Signs()); err != nil {
+		log.Info("validate fruit VerifySigns failed.", "err", err)
+		return err
 	}
 
 	return nil

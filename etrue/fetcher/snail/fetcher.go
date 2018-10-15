@@ -241,13 +241,13 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
 	if count > blockLimit {
-		log.Debug("Discarded propagated block, exceeded allowance", "peer", peer, "number", block.Number(), "hash", hash, "limit", blockLimit)
+		log.Debug("Discarded propagated snail block, exceeded allowance", "peer", peer, "number", block.Number(), "hash", hash, "limit", blockLimit)
 		propBroadcastDOSMeter.Mark(1)
 		return
 	}
 	// Discard any past or too distant blocks
 	if dist := int64(block.NumberU64()) - int64(f.chainHeight()); dist < -maxUncleDist || dist > maxQueueDist {
-		log.Debug("Discarded propagated block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
+		log.Debug("Discarded propagated snail block, too far away", "peer", peer, "number", block.Number(), "hash", hash, "distance", dist)
 		propBroadcastDropMeter.Mark(1)
 		return
 	}

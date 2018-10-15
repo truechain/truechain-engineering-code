@@ -9,6 +9,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"math/big"
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-var ID = big.NewInt(0)
+var ID = big.NewInt(1)
 
 func getID() *big.Int {
 	ID = new(big.Int).Add(ID, big.NewInt(1))
@@ -44,7 +45,13 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	header.Number = getID()
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	return types.NewBlock(header, nil, nil, nil), nil
+	if rand.Intn(100) > 90 {
+		return types.NewBlock(header, nil, nil, nil), nil
+	} else {
+		ID = new(big.Int).Add(ID, big.NewInt(-1))
+		return nil, types.ErrSnailBlockTooSlow
+	}
+
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
 	//if rand.Intn(100) > 50 {
@@ -52,7 +59,9 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSi
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return new(types.PbftSign), nil
+	s := new(types.PbftSign)
+	s.Result = 1
+	return s, nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {

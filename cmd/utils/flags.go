@@ -495,7 +495,7 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
 		Usage: "Network listening port",
-		Value: 30303,
+		Value: 30313,
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -1236,7 +1236,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
 		state.MaxTrieCacheGen = uint16(gen)
 	}
-	log.Info("","cfg.SyncMode",cfg.SyncMode)
+	log.Info("", "cfg.SyncMode", cfg.SyncMode)
 }
 
 // SetDashboardConfig applies dashboard related command line flags to the config.

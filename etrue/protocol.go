@@ -58,7 +58,6 @@ const (
 	FastBlockBodiesMsg     = 0x06
 	NewFastBlockMsg        = 0x07
 
-
 	BlockSignMsg    = 0x08
 	PbftNodeInfoMsg = 0x09
 
@@ -71,13 +70,12 @@ const (
 	ReceiptsMsg    = 0x10
 
 	//snail sync
-	GetSnailBlockHeadersMsg = 0x11
-	SnailBlockHeadersMsg = 0x12
-	GetSnailBlockBodiesMsg  = 0x13
-	SnailBlockBodiesMsg     = 0x14
+	GetSnailBlockHeadersMsg   = 0x11
+	SnailBlockHeadersMsg      = 0x12
+	GetSnailBlockBodiesMsg    = 0x13
+	SnailBlockBodiesMsg       = 0x14
 	GetFastOneBlockHeadersMsg = 0x15
-	FastOneBlockHeadersMsg = 0x16
-
+	FastOneBlockHeadersMsg    = 0x16
 )
 
 type errCode int
@@ -89,6 +87,7 @@ const (
 	ErrProtocolVersionMismatch
 	ErrNetworkIdMismatch
 	ErrGenesisBlockMismatch
+	ErrFastGenesisBlockMismatch
 	ErrNoStatusMsg
 	ErrExtraStatusMsg
 	ErrSuspendedPeer
@@ -100,15 +99,16 @@ func (e errCode) String() string {
 
 // XXX change once legacy code is out
 var errorToString = map[int]string{
-	ErrMsgTooLarge:             "Message too long",
-	ErrDecode:                  "Invalid message",
-	ErrInvalidMsgCode:          "Invalid message code",
-	ErrProtocolVersionMismatch: "Protocol version mismatch",
-	ErrNetworkIdMismatch:       "NetworkId mismatch",
-	ErrGenesisBlockMismatch:    "Genesis block mismatch",
-	ErrNoStatusMsg:             "No status message",
-	ErrExtraStatusMsg:          "Extra status message",
-	ErrSuspendedPeer:           "Suspended peer",
+	ErrMsgTooLarge:              "Message too long",
+	ErrDecode:                   "Invalid message",
+	ErrInvalidMsgCode:           "Invalid message code",
+	ErrProtocolVersionMismatch:  "Protocol version mismatch",
+	ErrNetworkIdMismatch:        "NetworkId mismatch",
+	ErrGenesisBlockMismatch:     "Genesis block mismatch",
+	ErrFastGenesisBlockMismatch: "Fast Genesis block mismatch",
+	ErrNoStatusMsg:              "No status message",
+	ErrExtraStatusMsg:           "Extra status message",
+	ErrSuspendedPeer:            "Suspended peer",
 }
 
 type txPool interface {
@@ -137,6 +137,7 @@ type SnailPool interface {
 	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
 	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
+	RemovePendingFruitByFastHash(fasthash common.Hash) 
 }
 
 type AgentNetworkProxy interface {
@@ -155,11 +156,13 @@ type AgentNetworkProxy interface {
 
 // statusData is the network packet for the status message.
 type statusData struct {
-	ProtocolVersion uint32
-	NetworkId       uint64
-	TD              *big.Int
-	CurrentBlock    common.Hash
-	GenesisBlock    common.Hash
+	ProtocolVersion  uint32
+	NetworkId        uint64
+	TD               *big.Int
+	CurrentBlock     common.Hash
+	GenesisBlock     common.Hash
+	CurrentFastBlock common.Hash
+	GenesisFastBlock common.Hash
 }
 
 // newBlockHashesData is the network packet for the block announcements.
@@ -233,7 +236,6 @@ type blockBody struct {
 // blockBodiesData is the network packet for block content distribution.
 type blockBodiesData []*blockBody
 
-
 // blockBody represents the data content of a single block.
 type snailBlockBody struct {
 	Fruits []*types.SnailBlock
@@ -242,5 +244,3 @@ type snailBlockBody struct {
 
 // blockBodiesData is the network packet for block content distribution.
 type snailBlockBodiesData []*snailBlockBody
-
-
