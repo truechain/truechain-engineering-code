@@ -334,11 +334,6 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	}
 
 	// TODO: check signature
-	//fruit validation
-	if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
-		log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
-		return err
-	}
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
