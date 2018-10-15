@@ -356,6 +356,14 @@ func (self *worker) update() {
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
 			log.Info("chain slide", "number", ev.Block.Number(), "hash", ev.Block.Hash())
+			if !self.atCommintNewWoker {
+				log.Debug("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}
+				
+			}
+			
 			//self.uncleMu.Lock()
 			//self.possibleUncles[ev.Block.Hash()] = ev.Block
 			//self.uncleMu.Unlock()
@@ -427,19 +435,19 @@ func (self *worker) wait() {
 					continue
 				}
 
-				log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
+				//log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
 				// add fruit once 
 				if self.FastBlockNumber != nil{
 					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
-						log.Info("🍒  ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("🍒  ----mined fruit 1","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						//log.Info("not same fruits")
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
 					}
 				}else{
-					log.Info("🍒 ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("🍒 ----mined fruit 2","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
