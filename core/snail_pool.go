@@ -639,6 +639,14 @@ func (pool *SnailPool) removeUnfreshFruit() {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
 				delete(pool.fruitPending, fruit.FastHash())
 				delete(pool.allFruits, fruit.FastHash())
+
+				fastblock := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
+				if fastblock == nil {
+					return
+				}
+				log.Debug("add fastblock", "number", fastblock.Number())
+				pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
+				pool.allFastBlocks[fastblock.Hash()] = fastblock
 			}
 		}
 	}
