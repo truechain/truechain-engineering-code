@@ -891,9 +891,8 @@ func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *cha
 	}else{
 	// find the realy need miner fastblock
 		log.Info("--------commitFastBlocksByWoker Info2 ","pendind fruit min fb",pendingFruits[0].FastNumber(),"max fb",pendingFruits[len(pendingFruits)-1].FastNumber())
-		log.Info("--------commitFastBlocksByWoker Info3","fruits:",pendingFruits)
 		if len(pendingFruits) == 1{
-			if pendingFruits[0].FastNumber().Uint64()<= snailFruitsLastFastNumber.Uint64()+1{
+			if pendingFruits[0].FastNumber().Uint64()<= snailFruitsLastFastNumber.Uint64(){
 				isFind = true
 				self.FastBlockNumber.SetUint64(snailFruitsLastFastNumber.Uint64()+1)
 			}else{
