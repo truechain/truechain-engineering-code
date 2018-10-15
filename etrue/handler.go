@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"sync"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -364,29 +364,27 @@ func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *p
 	return newPeer(pv, p, newMeteredMsgWriter(rw))
 }
 
-
 func resolveVersionFromName(name string) bool {
 	str := name
-    flag := "Getrue/v0.8.2"
-    if !strings.Contains(str,"Getrue/v0.8") {
-        return true
-    }
-    pos := strings.Index(str,"-")
-    if pos == -1 {
-        return false
-    }
-    var r = []rune(str)
-    sub := string(r[:pos])
-    if len(sub) > len(flag) {
-    	// v0.8.10
-    	return true
+	flag := "Getrue/v0.8.2"
+	if !strings.Contains(str, "Getrue/v0.8") {
+		return true
 	}
-    if sub >= flag {
-        return true
-    }
-    return false    
+	pos := strings.Index(str, "-")
+	if pos == -1 {
+		return false
+	}
+	var r = []rune(str)
+	sub := string(r[:pos])
+	if len(sub) > len(flag) {
+		// v0.8.10
+		return true
+	}
+	if sub >= flag {
+		return true
+	}
+	return false
 }
-
 
 // handle is the callback invoked to manage the life cycle of an etrue peer. When
 // this function terminates, the peer is disconnected.
@@ -399,19 +397,23 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// Execute the Truechain handshake
 	var (
+		fastGenesis = pm.blockchain.Genesis()
+		fastHead    = pm.blockchain.CurrentHeader()
+		fastHash    = fastHead.Hash()
+
 		genesis = pm.snailchain.Genesis()
 		head    = pm.snailchain.CurrentHeader()
 		hash    = head.Hash()
 		number  = head.Number.Uint64()
 		td      = pm.snailchain.GetTd(hash, number)
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash()); err != nil {
+	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastGenesis.Hash()); err != nil {
 		p.Log().Debug("Truechain handshake failed", "err", err)
 		return err
 	}
 	if !resolveVersionFromName(p.Name()) {
 		p.Log().Info("Peer connected failed,version not match", "name", p.Name())
-		return fmt.Errorf("version not match,name:%v",p.Name())
+		return fmt.Errorf("version not match,name:%v", p.Name())
 	}
 	p.Log().Info("Peer connected success", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 	if rw, ok := p.rw.(*meteredMsgReadWriter); ok {
@@ -501,7 +503,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-
+		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "query>>>", query)
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -612,7 +614,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-
+		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>","query",query)
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -1120,7 +1122,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
 			tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			fmt.Println(tdd)
+			log.Debug("SnailBlockMsg>>tdd>>>>","tdd",tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				go pm.synchronise(p)

@@ -135,11 +135,13 @@ func (self *Miner) loop() {
 				switch ch.Option {
 				case types.CommitteeStart:
 					// alread to start mining need stop
-					if self.shouldStart == 1 || self.mining == 1 {
+					//if self.shouldStart == 1 || self.mining == 1 {
+					if self.Mining(){
 					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
 						 if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey){
 							 // i am committee
 							 self.Stop()
+							 atomic.StoreInt32(&self.shouldStart, 1)
 						 }else{
 							 log.Info("not in commiteer munber start")
 						 }
@@ -148,10 +150,12 @@ func (self *Miner) loop() {
 				
 				case types.CommitteeSwitchover:
 					// alread to start mining need stop
-					if self.shouldStart == 1 || self.mining == 1 {
+					//if self.shouldStart == 1 || self.mining == 1 {
+					if self.Mining(){
 						if self.election.IsCommitteeMember(ch.CommitteeMembers,self.publickey){
 							// i am committee
 							self.Stop()
+							atomic.StoreInt32(&self.shouldStart, 1)
 						}else{
 							log.Info("not in commiteer munber staCommitteeSwitchoverrt")
 						}

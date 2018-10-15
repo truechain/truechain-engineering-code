@@ -48,9 +48,9 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 10
+	chainHeadChanSize = 64
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
-	chainSideChanSize = 10
+	chainSideChanSize = 64
 )
 
 var (
@@ -114,6 +114,10 @@ type worker struct {
 	fruitCh   chan chain.NewFruitsEvent
 	fruitSub  event.Subscription // for fruit pool
 
+	newMinedCh  chan chain.NewMinedEvent
+	newMinedSub event.Subscription // for fruit pool
+
+
 	fastBlockCh  chan chain.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
 
@@ -164,12 +168,13 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		etrue:          etrue,
 		mux:            mux,	
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
-		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
-		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
-		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
-		chainDb:        etrue.ChainDb(),
-		recv:           make(chan *Result, resultQueueSize),
+		fruitCh:     make(chan chain.NewFruitsEvent, txChanSize),
+		fastBlockCh: make(chan chain.NewFastBlocksEvent, txChanSize),
+		chainHeadCh: make(chan chain.ChainHeadEvent, chainHeadChanSize),
+		chainSideCh: make(chan chain.ChainSideEvent, chainSideChanSize),
+		newMinedCh:  make(chan chain.NewMinedEvent, txChanSize),
+		chainDb:     etrue.ChainDb(),
+		recv:        make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
 		chain:          etrue.SnailBlockChain(),
 		fastchain:     etrue.BlockChain(),
@@ -184,6 +189,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	// Subscribe events for blockchain
 	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = etrue.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+	worker.newMinedSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.newMinedCh)
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
@@ -332,6 +338,7 @@ func (self *worker) update() {
 	defer self.chainSideSub.Unsubscribe()
 	defer self.fastBlockSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
+	defer self.newMinedSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
@@ -349,6 +356,14 @@ func (self *worker) update() {
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
 			log.Info("chain slide", "number", ev.Block.Number(), "hash", ev.Block.Hash())
+			if !self.atCommintNewWoker {
+				log.Debug("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}
+				
+			}
+			
 			//self.uncleMu.Lock()
 			//self.possibleUncles[ev.Block.Hash()] = ev.Block
 			//self.uncleMu.Unlock()
@@ -375,7 +390,16 @@ func (self *worker) update() {
 			}else{
 				log.Debug("------------start commit new work  true?????")
 			}
-
+		case <-self.newMinedCh:
+			if !self.atCommintNewWoker {
+				log.Debug("star commit new work  newMined")
+				if atomic.LoadInt32(&self.mining) == 1{
+					self.commitNewWork()
+				}
+				
+			}
+		case <-self.newMinedSub.Err():
+			return
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
 			
@@ -416,14 +440,14 @@ func (self *worker) wait() {
 				// add fruit once 
 				if self.FastBlockNumber != nil{
 					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
-						log.Info("🍒  ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("🍒  ----mined fruit 1","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						//log.Info("not same fruits")
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
 					}
 				}else{
-					log.Info("🍒 ----mined fruit","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("🍒 ----mined fruit 2","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -435,6 +459,12 @@ func (self *worker) wait() {
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil{
 					self.atCommintNewWoker = false
+					// post msg for commitnew work
+					var (
+						events []interface{}
+					)
+					events = append(events, chain.NewMinedEvent{Block: block})
+					self.chain.PostChainEvents(events)
 				}
 			} else {
 				if block.Fruits() == nil{
@@ -456,8 +486,11 @@ func (self *worker) wait() {
 				var (
 					events []interface{}
 				)
-				events = append(events, chain.ChainEvent{Block: block, Hash: block.Hash()})
+
+				events = append(events, chain.NewMinedEvent{Block: block})
+
 				if stat == chain.CanonStatTy {
+					events = append(events, chain.ChainEvent{Block: block, Hash: block.Hash()})
 					events = append(events, chain.ChainHeadEvent{Block: block})
 				}
 				self.chain.PostChainEvents(events)
@@ -613,7 +646,7 @@ func (self *worker) commitNewWork() {
 	
 	// commit fruits make sure it is correct
 	if fruits != nil{
-		work.commitFruits(fruits, self.chain, self.engine)
+		self.commitFruits(fruits, self.chain, self.engine)
 	}
 
 	if work.fruits != nil {
@@ -741,7 +774,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 // TODO: check fruits continue with last snail block
 // find all fruits and start to the last parent fruits number and end continue fruit list 
-func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 
@@ -761,13 +794,16 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 	// find the continue fruits
 	for _, fruit := range fruits {
 		if rst := currentFastNumber.Cmp(fruit.FastNumber()); rst > 0 {
-			currentFastNumber.Add(currentFastNumber, common.Big1)
+			//currentFastNumber.Add(currentFastNumber, common.Big1)
 			continue
 		} else if rst == 0 {
-			err := env.commitFruit(fruit, bc, engine)
+			err := self.current.commitFruit(fruit, bc, engine)
 			if err == nil {
 				fruitset = append(fruitset, fruit)
 			} else {
+				//need del the fruit
+				log.Debug("commitFruits  remove unVerifyFreshness fruit","fb num",fruit.FastNumber())
+				self.etrue.SnailPool().RemovePendingFruitByFastHash(fruit.FastHash())
 				break
 			}
 		} else {
@@ -776,8 +812,117 @@ func (env *Work) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 		currentFastNumber.Add(currentFastNumber, common.Big1)
 	}
 	if len(fruitset) > 0 {
-		env.fruits = fruitset
+		self.current.fruits = fruitset
 	}
+}
+
+// find a corect fast block to miner
+func (self *worker) commitFastBlocksByWoker( fruits []*types.SnailBlock, bc *chain.SnailBlockChain,fc *core.BlockChain, engine consensus.Engine) error{
+	//get current snailblock block and fruits
+	var tempfruits *types.SnailBlock
+	snailblockFruits := bc.CurrentBlock().Fruits()
+
+	var snailFruitsLastFastNumber *big.Int
+	if len(snailblockFruits) > 0 {
+		snailFruitsLastFastNumber = snailblockFruits[len(snailblockFruits)-1].FastNumber()
+	} else {
+		// genesis block
+		snailFruitsLastFastNumber = new(big.Int).Set(common.Big0)
+	}
+
+
+	isFind := false
+
+	//get current fast block hight
+	fastBlockHight := fc.CurrentBlock().Number().Uint64()
+
+	log.Info("--------commitFastBlocksByWoker Info","snailFruitsLastFastNumber",snailFruitsLastFastNumber,"fastBlockHight",fastBlockHight)
+
+	// get pending fruits again 
+	pendingFruits , errFruit := self.etrue.SnailPool().PendingFruits()
+	if errFruit != nil {
+		return nil
+	}
+	// not fruits in pengding list
+	if pendingFruits == nil{
+		if snailFruitsLastFastNumber.Uint64()+1 < fastBlockHight {
+			isFind = true
+			self.FastBlockNumber.SetUint64(snailFruitsLastFastNumber.Uint64()+1)
+		}
+	}else{
+	// find the realy need miner fastblock
+		for i , fb := range pendingFruits {
+			//log.Info(" pending fruit fb num", fb.FastNumber())
+			if i == 0{
+				tempfruits = fb
+				continue
+			}
+			//cmp
+			if fb.FastNumber().Uint64()-1 == pendingFruits[i-1].FastNumber().Uint64(){
+
+				// all fruits are continuous need mine the next one
+				if i == len(pendingFruits)-1 {
+					if fb.FastNumber().Uint64()+1 <= fastBlockHight{
+						isFind = true
+						self.FastBlockNumber.SetUint64(fb.FastNumber().Uint64()+1)
+						break
+					}else{
+						return fmt.Errorf("snail fruit list have one heghter fast chain fb hight(%x),fruit fb hight(%x) ",fastBlockHight,tempfruits.FastNumber().Uint64())
+					}
+				}
+				continue
+			}
+
+			if fb.FastNumber().Uint64()-1 > pendingFruits[i-1].FastNumber().Uint64(){
+				//there have fruit need to miner 1 3 4 5,so need mine 2，or 1 5 6 7 need mine 2，3，4，5
+				log.Info("fruit fb number ","fruits[i-1].FastNumber().Uint64()",pendingFruits[i-1].FastNumber(),"fb.FastNumber().Uint64()",fb.FastNumber())
+				tempfruits = pendingFruits[i-1]
+				lenfb := fb.FastNumber().Uint64() - pendingFruits[i-1].FastNumber().Uint64()
+
+				//find the miner fb number int the 2,3,4  like 1,5,6,7
+				for j:= uint64(1); j < lenfb ; j++ {
+					needMinerFBNumber :=  tempfruits.FastNumber().Uint64()+j
+					log.Info(" pending fruit fb num needMinerFBNumber", "needMinerFBNumber",needMinerFBNumber )
+					if needMinerFBNumber > fastBlockHight{
+						return fmt.Errorf("fruit list have one heghter fast chain fb hight(%x),fruit fb hight(%x) ",fastBlockHight,tempfruits.FastNumber().Uint64())
+					}
+					// cmp with snail block fruits last fast number
+					if needMinerFBNumber <= snailFruitsLastFastNumber.Uint64(){
+						// not need miner the one
+						log.Info("not del the fruit in the pending list the fruit alread on chain","fruit fb number",needMinerFBNumber)
+
+						continue
+					}
+
+					if needMinerFBNumber >= snailFruitsLastFastNumber.Uint64()+1 {
+						// need miner this one
+						isFind = true
+						self.FastBlockNumber.SetUint64(needMinerFBNumber)
+						break
+					}
+				}
+
+				if isFind { 
+					break
+				}else{
+					continue
+				}
+			}
+		}
+	}
+	 if isFind {
+		log.Info("-------find the one","fb number",self.FastBlockNumber)
+		fbMined := fc.GetBlockByNumber(self.FastBlockNumber.Uint64())
+		self.current.header.FastNumber = fbMined.Number()
+		self.current.header.FastHash = fbMined.Hash()
+		signs := fbMined.Signs()
+		self.current.signs = make([]*types.PbftSign, len(signs))
+		for i := range signs {
+			self.current.signs[i] = types.CopyPbftSign(signs[i])
+		}
+	 }
+
+	return nil
 }
 
 // find a corect fast block to miner
