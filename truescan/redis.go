@@ -132,7 +132,6 @@ func (rc *RedisClient) PendingTransaction(ptm *TransactionMsg) error {
 	}
 	start := `{"type":"pendingTransaction","data":`
 	end := `}`
-	rc.basicData.TxsCount++
 	rc.writeCh <- "update"
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit PendingTransaction")
@@ -148,7 +147,6 @@ func (rc *RedisClient) RemoveTransaction(rtm *RemoveTxMsg) error {
 	}
 	start := `{"type":"removeTransaction","data":`
 	end := `}`
-	rc.basicData.TxsCount--
 	rc.writeCh <- "update"
 	err = rc.publishMsg(start + string(msg) + end)
 	log.RedisLog("emit RemoveTransaction")
@@ -164,8 +162,16 @@ func (rc *RedisClient) NewFastBlockHeader(fbm *FastBlockHeaderMsg) error {
 	}
 	start := `{"type":"newFastBlockHeader","data":`
 	end := `}`
+	needUpdate := false
+	if len(fbm.Txs) > 0 {
+		rc.basicData.TxsCount += uint64(len(fbm.Txs))
+		needUpdate = true
+	}
 	if fbm.Number > rc.basicData.FastHeight {
 		rc.basicData.FastHeight = fbm.Number
+		needUpdate = true
+	}
+	if needUpdate {
 		rc.writeCh <- "update"
 	}
 	err = rc.publishMsg(start + string(msg) + end)
