@@ -648,8 +648,19 @@ func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash){
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
+	pool.muFastBlock.Lock()
+	defer pool.muFastBlock.Unlock()
+
 	delete(pool.fruitPending, fasthash)
 	delete(pool.allFruits, fasthash)
+
+	fastblock := pool.fastchain.GetBlockByHash(fasthash)
+	if fastblock == nil {
+		return
+	}
+	log.Debug("add fastblock", "number", fastblock.Number())
+	pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
+	pool.allFastBlocks[fastblock.Hash()] = fastblock
 }
 	
 
