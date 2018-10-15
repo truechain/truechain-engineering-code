@@ -34,6 +34,7 @@ import (
 // the block's difficulty requirements.
 func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
+	log.Debug("? in Seal ?   ")
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
 		header.Nonce, header.MixDigest = types.BlockNonce{}, common.Hash{}
@@ -98,6 +99,7 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 // ConSeal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
 func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
+	log.Debug(" +++++++++get in Conseal ","fb number",block.FastNumber())
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -209,6 +211,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
+	log.Debug("mineSnail","miner",id,"block num",block.Number(),"fb num",block.FastNumber())
 	logger.Trace("Started truehash search for new nonces", "seed", seed)
 search:
 	for {
@@ -259,7 +262,7 @@ search:
 						header.MixDigest = common.BytesToHash(digest)
 						//TODO need add fruit flow
 						header.Fruit = true
-
+						log.Debug("sealer mineSnail","miner fruit fb",header.Number)
 						// Seal and return a block (if still needed)
 						select {
 						case found <- block.WithSeal(header):

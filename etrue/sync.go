@@ -284,19 +284,48 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header",header.Number.Uint64())
 		if  header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 
-			fbNum := pm.blockchain.CurrentBlock().NumberU64()
-			height := header.Number.Uint64() - fbNum
-			log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"currentNum",fbNum)
+			for {
 
-			if height >0{
+				fbNum := pm.blockchain.CurrentBlock().NumberU64()
+				height := header.Number.Uint64() - fbNum
 
-				err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-				//time.Sleep(1*time.Second)
-				if err != nil {
-					log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
-					return
+
+				if height >0{
+
+						//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+						//time.Sleep(1*time.Second)
+
+						if height >500{
+							height=500
+						}
+
+						log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"currentNum",fbNum)
+						for{
+
+
+							err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+							//time.Sleep(1*time.Second)
+							if err != nil {
+								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+								return
+							}
+
+							fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
+
+							if fbNumLast >  fbNum{
+								log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"currentNum",fbNumLast)
+								height = fbNumLast - fbNum
+								fbNum = fbNumLast
+								continue
+							}
+							break
+						}
+					}else {
+						break
 				}
-			}
+				}
+
+
 		}
 		return
 	}

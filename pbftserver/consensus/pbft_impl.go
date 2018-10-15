@@ -6,7 +6,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"sync"
-	"time"
 )
 
 type State struct {
@@ -147,17 +146,17 @@ func CreateState(viewID int64, lastSequenceID int64) *State {
 
 func (state *State) StartConsensus(request *RequestMsg) (*PrePrepareMsg, error) {
 	// `sequenceID` will be the index of this message.
-	sequenceID := time.Now().UnixNano()
+	//sequenceID := request.Height
 
 	// Find the unique and largest number for the sequence ID
-	if state.LastSequenceID != -1 {
-		for state.LastSequenceID >= sequenceID {
-			sequenceID += 1
-		}
-	}
+	//if state.LastSequenceID != -1 {
+	//	for state.LastSequenceID >= sequenceID {
+	//		sequenceID += 1
+	//	}
+	//}
 
 	// Assign a new sequence ID to the request message object.
-	request.SequenceID = sequenceID
+	request.SequenceID = request.Height
 
 	// Save ReqMsgs to its logs.
 	state.MsgLogs.ReqMsg = request
@@ -173,7 +172,7 @@ func (state *State) StartConsensus(request *RequestMsg) (*PrePrepareMsg, error) 
 
 	return &PrePrepareMsg{
 		ViewID:     state.ViewID,
-		SequenceID: sequenceID,
+		SequenceID: request.Height,
 		Digest:     digest,
 		RequestMsg: request,
 		Height:     request.Height,
@@ -200,7 +199,7 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 	}, nil
 }
 
-func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
+func (state *State) Prepare(prepareMsg *VoteMsg, f float64) (*VoteMsg, error) {
 	//lock.PSLog("Prepare in")
 	if !state.verifyMsg(prepareMsg.ViewID, prepareMsg.SequenceID, prepareMsg.Digest) {
 		return nil, errors.New("prepare message is corrupted")
@@ -231,7 +230,7 @@ func (state *State) Prepare(prepareMsg *VoteMsg, f int) (*VoteMsg, error) {
 	return nil, nil
 }
 
-func (state *State) Commit(commitMsg *VoteMsg, f int) (*ReplyMsg, *RequestMsg, error) {
+func (state *State) Commit(commitMsg *VoteMsg, f float64) (*ReplyMsg, *RequestMsg, error) {
 
 	if !state.verifyMsg(commitMsg.ViewID, commitMsg.SequenceID, commitMsg.Digest) {
 		return nil, nil, errors.New("commit message is corrupted")
@@ -266,11 +265,11 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 
 	// Check if the Primary sent fault sequence number. => Faulty primary.
 	// TODO: adopt upper/lower bound check.
-	if state.LastSequenceID != -1 {
-		if state.LastSequenceID >= sequenceID {
-			return false
-		}
+	//if state.LastSequenceID != -1 {
+	if state.LastSequenceID > sequenceID {
+		return false
 	}
+	//}
 
 	digest, err := digest(state.MsgLogs.ReqMsg)
 	if err != nil {
@@ -286,30 +285,30 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 	return true
 }
 
-func (state *State) prepared(f int) bool {
+func (state *State) prepared(f float64) bool {
 	if state.MsgLogs.ReqMsg == nil {
 		return false
 	}
-	if state.MsgLogs.GetPrepareCount() < 2*f {
+	if state.MsgLogs.GetPrepareCount() < int(2*f) {
 		return false
 	}
 
 	return true
 }
 
-func (state *State) committed(f int) bool {
+func (state *State) committed(f float64) bool {
 	lock.PSLog("committed in")
 	if !state.prepared(f) {
 		return false
 	}
 	lock.PSLog("committed prepared")
-	if state.MsgLogs.GetCommitCount() <= 2*f {
+	if state.MsgLogs.GetCommitCount() <= int(2*f) {
 		return false
 	}
 	lock.PSLog("committed len(state.MsgLogs.CommitMsgs) >= 2*f")
 	passCount := state.MsgLogs.GetCommitPassCount()
 	//lock.PSLog("committed", fmt.Sprintf("%+v", state.MsgLogs.CommitMsgs), passCount)
-	return passCount > 2*f
+	return passCount > int(2*f)
 }
 
 func digest(object interface{}) (string, error) {
