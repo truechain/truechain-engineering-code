@@ -690,7 +690,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
-			log.Debug("AddRemoteFruits validate fruit failed", "err", err)
+			log.Debug("AddRemoteFruits validate fruit failed", "err fruit fb num",fruit.FastNumber(),"err", err)
 			errs[i] = err
 			continue
 		}
