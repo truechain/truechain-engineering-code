@@ -48,9 +48,9 @@ const (
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 10
+	chainHeadChanSize = 64
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
-	chainSideChanSize = 10
+	chainSideChanSize = 64
 )
 
 var (
@@ -114,8 +114,8 @@ type worker struct {
 	fruitCh   chan chain.NewFruitsEvent
 	fruitSub  event.Subscription // for fruit pool
 
-	minedfruitCh   chan chain.NewMinedEvent
-	minedfruitSub  event.Subscription // for fruit pool
+	newMinedCh  chan chain.NewMinedEvent
+	newMinedSub event.Subscription // for fruit pool
 
 
 	fastBlockCh  chan chain.NewFastBlocksEvent
@@ -168,13 +168,13 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		etrue:          etrue,
 		mux:            mux,	
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
-		fruitCh:        make(chan chain.NewFruitsEvent, txChanSize),
-		fastBlockCh:       make(chan chain.NewFastBlocksEvent, txChanSize),
-		chainHeadCh:    make(chan chain.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:    make(chan chain.ChainSideEvent, chainSideChanSize),
-		minedfruitCh:  make(chan chain.NewMinedEvent, txChanSize),
-		chainDb:        etrue.ChainDb(),
-		recv:           make(chan *Result, resultQueueSize),
+		fruitCh:     make(chan chain.NewFruitsEvent, txChanSize),
+		fastBlockCh: make(chan chain.NewFastBlocksEvent, txChanSize),
+		chainHeadCh: make(chan chain.ChainHeadEvent, chainHeadChanSize),
+		chainSideCh: make(chan chain.ChainSideEvent, chainSideChanSize),
+		newMinedCh:  make(chan chain.NewMinedEvent, txChanSize),
+		chainDb:     etrue.ChainDb(),
+		recv:        make(chan *Result, resultQueueSize),
 		//TODO need konw how to 
 		chain:          etrue.SnailBlockChain(),
 		fastchain:     etrue.BlockChain(),
@@ -189,7 +189,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	// Subscribe events for blockchain
 	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = etrue.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
-	worker.minedfruitSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.minedfruitCh)
+	worker.newMinedSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.newMinedCh)
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
@@ -338,7 +338,7 @@ func (self *worker) update() {
 	defer self.chainSideSub.Unsubscribe()
 	defer self.fastBlockSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
-	defer self.minedfruitSub.Unsubscribe()
+	defer self.newMinedSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
@@ -390,15 +390,15 @@ func (self *worker) update() {
 			}else{
 				log.Debug("------------start commit new work  true?????")
 			}
-		case <-self.minedfruitCh:
+		case <-self.newMinedCh:
 			if !self.atCommintNewWoker {
-				log.Debug("star commit new work  minedfruitCh")
+				log.Debug("star commit new work  newMined")
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
 				
 			}
-		case <-self.minedfruitSub.Err():
+		case <-self.newMinedSub.Err():
 			return
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
