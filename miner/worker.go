@@ -438,8 +438,9 @@ func (self *worker) wait() {
 				//log.Info("🍒 —-------mined fruit"," FB NUMBER",block.FastNumber())
 				
 				// add fruit once 
+				log.Info("wait in fruit flow ","self.FastBlockNumber",self.FastBlockNumber,"block.FastNumber()",block.FastNumber())
 				if self.FastBlockNumber != nil{
-					if self.FastBlockNumber.Cmp(block.FastNumber()) !=0 {
+					if self.FastBlockNumber.Cmp(block.FastNumber()) ==0 {
 						log.Info("🍒  ----mined fruit 1","number",block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						//log.Info("not same fruits")
 						var newFruits []*types.SnailBlock
@@ -454,7 +455,7 @@ func (self *worker) wait() {
 				}
 
 				// make sure the fast number has been fruit
-				self.FastBlockNumber.SetUint64(block.FastNumber().Uint64())
+				self.FastBlockNumber.SetUint64(block.FastNumber().Uint64()+1)
 
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil{
