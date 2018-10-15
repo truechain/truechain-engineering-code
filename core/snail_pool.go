@@ -149,8 +149,8 @@ type SnailPool struct {
 	chainHeadCh  chan snailchain.ChainHeadEvent
 	chainHeadSub event.Subscription
 
-	fastchainHeadCh  chan ChainHeadEvent
-	fastchainHeadSub event.Subscription
+	fastchainEventCh  chan ChainEvent
+	fastchainEventSub event.Subscription
 
 	engine consensus.Engine // Consensus engine used for validating
 
@@ -196,7 +196,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 		engine:      engine,
 
 		chainHeadCh:     make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
-		fastchainHeadCh: make(chan ChainHeadEvent, fastchainHeadChanSize),
+		fastchainEventCh: make(chan ChainEvent, fastchainHeadChanSize),
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
@@ -215,7 +215,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	if !config.NoLocals && config.Journal != "" {
 	}
 	// Subscribe events from blockchain
-	pool.fastchainHeadSub = pool.fastchain.SubscribeChainHeadEvent(pool.fastchainHeadCh)
+	pool.fastchainEventSub = pool.fastchain.SubscribeChainEvent(pool.fastchainEventCh)
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	//pool.minedFruitSub = pool.eventMux.Subscribe(NewMinedFruitEvent{})
@@ -442,7 +442,7 @@ func (pool *SnailPool) loop() {
 				pool.mu.Unlock()
 			}
 
-		case ev := <-pool.fastchainHeadCh:
+		case ev := <-pool.fastchainEventCh:
 			if ev.Block != nil {
 				log.Debug("get new fastblock", "number", ev.Block.Number())
 				go pool.AddRemoteFastBlock([]*types.Block{ev.Block})
