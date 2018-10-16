@@ -39,9 +39,7 @@ type Subscriber interface {
 
 	SubscribeFastBlock(chan<- core.FastBlockEvent) event.Subscription
 
-	// SubscribeSnailChainHeadEvent should return an event subscription of
-	// ChainHeadEvent and send events to the given channel.
-	SubscribeSnailChainHeadEvent(chan<- snailchain.ChainHeadEvent) event.Subscription
+	SubscribeSnailChainEvent(chan<- snailchain.ChainEvent) event.Subscription
 
 	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
 

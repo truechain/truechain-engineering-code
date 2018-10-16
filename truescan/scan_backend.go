@@ -26,7 +26,7 @@ type TrueScan struct {
 	removeTxSub       event.Subscription
 	fastBlockCh       chan core.FastBlockEvent
 	fastBlockSub      event.Subscription
-	snailChainHeadCh  chan snailchain.ChainHeadEvent
+	snailChainHeadCh  chan snailchain.ChainEvent
 	snailChainHeadSub event.Subscription
 	electionCh        chan core.ElectionEvent
 	electionSub       event.Subscription
@@ -49,7 +49,7 @@ func New(sub Subscriber, config *Config) *TrueScan {
 		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
 		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
 		fastBlockCh:      make(chan core.FastBlockEvent, fastBlockChanSize),
-		snailChainHeadCh: make(chan snailchain.ChainHeadEvent, snailChainHeadSize),
+		snailChainHeadCh: make(chan snailchain.ChainEvent, snailChainHeadSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
 		quit:             make(chan struct{}),
@@ -78,7 +78,7 @@ func (ts *TrueScan) Start() {
 	ts.fastBlockSub = ts.sub.SubscribeFastBlock(ts.fastBlockCh)
 	go ts.fastBlockHandleLoop()
 
-	ts.snailChainHeadSub = ts.sub.SubscribeSnailChainHeadEvent(ts.snailChainHeadCh)
+	ts.snailChainHeadSub = ts.sub.SubscribeSnailChainEvent(ts.snailChainHeadCh)
 	go ts.snailChainHandleLoop()
 
 	ts.electionSub = ts.sub.SubscribeElectionEvent(ts.electionCh)
