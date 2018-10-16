@@ -262,7 +262,7 @@ func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
 	for i, fruit := range fruits {
 		fm := &FruitHeaderMsg{
 			Number:     fruit.FastNumber().Uint64(),
-			Hash:       fruit.FruitsHash().String(),
+			Hash:       fruit.Hash().String(),
 			Nonce:      strconv.FormatUint(fruit.Nonce(), 10),
 			Miner:      fruit.Coinbase().String(),
 			Difficulty: fruit.Difficulty().Uint64(),
