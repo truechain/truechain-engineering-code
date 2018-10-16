@@ -250,7 +250,7 @@ func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
 		Number:     block.NumberU64(),
 		Hash:       block.Hash().String(),
 		ParentHash: block.ParentHash().String(),
-		Nonce:      block.Nonce(),
+		Nonce:      strconv.FormatUint(block.Nonce(), 10),
 		Miner:      block.Coinbase().String(),
 		Difficulty: block.Difficulty().Uint64(),
 		ExtraData:  bytesToHex(block.Extra()),
@@ -263,7 +263,7 @@ func (ts *TrueScan) handleSnailChain(block *types.SnailBlock) {
 		fm := &FruitHeaderMsg{
 			Number:     fruit.FastNumber().Uint64(),
 			Hash:       fruit.FruitsHash().String(),
-			Nonce:      fruit.Nonce(),
+			Nonce:      strconv.FormatUint(fruit.Nonce(), 10),
 			Miner:      fruit.Coinbase().String(),
 			Difficulty: fruit.Difficulty().Uint64(),
 		}

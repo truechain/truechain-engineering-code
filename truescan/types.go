@@ -65,7 +65,7 @@ type FastBlockHeaderMsg struct {
 type FruitHeaderMsg struct {
 	Number     uint64 `json:"number"`
 	Hash       string `json:"hash"`
-	Nonce      uint64 `json:"nonce"`
+	Nonce      string `json:"nonce"`
 	Miner      string `json:"miner"`
 	Difficulty uint64 `json:"difficulty"`
 }
@@ -75,7 +75,7 @@ type SnailBlockHeaderMsg struct {
 	Number           uint64            `json:"number"`
 	Hash             string            `json:"hash"`
 	ParentHash       string            `json:"parentHash"`
-	Nonce            uint64            `json:"nonce"`
+	Nonce            string            `json:"nonce"`
 	Miner            string            `json:"miner"`
 	Difficulty       uint64            `json:"difficulty"`
 	ExtraData        string            `json:"extraData"`
