@@ -84,15 +84,10 @@ type PbftAgent struct {
 	signer     types.Signer
 	current    *AgentWork
 
-	//preCommitteeInfo     *types.CommitteeInfo
 	currentCommitteeInfo *types.CommitteeInfo
 	nextCommitteeInfo    *types.CommitteeInfo
 	committeeIds         []*big.Int
 	endFastNumber        map[*big.Int]*big.Int
-
-	//isCommitteeMember bool
-	/*isCurrentCommitteeMember    bool
-	isNextCommitteeMember    bool*/
 
 	server   types.PbftServerProxy
 	election *Election
@@ -229,7 +224,7 @@ type nodeInfoWork struct {
 	isCurrent         bool
 }
 
-func (self *PbftAgent) getStartNodeWork() *nodeInfoWork {
+func (self *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 	if self.nodeInfoWorks[0].isCurrent {
 		self.nodeInfoWorks[0].isCurrent = false
 		self.nodeInfoWorks[1].isCurrent = true
@@ -241,7 +236,7 @@ func (self *PbftAgent) getStartNodeWork() *nodeInfoWork {
 	}
 }
 
-func (self *PbftAgent) getStopNodeWork() *nodeInfoWork {
+func (self *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
 	if !self.nodeInfoWorks[0].isCurrent {
 		return self.nodeInfoWorks[0]
 	} else {
@@ -250,7 +245,7 @@ func (self *PbftAgent) getStopNodeWork() *nodeInfoWork {
 }
 
 func (self *PbftAgent) stopSend() {
-	nodeWork := self.getStopNodeWork()
+	nodeWork := self.getCurrentNodeWork()
 	self.debugNodeInfoWork(nodeWork, "stopSend...Before...")
 	//clear nodeWork
 	if nodeWork.isCommitteeMember {
@@ -274,7 +269,7 @@ func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 }
 
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
-	nodeWork := self.getStartNodeWork()
+	nodeWork := self.updateCurrentNodeWork()
 	self.debugNodeInfoWork(nodeWork, "into startSend...Before...")
 	nodeWork.isCommitteeMember = isCommitteeMember
 	nodeWork.cacheSign = make(map[string]types.Sign)
@@ -315,6 +310,33 @@ func (self *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nod
 	self.receivePbftNode(cryNodeInfo)
 }
 
+func (self *PbftAgent) verifyCommitteeId(electionType uint, committeeId *big.Int) bool {
+	switch electionType {
+	case types.CommitteeStart:
+		log.Debug("CommitteeStart...", "Id", committeeId)
+		if self.committeeIds[1] == committeeId {
+			log.Warn("CommitteeStart two times", "committeeId", committeeId)
+			return false
+		}
+		self.committeeIds[1] = committeeId
+	case types.CommitteeStop:
+		log.Debug("CommitteeStop..", "Id", committeeId)
+		if self.committeeIds[2] == committeeId {
+			log.Warn("CommitteeStop two times", "committeeId", committeeId)
+			return false
+		}
+		self.committeeIds[2] = committeeId
+	case types.CommitteeSwitchover:
+		log.Debug("CommitteeSwitchover...", "Id", committeeId)
+		if self.committeeIds[0] == committeeId {
+			log.Warn("CommitteeSwitchover two times", "committeeId", committeeId)
+			return false
+		}
+		self.committeeIds[0] = committeeId
+	}
+	return true
+}
+
 func (self *PbftAgent) loop() {
 	defer self.stop()
 	for {
@@ -322,34 +344,26 @@ func (self *PbftAgent) loop() {
 		case ch := <-self.electionCh:
 			switch ch.Option {
 			case types.CommitteeStart:
-				log.Debug("CommitteeStart...", "Id", ch.CommitteeID)
 				committeeID := copyCommitteeId(ch.CommitteeID)
-				if self.committeeIds[1] == committeeID {
-					log.Warn("CommitteeStart two times", "committeeId", committeeID)
+				if !self.verifyCommitteeId(ch.Option, committeeID) {
 					continue
 				}
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
-				self.committeeIds[1] = committeeID
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(committeeID, int(ch.Option))
 				}
 			case types.CommitteeStop:
-				log.Debug("CommitteeStop..", "Id", ch.CommitteeID)
 				committeeID := copyCommitteeId(ch.CommitteeID)
-				if self.committeeIds[2] == committeeID {
-					log.Warn("CommitteeStop two times", "committeeId", committeeID)
+				if !self.verifyCommitteeId(ch.Option, committeeID) {
 					continue
 				}
-				self.committeeIds[2] = committeeID
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
 					go self.server.Notify(committeeID, int(ch.Option))
 				}
 				self.stopSend()
 			case types.CommitteeSwitchover:
-				log.Debug("CommitteeCh...", "Id", ch.CommitteeID)
 				committeeID := copyCommitteeId(ch.CommitteeID)
-				if self.committeeIds[0] == committeeID {
-					log.Warn("CommitteeSwitchover two times", "committeeId", committeeID)
+				if !self.verifyCommitteeId(ch.Option, committeeID) {
 					continue
 				}
 				if len(ch.CommitteeMembers) == 0 {
@@ -360,7 +374,6 @@ func (self *PbftAgent) loop() {
 					Members: ch.CommitteeMembers,
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
-				self.committeeIds[0] = committeeID
 
 				if self.IsCommitteeMember(receivedCommitteeInfo) {
 					self.startSend(receivedCommitteeInfo, true)
@@ -788,7 +801,7 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 		}
 		return voteSign, err
 	}
-	err = bc.Validator().ValidateBody(fb,false)
+	err = bc.Validator().ValidateBody(fb, false)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
