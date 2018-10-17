@@ -101,9 +101,9 @@ type PbftAgent struct {
 	NewFastBlockFeed event.Feed
 	scope            event.SubscriptionScope //send scope
 
-	electionCh    chan core.ElectionEvent
+	electionCh    chan types.ElectionEvent
 	cryNodeInfoCh chan *types.EncryptNodeMessage
-	chainHeadCh   chan core.ChainHeadEvent
+	chainHeadCh   chan types.ChainFastHeadEvent
 
 	electionSub       event.Subscription
 	chainHeadAgentSub event.Subscription
@@ -146,8 +146,8 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		nextCommitteeInfo:    new(types.CommitteeInfo),
 		committeeIds:         make([]*big.Int, 3),
 		endFastNumber:        make(map[*big.Int]*big.Int),
-		electionCh:           make(chan core.ElectionEvent, electionChanSize),
-		chainHeadCh:          make(chan core.ChainHeadEvent, chainHeadSize),
+		electionCh:           make(chan types.ElectionEvent, electionChanSize),
+		chainHeadCh:          make(chan types.ChainFastHeadEvent, chainHeadSize),
 		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage),
 		election:             election,
 		mux:                  new(event.TypeMux),
@@ -394,7 +394,7 @@ func (self *PbftAgent) loop() {
 		case cryNodeInfo := <-self.cryNodeInfoCh:
 			if isCommittee, nodeWork := self.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
-				go self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
+				go self.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
 					self.handlePbftNode(cryNodeInfo, nodeWork)
 				}
@@ -447,7 +447,7 @@ func (self *PbftAgent) putCacheIntoChain(receiveBlock *types.Block) error {
 		if err != nil {
 			continue
 		}
-		go self.signFeed.Send(core.PbftSignEvent{Block: fb, PbftSign: voteSign})
+		go self.signFeed.Send(types.PbftSignEvent{Block: fb, PbftSign: voteSign})
 	}
 	return nil
 }
@@ -500,7 +500,7 @@ func (self *PbftAgent) sendSign(receiveBlock *types.Block) error {
 	log.Info("handleConsensusBlock generate sign ", "FastHeight", voteSign.FastHeight,
 		"FastHash", voteSign.FastHash, "Result", voteSign.Result)
 	//braodcast sign and block
-	self.signFeed.Send(core.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
+	self.signFeed.Send(types.PbftSignEvent{Block: receiveBlock, PbftSign: voteSign})
 	return nil
 }
 
@@ -542,7 +542,7 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	/*if nodeWork.cryptoNode != nil {
 		log.Debug("into sendPbftNode already")
 		nodeWork.cryptoNode.CreatedAt = time.Now()
-		self.nodeInfoFeed.Send(core.NodeInfoEvent{nodeWork.cryptoNode})
+		self.nodeInfoFeed.Send(types.NodeInfoEvent{nodeWork.cryptoNode})
 		return
 	}*/
 	log.Debug("into sendPbftNode", "committeeId", nodeWork.committeeInfo.Id)
@@ -575,7 +575,7 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 		log.Error("sign node error", "err", err)
 	}
 	//nodeWork.cryptoNode = cryNodeInfo
-	self.nodeInfoFeed.Send(core.NodeInfoEvent{cryNodeInfo})
+	self.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 }
 
 func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
@@ -779,7 +779,7 @@ func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 
 //broadcast blockAndSign
 func (self *PbftAgent) BroadcastFastBlock(fb *types.Block) {
-	//go self.NewFastBlockFeed.Send(core.NewBlockEvent{Block: fb})
+	//go self.NewFastBlockFeed.Send(types.NewBlockEvent{Block: fb})
 }
 
 func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error) {
@@ -965,10 +965,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		}
 		go func(logs []*types.Log, tcount int) {
 			if len(logs) > 0 {
-				mux.Post(core.PendingLogsEvent{Logs: logs})
+				mux.Post(types.PendingLogsEvent{Logs: logs})
 			}
 			if tcount > 0 {
-				mux.Post(core.PendingStateEvent{})
+				mux.Post(types.PendingStateEvent{})
 			}
 		}(cpy, env.tcount)
 	}
@@ -987,17 +987,17 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockCha
 	return nil, receipt.Logs
 }
 
-func (self *PbftAgent) SubscribeNewFastBlockEvent(ch chan<- core.NewBlockEvent) event.Subscription {
+func (self *PbftAgent) SubscribeNewFastBlockEvent(ch chan<- types.NewBlockEvent) event.Subscription {
 	return self.scope.Track(self.NewFastBlockFeed.Subscribe(ch))
 }
 
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
 // starts sending event to the given channel.
-func (self *PbftAgent) SubscribeNewPbftSignEvent(ch chan<- core.PbftSignEvent) event.Subscription {
+func (self *PbftAgent) SubscribeNewPbftSignEvent(ch chan<- types.PbftSignEvent) event.Subscription {
 	return self.scope.Track(self.signFeed.Subscribe(ch))
 }
 
-func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- core.NodeInfoEvent) event.Subscription {
+func (self *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) event.Subscription {
 	return self.scope.Track(self.nodeInfoFeed.Subscribe(ch))
 }
 
