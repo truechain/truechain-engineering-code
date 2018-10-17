@@ -987,6 +987,11 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			stats.queued++
 			continue
 
+		case err == ErrInvalidFast:
+			bc.futureBlocks.Add(block.Hash(), block)
+			stats.queued++
+			continue
+
 		case err == consensus.ErrPrunedAncestor:
 			// Block competing with the canonical chain, store in the db, but don't process
 			// until the competitor TD goes above the canonical TD
