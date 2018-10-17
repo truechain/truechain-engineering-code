@@ -1233,7 +1233,7 @@ func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 		case NewFastBlocksEvent:
 			bc.fastBlockFeed.Send(ev)
 
-		case NewMinedFruitEvent:
+		case NewMinedEvent:
 			bc.fruitFeed.Send(ev)
 
 		}
@@ -1456,7 +1456,7 @@ func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- NewFastBlocksEvent)
 	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }
 // SubscribeNewFruitEvent registers a subscription of fruits.
-func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- NewMinedFruitEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- NewMinedEvent) event.Subscription {
 	return bc.scope.Track(bc.fruitFeed.Subscribe(ch))
 }
 

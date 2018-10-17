@@ -1454,7 +1454,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			log.Debug("Snail--->>>", "blocks>>>>", blocks[0], "fruits>>", result.Fruits)
 		}
 
-		log.Info("fastCurrentNum", "number",d.fastDown.GetBlockChain().CurrentBlock().NumberU64())
+		log.Debug("fastCurrentNum", "number",d.fastDown.GetBlockChain().CurrentBlock().NumberU64())
 		if index, err := d.blockchain.InsertChain(blocks); err != nil {
 			log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
 			if err == types.ErrSnailHeightNotYet{

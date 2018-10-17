@@ -41,7 +41,7 @@ type PendingStateEvent struct{}
 type NewMinedBlockEvent struct{ Block *types.SnailBlock }
 
 // NewMinedFruitEvent is posted when a block has been imported.
-type NewMinedFruitEvent struct{ Block *types.SnailBlock }
+type NewMinedEvent struct{ Block *types.SnailBlock }
 
 
 // RemovedLogsEvent is posted when a reorg happens
