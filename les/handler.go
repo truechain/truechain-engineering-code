@@ -85,7 +85,7 @@ type BlockChain interface {
 	GetHeaderByNumber(number uint64) *types.Header
 	GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64)
 	Genesis() *types.Block
-	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
 }
 
 type txPool interface {
@@ -1244,7 +1244,6 @@ func (pc *peerConnection) RequestHeadersByHash(origin common.Hash, amount int, s
 	return nil
 }
 
-
 func (pc *peerConnection) RequestSnailHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
 	reqID := genReqID()
 	rq := &distReq{
@@ -1268,8 +1267,6 @@ func (pc *peerConnection) RequestSnailHeadersByHash(origin common.Hash, amount i
 	}
 	return nil
 }
-
-
 
 func (pc *peerConnection) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
 	reqID := genReqID()
@@ -1295,7 +1292,6 @@ func (pc *peerConnection) RequestHeadersByNumber(origin uint64, amount int, skip
 	return nil
 }
 
-
 func (pc *peerConnection) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
 	reqID := genReqID()
 	rq := &distReq{
@@ -1319,7 +1315,6 @@ func (pc *peerConnection) RequestSnailHeadersByNumber(origin uint64, amount int,
 	}
 	return nil
 }
-
 
 func (d *downloaderPeerNotify) registerPeer(p *peer) {
 	//pm := (*ProtocolManager)(d)
