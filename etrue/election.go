@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	fastChainHeadSize  = 256
+	fastChainHeadSize  = 4096
 	snailchainHeadSize = 64
 )
 
