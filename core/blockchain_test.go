@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -29,7 +30,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"testing"
-	"fmt"
 )
 
 // So we can deterministically seed different blockchains
@@ -96,7 +96,7 @@ func TestInsertBlock(t *testing.T) {
 	t.Log("this block hash:", thast)
 }
 
-func newSendTransaction(nonce uint64,bc *BlockChain, datasize int) *types.Transaction {
+func newSendTransaction(nonce uint64, bc *BlockChain, datasize int) *types.Transaction {
 	var (
 		//sendInterval = 5 * time.Second // Time interval to send record
 
@@ -125,7 +125,7 @@ func TestEIP155Transition(t *testing.T) {
 		funds      = big.NewInt(1000000000)
 		deleteAddr = common.Address{1}
 		gspec      = &fastchain.Genesis{
-			Config: &params.ChainConfig{ChainID: big.NewInt(1), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)},
+			Config: &params.ChainConfig{ChainID: big.NewInt(1), EIP155Block: big.NewInt(2)},
 			Alloc:  types.GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
 		genesis = gspec.MustCommit(db)
@@ -196,7 +196,7 @@ func TestEIP155Transition(t *testing.T) {
 	}
 
 	// generate an invalid chain id transaction
-	config := &params.ChainConfig{ChainID: big.NewInt(2), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)}
+	config := &params.ChainConfig{ChainID: big.NewInt(2), EIP155Block: big.NewInt(2)}
 	blocks, _ = GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
 		var (
 			tx      *types.Transaction
@@ -219,8 +219,6 @@ func TestEIP155Transition(t *testing.T) {
 	}
 }
 
-
-
 func TestEIP161AccountRemoval(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
@@ -231,10 +229,9 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		theAddr = common.Address{1}
 		gspec   = &fastchain.Genesis{
 			Config: &params.ChainConfig{
-				ChainID:        big.NewInt(1),
-				HomesteadBlock: new(big.Int),
-				EIP155Block:    new(big.Int),
-				EIP158Block:    big.NewInt(2),
+				ChainID:     big.NewInt(1),
+				EIP155Block: new(big.Int),
+				EIP158Block: big.NewInt(2),
 			},
 			Alloc: types.GenesisAlloc{address: {Balance: funds}},
 		}
