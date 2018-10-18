@@ -285,6 +285,9 @@ func (b *EthAPIBackend) SubscribeSnailChainHeadEvent(ch chan<- snailchain.ChainH
 func (b *EthAPIBackend) SubscribeSnailChainEvent(ch chan<- snailchain.ChainEvent) event.Subscription {
 	return b.etrue.SnailBlockChain().SubscribeChainEvent(ch)
 }
+func (b *EthAPIBackend) SubscribeSnailChainSideEvent(ch chan<- snailchain.ChainSideEvent) event.Subscription {
+	return b.etrue.SnailBlockChain().SubscribeChainSideEvent(ch)
+}
 
 // SubscribeElectionEvent registers a subscription of ElectionEvent.
 func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription {

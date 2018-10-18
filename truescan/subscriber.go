@@ -15,7 +15,7 @@ const (
 	addTxChanSize       = 4096
 	removeTxChanSize    = 2048
 	fastBlockChanSize   = 2048
-	snailChainHeadSize  = 2048
+	snailChainSize      = 2048
 	electionChanSize    = 2048
 	stateChangeChanSize = 2048
 )
@@ -40,6 +40,7 @@ type Subscriber interface {
 	SubscribeFastBlock(chan<- core.FastBlockEvent) event.Subscription
 
 	SubscribeSnailChainEvent(chan<- snailchain.ChainEvent) event.Subscription
+	SubscribeSnailChainSideEvent(chan<- snailchain.ChainSideEvent) event.Subscription
 
 	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
 

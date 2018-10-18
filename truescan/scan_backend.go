@@ -28,6 +28,8 @@ type TrueScan struct {
 	fastBlockSub      event.Subscription
 	snailChainHeadCh  chan snailchain.ChainEvent
 	snailChainHeadSub event.Subscription
+	snailChainSideCh  chan snailchain.ChainSideEvent
+	snailChainSideSub event.Subscription
 	electionCh        chan core.ElectionEvent
 	electionSub       event.Subscription
 	stateChangeCh     chan core.StateChangeEvent
@@ -49,7 +51,8 @@ func New(sub Subscriber, config *Config) *TrueScan {
 		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
 		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
 		fastBlockCh:      make(chan core.FastBlockEvent, fastBlockChanSize),
-		snailChainHeadCh: make(chan snailchain.ChainEvent, snailChainHeadSize),
+		snailChainHeadCh: make(chan snailchain.ChainEvent, snailChainSize),
+		snailChainSideCh: make(chan snailchain.ChainSideEvent, snailChainSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
 		quit:             make(chan struct{}),
@@ -237,8 +240,10 @@ func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
 func (ts *TrueScan) snailChainHandleLoop() error {
 	for {
 		select {
-		case snailChainEvent := <-ts.snailChainHeadCh:
-			ts.handleSnailChain(snailChainEvent.Block)
+		case snailEvent := <-ts.snailChainHeadCh:
+			ts.handleSnailChain(snailEvent.Block)
+		case snailEvent := <-ts.snailChainSideCh:
+			ts.handleSnailChain(snailEvent.Block)
 		case <-ts.snailChainHeadSub.Err():
 			return errResp("fruit terminated")
 		}
@@ -373,6 +378,7 @@ func (ts *TrueScan) Stop() {
 	ts.removeTxSub.Unsubscribe()
 	ts.fastBlockSub.Unsubscribe()
 	ts.snailChainHeadSub.Unsubscribe()
+	ts.snailChainSideSub.Unsubscribe()
 	ts.electionSub.Unsubscribe()
 	ts.stateChangeSub.Unsubscribe()
 	close(ts.quit)
