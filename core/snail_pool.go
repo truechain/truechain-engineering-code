@@ -149,13 +149,8 @@ type SnailPool struct {
 	chainHeadCh  chan types.ChainSnailHeadEvent
 	chainHeadSub event.Subscription
 
-<<<<<<< HEAD
-	fastchainEventCh  chan ChainEvent
-	fastchainEventSub event.Subscription
-=======
 	fastchainHeadCh  chan types.ChainFastHeadEvent
 	fastchainHeadSub event.Subscription
->>>>>>> 88a01634924fa3d9399badca177df4856428afa1
 
 	engine consensus.Engine // Consensus engine used for validating
 
@@ -200,13 +195,8 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 		chain:       chain,
 		engine:      engine,
 
-<<<<<<< HEAD
-		chainHeadCh:     make(chan snailchain.ChainHeadEvent, chainHeadChanSize),
-		fastchainEventCh: make(chan ChainEvent, fastchainHeadChanSize),
-=======
 		chainHeadCh:     make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		fastchainHeadCh: make(chan types.ChainFastHeadEvent, fastchainHeadChanSize),
->>>>>>> 88a01634924fa3d9399badca177df4856428afa1
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
@@ -225,7 +215,7 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	if !config.NoLocals && config.Journal != "" {
 	}
 	// Subscribe events from blockchain
-	pool.fastchainEventSub = pool.fastchain.SubscribeChainEvent(pool.fastchainEventCh)
+	pool.fastchainHeadSub = pool.fastchain.SubscribeChainHeadEvent(pool.fastchainHeadCh)
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	//pool.minedFruitSub = pool.eventMux.Subscribe(NewMinedFruitEvent{})
@@ -343,6 +333,11 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	}
 
 	// TODO: check signature
+	//fruit validation
+	if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
+		log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+		return err
+	}
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
@@ -445,7 +440,7 @@ func (pool *SnailPool) loop() {
 				pool.mu.Unlock()
 			}
 
-		case ev := <-pool.fastchainEventCh:
+		case ev := <-pool.fastchainHeadCh:
 			if ev.Block != nil {
 				log.Debug("get new fastblock", "number", ev.Block.Number())
 				go pool.AddRemoteFastBlock([]*types.Block{ev.Block})
@@ -647,14 +642,6 @@ func (pool *SnailPool) removeUnfreshFruit() {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
 				delete(pool.fruitPending, fruit.FastHash())
 				delete(pool.allFruits, fruit.FastHash())
-
-				fastblock := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
-				if fastblock == nil {
-					return
-				}
-				log.Debug("add fastblock", "number", fastblock.Number())
-				pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
-				pool.allFastBlocks[fastblock.Hash()] = fastblock
 			}
 		}
 	}
@@ -664,19 +651,8 @@ func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	pool.muFastBlock.Lock()
-	defer pool.muFastBlock.Unlock()
-
 	delete(pool.fruitPending, fasthash)
 	delete(pool.allFruits, fasthash)
-
-	fastblock := pool.fastchain.GetBlockByHash(fasthash)
-	if fastblock == nil {
-		return
-	}
-	log.Debug("add fastblock", "number", fastblock.Number())
-	pool.insertFastBlockWithLock(pool.fastBlockPending, fastblock)
-	pool.allFastBlocks[fastblock.Hash()] = fastblock
 }
 
 // Stop terminates the transaction pool.

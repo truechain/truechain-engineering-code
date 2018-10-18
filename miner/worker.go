@@ -114,9 +114,8 @@ type worker struct {
 	fruitCh  chan types.NewFruitsEvent
 	fruitSub event.Subscription // for fruit pool
 
-<<<<<<< .merge_file_dJK4ya
-	newMinedCh  chan chain.NewMinedEvent
-	newMinedSub event.Subscription // for fruit pool
+	minedfruitCh  chan types.NewMinedFruitEvent
+	minedfruitSub event.Subscription // for fruit pool
 
 	fastBlockCh  chan types.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
@@ -168,23 +167,6 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		etrue:  etrue,
 		mux:    mux,
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
-<<<<<<< .merge_file_dJK4ya
-		fruitCh:     make(chan chain.NewFruitsEvent, txChanSize),
-		fastBlockCh: make(chan chain.NewFastBlocksEvent, txChanSize),
-		chainHeadCh: make(chan chain.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh: make(chan chain.ChainSideEvent, chainSideChanSize),
-		newMinedCh:  make(chan chain.NewMinedEvent, txChanSize),
-		chainDb:     etrue.ChainDb(),
-		recv:        make(chan *Result, resultQueueSize),
-		//TODO need konw how to 
-		chain:          etrue.SnailBlockChain(),
-		fastchain:     etrue.BlockChain(),
-		proc:           etrue.SnailBlockChain().Validator(),
-		possibleUncles: make(map[common.Hash]*types.SnailBlock),
-		coinbase:       coinbase,
-		agents:         make(map[Agent]struct{}),
-		unconfirmed:    newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
-=======
 		fruitCh:      make(chan types.NewFruitsEvent, txChanSize),
 		fastBlockCh:  make(chan types.NewFastBlocksEvent, txChanSize),
 		chainHeadCh:  make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
@@ -200,14 +182,13 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		coinbase:        coinbase,
 		agents:          make(map[Agent]struct{}),
 		unconfirmed:     newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
->>>>>>> .merge_file_LY63jB
 		FastBlockNumber: big.NewInt(0),
 	}
 	//worker.txsSub = etrue.TxPool().SubscribeNewTxsEvent(worker.txsCh)
 	// Subscribe events for blockchain
 	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = etrue.SnailBlockChain().SubscribeChainSideEvent(worker.chainSideCh)
-	worker.newMinedSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.newMinedCh)
+	worker.minedfruitSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.minedfruitCh)
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
 	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
@@ -353,7 +334,7 @@ func (self *worker) update() {
 	defer self.chainSideSub.Unsubscribe()
 	defer self.fastBlockSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
-	defer self.newMinedSub.Unsubscribe()
+	defer self.minedfruitSub.Unsubscribe()
 
 	for {
 		// A real event arrived, process interesting content
@@ -405,20 +386,15 @@ func (self *worker) update() {
 			} else {
 				log.Debug("------------start commit new work  true?????")
 			}
-		case <-self.newMinedCh:
+		case <-self.minedfruitCh:
 			if !self.atCommintNewWoker {
-<<<<<<< .merge_file_dJK4ya
-				log.Debug("star commit new work  newMined")
-				if atomic.LoadInt32(&self.mining) == 1{
-=======
 				log.Debug("star commit new work  minedfruitCh")
 				if atomic.LoadInt32(&self.mining) == 1 {
->>>>>>> .merge_file_LY63jB
 					self.commitNewWork()
 				}
 
 			}
-		case <-self.newMinedSub.Err():
+		case <-self.minedfruitSub.Err():
 			return
 		// TODO fast block event
 		case <-self.fastBlockSub.Err():
@@ -484,11 +460,7 @@ func (self *worker) wait() {
 					var (
 						events []interface{}
 					)
-<<<<<<< .merge_file_dJK4ya
-					events = append(events, chain.NewMinedEvent{Block: block})
-=======
 					events = append(events, types.NewMinedFruitEvent{Block: block})
->>>>>>> .merge_file_LY63jB
 					self.chain.PostChainEvents(events)
 				}
 			} else {
@@ -511,18 +483,9 @@ func (self *worker) wait() {
 				var (
 					events []interface{}
 				)
-<<<<<<< .merge_file_dJK4ya
-
-				events = append(events, chain.NewMinedEvent{Block: block})
-
-				if stat == chain.CanonStatTy {
-					events = append(events, chain.ChainEvent{Block: block, Hash: block.Hash()})
-					events = append(events, chain.ChainHeadEvent{Block: block})
-=======
 				events = append(events, types.ChainSnailEvent{Block: block, Hash: block.Hash()})
 				if stat == chain.CanonStatTy {
 					events = append(events, types.ChainSnailHeadEvent{Block: block})
->>>>>>> .merge_file_LY63jB
 				}
 				self.chain.PostChainEvents(events)
 

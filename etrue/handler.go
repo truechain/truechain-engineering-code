@@ -503,7 +503,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "query>>>", query)
+
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -614,7 +614,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>","query",query)
+
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -1122,7 +1122,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
 			tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			log.Debug("SnailBlockMsg>>tdd>>>>","tdd",tdd)
+			fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				go pm.synchronise(p)
@@ -1132,7 +1132,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Debug("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
 	return nil
 }
 
@@ -1196,7 +1196,7 @@ func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessag
 	for _, peer := range peers {
 		nodeInfoSet[peer] = types.NodeInfoEvent{nodeInfo}
 	}
-	log.Debug("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
+	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
 		peer.AsyncSendNodeInfo(nodeInfo.NodeInfo)
 	}

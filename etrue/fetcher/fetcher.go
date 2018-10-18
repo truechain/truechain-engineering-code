@@ -39,7 +39,7 @@ const (
 	maxQueueDist     = 1024                   // Maximum allowed distance from the chain head to queue
 	maxSignDist      = 8192                   // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit       = 256                    // Maximum number of unique blocks a peer may have delivered
+	blockLimit       = 256                     // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 2560                   // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
 )
@@ -842,7 +842,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			} else {
 				// Run the import on a new thread
 				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
-				f.enterQueue = true
 			}
 		}
 
