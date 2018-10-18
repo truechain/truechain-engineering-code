@@ -82,6 +82,7 @@ func (ts *TrueScan) Start() {
 	go ts.fastBlockHandleLoop()
 
 	ts.snailChainHeadSub = ts.sub.SubscribeSnailChainEvent(ts.snailChainHeadCh)
+	ts.snailChainSideSub = ts.sub.SubscribeSnailChainSideEvent(ts.snailChainSideCh)
 	go ts.snailChainHandleLoop()
 
 	ts.electionSub = ts.sub.SubscribeElectionEvent(ts.electionCh)
