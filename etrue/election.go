@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	fastChainHeadSize  = 256
+	fastChainHeadSize  = 4096
 	snailchainHeadSize = 64
 )
 
@@ -93,11 +93,19 @@ type Election struct {
 	electionFeed event.Feed
 	scope        event.SubscriptionScope
 
+<<<<<<< HEAD
+	fastChainEventCh  chan core.ChainEvent
+	fastChainEventSub event.Subscription
+
+	snailChainEventCh  chan snailchain.ChainEvent
+	snailChainEventSub event.Subscription
+=======
 	fastChainHeadCh  chan types.ChainFastHeadEvent
 	fastChainHeadSub event.Subscription
 
 	snailChainHeadCh  chan types.ChainSnailHeadEvent
 	snailChainHeadSub event.Subscription
+>>>>>>> 88a01634924fa3d9399badca177df4856428afa1
 
 	fastchain  *core.BlockChain
 	snailchain *snailchain.SnailBlockChain
@@ -111,16 +119,21 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		fastchain:        fastBlockChain,
 		snailchain:       snailBlockChain,
 		committeeList:    make(map[uint64]*committee),
+<<<<<<< HEAD
+		fastChainEventCh:  make(chan core.ChainEvent, fastChainHeadSize),
+		snailChainEventCh: make(chan snailchain.ChainEvent, snailchainHeadSize),
+=======
 		fastChainHeadCh:  make(chan types.ChainFastHeadEvent, fastChainHeadSize),
 		snailChainHeadCh: make(chan types.ChainSnailHeadEvent, snailchainHeadSize),
+>>>>>>> 88a01634924fa3d9399badca177df4856428afa1
 		singleNode:       config.NodeType,
 	}
 
 	// get genesis committee
 	election.genesisCommittee = election.snailchain.GetGenesisCommittee()
 
-	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
-	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+	election.fastChainEventSub = election.fastchain.SubscribeChainEvent(election.fastChainEventCh)
+	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 
 	if election.singleNode {
 		var members []*types.CommitteeMember
@@ -633,8 +646,8 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 func (e *Election) Start() error {
 	// get current committee info
-	fastHeadNumber := e.fastchain.CurrentHeader().Number
-	snailHeadNumber := e.snailchain.CurrentHeader().Number
+	fastHeadNumber := e.fastchain.CurrentBlock().Number()
+	snailHeadNumber := e.snailchain.CurrentBlock().Number()
 
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
@@ -724,7 +737,7 @@ func (e *Election) loop() {
 	for {
 		select {
 		// Handle ChainHeadEvent
-		case se := <-e.snailChainHeadCh:
+		case se := <-e.snailChainEventCh:
 			if se.Block != nil {
 				//Record Numbers to open elections
 				if e.committee.switchCheckNumber.Cmp(se.Block.Number()) == 0 {
@@ -788,7 +801,7 @@ func (e *Election) loop() {
 				}
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent
-		case ev := <-e.fastChainHeadCh:
+		case ev := <-e.fastChainEventCh:
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
