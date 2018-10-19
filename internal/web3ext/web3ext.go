@@ -475,6 +475,11 @@ web3._extend({
 			params: 1
 		}),
 		new web3._extend.Method({
+			name: 'setElection',
+			call: 'miner_setElection',
+			params: 1
+		}),
+		new web3._extend.Method({
 			name: 'setGasPrice',
 			call: 'miner_setGasPrice',
 			params: 1,
