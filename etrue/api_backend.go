@@ -174,6 +174,15 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.etrue.BlockChain().SubscribeLogsEvent(ch)
 }
 
+
+func (b *EthAPIBackend) GetReward(number int64) *types.BlockReward {
+	if number < 0 {
+		return b.etrue.blockchain.CurrentReward()
+	}
+	return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
+}
+
+
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.etrue.txPool.AddLocal(signedTx)
 }

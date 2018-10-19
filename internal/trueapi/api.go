@@ -938,6 +938,30 @@ func (s *PublicBlockChainAPI) rpcOutputSnailBlock(b *types.SnailBlock, inclFruit
 	return fields, err
 }
 
+func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]interface{},error) {
+	rew := s.b.GetReward(-1)
+	block ,err:=s.b.GetSnailBlock(ctx,rew.SnailHash)
+
+	if block != nil {
+		return s.rpcOutputSnailBlock(block, true)
+	}
+	return nil, err
+}
+
+
+func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context,blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+	rew := s.b.GetReward(blockNr.Int64())
+	block , err :=s.b.GetBlock(ctx,rew.FastHash)
+	if block != nil {
+		return s.rpcOutputBlock(block, true, false)
+	}
+	return nil, err
+}
+
+
+
+
+
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {
 	BlockHash        common.Hash     `json:"blockHash"`

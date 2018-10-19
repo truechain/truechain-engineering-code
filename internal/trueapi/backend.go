@@ -59,6 +59,8 @@ type Backend interface {
 	SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription
 	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
 	SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription
+	GetReward(number int64) *types.BlockReward
+
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
