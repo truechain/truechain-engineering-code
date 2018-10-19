@@ -32,12 +32,6 @@ func TestCheckCompatible(t *testing.T) {
 		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 0, wantErr: nil},
 		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 100, wantErr: nil},
 		{
-			stored:  &ChainConfig{EIP150Block: big.NewInt(10)},
-			new:     &ChainConfig{EIP150Block: big.NewInt(20)},
-			head:    9,
-			wantErr: nil,
-		},
-		{
 			stored: AllEthashProtocolChanges,
 			head:   3,
 			wantErr: &ConfigCompatError{
