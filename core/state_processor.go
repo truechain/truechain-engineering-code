@@ -24,8 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 
-		"math/big"
-
+	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -63,10 +62,6 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs   []*types.Log
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
-	// Mutate the the block and state according to any hard-fork specs
-	/*if fp.config.DAOForkSupport && fp.config.DAOForkBlock != nil && fp.config.DAOForkBlock.Cmp(block.Number()) == 0 {
-		misc.ApplyDAOHardFork(statedb)
-	}*/
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)

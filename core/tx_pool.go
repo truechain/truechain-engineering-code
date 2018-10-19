@@ -208,8 +208,6 @@ type TxPool struct {
 	priced  *txPricedList                // All transactions sorted by price
 
 	wg sync.WaitGroup // for shutdown sync
-
-	homestead bool
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -284,9 +282,6 @@ func (pool *TxPool) loop() {
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
 				pool.mu.Lock()
-				if pool.chainconfig.IsHomestead(ev.Block.Number()) {
-					pool.homestead = true
-				}
 				pool.reset(head.Header(), ev.Block.Header())
 				head = ev.Block
 
@@ -586,7 +581,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
-	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, pool.homestead)
+	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, true)
 	if err != nil {
 		return err
 	}

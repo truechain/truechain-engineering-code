@@ -251,6 +251,7 @@ func (self *Miner) HashRate() (tot int64) {
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
 	}
+	log.Info("miner HashRate ","tot",tot)
 	// do we care this might race? is it worth we're rewriting some
 	// aspects of the worker/locking up agents so we can get an accurate
 	// hashrate?
@@ -259,6 +260,7 @@ func (self *Miner) HashRate() (tot int64) {
 			tot += agent.GetHashRate()
 		}
 	}
+	log.Info("miner HashRate 2 ","tot",tot)
 	return
 }
 
