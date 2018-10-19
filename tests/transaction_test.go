@@ -27,14 +27,7 @@ func TestTransaction(t *testing.T) {
 	t.Parallel()
 
 	txt := new(testMatcher)
-	txt.config(`^EIP155/`, params.ChainConfig{
-		EIP155Block: big.NewInt(0),
-		EIP158Block: big.NewInt(0),
-		ChainID:     big.NewInt(1),
-	})
 	txt.config(`^Byzantium/`, params.ChainConfig{
-		EIP155Block:    big.NewInt(0),
-		EIP158Block:    big.NewInt(0),
 		ByzantiumBlock: big.NewInt(0),
 	})
 
