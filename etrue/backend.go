@@ -33,7 +33,6 @@ import (
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -127,8 +126,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	chainConfig, genesisHash, genesisErr := fastchain.SetupGenesisBlock(chainDb, config.FastGenesis)
-	snailConfig, snailHash, snailErr := chain.SetupGenesisBlock(chainDb, config.SnailGenesis)
+	chainConfig, genesisHash, genesisErr, snailConfig, snailHash, snailErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}

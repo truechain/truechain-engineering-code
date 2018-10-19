@@ -1198,8 +1198,6 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			cfg.NetworkId = 18928
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
-		cfg.FastGenesis = cfg.Genesis.Fast
-		cfg.SnailGenesis = cfg.Genesis.Snail
 	case ctx.GlobalBool(RinkebyFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
 			cfg.NetworkId = 100
@@ -1363,9 +1361,12 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
-	config, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+	config, _, err, _, _, snailErr := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
 	if err != nil {
 		Fatalf("%v", err)
+	}
+	if snailErr != nil {
+		Fatalf("%v", snailErr)
 	}
 	var engine consensus.Engine
 	if config.Clique != nil {
