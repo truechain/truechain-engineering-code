@@ -30,7 +30,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -468,13 +467,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 			return err
 		}
 	}
-	// If all checks passed, validate any special fields for hard forks
-	if err := misc.VerifyDAOSnailHeaderExtraData(chain.Config(), header); err != nil {
-		return err
-	}
-	if err := misc.VerifySnailForkHashes(chain.Config(), header, uncle); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -669,7 +662,8 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", average_diff, "diff", x,
+		"time", new(big.Int).Sub(bigTime, bigParentTime), "period", period)
 
 	return x
 }
@@ -884,13 +878,13 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
 		return nil, err
 	}
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.Root = state.IntermediateRoot(true)
 	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
 
-	//header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	//header.Root = state.IntermediateRoot(true)
 	// Header seems complete, assemble into a block and return
 	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil

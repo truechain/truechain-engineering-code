@@ -449,6 +449,7 @@ func (m *Minerva) SetThreads(threads int) {
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
 func (m *Minerva) Hashrate() float64 {
+	log.Debug("minerva  hashrate","hash", m.hashrate.Rate1())
 	return m.hashrate.Rate1()
 }
 

@@ -25,9 +25,8 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/truechain/truechain-engineering-code"
+	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -102,12 +101,12 @@ type EventSystem struct {
 	pendingLogSub *event.TypeMuxSubscription // Subscription for pending log event
 
 	// Channels
-	install   chan *subscription         // install filter for event notification
-	uninstall chan *subscription         // remove filter for event notification
-	txsCh     chan core.NewTxsEvent      // Channel to receive new transactions event
-	logsCh    chan []*types.Log          // Channel to receive new log event
-	rmLogsCh  chan core.RemovedLogsEvent // Channel to receive removed log event
-	chainCh   chan core.ChainEvent       // Channel to receive new chain event
+	install   chan *subscription          // install filter for event notification
+	uninstall chan *subscription          // remove filter for event notification
+	txsCh     chan types.NewTxsEvent      // Channel to receive new transactions event
+	logsCh    chan []*types.Log           // Channel to receive new log event
+	rmLogsCh  chan types.RemovedLogsEvent // Channel to receive removed log event
+	chainCh   chan types.ChainFastEvent   // Channel to receive new chain event
 }
 
 // NewEventSystem creates a new manager that listens for event on the given mux,
@@ -123,10 +122,10 @@ func NewEventSystem(mux *event.TypeMux, backend Backend, lightMode bool) *EventS
 		lightMode: lightMode,
 		install:   make(chan *subscription),
 		uninstall: make(chan *subscription),
-		txsCh:     make(chan core.NewTxsEvent, txChanSize),
+		txsCh:     make(chan types.NewTxsEvent, txChanSize),
 		logsCh:    make(chan []*types.Log, logsChanSize),
-		rmLogsCh:  make(chan core.RemovedLogsEvent, rmLogsChanSize),
-		chainCh:   make(chan core.ChainEvent, chainEvChanSize),
+		rmLogsCh:  make(chan types.RemovedLogsEvent, rmLogsChanSize),
+		chainCh:   make(chan types.ChainFastEvent, chainEvChanSize),
 	}
 
 	// Subscribe events
@@ -135,7 +134,7 @@ func NewEventSystem(mux *event.TypeMux, backend Backend, lightMode bool) *EventS
 	m.rmLogsSub = m.backend.SubscribeRemovedLogsEvent(m.rmLogsCh)
 	m.chainSub = m.backend.SubscribeChainEvent(m.chainCh)
 	// TODO(rjl493456442): use feed to subscribe pending log event
-	m.pendingLogSub = m.mux.Subscribe(core.PendingLogsEvent{})
+	m.pendingLogSub = m.mux.Subscribe(types.PendingLogsEvent{})
 
 	// Make sure none of the subscriptions are empty
 	if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil ||
@@ -331,7 +330,7 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 				}
 			}
 		}
-	case core.RemovedLogsEvent:
+	case types.RemovedLogsEvent:
 		for _, f := range filters[LogsSubscription] {
 			if matchedLogs := filterLogs(e.Logs, f.logsCrit.FromBlock, f.logsCrit.ToBlock, f.logsCrit.Addresses, f.logsCrit.Topics); len(matchedLogs) > 0 {
 				f.logs <- matchedLogs
@@ -339,7 +338,7 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 		}
 	case *event.TypeMuxEvent:
 		switch muxe := e.Data.(type) {
-		case core.PendingLogsEvent:
+		case types.PendingLogsEvent:
 			for _, f := range filters[PendingLogsSubscription] {
 				if e.Time.After(f.created) {
 					if matchedLogs := filterLogs(muxe.Logs, nil, f.logsCrit.ToBlock, f.logsCrit.Addresses, f.logsCrit.Topics); len(matchedLogs) > 0 {
@@ -348,7 +347,7 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 				}
 			}
 		}
-	case core.NewTxsEvent:
+	case types.NewTxsEvent:
 		hashes := make([]common.Hash, 0, len(e.Txs))
 		for _, tx := range e.Txs {
 			hashes = append(hashes, tx.Hash())
@@ -356,7 +355,7 @@ func (es *EventSystem) broadcast(filters filterIndex, ev interface{}) {
 		for _, f := range filters[PendingTransactionsSubscription] {
 			f.hashes <- hashes
 		}
-	case core.ChainEvent:
+	case types.ChainFastEvent:
 		for _, f := range filters[BlocksSubscription] {
 			f.headers <- e.Block.Header()
 		}

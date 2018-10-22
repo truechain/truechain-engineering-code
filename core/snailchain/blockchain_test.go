@@ -18,19 +18,19 @@ package snailchain
 
 import (
 	"fmt"
-	"math/big"
-	"math/rand"
-	"sync"
-	"testing"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"math/big"
+	"math/rand"
+	"sync"
+	"testing"
 )
 
 // So we can deterministically seed different blockchains
@@ -1104,9 +1104,6 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 		gspec   = &Genesis{
 			Config: &params.ChainConfig{
 				ChainID:        big.NewInt(1),
-				HomesteadBlock: new(big.Int),
-				EIP155Block:    new(big.Int),
-				EIP158Block:    big.NewInt(2),
 			},
 			//Alloc: GenesisAlloc{address: {Balance: funds}},
 		}
@@ -1289,13 +1286,13 @@ func TestLargeReorgTrieGC(t *testing.T) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (
-		signer          = types.HomesteadSigner{}
-		testBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		signer         = types.HomesteadSigner{}
+		testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		//testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
 		//bankFunds       = big.NewInt(100000000000000000)
-		gspec           = Genesis{
+		gspec = Genesis{
 			Config: params.TestChainConfig,
-		/*	Alloc: GenesisAlloc{
+			/*	Alloc: GenesisAlloc{
 				testBankAddress: {Balance: bankFunds},
 				common.HexToAddress("0xc0de"): {
 					Code:    []byte{0x60, 0x01, 0x50},
