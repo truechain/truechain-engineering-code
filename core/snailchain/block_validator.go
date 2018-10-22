@@ -111,10 +111,14 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 
 	temp := uint64(0)
-	if v.bc.CurrentBlock().Number().Cmp(common.Big0) > 0 {
-		localFruits := v.bc.CurrentBlock().Fruits()
-		localBlock := localFruits[len(localFruits)-1]
-		temp = localBlock.FastNumber().Uint64()
+	preBlock := v.bc.GetBlock(block.ParentHash(), block.NumberU64() - 1)
+	if preBlock == nil {
+		log.Info("ValidateBody snail get parent block error", "block", block.Number(), "hash", block.Hash(), "parent", block.ParentHash())
+		return consensus.ErrUnknownAncestor
+	}
+	if preBlock.Number().Cmp(common.Big0) > 0 {
+		localFruits := preBlock.Fruits()
+		temp = localFruits[len(localFruits)-1].FastNumber().Uint64()
 	}
 	fruits := block.Fruits()
 	for _, fruit := range fruits {
@@ -148,12 +152,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
-	//TODO need add gas for snail block 20180804
-	/*
-		if block.GasUsed() != usedGas {
-			return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)
-		}
-	*/
+
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
 	rbloom := types.CreateBloom(receipts)
@@ -164,44 +163,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 	return nil
 }
 
-// CalcGasLimit computes the gas limit of the next block after parent.
-// This is miner strategy, not consensus protocol.
 
-func CalcGasLimit(parent *types.SnailBlock) uint64 {
-	// contrib = (parentGasUsed * 3 / 2) / 1024
-
-	// TODO need add gas limit 20180804
-	//fmt.Printf("Block_Validator calcGasLimit not function")
-	return 0
-	/*
-		contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
-
-		// decay = parentGasLimit / 1024 -1
-		decay := parent.GasLimit()/params.GasLimitBoundDivisor - 1
-	*/
-	/*
-		strategy: gasLimit of block-to-mine is set based on parent's
-		gasUsed value.  if parentGasUsed > parentGasLimit * (2/3) then we
-		increase it, otherwise lower it (or leave it unchanged if it's right
-		at that usage) the amount increased/decreased depends on how far away
-		from parentGasLimit * (2/3) parentGasUsed is.
-	*/
-	/*
-		limit := parent.GasLimit() - decay + contrib
-		if limit < params.MinGasLimit {
-			limit = params.MinGasLimit
-		}
-		// however, if we're now below the target (TargetGasLimit) we increase the
-		// limit as much as we can (parentGasLimit / 1024 -1)
-		if limit < params.TargetGasLimit {
-			limit = parent.GasLimit() + decay
-			if limit > params.TargetGasLimit {
-				limit = params.TargetGasLimit
-			}
-		}
-		return limit
-	*/
-}
 
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	//check number(fb)

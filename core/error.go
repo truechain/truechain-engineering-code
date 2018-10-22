@@ -34,5 +34,5 @@ var (
 	ErrNonceTooHigh = errors.New("nonce too high")
 
 	//fetch number of newBlock exceed specified number
-	ErrExceedNumber = errors.New("numbere xceed specified number")
+	ErrExceedNumber = errors.New("numbere exceed specified number")
 )

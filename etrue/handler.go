@@ -58,10 +58,6 @@ const (
 	fruitChanSize = 256
 )
 
-var (
-	daoChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the DAO handshake challenge
-)
-
 // errIncompatibleConfig is returned if the requested protocols and configs are
 // not compatible (low protocol version restrictions and high requirements).
 var errIncompatibleConfig = errors.New("incompatible configuration")
@@ -93,20 +89,20 @@ type ProtocolManager struct {
 	SubProtocols []p2p.Protocol
 
 	eventMux *event.TypeMux
-	txsCh    chan core.NewTxsEvent
+	txsCh    chan types.NewTxsEvent
 	txsSub   event.Subscription
 
 	//fruit
-	fruitsch  chan snailchain.NewFruitsEvent
+	fruitsch  chan types.NewFruitsEvent
 	fruitsSub event.Subscription
 
 	//fast block
-	minedFastCh  chan core.NewBlockEvent
+	minedFastCh  chan types.NewBlockEvent
 	minedFastSub event.Subscription
 
-	pbSignsCh     chan core.PbftSignEvent
+	pbSignsCh     chan types.PbftSignEvent
 	pbSignsSub    event.Subscription
-	pbNodeInfoCh  chan core.NodeInfoEvent
+	pbNodeInfoCh  chan types.NodeInfoEvent
 	pbNodeInfoSub event.Subscription
 
 	//minedsnailBlock
@@ -292,32 +288,32 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.maxPeers = maxPeers
 
 	// broadcast transactions
-	pm.txsCh = make(chan core.NewTxsEvent, txChanSize)
+	pm.txsCh = make(chan types.NewTxsEvent, txChanSize)
 	pm.txsSub = pm.txpool.SubscribeNewTxsEvent(pm.txsCh)
 	go pm.txBroadcastLoop()
 
 	//broadcast fruits
-	pm.fruitsch = make(chan snailchain.NewFruitsEvent, fruitChanSize)
+	pm.fruitsch = make(chan types.NewFruitsEvent, fruitChanSize)
 	pm.fruitsSub = pm.SnailPool.SubscribeNewFruitEvent(pm.fruitsch)
 	go pm.fruitBroadcastLoop()
 
 	// broadcast mined fastBlocks
-	pm.minedFastCh = make(chan core.NewBlockEvent, blockChanSize)
+	pm.minedFastCh = make(chan types.NewBlockEvent, blockChanSize)
 	pm.minedFastSub = pm.agentProxy.SubscribeNewFastBlockEvent(pm.minedFastCh)
 	go pm.minedFastBroadcastLoop()
 
 	// broadcast sign
-	pm.pbSignsCh = make(chan core.PbftSignEvent, signChanSize)
+	pm.pbSignsCh = make(chan types.PbftSignEvent, signChanSize)
 	pm.pbSignsSub = pm.agentProxy.SubscribeNewPbftSignEvent(pm.pbSignsCh)
 	go pm.pbSignBroadcastLoop()
 
 	// broadcast node info
-	pm.pbNodeInfoCh = make(chan core.NodeInfoEvent, nodeChanSize)
+	pm.pbNodeInfoCh = make(chan types.NodeInfoEvent, nodeChanSize)
 	pm.pbNodeInfoSub = pm.agentProxy.SubscribeNodeInfoEvent(pm.pbNodeInfoCh)
 	go pm.pbNodeInfoBroadcastLoop()
 
 	//broadcast mined snailblock
-	pm.minedSnailBlockSub = pm.eventMux.Subscribe(snailchain.NewMinedBlockEvent{})
+	pm.minedSnailBlockSub = pm.eventMux.Subscribe(types.NewMinedBlockEvent{})
 	go pm.minedSnailBlockLoop()
 
 	// start sync handlers
@@ -443,25 +439,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// after this will be sent via broadcasts.
 	pm.syncTransactions(p)
 	pm.syncFruits(p)
-	// If we're DAO hard-fork aware, validate any remote peer with regard to the hard-fork
-	if daoBlock := pm.chainconfig.DAOForkBlock; daoBlock != nil {
-		// Request the peer's DAO fork header for extra-data validation
-		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false, false); err != nil {
-			return err
-		}
-		// Start a timer to disconnect if the peer doesn't reply in time
-		p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
-			p.Log().Debug("Timed out DAO fork-check, dropping")
-			pm.removePeer(p.id)
-		})
-		// Make sure it's cleaned up if the peer dies off
-		defer func() {
-			if p.forkDrop != nil {
-				p.forkDrop.Stop()
-				p.forkDrop = nil
-			}
-		}()
-	}
+
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
@@ -1132,7 +1110,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Debug("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
 	return nil
 }
 
@@ -1189,14 +1167,14 @@ func (pm *ProtocolManager) BroadcastPbSign(pbSigns []*types.PbftSign) {
 // BroadcastPbNodeInfo will propagate a batch of EncryptNodeMessage to all peers which are not known to
 // already have the given CryNodeInfo.
 func (pm *ProtocolManager) BroadcastPbNodeInfo(nodeInfo *types.EncryptNodeMessage) {
-	var nodeInfoSet = make(map[*peer]core.NodeInfoEvent)
+	var nodeInfoSet = make(map[*peer]types.NodeInfoEvent)
 
 	// Broadcast transactions to a batch of peers not knowing about it
 	peers := pm.peers.PeersWithoutNodeInfo(nodeInfo.Hash())
 	for _, peer := range peers {
-		nodeInfoSet[peer] = core.NodeInfoEvent{nodeInfo}
+		nodeInfoSet[peer] = types.NodeInfoEvent{nodeInfo}
 	}
-	log.Debug("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
+	log.Trace("Broadcast node info ", "hash", nodeInfo.Hash(), "recipients", len(peers), " ", len(pm.peers.peers))
 	for peer, nodeInfo := range nodeInfoSet {
 		peer.AsyncSendNodeInfo(nodeInfo.NodeInfo)
 	}
@@ -1328,7 +1306,7 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 	// automatically stops if unsubscribe
 	for obj := range pm.minedSnailBlockSub.Chan() {
 		switch ev := obj.Data.(type) {
-		case snailchain.NewMinedBlockEvent:
+		case types.NewMinedBlockEvent:
 			pm.BroadcastSnailBlock(ev.Block, true)  // First propagate fruit to peers
 			pm.BroadcastSnailBlock(ev.Block, false) // Only then announce to the rest
 		}

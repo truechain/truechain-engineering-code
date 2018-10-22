@@ -22,8 +22,6 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -121,34 +119,35 @@ type txPool interface {
 
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan<- types.NewTxsEvent) event.Subscription
 	// for fruits and records
-	//SubscribeNewFruitsEvent(chan<- core.NewFruitsEvent) event.Subscription
+	//SubscribeNewFruitsEvent(chan<- types.NewFruitsEvent) event.Subscription
 }
 
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
 	PendingFruits() ([]*types.SnailBlock, error)
-	SubscribeNewFruitEvent(chan<- snailchain.NewFruitsEvent) event.Subscription
+	SubscribeNewFruitEvent(chan<- types.NewFruitsEvent) event.Subscription
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
-	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
+	SubscribeNewFastBlockEvent(chan<- types.NewFastBlocksEvent) event.Subscription
+	RemovePendingFruitByFastHash(fasthash common.Hash)
 }
 
 type AgentNetworkProxy interface {
 	// SubscribeNewFastBlockEvent should return an event subscription of
 	// NewBlockEvent and send events to the given channel.
-	SubscribeNewFastBlockEvent(chan<- core.NewBlockEvent) event.Subscription
+	SubscribeNewFastBlockEvent(chan<- types.NewBlockEvent) event.Subscription
 	// SubscribeNewPbftSignEvent should return an event subscription of
 	// PbftSignEvent and send events to the given channel.
-	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
+	SubscribeNewPbftSignEvent(chan<- types.PbftSignEvent) event.Subscription
 	// SubscribeNodeInfoEvent should return an event subscription of
 	// NodeInfoEvent and send events to the given channel.
-	SubscribeNodeInfoEvent(chan<- core.NodeInfoEvent) event.Subscription
+	SubscribeNodeInfoEvent(chan<- types.NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
 	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
 }

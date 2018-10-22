@@ -965,7 +965,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 	}
 
-	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
+	root, err := state.Commit(true)
 	if err != nil {
 		return NonStatTy, err
 	}
@@ -1158,7 +1158,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateBody(block) //update
+			err = bc.Validator().ValidateBody(block, true) //update
 		}
 		switch {
 		case err == ErrKnownBlock:
@@ -1262,7 +1262,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 			coalescedLogs = append(coalescedLogs, logs...)
 			FastBlockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainEvent{block, block.Hash(), logs})
+			events = append(events, types.ChainFastEvent{block, block.Hash(), logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1273,7 +1273,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", 0)
 
 			FastBlockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainSideEvent{block})
+			events = append(events, types.ChainFastSideEvent{block})
 		}
 		stats.processed++
 		stats.usedGas += usedGas
@@ -1283,7 +1283,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	}
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, ChainHeadEvent{lastCanon})
+		events = append(events, types.ChainFastHeadEvent{lastCanon})
 	}
 	return 0, events, coalescedLogs, nil
 }
@@ -1441,12 +1441,12 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	batch.Write()
 
 	if len(deletedLogs) > 0 {
-		go bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
+		go bc.rmLogsFeed.Send(types.RemovedLogsEvent{deletedLogs})
 	}
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(ChainSideEvent{Block: block})
+				bc.chainSideFeed.Send(types.ChainFastSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1464,12 +1464,12 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 	}
 	for _, event := range events {
 		switch ev := event.(type) {
-		case ChainEvent:
+		case types.ChainFastEvent:
 			bc.chainFeed.Send(ev)
 
-		case ChainHeadEvent:
+		case types.ChainFastHeadEvent:
 			bc.chainHeadFeed.Send(ev)
-		case ChainSideEvent:
+		case types.ChainFastSideEvent:
 			bc.chainSideFeed.Send(ev)
 
 		}
@@ -1668,22 +1668,22 @@ func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
-func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent) event.Subscription {
+func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
 }
 
-// SubscribeChainEvent registers a subscription of ChainEvent.
-func (bc *BlockChain) SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription {
+// SubscribeChainEvent registers a subscription of types.ChainFastEvent.
+func (bc *BlockChain) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
-// SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
+// SubscribeChainHeadEvent registers a subscription of types.ChainFastHeadEvent.
+func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
-// SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
+// SubscribeChainSideEvent registers a subscription of types.ChainFastSideEvent.
+func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 

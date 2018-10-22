@@ -33,7 +33,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -59,18 +58,18 @@ const (
 type txPool interface {
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan<- types.NewTxsEvent) event.Subscription
 }
 
 type blockChain interface {
-	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
 }
 
 // Service implements an Truechain netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
 type Service struct {
 	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
-	etrue    *etrue.Truechain   // Full Truechain service if monitoring a full node
+	etrue  *etrue.Truechain   // Full Truechain service if monitoring a full node
 	les    *les.LightEthereum // Light Truechain service if monitoring a light node
 	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
 
@@ -98,7 +97,7 @@ func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEthereum) (*Ser
 		engine = lesServ.Engine()
 	}
 	return &Service{
-		etrue:    ethServ,
+		etrue:  ethServ,
 		les:    lesServ,
 		engine: engine,
 		node:   parts[1],
@@ -146,11 +145,11 @@ func (s *Service) loop() {
 		txpool = s.les.TxPool()
 	}
 
-	chainHeadCh := make(chan core.ChainHeadEvent, chainHeadChanSize)
+	chainHeadCh := make(chan types.ChainFastHeadEvent, chainHeadChanSize)
 	headSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	defer headSub.Unsubscribe()
 
-	txEventCh := make(chan core.NewTxsEvent, txChanSize)
+	txEventCh := make(chan types.NewTxsEvent, txChanSize)
 	txSub := txpool.SubscribeNewTxsEvent(txEventCh)
 	defer txSub.Unsubscribe()
 
@@ -562,11 +561,11 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
 		//Diff:       header.Difficulty.String(),
-		TotalDiff:  td.String(),
-		Txs:        txs,
-		TxHash:     header.TxHash,
-		Root:       header.Root,
-		Uncles:     uncles,
+		TotalDiff: td.String(),
+		Txs:       txs,
+		TxHash:    header.TxHash,
+		Root:      header.Root,
+		Uncles:    uncles,
 	}
 }
 
