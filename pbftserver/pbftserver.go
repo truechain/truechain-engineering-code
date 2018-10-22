@@ -411,6 +411,49 @@ func (ss *PbftServerMgr) SetCommitteeStop(committeeId *big.Int, stop uint64) err
 	return errors.New("SetCommitteeStop Server is not have")
 }
 
+func getCommittee(ss *PbftServerMgr, cid uint64) (info *serverInfo) {
+	if server, ok := ss.servers[cid]; ok {
+		return server
+	}
+	return nil
+}
+
+func getNodeStatus(s *serverInfo, parent bool) map[string]interface{} {
+	nodes := make(map[string]interface{})
+	node := s.server.Node
+	ch := node.CurrentHeight
+	if parent {
+		ch = ch - 1
+	}
+	status := node.GetStatus(ch)
+	nodes["prepareMsgs"] = status.MsgLogs.GetPrepareMessages()
+	nodes["commitMsgs"] = status.MsgLogs.GetCommitMessages()
+	return nodes
+}
+
+func (ss *PbftServerMgr) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
+	result := make(map[string]interface{})
+	s := getCommittee(ss, committeeID.Uint64())
+	if s != nil {
+		committee := make(map[string]interface{})
+		committee["id"] = committeeID.Uint64()
+		committee["nodes"] = s.info
+		result["committee_now"] = committee
+
+		result["nodeStatus"] = getNodeStatus(s, false)
+		result["nodeParent"] = getNodeStatus(s, true)
+	}
+
+	s1 := getCommittee(ss, committeeID.Uint64()+1)
+	if s1 != nil {
+		committee := make(map[string]interface{})
+		committee["id"] = committeeID.Uint64() + 1
+		committee["nodes"] = s1.info
+		result["committee_next"] = committee
+	}
+	return result
+}
+
 func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	lock.PSLog("PutCommittee", committeeInfo.Id, committeeInfo.Members)
 	id := committeeInfo.Id
