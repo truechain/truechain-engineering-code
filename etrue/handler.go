@@ -481,7 +481,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-
+		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "query>>>", query)
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -592,7 +592,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-
+		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>","query",query)
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -1100,7 +1100,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
 			tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			fmt.Println(tdd)
+			log.Debug("SnailBlockMsg>>tdd>>>>","tdd",tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				go pm.synchronise(p)
