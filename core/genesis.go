@@ -186,7 +186,7 @@ func setupFastGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainCo
 
 	// Check whether the genesis block is already written.
 	if genesis != nil {
-		hash := genesis.ToSnailBlock(nil).Hash()
+		hash := genesis.ToFastBlock(nil).Hash()
 		if hash != stored {
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
