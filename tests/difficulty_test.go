@@ -27,8 +27,6 @@ import (
 var (
 	mainnetChainConfig = params.ChainConfig{
 		ChainID:        big.NewInt(1),
-		EIP155Block:    big.NewInt(2675000),
-		EIP158Block:    big.NewInt(2675000),
 		ByzantiumBlock: big.NewInt(4370000),
 	}
 )

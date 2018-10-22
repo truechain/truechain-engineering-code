@@ -188,7 +188,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 			fmt.Println("====================================================")
 			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 			// Write state changes to db
-			root, err := statedb.Commit(config.IsEIP158(b.header.Number))
+			root, err := statedb.Commit(true)
 			if err != nil {
 				panic(fmt.Sprintf("state write error: %v", err))
 			}
@@ -221,7 +221,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 	}
 
 	return &types.Header{
-		Root:       state.IntermediateRoot(chain.Config().IsEIP158(parent.Number())),
+		Root:       state.IntermediateRoot(true),
 		ParentHash: parent.Hash(),
 		GasLimit:   FastCalcGasLimit(parent),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),
