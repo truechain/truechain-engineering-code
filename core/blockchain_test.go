@@ -18,18 +18,18 @@ package core
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"testing"
 )
 
 // So we can deterministically seed different blockchains
@@ -47,8 +47,8 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 		BaseGenesis = new(Genesis)
 	)
 
-	BaseGenesis.Fast = new(fastchain.Genesis)
-	genesis := BaseGenesis.Fast.MustCommit(db)
+	BaseGenesis = new(Genesis)
+	genesis := BaseGenesis.MustFastCommit(db)
 	// Initialize a fresh chain with only a genesis block
 	//初始化一个新链
 	blockchain, errs := NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
@@ -124,11 +124,11 @@ func TestEIP155Transition(t *testing.T) {
 		address    = crypto.PubkeyToAddress(key.PublicKey)
 		funds      = big.NewInt(1000000000)
 		deleteAddr = common.Address{1}
-		gspec      = &fastchain.Genesis{
+		gspec      = &Genesis{
 			Config: &params.ChainConfig{ChainID: big.NewInt(1)},
 			Alloc:  types.GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
-		genesis = gspec.MustCommit(db)
+		genesis = gspec.MustFastCommit(db)
 	)
 
 	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
@@ -227,13 +227,13 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		address = crypto.PubkeyToAddress(key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		theAddr = common.Address{1}
-		gspec   = &fastchain.Genesis{
+		gspec   = &Genesis{
 			Config: &params.ChainConfig{
 				ChainID: big.NewInt(1),
 			},
 			Alloc: types.GenesisAlloc{address: {Balance: funds}},
 		}
-		genesis = gspec.MustCommit(db)
+		genesis = gspec.MustFastCommit(db)
 	)
 	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()

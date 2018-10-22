@@ -170,6 +170,17 @@ func (b *LesApiBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEve
 	return b.etrue.blockchain.SubscribeRemovedLogsEvent(ch)
 }
 
+
+func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {
+	//if number < 0 {
+	//	return b.etrue.blockchain.CurrentReward()
+	//}
+
+	//return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
+	return nil
+}
+
+
 func (b *LesApiBackend) Downloader() *downloader.Downloader {
 	return b.etrue.Downloader()
 }
