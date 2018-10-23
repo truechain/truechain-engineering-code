@@ -299,11 +299,17 @@ func (self *Miner) SetEtherbase(addr common.Address) {
 }
 
 func (self *Miner) SetElection(toElect bool, pubkey []byte) {
+
+	if len(pubkey)<= 0{
+		log.Info("Set election failed, pubkey is nil")
+		return
+	}
 	self.toElect = toElect
 	self.publickey = make([]byte, len(pubkey))
 
 	copy(self.publickey, pubkey)
 	self.worker.setElection(toElect, pubkey)
+	log.Info("Set election success")
 }
 
 func (self *Miner) SetFruitOnly(FruitOnly bool) {

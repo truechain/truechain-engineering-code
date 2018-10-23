@@ -180,6 +180,17 @@ func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
 	return true, nil
 }
 
+// SetElection sets the election .
+func (api *PrivateMinerAPI) SetElection(toElect bool, pubkey []byte) (bool, error) {
+	if len(pubkey)<=0{
+		return false, fmt.Errorf("SetElection fail the pubkey is nil")
+	}
+
+	api.e.Miner().SetElection(toElect,pubkey);
+
+	return true, nil
+}
+
 // SetGasPrice sets the minimum accepted gas price for the miner.
 func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.lock.Lock()
