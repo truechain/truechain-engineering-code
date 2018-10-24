@@ -824,7 +824,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 }
 
 // Content returning all the
-// pending fruits orted by fast number.
+// pending fruits sorted by fast number.
 func (pool *SnailPool) Content() []*types.SnailBlock {
 	fruits, error := pool.PendingFruits()
 	if error != nil{
@@ -834,7 +834,7 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 }
 
 // Content returning all the
-// unVerifiedFruits fruits orted by fast number.
+// unVerifiedFruits fruits sorted by fast number.
 func (pool *SnailPool) Status() []*types.SnailBlock {
 
 	pool.muFruit.Lock()
