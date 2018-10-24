@@ -112,7 +112,7 @@ func (b *TrueAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.Blo
 func (b *TrueAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
-		state,_ := b.etrue.blockchain.State()
+		state, _ := b.etrue.blockchain.State()
 		block := b.etrue.blockchain.CurrentBlock()
 		return state, block.Header(), nil
 	}
@@ -201,6 +201,9 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
 }
 
+func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
+	return b.etrue.election.GetComitteeById(big.NewInt(number.Int64())), nil
+}
 
 func (b *TrueAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.etrue.txPool.AddLocal(signedTx)

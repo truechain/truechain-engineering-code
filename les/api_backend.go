@@ -180,7 +180,6 @@ func (b *LesApiBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEve
 	return b.etrue.blockchain.SubscribeRemovedLogsEvent(ch)
 }
 
-
 func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {
 	//if number < 0 {
 	//	return b.etrue.blockchain.CurrentReward()
@@ -188,6 +187,10 @@ func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {
 
 	//return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
 	return nil
+}
+
+func (b *LesApiBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
+	return nil, nil
 }
 
 func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {
