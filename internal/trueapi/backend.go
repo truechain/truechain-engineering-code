@@ -89,6 +89,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 				Version:   "1.0",
 				Service:   NewPublicTrueAPI(apiBackend),
 				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicSnailPoolAPI(apiBackend),
+				Public:    true,
 			}, {
 				Namespace: name,
 				Version:   "1.0",
