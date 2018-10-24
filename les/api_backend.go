@@ -180,6 +180,10 @@ func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {
 	return nil
 }
 
+func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {
+	return nil
+}
+
 
 func (b *LesApiBackend) Downloader() *downloader.Downloader {
 	return b.etrue.Downloader()
