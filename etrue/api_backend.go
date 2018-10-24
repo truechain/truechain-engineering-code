@@ -243,6 +243,9 @@ func (b *EthAPIBackend) AccountManager() *accounts.Manager {
 	return b.etrue.AccountManager()
 }
 
+func (b *EthAPIBackend) SnailPoolContent() []*types.SnailBlock {
+	return b.etrue.SnailPool().Content()
+}
 func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {
 	sections, _, _ := b.etrue.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections

@@ -822,3 +822,13 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 
 	return nil
 }
+
+// Content returning all the
+// pending fruits  grouped by account and sorted by nonce.
+func (pool *SnailPool) Content() []*types.SnailBlock {
+	fruits, error := pool.PendingFruits()
+	if error != nil{
+		return nil
+	}
+	return fruits
+}

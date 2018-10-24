@@ -199,6 +199,68 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 	return addresses
 }
 
+// RPCFruits represents a fruit that will serialize to the RPC representation of a fruit
+type RPCFruit struct {
+	Number               *big.Int        `json:"number"`
+	FruitDifficulty      *big.Int       `json:"fruitDifficulty"`
+	FruitHash            common.Hash    `json:"fruitHash"`
+	FastHash             common.Hash    `json:"fastHash"`
+	FastNumber           *big.Int       `json:"fastNumber"`
+	SignHash             common.Hash    `json:"signHash"`
+	PointerHash          common.Hash    `json:"pointerHash"`
+	PointerNumber        *big.Int       `json:"pointerNumber"`
+}
+
+// newRPCFruit returns a fruit that will serialize to the RPC
+// representation, with the given location metadata set (if available).
+func newRPCFruit(fruit *types.SnailBlock) *RPCFruit {
+
+	result := &RPCFruit{
+		Number:     			fruit.Header().Number,
+		FruitDifficulty:      	fruit.Header().FruitDifficulty,
+		FruitHash: 				fruit.Hash(),
+		FastNumber:     		fruit.Header().FastNumber,
+		SignHash:    			fruit.Header().FastHash,
+		PointerHash:    		fruit.Header().PointerHash,
+		PointerNumber:       	fruit.Header().PointerNumber,
+	}
+	return result
+}
+
+// PublicSnailPoolAPI offers and API for the snail pool. It only operates on data that is non confidential.
+type PublicSnailPoolAPI struct {
+	b Backend
+}
+
+// NewPublicSnailPoolAPI creates a new snail pool service that gives information about the snail pool.
+func NewPublicSnailPoolAPI(b Backend) *PublicSnailPoolAPI {
+	return &PublicSnailPoolAPI{b}
+}
+
+// Content returns the pendingFruits contained within the snail pool.
+func (s *PublicSnailPoolAPI) Content() []*RPCFruit {
+	//content := map[string]interface{}{}
+	pending := s.b.SnailPoolContent()
+	//content["count"] = count
+	// Flatten the pending fruits
+	//dump := make(map[common.Hash]*RPCFruit)
+	var pendingFruits []*RPCFruit
+	for  _,fruit := range pending {
+		pendingFruits = append(pendingFruits, newRPCFruit(fruit))
+	}
+	//content["pending"] = dump
+	return pendingFruits
+}
+
+
+
+
+
+
+
+
+
+
 // PrivateAccountAPI provides an API to access accounts managed by this node.
 // It offers methods to create, (un)lock en list accounts. Some methods accept
 // passwords and are therefore considered private by default.

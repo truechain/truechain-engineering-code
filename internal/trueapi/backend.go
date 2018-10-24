@@ -73,6 +73,9 @@ type Backend interface {
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
+
+	// SnailPool API
+	SnailPoolContent() []*types.SnailBlock
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
