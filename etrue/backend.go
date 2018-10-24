@@ -305,33 +305,40 @@ func (s *Truechain) APIs() []rpc.API {
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
+	// Append etrue	APIs and  Eth APIs
+	namespaces :=[]string{"etrue","eth"}
+	for _,name :=range namespaces{
+		apis = append(apis,[]rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicEthereumAPI(s),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicMinerAPI(s),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
+				Public:    true,
+			},
+		}...)
+	}
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
-		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicEthereumAPI(s),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicMinerAPI(s),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
-			Public:    true,
-		}, {
+		 {
 			Namespace: "miner",
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
 			Public:    false,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
-			Public:    true,
 		}, {
 			Namespace: "admin",
 			Version:   "1.0",
