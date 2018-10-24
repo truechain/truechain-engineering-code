@@ -76,6 +76,7 @@ type Backend interface {
 
 	// SnailPool API
 	SnailPoolContent() []*types.SnailBlock
+	SnailPoolStatus() []*types.SnailBlock
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
