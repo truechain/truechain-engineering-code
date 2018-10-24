@@ -164,6 +164,13 @@ func (s *LightDummyAPI) Coinbase() (common.Address, error) {
 	return common.Address{}, fmt.Errorf("not supported")
 }
 
+func (api *LightDummyAPI) CommitteeNumber() uint64{
+	return 0
+}
+func (api *LightDummyAPI) GetCurrentState() map[string]interface{}{
+	return nil
+}
+
 // Hashrate returns the POW hashrate
 func (s *LightDummyAPI) Hashrate() hexutil.Uint {
 	return 0
@@ -177,29 +184,38 @@ func (s *LightDummyAPI) Mining() bool {
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *LightEthereum) APIs() []rpc.API {
-	return append(trueapi.GetAPIs(s.ApiBackend), []rpc.API{
-		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   &LightDummyAPI{},
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.ApiBackend, true),
-			Public:    true,
-		}, {
+	apis :=trueapi.GetAPIs(s.ApiBackend)
+	namespaces :=[]string{"etrue","eth"}
+	for _,name :=range namespaces {
+		apis = append(apis,[]rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   &LightDummyAPI{},
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   filters.NewPublicFilterAPI(s.ApiBackend, true),
+				Public:    true,
+			},
+
+		}...)
+	}
+	apis = append( apis,[]rpc.API{
+		  {
 			Namespace: "net",
 			Version:   "1.0",
 			Service:   s.netRPCService,
 			Public:    true,
 		},
 	}...)
+	return  apis
 }
 
 func (s *LightEthereum) ResetWithGenesisBlock(gb *types.Block) {

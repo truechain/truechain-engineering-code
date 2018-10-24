@@ -80,23 +80,35 @@ type Backend interface {
 
 func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
-	return []rpc.API{
-		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicTrueAPI(apiBackend),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicBlockChainAPI(apiBackend),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
-			Public:    true,
-		}, {
+	var apis []rpc.API
+	namespaces :=[]string{"etrue","eth"}
+	for _,name :=range namespaces{
+		apis = append(apis,[]rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTrueAPI(apiBackend),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicBlockChainAPI(apiBackend),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
+				Public:    true,
+			},
+		}...)
+	}
+	apis = append(apis, []rpc.API{
+		 {
 			Namespace: "txpool",
 			Version:   "1.0",
 			Service:   NewPublicTxPoolAPI(apiBackend),
@@ -110,16 +122,12 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "debug",
 			Version:   "1.0",
 			Service:   NewPrivateDebugAPI(apiBackend),
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
-			Public:    true,
-		}, {
+		},{
 			Namespace: "personal",
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
 		},
-	}
+	}...)
+	return apis
 }

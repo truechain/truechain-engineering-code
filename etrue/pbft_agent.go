@@ -1030,6 +1030,19 @@ func (self *PbftAgent) GetCommitteeNumber(blockHeight *big.Int) int32 {
 	return int32(len(committees))
 }
 
+func (self *PbftAgent) CommitteeNumber() uint64 {
+	if nil == self.currentCommitteeInfo.Id {
+		return 0
+	}
+	return self.currentCommitteeInfo.Id.Uint64()
+}
+
+func (self *PbftAgent) GetCommitteeStatus() map[string]interface{} {
+	committeeID :=self.CommitteeNumber()
+	return self.server.GetCommitteeStatus(big.NewInt((int64)(committeeID)))
+}
+
+
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
 		log.Error("setCommitteeInfo is nil ", "CommitteeType", CommitteeType)
@@ -1094,10 +1107,10 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		_, err = agent.VerifyFastBlock(block)
+		/*_, err = agent.VerifyFastBlock(block)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
-		}
+		}*/
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
