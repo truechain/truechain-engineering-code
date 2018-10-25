@@ -8,6 +8,7 @@ import (
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/rlp"
 	"math/big"
 	"sync"
 	"time"
@@ -339,7 +340,8 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
-	bz, err := cdc.MarshalBinary(block)
+	//bz, err := cdc.MarshalBinary(block)
+	bz, err := rlp.EncodeToBytes(block)
 	if err != nil {
 		panic(err)
 	}
