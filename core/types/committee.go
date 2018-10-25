@@ -118,7 +118,8 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 }
 
 type CommitteeInfo struct {
-	Id      *big.Int
+	Id      		*big.Int
+	StartHeight		*big.Int
 	Members []*CommitteeMember
 }
 
