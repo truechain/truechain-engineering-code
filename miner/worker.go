@@ -355,7 +355,7 @@ func (self *worker) update() {
 
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
-			log.Info("chain slide", "number", ev.Block.Number(), "hash", ev.Block.Hash())
+			log.Info("chain side", "number", ev.Block.Number(), "hash", ev.Block.Hash())
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  chainHeadCh","chain block number",ev.Block.Number())
 				if atomic.LoadInt32(&self.mining) == 1{
@@ -396,7 +396,6 @@ func (self *worker) update() {
 				if atomic.LoadInt32(&self.mining) == 1{
 					self.commitNewWork()
 				}
-				
 			}
 		case <-self.newMinedSub.Err():
 			return

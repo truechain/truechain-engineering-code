@@ -496,7 +496,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 	// validate the signatures of this fruit
 	members := m.election.GetCommittee(fastnumber)
 	if members == nil {
-		log.Warn("validate fruit get committee failed.", "number", fastnumber)
+		log.Warn("VerifySigns get committee failed.", "number", fastnumber)
 		return consensus.ErrInvalidSign
 	}
 	count := 0
@@ -506,15 +506,15 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 		}
 	}
 	// pbft signs check bug will fix next release
-	if count <= len(members)*2/3 {
-		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
+	if count <= len(members) * 2 / 3 {
+		log.Warn("VerifySigns number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
 
 	_, errs := m.election.VerifySigns(signs)
 	for _, err := range errs {
 		if err != nil {
-			log.Warn("validate fruit VerifySigns error", "err", err)
+			log.Warn("VerifySigns error", "err", err)
 			return err
 		}
 	}
