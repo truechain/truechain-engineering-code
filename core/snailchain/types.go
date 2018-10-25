@@ -33,5 +33,5 @@ type Validator interface {
 	ValidateBody(block *types.SnailBlock) error
 
 	// ValidateFruit validates the given fruit's content
-	ValidateFruit(fruit, block *types.SnailBlock) error
+	ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error
 }

@@ -761,7 +761,7 @@ func (self *worker) updateSnapshot() {
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
-	err := engine.VerifyFreshness(fruit.Header(), env.header)
+	err := engine.VerifyFreshness(fruit.Header(), env.header, true)
 	if err != nil {
 		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err
