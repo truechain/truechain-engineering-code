@@ -833,9 +833,9 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 	return fruits
 }
 
-// Content returning all the
+// Inspect returning all the
 // unVerifiedFruits fruits sorted by fast number.
-func (pool *SnailPool) Status() []*types.SnailBlock {
+func (pool *SnailPool) Inspect() []*types.SnailBlock {
 
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -856,4 +856,11 @@ func (pool *SnailPool) Status() []*types.SnailBlock {
 		rtfruits = append(rtfruits, v)
 	}
 	return rtfruits
+}
+
+// Content returning all the
+// pending fruits count and unVerifiedFruits fruits count.
+func (pool *SnailPool) Stats() (pending int, unVerified int) {
+
+	return len(pool.fruitPending),len(pool.allFruits)-len(pool.fruitPending)
 }

@@ -75,7 +75,8 @@ type Backend interface {
 
 	// SnailPool API
 	SnailPoolContent() []*types.SnailBlock
-	SnailPoolStatus() []*types.SnailBlock
+	SnailPoolInspect() []*types.SnailBlock
+	SnailPoolStats() (pending int, unVerified int)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
