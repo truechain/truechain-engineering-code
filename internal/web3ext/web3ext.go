@@ -30,6 +30,7 @@ var Modules = map[string]string{
 	"shh":        Shh_JS,
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
+	"fruitpool":  FruitPool_JS,
 }
 
 const Chequebook_JS = `
@@ -632,6 +633,28 @@ web3._extend({
 				status.queued = web3._extend.utils.toDecimal(status.queued);
 				return status;
 			}
+		}),
+	]
+});
+`
+
+const FruitPool_JS = `
+web3._extend({
+	property: 'fruitpool',
+	methods: [],
+	properties:
+	[
+		new web3._extend.Property({
+			name: 'content',
+			getter: 'fruitpool_content'
+		}),
+		new web3._extend.Property({
+			name: 'inspect',
+			getter: 'fruitpool_inspect'
+		}),
+		new web3._extend.Property({
+			name: 'status',
+			getter: 'fruitpool_status'
 		}),
 	]
 });
