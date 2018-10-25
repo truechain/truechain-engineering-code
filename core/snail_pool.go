@@ -858,7 +858,7 @@ func (pool *SnailPool) Inspect() []*types.SnailBlock {
 	return rtfruits
 }
 
-// Content returning all the
+// Stats returning all the
 // pending fruits count and unVerifiedFruits fruits count.
 func (pool *SnailPool) Stats() (pending int, unVerified int) {
 
