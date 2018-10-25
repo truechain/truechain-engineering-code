@@ -343,13 +343,30 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
-	//bz, err := cdc.MarshalBinary(block)
-	bz, err := rlp.EncodeToBytes(block)
+	bzs, err := rlp.EncodeToBytes(block)
 	if err != nil {
 		panic(err)
 	}
+	bz, err := cdc.MarshalBinary(bzs)
 	return NewPartSetFromData(bz, partSize)
 }
+func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block,error) {
+	if reader.IsComplete() {
+		maxsize := int64(MaxBlockBytes)
+		bytes := make([]byte, maxsize, maxsize)
+		_, err := cdc.UnmarshalBinaryReader(reader.GetReader(), &bytes, maxsize)
+		if err != nil {
+			return nil, err
+		}
+		var block ctypes.Block 
+		if err = rlp.DecodeBytes(bytes,&block);err != nil {
+			return nil, err
+		}
+		return &block,nil
+	}
+	return nil,errors.New("not complete")
+}
+
 func (state *stateAgent) GetChainID() string {
 	return state.ChainID
 }

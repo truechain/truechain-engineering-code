@@ -1320,7 +1320,7 @@ func (cs *ConsensusState) addProposalBlockPart(msg *BlockPartMessage, peerID str
 	}
 	if added && cs.ProposalBlockParts.IsComplete() {
 		// Added and completed!
-		_, err = cdc.UnmarshalBinaryReader(cs.ProposalBlockParts.GetReader(), &cs.ProposalBlock, int64(ttypes.MaxBlockBytes))
+		cs.ProposalBlock,err = ttypes.MakeBlockFromPartSet(cs.ProposalBlockParts)
 		if err != nil {
 			return true, err
 		}
