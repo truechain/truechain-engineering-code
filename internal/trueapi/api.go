@@ -199,6 +199,79 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 	return addresses
 }
 
+// RPCFruits represents a fruit that will serialize to the RPC representation of a fruit
+type RPCFruit struct {
+	Number          *big.Int    `json:"number"`
+	FruitDifficulty *big.Int    `json:"fruitDifficulty"`
+	FruitHash       common.Hash `json:"fruitHash"`
+	FastHash        common.Hash `json:"fastHash"`
+	FastNumber      *big.Int    `json:"fastNumber"`
+	SignHash        common.Hash `json:"signHash"`
+	PointerHash     common.Hash `json:"pointerHash"`
+	PointerNumber   *big.Int    `json:"pointerNumber"`
+}
+
+// newRPCFruit returns a fruit that will serialize to the RPC
+// representation, with the given location metadata set (if available).
+func newRPCFruit(fruit *types.SnailBlock) *RPCFruit {
+
+	result := &RPCFruit{
+		Number:          fruit.Header().Number,
+		FruitDifficulty: fruit.Header().FruitDifficulty,
+		FruitHash:       fruit.Hash(),
+		FastNumber:      fruit.Header().FastNumber,
+		SignHash:        fruit.Header().FastHash,
+		PointerHash:     fruit.Header().PointerHash,
+		PointerNumber:   fruit.Header().PointerNumber,
+	}
+	return result
+}
+
+// PublicFruitPoolAPI offers and API for the snail pool. It only operates on data that is non confidential.
+type PublicFruitPoolAPI struct {
+	b Backend
+}
+
+// NewPublicFruitPoolAPI creates a new snail pool service that gives information about the snail pool.
+func NewPublicFruitPoolAPI(b Backend) *PublicFruitPoolAPI {
+	return &PublicFruitPoolAPI{b}
+}
+
+// Content returns the pendingFruits contained within the snail pool.
+func (s *PublicFruitPoolAPI) Content() []*RPCFruit {
+	//content := map[string]interface{}{}
+	pending := s.b.SnailPoolContent()
+	//content["count"] = count
+	// Flatten the pending fruits
+	//dump := make(map[common.Hash]*RPCFruit)
+	var pendingFruits []*RPCFruit
+	for _, fruit := range pending {
+		pendingFruits = append(pendingFruits, newRPCFruit(fruit))
+	}
+	//content["pending"] = dump
+	return pendingFruits
+}
+
+// Inspect returns the unVerifiedFruits contained within the snail pool.
+func (s *PublicFruitPoolAPI) Inspect() []*RPCFruit {
+
+	unVerified := s.b.SnailPoolInspect()
+	var unVerifiedFruits []*RPCFruit
+	for _, fruit := range unVerified {
+		unVerifiedFruits = append(unVerifiedFruits, newRPCFruit(fruit))
+	}
+	return unVerifiedFruits
+}
+
+// Status returns the number of pending and unVerified Fruits in the pool.
+func (s *PublicFruitPoolAPI) Status() map[string]hexutil.Uint {
+	pending, unVerified := s.b.SnailPoolStats()
+	return map[string]hexutil.Uint{
+		"pending": hexutil.Uint(pending),
+		"unVerified":  hexutil.Uint(unVerified),
+	}
+}
+
 // PrivateAccountAPI provides an API to access accounts managed by this node.
 // It offers methods to create, (un)lock en list accounts. Some methods accept
 // passwords and are therefore considered private by default.
@@ -938,9 +1011,9 @@ func (s *PublicBlockChainAPI) rpcOutputSnailBlock(b *types.SnailBlock, inclFruit
 	return fields, err
 }
 
-func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]interface{},error) {
+func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]interface{}, error) {
 	rew := s.b.GetReward(-1)
-	block ,err:=s.b.GetSnailBlock(ctx,rew.SnailHash)
+	block, err := s.b.GetSnailBlock(ctx, rew.SnailHash)
 
 	if block != nil {
 		return s.rpcOutputSnailBlock(block, true)
@@ -948,19 +1021,14 @@ func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]
 	return nil, err
 }
 
-
-func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context,blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
 	rew := s.b.GetReward(blockNr.Int64())
-	block , err :=s.b.GetBlock(ctx,rew.FastHash)
+	block, err := s.b.GetBlock(ctx, rew.FastHash)
 	if block != nil {
 		return s.rpcOutputBlock(block, true, false)
 	}
 	return nil, err
 }
-
-
-
-
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {

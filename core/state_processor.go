@@ -103,11 +103,9 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	}
 	// Update the state with pending changes
 	var root []byte
-	if config.IsByzantium(header.Number) {
-		statedb.Finalise(true)
-	} else {
-		root = statedb.IntermediateRoot(true).Bytes()
-	}
+
+	statedb.Finalise(true)
+
 	*usedGas += gas
 	fee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
 	feeAmount.Add(fee, feeAmount)

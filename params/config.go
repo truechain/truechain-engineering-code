@@ -34,25 +34,19 @@ var (
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(1),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
+		ChainID: big.NewInt(1),
+		Ethash:  new(EthashConfig),
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(18928),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
+		ChainID: big.NewInt(18928),
+		Ethash:  new(EthashConfig),
 	}
 
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
 	RinkebyChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(100),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: nil,
+		ChainID: big.NewInt(100),
 		Clique: &CliqueConfig{
 			Period: 15,
 			Epoch:  30000,
@@ -64,16 +58,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), new(EthashConfig), nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), new(EthashConfig), nil}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -83,9 +77,6 @@ var (
 // set of configuration options.
 type ChainConfig struct {
 	ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
-
-	ByzantiumBlock      *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
-	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -122,37 +113,17 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Byzantium: %v Constantinople: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Engine: %v}",
 		c.ChainID,
-		c.ByzantiumBlock,
-		c.ConstantinopleBlock,
 		engine,
 	)
-}
-
-// IsByzantium returns whether num is either equal to the Byzantium fork block or greater.
-func (c *ChainConfig) IsByzantium(num *big.Int) bool {
-	return isForked(c.ByzantiumBlock, num)
-}
-
-// IsConstantinople returns whether num is either equal to the Constantinople fork block or greater.
-func (c *ChainConfig) IsConstantinople(num *big.Int) bool {
-	return isForked(c.ConstantinopleBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
 func (c *ChainConfig) GasTable(num *big.Int) GasTable {
-	if num == nil {
-		return GasTableHomestead
-	}
-	switch {
-	case c.IsConstantinople(num):
-		return GasTableConstantinople
-	default:
-		return GasTableEIP158
-	}
+	return GasTableEIP158
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
@@ -174,12 +145,6 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *Confi
 }
 
 func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
-	if isForkIncompatible(c.ByzantiumBlock, newcfg.ByzantiumBlock, head) {
-		return newCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
-	}
-	if isForkIncompatible(c.ConstantinopleBlock, newcfg.ConstantinopleBlock, head) {
-		return newCompatError("Constantinople fork block", c.ConstantinopleBlock, newcfg.ConstantinopleBlock)
-	}
 	return nil
 }
 
@@ -244,8 +209,7 @@ func (err *ConfigCompatError) Error() string {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainID     *big.Int
-	IsByzantium bool
+	ChainID *big.Int
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -254,5 +218,5 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	if chainID == nil {
 		chainID = new(big.Int)
 	}
-	return Rules{ChainID: new(big.Int).Set(chainID), IsByzantium: c.IsByzantium(num)}
+	return Rules{ChainID: new(big.Int).Set(chainID)}
 }

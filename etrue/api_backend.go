@@ -73,7 +73,7 @@ func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
-		block := b.etrue.miner.PendingBlock()
+		block := b.etrue.blockchain.CurrentBlock()
 		return block, nil
 	}
 	// Otherwise resolve and return the block
@@ -99,7 +99,8 @@ func (b *EthAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.Bloc
 func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
-		block, state := b.etrue.miner.Pending()
+		state,_ := b.etrue.blockchain.State()
+		block := b.etrue.blockchain.CurrentBlock()
 		return state, block.Header(), nil
 	}
 	// Otherwise resolve the block number and return its state
@@ -241,6 +242,18 @@ func (b *EthAPIBackend) EventMux() *event.TypeMux {
 
 func (b *EthAPIBackend) AccountManager() *accounts.Manager {
 	return b.etrue.AccountManager()
+}
+
+func (b *EthAPIBackend) SnailPoolContent() []*types.SnailBlock {
+	return b.etrue.SnailPool().Content()
+}
+
+func (b *EthAPIBackend) SnailPoolInspect()  []*types.SnailBlock{
+	return b.etrue.SnailPool().Inspect()
+}
+
+func (b *EthAPIBackend) SnailPoolStats()  (pending int, unVerified int){
+	return b.etrue.SnailPool().Stats()
 }
 
 func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {

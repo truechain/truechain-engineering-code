@@ -43,10 +43,7 @@ type (
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte) ([]byte, error) {
 	if contract.CodeAddr != nil {
-		precompiles := PrecompiledContractsHomestead
-		if evm.ChainConfig().IsByzantium(evm.BlockNumber) {
-			precompiles = PrecompiledContractsByzantium
-		}
+		precompiles := PrecompiledContractsByzantium
 		if p := precompiles[*contract.CodeAddr]; p != nil {
 			return RunPrecompiledContract(p, input, contract)
 		}
@@ -157,10 +154,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		snapshot = evm.StateDB.Snapshot()
 	)
 	if !evm.StateDB.Exist(addr) {
-		precompiles := PrecompiledContractsHomestead
-		if evm.ChainConfig().IsByzantium(evm.BlockNumber) {
-			precompiles = PrecompiledContractsByzantium
-		}
+		precompiles := PrecompiledContractsByzantium
 		if precompiles[addr] == nil && value.Sign() == 0 {
 			// Calling a non existing account, don't do antything, but ping the tracer
 			if evm.vmConfig.Debug && evm.depth == 0 {
@@ -382,7 +376,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
-	if maxCodeSizeExceeded || (err != nil && (err != ErrCodeStoreOutOfGas)) {
+	if maxCodeSizeExceeded || err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != errExecutionReverted {
 			contract.UseGas(contract.Gas)

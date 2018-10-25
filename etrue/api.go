@@ -62,6 +62,14 @@ func (api *PublicEthereumAPI) Coinbase() (common.Address, error) {
 	return api.Etherbase()
 }
 
+func (api *PublicEthereumAPI) CommitteeNumber() uint64{
+	return api.e.agent.CommitteeNumber()
+}
+
+func (api *PublicEthereumAPI) GetCurrentState() map[string]interface{}{
+	return api.e.agent.GetCommitteeStatus()
+}
+
 // Hashrate returns the POW hashrate
 func (api *PublicEthereumAPI) Hashrate() hexutil.Uint64 {
 	return hexutil.Uint64(api.e.Miner().HashRate())
@@ -177,6 +185,17 @@ func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
 	if err := api.e.Miner().SetExtra([]byte(extra)); err != nil {
 		return false, err
 	}
+	return true, nil
+}
+
+// SetElection sets the election .
+func (api *PrivateMinerAPI) SetElection(toElect bool, pubkey []byte) (bool, error) {
+	if len(pubkey)<=0{
+		return false, fmt.Errorf("SetElection fail the pubkey is nil")
+	}
+
+	api.e.Miner().SetElection(toElect,pubkey);
+
 	return true, nil
 }
 

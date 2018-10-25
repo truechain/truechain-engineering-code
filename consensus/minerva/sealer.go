@@ -99,7 +99,7 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 // ConSeal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
 func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
-	log.Info(" +++++++++get in Conseal ", "fb number", block.FastNumber(), "threads", m.threads)
+	log.Debug(" +++++++++get in Conseal ", "fb number", block.FastNumber(), "threads", m.threads)
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -133,7 +133,7 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		log.Info("Seal get cpu number", "number", cpuNumber)
 
 		// remain one cpu to process fast block
-		threads = cpuNumber * 2
+		threads = cpuNumber - 1
 		if threads <= 0 {
 			threads = 1
 		}
@@ -143,7 +143,7 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		//log.Error("Stop mining for CPU number less than 2 or set threads number error.")
 	}
 	var pend sync.WaitGroup
-	for i := 0; i < threads*6; i++ {
+	for i := 0; i < threads; i++ {
 		pend.Add(1)
 		go func(id int, nonce uint64) {
 			defer pend.Done()

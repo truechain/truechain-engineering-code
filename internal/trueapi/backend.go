@@ -61,7 +61,6 @@ type Backend interface {
 	SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription
 	GetReward(number int64) *types.BlockReward
 
-
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
 	GetPoolTransactions() (types.Transactions, error)
@@ -73,30 +72,52 @@ type Backend interface {
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
+
+	// SnailPool API
+	SnailPoolContent() []*types.SnailBlock
+	SnailPoolInspect() []*types.SnailBlock
+	SnailPoolStats() (pending int, unVerified int)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
-	return []rpc.API{
+	var apis []rpc.API
+	namespaces := []string{"etrue", "eth"}
+	for _, name := range namespaces {
+		apis = append(apis, []rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTrueAPI(apiBackend),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicBlockChainAPI(apiBackend),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
+				Public:    true,
+			},
+		}...)
+	}
+	apis = append(apis, []rpc.API{
 		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicTrueAPI(apiBackend),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicBlockChainAPI(apiBackend),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
-			Public:    true,
-		}, {
 			Namespace: "txpool",
 			Version:   "1.0",
 			Service:   NewPublicTxPoolAPI(apiBackend),
+			Public:    true,
+		}, {
+			Namespace: "fruitpool",
+			Version:   "1.0",
+			Service:   NewPublicFruitPoolAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "debug",
@@ -108,15 +129,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateDebugAPI(apiBackend),
 		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
-			Public:    true,
-		}, {
 			Namespace: "personal",
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
 		},
-	}
+	}...)
+	return apis
 }

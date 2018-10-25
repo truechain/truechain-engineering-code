@@ -822,3 +822,45 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 
 	return nil
 }
+
+// Content returning all the
+// pending fruits sorted by fast number.
+func (pool *SnailPool) Content() []*types.SnailBlock {
+	fruits, error := pool.PendingFruits()
+	if error != nil{
+		return nil
+	}
+	return fruits
+}
+
+// Inspect returning all the
+// unVerifiedFruits fruits sorted by fast number.
+func (pool *SnailPool) Inspect() []*types.SnailBlock {
+
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+
+	for _, fruit := range pool.allFruits {
+		if _, ok := pool.fruitPending[fruit.FastHash()]; !ok {
+			fruits = append(fruits, types.CopyFruit(fruit))
+		}
+	}
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
+
+	for _, v := range fruits {
+		rtfruits = append(rtfruits, v)
+	}
+	return rtfruits
+}
+
+// Stats returning all the
+// pending fruits count and unVerifiedFruits fruits count.
+func (pool *SnailPool) Stats() (pending int, unVerified int) {
+
+	return len(pool.fruitPending),len(pool.allFruits)-len(pool.fruitPending)
+}
