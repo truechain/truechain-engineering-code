@@ -130,7 +130,8 @@ func (Validator *privValidator) signVote(chainID string, vote *Vote) error {
 	}
 
 	// It passed the checks. Sign the vote
-	sig, err := Validator.PrivKey.Sign(signBytes)
+	hash := help.RlpHash([]interface{}{signBytes,})
+	sig, err := Validator.PrivKey.Sign(hash[:])
 	if err != nil {
 		return err
 	}
@@ -178,9 +179,10 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 		}
 		return err
 	}
-
+	
 	// It passed the checks. Sign the proposal
-	sig, err := Validator.PrivKey.Sign(signBytes)
+	hash := help.RlpHash([]interface{}{signBytes,})
+	sig, err := Validator.PrivKey.Sign(hash[:])
 	if err != nil {
 		return err
 	}
@@ -191,7 +193,8 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 func (Validator *privValidator) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
 	Validator.mtx.Lock()
 	defer Validator.mtx.Unlock()
-	sig, err := Validator.PrivKey.Sign(heartbeat.SignBytes(chainID))
+	hash := help.RlpHash([]interface{}{heartbeat.SignBytes(chainID),})
+	sig, err := Validator.PrivKey.Sign(hash[:])
 	if err != nil {
 		return err
 	}
