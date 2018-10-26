@@ -533,6 +533,11 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		//lock.PSLog("node routeMsg",msg.(*consensus.RequestMsg).Height, fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
 		lock.PSLog("node routeMsg", msg.(*consensus.RequestMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
+		if CurrentStage != nil {
+			lock.PSLogInfo("clear stage ", msg.(*consensus.RequestMsg).Height)
+			node.PutStatus(msg.(*consensus.RequestMsg).Height, nil)
+			CurrentStage = nil
+		}
 		if CurrentStage != nil && node.CurrentHeight == msg.(*consensus.RequestMsg).Height {
 			CurrentStage.CurrentStage = consensus.Idle
 		}
