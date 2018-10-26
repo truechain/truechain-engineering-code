@@ -45,7 +45,7 @@ const (
 )
 
 // freshFruitSize is the freshness of fruit according to the paper
-var fruitFreshness *big.Int = big.NewInt(17)
+var fruitFreshness = big.NewInt(17)
 
 var (
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
@@ -261,7 +261,7 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	if f == nil {
 		return ErrNotExist
 	} else {
-		if err := pool.chain.Validator().ValidateFruit(f, nil); err != nil {
+		if err := pool.chain.Validator().ValidateFruit(f, nil, true); err != nil {
 			log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
 			delete(pool.allFruits, fastBlock.Hash())
 			delete(pool.fruitPending, fastBlock.Hash())
@@ -337,7 +337,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
+		if err := pool.chain.Validator().ValidateFruit(fruit, nil, true); err != nil {
 			log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 			return err
 		}
@@ -353,7 +353,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			return pool.appendFruit(fruit, true)
 		}
 	} else {
-		if err := pool.chain.Validator().ValidateFruit(fruit, nil); err != nil {
+		if err := pool.chain.Validator().ValidateFruit(fruit, nil, true); err != nil {
 			if err == types.ErrSnailHeightNotYet {
 				return pool.appendFruit(fruit, false)
 			}
@@ -633,7 +633,7 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 func (pool *SnailPool) removeUnfreshFruit() {
 	for _, fruit := range pool.allFruits {
 		// check freshness
-		err := pool.engine.VerifyFreshness(fruit.Header(), nil)
+		err := pool.engine.VerifyFreshness(fruit.Header(), nil, false)
 		if err != nil {
 			if err != types.ErrSnailHeightNotYet {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
@@ -739,7 +739,7 @@ func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
 	return rtfruits, nil
 }
 
-// SubscribeNewFruitsEvent registers a subscription of NewFruitEvent and
+// SubscribeNewFruitEvent registers a subscription of NewFruitEvent and
 // starts sending event to the given channel.
 func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- snailchain.NewFruitsEvent) event.Subscription {
 	return pool.scope.Track(pool.fruitFeed.Subscribe(ch))
