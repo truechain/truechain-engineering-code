@@ -345,6 +345,14 @@ func (self *worker) update() {
 					self.commitNewWork()
 				}
 
+			}else{
+				// need stop who is miner the has already mined block
+				if ev.Block.Number().Cmp(self.current.header.Number) >= 0{
+					log.Info("get chainHead stop the mined ","get block",ev.Block.Number(),"miner block ",self.current.header.Number)
+					for agent := range self.agents {
+						agent.Stop()
+					}
+				}
 			}
 
 		// Handle ChainSideEvent
