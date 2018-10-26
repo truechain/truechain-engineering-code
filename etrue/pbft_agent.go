@@ -154,14 +154,39 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 		mu:                   new(sync.Mutex),
 		cacheBlockMu:         new(sync.Mutex),
 		cacheBlock:           make(map[*big.Int]*types.Block),
+		vmConfig:             vm.Config{EnablePreimageRecording: eth.Config().EnablePreimageRecording},
 	}
-	self.initNodeWork()
-	self.InitNodeInfo(eth.Config(), coinbase)
+	self.initNodeInfo(eth.Config(), coinbase)
 	if !self.singleNode {
-		self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
-		self.chainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.chainHeadCh)
+		self.subScribeEvent()
 	}
 	return self
+}
+
+func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
+	self.initNodeWork()
+	self.singleNode = config.NodeType
+	self.privateKey = config.PrivateKey
+	self.committeeNode = &types.CommitteeNode{
+		IP:    config.Host,
+		Port:  uint(config.Port),
+		Port2: uint(config.StandByPort),
+		Coinbase:  coinbase,
+		Publickey: crypto.FromECDSAPub(&self.privateKey.PublicKey),
+	}
+	//if singlenode start, node as committeeMember
+	if self.singleNode {
+		committees := self.election.genesisCommittee
+		if len(committees) != 1 {
+			log.Error("singlenode start,must assign genesis_single.json")
+		}
+		self.committeeNode.Coinbase = committees[0].Coinbase
+		self.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
+	}
+	log.Info("InitNodeInfo", "singleNode", self.singleNode,
+		", port", config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
+		", coinbase", self.committeeNode.Coinbase,
+		",pubKey", hex.EncodeToString(self.committeeNode.Publickey))
 }
 
 func (self *PbftAgent) initNodeWork() {
@@ -180,41 +205,17 @@ func (self *PbftAgent) initNodeWork() {
 	self.nodeInfoWorks = append(self.nodeInfoWorks, nodeWork1, nodeWork2)
 }
 
-func (self *PbftAgent) InitNodeInfo(config *Config, coinbase common.Address) {
-	self.singleNode = config.NodeType
-	self.privateKey = config.PrivateKey
-	pubKey := self.privateKey.PublicKey
-	pubBytes := crypto.FromECDSAPub(&pubKey)
-	self.committeeNode = &types.CommitteeNode{
-		IP:    config.Host,
-		Port:  uint(config.Port),
-		Port2: uint(config.StandByPort),
-		//Coinbase:  crypto.PubkeyToAddress(pubKey),
-		Coinbase:  coinbase,
-		Publickey: pubBytes,
-	}
-	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-	//if singlenode start node as committeeMember
-	if self.singleNode {
-		committees := self.election.genesisCommittee
-		if len(committees) != 1 {
-			log.Error("singlenode start,must assign genesis_single.json")
-		}
-		self.committeeNode.Coinbase = committees[0].Coinbase
-		self.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
-	}
-	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
-		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
-		", coinbase", self.committeeNode.Coinbase, ",pubKey",hex.EncodeToString(self.committeeNode.Publickey),
-		", self.vmConfig", self.vmConfig.EnablePreimageRecording)
-}
-
 func (self *PbftAgent) Start() {
 	if self.singleNode {
 		go self.singleloop()
 	} else {
 		go self.loop()
 	}
+}
+
+func (self *PbftAgent) subScribeEvent(){
+	self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
+	self.chainHeadAgentSub = self.fastChain.SubscribeChainHeadEvent(self.chainHeadCh)
 }
 
 // Unsubscribe all subscriptions registered from agent
@@ -297,7 +298,7 @@ func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isC
 			}
 		}()
 	} else {
-		log.Info("node not in pbft member", "committeeId", receivedCommitteeInfo.Id)
+		log.Info("node not in pbft committee", "committeeId", receivedCommitteeInfo.Id)
 	}
 	self.debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
