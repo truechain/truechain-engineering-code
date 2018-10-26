@@ -87,7 +87,8 @@ type SnailPoolConfig struct {
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultHybridPoolConfig = SnailPoolConfig{
-	Journal: "fruits.rlp",
+	//Journal: "fruits.rlp",
+	Journal: "",
 	//Journal:   "fastBlocks.rlp",
 	Rejournal: time.Hour,
 
