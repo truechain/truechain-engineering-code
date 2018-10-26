@@ -1099,8 +1099,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// a singe block (as the true TD is below the propagated block), however this
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
-			tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			fmt.Println(tdd)
+			//tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+			//fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				go pm.synchronise(p)
