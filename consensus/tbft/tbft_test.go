@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"crypto/ecdsa"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -73,7 +74,87 @@ func TestPbftRunForOne(t *testing.T) {
 	m1 := new(types.CommitteeMember)
 	m1.Publickey = GetPub(pr)
 	c1.Members = append(c1.Members, m1)
+	c1.StartHeight = common.Big1
 	n.PutCommittee(c1)
 	n.Notify(c1.Id, Start)
+	<-start
+}
+
+func TestPbftRunFor4(t *testing.T) {
+	start := make(chan int)
+	pr1, _ := crypto.GenerateKey()
+	pr2, _ := crypto.GenerateKey()
+	pr3, _ := crypto.GenerateKey()
+	pr4, _ := crypto.GenerateKey()
+	agent1 := NewPbftAgent("Agent1")
+	agent2 := NewPbftAgent("Agent2")
+	agent3 := NewPbftAgent("Agent3")
+	agent4 := NewPbftAgent("Agent4")
+
+	config1 := new(config.Config)
+	*config1 = *config.TestConfig()
+	p2p1 := new(config.P2PConfig)
+	*p2p1 = *config1.P2P
+	p2p1.ListenAddress = "tcp://127.0.0.1:28880"
+	p2p1.ExternalAddress = "tcp://127.0.0.1:28881"
+	*config1.P2P = *p2p1
+	n1, _ := NewNode(config1, "1", pr1, agent1)
+	n1.Start()
+
+	config2 := new(config.Config)
+	*config2 = *config.TestConfig()
+	p2p2 := new(config.P2PConfig)
+	*p2p2 = *config1.P2P
+	p2p2.ListenAddress = "tcp://127.0.0.1:28883"
+	p2p2.ExternalAddress = "tcp://127.0.0.1:28884"
+	*config2.P2P = *p2p2
+	n2, _ := NewNode(config2, "1", pr2, agent2)
+	n2.Start()
+
+	config3 := new(config.Config)
+	*config3 = *config.TestConfig()
+	p2p3 := new(config.P2PConfig)
+	*p2p3 = *config1.P2P
+	p2p3.ListenAddress = "tcp://127.0.0.1:28885"
+	p2p3.ExternalAddress = "tcp://127.0.0.1:28886"
+	*config3.P2P = *p2p3
+	n3, _ := NewNode(config3, "1", pr3, agent3)
+	n3.Start()
+
+	config4 := new(config.Config)
+	*config4 = *config.TestConfig()
+	p2p4 := new(config.P2PConfig)
+	*p2p4 = *config1.P2P
+	p2p4.ListenAddress = "tcp://127.0.0.1:28887"
+	p2p4.ExternalAddress = "tcp://127.0.0.1:28888"
+	*config4.P2P = *p2p4
+	n4, _ := NewNode(config4, "1", pr4, agent4)
+	n4.Start()
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = GetPub(pr1)
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = GetPub(pr2)
+	m3 := new(types.CommitteeMember)
+	m3.Publickey = GetPub(pr3)
+	m4 := new(types.CommitteeMember)
+	m4.Publickey = GetPub(pr4)
+	c1.Members = append(c1.Members, m1, m2, m3, m4)
+	c1.StartHeight = common.Big1
+
+	n1.PutCommittee(c1)
+	go n1.Notify(c1.Id, Start)
+
+	n2.PutCommittee(c1)
+	go n2.Notify(c1.Id, Start)
+
+	n3.PutCommittee(c1)
+	go n3.Notify(c1.Id, Start)
+
+	n4.PutCommittee(c1)
+	go n4.Notify(c1.Id, Start)
+
 	<-start
 }

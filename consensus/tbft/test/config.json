@@ -23,8 +23,8 @@
   },
   "P2P": {
     "RootDir": "",
-    "ListenAddress": "tcp://127.0.0.1:26656",
-    "ExternalAddress": "tcp://127.0.0.1:26666",
+    "ListenAddress": "tcp://127.0.0.1:26677",
+    "ExternalAddress": "tcp://127.0.0.1:26678",
     "Seeds": "",
     "PersistentPeers": "",
     "UPNP": false,

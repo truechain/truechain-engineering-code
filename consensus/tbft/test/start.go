@@ -2,19 +2,21 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	tbftPkg "github.com/truechain/truechain-engineering-code/consensus/tbft"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"crypto/rand"
-	"math/big"
-	tbftPkg "github.com/truechain/truechain-engineering-code/consensus/tbft"
-	"encoding/json"
-	"io/ioutil"
-	"time"
-	"github.com/truechain/truechain-engineering-code/log"
-	"crypto/elliptic"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"strings"
+	"github.com/truechain/truechain-engineering-code/log"
+	"io/ioutil"
+	"math/big"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type PbftAgentProxyImp struct {
@@ -70,59 +72,57 @@ func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 	return &pub
 }
 
-
-type savePri struct{
+type savePri struct {
 	D *big.Int
 	X *big.Int
 	Y *big.Int
 }
 
 type myMsp struct {
-	Sps []savePri
+	Sps   []savePri
 	Index int
 }
 
-func LoadConfig() *config.Config{
+func LoadConfig() *config.Config {
 
 	var conf config.Config
-	data, err := ioutil.ReadFile("./config.json")
-	if err != nil{
+	data, err := ioutil.ReadFile("E:/truechain/src/github.com/truechain/truechain-engineering-code/consensus/tbft/test/config.json")
+	if err != nil {
 		panic("config load fail: " + err.Error())
 	}
 
 	datajson := []byte(data)
 
 	err = json.Unmarshal(datajson, &conf)
-	if err != nil{
+	if err != nil {
 		panic("config load fail: " + err.Error())
 	}
 
 	return &conf
 }
 
-
-func LoadMspConfig() *myMsp{
-
+func LoadMspConfig() *myMsp {
+	fmt.Println(os.Args)
 	var conf myMsp
-	data, err := ioutil.ReadFile("./msp.json")
-	if err != nil{
+	data, err := ioutil.ReadFile("E:/truechain/src/github.com/truechain/truechain-engineering-code/consensus/tbft/test/msp.json")
+	if err != nil {
 		panic("config load fail: " + err.Error())
 	}
 
 	datajson := []byte(data)
 
 	err = json.Unmarshal(datajson, &conf)
-	if err != nil{
+	if err != nil {
 		panic("config load fail: " + err.Error())
 	}
 
 	return &conf
 }
 
-func keyChange(sps []savePri) []*ecdsa.PrivateKey{
+func keyChange(sps []savePri) []*ecdsa.PrivateKey {
 	var pvs []*ecdsa.PrivateKey
-	for i := 0; i < len(sps);i++{
-		key,_ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	for i := 0; i < len(sps); i++ {
+		key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		key.Y = sps[i].Y
 		key.X = sps[i].X
 		key.D = sps[i].D
@@ -130,11 +130,12 @@ func keyChange(sps []savePri) []*ecdsa.PrivateKey{
 	}
 	return pvs
 }
-var iplist  = []string{"127.0.0.1","127.0.0.1","127.0.0.1","127.0.0.1"}
+
+var iplist = []string{"127.0.0.1", "127.0.0.1", "127.0.0.1", "127.0.0.1"}
 var portlist = []uint{1111, 2222, 3333, 4444}
 
 func main() {
-        //与true log日志结合
+	//与true log日志结合
 	handler, _ := log.FileHandler("./test.log", log.LogfmtFormat())
 	log.Root().SetHandler(handler)
 
@@ -147,27 +148,26 @@ func main() {
 	n, _ := tbftPkg.NewNode(myConf, "1", keySet[mymsp.Index], agent1)
 	n.Start()
 
-
 	c1 := new(types.CommitteeInfo)
 	c1.Id = big.NewInt(1)
-
-	for i := 0; i < len(keySet); i++{
+	c1.StartHeight = c1.Id
+	for i := 0; i < len(keySet); i++ {
 		m1 := new(types.CommitteeMember)
 		m1.Publickey = GetPub(keySet[i])
 		c1.Members = append(c1.Members, m1)
 	}
 
-	selfPort := strings.Split(myConf.P2P.ListenAddress,":")[2]
-	port,_ := strconv.ParseUint(selfPort, 10, 64)
+	selfPort := strings.Split(myConf.P2P.ListenAddress, ":")[2]
+	port, _ := strconv.ParseUint(selfPort, 10, 64)
 	var nodes []*types.CommitteeNode
-	for i := 0; i < 4; i++{
+	for i := 0; i < 4; i++ {
 		n1 := new(types.CommitteeNode)
 		n1.IP = iplist[i]
 		n1.Port = portlist[i]
 		n1.Publickey = elliptic.Marshal(crypto.S256(), keySet[i].X, keySet[i].Y)
 		//这里没有找到Coinbase 与公钥直接的转换函数
 		//n1.Coinbase
-		if uint(port) == n1.Port{
+		if uint(port) == n1.Port {
 			continue
 		}
 		nodes = append(nodes, n1)
@@ -177,8 +177,7 @@ func main() {
 	n.Notify(c1.Id, tbftPkg.Start)
 	n.PutNodes(c1.Id, nodes)
 
-	for{
+	for {
 		time.Sleep(time.Hour)
 	}
 }
-
