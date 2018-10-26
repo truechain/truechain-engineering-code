@@ -34,7 +34,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -42,7 +41,6 @@ import (
 )
 
 const (
-	//preCommittee     = iota //previous committee
 	currentCommittee = iota //current running committee
 	nextCommittee           //next committee
 )
@@ -67,11 +65,9 @@ var (
 )
 
 type Backend interface {
-	//AccountManager() *accounts.Manager
 	BlockChain() *core.BlockChain
 	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
-	//ChainDb() ethdb.Database
 	Config() *Config
 }
 
@@ -264,7 +260,7 @@ func (self *PbftAgent) stopSend() {
 		nodeWork.ticker.Stop() //stop ticker send nodeInfo
 	}
 	//clear nodeWork
-	nodeWork.loadNodeWork(new(types.CommitteeInfo),false)
+	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
 }
 
 func (nodeWork *nodeInfoWork) loadNodeWork(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
@@ -286,7 +282,7 @@ func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
 	nodeWork := self.updateCurrentNodeWork()
 	//load nodeWork
-	nodeWork.loadNodeWork(receivedCommitteeInfo,isCommitteeMember)
+	nodeWork.loadNodeWork(receivedCommitteeInfo, isCommitteeMember)
 	if nodeWork.isCommitteeMember {
 		log.Info("node in pbft committee", "committeeId", receivedCommitteeInfo.Id)
 		nodeWork.ticker = time.NewTicker(sendNodeTime)
@@ -558,16 +554,22 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 		return
 	}*/
 	log.Debug("into sendPbftNode", "committeeId", nodeWork.committeeInfo.Id)
+	cryNodeInfo := encryptNodeInfo(nodeWork.committeeInfo, self.committeeNode, self.privateKey)
+	//nodeWork.cryptoNode = cryNodeInfo
+	self.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+}
+
+func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode,
+	privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {
 	var (
-		err           error
-		committeeInfo = nodeWork.committeeInfo
-		cryNodeInfo   = &types.EncryptNodeMessage{
+		err         error
+		cryNodeInfo = &types.EncryptNodeMessage{
 			CreatedAt:   time.Now(),
 			CommitteeId: committeeInfo.Id,
 		}
 	)
-	PrintNode("send", self.committeeNode)
-	nodeByte, err := rlp.EncodeToBytes(self.committeeNode)
+	PrintNode("send", committeeNode)
+	nodeByte, err := rlp.EncodeToBytes(committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
 	}
@@ -582,12 +584,11 @@ func (self *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	cryNodeInfo.Nodes = encryptNodes
 
 	hash := cryNodeInfo.HashWithoutSign().Bytes()
-	cryNodeInfo.Sign, err = crypto.Sign(hash, self.privateKey)
+	cryNodeInfo.Sign, err = crypto.Sign(hash, privateKey)
 	if err != nil {
 		log.Error("sign node error", "err", err)
 	}
-	//nodeWork.cryptoNode = cryNodeInfo
-	self.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+	return cryNodeInfo
 }
 
 func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
@@ -601,17 +602,25 @@ func (pbftAgent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMess
 
 func (self *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
+	committeeNode := decryptNodeInfo(cryNodeInfo, self.privateKey)
+	if committeeNode != nil {
+		self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{committeeNode})
+	}
+}
+
+func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.PrivateKey) *types.CommitteeNode {
 	//ecdsa.PrivateKey convert to ecies.PrivateKey
-	priKey := ecies.ImportECDSA(self.privateKey)
+	priKey := ecies.ImportECDSA(privateKey)
 	for _, encryptNode := range cryNodeInfo.Nodes {
 		decryptNode, err := priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil { // can Decrypt by priKey
-			node := new(types.CommitteeNode) //receive nodeInfo
-			rlp.DecodeBytes(decryptNode, node)
-			PrintNode("receive", node)
-			self.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{node})
+			committeeNode := new(types.CommitteeNode) //receive nodeInfo
+			rlp.DecodeBytes(decryptNode, committeeNode)
+			PrintNode("receive", committeeNode)
+			return committeeNode
 		}
 	}
+	return nil
 }
 
 //generateBlock and broadcast
@@ -778,8 +787,9 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 	return voteSign, err
 }
 
+//GenerateSignWithVoteAgree
 func (self *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
-	return self.GenerateSignWithVote(fb,types.VoteAgree)
+	return self.GenerateSignWithVote(fb, types.VoteAgree)
 }
 
 //broadcast blockAndSign
@@ -1062,18 +1072,6 @@ func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *typ
 	}
 }
 
-func RlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
-	rlp.Encode(hw, x)
-	hw.Sum(h[:0])
-	return h
-}
-
-func DebugCryptNode(node *types.EncryptNodeMessage) {
-	log.Debug("DebugCryptNode ", "createdAt:", node.CreatedAt, "Id:", node.CommitteeId, "Nodes.len:",
-		len(node.Nodes))
-}
-
 func PrintNode(str string, node *types.CommitteeNode) {
 	log.Debug(str+" CommitteeNode", "IP:", node.IP, "Port:", node.Port,
 		"Coinbase:", node.Coinbase, "Publickey:", hex.EncodeToString(node.Publickey)[:6]+"***")
@@ -1113,10 +1111,10 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		/*_, err = agent.VerifyFastBlock(block)
+		_, err = agent.VerifyFastBlock(block)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
-		}*/
+		}
 		err = agent.BroadcastConsensus(block)
 		if err != nil {
 			log.Error("BroadcastConsensus error", "err", err)
