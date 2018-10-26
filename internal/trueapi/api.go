@@ -252,19 +252,24 @@ func (s *PublicFruitPoolAPI) Content() []*RPCFruit {
 	return pendingFruits
 }
 
-// Status returns the unVerifiedFruits contained within the snail pool.
-func (s *PublicFruitPoolAPI) Status() []*RPCFruit {
-	//content := map[string]interface{}{}
-	pending := s.b.SnailPoolContent()
-	//content["count"] = count
-	// Flatten the pending fruits
-	//dump := make(map[common.Hash]*RPCFruit)
-	var pendingFruits []*RPCFruit
-	for _, fruit := range pending {
-		pendingFruits = append(pendingFruits, newRPCFruit(fruit))
+// Inspect returns the unVerifiedFruits contained within the snail pool.
+func (s *PublicFruitPoolAPI) Inspect() []*RPCFruit {
+
+	unVerified := s.b.SnailPoolInspect()
+	var unVerifiedFruits []*RPCFruit
+	for _, fruit := range unVerified {
+		unVerifiedFruits = append(unVerifiedFruits, newRPCFruit(fruit))
 	}
-	//content["pending"] = dump
-	return pendingFruits
+	return unVerifiedFruits
+}
+
+// Status returns the number of pending and unVerified Fruits in the pool.
+func (s *PublicFruitPoolAPI) Status() map[string]hexutil.Uint {
+	pending, unVerified := s.b.SnailPoolStats()
+	return map[string]hexutil.Uint{
+		"pending": hexutil.Uint(pending),
+		"unVerified":  hexutil.Uint(unVerified),
+	}
 }
 
 // PrivateAccountAPI provides an API to access accounts managed by this node.

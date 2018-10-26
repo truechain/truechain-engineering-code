@@ -194,9 +194,19 @@ func (self *PbftAgent) InitNodeInfo(config *Config, coinbase common.Address) {
 		Publickey: pubBytes,
 	}
 	self.vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+	//if singlenode start node as committeeMember
+	if self.singleNode {
+		committees := self.election.genesisCommittee
+		if len(committees) != 1 {
+			log.Error("singlenode start,must assign genesis_single.json")
+		}
+		self.committeeNode.Coinbase = committees[0].Coinbase
+		self.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
+	}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode, ", port",
 		config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
-		", coinbase", self.committeeNode.Coinbase, ", self.vmConfig", self.vmConfig.EnablePreimageRecording)
+		", coinbase", self.committeeNode.Coinbase, ",pubKey",hex.EncodeToString(self.committeeNode.Publickey),
+		", self.vmConfig", self.vmConfig.EnablePreimageRecording)
 }
 
 func (self *PbftAgent) Start() {
@@ -613,6 +623,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 	)
 	tstart := time.Now()
 	parent := self.fastChain.CurrentBlock()
+	//validate newBlock number exceed endNumber
 	if endNumber := self.endFastNumber[committeeId]; endNumber != nil && endNumber.Cmp(parent.Number()) != 1 {
 		log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)
 		return fastBlock, core.ErrExceedNumber
@@ -657,6 +668,7 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 	}
 	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
 	work.commitTransactions(self.mux, txs, self.fastChain, feeAmount)
+	//calculate snailBlock reward
 	self.rewardSnailBlock(header)
 	// padding Header.Root, TxHash, ReceiptHash.
 	// Create the new block to seal with the consensus engine
@@ -678,6 +690,8 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 	log.Debug("out GenerateFastBlock...")
 	return fastBlock, err
 }
+
+//validate space between latest fruit number of snailchain  and  lastest fastBlock number
 func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 	snailBlock := self.snailChain.CurrentBlock()
 	blockFruits := snailBlock.Body().Fruits
@@ -1038,10 +1052,9 @@ func (self *PbftAgent) CommitteeNumber() uint64 {
 }
 
 func (self *PbftAgent) GetCommitteeStatus() map[string]interface{} {
-	committeeID :=self.CommitteeNumber()
+	committeeID := self.CommitteeNumber()
 	return self.server.GetCommitteeStatus(big.NewInt((int64)(committeeID)))
 }
-
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
@@ -1081,10 +1094,12 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	return self.election.IsCommitteeMember(committeeMembers, self.committeeNode.Publickey)
 }
 
+//func GetSigns(committees []*types.CommitteeMember,fb *types.Block) []
+
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")
 	// sleep a minute to wait election module start and other nodes' connection
-	time.Sleep(time.Minute)
+	//time.Sleep(time.Minute)
 	for {
 		// fetch block
 		var (

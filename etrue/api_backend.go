@@ -248,8 +248,12 @@ func (b *EthAPIBackend) SnailPoolContent() []*types.SnailBlock {
 	return b.etrue.SnailPool().Content()
 }
 
-func (b *EthAPIBackend) SnailPoolStatus() []*types.SnailBlock {
-	return b.etrue.SnailPool().Status()
+func (b *EthAPIBackend) SnailPoolInspect()  []*types.SnailBlock{
+	return b.etrue.SnailPool().Inspect()
+}
+
+func (b *EthAPIBackend) SnailPoolStats()  (pending int, unVerified int){
+	return b.etrue.SnailPool().Stats()
 }
 
 func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {

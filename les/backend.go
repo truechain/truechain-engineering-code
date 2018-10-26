@@ -164,13 +164,6 @@ func (s *LightDummyAPI) Coinbase() (common.Address, error) {
 	return common.Address{}, fmt.Errorf("not supported")
 }
 
-func (api *LightDummyAPI) CommitteeNumber() uint64{
-	return 0
-}
-func (api *LightDummyAPI) GetCurrentState() map[string]interface{}{
-	return nil
-}
-
 // Hashrate returns the POW hashrate
 func (s *LightDummyAPI) Hashrate() hexutil.Uint {
 	return 0

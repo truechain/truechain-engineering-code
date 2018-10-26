@@ -65,6 +65,7 @@ func (api *PublicEthereumAPI) Coinbase() (common.Address, error) {
 func (api *PublicEthereumAPI) CommitteeNumber() uint64{
 	return api.e.agent.CommitteeNumber()
 }
+
 func (api *PublicEthereumAPI) GetCurrentState() map[string]interface{}{
 	return api.e.agent.GetCommitteeStatus()
 }
