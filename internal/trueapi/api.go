@@ -267,8 +267,8 @@ func (s *PublicFruitPoolAPI) Inspect() []*RPCFruit {
 func (s *PublicFruitPoolAPI) Status() map[string]hexutil.Uint {
 	pending, unVerified := s.b.SnailPoolStats()
 	return map[string]hexutil.Uint{
-		"pending": hexutil.Uint(pending),
-		"unVerified":  hexutil.Uint(unVerified),
+		"pending":    hexutil.Uint(pending),
+		"unVerified": hexutil.Uint(unVerified),
 	}
 }
 
@@ -1015,7 +1015,7 @@ func (s *PublicBlockChainAPI) rpcOutputSnailBlock(b *types.SnailBlock, inclFruit
 func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]interface{}, error) {
 	rew := s.b.GetReward(-1)
 	if rew == nil {
-		return nil, errors.New("no reward snail block")
+		return nil, nil
 	}
 	block, err := s.b.GetSnailBlock(ctx, rew.SnailHash)
 
@@ -1029,7 +1029,7 @@ func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]
 func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
 	rew := s.b.GetReward(blockNr.Int64())
 	if rew == nil {
-		return nil, errors.New("no this reward snail block")
+		return nil, nil
 	}
 	block, err := s.b.GetBlock(ctx, rew.FastHash)
 	if block != nil {
