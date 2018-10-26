@@ -195,6 +195,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
+
+	if config.SnailPool.Journal != "" {
+		config.SnailPool.Journal = ctx.ResolvePath(config.SnailPool.Journal)
+	}
+
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
 	etrue.snailPool = core.NewSnailPool(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
