@@ -248,10 +248,10 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	if !config.NoLocals && config.Journal != "" {
 		pool.journal = newSnailJournal(config.Journal)
 		if err := pool.journal.load(pool.AddLocals); err != nil {
-			log.Warn("Failed to load transaction journal", "err", err)
+			log.Warn("Failed to load fruit journal", "err", err)
 		}
 		if err := pool.journal.rotate(pool.local()); err != nil {
-			log.Warn("Failed to rotate transaction journal", "err", err)
+			log.Warn("Failed to rotate fruit journal", "err", err)
 		}
 	}
 	return pool
