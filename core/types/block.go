@@ -673,6 +673,10 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	if cpy.PointerNumber = new(big.Int); h.PointerNumber != nil {
 		cpy.PointerNumber.Set(h.PointerNumber)
 	}
+	if len(h.Publickey) > 0 {
+		cpy.Publickey = make([]byte, len(h.Publickey))
+		copy(cpy.Publickey, h.Publickey)
+	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
