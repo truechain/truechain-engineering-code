@@ -54,7 +54,7 @@ const (
 	sendNodeTime     = 30 * time.Second
 	subSignStr       = 24
 
-	fetchBlockTime = 5
+	fetchBlockTime = 3
 	blockInterval  = 20
 )
 
@@ -1038,10 +1038,9 @@ func (self *PbftAgent) CommitteeNumber() uint64 {
 }
 
 func (self *PbftAgent) GetCommitteeStatus() map[string]interface{} {
-	committeeID :=self.CommitteeNumber()
+	committeeID := self.CommitteeNumber()
 	return self.server.GetCommitteeStatus(big.NewInt((int64)(committeeID)))
 }
-
 
 func (self *PbftAgent) setCommitteeInfo(CommitteeType int, newCommitteeInfo *types.CommitteeInfo) {
 	if newCommitteeInfo == nil {
@@ -1084,7 +1083,7 @@ func (self *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")
 	// sleep a minute to wait election module start and other nodes' connection
-	time.Sleep(time.Minute)
+	//time.Sleep(time.Minute)
 	for {
 		// fetch block
 		var (
