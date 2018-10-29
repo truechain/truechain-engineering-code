@@ -196,8 +196,7 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 	p.wg.Add(2)
 	go p.readLoop(readErr)
 	go p.pingLoop()
-	//fmt.Println("peer.LocalAddr》》》》》》》》》》》",p.LocalAddr().String())
-	//fmt.Println("peer》》》》》》》》》》》",p.Info().ID)
+
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
 	p.startProtocols(writeStart, writeErr)
@@ -232,7 +231,9 @@ loop:
 	}
 
 	close(p.closed)
+	log.Info("Peer remove", "reason", reason, "err", err)
 	p.rw.close(reason)
+	log.Info("Peer remove", "reason", reason, "err", err, "remoteRequested", remoteRequested)
 	p.wg.Wait()
 	return remoteRequested, err
 }
