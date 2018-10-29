@@ -33,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (
@@ -64,6 +65,17 @@ var (
 	ErrNoFastBlockToMiner = errors.New("the fastblocks is null")
 )
 
+var (
+	// Metrics for the pending pool
+	fruitPendingDiscardCounter   = metrics.NewRegisteredCounter("fruitpool/pending/discard", nil)
+	fruitpendingReplaceCounter   = metrics.NewRegisteredCounter("fruitpool/pending/replace", nil)
+
+	// Metrics for the allfruit pool
+	allDiscardCounter   = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
+	allReplaceCounter   = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
+
+)
+
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type SnailPoolConfig struct {
 	NoLocals  bool          // Whether local transaction handling should be disabled
@@ -87,7 +99,6 @@ type SnailPoolConfig struct {
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultHybridPoolConfig = SnailPoolConfig{
-	//Journal: "fruits.rlp",
 	Journal: "",
 	//Journal:   "fastBlocks.rlp",
 	Rejournal: time.Hour,
@@ -271,7 +282,9 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	} else {
 		if err := pool.chain.Validator().ValidateFruit(f, nil); err != nil {
 			log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
+			allReplaceCounter.Inc(1)
 			delete(pool.allFruits, fastBlock.Hash())
+			fruitpendingReplaceCounter.Inc(1)
 			delete(pool.fruitPending, fastBlock.Hash())
 			return ErrInvalidHash
 		}
@@ -530,7 +543,9 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1 {
 			log.Trace(" removeWithLock del fruit", "fb number", fruit.FastNumber())
+			fruitPendingDiscardCounter.Inc(1)
 			delete(pool.fruitPending, fruit.FastHash())
+			allDiscardCounter.Inc(1)
 			delete(pool.allFruits, fruit.FastHash())
 			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
 				pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
@@ -654,7 +669,9 @@ func (pool *SnailPool) removeUnfreshFruit() {
 		if err != nil {
 			if err != types.ErrSnailHeightNotYet {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
+				fruitPendingDiscardCounter.Inc(1)
 				delete(pool.fruitPending, fruit.FastHash())
+				allDiscardCounter.Inc(1)
 				delete(pool.allFruits, fruit.FastHash())
 			}
 		}
@@ -665,7 +682,9 @@ func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
+	fruitPendingDiscardCounter.Inc(1)
 	delete(pool.fruitPending, fasthash)
+	allDiscardCounter.Inc(1)
 	delete(pool.allFruits, fasthash)
 }
 
