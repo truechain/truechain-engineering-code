@@ -67,13 +67,12 @@ var (
 
 var (
 	// Metrics for the pending pool
-	fruitPendingDiscardCounter   = metrics.NewRegisteredCounter("fruitpool/pending/discard", nil)
-	fruitpendingReplaceCounter   = metrics.NewRegisteredCounter("fruitpool/pending/replace", nil)
+	fruitPendingDiscardCounter = metrics.NewRegisteredCounter("fruitpool/pending/discard", nil)
+	fruitpendingReplaceCounter = metrics.NewRegisteredCounter("fruitpool/pending/replace", nil)
 
 	// Metrics for the allfruit pool
-	allDiscardCounter   = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
-	allReplaceCounter   = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
-
+	allDiscardCounter = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
+	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
 )
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -93,7 +92,7 @@ type SnailPoolConfig struct {
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
 	FruitCount uint64
-	FastCount  int
+	FastCount  uint64
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -187,7 +186,7 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
 // fruits/fastblock from the network.
-func NewSnailPool(config SnailPoolConfig,chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
+func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	//config SnailPoolConfig
 	config = (&config).sanitize()
@@ -394,7 +393,7 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 		return ErrExist
 	}
 
-	if len(pool.allFastBlocks) >= pool.config.FastCount {
+	if uint64(len(pool.allFastBlocks)) >= pool.config.FastCount {
 		return ErrExceedNumber
 	}
 

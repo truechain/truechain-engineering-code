@@ -874,7 +874,7 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *etrue.Config) {
 			Fatalf("Option %q: %v", EtherbaseFlag.Name, err)
 		}
 		cfg.Etherbase = account.Address
-	}else if ctx.GlobalIsSet(CoinbaseFlag.Name) {
+	} else if ctx.GlobalIsSet(CoinbaseFlag.Name) {
 		account, err := MakeAddress(ks, ctx.GlobalString(CoinbaseFlag.Name))
 		if err != nil {
 			Fatalf("Option %q: %v", CoinbaseFlag.Name, err)
@@ -1123,7 +1123,7 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 }
 
 // SetTruechainConfig applies etrue-related command line flags to the config.
-func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config ) {
+func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
 	checkExclusive(ctx, DeveloperFlag, TestnetFlag, RinkebyFlag)
 	checkExclusive(ctx, FastSyncFlag, LightModeFlag, SyncModeFlag)
@@ -1135,7 +1135,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config ) 
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
-	setSnailPool(ctx,&cfg.SnailPool)
+	setSnailPool(ctx, &cfg.SnailPool)
 	/*switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
