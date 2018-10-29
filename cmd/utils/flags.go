@@ -388,6 +388,11 @@ var (
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
+	CoinbaseFlag = cli.StringFlag{
+		Name:  "coinbase",
+		Usage: "Public address for block mining rewards (default = first account created)",
+		Value: "0",
+	}
 	GasPriceFlag = BigFlag{
 		Name:  "gasprice",
 		Usage: "Minimal gas price to accept for mining a transactions",
@@ -867,6 +872,12 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *etrue.Config) {
 		account, err := MakeAddress(ks, ctx.GlobalString(EtherbaseFlag.Name))
 		if err != nil {
 			Fatalf("Option %q: %v", EtherbaseFlag.Name, err)
+		}
+		cfg.Etherbase = account.Address
+	}else if ctx.GlobalIsSet(CoinbaseFlag.Name) {
+		account, err := MakeAddress(ks, ctx.GlobalString(CoinbaseFlag.Name))
+		if err != nil {
+			Fatalf("Option %q: %v", CoinbaseFlag.Name, err)
 		}
 		cfg.Etherbase = account.Address
 	}

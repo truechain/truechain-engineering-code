@@ -340,6 +340,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
+			log.Info("drop peer fast Synchronise","id",id)
 			d.dropPeer(id)
 		}
 	default:
@@ -502,10 +503,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	d.cancelWg.Add(len(fetchers))
 	for _, fn := range fetchers {
 		fn := fn
-		go func() {
-			defer func() { d.cancelWg.Done(); log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++") }()
-			errc <- fn()
-		}()
+		go func() {errc <- fn()}()
 	}
 	// Wait for the first error, then terminate the others.
 	var err error
@@ -514,16 +512,11 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			// Close the queue when all fetchers have exited.
 			// This will cause the block processor to end when
 			// it has processed the queue.
-			log.Debug("d.queue.Close()>>>>>>>>>>>>>>>>>>")
 			d.queue.Close()
 		}
-		//log.Debug("fetchers  start","index",i)
-		//if len(errc
 		if err = <-errc; err != nil {
-			log.Debug("err = <-errc; err != nil","err:",err)
 			break
 		}
-		//log.Debug("fetchers  end","index",i)
 	}
 
 	d.queue.Close()
@@ -961,6 +954,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			// Header retrieval timed out, consider the peer bad and drop
 			p.GetLog().Debug("Fast Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
+			p.GetLog().Info("drop peer fast fetchHeaders timout ","id",p.GetID())
 			d.dropPeer(p.GetID())
 
 			// Finish the sync gracefully instead of dumping the gathered data though
@@ -1109,9 +1103,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			return errCancel
 
 		case packet := <-deliveryCh:
-			//log.Debug("deliver <- packet ","packet",packet,"kind",kind)
 
-			//log.Debug("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -1185,6 +1177,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
+							peer.GetLog().Info("drop peer fast fetchParts","id",peer.GetID(),"type",kind,"fails",fails)
 							d.dropPeer(pid)
 						}
 					}

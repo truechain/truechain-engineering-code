@@ -3,7 +3,6 @@ package metrics
 import (
 	"sync"
 	"time"
-	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // Meters count events to produce exponentially-weighted moving average rates
@@ -221,7 +220,6 @@ func (m *StandardMeter) updateSnapshot() {
 	// should run with write lock held on m.lock
 	snapshot := m.snapshot
 	snapshot.rate1 = m.a1.Rate()
-	log.Info("mater updateSnapshot ","snapshot.rate1 ",m.a1.Rate())
 	snapshot.rate5 = m.a5.Rate()
 	snapshot.rate15 = m.a15.Rate()
 	snapshot.rateMean = float64(snapshot.count) / time.Since(m.startTime).Seconds()
