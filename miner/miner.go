@@ -247,7 +247,7 @@ func (self *Miner) Mining() bool {
 	return atomic.LoadInt32(&self.mining) > 0
 }
 
-func (self *Miner) GetHashRate() (tot int64) {
+func (self *Miner) HashRate() (tot int64) {
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
 	}

@@ -217,7 +217,7 @@ func (api *PrivateMinerAPI) SetEtherbase(etherbase common.Address) bool {
 
 // GetHashrate returns the current hashrate of the miner.
 func (api *PrivateMinerAPI) GetHashRate() uint64 {
-	return uint64(api.e.Miner().GetHashRate())
+	return uint64(api.e.Miner().HashRate())
 }
 
 // PrivateAdminAPI is the collection of Truechain full node-related APIs
