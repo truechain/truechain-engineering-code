@@ -487,8 +487,8 @@ web3._extend({
 			inputFormatter: [web3._extend.utils.fromDecimal]
 		}),
 		new web3._extend.Method({
-			name: 'getHashrate',
-			call: 'miner_getHashrate'
+			name: 'GetHashRate',
+			call: 'miner_GetHashRate'
 		}),
 	],
 	properties: []
