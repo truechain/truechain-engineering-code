@@ -55,7 +55,8 @@ func (vote *Vote) SignBytes(chainID string) []byte {
 	if err != nil {
 		panic(err)
 	}
-	return bz
+	signBytes := help.RlpHash([]interface{}{bz,})
+	return signBytes[:]
 }
 
 func (vote *Vote) Copy() *Vote {

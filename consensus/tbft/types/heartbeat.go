@@ -34,7 +34,8 @@ func (heartbeat *Heartbeat) SignBytes(chainID string) []byte {
 	if err != nil {
 		panic(err)
 	}
-	return bz
+	signBytes := help.RlpHash([]interface{}{bz,})
+	return signBytes[:]
 }
 
 // Copy makes a copy of the Heartbeat.

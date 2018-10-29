@@ -54,5 +54,6 @@ func (p *Proposal) SignBytes(chainID string) []byte {
 	if err != nil {
 		panic(err)
 	}
-	return bz
+	signBytes := help.RlpHash([]interface{}{bz,})
+	return signBytes[:]
 }
