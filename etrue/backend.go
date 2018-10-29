@@ -317,7 +317,7 @@ func (s *Truechain) APIs() []rpc.API {
 			{
 				Namespace: name,
 				Version:   "1.0",
-				Service:   NewPublicEthereumAPI(s),
+				Service:   NewPublicTruechainAPI(s),
 				Public:    true,
 			},{
 				Namespace: name,
