@@ -98,7 +98,8 @@ type SnailPoolConfig struct {
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultHybridPoolConfig = SnailPoolConfig{
-	Journal: "fruits.rlp",
+	//Journal: "fruits.rlp",
+	Journal: "",
 	//Journal:   "fastBlocks.rlp",
 	Rejournal: time.Hour,
 
@@ -248,8 +249,8 @@ func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastB
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
-	// If local fruits and journaling is enabled, load from disk
-	if !config.NoLocals && config.Journal != "" {
+	// If journaling is enabled, load from disk
+	if config.Journal != "" {
 		pool.journal = newSnailJournal(config.Journal)
 		if err := pool.journal.load(pool.AddLocals); err != nil {
 			log.Warn("Failed to load fruit journal", "err", err)
