@@ -132,6 +132,9 @@ type Config struct {
 	// Transaction pool options
 	TxPool core.TxPoolConfig
 
+	//fruit pool options
+	SnailPool core.SnailPoolConfig
+
 	// Gas Price Oracle options
 	GPO gasprice.Config
 
