@@ -268,7 +268,7 @@ func (s *PublicFruitPoolAPI) Status() map[string]hexutil.Uint {
 	pending, unVerified := s.b.SnailPoolStats()
 	return map[string]hexutil.Uint{
 		"pending":    hexutil.Uint(pending),
-		"unVerified": hexutil.Uint(unVerified),
+		"unverified": hexutil.Uint(unVerified),
 	}
 }
 
