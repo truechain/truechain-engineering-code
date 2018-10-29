@@ -331,6 +331,17 @@ var (
 		Usage: "Maximum amount of time non-executable transaction are queued",
 		Value: etrue.DefaultConfig.TxPool.Lifetime,
 	}
+	//snail pool settings
+	SnailPoolJournalFlag = cli.StringFlag{
+		Name:  "snailpool.journal",
+		Usage: "Disk journal for local fruit to survive node restarts",
+		Value: core.DefaultHybridPoolConfig.Journal,
+	}
+	SnailPoolRejournalFlag = cli.DurationFlag{
+		Name:  "snailpool.rejournal",
+		Usage: "Time interval to regenerate the local snail journal",
+		Value: core.DefaultHybridPoolConfig.Rejournal,
+	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
