@@ -184,6 +184,13 @@ func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {
 	return nil
 }
 
+func (b *LesApiBackend) SnailPoolInspect() []*types.SnailBlock {
+	return nil
+}
+
+func (b *LesApiBackend) SnailPoolStats() (pending int, unVerified int) {
+	return 0,0
+}
 
 func (b *LesApiBackend) Downloader() *downloader.Downloader {
 	return b.etrue.Downloader()

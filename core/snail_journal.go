@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -129,7 +128,7 @@ func (journal *snailJournal) insert(fruit *types.SnailBlock) error {
 
 // rotate regenerates the fruit journal based on the current contents of
 // the fruit pool.
-func (journal *snailJournal) rotate(all map[common.Address]types.Fruits) error {
+func (journal *snailJournal) rotate(all []*types.SnailBlock) error {
 	// Close the current journal (if any is open)
 	if journal.writer != nil {
 		if err := journal.writer.Close(); err != nil {
@@ -142,15 +141,12 @@ func (journal *snailJournal) rotate(all map[common.Address]types.Fruits) error {
 	if err != nil {
 		return err
 	}
-	journaled := 0
-	for _, fruits := range all {
-		for _, fruit := range fruits {
+
+	for _, fruit := range all {
 			if err = rlp.Encode(replacement, fruit); err != nil {
 				replacement.Close()
 				return err
 			}
-		}
-		journaled += len(fruits)
 	}
 	replacement.Close()
 
@@ -163,7 +159,7 @@ func (journal *snailJournal) rotate(all map[common.Address]types.Fruits) error {
 		return err
 	}
 	journal.writer = sink
-	log.Info("Regenerated local fruit journal", "fruits", journaled, "accounts", len(all))
+	log.Info("Regenerated local fruit journal", "fruits", len(all))
 
 	return nil
 }

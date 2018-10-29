@@ -67,8 +67,8 @@ var (
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type SnailPoolConfig struct {
 	NoLocals  bool          // Whether local transaction handling should be disabled
-	Journal   string        // Journal of local transactions to survive node restarts
-	Rejournal time.Duration // Time interval to regenerate the local transaction journal
+	Journal   string        // Journal of local fruits to survive node restarts
+	Rejournal time.Duration // Time interval to regenerate the local fruit journal
 
 	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
 	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
@@ -87,8 +87,9 @@ type SnailPoolConfig struct {
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultHybridPoolConfig = SnailPoolConfig{
-	//Journal:   "records.rlp",
-	Journal:   "fastBlocks.rlp",
+	//Journal: "fruits.rlp",
+	Journal: "",
+	//Journal:   "fastBlocks.rlp",
 	Rejournal: time.Hour,
 
 	PriceLimit: 1,
@@ -109,7 +110,7 @@ var DefaultHybridPoolConfig = SnailPoolConfig{
 func (config *SnailPoolConfig) sanitize() SnailPoolConfig {
 	conf := *config
 	if conf.Rejournal < time.Second {
-		log.Warn("Sanitizing invalid txpool journal time", "provided", conf.Rejournal, "updated", time.Second)
+		log.Warn("Sanitizing invalid snailpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
 	}
 	if conf.PriceLimit < 1 {
@@ -144,6 +145,7 @@ type SnailPool struct {
 	//recordFeed event.Feed
 	fastBlockFeed event.Feed
 	mu            sync.RWMutex
+	journal       *snailJournal // Journal of local fruit to back up to disk
 
 	//chainHeadCh  chan ChainHeadEvent
 	chainHeadCh  chan types.ChainSnailHeadEvent
@@ -211,9 +213,6 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	}
 	pool.reset(nil, chain.CurrentBlock())
 
-	// If local transactions and journaling is enabled, load from disk
-	if !config.NoLocals && config.Journal != "" {
-	}
 	// Subscribe events from blockchain
 	pool.fastchainHeadSub = pool.fastchain.SubscribeChainHeadEvent(pool.fastchainHeadCh)
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
@@ -246,7 +245,16 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
-
+	// If local fruits and journaling is enabled, load from disk
+	if !config.NoLocals && config.Journal != "" {
+		pool.journal = newSnailJournal(config.Journal)
+		if err := pool.journal.load(pool.AddLocals); err != nil {
+			log.Warn("Failed to load fruit journal", "err", err)
+		}
+		if err := pool.journal.rotate(pool.local()); err != nil {
+			log.Warn("Failed to rotate fruit journal", "err", err)
+		}
+	}
 	return pool
 }
 
@@ -470,10 +478,16 @@ func (pool *SnailPool) loop() {
 			pool.mu.Lock()
 			pool.mu.Unlock()
 
-			// Handle local transaction journal rotation
+			// Handle local fruit journal rotation
 		case <-journal.C:
 			// TODO: support journal
-
+			if pool.journal != nil {
+				pool.mu.Lock()
+				if err := pool.journal.rotate(pool.local()); err != nil {
+					log.Warn("Failed to rotate local tx journal", "err", err)
+				}
+				pool.mu.Unlock()
+			}
 		}
 	}
 }
@@ -665,9 +679,9 @@ func (pool *SnailPool) Stop() {
 	pool.wg.Wait()
 
 	// TODO: journal close
-	//if pool.journal != nil {
-	//	pool.journal.close()
-	//}
+	if pool.journal != nil {
+		pool.journal.close()
+	}
 	log.Info("Snail pool stopped")
 }
 
@@ -697,6 +711,55 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 	}
 
 	return errs
+}
+
+// addLocalFruits enqueues a batch of fruits into the pool if they are valid.
+func (pool *SnailPool) addLocalFruits(fruits []*types.SnailBlock) []error {
+
+	errs := make([]error, len(fruits))
+
+	for i, fruit := range fruits {
+		log.Trace("addLocalFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
+		if err := pool.validateFruit(fruit); err != nil {
+			log.Debug("addLocalFruits validate fruit failed", "err fruit fb num", fruit.FastNumber(), "err", err)
+			errs[i] = err
+			continue
+		}
+
+		f := types.CopyFruit(fruit)
+		pool.newFruitCh <- f
+	}
+
+	return errs
+}
+
+// AddLocals enqueues a batch of fruits into the pool if they are valid,
+// marking the senders as a local ones in the mean time, ensuring they go around
+// the local pricing constraints.
+func (pool *SnailPool) AddLocals(fruits []*types.SnailBlock) []error {
+	return pool.addLocalFruits(fruits)
+}
+
+// local retrieves all currently known local fruits sorted by fast number. The returned fruit set is a copy and can be
+// freely modified by calling code.
+func (pool *SnailPool) local() []*types.SnailBlock {
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+
+	for _, fruit := range pool.allFruits {
+		fruits = append(fruits, types.CopyFruit(fruit))
+	}
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
+
+	for _, v := range fruits {
+		rtfruits = append(rtfruits, v)
+	}
+	return rtfruits
 }
 
 // PendingFruits retrieves all currently verified fruits, sorted by fast number.
@@ -824,11 +887,43 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 }
 
 // Content returning all the
-// pending fruits  grouped by account and sorted by nonce.
+// pending fruits sorted by fast number.
 func (pool *SnailPool) Content() []*types.SnailBlock {
 	fruits, error := pool.PendingFruits()
-	if error != nil{
+	if error != nil {
 		return nil
 	}
 	return fruits
+}
+
+// Inspect returning all the
+// unVerifiedFruits fruits sorted by fast number.
+func (pool *SnailPool) Inspect() []*types.SnailBlock {
+
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+
+	for _, fruit := range pool.allFruits {
+		if _, ok := pool.fruitPending[fruit.FastHash()]; !ok {
+			fruits = append(fruits, types.CopyFruit(fruit))
+		}
+	}
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
+
+	for _, v := range fruits {
+		rtfruits = append(rtfruits, v)
+	}
+	return rtfruits
+}
+
+// Stats returning all the
+// pending fruits count and unVerifiedFruits fruits count.
+func (pool *SnailPool) Stats() (pending int, unVerified int) {
+
+	return len(pool.fruitPending), len(pool.allFruits) - len(pool.fruitPending)
 }
