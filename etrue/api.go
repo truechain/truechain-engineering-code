@@ -217,7 +217,7 @@ func (api *PrivateMinerAPI) SetEtherbase(etherbase common.Address) bool {
 
 // GetHashrate returns the current hashrate of the miner.
 func (api *PrivateMinerAPI) GetHashRate() uint64 {
-	fmt.Sprintln("get hash rate")
+	log.Info("GetHashRate.....................---------------")
 	return uint64(api.e.Miner().HashRate())
 }
 
