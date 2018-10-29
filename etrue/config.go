@@ -52,7 +52,8 @@ var DefaultConfig = Config{
 	TrieTimeout:   60 * time.Minute,
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
-	TxPool: core.DefaultTxPoolConfig,
+	TxPool:    core.DefaultTxPoolConfig,
+	SnailPool: core.DefaultHybridPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
@@ -131,6 +132,9 @@ type Config struct {
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig
+
+	//fruit pool options
+	SnailPool core.SnailPoolConfig
 
 	// Gas Price Oracle options
 	GPO gasprice.Config

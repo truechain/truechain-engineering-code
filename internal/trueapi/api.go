@@ -201,14 +201,14 @@ func (s *PublicAccountAPI) Accounts() []common.Address {
 
 // RPCFruits represents a fruit that will serialize to the RPC representation of a fruit
 type RPCFruit struct {
-	Number               *big.Int        `json:"number"`
-	FruitDifficulty      *big.Int       `json:"fruitDifficulty"`
-	FruitHash            common.Hash    `json:"fruitHash"`
-	FastHash             common.Hash    `json:"fastHash"`
-	FastNumber           *big.Int       `json:"fastNumber"`
-	SignHash             common.Hash    `json:"signHash"`
-	PointerHash          common.Hash    `json:"pointerHash"`
-	PointerNumber        *big.Int       `json:"pointerNumber"`
+	Number          *big.Int    `json:"number"`
+	FruitDifficulty *big.Int    `json:"fruitDifficulty"`
+	FruitHash       common.Hash `json:"fruitHash"`
+	FastHash        common.Hash `json:"fastHash"`
+	FastNumber      *big.Int    `json:"fastNumber"`
+	SignHash        common.Hash `json:"signHash"`
+	PointerHash     common.Hash `json:"pointerHash"`
+	PointerNumber   *big.Int    `json:"pointerNumber"`
 }
 
 // newRPCFruit returns a fruit that will serialize to the RPC
@@ -216,50 +216,61 @@ type RPCFruit struct {
 func newRPCFruit(fruit *types.SnailBlock) *RPCFruit {
 
 	result := &RPCFruit{
-		Number:     			fruit.Header().Number,
-		FruitDifficulty:      	fruit.Header().FruitDifficulty,
-		FruitHash: 				fruit.Hash(),
-		FastNumber:     		fruit.Header().FastNumber,
-		SignHash:    			fruit.Header().FastHash,
-		PointerHash:    		fruit.Header().PointerHash,
-		PointerNumber:       	fruit.Header().PointerNumber,
+		Number:          fruit.Header().Number,
+		FruitDifficulty: fruit.Header().FruitDifficulty,
+		FruitHash:       fruit.Hash(),
+		FastNumber:      fruit.Header().FastNumber,
+		SignHash:        fruit.Header().FastHash,
+		PointerHash:     fruit.Header().PointerHash,
+		PointerNumber:   fruit.Header().PointerNumber,
 	}
 	return result
 }
 
-// PublicSnailPoolAPI offers and API for the snail pool. It only operates on data that is non confidential.
-type PublicSnailPoolAPI struct {
+// PublicFruitPoolAPI offers and API for the snail pool. It only operates on data that is non confidential.
+type PublicFruitPoolAPI struct {
 	b Backend
 }
 
-// NewPublicSnailPoolAPI creates a new snail pool service that gives information about the snail pool.
-func NewPublicSnailPoolAPI(b Backend) *PublicSnailPoolAPI {
-	return &PublicSnailPoolAPI{b}
+// NewPublicFruitPoolAPI creates a new snail pool service that gives information about the snail pool.
+func NewPublicFruitPoolAPI(b Backend) *PublicFruitPoolAPI {
+	return &PublicFruitPoolAPI{b}
 }
 
 // Content returns the pendingFruits contained within the snail pool.
-func (s *PublicSnailPoolAPI) Content() []*RPCFruit {
+func (s *PublicFruitPoolAPI) Content() []*RPCFruit {
 	//content := map[string]interface{}{}
 	pending := s.b.SnailPoolContent()
 	//content["count"] = count
 	// Flatten the pending fruits
 	//dump := make(map[common.Hash]*RPCFruit)
 	var pendingFruits []*RPCFruit
-	for  _,fruit := range pending {
+	for _, fruit := range pending {
 		pendingFruits = append(pendingFruits, newRPCFruit(fruit))
 	}
 	//content["pending"] = dump
 	return pendingFruits
 }
 
+// Inspect returns the unVerifiedFruits contained within the snail pool.
+func (s *PublicFruitPoolAPI) Inspect() []*RPCFruit {
 
+	unVerified := s.b.SnailPoolInspect()
+	var unVerifiedFruits []*RPCFruit
+	for _, fruit := range unVerified {
+		unVerifiedFruits = append(unVerifiedFruits, newRPCFruit(fruit))
+	}
+	return unVerifiedFruits
+}
 
-
-
-
-
-
-
+// Status returns the number of pending and unVerified Fruits in the pool.
+func (s *PublicFruitPoolAPI) Status() map[string]hexutil.Uint {
+	pending, unVerified := s.b.SnailPoolStats()
+	return map[string]hexutil.Uint{
+		"pending":    hexutil.Uint(pending),
+		"unVerified": hexutil.Uint(unVerified),
+	}
+}
 
 // PrivateAccountAPI provides an API to access accounts managed by this node.
 // It offers methods to create, (un)lock en list accounts. Some methods accept
@@ -1000,9 +1011,13 @@ func (s *PublicBlockChainAPI) rpcOutputSnailBlock(b *types.SnailBlock, inclFruit
 	return fields, err
 }
 
-func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]interface{},error) {
+// RewardSnailBlock return the latest snail block rewarded.
+func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]interface{}, error) {
 	rew := s.b.GetReward(-1)
-	block ,err:=s.b.GetSnailBlock(ctx,rew.SnailHash)
+	if rew == nil {
+		return nil, nil
+	}
+	block, err := s.b.GetSnailBlock(ctx, rew.SnailHash)
 
 	if block != nil {
 		return s.rpcOutputSnailBlock(block, true)
@@ -1010,19 +1025,18 @@ func (s *PublicBlockChainAPI) RewardSnailBlock(ctx context.Context) (map[string]
 	return nil, err
 }
 
-
-func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context,blockNr rpc.BlockNumber) (map[string]interface{}, error) {
+// GetRewardBlock return the fast block position where the given snail block is rewarded.
+func (s *PublicBlockChainAPI) GetRewardBlock(ctx context.Context, blockNr rpc.BlockNumber) (map[string]interface{}, error) {
 	rew := s.b.GetReward(blockNr.Int64())
-	block , err :=s.b.GetBlock(ctx,rew.FastHash)
+	if rew == nil {
+		return nil, nil
+	}
+	block, err := s.b.GetBlock(ctx, rew.FastHash)
 	if block != nil {
 		return s.rpcOutputBlock(block, true, false)
 	}
 	return nil, err
 }
-
-
-
-
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
 type RPCTransaction struct {

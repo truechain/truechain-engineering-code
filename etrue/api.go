@@ -65,6 +65,7 @@ func (api *PublicEthereumAPI) Coinbase() (common.Address, error) {
 func (api *PublicEthereumAPI) CommitteeNumber() uint64{
 	return api.e.agent.CommitteeNumber()
 }
+
 func (api *PublicEthereumAPI) GetCurrentState() map[string]interface{}{
 	return api.e.agent.GetCommitteeStatus()
 }
@@ -215,8 +216,9 @@ func (api *PrivateMinerAPI) SetEtherbase(etherbase common.Address) bool {
 }
 
 // GetHashrate returns the current hashrate of the miner.
-func (api *PrivateMinerAPI) GetHashrate() uint64 {
-	return uint64(api.e.miner.HashRate())
+func (api *PrivateMinerAPI) GetHashRate() uint64 {
+	log.Info("GetHashRate.....................---------------")
+	return uint64(api.e.Miner().HashRate())
 }
 
 // PrivateAdminAPI is the collection of Truechain full node-related APIs

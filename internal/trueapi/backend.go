@@ -61,7 +61,6 @@ type Backend interface {
 	SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription
 	GetReward(number int64) *types.BlockReward
 
-
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
 	GetPoolTransactions() (types.Transactions, error)
@@ -76,23 +75,20 @@ type Backend interface {
 
 	// SnailPool API
 	SnailPoolContent() []*types.SnailBlock
+	SnailPoolInspect() []*types.SnailBlock
+	SnailPoolStats() (pending int, unVerified int)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
 	var apis []rpc.API
-	namespaces :=[]string{"etrue","eth"}
-	for _,name :=range namespaces{
-		apis = append(apis,[]rpc.API{
+	namespaces := []string{"etrue", "eth"}
+	for _, name := range namespaces {
+		apis = append(apis, []rpc.API{
 			{
 				Namespace: name,
 				Version:   "1.0",
 				Service:   NewPublicTrueAPI(apiBackend),
-				Public:    true,
-			},{
-				Namespace: name,
-				Version:   "1.0",
-				Service:   NewPublicSnailPoolAPI(apiBackend),
 				Public:    true,
 			}, {
 				Namespace: name,
@@ -104,7 +100,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 				Version:   "1.0",
 				Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
@@ -113,10 +109,15 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}...)
 	}
 	apis = append(apis, []rpc.API{
-		 {
+		{
 			Namespace: "txpool",
 			Version:   "1.0",
 			Service:   NewPublicTxPoolAPI(apiBackend),
+			Public:    true,
+		}, {
+			Namespace: "fruitpool",
+			Version:   "1.0",
+			Service:   NewPublicFruitPoolAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "debug",
@@ -127,7 +128,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "debug",
 			Version:   "1.0",
 			Service:   NewPrivateDebugAPI(apiBackend),
-		},{
+		}, {
 			Namespace: "personal",
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
