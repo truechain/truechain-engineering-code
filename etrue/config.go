@@ -53,6 +53,7 @@ var DefaultConfig = Config{
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
 	TxPool: core.DefaultTxPoolConfig,
+	SnailPool:core.DefaultHybridPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,

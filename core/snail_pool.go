@@ -92,14 +92,14 @@ type SnailPoolConfig struct {
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
-	FruitCount int
+	FruitCount uint64
 	FastCount  int
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
 var DefaultHybridPoolConfig = SnailPoolConfig{
-	Journal: "",
+	Journal: "fruits.rlp",
 	//Journal:   "fastBlocks.rlp",
 	Rejournal: time.Hour,
 
@@ -123,14 +123,6 @@ func (config *SnailPoolConfig) sanitize() SnailPoolConfig {
 	if conf.Rejournal < time.Second {
 		log.Warn("Sanitizing invalid snailpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
-	}
-	if conf.PriceLimit < 1 {
-		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultTxPoolConfig.PriceLimit)
-		conf.PriceLimit = DefaultHybridPoolConfig.PriceLimit
-	}
-	if conf.PriceBump < 1 {
-		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultTxPoolConfig.PriceBump)
-		conf.PriceBump = DefaultHybridPoolConfig.PriceBump
 	}
 	return conf
 }
@@ -195,10 +187,11 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
 // fruits/fastblock from the network.
-func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
+func NewSnailPool(config SnailPoolConfig,chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	//config = (&config).sanitize()
-	config := DefaultHybridPoolConfig
+	//config SnailPoolConfig
+	config = (&config).sanitize()
+	//config := DefaultHybridPoolConfig
 
 	// Create the transaction pool with its initial settings
 	pool := &SnailPool{
@@ -307,7 +300,7 @@ func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
 }
 
 func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
-	if len(pool.allFruits) >= pool.config.FruitCount {
+	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
 		return ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
