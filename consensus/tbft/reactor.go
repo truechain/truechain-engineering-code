@@ -921,7 +921,7 @@ func (ps *PeerState) SetHasProposalBlockPart(height uint64, round uint, index ui
 func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 	if vote, ok := ps.PickVoteToSend(votes); ok {
 		msg := &VoteMessage{vote}
-		ps.logger.Debug("Sending vote message", "ps", ps, "vote", vote)
+		log.Debug("Sending vote message", "ps", ps, "vote", vote)
 		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
 	}
 	return false
