@@ -145,7 +145,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 func (self *CpuAgent) GetHashRate() int64 {
 	
 	if pow, ok := self.engine.(consensus.PoW); ok {
-		log.Info("agent GetHashRate","hashRate",int64(pow.Hashrate()))
+		fmt.Sprintf("agent GetHashRate  %d",int64(pow.Hashrate()))
 		return int64(pow.Hashrate())
 	}
 
