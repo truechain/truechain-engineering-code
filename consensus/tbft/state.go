@@ -1449,11 +1449,13 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 
 			// Unlock if `cs.LockedRound < vote.Round <= cs.Round`
 			// NOTE: If vote.Round > cs.Round, we'll deal with it when we get to vote.Round
-			lock :=cs.LockedBlock.Hash()
 			if (cs.LockedBlock != nil) &&
 				(cs.LockedRound < vote.Round) &&
 				(vote.Round <= cs.Round) &&
-				!help.EqualHashes(lock[:],blockID.Hash) {
+				!func() bool {
+					hash := cs.LockedBlock.Hash()
+					return help.EqualHashes(hash[:],blockID.Hash)
+				}(){
 
 				log.Info("Unlocking because of POL.", "lockedRound", cs.LockedRound, "POLRound", vote.Round)
 				cs.LockedRound = 0
