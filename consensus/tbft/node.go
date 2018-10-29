@@ -247,9 +247,10 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if state == nil {
 		return errors.New("make the nil state")
 	}
+	store := ttypes.NewBlockStore()
 	service := &service{
 		sw:             p2p.NewSwitch(n.config.P2P),
-		consensusState: NewConsensusState(n.config.Consensus, state),
+		consensusState: NewConsensusState(n.config.Consensus, state,store),
 	}
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
