@@ -52,7 +52,8 @@ var DefaultConfig = Config{
 	TrieTimeout:   60 * time.Minute,
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
-	TxPool: core.DefaultTxPoolConfig,
+	TxPool:    core.DefaultTxPoolConfig,
+	SnailPool: core.DefaultHybridPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,

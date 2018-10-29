@@ -342,6 +342,11 @@ var (
 		Usage: "Time interval to regenerate the local snail journal",
 		Value: core.DefaultHybridPoolConfig.Rejournal,
 	}
+	SnailPoolFruitCountFlag = cli.Uint64Flag{
+		Name:  "txpool.fruitcount",
+		Usage: "Maximum amount of fruits in fruitPending",
+		Value: core.DefaultHybridPoolConfig.FruitCount,
+	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -380,6 +385,11 @@ var (
 	}
 	EtherbaseFlag = cli.StringFlag{
 		Name:  "etherbase",
+		Usage: "Public address for block mining rewards (default = first account created)",
+		Value: "0",
+	}
+	CoinbaseFlag = cli.StringFlag{
+		Name:  "coinbase",
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
@@ -864,6 +874,12 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *etrue.Config) {
 			Fatalf("Option %q: %v", EtherbaseFlag.Name, err)
 		}
 		cfg.Etherbase = account.Address
+	} else if ctx.GlobalIsSet(CoinbaseFlag.Name) {
+		account, err := MakeAddress(ks, ctx.GlobalString(CoinbaseFlag.Name))
+		if err != nil {
+			Fatalf("Option %q: %v", CoinbaseFlag.Name, err)
+		}
+		cfg.Etherbase = account.Address
 	}
 }
 
@@ -1045,6 +1061,19 @@ func setEthash(ctx *cli.Context, cfg *etrue.Config) {
 	}
 }
 
+func setSnailPool(ctx *cli.Context, cfg *core.SnailPoolConfig) {
+	if ctx.GlobalIsSet(SnailPoolJournalFlag.Name) {
+		cfg.Journal = ctx.GlobalString(SnailPoolJournalFlag.Name)
+	}
+	if ctx.GlobalIsSet(SnailPoolRejournalFlag.Name) {
+		cfg.Rejournal = ctx.GlobalDuration(SnailPoolRejournalFlag.Name)
+	}
+	if ctx.GlobalIsSet(SnailPoolFruitCountFlag.Name) {
+		cfg.FruitCount = ctx.GlobalUint64(SnailPoolFruitCountFlag.Name)
+	}
+
+}
+
 // checkExclusive verifies that only a single isntance of the provided flags was
 // set by the user. Each flag might optionally be followed by a string type to
 // specialize it further.
@@ -1106,7 +1135,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
-
+	setSnailPool(ctx, &cfg.SnailPool)
 	/*switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
