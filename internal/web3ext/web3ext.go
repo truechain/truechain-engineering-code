@@ -471,6 +471,13 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
 		}),
 		new web3._extend.Method({
+			name: 'setCoinbase',
+			call: 'miner_setEtherbase',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+
+		new web3._extend.Method({
 			name: 'setExtra',
 			call: 'miner_setExtra',
 			params: 1
@@ -487,8 +494,8 @@ web3._extend({
 			inputFormatter: [web3._extend.utils.fromDecimal]
 		}),
 		new web3._extend.Method({
-			name: 'GetHashRate',
-			call: 'miner_GetHashRate'
+			name: 'getHashRate',
+			call: 'miner_getHashRate'
 		}),
 	],
 	properties: []

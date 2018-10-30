@@ -202,7 +202,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	etrue.snailPool = core.NewSnailPool(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	etrue.snailPool = core.NewSnailPool(config.SnailPool,etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 
 	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
@@ -317,7 +317,7 @@ func (s *Truechain) APIs() []rpc.API {
 			{
 				Namespace: name,
 				Version:   "1.0",
-				Service:   NewPublicEthereumAPI(s),
+				Service:   NewPublicTruechainAPI(s),
 				Public:    true,
 			},{
 				Namespace: name,

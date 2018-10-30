@@ -75,7 +75,7 @@ func TestSendAndReceiveCommitteeNode(t *testing.T) {
 	t.Log(receivedCommitteeNode)
 }
 
-func TestNodeNotInCommittee(t *testing.T) {
+func TestSendAndReceiveCommitteeNode2(t *testing.T) {
 	committeeInfo := initCommitteeInfo()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.priKey)
@@ -137,7 +137,7 @@ func TestGenerateSign(t *testing.T) {
 	t.Log(validateSign(fb,agent.priKey))
 }
 
-func TestGenerateSignWithelsePrikey(t *testing.T) {
+func TestGenerateSign2(t *testing.T) {
 	fb :=generateFastBlock()
 	priKey, _ := crypto.GenerateKey()
 	t.Log(validateSign(fb,priKey))

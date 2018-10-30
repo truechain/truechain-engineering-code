@@ -33,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (
@@ -64,6 +65,16 @@ var (
 	ErrNoFastBlockToMiner = errors.New("the fastblocks is null")
 )
 
+var (
+	// Metrics for the pending pool
+	fruitPendingDiscardCounter = metrics.NewRegisteredCounter("fruitpool/pending/discard", nil)
+	fruitpendingReplaceCounter = metrics.NewRegisteredCounter("fruitpool/pending/replace", nil)
+
+	// Metrics for the allfruit pool
+	allDiscardCounter = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
+	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
+)
+
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type SnailPoolConfig struct {
 	NoLocals  bool          // Whether local transaction handling should be disabled
@@ -80,8 +91,8 @@ type SnailPoolConfig struct {
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
-	FruitCount int
-	FastCount  int
+	FruitCount uint64
+	FastCount  uint64
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -112,14 +123,6 @@ func (config *SnailPoolConfig) sanitize() SnailPoolConfig {
 	if conf.Rejournal < time.Second {
 		log.Warn("Sanitizing invalid snailpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
-	}
-	if conf.PriceLimit < 1 {
-		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultTxPoolConfig.PriceLimit)
-		conf.PriceLimit = DefaultHybridPoolConfig.PriceLimit
-	}
-	if conf.PriceBump < 1 {
-		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultTxPoolConfig.PriceBump)
-		conf.PriceBump = DefaultHybridPoolConfig.PriceBump
 	}
 	return conf
 }
@@ -184,10 +187,11 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
 // fruits/fastblock from the network.
-func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
+func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	//config = (&config).sanitize()
-	config := DefaultHybridPoolConfig
+	//config SnailPoolConfig
+	config = (&config).sanitize()
+	//config := DefaultHybridPoolConfig
 
 	// Create the transaction pool with its initial settings
 	pool := &SnailPool{
@@ -245,8 +249,8 @@ func NewSnailPool(chainconfig *params.ChainConfig, fastBlockChain *BlockChain, c
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
-	// If local fruits and journaling is enabled, load from disk
-	if !config.NoLocals && config.Journal != "" {
+	// If journaling is enabled, load from disk
+	if config.Journal != "" {
 		pool.journal = newSnailJournal(config.Journal)
 		if err := pool.journal.load(pool.AddLocals); err != nil {
 			log.Warn("Failed to load fruit journal", "err", err)
@@ -271,7 +275,9 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	} else {
 		if err := pool.chain.Validator().ValidateFruit(f, nil); err != nil {
 			log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
+			allReplaceCounter.Inc(1)
 			delete(pool.allFruits, fastBlock.Hash())
+			fruitpendingReplaceCounter.Inc(1)
 			delete(pool.fruitPending, fastBlock.Hash())
 			return ErrInvalidHash
 		}
@@ -294,7 +300,7 @@ func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
 }
 
 func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
-	if len(pool.allFruits) >= pool.config.FruitCount {
+	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
 		return ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
@@ -388,7 +394,7 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 		return ErrExist
 	}
 
-	if len(pool.allFastBlocks) >= pool.config.FastCount {
+	if uint64(len(pool.allFastBlocks)) >= pool.config.FastCount {
 		return ErrExceedNumber
 	}
 
@@ -530,7 +536,9 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1 {
 			log.Trace(" removeWithLock del fruit", "fb number", fruit.FastNumber())
+			fruitPendingDiscardCounter.Inc(1)
 			delete(pool.fruitPending, fruit.FastHash())
+			allDiscardCounter.Inc(1)
 			delete(pool.allFruits, fruit.FastHash())
 			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
 				pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
@@ -654,7 +662,9 @@ func (pool *SnailPool) removeUnfreshFruit() {
 		if err != nil {
 			if err != types.ErrSnailHeightNotYet {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
+				fruitPendingDiscardCounter.Inc(1)
 				delete(pool.fruitPending, fruit.FastHash())
+				allDiscardCounter.Inc(1)
 				delete(pool.allFruits, fruit.FastHash())
 			}
 		}
@@ -665,7 +675,9 @@ func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
+	fruitPendingDiscardCounter.Inc(1)
 	delete(pool.fruitPending, fasthash)
+	allDiscardCounter.Inc(1)
 	delete(pool.allFruits, fasthash)
 }
 
