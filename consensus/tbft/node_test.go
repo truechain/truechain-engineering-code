@@ -1,11 +1,15 @@
 package consensus
 
 import (
-	"fmt"
+	"github.com/truechain/truechain-engineering-code/common"
 	"testing"
 )
 
+type A struct {
+	B []byte
+	C common.Hash
+}
+
 func TestNoteBuild(t *testing.T) {
-	n, e := NewNode(nil, "", nil, nil)
-	fmt.Println(n, e)
+
 }
