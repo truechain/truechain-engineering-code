@@ -1469,11 +1469,13 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 			// Update Valid* if we can.
 			// NOTE: our proposal block may be nil or not what received a polka..
 			// TODO: we may want to still update the ValidBlock and obtain it via gossipping
-			pro := cs.ProposalBlock.Hash()
 			if !blockID.IsZero() &&
 				(cs.ValidRound < vote.Round) &&
 				(vote.Round <= cs.Round) &&
-				help.EqualHashes(pro[:],blockID.Hash) {
+				func() bool {
+					hash := cs.ProposalBlock.Hash()
+					return help.EqualHashes(hash[:],blockID.Hash)
+				}() {
 
 				log.Info("Updating ValidBlock because of POL.", "validRound", cs.ValidRound, "POLRound", vote.Round)
 				cs.ValidRound = vote.Round
