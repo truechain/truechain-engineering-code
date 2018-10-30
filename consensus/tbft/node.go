@@ -3,6 +3,7 @@ package consensus
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
@@ -15,7 +16,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
-	"encoding/json"
 )
 
 type service struct {
@@ -39,7 +39,7 @@ func (s *service) start(node *Node) error {
 		log.New("p2p"))
 	s.sw.AddListener(l)
 
-	ni,_ := json.Marshal(node.nodeinfo)
+	ni, _ := json.Marshal(node.nodeinfo)
 	fmt.Printf("node.nodeInfo %v\n", string(ni))
 
 	s.sw.SetNodeInfo(node.nodeinfo)
@@ -250,7 +250,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	store := ttypes.NewBlockStore()
 	service := &service{
 		sw:             p2p.NewSwitch(n.config.P2P),
-		consensusState: NewConsensusState(n.config.Consensus, state,store),
+		consensusState: NewConsensusState(n.config.Consensus, state, store),
 	}
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
@@ -270,7 +270,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		return errors.New("wrong ID:" + id.String())
 	}
 	for _, v := range nodes {
-		pub,err := crypto.UnmarshalPubkey(v.Publickey)
+		pub, err := crypto.UnmarshalPubkey(v.Publickey)
 		if err != nil {
 			panic(err)
 		}
@@ -280,10 +280,10 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 			fmt.Sprintf("%v:%v", v.IP, v.Port)))
 		if err == nil {
 			errDialErr := server.sw.DialPeerWithAddress(addr, true)
-			if errDialErr != nil{
+			if errDialErr != nil {
 				log.Error("dail peer " + errDialErr.Error())
 			}
-		}else{
+		} else {
 			panic(err)
 		}
 	}
@@ -299,7 +299,7 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	var power uint64 = 1
 	for i, m := range members {
 		if i == 0 {
-			power = power * 10
+			power = 1
 		} else {
 			power = 1
 		}

@@ -6,6 +6,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"testing"
 )
@@ -81,6 +82,7 @@ func TestPbftRunForOne(t *testing.T) {
 }
 
 func TestPbftRunFor4(t *testing.T) {
+	log.OpenLogDebug(4)
 	start := make(chan int)
 	pr1, _ := crypto.GenerateKey()
 	pr2, _ := crypto.GenerateKey()

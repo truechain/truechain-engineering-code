@@ -279,7 +279,6 @@ func (voteSet *VoteSet) addVerifiedVote(vote *Vote, blockKey string, votingPower
 			}
 		}
 	}
-
 	return true, conflicting
 }
 
@@ -561,7 +560,7 @@ type blockVotes struct {
 	peerMaj23 bool           // peer claims to have maj23
 	bitArray  *help.BitArray // valIndex -> hasVote?
 	votes     []*Vote        // valIndex -> *Vote
-	sum       uint64          // vote sum
+	sum       uint64         // vote sum
 }
 
 func newBlockVotes(peerMaj23 bool, numValidators uint) *blockVotes {
