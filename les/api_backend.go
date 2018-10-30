@@ -64,6 +64,11 @@ func (b *LesApiBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.etrue.blockchain.GetHeaderByNumberOdr(ctx, uint64(blockNr))
 }
 
+// TODO: fixed lightchain func.
+func (b *LesApiBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
+	return nil, nil
+}
+
 func (b *LesApiBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	header, err := b.HeaderByNumber(ctx, blockNr)
 	if header == nil || err != nil {
@@ -87,6 +92,11 @@ func (b *LesApiBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 
 func (b *LesApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error) {
 	return b.etrue.blockchain.GetBlockByHash(ctx, blockHash)
+}
+
+// TODO: fixed lightchain func.
+func (b *LesApiBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
+	return nil, nil
 }
 
 // TODO: fixed lightchain func.

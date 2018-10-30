@@ -1414,6 +1414,11 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	return block, index
 }
 
+func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) (*types.SnailBlock) {
+	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
+	return fruit
+}
+
 func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
 	committee := rawdb.ReadGenesisCommittee(bc.db)
 	if committee == nil {
