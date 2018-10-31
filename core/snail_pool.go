@@ -101,7 +101,7 @@ var DefaultHybridPoolConfig = SnailPoolConfig{
 	//Journal: "fruits.rlp",
 	Journal: "fruits.rlp",
 	//Journal:   "fastBlocks.rlp",
-	Rejournal: time.Minute,
+	Rejournal: time.Hour,
 
 	PriceLimit: 1,
 	PriceBump:  10,
