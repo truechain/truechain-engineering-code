@@ -37,27 +37,27 @@ import (
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
-// EthAPIBackend implements ethapi.Backend for full nodes
-type EthAPIBackend struct {
+// TRUEAPIBackend implements ethapi.Backend for full nodes
+type TrueAPIBackend struct {
 	etrue *Truechain
 	gpo   *gasprice.Oracle
 }
 
 // ChainConfig returns the active chain configuration.
-func (b *EthAPIBackend) ChainConfig() *params.ChainConfig {
+func (b *TrueAPIBackend) ChainConfig() *params.ChainConfig {
 	return b.etrue.chainConfig
 }
 
-func (b *EthAPIBackend) CurrentBlock() *types.Block {
+func (b *TrueAPIBackend) CurrentBlock() *types.Block {
 	return b.etrue.blockchain.CurrentBlock()
 }
 
-func (b *EthAPIBackend) SetHead(number uint64) {
+func (b *TrueAPIBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)
 }
 
-func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
+func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.etrue.miner.PendingBlock()
@@ -70,7 +70,7 @@ func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.etrue.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
-func (b *EthAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
+func (b *TrueAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.etrue.miner.PendingSnailBlock()
@@ -83,7 +83,7 @@ func (b *EthAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.Blo
 	return b.etrue.snailblockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
-func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
+func (b *TrueAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	// Only snailchain has miner, also return current block here for fastchain
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.etrue.blockchain.CurrentBlock()
@@ -96,7 +96,7 @@ func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumb
 	return b.etrue.blockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
 
-func (b *EthAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailBlock, error) {
+func (b *TrueAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailBlock, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		block := b.etrue.miner.PendingSnailBlock()
@@ -109,7 +109,7 @@ func (b *EthAPIBackend) SnailBlockByNumber(ctx context.Context, blockNr rpc.Bloc
 	return b.etrue.snailblockchain.GetBlockByNumber(uint64(blockNr)), nil
 }
 
-func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
+func (b *TrueAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error) {
 	// Pending state is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
 		state,_ := b.etrue.blockchain.State()
@@ -125,27 +125,27 @@ func (b *EthAPIBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 	return stateDb, header, err
 }
 
-func (b *EthAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
+func (b *TrueAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.Block, error) {
 	return b.etrue.blockchain.GetBlockByHash(hash), nil
 }
 
-func (b *EthAPIBackend) GetSnailBlock(ctx context.Context, hash common.Hash) (*types.SnailBlock, error) {
+func (b *TrueAPIBackend) GetSnailBlock(ctx context.Context, hash common.Hash) (*types.SnailBlock, error) {
 	return b.etrue.snailblockchain.GetBlockByHash(hash), nil
 }
 
-func (b *EthAPIBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
+func (b *TrueAPIBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
 	return b.etrue.snailblockchain.GetFruit(fastblockHash), nil
 }
 
 
-func (b *EthAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
+func (b *TrueAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.etrue.chainDb, hash); number != nil {
 		return rawdb.ReadReceipts(b.etrue.chainDb, hash, *number), nil
 	}
 	return nil, nil
 }
 
-func (b *EthAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
+func (b *TrueAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*types.Log, error) {
 	number := rawdb.ReadHeaderNumber(b.etrue.chainDb, hash)
 	if number == nil {
 		return nil, nil
@@ -161,11 +161,11 @@ func (b *EthAPIBackend) GetLogs(ctx context.Context, hash common.Hash) ([][]*typ
 	return logs, nil
 }
 
-func (b *EthAPIBackend) GetTd(blockHash common.Hash) *big.Int {
+func (b *TrueAPIBackend) GetTd(blockHash common.Hash) *big.Int {
 	return b.etrue.blockchain.GetTdByHash(blockHash)
 }
 
-func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
+func (b *TrueAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error) {
 	state.SetBalance(msg.From(), math.MaxBig256)
 	vmError := func() error { return nil }
 
@@ -173,28 +173,28 @@ func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	return vm.NewEVM(context, state, b.etrue.chainConfig, vmCfg), vmError, nil
 }
 
-func (b *EthAPIBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeRemovedLogsEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainHeadEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeChainSideEvent(ch)
 }
 
-func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
+func (b *TrueAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.etrue.BlockChain().SubscribeLogsEvent(ch)
 }
 
 
-func (b *EthAPIBackend) GetReward(number int64) *types.BlockReward {
+func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	if number < 0 {
 		return b.etrue.blockchain.CurrentReward()
 	}
@@ -202,11 +202,11 @@ func (b *EthAPIBackend) GetReward(number int64) *types.BlockReward {
 }
 
 
-func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+func (b *TrueAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.etrue.txPool.AddLocal(signedTx)
 }
 
-func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {
+func (b *TrueAPIBackend) GetPoolTransactions() (types.Transactions, error) {
 	pending, err := b.etrue.txPool.Pending()
 	if err != nil {
 		return nil, err
@@ -218,68 +218,68 @@ func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {
 	return txs, nil
 }
 
-func (b *EthAPIBackend) GetPoolTransaction(hash common.Hash) *types.Transaction {
+func (b *TrueAPIBackend) GetPoolTransaction(hash common.Hash) *types.Transaction {
 	return b.etrue.txPool.Get(hash)
 }
 
-func (b *EthAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
+func (b *TrueAPIBackend) GetPoolNonce(ctx context.Context, addr common.Address) (uint64, error) {
 	return b.etrue.txPool.State().GetNonce(addr), nil
 }
 
-func (b *EthAPIBackend) Stats() (pending int, queued int) {
+func (b *TrueAPIBackend) Stats() (pending int, queued int) {
 	return b.etrue.txPool.Stats()
 }
 
-func (b *EthAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
+func (b *TrueAPIBackend) TxPoolContent() (map[common.Address]types.Transactions, map[common.Address]types.Transactions) {
 	return b.etrue.TxPool().Content()
 }
 
-func (b *EthAPIBackend) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event.Subscription {
+func (b *TrueAPIBackend) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event.Subscription {
 	return b.etrue.TxPool().SubscribeNewTxsEvent(ch)
 }
 
-func (b *EthAPIBackend) Downloader() *downloader.Downloader {
+func (b *TrueAPIBackend) Downloader() *downloader.Downloader {
 	return b.etrue.Downloader()
 }
 
-func (b *EthAPIBackend) ProtocolVersion() int {
+func (b *TrueAPIBackend) ProtocolVersion() int {
 	return b.etrue.EthVersion()
 }
 
-func (b *EthAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
+func (b *TrueAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
-func (b *EthAPIBackend) ChainDb() ethdb.Database {
+func (b *TrueAPIBackend) ChainDb() ethdb.Database {
 	return b.etrue.ChainDb()
 }
 
-func (b *EthAPIBackend) EventMux() *event.TypeMux {
+func (b *TrueAPIBackend) EventMux() *event.TypeMux {
 	return b.etrue.EventMux()
 }
 
-func (b *EthAPIBackend) AccountManager() *accounts.Manager {
+func (b *TrueAPIBackend) AccountManager() *accounts.Manager {
 	return b.etrue.AccountManager()
 }
 
-func (b *EthAPIBackend) SnailPoolContent() []*types.SnailBlock {
+func (b *TrueAPIBackend) SnailPoolContent() []*types.SnailBlock {
 	return b.etrue.SnailPool().Content()
 }
 
-func (b *EthAPIBackend) SnailPoolInspect()  []*types.SnailBlock{
+func (b *TrueAPIBackend) SnailPoolInspect()  []*types.SnailBlock{
 	return b.etrue.SnailPool().Inspect()
 }
 
-func (b *EthAPIBackend) SnailPoolStats()  (pending int, unVerified int){
+func (b *TrueAPIBackend) SnailPoolStats()  (pending int, unVerified int){
 	return b.etrue.SnailPool().Stats()
 }
 
-func (b *EthAPIBackend) BloomStatus() (uint64, uint64) {
+func (b *TrueAPIBackend) BloomStatus() (uint64, uint64) {
 	sections, _, _ := b.etrue.bloomIndexer.Sections()
 	return params.BloomBitsBlocks, sections
 }
 
-func (b *EthAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
+func (b *TrueAPIBackend) ServiceFilter(ctx context.Context, session *bloombits.MatcherSession) {
 	for i := 0; i < bloomFilterThreads; i++ {
 		go session.Multiplex(bloomRetrievalBatch, bloomRetrievalWait, b.etrue.bloomRequests)
 	}

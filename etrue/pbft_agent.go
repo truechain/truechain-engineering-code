@@ -434,12 +434,10 @@ func (self *PbftAgent) putCacheInsertChain(receiveBlock *types.Block) error {
 		fastBlocks         []*types.Block
 		receiveBlockHeight = receiveBlock.Number()
 	)
-	//delete from cacheBlock map where heightNumber <= receiveBlockHeight
-	for i := receiveBlockHeight.Uint64(); ; i-- {
-		if block, ok := self.cacheBlock[big.NewInt(int64(i))]; ok {
-			delete(self.cacheBlock, block.Number())
-		} else {
-			break
+	//delete from cacheBlock map where receiveBlockHeight >= heightNumber
+	for number,_:= range self.cacheBlock{
+		if receiveBlockHeight.Cmp(number) >=0{
+			delete(self.cacheBlock, number)
 		}
 	}
 	//insert block into Blockchain from cacheBlock map where heightNumber > receiveBlockHeight

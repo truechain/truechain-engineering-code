@@ -15,18 +15,24 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"bytes"
 )
-
+const(
+	sendNodeTime_Test  = 30 * time.Second
+)
 var agent *PbftAgent
-var committeeMember *types.CommitteeMember
-
 func init() {
 	agent = NewPbftAgetTest()
+}
+
+func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
+	priKey := agent.privateKey
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	committeeMember := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+	return committeeMember
 }
 
 func NewPbftAgetTest() *PbftAgent {
 	priKey, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	committeeMember = &types.CommitteeMember{coinbase, &priKey.PublicKey}
 	committeeNode := &types.CommitteeNode{
 		IP:        "127.0.0.1",
 		Port:      8080,
@@ -42,7 +48,7 @@ func NewPbftAgetTest() *PbftAgent {
 	return pbftAgent
 }
 
-func initCommitteeInfo() *types.CommitteeInfo {
+func InitCommitteeInfo() *types.CommitteeInfo {
 	committeeInfo := &types.CommitteeInfo{
 		Id:      common.Big1,
 		Members: nil,
@@ -59,9 +65,15 @@ func initCommitteeInfo() *types.CommitteeInfo {
 	return committeeInfo
 }
 
-func TestSendAndReceiveCommitteeNode(t *testing.T) {
-	committeeInfo := initCommitteeInfo()
+func initCommitteeInfoIncludeSelf() *types.CommitteeInfo {
+	committeeInfo := InitCommitteeInfo()
+	committeeMember := generateCommitteeMemberBySelfPriKey()
 	committeeInfo.Members = append(committeeInfo.Members, committeeMember)
+	return committeeInfo
+}
+
+func TestSendAndReceiveCommitteeNode(t *testing.T) {
+	committeeInfo := initCommitteeInfoIncludeSelf()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
 	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
@@ -69,7 +81,7 @@ func TestSendAndReceiveCommitteeNode(t *testing.T) {
 }
 
 func TestSendAndReceiveCommitteeNode2(t *testing.T) {
-	committeeInfo := initCommitteeInfo()
+	committeeInfo := InitCommitteeInfo()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
 	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
@@ -118,6 +130,59 @@ func TestGenerateSign2(t *testing.T) {
 	fb := generateFastBlock()
 	priKey, _ := crypto.GenerateKey()
 	t.Log(validateSign(fb, priKey))
+}
+
+func TestNodeWorkStartAndEnd(t *testing.T) {
+	agent.initNodeWork()
+	receivedCommitteeInfo := initCommitteeInfoIncludeSelf()
+	for i:=0;i<3;i++{
+		StartNodeWork(receivedCommitteeInfo, true,t)
+		time.Sleep(time.Second*4)
+		StopNodeWork(t)
+		time.Sleep(time.Second*4)
+	}
+}
+
+func StartNodeWork(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool,t *testing.T) *types.EncryptNodeMessage{
+	var cryNodeInfo *types.EncryptNodeMessage
+	nodeWork := agent.updateCurrentNodeWork()
+	//load nodeWork
+	nodeWork.loadNodeWork(receivedCommitteeInfo, isCommitteeMember)
+	if nodeWork.isCommitteeMember {
+		t.Log("node in pbft committee", "committeeId=", receivedCommitteeInfo.Id)
+		nodeWork.ticker = time.NewTicker(sendNodeTime_Test)
+		go func() {
+			for {
+				select {
+				case <-nodeWork.ticker.C:
+					cryNodeInfo = encryptNodeInfo(nodeWork.committeeInfo, agent.committeeNode, agent.privateKey)
+					t.Log("send",cryNodeInfo)
+				}
+			}
+		}()
+	} else {
+		t.Log("node not in pbft committee", "committeeId", receivedCommitteeInfo.Id)
+	}
+	printNodeWork(t,nodeWork,"startSend...")
+	return cryNodeInfo
+}
+
+func StopNodeWork(t *testing.T) {
+	nodeWork := agent.getCurrentNodeWork()
+	printNodeWork(t,nodeWork,"stopSend...")
+	//clear nodeWork
+	if nodeWork.isCommitteeMember {
+		nodeWork.ticker.Stop() //stop ticker send nodeInfo
+	}
+	//clear nodeWork
+	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
+}
+
+func printNodeWork(t *testing.T,nodeWork *nodeInfoWork,str string){
+	t.Log(str," tag=", nodeWork.tag, ", isMember=", nodeWork.isCommitteeMember, ", isCurrent=", nodeWork.isCurrent,
+		", nodeWork1=", agent.nodeInfoWorks[0].isCurrent, ", nodeWork2=", agent.nodeInfoWorks[1].isCurrent,
+		", committeeId=", nodeWork.committeeInfo.Id, ", committeeInfoMembers=", len(nodeWork.committeeInfo.Members),
+		", cacheSignLen=", len(nodeWork.cacheSign))
 }
 
 func TestElectionEvent(t *testing.T) {
