@@ -48,7 +48,7 @@ func NewPbftAgetTest() *PbftAgent {
 	return pbftAgent
 }
 
-func initCommitteeInfo() *types.CommitteeInfo {
+func InitCommitteeInfo() *types.CommitteeInfo {
 	committeeInfo := &types.CommitteeInfo{
 		Id:      common.Big1,
 		Members: nil,
@@ -66,7 +66,7 @@ func initCommitteeInfo() *types.CommitteeInfo {
 }
 
 func initCommitteeInfoIncludeSelf() *types.CommitteeInfo {
-	committeeInfo := initCommitteeInfo()
+	committeeInfo := InitCommitteeInfo()
 	committeeMember := generateCommitteeMemberBySelfPriKey()
 	committeeInfo.Members = append(committeeInfo.Members, committeeMember)
 	return committeeInfo
@@ -81,7 +81,7 @@ func TestSendAndReceiveCommitteeNode(t *testing.T) {
 }
 
 func TestSendAndReceiveCommitteeNode2(t *testing.T) {
-	committeeInfo := initCommitteeInfo()
+	committeeInfo := InitCommitteeInfo()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
 	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
