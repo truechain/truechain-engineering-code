@@ -842,6 +842,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			} else {
 				// Run the import on a new thread
 				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
+				f.enterQueue = true
 			}
 		}
 

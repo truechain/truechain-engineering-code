@@ -35,7 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-)
+	)
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
@@ -1665,7 +1665,7 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 	if cancel == nil {
 		return errNoSyncActive
 	}
-	log.Debug("deliver <- packet ", "packet", packet)
+	//log.Debug("deliver <- packet ","packet",packet)
 	select {
 	case destCh <- packet:
 		return nil
@@ -1685,7 +1685,7 @@ func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet et
 	}()
 	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliverOne", "packet.Items()==", packet.Items())
 	// Deliver or abort if the sync is canceled while queuing
-	log.Debug("deliver <- packet ", "packet", packet)
+	//log.Debug("deliver <- packet ","packet",packet)
 	select {
 	case destCh <- packet:
 		return nil

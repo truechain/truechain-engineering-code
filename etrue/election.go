@@ -93,11 +93,11 @@ type Election struct {
 	electionFeed event.Feed
 	scope        event.SubscriptionScope
 
-	fastChainHeadCh  chan types.ChainFastHeadEvent
-	fastChainHeadSub event.Subscription
+	fastChainEventCh  chan types.ChainFastEvent
+	fastChainEventSub event.Subscription
 
-	snailChainHeadCh  chan types.ChainSnailHeadEvent
-	snailChainHeadSub event.Subscription
+	snailChainEventCh  chan types.ChainSnailEvent
+	snailChainEventSub event.Subscription
 
 	fastchain  *core.BlockChain
 	snailchain *snailchain.SnailBlockChain
@@ -111,16 +111,16 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		fastchain:        fastBlockChain,
 		snailchain:       snailBlockChain,
 		committeeList:    make(map[uint64]*committee),
-		fastChainHeadCh:  make(chan types.ChainFastHeadEvent, fastChainHeadSize),
-		snailChainHeadCh: make(chan types.ChainSnailHeadEvent, snailchainHeadSize),
+		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
+		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
 		singleNode:       config.NodeType,
 	}
 
 	// get genesis committee
 	election.genesisCommittee = election.snailchain.GetGenesisCommittee()
 
-	election.fastChainHeadSub = election.fastchain.SubscribeChainHeadEvent(election.fastChainHeadCh)
-	election.snailChainHeadSub = election.snailchain.SubscribeChainHeadEvent(election.snailChainHeadCh)
+	election.fastChainEventSub = election.fastchain.SubscribeChainEvent(election.fastChainEventCh)
+	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 
 	if election.singleNode {
 		var members []*types.CommitteeMember
@@ -361,11 +361,11 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
 	/*
-		newestFast := new(big.Int).Add(fastHeadNumber, params.ElectionSwitchoverNumber)
-		if fastNumber.Cmp(newestFast) > 0 {
-			log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
-			return nil
-		}*/
+	newestFast := new(big.Int).Add(fastHeadNumber, params.ElectionSwitchoverNumber)
+	if fastNumber.Cmp(newestFast) > 0 {
+		log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
+		return nil
+	}*/
 
 	currentCommittee := e.committee
 	nextCommittee := e.nextCommittee
@@ -373,10 +373,10 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	if nextCommittee != nil {
 		//log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
 		/*
-			if new(big.Int).Add(nextCommittee.beginFastNumber, params.ElectionSwitchoverNumber).Cmp(fastNumber) < 0 {
-				log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", nextCommittee.beginFastNumber)
-				return nil
-			}*/
+		if new(big.Int).Add(nextCommittee.beginFastNumber, params.ElectionSwitchoverNumber).Cmp(fastNumber) < 0 {
+			log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", nextCommittee.beginFastNumber)
+			return nil
+		}*/
 		if fastNumber.Cmp(nextCommittee.beginFastNumber) >= 0 {
 			log.Debug("get committee nextCommittee", "fastNumber", fastNumber, "nextfast", nextCommittee.beginFastNumber)
 			return nextCommittee.Members()
@@ -633,8 +633,8 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 func (e *Election) Start() error {
 	// get current committee info
-	fastHeadNumber := e.fastchain.CurrentHeader().Number
-	snailHeadNumber := e.snailchain.CurrentHeader().Number
+	fastHeadNumber := e.fastchain.CurrentBlock().Number()
+	snailHeadNumber := e.snailchain.CurrentBlock().Number()
 
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
@@ -724,7 +724,7 @@ func (e *Election) loop() {
 	for {
 		select {
 		// Handle ChainHeadEvent
-		case se := <-e.snailChainHeadCh:
+		case se := <-e.snailChainEventCh:
 			if se.Block != nil {
 				//Record Numbers to open elections
 				if e.committee.switchCheckNumber.Cmp(se.Block.Number()) == 0 {
@@ -788,7 +788,7 @@ func (e *Election) loop() {
 				}
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent
-		case ev := <-e.fastChainHeadCh:
+		case ev := <-e.fastChainEventCh:
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
@@ -830,6 +830,7 @@ func (e *Election) SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.S
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }
+
 
 func PrintCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
