@@ -84,9 +84,9 @@ func (b *EthAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.Blo
 }
 
 func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
-	// Pending block is only known by the miner
+	// Only snailchain has miner, also return current block here for fastchain
 	if blockNr == rpc.PendingBlockNumber {
-		block := b.etrue.miner.PendingBlock()
+		block := b.etrue.blockchain.CurrentBlock()
 		return block, nil
 	}
 	// Otherwise resolve and return the block
