@@ -640,6 +640,7 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 			state := node.GetStatus(v.Height)
 			if !state.VerifyMsg(v.ViewID, v.SequenceID, v.Digest) {
 				log.Error("routeMsgBackward messgae fail", "commit", v.Digest)
+				continue
 			}
 			if v.MsgType == consensus.CommitMsg {
 				msg := state.MsgLogs.GetCommitOne()
