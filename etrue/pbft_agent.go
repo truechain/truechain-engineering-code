@@ -769,7 +769,7 @@ func GetTps(currentBlock *types.Block) {
 	}
 }
 
-func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
+func GenerateBlockSign(fb *types.Block, vote uint, privateKey *ecdsa.PrivateKey) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     vote,
 		FastHeight: fb.Header().Number,
@@ -780,10 +780,15 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
-	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
+	voteSign.Sign, err = crypto.Sign(signHash, privateKey)
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
 	}
+	return voteSign, err
+}
+
+func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
+	voteSign, err := GenerateBlockSign(fb, vote, self.privateKey)
 	return voteSign, err
 }
 
