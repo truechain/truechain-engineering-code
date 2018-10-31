@@ -638,6 +638,9 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 	case []*consensus.VoteMsg:
 		for _, v := range msg.([]*consensus.VoteMsg) {
 			state := node.GetStatus(v.Height)
+			if !state.VerifyMsg(v.ViewID, v.SequenceID, v.Digest) {
+				log.Error("routeMsgBackward messgae fail", "commit", v.Digest)
+			}
 			if v.MsgType == consensus.CommitMsg {
 				msg := state.MsgLogs.GetCommitOne()
 				if msg != nil {
