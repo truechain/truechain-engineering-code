@@ -470,6 +470,8 @@ func (s *Truechain) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Truechain protocol implementation.
 func (s *Truechain) Start(srvr *p2p.Server) error {
+	//start fruit journal
+	s.snailPool.Start()
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -509,7 +511,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
 	//sender.Start()
-	s.snailPool.Start()
+
 	return nil
 }
 
