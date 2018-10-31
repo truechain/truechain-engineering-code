@@ -83,15 +83,13 @@ func TestSendAndReceiveCommitteeNode2(t *testing.T) {
 	t.Log(receivedCommitteeNode)
 }
 
-
 func validateSign(fb *types.Block,prikey *ecdsa.PrivateKey) bool{
-	sign := GenerateSign(fb, prikey)
-	voteSign := &types.PbftSign{
-		Result:     types.VoteAgree,
-		FastHeight: fb.Header().Number,
-		FastHash:   fb.Hash(),
+	sign,err := GenerateBlockSign(fb, types.VoteAgree,prikey)
+	if err!=nil{
+		log.Error("err",err)
+		return false
 	}
-	signHash := voteSign.HashWithNoSign().Bytes()
+	signHash := sign.HashWithNoSign().Bytes()
 	pubKey, err := crypto.SigToPub(signHash, sign.Sign)
 	if err != nil {
 		fmt.Println("get pubKey error", err)
@@ -104,6 +102,7 @@ func validateSign(fb *types.Block,prikey *ecdsa.PrivateKey) bool{
 		return false
 	}
 }
+
 func generateFastBlock()	*types.Block{
 	db := ethdb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
@@ -117,20 +116,7 @@ func generateFastBlock()	*types.Block{
 	return fb
 }
 
-func GenerateSign(fb *types.Block, priKey *ecdsa.PrivateKey) *types.PbftSign {
-	voteSign := &types.PbftSign{
-		Result:     types.VoteAgree,
-		FastHeight: fb.Header().Number,
-		FastHash:   fb.Hash(),
-	}
-	var err error
-	signHash := voteSign.HashWithNoSign().Bytes()
-	voteSign.Sign, err = crypto.Sign(signHash, priKey)
-	if err != nil {
-		log.Error("fb GenerateSign error ", "err", err)
-	}
-	return voteSign
-}
+
 
 func TestGenerateSign(t *testing.T) {
 	fb :=generateFastBlock()

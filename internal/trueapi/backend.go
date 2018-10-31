@@ -48,8 +48,10 @@ type Backend interface {
 	// BlockChain API
 	SetHead(number uint64)
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
+	SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error)
 	BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error)
 	SnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailBlock, error)
+	GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error)
 	StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error)
 	GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error)
 	GetSnailBlock(ctx context.Context, blockHash common.Hash) (*types.SnailBlock, error)

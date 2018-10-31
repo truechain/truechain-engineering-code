@@ -986,6 +986,11 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			stats.queued++
 			continue
 
+		case err == ErrInvalidFast:
+			bc.futureBlocks.Add(block.Hash(), block)
+			stats.queued++
+			continue
+
 		case err == consensus.ErrPrunedAncestor:
 			// Block competing with the canonical chain, store in the db, but don't process
 			// until the competitor TD goes above the canonical TD
@@ -1407,6 +1412,11 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	block := bc.GetBlock(hash, number)
 
 	return block, index
+}
+
+func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) (*types.SnailBlock) {
+	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
+	return fruit
 }
 
 func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {

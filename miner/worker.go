@@ -386,6 +386,7 @@ func (self *worker) update() {
 			}
 		case <-self.fastBlockCh:
 			log.Debug("------------start commit new work  fastBlockCh")
+		/*
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  fastBlockCh")
 				if atomic.LoadInt32(&self.mining) == 1 {
@@ -393,7 +394,7 @@ func (self *worker) update() {
 				}
 			} else {
 				log.Debug("------------start commit new work  true?????")
-			}
+			}*/
 		case <-self.minedfruitCh:
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  minedfruitCh")
@@ -405,6 +406,14 @@ func (self *worker) update() {
 
 		case ev:=<-self.fastBlockCh:
 			log.Info("get fast block event","fb hight",ev.FastBlocks[0].Number())
+			if !self.atCommintNewWoker {
+				log.Debug("star commit new work  fastBlockCh")
+				if atomic.LoadInt32(&self.mining) == 1 {
+					self.commitNewWork()
+				}
+			} else {
+				log.Debug("------------start commit new work  true?????")
+			}
 			return
 
 		case <-self.minedfruitSub.Err():

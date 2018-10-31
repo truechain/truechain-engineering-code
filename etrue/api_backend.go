@@ -70,10 +70,23 @@ func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.etrue.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
 
+func (b *EthAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
+	// Pending block is only known by the miner
+	if blockNr == rpc.PendingBlockNumber {
+		block := b.etrue.miner.PendingSnailBlock()
+		return block.Header(), nil
+	}
+	// Otherwise resolve and return the block
+	if blockNr == rpc.LatestBlockNumber {
+		return b.etrue.snailblockchain.CurrentBlock().Header(), nil
+	}
+	return b.etrue.snailblockchain.GetHeaderByNumber(uint64(blockNr)), nil
+}
+
 func (b *EthAPIBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	// Pending block is only known by the miner
 	if blockNr == rpc.PendingBlockNumber {
-		block := b.etrue.blockchain.CurrentBlock()
+		block := b.etrue.miner.PendingBlock()
 		return block, nil
 	}
 	// Otherwise resolve and return the block
@@ -119,6 +132,11 @@ func (b *EthAPIBackend) GetBlock(ctx context.Context, hash common.Hash) (*types.
 func (b *EthAPIBackend) GetSnailBlock(ctx context.Context, hash common.Hash) (*types.SnailBlock, error) {
 	return b.etrue.snailblockchain.GetBlockByHash(hash), nil
 }
+
+func (b *EthAPIBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
+	return b.etrue.snailblockchain.GetFruit(fastblockHash), nil
+}
+
 
 func (b *EthAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.etrue.chainDb, hash); number != nil {
