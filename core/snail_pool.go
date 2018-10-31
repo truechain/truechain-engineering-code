@@ -99,9 +99,9 @@ type SnailPoolConfig struct {
 // pool.
 var DefaultHybridPoolConfig = SnailPoolConfig{
 	//Journal: "fruits.rlp",
-	Journal: "",
+	Journal: "fruits.rlp",
 	//Journal:   "fastBlocks.rlp",
-	Rejournal: time.Hour,
+	Rejournal: time.Minute,
 
 	PriceLimit: 1,
 	PriceBump:  10,
@@ -249,9 +249,13 @@ func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastB
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
+	return pool
+}
+
+func (pool *SnailPool) Start(){
 	// If journaling is enabled, load from disk
-	if config.Journal != "" {
-		pool.journal = newSnailJournal(config.Journal)
+	if pool.config.Journal != "" {
+		pool.journal = newSnailJournal(pool.config.Journal)
 		if err := pool.journal.load(pool.AddLocals); err != nil {
 			log.Warn("Failed to load fruit journal", "err", err)
 		}
@@ -259,7 +263,6 @@ func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastB
 			log.Warn("Failed to rotate fruit journal", "err", err)
 		}
 	}
-	return pool
 }
 
 //updateFruit move the validated fruit to pending list

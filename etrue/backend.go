@@ -509,6 +509,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
 	//sender.Start()
+	s.snailPool.Start()
 	return nil
 }
 
