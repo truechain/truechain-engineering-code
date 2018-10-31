@@ -16,23 +16,17 @@ import (
 	"bytes"
 )
 
-var agent *pbftAgentTest
-
-type pbftAgentTest struct {
-	priKey          *ecdsa.PrivateKey
-	committeeMember *types.CommitteeMember
-	committeeNode   *types.CommitteeNode
-}
+var agent *PbftAgent
+var committeeMember *types.CommitteeMember
 
 func init() {
 	agent = NewPbftAgetTest()
 }
 
-func NewPbftAgetTest() *pbftAgentTest {
+func NewPbftAgetTest() *PbftAgent {
 	priKey, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	member := &types.CommitteeMember{coinbase, &priKey.PublicKey}
-
+	committeeMember = &types.CommitteeMember{coinbase, &priKey.PublicKey}
 	committeeNode := &types.CommitteeNode{
 		IP:        "127.0.0.1",
 		Port:      8080,
@@ -41,12 +35,11 @@ func NewPbftAgetTest() *pbftAgentTest {
 		Publickey: crypto.FromECDSAPub(&priKey.PublicKey),
 	}
 	PrintNode("send", committeeNode)
-	agentTest := &pbftAgentTest{
-		priKey,
-		member,
-		committeeNode,
+	pbftAgent := &PbftAgent{
+		privateKey:    priKey,
+		committeeNode: committeeNode,
 	}
-	return agentTest
+	return pbftAgent
 }
 
 func initCommitteeInfo() *types.CommitteeInfo {
@@ -68,25 +61,25 @@ func initCommitteeInfo() *types.CommitteeInfo {
 
 func TestSendAndReceiveCommitteeNode(t *testing.T) {
 	committeeInfo := initCommitteeInfo()
-	committeeInfo.Members = append(committeeInfo.Members, agent.committeeMember)
+	committeeInfo.Members = append(committeeInfo.Members, committeeMember)
 	t.Log(agent.committeeNode)
-	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.priKey)
-	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.priKey)
+	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
+	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
 	t.Log(receivedCommitteeNode)
 }
 
 func TestSendAndReceiveCommitteeNode2(t *testing.T) {
 	committeeInfo := initCommitteeInfo()
 	t.Log(agent.committeeNode)
-	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.priKey)
-	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.priKey)
+	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
+	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
 	t.Log(receivedCommitteeNode)
 }
 
-func validateSign(fb *types.Block,prikey *ecdsa.PrivateKey) bool{
-	sign,err := GenerateBlockSign(fb, types.VoteAgree,prikey)
-	if err!=nil{
-		log.Error("err",err)
+func validateSign(fb *types.Block, prikey *ecdsa.PrivateKey) bool {
+	sign, err := agent.GenerateSign(fb)
+	if err != nil {
+		log.Error("err", err)
 		return false
 	}
 	signHash := sign.HashWithNoSign().Bytes()
@@ -94,16 +87,16 @@ func validateSign(fb *types.Block,prikey *ecdsa.PrivateKey) bool{
 	if err != nil {
 		fmt.Println("get pubKey error", err)
 	}
-	selfPubkey := crypto.FromECDSAPub(agent.committeeMember.Publickey)
 	pubBytes := crypto.FromECDSAPub(pubKey)
-	if bytes.Equal(pubBytes, selfPubkey) {
+	pubBytes2 := crypto.FromECDSAPub(&prikey.PublicKey)
+	if bytes.Equal(pubBytes, pubBytes2) {
 		return true
-	}else{
+	} else {
 		return false
 	}
 }
 
-func generateFastBlock()	*types.Block{
+func generateFastBlock() *types.Block {
 	db := ethdb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
@@ -116,19 +109,16 @@ func generateFastBlock()	*types.Block{
 	return fb
 }
 
-
-
 func TestGenerateSign(t *testing.T) {
-	fb :=generateFastBlock()
-	t.Log(validateSign(fb,agent.priKey))
+	fb := generateFastBlock()
+	t.Log(validateSign(fb, agent.privateKey))
 }
 
 func TestGenerateSign2(t *testing.T) {
-	fb :=generateFastBlock()
+	fb := generateFastBlock()
 	priKey, _ := crypto.GenerateKey()
-	t.Log(validateSign(fb,priKey))
+	t.Log(validateSign(fb, priKey))
 }
-
 
 func TestElectionEvent(t *testing.T) {
 

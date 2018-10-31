@@ -269,6 +269,7 @@ func (nodeWork *nodeInfoWork) loadNodeWork(receivedCommitteeInfo *types.Committe
 	nodeWork.cacheSign = make(map[string]types.Sign)
 	nodeWork.cryptoNode = nil
 }
+
 func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 	log.Debug(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
 		"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
@@ -433,6 +434,15 @@ func (self *PbftAgent) putCacheInsertChain(receiveBlock *types.Block) error {
 		fastBlocks         []*types.Block
 		receiveBlockHeight = receiveBlock.Number()
 	)
+	//delete from cacheBlock map where heightNumber <= receiveBlockHeight
+	for i := receiveBlockHeight.Uint64(); ; i-- {
+		if block, ok := self.cacheBlock[big.NewInt(int64(i))]; ok {
+			delete(self.cacheBlock, block.Number())
+		} else {
+			break
+		}
+	}
+	//insert block into Blockchain from cacheBlock map where heightNumber > receiveBlockHeight
 	for i := receiveBlockHeight.Uint64() + 1; ; i++ {
 		if block, ok := self.cacheBlock[big.NewInt(int64(i))]; ok {
 			fastBlocks = append(fastBlocks, block)
@@ -769,7 +779,7 @@ func GetTps(currentBlock *types.Block) {
 	}
 }
 
-func GenerateBlockSign(fb *types.Block, vote uint, privateKey *ecdsa.PrivateKey) (*types.PbftSign, error) {
+func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     vote,
 		FastHeight: fb.Header().Number,
@@ -780,15 +790,10 @@ func GenerateBlockSign(fb *types.Block, vote uint, privateKey *ecdsa.PrivateKey)
 	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
-	voteSign.Sign, err = crypto.Sign(signHash, privateKey)
+	voteSign.Sign, err = crypto.Sign(signHash, self.privateKey)
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
 	}
-	return voteSign, err
-}
-
-func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
-	voteSign, err := GenerateBlockSign(fb, vote, self.privateKey)
 	return voteSign, err
 }
 
