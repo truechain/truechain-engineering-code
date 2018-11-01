@@ -26,7 +26,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/shijinyuan/truechain-engineering-code/core/fastchain"
 )
 
 func ExampleGenerateChain() {
@@ -41,11 +40,11 @@ func ExampleGenerateChain() {
 	)
 
 	// Ensure that key1 has some funds in the genesis block.
-	gspec := &fastchain.Genesis{
+	gspec := &Genesis{
 		Config: &params.ChainConfig{},
 		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
 	}
-	genesis := gspec.MustCommit(db)
+	genesis := gspec.MustFastCommit(db)
 
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the

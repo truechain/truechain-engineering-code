@@ -44,10 +44,9 @@ var (
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
 	var (
 		db          = ethdb.NewMemDatabase()
-		BaseGenesis = new(Genesis)
 	)
 
-	BaseGenesis = new(Genesis)
+	BaseGenesis := DefaultFastGenesisBlock()
 	genesis := BaseGenesis.MustFastCommit(db)
 	// Initialize a fresh chain with only a genesis block
 	//初始化一个新链

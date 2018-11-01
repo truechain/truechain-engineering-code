@@ -65,7 +65,7 @@ func TestSetupGenesis(t *testing.T) {
 				return SetupGenesisBlock(db, new(Genesis))
 			},
 			wantErr:    errGenesisNoConfig,
-			wantConfig: params.AllEthashProtocolChanges,
+			wantConfig: params.AllMinervaProtocolChanges,
 		},
 		{
 			name: "no block in DB, genesis == nil",
@@ -93,7 +93,7 @@ func TestSetupGenesis(t *testing.T) {
 				return SetupGenesisBlock(db, nil)
 			},
 			wantHash:   customghash,
-			wantConfig: params.AllEthashProtocolChanges,
+			wantConfig: params.AllMinervaProtocolChanges,
 		},
 		{
 			name: "custom block in DB, genesis == testnet",
