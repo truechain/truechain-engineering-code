@@ -87,10 +87,10 @@ type Election struct {
 
 	commiteeCache *lru.Cache
 	committeeList map[uint64]*committee
-	muList        sync.RWMutex
 
-	committee     *committee
-	nextCommittee *committee
+	committee     	*committee
+	nextCommittee 	*committee
+	mu              sync.RWMutex
 
 	startSwitchover bool //Flag bit for handling event switching
 	singleNode      bool
@@ -365,14 +365,15 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
 	/*
-	newestFast := new(big.Int).Add(fastHeadNumber, params.ElectionSwitchoverNumber)
-	if fastNumber.Cmp(newestFast) > 0 {
-		log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
-		return nil
-	}*/
-
+		newestFast := new(big.Int).Add(fastHeadNumber, params.ElectionSwitchoverNumber)
+		if fastNumber.Cmp(newestFast) > 0 {
+			log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
+			return nil
+		}*/
+	e.mu.RLock()
 	currentCommittee := e.committee
 	nextCommittee := e.nextCommittee
+	e.mu.RUnlock()
 
 	if nextCommittee != nil {
 		//log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
@@ -419,8 +420,11 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 
 func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 	var members 	[]*types.CommitteeMember
+
+	e.mu.RLock()
 	currentCommittee := e.committee
 	nextCommittee := e.nextCommittee
+	e.mu.RUnlock()
 
 	info := make(map[string]interface{})
 
@@ -763,7 +767,7 @@ func (e *Election) loop() {
 						//snailStartNumber = new(big.Int).Sub(snailEndNumber, params.ElectionPeriodNumber)
 					}
 
-					members := e.electCommittee(snailStartNumber, snailEndNumber)
+					members := e.getElectionMembers(snailStartNumber, snailEndNumber)
 
 					lastFastNumber := e.getLastNumber(snailStartNumber, snailEndNumber)
 
@@ -786,9 +790,10 @@ func (e *Election) loop() {
 							continue
 						}
 					}
-
+					e.mu.Lock()
 					e.nextCommittee = nextCommittee
 					e.startSwitchover = true
+					e.mu.Unlock()
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
 					PrintCommittee(e.nextCommittee)
@@ -825,8 +830,10 @@ func (e *Election) loop() {
 							EndFastNumber:    e.committee.endFastNumber,
 						})
 
+						e.mu.Lock()
 						e.committee = e.nextCommittee
 						e.nextCommittee = nil
+						e.mu.Unlock()
 
 						e.startSwitchover = false
 
