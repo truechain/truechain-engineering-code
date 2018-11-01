@@ -32,6 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -125,7 +126,7 @@ type SnailBlockChain struct {
 	wg            sync.WaitGroup // chain processing wait group for shutting down
 
 	engine    consensus.Engine
-	validator Validator // block and state validator interface
+	validator core.SnailValidator // block and state validator interface
 	vmConfig  vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
@@ -161,7 +162,7 @@ func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 	}
-	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	//bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
@@ -334,14 +335,14 @@ func (bc *SnailBlockChain) CurrentFastBlock() *types.SnailBlock {
 }
 
 // SetValidator sets the validator which is used to validate incoming blocks.
-func (bc *SnailBlockChain) SetValidator(validator Validator) {
+func (bc *SnailBlockChain) SetValidator(validator core.SnailValidator) {
 	bc.procmu.Lock()
 	defer bc.procmu.Unlock()
 	bc.validator = validator
 }
 
 // Validator returns the current validator.
-func (bc *SnailBlockChain) Validator() Validator {
+func (bc *SnailBlockChain) Validator() core.SnailValidator {
 	bc.procmu.RLock()
 	defer bc.procmu.RUnlock()
 	return bc.validator

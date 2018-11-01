@@ -192,6 +192,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// TODO: start bloom indexer
 	//etrue.bloomIndexer.Start(etrue.blockchain)
 
+	sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	etrue.snailblockchain.SetValidator(sv)
+
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
@@ -206,12 +209,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
-	etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
+	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
-	ethash.SetElection(etrue.election)
-	ethash.SetSnailChainReader(etrue.snailblockchain)
-
+	etrue.engine.SetElection(etrue.election)
+	etrue.engine.SetSnailChainReader(etrue.snailblockchain)
 	etrue.election.SetEngine(etrue.engine)
+
 	coinbase, _ := etrue.Etherbase()
 	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, coinbase)
 	if etrue.protocolManager, err = NewProtocolManager(

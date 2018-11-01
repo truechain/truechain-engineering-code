@@ -28,8 +28,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	//"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -74,6 +72,42 @@ var (
 	allDiscardCounter = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
 	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
 )
+
+
+// SnailChain defines a small collection of methods needed to access the local snail block chain.
+// Temporary interface for snail block chain
+type SnailChain interface {
+	// Config retrieves the blockchain's chain configuration.
+	Config() *params.ChainConfig
+
+	// CurrentHeader retrieves the current header from the local chain.
+	CurrentHeader() *types.SnailHeader
+
+	// GetHeader retrieves a block header from the database by hash and number.
+	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
+
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetHeaderByNumber(number uint64) *types.SnailHeader
+
+	// GetHeaderByHash retrieves a block header from the database by its hash.
+	GetHeaderByHash(hash common.Hash) *types.SnailHeader
+
+	// CurrentBlock retrieves the current block from the local chain.
+	CurrentBlock() *types.SnailBlock
+
+	// GetBlock retrieves a block from the database by hash and number.
+	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
+
+	// GetBlockByNumber retrieves a snail block from the database by number.
+	GetBlockByNumber(number uint64) *types.SnailBlock
+
+	// GetBlockByHash retrieves a snail block from the database by its hash.
+	GetBlockByHash(hash common.Hash) *types.SnailBlock
+
+	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
+
+	Validator() SnailValidator
+}
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type SnailPoolConfig struct {
@@ -138,7 +172,7 @@ type SnailPool struct {
 	config      SnailPoolConfig
 	chainconfig *params.ChainConfig
 	//chain       *BlockChain
-	chain     *snailchain.SnailBlockChain
+	chain     SnailChain
 	fastchain *BlockChain
 	gasPrice  *big.Int
 
@@ -187,7 +221,7 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
 // fruits/fastblock from the network.
-func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain *snailchain.SnailBlockChain, engine consensus.Engine) *SnailPool {
+func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain SnailChain, engine consensus.Engine) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	//config SnailPoolConfig
 	config = (&config).sanitize()
@@ -656,7 +690,7 @@ func (pool *SnailPool) insertRestFruits(reinject []*types.SnailBlock) error {
 func (pool *SnailPool) removeUnfreshFruit() {
 	for _, fruit := range pool.allFruits {
 		// check freshness
-		err := pool.engine.VerifyFreshness(fruit.Header(), nil, false)
+		err := pool.engine.VerifyFreshness(pool.chain, fruit.Header(), nil, false)
 		if err != nil {
 			if err != types.ErrSnailHeightNotYet {
 				log.Debug(" removeUnfreshFruit del fruit", "fb number", fruit.FastNumber())
@@ -890,7 +924,6 @@ func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- types.NewFastBlocksE
 }
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
-
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
@@ -914,6 +947,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 
 	return nil
 }
+
 
 // Content returning all the
 // pending fruits sorted by fast number.

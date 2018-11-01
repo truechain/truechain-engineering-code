@@ -130,7 +130,7 @@ type worker struct {
 	etrue     Backend
 	chain     *chain.SnailBlockChain
 	fastchain *core.BlockChain
-	proc      chain.Validator
+	proc      core.SnailValidator
 	chainDb   ethdb.Database
 
 	coinbase  common.Address
@@ -675,7 +675,7 @@ func (self *worker) commitNewWork() {
 	header.PointerHash = pointer.Hash()
 	header.PointerNumber = pointer.Number()
 
-	if err := self.engine.PrepareSnail(self.fastchain, header); err != nil {
+	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		self.atCommintNewWoker = false
 		return
@@ -767,7 +767,7 @@ func (self *worker) updateSnapshot() {
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
-	err := engine.VerifyFreshness(fruit.Header(), env.header, true)
+	err := engine.VerifyFreshness(bc, fruit.Header(), env.header, true)
 	if err != nil {
 		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err
