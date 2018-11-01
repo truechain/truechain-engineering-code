@@ -17,10 +17,13 @@
 package params
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/math"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -35,39 +38,47 @@ var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
-		Ethash:  new(EthashConfig),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(2000000),
+			MinimumFruitDifficulty: big.NewInt(2000),
+			DurationLimit:          big.NewInt(600),
+		}),
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(18928),
-		Ethash:  new(EthashConfig),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(2000000),
+			MinimumFruitDifficulty: big.NewInt(2000),
+			DurationLimit:          big.NewInt(600),
+		}),
 	}
 
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	RinkebyChainConfig = &ChainConfig{
-		ChainID: big.NewInt(100),
-		Clique: &CliqueConfig{
-			Period: 15,
-			Epoch:  30000,
-		},
-	}
+	// RinkebyChainConfig = &ChainConfig{
+	// 	ChainID: big.NewInt(100),
+	// 	Clique: &CliqueConfig{
+	// 		Period: 15,
+	// 		Epoch:  30000,
+	// 	},
+	// }
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), new(EthashConfig), nil}
+	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig)}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), new(MinervaConfig)}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -79,37 +90,79 @@ type ChainConfig struct {
 	ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
 
 	// Various consensus engines
-	Ethash *EthashConfig `json:"ethash,omitempty"`
-	Clique *CliqueConfig `json:"clique,omitempty"`
+	Minerva *MinervaConfig `json:"minerva,omitempty"`
+	//Clique *CliqueConfig  `json:"clique,omitempty"`
 }
 
-// EthashConfig is the consensus engine configs for proof-of-work based sealing.
-type EthashConfig struct{}
+// MinervaConfig is the consensus engine configs for proof-of-work based sealing.
+type MinervaConfig struct {
+	MinimumDifficulty      *big.Int `json:"minimumDifficulty,omitempty"`
+	MinimumFruitDifficulty *big.Int `json:"minimumFruitDifficulty,omitempty"`
+	DurationLimit          *big.Int `json:"durationLimit,omitempty"`
+}
+
+func (c *MinervaConfig) UnmarshalJSON(input []byte) error {
+	type MinervaConfig struct {
+		MinimumDifficulty      *math.HexOrDecimal256 `json:"minimumDifficulty,omitempty"`
+		MinimumFruitDifficulty *math.HexOrDecimal256 `json:"minimumFruitDifficulty,omitempty"`
+		DurationLimit          *math.HexOrDecimal256 `json:"durationLimit,omitempty"`
+	}
+	var dec MinervaConfig
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.MinimumDifficulty == nil {
+		return errors.New("missing required field 'MinimumDifficulty' for Genesis")
+	}
+	c.MinimumDifficulty = (*big.Int)(dec.MinimumDifficulty)
+	if dec.MinimumFruitDifficulty == nil {
+		return errors.New("missing required field 'MinimumFruitDifficulty' for Genesis")
+	}
+	c.MinimumFruitDifficulty = (*big.Int)(dec.MinimumFruitDifficulty)
+	if dec.DurationLimit == nil {
+		return errors.New("missing required field 'DurationLimit' for Genesis")
+	}
+	c.DurationLimit = (*big.Int)(dec.DurationLimit)
+	return nil
+}
+
+func (c MinervaConfig) MarshalJSON() ([]byte, error) {
+	type MinervaConfig struct {
+		MinimumDifficulty      *math.HexOrDecimal256 `json:"minimumDifficulty,omitempty"`
+		MinimumFruitDifficulty *math.HexOrDecimal256 `json:"minimumFruitDifficulty,omitempty"`
+		DurationLimit          *math.HexOrDecimal256 `json:"durationLimit,omitempty"`
+	}
+	var enc MinervaConfig
+	enc.MinimumDifficulty = (*math.HexOrDecimal256)(c.MinimumDifficulty)
+	enc.MinimumFruitDifficulty = (*math.HexOrDecimal256)(c.MinimumFruitDifficulty)
+	enc.DurationLimit = (*math.HexOrDecimal256)(c.DurationLimit)
+	return json.Marshal(&enc)
+}
 
 // String implements the stringer interface, returning the consensus engine details.
-func (c *EthashConfig) String() string {
-	return "ethash"
+func (c *MinervaConfig) String() string {
+	return "minerva"
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
-type CliqueConfig struct {
-	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
-	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-}
+// type CliqueConfig struct {
+// 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
+// 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+// }
 
-// String implements the stringer interface, returning the consensus engine details.
-func (c *CliqueConfig) String() string {
-	return "clique"
-}
+// // String implements the stringer interface, returning the consensus engine details.
+// func (c *CliqueConfig) String() string {
+// 	return "clique"
+// }
 
 // String implements the fmt.Stringer interface.
 func (c *ChainConfig) String() string {
 	var engine interface{}
 	switch {
-	case c.Ethash != nil:
-		engine = c.Ethash
-	case c.Clique != nil:
-		engine = c.Clique
+	case c.Minerva != nil:
+		engine = c.Minerva
+	// case c.Clique != nil:
+	// 	engine = c.Clique
 	default:
 		engine = "unknown"
 	}

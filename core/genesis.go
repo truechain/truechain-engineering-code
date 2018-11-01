@@ -143,7 +143,7 @@ func (e *GenesisMismatchError) Error() string {
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error, *params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig, params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		return params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig, params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
 
 	fastConfig, fastHash, fastErr := setupFastGenesisBlock(db, genesis)
@@ -168,7 +168,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 // The returned chain configuration is never nil.
 func setupFastGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		return params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
 
 	// Just commit the new block if there is no stored genesis block.
@@ -237,7 +237,7 @@ func (g *Genesis) CommitFast(db ethdb.Database) (*types.Block, error) {
 
 	config := g.Config
 	if config == nil {
-		config = params.AllEthashProtocolChanges
+		config = params.AllMinervaProtocolChanges
 	}
 	rawdb.WriteChainConfig(db, block.Hash(), config)
 	return block, nil
@@ -328,7 +328,7 @@ func DefaultFastGenesisBlock() *Genesis {
 // The returned chain configuration is never nil.
 func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
-		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
+		return params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
 	// Just commit the new block if there is no stored genesis block.
 	stored := snaildb.ReadCanonicalHash(db, 0)
@@ -422,7 +422,7 @@ func (g *Genesis) CommitSnail(db ethdb.Database) (*types.SnailBlock, error) {
 
 	config := g.Config
 	if config == nil {
-		config = params.AllEthashProtocolChanges
+		config = params.AllMinervaProtocolChanges
 	}
 	snaildb.WriteChainConfig(db, block.Hash(), config)
 	return block, nil
@@ -483,7 +483,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	case ghash == params.TestnetGenesisSHash:
 		return params.TestnetChainConfig
 	default:
-		return params.AllEthashProtocolChanges
+		return params.AllMinervaProtocolChanges
 	}
 }
 
@@ -508,8 +508,8 @@ func GenesisFastBlockForTesting(db ethdb.Database, addr common.Address, balance 
 // be seeded with the
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
-	config := *params.AllCliqueProtocolChanges
-	config.Clique.Period = period
+	config := *params.AllMinervaProtocolChanges
+	//config.Clique.Period = period
 
 	genesis := Genesis{
 		Config:     &config,
@@ -534,7 +534,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 // DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
 func DefaultRinkebyGenesisBlock() *Genesis {
 	genesis := Genesis{
-		Config:     params.RinkebyChainConfig,
+		Config:     params.AllMinervaProtocolChanges,
 		Timestamp:  1492009146,
 		ExtraData:  hexutil.MustDecode("0x52657370656374206d7920617574686f7269746168207e452e436172746d616e42eb768f2244c8811c63729a21a3569731535f067ffc57839b00206d1ad20c69a1981b489f772031b279182d99e65703f0076e4812653aab85fca0f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
 		GasLimit:   4700000,
