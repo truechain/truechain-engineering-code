@@ -319,7 +319,7 @@ type Minerva struct {
 	election consensus.CommitteeElection
 }
 
-var MinervaLocal *Minerva
+//var MinervaLocal *Minerva
 
 // New creates a full sized minerva hybrid consensus scheme.
 func New(config Config) *Minerva {
@@ -334,7 +334,7 @@ func New(config Config) *Minerva {
 		//log.Info("Disk storage enabled for minerva DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
 
-	MinervaLocal = &Minerva{
+	minerva := &Minerva{
 		config: config,
 		//caches:   newlru("cache", config.CachesInMem, newCache),
 		//datasets: newlru("dataset", config.DatasetsInMem, newDataset),
@@ -343,19 +343,19 @@ func New(config Config) *Minerva {
 		hashrate: metrics.NewMeter(),
 	}
 
-	MinervaLocal.CheckDataSetState(1)
+	minerva.CheckDataSetState(1)
 
-	return MinervaLocal
+	return minerva
 }
 
 //Append interface SnailChainReader after instantiations
-func SetSnailChainReader(scr consensus.SnailChainReader) {
-	MinervaLocal.sbc = scr
+func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
+	m.sbc = scr
 }
 
 //Append interface CommitteeElection after instantiation
-func SetElection(e consensus.CommitteeElection) {
-	MinervaLocal.election = e
+func (m *Minerva) SetElection(e consensus.CommitteeElection) {
+	m.election = e
 }
 
 // NewTester creates a small sized minerva scheme useful only for testing

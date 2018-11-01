@@ -482,7 +482,6 @@ func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uin
 // VerifySigns check the sings included in fast block or fruit
 //
 func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error {
-
 	// validate the signatures of this fruit
 	members := m.election.GetCommittee(fastnumber)
 	if members == nil {
@@ -512,16 +511,16 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 	return nil
 }
 
-func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader, canonical bool) error {
+func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error {
 	var headerNumber *big.Int
 	if block == nil {
 		// when block is nil, is used to verify new fruits for next block
-		headerNumber = new(big.Int).Add(m.sbc.CurrentHeader().Number, common.Big1)
+		headerNumber = new(big.Int).Add(chain.CurrentHeader().Number, common.Big1)
 	} else {
 		headerNumber = block.Number
 	}
 	// check freshness
-	pointer := m.sbc.GetHeaderByNumber(fruit.PointerNumber.Uint64())
+	pointer := chain.GetHeaderByNumber(fruit.PointerNumber.Uint64())
 	if pointer == nil {
 		return types.ErrSnailHeightNotYet
 	}
@@ -532,7 +531,7 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader, canonical boo
 			return consensus.ErrUnknownPointer
 		}
 	} else {
-		pointer = m.sbc.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
+		pointer = chain.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
 		if pointer == nil {
 			return consensus.ErrUnknownPointer
 		}
@@ -833,18 +832,18 @@ func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) err
 
 
 
-func (m *Minerva) PrepareSnail(chain consensus.ChainReader, header *types.SnailHeader) error {
-	parents := m.getParents(m.sbc, header)
+func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.SnailHeader) error {
+	parents := m.getParents(chain, header)
 	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parents == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = m.CalcSnailDifficulty(m.sbc, header.Time.Uint64(), parents)
+	header.Difficulty = m.CalcSnailDifficulty(chain, header.Time.Uint64(), parents)
 
 	if header.FastNumber == nil {
 		header.FruitDifficulty = new(big.Int).Set(params.MinimumFruitDifficulty)
 	} else {
-		pointer := m.sbc.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
+		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
 		if pointer == nil {
 			return consensus.ErrUnknownPointer
 		}
@@ -853,7 +852,7 @@ func (m *Minerva) PrepareSnail(chain consensus.ChainReader, header *types.SnailH
 			return consensus.ErrUnknownFast
 		}
 
-		header.FruitDifficulty = m.CalcFruitDifficulty(m.sbc, header.Time.Uint64(), fast.Time.Uint64(), pointer)
+		header.FruitDifficulty = m.CalcFruitDifficulty(chain, header.Time.Uint64(), fast.Time.Uint64(), pointer)
 	}
 
 	return nil
