@@ -805,6 +805,11 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 
 var lastSnailWrite uint64
 
+// Get lowlevel persistence database
+func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
+	return bc.db
+}
+
 // WriteBlock writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
