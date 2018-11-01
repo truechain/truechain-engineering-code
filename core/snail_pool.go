@@ -97,7 +97,7 @@ type SnailPoolConfig struct {
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
-var DefaultHybridPoolConfig = SnailPoolConfig{
+var DefaultSnailPoolConfig = SnailPoolConfig{
 	//Journal: "fruits.rlp",
 	Journal: "fruits.rlp",
 	//Journal:   "fastBlocks.rlp",
@@ -191,7 +191,7 @@ func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastB
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	//config SnailPoolConfig
 	config = (&config).sanitize()
-	//config := DefaultHybridPoolConfig
+	//config := DefaultSnailPoolConfig
 
 	// Create the transaction pool with its initial settings
 	pool := &SnailPool{

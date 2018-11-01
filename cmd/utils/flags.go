@@ -335,17 +335,17 @@ var (
 	SnailPoolJournalFlag = cli.StringFlag{
 		Name:  "snailpool.journal",
 		Usage: "Disk journal for local fruit to survive node restarts",
-		Value: core.DefaultHybridPoolConfig.Journal,
+		Value: core.DefaultSnailPoolConfig.Journal,
 	}
 	SnailPoolRejournalFlag = cli.DurationFlag{
 		Name:  "snailpool.rejournal",
 		Usage: "Time interval to regenerate the local snail journal",
-		Value: core.DefaultHybridPoolConfig.Rejournal,
+		Value: core.DefaultSnailPoolConfig.Rejournal,
 	}
 	SnailPoolFruitCountFlag = cli.Uint64Flag{
-		Name:  "txpool.fruitcount",
+		Name:  "snailpool.fruitcount",
 		Usage: "Maximum amount of fruits in fruitPending",
-		Value: core.DefaultHybridPoolConfig.FruitCount,
+		Value: core.DefaultSnailPoolConfig.FruitCount,
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
