@@ -91,7 +91,7 @@ var (
 	errCancelContentProcessing = errors.New("fast content processing canceled (requested)")
 	errNoSyncActive            = errors.New("fast no sync active")
 	errTooOld                  = errors.New("fast peer doesn't speak recent enough protocol version (need version >= 62)")
-	errPeerNil				   = errors.New("peer is nil")
+	errPeerNil                 = errors.New("peer is nil")
 )
 
 type Downloader struct {
@@ -239,7 +239,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	return dl
 }
 
-func  (d *Downloader) GetBlockChain() BlockChain {
+func (d *Downloader) GetBlockChain() BlockChain {
 	return d.blockchain
 }
 
@@ -326,7 +326,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	err := d.synchronise(id, head, td, mode, origin, height)
-	defer log.Info("fastDownloader Synchronise exit","origin",origin,"height",height)
+	defer log.Info("fastDownloader Synchronise exit", "origin", origin, "height", height)
 	switch err {
 	case nil:
 	case errBusy:
@@ -340,6 +340,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
+			log.Info("drop peer fast Synchronise", "id", id)
 			d.dropPeer(id)
 		}
 	default:
@@ -430,7 +431,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		return errTooOld
 	}
 
-	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode,"origin", origin, "height", height)
+	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode, "origin", origin, "height", height)
 	defer func(start time.Time) {
 		log.Debug("Fast Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
@@ -502,10 +503,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	d.cancelWg.Add(len(fetchers))
 	for _, fn := range fetchers {
 		fn := fn
-		go func() {
-			defer func() { d.cancelWg.Done(); log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++") }()
-			errc <- fn()
-		}()
+		go func() { defer d.cancelWg.Done(); errc <- fn() }()
 	}
 	// Wait for the first error, then terminate the others.
 	var err error
@@ -514,23 +512,17 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			// Close the queue when all fetchers have exited.
 			// This will cause the block processor to end when
 			// it has processed the queue.
-			log.Debug("d.queue.Close()>>>>>>>>>>>>>>>>>>")
 			d.queue.Close()
 		}
-		//log.Debug("fetchers  start","index",i)
-		//if len(errc
 		if err = <-errc; err != nil {
-			log.Debug("err = <-errc; err != nil","err:",err)
 			break
 		}
-		//log.Debug("fetchers  end","index",i)
 	}
 
 	d.queue.Close()
 	d.Cancel()
 	return err
 }
-
 
 // fetchHeight retrieves the head header of the remote peer to aid in estimating
 // the total time a pending synchronisation would take.
@@ -543,11 +535,11 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 
 	p := d.peers.Peer(id)
 	if p == nil {
-		return nil ,errPeerNil
+		return nil, errPeerNil
 	}
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
-	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false,true)
+	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
 
 	timeout := time.After(time.Duration(10 * time.Second))
 	for {
@@ -575,8 +567,6 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 		}
 	}
 }
-
-
 
 // cancel aborts all of the operations and resets the queue. However, cancel does
 // not wait for the running download goroutines to finish. This method should be
@@ -876,7 +866,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			return errCancelHeaderFetch
 
 		case packet := <-d.headerCh:
-			log.Debug("fetchHeaders <- d.headerCh ","packet",packet)
+			log.Debug("fetchHeaders <- d.headerCh ", "packet", packet)
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Fast Received skeleton from incorrect peer", "peer", packet.PeerId())
@@ -914,7 +904,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				}
 			}
 			headers := packet.(*headerPack).headers
-			for _,head := range headers{
+			for _, head := range headers {
 				p.GetLog().Debug("d.headerProcCh <- headers headers", "count", len(headers), "number", head.Number)
 			}
 
@@ -961,6 +951,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			// Header retrieval timed out, consider the peer bad and drop
 			p.GetLog().Debug("Fast Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
+			p.GetLog().Info("drop peer fast fetchHeaders timout ", "id", p.GetID())
 			d.dropPeer(p.GetID())
 
 			// Finish the sync gracefully instead of dumping the gathered data though
@@ -1109,9 +1100,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			return errCancel
 
 		case packet := <-deliveryCh:
-			//log.Debug("deliver <- packet ","packet",packet,"kind",kind)
 
-			//log.Debug("fast fetchParts >>>>>>>>>>> ", kind, packet.Items())
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -1185,6 +1174,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
+							peer.GetLog().Info("drop peer fast fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
 							d.dropPeer(pid)
 						}
 					}
@@ -1295,7 +1285,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
-			log.Debug("headers := <-d.headerProcCh:","headers",headers)
+			log.Debug("headers := <-d.headerProcCh:", "headers", headers)
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1460,14 +1450,14 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
-		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number",result.Fheader.Number,"Phash",result.Fheader.ParentHash,"hash",result.Fheader.Hash())
-		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
-		log.Trace("Fast downloader signs:","block signs:",blocks[i].Signs())
+		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash())
+		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+		log.Trace("Fast downloader signs:", "block signs:", blocks[i].Signs())
 	}
-	log.Debug("Fast Downloaded>>>>","CurrentBlock:",d.blockchain.CurrentBlock().NumberU64())
+	log.Debug("Fast Downloaded>>>>", "CurrentBlock:", d.blockchain.CurrentBlock().NumberU64())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
-		if err == types.ErrSnailHeightNotYet{
+		if err == types.ErrSnailHeightNotYet {
 			return err
 		}
 		return errInvalidChain
@@ -1684,10 +1674,8 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 	}
 }
 
-
 func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
-
 
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
@@ -1703,7 +1691,6 @@ func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet et
 		return nil
 	}
 }
-
 
 // qosTuner is the quality of service tuning loop that occasionally gathers the
 // peer latency statistics and updates the estimated request round trip time.

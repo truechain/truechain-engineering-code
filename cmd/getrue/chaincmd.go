@@ -14,6 +14,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/console"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
@@ -21,8 +22,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/urfave/cli.v1"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 )
@@ -183,16 +182,16 @@ func initGenesis(ctx *cli.Context) error {
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
 		}
-
-		_, hash, err := fastchain.SetupGenesisBlock(chaindb, genesis.Fast)
-		if err != nil {
-			utils.Fatalf("Failed to write fast genesis block: %v", err)
+		_, fastHash, fastErr, _, snailHash, snailErr := core.SetupGenesisBlock(chaindb, genesis)
+		// _, hash, err := fastchain.SetupGenesisBlock(chaindb, genesis.Fast)
+		if fastErr != nil {
+			utils.Fatalf("Failed to write fast genesis block: %v", fastErr)
 		}
-		_, snailHash, err := snailchain.SetupGenesisBlock(chaindb, genesis.Snail)
-		if err != nil {
-			utils.Fatalf("Failed to write snail genesis block: %v", err)
+		// _, snailHash, err := snailchain.SetupGenesisBlock(chaindb, genesis.Snail)
+		if snailErr != nil {
+			utils.Fatalf("Failed to write snail genesis block: %v", snailErr)
 		}
-		log.Info("Successfully wrote genesis state", "database", name, "hash", hash, "snail", snailHash)
+		log.Info("Successfully wrote genesis state", "database", name, "fastHash", fastHash, "snail", snailHash)
 	}
 	return nil
 }
@@ -202,7 +201,7 @@ func importChain(ctx *cli.Context) error {
 		utils.Fatalf("This command requires an argument.")
 	}
 	stack := makeFullNode(ctx)
-	fchain,schain, chainDb := utils.MakeChain(ctx, stack)
+	fchain, schain, chainDb := utils.MakeChain(ctx, stack)
 	defer chainDb.Close()
 
 	// Start periodically gathering memory profiles
@@ -305,7 +304,7 @@ func exportChain(ctx *cli.Context) error {
 		utils.Fatalf("This command requires an argument.")
 	}
 	stack := makeFullNode(ctx)
-	fchain,schain, _ := utils.MakeChain(ctx, stack)
+	fchain, schain, _ := utils.MakeChain(ctx, stack)
 	start := time.Now()
 
 	var err error
@@ -373,7 +372,7 @@ func copyDb(ctx *cli.Context) error {
 	}
 	// Initialize a new chain for the running node to sync into
 	stack := makeFullNode(ctx)
-	fchain,schain, chainDb := utils.MakeChain(ctx, stack)
+	fchain, schain, chainDb := utils.MakeChain(ctx, stack)
 
 	syncmode := *utils.GlobalTextMarshaler(ctx, utils.SyncModeFlag.Name).(*downloader.SyncMode)
 
@@ -381,8 +380,7 @@ func copyDb(ctx *cli.Context) error {
 
 	fdl := fastdownloader.New(fsyncmode, chainDb, new(event.TypeMux), fchain, nil, nil)
 
-	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil,fdl)
-
+	sdl := downloader.New(syncmode, chainDb, new(event.TypeMux), schain, nil, nil, fdl)
 
 	// Create a source peer to satisfy downloader requests from
 	db, err := ethdb.NewLDBDatabase(ctx.Args().First(), ctx.GlobalInt(utils.CacheFlag.Name), 256)
@@ -400,7 +398,6 @@ func copyDb(ctx *cli.Context) error {
 	speer := downloader.NewFakePeer("local", db, shc, sdl)
 	//fpeer := fastdownloader.NewFakePeer("local", db, hc, fdl)
 
-
 	if err = sdl.RegisterPeer("local", 63, speer); err != nil {
 		return err
 	}
@@ -417,7 +414,6 @@ func copyDb(ctx *cli.Context) error {
 	if err = sdl.Synchronise("local", currentHeader.Hash(), hc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64()), syncmode); err != nil {
 		return err
 	}
-
 
 	for sdl.Synchronising() {
 		time.Sleep(10 * time.Millisecond)
@@ -466,7 +462,7 @@ func removeDB(ctx *cli.Context) error {
 
 func dump(ctx *cli.Context) error {
 	stack := makeFullNode(ctx)
-	_,schain, chainDb := utils.MakeChain(ctx, stack)
+	_, schain, chainDb := utils.MakeChain(ctx, stack)
 	for _, arg := range ctx.Args() {
 		var block *types.SnailBlock
 		if hashish(arg) {

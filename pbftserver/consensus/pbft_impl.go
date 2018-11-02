@@ -37,6 +37,18 @@ const (
 	Committed                // Same with `committed-local` stage explained in the original paper.
 )
 
+func (m *MsgLogs) GetPrepareMessages() map[string]*VoteMsg {
+	m.lockPrepare.Lock()
+	defer m.lockPrepare.Unlock()
+	return m.prepareMsgs
+}
+
+func (m *MsgLogs) GetCommitMessages() map[string]*VoteMsg {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	return m.commitMsgs
+}
+
 func (m *MsgLogs) SetPrepareMsg(key string, data *VoteMsg) {
 	m.lockPrepare.Lock()
 	defer m.lockPrepare.Unlock()

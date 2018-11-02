@@ -104,8 +104,7 @@ type peer struct {
 	*p2p.Peer
 	rw p2p.MsgReadWriter
 
-	version  int         // Protocol version negotiated
-	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
+	version int // Protocol version negotiated
 
 	head     common.Hash
 	fastHead common.Hash
@@ -202,7 +201,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Propagated fast block", "number", prop.block.Number(), "hash", prop.block.Hash())
 
 		case block := <-p.queuedFastAnns:
-			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}, []types.PbftSign{*block.GetLeaderSign()}); err != nil {
+			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}, []*types.PbftSign{block.GetLeaderSign()}); err != nil {
 				return
 			}
 			p.Log().Trace("Announced fast block", "number", block.Number(), "hash", block.Hash())
@@ -389,7 +388,7 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
-func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, signs []types.PbftSign) error {
+func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, signs []*types.PbftSign) error {
 	for _, hash := range hashes {
 		p.knownFastBlocks.Add(hash)
 	}

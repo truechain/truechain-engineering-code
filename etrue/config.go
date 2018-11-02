@@ -24,16 +24,15 @@ import (
 	"runtime"
 	"time"
 
+	"crypto/ecdsa"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"crypto/ecdsa"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -53,15 +52,15 @@ var DefaultConfig = Config{
 	TrieTimeout:   60 * time.Minute,
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
-	TxPool: core.DefaultTxPoolConfig,
+	TxPool:    core.DefaultTxPoolConfig,
+	SnailPool: core.DefaultSnailPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
 	MinerThreads: 2,
-	Port:30310,
-	StandByPort:30311,
-
+	Port:         30310,
+	StandByPort:  30311,
 }
 
 func init() {
@@ -83,9 +82,9 @@ func init() {
 type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
-	Genesis      *core.Genesis
-	FastGenesis  *fastchain.Genesis
-	SnailGenesis *snailchain.Genesis
+	Genesis *core.Genesis
+	// FastGenesis  *fastchain.Genesis
+	// SnailGenesis *snailchain.Genesis
 
 	// Protocol options
 	NetworkId uint64 // Network ID to use for selecting peers to connect to
@@ -133,6 +132,9 @@ type Config struct {
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig
+
+	//fruit pool options
+	SnailPool core.SnailPoolConfig
 
 	// Gas Price Oracle options
 	GPO gasprice.Config
