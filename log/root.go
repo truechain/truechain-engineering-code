@@ -3,6 +3,7 @@ package log
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 var (
@@ -43,7 +44,7 @@ func CloseLogDebug() {
 // Trace is a convenient alias for Root().Trace
 func Trace(msg string, ctx ...interface{}) {
 	if testingLVL >= 5 {
-		fmt.Println(msg, ctx)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
 	}
 	root.write(msg, LvlTrace, ctx, skipLevel)
 }
@@ -51,7 +52,7 @@ func Trace(msg string, ctx ...interface{}) {
 // Debug is a convenient alias for Root().Debug
 func Debug(msg string, ctx ...interface{}) {
 	if testingLVL >= 4 {
-		fmt.Println(msg, ctx)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
 	}
 	root.write(msg, LvlDebug, ctx, skipLevel)
 }
@@ -59,7 +60,7 @@ func Debug(msg string, ctx ...interface{}) {
 // Info is a convenient alias for Root().Info
 func Info(msg string, ctx ...interface{}) {
 	if testingLVL >= 3 {
-		fmt.Println(msg, ctx)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
 	}
 	root.write(msg, LvlInfo, ctx, skipLevel)
 }
@@ -67,7 +68,7 @@ func Info(msg string, ctx ...interface{}) {
 // Warn is a convenient alias for Root().Warn
 func Warn(msg string, ctx ...interface{}) {
 	if testingLVL >= 2 {
-		fmt.Println(msg, ctx)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
 	}
 	root.write(msg, LvlWarn, ctx, skipLevel)
 }
@@ -75,7 +76,7 @@ func Warn(msg string, ctx ...interface{}) {
 // Error is a convenient alias for Root().Error
 func Error(msg string, ctx ...interface{}) {
 	if testingLVL >= 1 {
-		fmt.Println(msg, ctx)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
 	}
 	root.write(msg, LvlError, ctx, skipLevel)
 }
@@ -83,7 +84,7 @@ func Error(msg string, ctx ...interface{}) {
 // Crit is a convenient alias for Root().Crit
 func Crit(msg string, ctx ...interface{}) {
 	if testingLVL >= 0 {
-		fmt.Println(msg, ctx)
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
 	}
 	root.write(msg, LvlCrit, ctx, skipLevel)
 	os.Exit(1)
