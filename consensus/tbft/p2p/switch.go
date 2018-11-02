@@ -1,16 +1,16 @@
 package p2p
 
 import (
+	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math"
 	"net"
 	"sync"
 	"time"
-	"errors"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 const (
@@ -32,8 +32,10 @@ const (
 	// TODO: move to config
 	DefaultMinNumOutboundPeers = 10
 )
+
 type ChannelDescriptor = conn.ChannelDescriptor
 type ConnectionStatus = conn.ConnectionStatus
+
 //-----------------------------------------------------------------------------
 
 // An AddrBook represents an address book from the pex package, which is used
@@ -110,17 +112,17 @@ func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
 	return sw
 }
 
-func (sw *Switch) ReadPeerList(){
-	for{
-		if sw.peers != nil{
+func (sw *Switch) ReadPeerList() {
+	for {
+		if sw.peers != nil {
 			var pis []string
-			for _, v := range sw.peers.list{
+			for _, v := range sw.peers.list {
 				pi := v.NodeInfo().String()
 				pis = append(pis, pi)
 			}
-			fmt.Println(pis)
+			fmt.Println("[PeerList]", pis)
 		}
-		time.Sleep(3*time.Second)
+		time.Sleep(3 * time.Second)
 	}
 }
 
@@ -203,7 +205,7 @@ func (sw *Switch) OnStart() error {
 	for _, reactor := range sw.reactors {
 		err := reactor.Start()
 		if err != nil {
-			return errors.New(fmt.Sprintf("err:%v failed to start %v",err,reactor))
+			return errors.New(fmt.Sprintf("err:%v failed to start %v", err, reactor))
 		}
 	}
 	// Start listeners
@@ -274,7 +276,6 @@ func (sw *Switch) NumPeers() (outbound, inbound, dialing int) {
 	return
 }
 
-
 // Peers returns the set of peers that are connected to the switch.
 func (sw *Switch) Peers() IPeerSet {
 	return sw.peers
@@ -323,7 +324,7 @@ func (sw *Switch) stopAndRemovePeer(peer Peer, reason interface{}) {
 //  	because the addrbook got us the peer back already
 func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 	time.Sleep(time.Second)
-	if sw.peers.Has(addr.ID){
+	if sw.peers.Has(addr.ID) {
 		//by jm add
 		log.Info("reconnect peer existed")
 		return
@@ -343,17 +344,17 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 		}
 
 		err := sw.DialPeerWithAddress(addr, true)
-		if err == nil{
+		if err == nil {
 			return // success
 		}
 
 		_, ok := err.(ErrSwitchDuplicatePeerID)
-		if ok{
+		if ok {
 			return
 		}
 
 		_, ok = err.(ErrSwitchConnectToSelf)
-		if ok{
+		if ok {
 			return
 		}
 

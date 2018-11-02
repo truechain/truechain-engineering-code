@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
+	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	// fail "github.com/ebuchman/fail-test"
 	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
-	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 //-----------------------------------------------------------------------------
@@ -28,10 +28,10 @@ const (
 // Errors
 
 var (
-	ErrInvalidProposalSignature = errors.New("Error invalid proposal signature")  	
-	ErrInvalidProposalPOLRound  = errors.New("Error invalid proposal POL round")  	 
-	ErrAddingVote               = errors.New("Error adding vote")					
-	ErrVoteHeightMismatch       = errors.New("Error vote height mismatch")			
+	ErrInvalidProposalSignature = errors.New("Error invalid proposal signature")
+	ErrInvalidProposalPOLRound  = errors.New("Error invalid proposal POL round")
+	ErrAddingVote               = errors.New("Error adding vote")
+	ErrVoteHeightMismatch       = errors.New("Error vote height mismatch")
 )
 
 //-----------------------------------------------------------------------------
@@ -48,10 +48,10 @@ type msgInfo struct {
 
 // internally generated messages which may update the state
 type timeoutInfo struct {
-	Duration time.Duration         	`json:"duration"`
-	Height   uint64                 	`json:"height"`
-	Round    uint                   	`json:"round"`
-	Step     ttypes.RoundStepType 	`json:"step"`
+	Duration time.Duration        `json:"duration"`
+	Height   uint64               `json:"height"`
+	Round    uint                 `json:"round"`
+	Step     ttypes.RoundStepType `json:"step"`
 }
 
 func (ti *timeoutInfo) String() string {
@@ -66,8 +66,8 @@ type ConsensusState struct {
 	help.BaseService
 
 	// config details
-	config        	*cfg.ConsensusConfig
-	privValidator 	ttypes.PrivValidator // for signing votes
+	config        *cfg.ConsensusConfig
+	privValidator ttypes.PrivValidator // for signing votes
 
 	// services for creating and executing blocks
 	// TODO: encapsulate all of this in one "BlockManager"
@@ -76,7 +76,7 @@ type ConsensusState struct {
 	mtx sync.RWMutex
 	ttypes.RoundState
 	// state sm.State // State until height-1.
-	state ttypes.StateAgent
+	state      ttypes.StateAgent
 	blockStore *ttypes.BlockStore
 
 	// state changes may be triggered by: msgs from peers,
@@ -123,14 +123,14 @@ func NewConsensusState(
 ) *ConsensusState {
 	cs := &ConsensusState{
 		config:           config,
-		blockStore:		  store,
+		blockStore:       store,
 		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
 		timeoutTicker:    NewTimeoutTicker(),
 		done:             make(chan struct{}),
 		doWALCatchup:     true,
 		wal:              nilWAL{},
-		state:			  state,
+		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
 	}
 	// set function defaults (may be overwritten before calling Start)
@@ -395,7 +395,7 @@ func (cs *ConsensusState) sendInternalMessage(mi msgInfo) {
 // (which happens even before saving the state)
 func (cs *ConsensusState) reconstructLastCommit(seenCommit *ttypes.Commit) {
 	LastBlockHeight := cs.state.GetLastBlockHeight()
-	if LastBlockHeight == 0 || seenCommit == nil{
+	if LastBlockHeight == 0 || seenCommit == nil {
 		return
 	}
 	lastPrecommits := ttypes.NewVoteSet(cs.state.GetChainID(), LastBlockHeight, seenCommit.Round(),
@@ -647,6 +647,7 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 
 }
+
 //-----------------------------------------------------------------------------
 // State functions
 // Used internally by handleTimeout and handleMsg to make state transitions
@@ -869,7 +870,7 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // is returned for convenience so we can log the proposal block.
 // Returns nil block upon error.
 // NOTE: keep it side-effect free for clarity.
-func (cs *ConsensusState) createProposalBlock() (block *types.Block,blockParts *ttypes.PartSet) {
+func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts *ttypes.PartSet) {
 	// remove commit in block
 	return cs.state.MakeBlock()
 }
@@ -1029,7 +1030,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 
 	// If we're already locked on that block, precommit it, and update the LockedRound
 	tmpBlock := cs.LockedBlock.Hash()
-	if help.EqualHashes(tmpBlock[:],blockID.Hash) {
+	if help.EqualHashes(tmpBlock[:], blockID.Hash) {
 		log.Info("enterPrecommit: +2/3 prevoted locked block. Relocking")
 		cs.LockedRound = uint(round)
 		cs.eventBus.PublishEventRelock(cs.RoundStateEvent())
@@ -1039,7 +1040,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 
 	// If +2/3 prevoted for proposal block, stage and precommit it
 	tmpPro := cs.ProposalBlock.Hash()
-	if help.EqualHashes(tmpPro[:],blockID.Hash) {
+	if help.EqualHashes(tmpPro[:], blockID.Hash) {
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", blockID.Hash)
 		// Validate the block.
 		if err := cs.state.ValidateBlock(cs.ProposalBlock); err != nil {
@@ -1123,7 +1124,7 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 	// Move them over to ProposalBlock if they match the commit hash,
 	// otherwise they'll be cleared in updateToState
 	lock := cs.LockedBlock.Hash()
-	if help.EqualHashes(lock[:],blockID.Hash) {
+	if help.EqualHashes(lock[:], blockID.Hash) {
 		log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", blockID.Hash)
 		cs.ProposalBlock = cs.LockedBlock
 		cs.ProposalBlockParts = cs.LockedBlockParts
@@ -1131,7 +1132,7 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 
 	// If we don't have the block being committed, set up to get it.
 	pro := cs.ProposalBlock.Hash()
-	if !help.EqualHashes(pro[:],blockID.Hash) {
+	if !help.EqualHashes(pro[:], blockID.Hash) {
 		if !cs.ProposalBlockParts.HasHeader(blockID.PartsHeader) {
 			log.Info("Commit is for a block we don't know about. Set ProposalBlock=nil", "proposal", cs.ProposalBlock.Hash(), "commit", blockID.Hash)
 			// We're getting the wrong block.
@@ -1158,7 +1159,7 @@ func (cs *ConsensusState) tryFinalizeCommit(height uint64) {
 		return
 	}
 	block := cs.ProposalBlock.Hash()
-	if !help.EqualHashes(block[:],blockID.Hash) {
+	if !help.EqualHashes(block[:], blockID.Hash) {
 		// TODO: this happens every time if we're not a validator (ugly logs)
 		// TODO: ^^ wait, why does it matter that we're a validator?
 		log.Info("Attempt to finalize failed. We don't have the commit block.", "proposal-block", cs.ProposalBlock.Hash(), "commit-block", blockID.Hash)
@@ -1186,7 +1187,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		help.PanicSanity(fmt.Sprintf("Expected ProposalBlockParts header to be commit header"))
 	}
 	hash := block.Hash()
-	if !help.EqualHashes(hash[:],blockID.Hash) {
+	if !help.EqualHashes(hash[:], blockID.Hash) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
 	if err := cs.state.ValidateBlock(block); err != nil {
@@ -1259,6 +1260,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	// * cs.Step is now ttypes.RoundStepNewHeight
 	// * cs.StartTime is set to when we will start round0.
 }
+
 //-----------------------------------------------------------------------------
 
 func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
@@ -1322,7 +1324,7 @@ func (cs *ConsensusState) addProposalBlockPart(msg *BlockPartMessage, peerID str
 	}
 	if added && cs.ProposalBlockParts.IsComplete() {
 		// Added and completed!
-		cs.ProposalBlock,err = ttypes.MakeBlockFromPartSet(cs.ProposalBlockParts)
+		cs.ProposalBlock, err = ttypes.MakeBlockFromPartSet(cs.ProposalBlockParts)
 		if err != nil {
 			return true, err
 		}
@@ -1333,8 +1335,8 @@ func (cs *ConsensusState) addProposalBlockPart(msg *BlockPartMessage, peerID str
 		prevotes := cs.Votes.Prevotes(int(cs.Round))
 		blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
 		if hasTwoThirds && !blockID.IsZero() && (cs.ValidRound < cs.Round) {
-			pro :=cs.ProposalBlock.Hash()
-			if help.EqualHashes(pro[:],blockID.Hash) {
+			pro := cs.ProposalBlock.Hash()
+			if help.EqualHashes(pro[:], blockID.Hash) {
 				log.Info("Updating valid block to new proposal block",
 					"valid-round", cs.Round, "valid-block-hash", cs.ProposalBlock.Hash())
 				cs.ValidRound = cs.Round
@@ -1369,7 +1371,7 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 		// If it's otherwise invalid, punish peer.
 		if err == ErrVoteHeightMismatch {
 			return err
-		}  else {
+		} else {
 			if err == ttypes.ErrVoteConflictingVotes {
 				if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
 					log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
@@ -1459,8 +1461,8 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				(vote.Round <= cs.Round) &&
 				!func() bool {
 					hash := cs.LockedBlock.Hash()
-					return help.EqualHashes(hash[:],blockID.Hash)
-				}(){
+					return help.EqualHashes(hash[:], blockID.Hash)
+				}() {
 
 				log.Info("Unlocking because of POL.", "lockedRound", cs.LockedRound, "POLRound", vote.Round)
 				cs.LockedRound = 0
@@ -1477,7 +1479,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				(vote.Round <= cs.Round) &&
 				func() bool {
 					hash := cs.ProposalBlock.Hash()
-					return help.EqualHashes(hash[:],blockID.Hash)
+					return help.EqualHashes(hash[:], blockID.Hash)
 				}() {
 
 				log.Info("Updating ValidBlock because of POL.", "validRound", cs.ValidRound, "POLRound", vote.Round)
