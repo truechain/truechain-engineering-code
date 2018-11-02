@@ -31,7 +31,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -94,7 +93,7 @@ type BlockChain struct {
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
 	hc               *HeaderChain
-	sc               *snailchain.SnailBlockChain
+	sc               SnailChain
 	rmLogsFeed       event.Feed
 	chainFeed        event.Feed
 	chainSideFeed    event.Feed
@@ -192,20 +191,20 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 		return nil, err
 	}
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
-	//for hash := range BadHashes {
-	//	if header := bc.GetHeaderByHash(hash); header != nil {
-	//
-	//		// get the canonical block corresponding to the offending header's number
-	//		headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
-	//
-	//		// make sure the headerByNumber (if present) is in our current canonical chain
-	//		if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
-	//			log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
-	//			bc.SetHead(header.Number.Uint64() - 1)
-	//			log.Error("Chain rewind was successful, resuming normal operation")
-	//		}
-	//	}
-	//}
+	for hash := range BadHashes {
+		if header := bc.GetHeaderByHash(hash); header != nil {
+
+			// get the canonical block corresponding to the offending header's number
+			headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
+
+			// make sure the headerByNumber (if present) is in our current canonical chain
+			if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
+				log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
+				bc.SetHead(header.Number.Uint64() - 1)
+				log.Error("Chain rewind was successful, resuming normal operation")
+			}
+		}
+	}
 
 	// Take ownership of this particular state
 	go bc.update()
@@ -289,9 +288,9 @@ func (bc *BlockChain) loadLastState() error {
 
 func (bc *BlockChain) GetLastRow() *types.BlockReward {
 
-	sNumber := bc.CurrentBlock().NumberU64()
+	sNumber := bc.sc.CurrentBlock().NumberU64()
 
-	fmt.Println(sNumber)
+	//fmt.Println(sNumber)
 	for i := sNumber; i > 0; i-- {
 
 		sBlock := bc.sc.GetBlockByNumber(i)
@@ -968,7 +967,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 	}
 
-	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
+	root, err := state.Commit(true)
 	if err != nil {
 		return NonStatTy, err
 	}
@@ -1151,17 +1150,17 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			break
 		}
 		// If the header is a banned one, straight out abort
-		//if BadHashes[block.Hash()] {
-		//	bc.reportBlock(block, nil, ErrBlacklistedHash)
-		//	return i, events, coalescedLogs, ErrBlacklistedHash
-		//}
+		if BadHashes[block.Hash()] {
+			bc.reportBlock(block, nil, ErrBlacklistedHash)
+			return i, events, coalescedLogs, ErrBlacklistedHash
+		}
 
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateBody(block, true) //update
+			err = bc.Validator().ValidateBody(block, false) //update
 		}
 		switch {
 		case err == ErrKnownBlock:
@@ -1256,14 +1255,14 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		proctime := time.Since(bstart)
 
 		balances := state.Balances()
-		bcd := StateChangeEvent{
+		bcd := types.StateChangeEvent{
 			Height:   block.NumberU64(),
 			Balances: balances,
 		}
 		bc.stateChangeFeed.Send(bcd)
 		if state.Rewarded() {
 			snailHeight, snailHash, rewards := state.Rewards()
-			rd := RewardsEvent{
+			rd := types.RewardsEvent{
 				Height:  snailHeight,
 				Hash:    snailHash,
 				Rewards: rewards,
@@ -1279,7 +1278,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		for _, r := range receipts {
 			receiptMap[r.TxHash] = r
 		}
-		bc.fastBlockFeed.Send(FastBlockEvent{
+		bc.fastBlockFeed.Send(types.FastBlockEvent{
 			Block:    block,
 			Receipts: receiptMap,
 		})
@@ -1296,7 +1295,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 			coalescedLogs = append(coalescedLogs, logs...)
 			FastBlockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainEvent{block, block.Hash(), logs})
+			events = append(events, types.ChainFastEvent{block, block.Hash(), logs})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1307,7 +1306,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 				common.PrettyDuration(time.Since(bstart)), "txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", 0)
 
 			FastBlockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainSideEvent{block})
+			events = append(events, types.ChainFastSideEvent{block})
 		}
 		stats.processed++
 		stats.usedGas += usedGas
@@ -1317,7 +1316,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	}
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, ChainHeadEvent{lastCanon})
+		events = append(events, types.ChainFastHeadEvent{lastCanon})
 	}
 	return 0, events, coalescedLogs, nil
 }
@@ -1475,12 +1474,12 @@ func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
 	batch.Write()
 
 	if len(deletedLogs) > 0 {
-		go bc.rmLogsFeed.Send(RemovedLogsEvent{deletedLogs})
+		go bc.rmLogsFeed.Send(types.RemovedLogsEvent{deletedLogs})
 	}
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(ChainSideEvent{Block: block})
+				bc.chainSideFeed.Send(types.ChainFastSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1498,12 +1497,12 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 	}
 	for _, event := range events {
 		switch ev := event.(type) {
-		case ChainEvent:
+		case types.ChainFastEvent:
 			bc.chainFeed.Send(ev)
 
-		case ChainHeadEvent:
+		case types.ChainFastHeadEvent:
 			bc.chainHeadFeed.Send(ev)
-		case ChainSideEvent:
+		case types.ChainFastSideEvent:
 			bc.chainSideFeed.Send(ev)
 
 		}
@@ -1702,22 +1701,22 @@ func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
-func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent) event.Subscription {
+func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
 }
 
-// SubscribeChainEvent registers a subscription of ChainEvent.
-func (bc *BlockChain) SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription {
+// SubscribeChainEvent registers a subscription of types.ChainFastEvent.
+func (bc *BlockChain) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
-// SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
+// SubscribeChainHeadEvent registers a subscription of types.ChainFastHeadEvent.
+func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
-// SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
+// SubscribeChainSideEvent registers a subscription of types.ChainFastSideEvent.
+func (bc *BlockChain) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 
@@ -1727,17 +1726,17 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 }
 
 // SubscribeStateChangeEvent registers a subscription of stateDB.Balances().
-func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- StateChangeEvent) event.Subscription {
+func (bc *BlockChain) SubscribeStateChangeEvent(ch chan<- types.StateChangeEvent) event.Subscription {
 	return bc.scope.Track(bc.stateChangeFeed.Subscribe(ch))
 }
 
 // SubscribeRewardsEvent registers a subscription of stateDB.Rewards().
-func (bc *BlockChain) SubscribeRewardsEvent(ch chan<- RewardsEvent) event.Subscription {
+func (bc *BlockChain) SubscribeRewardsEvent(ch chan<- types.RewardsEvent) event.Subscription {
 	return bc.scope.Track(bc.rewardsFeed.Subscribe(ch))
 }
 
 // SubscribeFastBlock registers a subscription of fast block with tx receipts.
-func (bc *BlockChain) SubscribeFastBlock(ch chan<- FastBlockEvent) event.Subscription {
+func (bc *BlockChain) SubscribeFastBlock(ch chan<- types.FastBlockEvent) event.Subscription {
 	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }
 

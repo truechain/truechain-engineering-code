@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -56,26 +57,21 @@ type BlockValidator struct {
 	bc     *SnailBlockChain    // Canonical block chain
 
 	engine    consensus.Engine // Consensus engine used for validating
-	election  consensus.CommitteeElection
-	fastchain consensus.ChainReader
+	//election  consensus.CommitteeElection
+	fastchain *core.BlockChain
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
-func NewBlockValidator(config *params.ChainConfig, blockchain *SnailBlockChain, engine consensus.Engine) *BlockValidator {
+func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *SnailBlockChain,  engine consensus.Engine) *BlockValidator {
 	validator := &BlockValidator{
 		config: config,
 		engine: engine,
-		bc:     blockchain,
+		fastchain: fc,
+		bc:     sc,
 	}
 	return validator
 }
 
-func (v *BlockValidator) SetElection(e consensus.CommitteeElection, fc consensus.ChainReader) error {
-	v.election = e
-	v.fastchain = fc
-
-	return nil
-}
 
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
@@ -130,10 +126,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		temp = fruit.FastNumber().Uint64()
 	}
 
-	/*
-		if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-			return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-		}*/
 	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
@@ -185,7 +177,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	if block != nil {
 		blockHeader = block.Header()
 	}
-	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader, canonical)
+	err := v.engine.VerifyFreshness(v.bc, fruit.Header(), blockHeader, canonical)
 	if err != nil {
 		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err

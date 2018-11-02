@@ -14,86 +14,98 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package types
 
 import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
-type NewTxsEvent struct{ Txs []*types.Transaction }
+type NewTxsEvent struct{ Txs []*Transaction }
 
 // AddTxEvent is posted when a transactions remove from the transaction pool.
-type AddTxEvent struct{ Tx *types.Transaction }
+type AddTxEvent struct{ Tx *Transaction }
 
 // RemoveTxEvent is posted when a transactions remove from the transaction pool.
 type RemoveTxEvent struct{ Hash common.Hash }
 
 //for fruit and record
-type NewFruitsEvent struct{ Fruits []*types.SnailBlock }
+type NewFruitsEvent struct{ Fruits []*SnailBlock }
+
+// NewMinedFruitEvent is posted when a block has been imported.
+type NewMinedFruitEvent struct{ Block *SnailBlock }
+
+type NewFastBlocksEvent struct{ FastBlocks []*Block }
 
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
 type PendingLogsEvent struct {
-	Logs []*types.Log
+	Logs []*Log
 }
 
 // PendingStateEvent is posted pre mining and notifies of pending state changes.
 type PendingStateEvent struct{}
 
-type NewMinedSnailBlockEvent struct{ Block *types.SnailBlock }
-
-// NewMinedFruitEvent is posted when a block has been imported.
-type NewMinedFruitEvent struct{ Block *types.SnailBlock }
-
 // RemovedLogsEvent is posted when a reorg happens
-type RemovedLogsEvent struct{ Logs []*types.Log }
+type RemovedLogsEvent struct{ Logs []*Log }
 
-type ChainEvent struct {
-	Block *types.Block
+type ChainFastEvent struct {
+	Block *Block
 	Hash  common.Hash
-	Logs  []*types.Log
+	Logs  []*Log
 }
 
-type ChainSideEvent struct {
-	Block *types.Block
+type ChainFastSideEvent struct {
+	Block *Block
 }
 
-type ChainHeadEvent struct{ Block *types.Block }
+type ChainFastHeadEvent struct{ Block *Block }
+
+type ChainSnailEvent struct {
+	Block *SnailBlock
+	Hash  common.Hash
+}
+
+type ChainSnailSideEvent struct {
+	Block *SnailBlock
+}
+
+type ChainSnailHeadEvent struct{ Block *SnailBlock }
 
 type FastBlockEvent struct {
-	Block    *types.Block
-	Receipts map[common.Hash]*types.Receipt
+	Block    *Block
+	Receipts map[common.Hash]*Receipt
 }
 
 // for fruit event
 type FruitEvent struct {
-	Block *types.Block
+	Block *Block
 	Hash  common.Hash
-	Logs  []*types.Log
+	Logs  []*Log
 }
 
 type ElectionEvent struct {
 	Option           uint
 	CommitteeID      *big.Int
-	CommitteeMembers []*types.CommitteeMember
+	CommitteeMembers []*CommitteeMember
 	BeginFastNumber  *big.Int
 	EndFastNumber    *big.Int
-	//CommitteeInfo *types.CommitteeInfo
 }
 
 type PbftSignEvent struct {
-	Block    *types.Block
-	PbftSign *types.PbftSign
+	Block    *Block
+	PbftSign *PbftSign
 }
 
 // NewBlockEvent is posted when a block has been generate .
-type NewBlockEvent struct{ Block *types.Block }
+type NewBlockEvent struct{ Block *Block }
+
+// NewMinedBlockEvent is posted when a block has been imported.
+type NewMinedBlockEvent struct{ Block *SnailBlock }
 
 // NodeInfoEvent is posted when nodeInfo send
-type NodeInfoEvent struct{ NodeInfo *types.EncryptNodeMessage }
+type NodeInfoEvent struct{ NodeInfo *EncryptNodeMessage }
 
 // StateChangeEvent hold the result of the balance change
 type StateChangeEvent struct {

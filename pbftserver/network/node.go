@@ -533,6 +533,11 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		//lock.PSLog("node routeMsg",msg.(*consensus.RequestMsg).Height, fmt.Sprintf("%+v", msg.(*consensus.RequestMsg)))
 		lock.PSLog("node routeMsg", msg.(*consensus.RequestMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
+		if CurrentStage != nil {
+			lock.PSLogInfo("clear stage ", msg.(*consensus.RequestMsg).Height)
+			node.PutStatus(msg.(*consensus.RequestMsg).Height, nil)
+			CurrentStage = nil
+		}
 		if CurrentStage != nil && node.CurrentHeight == msg.(*consensus.RequestMsg).Height {
 			CurrentStage.CurrentStage = consensus.Idle
 		}
@@ -633,6 +638,10 @@ func (node *Node) routeMsgBackward(msg interface{}) error {
 	case []*consensus.VoteMsg:
 		for _, v := range msg.([]*consensus.VoteMsg) {
 			state := node.GetStatus(v.Height)
+			if !state.VerifyMsg(v.ViewID, v.SequenceID, v.Digest) {
+				log.Error("routeMsgBackward messgae fail", "commit", v.Digest)
+				continue
+			}
 			if v.MsgType == consensus.CommitMsg {
 				msg := state.MsgLogs.GetCommitOne()
 				if msg != nil {

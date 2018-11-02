@@ -27,14 +27,15 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/hashicorp/golang-lru"
 	//"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -125,7 +126,7 @@ type SnailBlockChain struct {
 	wg            sync.WaitGroup // chain processing wait group for shutting down
 
 	engine    consensus.Engine
-	validator Validator // block and state validator interface
+	validator core.SnailValidator // block and state validator interface
 	vmConfig  vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
@@ -161,7 +162,7 @@ func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
 	}
-	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	//bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
@@ -169,8 +170,7 @@ func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig
 		return nil, err
 	}
 	//TODO 20180805
-	
-	
+
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
 		return nil, ErrNoGenesis
@@ -335,14 +335,14 @@ func (bc *SnailBlockChain) CurrentFastBlock() *types.SnailBlock {
 }
 
 // SetValidator sets the validator which is used to validate incoming blocks.
-func (bc *SnailBlockChain) SetValidator(validator Validator) {
+func (bc *SnailBlockChain) SetValidator(validator core.SnailValidator) {
 	bc.procmu.Lock()
 	defer bc.procmu.Unlock()
 	bc.validator = validator
 }
 
 // Validator returns the current validator.
-func (bc *SnailBlockChain) Validator() Validator {
+func (bc *SnailBlockChain) Validator() core.SnailValidator {
 	bc.procmu.RLock()
 	defer bc.procmu.RUnlock()
 	return bc.validator
@@ -383,7 +383,7 @@ func (bc *SnailBlockChain) ResetWithGenesisBlock(genesis *types.SnailBlock) erro
 
 	return nil
 }
- 
+
 // repair tries to repair the current blockchain by rolling back the current block
 // until one with associated state is found. This is needed to fix incomplete db
 // writes caused either by crashes/power outages, or simply non-committed tries.
@@ -675,56 +675,55 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 
 // SetSnailReceiptsData computes all the non-consensus fields of the receipts
 func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
-	
+
 	//signer := types.MakeSigner(config, block.Number())
 
 	//TODO should add transaction for snail chain 20180804
 	//transactions, logIndex := block.Transactions(), uint(0)
 
 	/*
-	if len(transactions) != len(receipts) {
-		return errors.New("transaction and receipt count mismatch")
-	}
+		if len(transactions) != len(receipts) {
+			return errors.New("transaction and receipt count mismatch")
+		}
 
-	for j := 0; j < len(receipts); j++ {
-		// The transaction hash can be retrieved from the transaction itself
-		receipts[j].TxHash = transactions[j].Hash()
+		for j := 0; j < len(receipts); j++ {
+			// The transaction hash can be retrieved from the transaction itself
+			receipts[j].TxHash = transactions[j].Hash()
 
-		// The contract address can be derived from the transaction itself
-		if transactions[j].To() == nil {
-			// Deriving the signer is expensive, only do if it's actually needed
-			from, _ := types.Sender(signer, transactions[j])
-			receipts[j].ContractAddress = crypto.CreateAddress(from, transactions[j].Nonce())
+			// The contract address can be derived from the transaction itself
+			if transactions[j].To() == nil {
+				// Deriving the signer is expensive, only do if it's actually needed
+				from, _ := types.Sender(signer, transactions[j])
+				receipts[j].ContractAddress = crypto.CreateAddress(from, transactions[j].Nonce())
+			}
+			// The used gas can be calculated based on previous receipts
+			if j == 0 {
+				receipts[j].GasUsed = receipts[j].CumulativeGasUsed
+			} else {
+				receipts[j].GasUsed = receipts[j].CumulativeGasUsed - receipts[j-1].CumulativeGasUsed
+			}
+			// The derived log fields can simply be set from the block and transaction
+			for k := 0; k < len(receipts[j].Logs); k++ {
+				receipts[j].Logs[k].BlockNumber = block.NumberU64()
+				receipts[j].Logs[k].BlockHash = block.Hash()
+				receipts[j].Logs[k].TxHash = receipts[j].TxHash
+				receipts[j].Logs[k].TxIndex = uint(j)
+				receipts[j].Logs[k].Index = logIndex
+				logIndex++
+			}
 		}
-		// The used gas can be calculated based on previous receipts
-		if j == 0 {
-			receipts[j].GasUsed = receipts[j].CumulativeGasUsed
-		} else {
-			receipts[j].GasUsed = receipts[j].CumulativeGasUsed - receipts[j-1].CumulativeGasUsed
-		}
-		// The derived log fields can simply be set from the block and transaction
-		for k := 0; k < len(receipts[j].Logs); k++ {
-			receipts[j].Logs[k].BlockNumber = block.NumberU64()
-			receipts[j].Logs[k].BlockHash = block.Hash()
-			receipts[j].Logs[k].TxHash = receipts[j].TxHash
-			receipts[j].Logs[k].TxIndex = uint(j)
-			receipts[j].Logs[k].Index = logIndex
-			logIndex++
-		}
-	}
 	*/
 	return nil
-	
-}
 
+}
 
 // InsertReceiptChain attempts to complete an already existing header chain with
 // transaction and receipt data.
 
 func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, receiptChain []types.Receipts) (int, error) {
-	
+
 	bc.wg.Add(1)
-	defer bc.wg.Done() 
+	defer bc.wg.Done()
 
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(blockChain); i++ {
@@ -767,7 +766,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 		rawdb.WriteFtLookupEntries(batch, block)
 
 		stats.processed++
- 
+
 		if batch.ValueSize() >= ethdb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return 0, err
@@ -804,7 +803,13 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 		"ignored", stats.ignored)
 	return 0, nil
 }
+
 var lastSnailWrite uint64
+
+// Get lowlevel persistence database
+func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
+	return bc.db
+}
 
 // WriteBlock writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
@@ -927,9 +932,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 	// faster than direct delivery and requires much less mutex
 	// acquiring.
 	var (
-		stats         = insertSnailStats{startTime: mclock.Now()}
-		events        = make([]interface{}, 0, len(chain))
-		lastCanon     *types.SnailBlock
+		stats     = insertSnailStats{startTime: mclock.Now()}
+		events    = make([]interface{}, 0, len(chain))
+		lastCanon *types.SnailBlock
 	)
 	// Start the parallel header verifier
 	headers := make([]*types.SnailHeader, len(chain))
@@ -983,6 +988,11 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			continue
 
 		case err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(block.ParentHash()):
+			bc.futureBlocks.Add(block.Hash(), block)
+			stats.queued++
+			continue
+
+		case err == ErrInvalidFast:
 			bc.futureBlocks.Add(block.Hash(), block)
 			stats.queued++
 			continue
@@ -1041,7 +1051,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			//coalescedLogs = append(coalescedLogs, logs...)
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainEvent{block, block.Hash()})
+			events = append(events, types.ChainSnailEvent{block, block.Hash()})
 			lastCanon = block
 
 			// Only count canonical blocks for GC processing time
@@ -1053,7 +1063,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()), "uncles", len(block.Uncles()))
 
 			blockInsertTimer.UpdateSince(bstart)
-			events = append(events, ChainSideEvent{block})
+			events = append(events, types.ChainSnailSideEvent{block})
 		}
 		stats.processed++
 
@@ -1064,7 +1074,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 	}
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
-		events = append(events, ChainHeadEvent{lastCanon})
+		events = append(events, types.ChainSnailHeadEvent{lastCanon})
 	}
 	return 0, events, nil
 }
@@ -1119,7 +1129,6 @@ func countSnailFruits(chain []*types.SnailBlock) (c int) {
 		c += len(b.Fruits())
 	}
 
-	
 	return c
 }
 
@@ -1207,7 +1216,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	if len(oldChain) > 0 {
 		go func() {
 			for _, block := range oldChain {
-				bc.chainSideFeed.Send(ChainSideEvent{Block: block})
+				bc.chainSideFeed.Send(types.ChainSnailSideEvent{Block: block})
 			}
 		}()
 	}
@@ -1221,19 +1230,19 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 func (bc *SnailBlockChain) PostChainEvents(events []interface{}) {
 	for _, event := range events {
 		switch ev := event.(type) {
-		case ChainEvent:
+		case types.ChainSnailEvent:
 			bc.chainFeed.Send(ev)
 
-		case ChainHeadEvent:
+		case types.ChainSnailHeadEvent:
 			bc.chainHeadFeed.Send(ev)
 
-		case ChainSideEvent:
+		case types.ChainSnailSideEvent:
 			bc.chainSideFeed.Send(ev)
 
-		case NewFastBlocksEvent:
+		case types.NewFastBlocksEvent:
 			bc.fastBlockFeed.Send(ev)
 
-		case NewMinedEvent:
+		case types.NewMinedFruitEvent:
 			bc.fruitFeed.Send(ev)
 
 		}
@@ -1398,8 +1407,8 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 	return bc.hc.GetHeaderByNumber(number)
 }
 
-func (bc *SnailBlockChain)GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
-	fruit, hash, number, index :=  rawdb.ReadFruit(bc.db, fastHash)
+func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
+	fruit, hash, number, index := rawdb.ReadFruit(bc.db, fastHash)
 	//log.Debug("Get fruit by fast hash", "fruit", fruit, "hash", hash, "number", number, "index", index, "fastHash",fastHash)
 
 	if fruit == nil {
@@ -1409,6 +1418,11 @@ func (bc *SnailBlockChain)GetFruitByFastHash(fastHash common.Hash) (*types.Snail
 	block := bc.GetBlock(hash, number)
 
 	return block, index
+}
+
+func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) (*types.SnailBlock) {
+	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
+	return fruit
 }
 
 func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
@@ -1427,22 +1441,22 @@ func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
 
-func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
 }
- 
-// SubscribeSnailChainEvent registers a subscription of ChainEvent.
-func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription {
+
+// SubscribeSnailChainEvent registers a subscription of ChainSnailEvent.
+func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
-// SubscribeSnailChainHeadEvent registers a subscription of ChainHeadEvent.
-func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription {
+// SubscribeSnailChainHeadEvent registers a subscription of types.ChainSnailHeadEvent.
+func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
 
-// SubscribeChainSideEvent registers a subscription of ChainSideEvent.
-func (bc *SnailBlockChain) SubscribeChainSideEvent(ch chan<- ChainSideEvent) event.Subscription {
+// SubscribeChainSideEvent registers a subscription of types.ChainSnailSideEvent.
+func (bc *SnailBlockChain) SubscribeChainSideEvent(ch chan<- types.ChainSnailSideEvent) event.Subscription {
 	return bc.scope.Track(bc.chainSideFeed.Subscribe(ch))
 }
 
@@ -1452,14 +1466,11 @@ func (bc *SnailBlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subs
 }
 
 // SubscribeNewFruitEvent registers a subscription of fruits.
-func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- NewFastBlocksEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- types.NewFastBlocksEvent) event.Subscription {
 	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }
+
 // SubscribeNewFruitEvent registers a subscription of fruits.
-func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- NewMinedEvent) event.Subscription {
+func (bc *SnailBlockChain) SubscribeNewFruitEvent(ch chan<- types.NewMinedFruitEvent) event.Subscription {
 	return bc.scope.Track(bc.fruitFeed.Subscribe(ch))
 }
-
-
-
-

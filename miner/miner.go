@@ -57,7 +57,7 @@ type CommitteeElection interface {
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
 	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
 
-	SubscribeElectionEvent(ch chan<- core.ElectionEvent) event.Subscription
+	SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.Subscription
 
 	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool
 }
@@ -80,7 +80,7 @@ type Miner struct {
 	election  CommitteeElection
 
 	//election
-	electionCh  chan core.ElectionEvent
+	electionCh  chan types.ElectionEvent
 	electionSub event.Subscription
 
 	canStart    int32 // can start indicates whether we can start the mining operation
@@ -96,7 +96,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		election:   election,
 		FruitOnly:  mineFruit, // set fruit only
 		singleNode: singleNode,
-		electionCh: make(chan core.ElectionEvent, txChanSize),
+		electionCh: make(chan types.ElectionEvent, txChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:   1,
 	}
@@ -180,7 +180,7 @@ func (self *Miner) loop() {
 // and halt your mining operation for as long as the DOS continues.
 func (self *Miner) update() {
 	//defer self.electionSub.Unsubscribe()
-	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, core.ElectionEvent{})
+	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, types.ElectionEvent{})
 out:
 	for ev := range events.Chan() {
 		switch ev.Data.(type) {
@@ -251,6 +251,7 @@ func (self *Miner) HashRate() (tot int64) {
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
 	}
+	log.Info("miner HashRate ", "tot", tot)
 	// do we care this might race? is it worth we're rewriting some
 	// aspects of the worker/locking up agents so we can get an accurate
 	// hashrate?
@@ -259,6 +260,7 @@ func (self *Miner) HashRate() (tot int64) {
 			tot += agent.GetHashRate()
 		}
 	}
+	log.Info("miner HashRate 2 ", "tot", tot)
 	return
 }
 
@@ -297,11 +299,17 @@ func (self *Miner) SetEtherbase(addr common.Address) {
 }
 
 func (self *Miner) SetElection(toElect bool, pubkey []byte) {
+
+	if len(pubkey) <= 0 {
+		log.Info("Set election failed, pubkey is nil")
+		return
+	}
 	self.toElect = toElect
 	self.publickey = make([]byte, len(pubkey))
 
 	copy(self.publickey, pubkey)
 	self.worker.setElection(toElect, pubkey)
+	log.Info("Set election success")
 }
 
 func (self *Miner) SetFruitOnly(FruitOnly bool) {

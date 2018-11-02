@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"sync"
 )
@@ -35,6 +36,18 @@ const (
 	Prepared                 // Same with `prepared` stage explained in the original paper.
 	Committed                // Same with `committed-local` stage explained in the original paper.
 )
+
+func (m *MsgLogs) GetPrepareMessages() map[string]*VoteMsg {
+	m.lockPrepare.Lock()
+	defer m.lockPrepare.Unlock()
+	return m.prepareMsgs
+}
+
+func (m *MsgLogs) GetCommitMessages() map[string]*VoteMsg {
+	m.lockCommit.Lock()
+	defer m.lockCommit.Unlock()
+	return m.commitMsgs
+}
 
 func (m *MsgLogs) SetPrepareMsg(key string, data *VoteMsg) {
 	m.lockPrepare.Lock()
@@ -256,6 +269,9 @@ func (state *State) Commit(commitMsg *VoteMsg, f float64) (*ReplyMsg, *RequestMs
 	}
 	return nil, nil, nil
 }
+func (state *State) VerifyMsg(viewID int64, sequenceID int64, digestGot string) bool {
+	return state.verifyMsg(viewID, sequenceID, digestGot)
+}
 
 func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) bool {
 	// Wrong view. That is, wrong configurations of peers to start the consensus.
@@ -279,6 +295,7 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 
 	// Check digest.
 	if digestGot != digest {
+		log.Error("verifyMsg messgae fail", digestGot, digest)
 		return false
 	}
 

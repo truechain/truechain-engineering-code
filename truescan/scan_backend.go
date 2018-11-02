@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -20,21 +18,21 @@ func bytesToHex(input []byte) string {
 type TrueScan struct {
 	sub               Subscriber
 	running           bool
-	addTxCh           chan core.AddTxEvent
+	addTxCh           chan types.AddTxEvent
 	addTxSub          event.Subscription
-	removeTxCh        chan core.RemoveTxEvent
+	removeTxCh        chan types.RemoveTxEvent
 	removeTxSub       event.Subscription
-	fastBlockCh       chan core.FastBlockEvent
+	fastBlockCh       chan types.FastBlockEvent
 	fastBlockSub      event.Subscription
-	snailChainHeadCh  chan snailchain.ChainEvent
+	snailChainHeadCh  chan types.ChainSnailEvent
 	snailChainHeadSub event.Subscription
-	snailChainSideCh  chan snailchain.ChainSideEvent
+	snailChainSideCh  chan types.ChainSnailSideEvent
 	snailChainSideSub event.Subscription
-	electionCh        chan core.ElectionEvent
+	electionCh        chan types.ElectionEvent
 	electionSub       event.Subscription
-	stateChangeCh     chan core.StateChangeEvent
+	stateChangeCh     chan types.StateChangeEvent
 	stateChangeSub    event.Subscription
-	rewardsCh         chan core.RewardsEvent
+	rewardsCh         chan types.RewardsEvent
 	rewardsSub        event.Subscription
 	redisClient       *RedisClient
 	quit              chan struct{}
@@ -50,14 +48,14 @@ func New(sub Subscriber, config *Config) *TrueScan {
 	ts := &TrueScan{
 		sub:              sub,
 		running:          false,
-		addTxCh:          make(chan core.AddTxEvent, addTxChanSize),
-		removeTxCh:       make(chan core.RemoveTxEvent, removeTxChanSize),
-		fastBlockCh:      make(chan core.FastBlockEvent, fastBlockChanSize),
-		snailChainHeadCh: make(chan snailchain.ChainEvent, snailChainSize),
-		snailChainSideCh: make(chan snailchain.ChainSideEvent, snailChainSize),
-		electionCh:       make(chan core.ElectionEvent, electionChanSize),
-		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
-		rewardsCh:        make(chan core.RewardsEvent, rewardsChanSize),
+		addTxCh:          make(chan types.AddTxEvent, addTxChanSize),
+		removeTxCh:       make(chan types.RemoveTxEvent, removeTxChanSize),
+		fastBlockCh:      make(chan types.FastBlockEvent, fastBlockChanSize),
+		snailChainHeadCh: make(chan types.ChainSnailEvent, snailChainSize),
+		snailChainSideCh: make(chan types.ChainSnailSideEvent, snailChainSize),
+		electionCh:       make(chan types.ElectionEvent, electionChanSize),
+		stateChangeCh:    make(chan types.StateChangeEvent, stateChangeChanSize),
+		rewardsCh:        make(chan types.RewardsEvent, rewardsChanSize),
 		quit:             make(chan struct{}),
 	}
 	rc, err := NewRedisClient(config)
@@ -146,7 +144,7 @@ func (ts *TrueScan) removeTxHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleRemoveTx(rte core.RemoveTxEvent) {
+func (ts *TrueScan) handleRemoveTx(rte types.RemoveTxEvent) {
 	rtm := &RemoveTxMsg{
 		Hash: rte.Hash.String(),
 	}
@@ -167,7 +165,7 @@ func (ts *TrueScan) electionHandleLoop() error {
 		}
 	}
 }
-func (ts *TrueScan) updateTermofOffice(ee *core.ElectionEvent) {
+func (ts *TrueScan) updateTermofOffice(ee *types.ElectionEvent) {
 	viewNumber := ee.CommitteeID.Uint64()
 	bfn := ee.BeginFastNumber.Uint64()
 	var efn uint64
@@ -184,7 +182,7 @@ func (ts *TrueScan) updateTermofOffice(ee *core.ElectionEvent) {
 		ts.viewEndNumber = efn
 	}
 }
-func (ts *TrueScan) handleElection(ee *core.ElectionEvent) {
+func (ts *TrueScan) handleElection(ee *types.ElectionEvent) {
 	ts.updateTermofOffice(ee)
 	var efn uint64
 	if ee.EndFastNumber != nil {
@@ -221,7 +219,7 @@ func (ts *TrueScan) stateChangeHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleStateChange(sce core.StateChangeEvent) {
+func (ts *TrueScan) handleStateChange(sce types.StateChangeEvent) {
 	balances := make([]*Account, len(sce.Balances))
 	for i, b := range sce.Balances {
 		balances[i] = &Account{
@@ -247,7 +245,7 @@ func (ts *TrueScan) rewardsHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleRewards(re core.RewardsEvent) {
+func (ts *TrueScan) handleRewards(re types.RewardsEvent) {
 	rewards := make([]*Account, len(re.Rewards))
 	for i, r := range re.Rewards {
 		rewards[i] = &Account{
@@ -317,7 +315,7 @@ func (ts *TrueScan) fastBlockHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleFastChain(fbe core.FastBlockEvent) {
+func (ts *TrueScan) handleFastChain(fbe types.FastBlockEvent) {
 	block := fbe.Block
 	receipts := fbe.Receipts
 	fbm := &FastBlockHeaderMsg{

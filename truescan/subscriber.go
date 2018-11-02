@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
@@ -33,18 +32,18 @@ func errResp(format string) error {
 type Subscriber interface {
 	// SubscribeAddTxEvent should return an event subscription of
 	// AddTxEvent and send events to the given channel.
-	SubscribeAddTxEvent(chan<- core.AddTxEvent) event.Subscription
+	SubscribeAddTxEvent(chan<- types.AddTxEvent) event.Subscription
 	// SubscribeRemoveTxEvent should return an event subscription of
 	// RemoveTxEvent and send events to the given channel.
-	SubscribeRemoveTxEvent(chan<- core.RemoveTxEvent) event.Subscription
+	SubscribeRemoveTxEvent(chan<- types.RemoveTxEvent) event.Subscription
 
-	SubscribeFastBlock(chan<- core.FastBlockEvent) event.Subscription
+	SubscribeFastBlock(chan<- types.FastBlockEvent) event.Subscription
 
-	SubscribeSnailChainEvent(chan<- snailchain.ChainEvent) event.Subscription
-	SubscribeSnailChainSideEvent(chan<- snailchain.ChainSideEvent) event.Subscription
+	SubscribeSnailChainEvent(chan<- types.ChainSnailEvent) event.Subscription
+	SubscribeSnailChainSideEvent(chan<- types.ChainSnailSideEvent) event.Subscription
 
-	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
+	SubscribeElectionEvent(chan<- types.ElectionEvent) event.Subscription
 
-	SubscribeStateChangeEvent(chan<- core.StateChangeEvent) event.Subscription
-	SubscribeRewardsEvent(chan<- core.RewardsEvent) event.Subscription
+	SubscribeStateChangeEvent(chan<- types.StateChangeEvent) event.Subscription
+	SubscribeRewardsEvent(chan<- types.RewardsEvent) event.Subscription
 }

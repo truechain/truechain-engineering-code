@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package snailchain 
+package snailchain
 
 import (
 	"encoding/binary"
@@ -24,11 +24,11 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
-	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 )
 
 // ChainIndexerBackend defines the methods needed to process chain segments in
@@ -53,14 +53,14 @@ type ChainIndexerChain interface {
 	CurrentHeader() *types.SnailHeader
 
 	// SubscribeChainEvent subscribes to new head header notifications.
-	SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription
+	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 }
 type SnailChainIndexerChain interface {
 	// CurrentHeader retrieves the latest locally known header.
 	CurrentHeader() *types.SnailHeader
 
 	// SubscribeChainEvent subscribes to new head header notifications.
-	SubscribeChainEvent(ch chan<- ChainEvent) event.Subscription
+	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 }
 
 // ChainIndexer does a post-processing job for equally sized sections of the
@@ -134,7 +134,7 @@ func (c *ChainIndexer) AddKnownSectionHead(section uint64, shead common.Hash) {
 // cascading background processing. Children do not need to be started, they
 // are notified about new events by their parents.
 func (c *ChainIndexer) Start(chain SnailChainIndexerChain) {
-	events := make(chan ChainEvent, 10)
+	events := make(chan types.ChainSnailEvent, 10)
 	sub := chain.SubscribeChainEvent(events)
 
 	go c.eventLoop(chain.CurrentHeader(), events, sub)
@@ -142,7 +142,7 @@ func (c *ChainIndexer) Start(chain SnailChainIndexerChain) {
 func (c *ChainIndexer) StartSnail(chain SnailChainIndexerChain) {
 	//events := make(chan SnailChainEvent, 10)
 	//sub := chain.SubscribeSnailChainEvent(events)
-	
+
 	//go c.eventLoop(chain.CurrentSnailtHeader(), events, sub)
 }
 
@@ -186,7 +186,7 @@ func (c *ChainIndexer) Close() error {
 // eventLoop is a secondary - optional - event loop of the indexer which is only
 // started for the outermost indexer to push chain head events into a processing
 // queue.
-func (c *ChainIndexer) eventLoop(currentHeader *types.SnailHeader, events chan ChainEvent, sub event.Subscription) {
+func (c *ChainIndexer) eventLoop(currentHeader *types.SnailHeader, events chan types.ChainSnailEvent, sub event.Subscription) {
 	// Mark the chain indexer as active, requiring an additional teardown
 	atomic.StoreUint32(&c.active, 1)
 
@@ -230,7 +230,7 @@ func (c *ChainIndexer) eventLoop(currentHeader *types.SnailHeader, events chan C
 		}
 	}
 }
- 
+
 // newHead notifies the indexer about new chain heads and/or reorgs.
 func (c *ChainIndexer) newHead(head uint64, reorg bool) {
 	c.lock.Lock()
