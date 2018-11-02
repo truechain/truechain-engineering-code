@@ -17,7 +17,10 @@
 package minerva
 
 import (
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"io/ioutil"
+	"time"
+
 	//"math/big"
 	"math/rand"
 	"os"
@@ -25,40 +28,30 @@ import (
 	"testing"
 
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
 )
 
-// Tests that minerva works correctly in test mode.
+// Tests that minerva works correctly in test mode
 func TestTestMode(t *testing.T) {
-	//head := &types.Header{Number: big.NewInt(1), Difficulty: big.NewInt(1000)}
+	header := &types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(100), FastNumber: big.NewInt(2)}
+	minerva := NewTester()
+	results := make(chan *types.SnailBlock)
 
-	//minerva := NewTester()
-	send := make(chan *types.Block, 10)
-	stop := make(chan struct{})
-	//go minerva.ConSeal(nil, types.NewBlockWithHeader(head), stop, send)
+	block := types.NewSnailBlockWithHeader(header)
 
-	for block := range send {
-		if block == nil {
-			t.Fatalf("failed to seal fruit/block")
-			close(stop)
-			break
+	go minerva.ConSeal(nil, block, nil, results)
+
+	select {
+	case block := <-results:
+		header.Fruit = block.IsFruit()
+		header.Nonce = types.EncodeNonce(block.Nonce())
+		header.MixDigest = block.MixDigest()
+		if err := minerva.VerifySnailSeal(nil, header); err != nil {
+			t.Fatalf("unexpected verification error: %v", err)
 		}
-
-		//head.Fruit = block.IsFruit()
-		//head.Nonce = types.EncodeNonce(block.Nonce())
-		//head.MixDigest = block.MixDigest()
-
-		//t.Log("%v", head)
-		//if err := minerva.VerifySeal(nil, head); err != nil {
-		//	t.Fatalf("unexpected verification error: %v", err)
-		//}
-
-		//if !block.IsFruit() {
-		//	break
-		//}
+	case <-time.NewTimer(time.Second).C:
+		t.Error("sealing result timeout")
 	}
-	close(stop)
 }
 
 // This test checks that cache lru logic doesn't crash under load.
@@ -91,8 +84,8 @@ func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 		if block < 0 {
 			block = 0
 		}
-		//head := &types.Header{Number: big.NewInt(block), Difficulty: big.NewInt(100)}
-		//e.VerifySeal(nil, head)
+		head := &types.SnailHeader{Number: big.NewInt(block), Difficulty: big.NewInt(180), FruitDifficulty: big.NewInt(100)}
+		e.VerifySnailSeal(nil, head)
 	}
 }
 

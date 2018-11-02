@@ -415,42 +415,15 @@ func New(config Config) *Minerva {
 }
 
 // dataset tries to retrieve a mining dataset for the specified block number
-// by first checking against a list of in-memory datasets, then against DAGs
-// stored on disk, and finally generating one if none can be found.
-//
-// If async is specified, not only the future but the current DAG is also
-// generates on a background thread.
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
 	epoch := block / epochLength
 	currentI, futureI := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	// If async is specified, generate everything in a background thread
-	//if  block <= epochLength{
-	//	go func() {
-	//		log.Info("open go fun")
-	//		current.generate(block,m)
-	//		if futureI != nil {
-	//			future := futureI.(*dataset)
-	//			//future.generate(ethash.config.DatasetDir, ethash.config.DatasetsOnDisk, ethash.config.PowMode == ModeTest)
-	//			future.generate(block,m)
-	//		}
-	//	}()
-	//} else {
-	//	// Either blocking generation was requested, or already done
-	//	//current.generate(ethash.config.DatasetDir, ethash.config.DatasetsOnDisk, ethash.config.PowMode == ModeTest)
-	//	current.generate(block,m)
-	//	if futureI != nil {
-	//		future := futureI.(*dataset)
-	//		go future.generate(block,m)
-	//	}
-	//}
 	current.generate(block, m)
 	if futureI != nil {
 		future := futureI.(*dataset)
-		//future.generate(ethash.config.DatasetDir, ethash.config.DatasetsOnDisk, ethash.config.PowMode == ModeTest)
-		//future.dataset = make([]uint64,TBLSIZE*DATALENGTH*PMTSIZE*32)
 		future.generate(block, m)
 
 	}
@@ -462,15 +435,23 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 		//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 		if blockNum <= UPDATABLOCKLENGTH {
 			m.truehashTableInit(d.dataset)
+
 		} else {
 			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-			m.updateLookupTBL(bn, d.dataset)
+			flag, ds := m.updateLookupTBL(bn, d.dataset)
+			if flag {
+				d.dataset = ds
+			}
 		}
 		d.dateInit = 1
 	}
 
 	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
 		m.updateLookupTBL(blockNum, d.dataset)
+		flag, ds := m.updateLookupTBL(blockNum, d.dataset)
+		if flag {
+			d.dataset = ds
+		}
 	}
 	m.dataset = d
 }

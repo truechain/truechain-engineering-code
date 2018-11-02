@@ -297,97 +297,23 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 	//trueInit = 1
 }
 
-func (m *Minerva) CheckDataSetState(blockNum uint64) bool {
-	epoch := blockNum / epochLength
-	currentI, _ := m.datasets.get(epoch)
-	dataset := currentI.(*dataset)
-	//dataset := m.dataset
-	//blockNum := block.NumberU64()
-	if dataset.dateInit == 0 {
-		if blockNum <= UPDATABLOCKLENGTH {
-			//m.truehashTableInit(dataset.evenDataset)
-			//dataset.dataset = &dataset.evenDataset
-			m.truehashTableInit(dataset.dataset)
-		} else {
-			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-			//in := (blockNum / UPDATABLOCKLENGTH) % 2
-			//if blockNum > UPDATABLOCKLENGTH change lookutable form odd or even
-			//if in == 0 {
-			//	//set dataset.even
-			//	dataset.dataset = &dataset.evenDataset
-			//	dataset.oddFlag = 0
-			//	dataset.evenFlag = 0
-			//} else {
-			//	//set dataset.odd
-			//	dataset.dataset = &dataset.oddDataset
-			//	dataset.oddFlag = 0
-			//	dataset.evenFlag = 0
-			//}
-			m.updateLookupTBL(bn, dataset.dataset)
-		}
-		dataset.dateInit = 1
-	}
+func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, []uint64) {
 
-	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
-		//start update lookuptable
-		//in := (blockNum / UPDATABLOCKLENGTH) % 2
-		////change lookutable to odd or even
-		//if in == 0 {
-		//	//now is even, update odd.
-		//	if dataset.oddFlag == 0 {
-		//		res := m.updateLookupTBL(blockNum, dataset.oddDataset[:])
-		//		if res {
-		//			dataset.oddFlag = 1
-		//		} else {
-		//			return false
-		//		}
-		//	}
-		//} else {
-		//	//now is odd, set dataset.even
-		//	if dataset.evenFlag == 0 {
-		//		res := m.updateLookupTBL(blockNum, dataset.evenDataset[:])
-		//		if res {
-		//			dataset.evenFlag = 1
-		//		} else {
-		//			return false
-		//		}
-		//	}
-		//}
-		m.updateLookupTBL(blockNum, dataset.dataset)
-	}
-	//if blockNum%UPDATABLOCKLENGTH == 1 {
-	//	in := (blockNum / UPDATABLOCKLENGTH) % 2
-	//	//change lookutable form odd or even
-	//	if in == 0 {
-	//		//set dataset.even
-	//		dataset.dataset = &dataset.evenDataset
-	//		dataset.evenFlag = 0
-	//	} else {
-	//		//set dataset.odd
-	//		dataset.dataset = &dataset.oddDataset
-	//		dataset.oddFlag = 0
-	//	}
-	//}
-	//m.dataset = dataset
-	return true
-}
-
-func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) bool {
 	const offset_cnst = 0x1f
 	const skip_cnst = 0x3
 	var offset [32768]int
 	var skip [32768]int
-	lktWz := uint32(DATALENGTH / 64)
-	lktSz := uint32(DATALENGTH) * lktWz
 
 	cur_block_num := blockNum
 	res := cur_block_num % UPDATABLOCKLENGTH
 	sblockchain := m.sbc
 	//current block number is invaild
+
 	if res <= STARTUPDATENUM {
-		return false
+		return false, nil
 	}
 	var st_block_num uint64 = uint64(cur_block_num - res)
+
 	for i := 0; i < 8192; i++ {
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
 		val := header.Hash().Bytes()
@@ -404,6 +330,16 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) bool {
 			skip[i*16+k] = (int(val[k]) & skip_cnst) + 1
 		}
 	}
+
+	ds := m.UpdateTBL(offset, skip, plookup_tbl)
+
+	return true, ds
+}
+
+func (m *Minerva) UpdateTBL(offset [32768]int, skip [32768]int, plookup_tbl []uint64) []uint64 {
+
+	lktWz := uint32(DATALENGTH / 64)
+	lktSz := uint32(DATALENGTH) * lktWz
 
 	for k := 0; k < TBLSIZE; k++ {
 
@@ -425,6 +361,5 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) bool {
 			plkt += lktWz
 		}
 	}
-
-	return true
+	return plookup_tbl
 }
