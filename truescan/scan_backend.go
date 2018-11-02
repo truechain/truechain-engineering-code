@@ -34,6 +34,8 @@ type TrueScan struct {
 	electionSub       event.Subscription
 	stateChangeCh     chan core.StateChangeEvent
 	stateChangeSub    event.Subscription
+	rewardsCh         chan core.RewardsEvent
+	rewardsSub        event.Subscription
 	redisClient       *RedisClient
 	quit              chan struct{}
 
@@ -55,6 +57,7 @@ func New(sub Subscriber, config *Config) *TrueScan {
 		snailChainSideCh: make(chan snailchain.ChainSideEvent, snailChainSize),
 		electionCh:       make(chan core.ElectionEvent, electionChanSize),
 		stateChangeCh:    make(chan core.StateChangeEvent, stateChangeChanSize),
+		rewardsCh:        make(chan core.RewardsEvent, rewardsChanSize),
 		quit:             make(chan struct{}),
 	}
 	rc, err := NewRedisClient(config)
@@ -90,6 +93,9 @@ func (ts *TrueScan) Start() {
 
 	ts.stateChangeSub = ts.sub.SubscribeStateChangeEvent(ts.stateChangeCh)
 	go ts.stateChangeHandleLoop()
+
+	ts.rewardsSub = ts.sub.SubscribeRewardsEvent(ts.rewardsCh)
+	go ts.rewardsHandleLoop()
 
 	go ts.loop()
 }
@@ -215,27 +221,46 @@ func (ts *TrueScan) stateChangeHandleLoop() error {
 	}
 }
 
-func (ts *TrueScan) handleStateChange(bsd core.StateChangeEvent) {
-	balances := make([]*Account, len(bsd.Balances))
-	rewards := make([]*Account, len(bsd.Rewards))
-	for i, b := range bsd.Balances {
+func (ts *TrueScan) handleStateChange(sce core.StateChangeEvent) {
+	balances := make([]*Account, len(sce.Balances))
+	for i, b := range sce.Balances {
 		balances[i] = &Account{
 			Address: b.Address.String(),
 			Value:   bytesToHex(b.Balance.Bytes()),
 		}
 	}
-	for i, r := range bsd.Rewards {
+	scm := &StateChangeMsg{
+		Height:   sce.Height,
+		Balances: balances,
+	}
+	ts.redisClient.StateChange(scm)
+}
+
+func (ts *TrueScan) rewardsHandleLoop() error {
+	for {
+		select {
+		case rewardsEvent := <-ts.rewardsCh:
+			ts.handleRewards(rewardsEvent)
+		case <-ts.rewardsSub.Err():
+			return errResp("rewards terminated")
+		}
+	}
+}
+
+func (ts *TrueScan) handleRewards(re core.RewardsEvent) {
+	rewards := make([]*Account, len(re.Rewards))
+	for i, r := range re.Rewards {
 		rewards[i] = &Account{
 			Address: r.Address.String(),
 			Value:   bytesToHex(r.Balance.Bytes()),
 		}
 	}
-	scm := &StateChangeMsg{
-		Height:   bsd.Height,
-		Balances: balances,
-		Rewards:  rewards,
+	rm := &RewardsMsg{
+		Height:  re.Height,
+		Hash:    re.Hash.String(),
+		Rewards: rewards,
 	}
-	ts.redisClient.StateChange(scm)
+	ts.redisClient.Rewards(rm)
 }
 
 func (ts *TrueScan) snailChainHandleLoop() error {

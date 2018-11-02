@@ -111,5 +111,11 @@ type Account struct {
 type StateChangeMsg struct {
 	Height   uint64     `json:"height"`
 	Balances []*Account `json:"balances"`
-	Rewards  []*Account `json:"rewards"`
+}
+
+// RewardsMsg used in corresponding message transmission
+type RewardsMsg struct {
+	Height  uint64     `json:"height"`
+	Hash    string     `json:"hash"`
+	Rewards []*Account `json:"rewards"`
 }

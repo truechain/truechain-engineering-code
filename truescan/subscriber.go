@@ -18,6 +18,7 @@ const (
 	snailChainSize      = 2048
 	electionChanSize    = 2048
 	stateChangeChanSize = 2048
+	rewardsChanSize     = 2048
 )
 
 var (
@@ -45,4 +46,5 @@ type Subscriber interface {
 	SubscribeElectionEvent(chan<- core.ElectionEvent) event.Subscription
 
 	SubscribeStateChangeEvent(chan<- core.StateChangeEvent) event.Subscription
+	SubscribeRewardsEvent(chan<- core.RewardsEvent) event.Subscription
 }

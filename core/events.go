@@ -80,7 +80,7 @@ type ElectionEvent struct {
 	CommitteeID      *big.Int
 	CommitteeMembers []*types.CommitteeMember
 	BeginFastNumber  *big.Int
-	EndFastNumber	 *big.Int
+	EndFastNumber    *big.Int
 	//CommitteeInfo *types.CommitteeInfo
 }
 
@@ -96,9 +96,14 @@ type NewBlockEvent struct{ Block *types.Block }
 type NodeInfoEvent struct{ NodeInfo *types.EncryptNodeMessage }
 
 // StateChangeEvent hold the result of the balance change
-// and the amount of rewards.
 type StateChangeEvent struct {
 	Height   uint64
 	Balances []*common.AddressWithBalance
-	Rewards  []*common.AddressWithBalance
+}
+
+// RewardsEvent hold the amount of rewards with Height and Hash of snail block.
+type RewardsEvent struct {
+	Height  uint64
+	Hash    common.Hash
+	Rewards []*common.AddressWithBalance
 }

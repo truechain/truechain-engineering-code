@@ -276,6 +276,21 @@ func (rc *RedisClient) StateChange(scm *StateChangeMsg) error {
 	return err
 }
 
+// Rewards is triggered when rewards associated with snail block are calculated and distributed,
+// while snail block should have been confirmed by 12 blocks.
+func (rc *RedisClient) Rewards(rm *RewardsMsg) error {
+	msg, err := json.Marshal(rm)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	start := `{"type":"rewards","data":`
+	end := `}`
+	err = rc.publishMsg(start + string(msg) + end)
+	log.RedisLog("emit Rewards")
+	return err
+}
+
 // ChangeView is triggered when the committee changes.
 func (rc *RedisClient) ChangeView(cvm *ChangeViewMsg) error {
 	msg, err := json.Marshal(cvm)

@@ -59,7 +59,10 @@ type StateDB struct {
 	stateObjectsDirty map[common.Address]struct{}
 
 	// This Array record the amount of balance change due to rewards.
-	rewards []*common.AddressWithBalance
+	rewards           []*common.AddressWithBalance
+	rewardSnailNumber uint64
+	rewardSnailHash   common.Hash
+	rewarded          bool
 
 	// DB error.
 	// State objects are used by the consensus core and VM which are
@@ -97,6 +100,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		db:                db,
 		trie:              tr,
 		marked:            false,
+		rewarded:          false,
 		stateObjects:      make(map[common.Address]*stateObject),
 		stateObjectsDirty: make(map[common.Address]struct{}),
 		logs:              make(map[common.Hash][]*types.Log),
@@ -119,9 +123,14 @@ func (db *StateDB) Balances() []*common.AddressWithBalance {
 	return balances
 }
 
+// Rewarded statedb has corresponding snail block info
+func (db *StateDB) Rewarded() bool {
+	return db.rewarded
+}
+
 // Rewards return rewards info.
-func (db *StateDB) Rewards() []*common.AddressWithBalance {
-	return db.rewards
+func (db *StateDB) Rewards() (uint64, common.Hash, []*common.AddressWithBalance) {
+	return db.rewardSnailNumber, db.rewardSnailHash, db.rewards
 }
 
 // MarkUp set a flag to indicate that the result of
@@ -134,6 +143,13 @@ func (db *StateDB) MarkUp() {
 // IsMarked return db.marked flag
 func (db *StateDB) IsMarked() bool {
 	return db.marked
+}
+
+// MarkRewardsHeight record the latest rewarded snail block
+func (db *StateDB) MarkRewardsHeight(number uint64, hash common.Hash) {
+	db.rewardSnailNumber = number
+	db.rewardSnailHash = hash
+	db.rewarded = true
 }
 
 // RecordRewards write down balance change

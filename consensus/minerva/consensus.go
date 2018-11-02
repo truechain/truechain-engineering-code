@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"math/big"
 	"runtime"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/crypto"
 
 	"github.com/truechain/truechain-engineering-code/log"
 
@@ -40,8 +41,7 @@ import (
 // Minerva protocol constants.
 var (
 	FrontierBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-	ByzantiumBlockReward  = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
-
+	ByzantiumBlockReward = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 
 	maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
@@ -502,7 +502,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 		}
 	}
 	// pbft signs check bug will fix next release
-	if count <= len(members) * 2 / 3 {
+	if count <= len(members)*2/3 {
 		log.Warn("VerifySigns number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
@@ -837,8 +837,6 @@ func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) err
 	return nil
 }
 
-
-
 func (m *Minerva) PrepareSnail(chain consensus.ChainReader, header *types.SnailHeader) error {
 	parents := m.getParents(m.sbc, header)
 	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
@@ -937,6 +935,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 	}
 	if state.IsMarked() {
 		log.RedisLog("Rewards Block:", "hieght", sBlock.NumberU64(), "hash", sBlock.Hash().String())
+		state.MarkRewardsHeight(sBlock.NumberU64(), sBlock.Hash())
 	}
 
 	//miner's award

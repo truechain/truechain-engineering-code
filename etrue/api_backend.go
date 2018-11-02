@@ -298,3 +298,8 @@ func (b *EthAPIBackend) SubscribeElectionEvent(ch chan<- core.ElectionEvent) eve
 func (b *EthAPIBackend) SubscribeStateChangeEvent(ch chan<- core.StateChangeEvent) event.Subscription {
 	return b.etrue.BlockChain().SubscribeStateChangeEvent(ch)
 }
+
+// SubscribeRewardsEvent registers a subscription of RewardsEvent.
+func (b *EthAPIBackend) SubscribeRewardsEvent(ch chan<- core.RewardsEvent) event.Subscription {
+	return b.etrue.BlockChain().SubscribeRewardsEvent(ch)
+}
