@@ -1374,6 +1374,9 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 				if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
 					log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 					return err
+				} else {
+					log.Error("Found conflicting vote.", "height", vote.Height, "round", vote.Round, "type", vote.Type)
+					return err
 				}
 			} else {
 				// Probably an invalid signature / Bad peer.
