@@ -238,7 +238,7 @@ func makeHeightSearchFunc(height int64) auto.SearchFunc {
 //		return fmt.Errorf("Error on replay: %v", err)
 //	}
 //
-//	h.logger.Info("Completed ABCI Handshake - Tendermint and App are synced",
+//	h.logger.Info("Completed ABCI Handshake - truechain and App are synced",
 //		"appHeight", blockHeight, "appHash", fmt.Sprintf("%X", appHash))
 //
 //	// TODO: (on restart) replay mempool
@@ -307,7 +307,7 @@ func makeHeightSearchFunc(height int64) auto.SearchFunc {
 //	// Now either store is equal to state, or one ahead.
 //	// For each, consider all cases of where the app could be, given app <= store
 //	if storeBlockHeight == stateBlockHeight {
-//		// Tendermint ran Commit and saved the state.
+//		// truechain ran Commit and saved the state.
 //		// Either the app is asking for replay, or we're all synced up.
 //		if appBlockHeight < storeBlockHeight {
 //			// the app is behind, so replay blocks, but no need to go through WAL (state is already synced to store)
@@ -413,7 +413,7 @@ func makeHeightSearchFunc(height int64) auto.SearchFunc {
 //
 //func checkAppHash(state sm.State, appHash []byte) error {
 //	if !bytes.Equal(state.AppHash, appHash) {
-//		panic(fmt.Errorf("Tendermint state.AppHash does not match AppHash after replay. Got %X, expected %X", appHash, state.AppHash).Error())
+//		panic(fmt.Errorf("TrueChain state.AppHash does not match AppHash after replay. Got %X, expected %X", appHash, state.AppHash).Error())
 //	}
 //	return nil
 //}

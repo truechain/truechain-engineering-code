@@ -59,7 +59,7 @@ func (s *service) stop() error {
 
 //------------------------------------------------------------------------------
 
-// Node is the highest level interface to a full Tendermint node.
+// Node is the highest level interface to a full truechain node.
 // It includes all configuration information and running services.
 type Node struct {
 	help.BaseService
@@ -78,7 +78,7 @@ type Node struct {
 	chainID  string
 }
 
-// NewNode returns a new, ready to go, Tendermint Node.
+// NewNode returns a new, ready to go, truechain Node.
 func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 	agent types.PbftAgentProxy) (*Node, error) {
 

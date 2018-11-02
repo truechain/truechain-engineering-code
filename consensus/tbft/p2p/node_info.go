@@ -17,7 +17,7 @@ func MaxNodeInfoSize() int {
 }
 
 // NodeInfo is the basic node information exchanged
-// between two peers during the Tendermint P2P handshake.
+// between two peers during the truechain P2P handshake.
 type NodeInfo struct {
 	// Authenticate
 	// TODO: replace with NetAddress
