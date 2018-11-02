@@ -91,7 +91,8 @@ func TestInsertBlock(t *testing.T) {
 		t.Fatalf("Write/Get HeadBlockHash failed")
 	}
 
-	t.Log("this block number:", *rawdb.ReadHeaderNumber(blockchain.db, thast))
+	t.Log("this block num" +
+		"ber:", *rawdb.ReadHeaderNumber(blockchain.db, thast))
 	t.Log("this block hash:", thast)
 }
 
