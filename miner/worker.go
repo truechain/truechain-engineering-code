@@ -49,6 +49,7 @@ const (
 	chainHeadChanSize = 64
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize = 64
+	fastchainHeadChanSize = 1024
 )
 
 var (
@@ -117,6 +118,9 @@ type worker struct {
 
 	fastBlockCh  chan types.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
+	fastchainEventCh  chan types.ChainFastEvent
+	fastchainEventSub event.Subscription//for fast block pool
+
 
 	chainHeadCh  chan types.ChainSnailHeadEvent
 	chainHeadSub event.Subscription
@@ -166,7 +170,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		mux:    mux,
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:      make(chan types.NewFruitsEvent, txChanSize),
-		fastBlockCh:  make(chan types.NewFastBlocksEvent, txChanSize),
+		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
 		chainHeadCh:  make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		chainSideCh:  make(chan types.ChainSnailSideEvent, chainSideChanSize),
 		minedfruitCh: make(chan types.NewMinedFruitEvent, txChanSize),
@@ -189,7 +193,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	worker.minedfruitSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.minedfruitCh)
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
-	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
+	worker.fastchainEventSub = worker.fastchain.SubscribeChainEvent(worker.fastchainEventCh)
 
 	//pool.fastchain.SubscribeChainHeadEvent(pool.fastchainHeadCh)
 
@@ -332,7 +336,7 @@ func (self *worker) update() {
 	//defer self.txsSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
-	defer self.fastBlockSub.Unsubscribe()
+	defer self.fastchainEventSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
 	defer self.minedfruitSub.Unsubscribe()
 
@@ -384,7 +388,7 @@ func (self *worker) update() {
 					self.commitNewWork()
 				}
 			}
-		case <-self.fastBlockCh:
+		case <-self.fastchainEventCh:
 			log.Debug("------------start commit new work  fastBlockCh")
 		/*
 			if !self.atCommintNewWoker {
@@ -422,7 +426,7 @@ func (self *worker) update() {
 
 
 		// TODO fast block event
-		case <-self.fastBlockSub.Err():
+		case <-self.fastchainEventSub.Err():
 
 			return
 		case <-self.fruitSub.Err():

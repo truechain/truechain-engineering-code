@@ -52,7 +52,7 @@ const (
 	sendNodeTime     = 30 * time.Second
 	subSignStr       = 24
 
-	fetchBlockTime = 5
+	fetchBlockTime = 3
 	blockInterval  = 20
 )
 

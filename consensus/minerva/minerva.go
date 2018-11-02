@@ -241,30 +241,60 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	return item, future
 }
 
+//// dataset wraps an truehash dataset with some metadata to allow easier concurrent use.
+//type dataset struct {
+//	epoch uint64 // Epoch for which this cache is relevant
+//	//dump    *os.File  // File descriptor of the memory mapped cache
+//	//mmap    mmap.MMap // Memory map itself to unmap before releasing
+//	dataset  *[]uint64  // The actual cache data content
+//	oddDataset []uint64
+//	evenDataset []uint64
+//	once    sync.Once // Ensures the cache is generated only once
+//	dateInit	int
+//	oddFlag		int
+//	evenFlag	int
+//}
+
 // dataset wraps an truehash dataset with some metadata to allow easier concurrent use.
 type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset  *[]uint64  // The actual cache data content
-	oddDataset []uint64
-	evenDataset []uint64
-	once    sync.Once // Ensures the cache is generated only once
-	dateInit	int
-	oddFlag		int
-	evenFlag	int
+	dataset []uint64 // The actual cache data content
+	//oddDataset []uint64
+	//evenDataset []uint64
+	once     sync.Once // Ensures the cache is generated only once
+	dateInit int
+	//oddFlag		int
+	//evenFlag	int
 }
 
+//// newDataset creates a new truehash mining dataset
+//func newDataset(epoch uint64) *dataset {
+//	ds := &dataset{
+//		epoch:   epoch,
+//		dateInit : 0,
+//		//dataset: make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+//		oddFlag  : 0,
+//		evenFlag : 0,
+//		oddDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+//		evenDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+//	}
+//	//truehashTableInit(ds.evenDataset)
+//
+//	return ds
+//}
+
 // newDataset creates a new truehash mining dataset
-func newDataset(epoch uint64) *dataset {
+func newDataset(epoch uint64) interface{} {
 	ds := &dataset{
-		epoch:   epoch,
-		dateInit : 0,
-		//dataset: make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
-		oddFlag  : 0,
-		evenFlag : 0,
-		oddDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
-		evenDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		epoch:    epoch,
+		dateInit: 0,
+		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		//oddFlag  : 0,
+		//evenFlag : 0,
+		//oddDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		//evenDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
 
@@ -293,14 +323,40 @@ type Config struct {
 	PowMode        Mode
 }
 
+//// Minerva is a consensus engine based on proot-of-work implementing the truechain fpow
+//// algorithm.
+//type Minerva struct {
+//	config Config
+//
+//	//caches   *lru // In memory caches to avoid regenerating too often
+//	//datasets *lru // In memory datasets to avoid regenerating too often
+//	dataset *dataset
+//
+//	// Mining related fields
+//	rand     *rand.Rand    // Properly seeded random source for nonces
+//	threads  int           // Number of threads to mine on if mining
+//	update   chan struct{} // Notification channel to update mining parameters
+//	hashrate metrics.Meter // Meter tracking the average hashrate
+//
+//	// The fields below are hooks for testing
+//	shared    *Minerva      // Shared PoW verifier to avoid cache regeneration
+//	fakeFail  uint64        // Block number which fails PoW check even in fake mode
+//	fakeDelay time.Duration // Time delay to sleep for before returning from verify
+//
+//	lock sync.Mutex // Ensures thread safety for the in-memory caches and mining fields
+//
+//	sbc      consensus.SnailChainReader
+//	election consensus.CommitteeElection
+//}
+
 // Minerva is a consensus engine based on proot-of-work implementing the truechain fpow
 // algorithm.
 type Minerva struct {
 	config Config
 
 	//caches   *lru // In memory caches to avoid regenerating too often
-	//datasets *lru // In memory datasets to avoid regenerating too often
-	dataset *dataset
+	datasets *lru // In memory datasets to avoid regenerating too often
+	dataset  *dataset
 
 	// Mining related fields
 	rand     *rand.Rand    // Properly seeded random source for nonces
@@ -334,18 +390,70 @@ func New(config Config) *Minerva {
 		//log.Info("Disk storage enabled for minerva DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
 
+	//MinervaLocal = &Minerva{
+	//	config: config,
+	//	//caches:   newlru("cache", config.CachesInMem, newCache),
+	//	//datasets: newlru("dataset", config.DatasetsInMem, newDataset),
+	//	dataset:  newDataset(0),
+	//	update:   make(chan struct{}),
+	//	hashrate: metrics.NewMeter(),
+	//}
+
 	minerva := &Minerva{
 		config: config,
 		//caches:   newlru("cache", config.CachesInMem, newCache),
-		//datasets: newlru("dataset", config.DatasetsInMem, newDataset),
-		dataset:  newDataset(0),
+		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
+		dataset:  newDataset(0).(*dataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
 
-	minerva.CheckDataSetState(1)
+	//MinervaLocal.CheckDataSetState(1)
+	minerva.getDataset(1)
 
 	return minerva
+}
+
+// dataset tries to retrieve a mining dataset for the specified block number
+func (m *Minerva) getDataset(block uint64) *dataset {
+	// Retrieve the requested ethash dataset
+	epoch := block / epochLength
+	currentI, futureI := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	current.generate(block, m)
+	if futureI != nil {
+		future := futureI.(*dataset)
+		future.generate(block, m)
+
+	}
+	return current
+}
+
+func (d *dataset) generate(blockNum uint64, m *Minerva) {
+	if d.dateInit == 0 {
+		//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+		if blockNum <= UPDATABLOCKLENGTH {
+			m.truehashTableInit(d.dataset)
+
+		} else {
+			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+			flag, ds := m.updateLookupTBL(bn, d.dataset)
+			if flag {
+				d.dataset = ds
+			}
+		}
+		d.dateInit = 1
+	}
+
+	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
+		m.updateLookupTBL(blockNum, d.dataset)
+		flag, ds := m.updateLookupTBL(blockNum, d.dataset)
+		if flag {
+			d.dataset = ds
+		}
+	}
+	m.dataset = d
 }
 
 //Append interface SnailChainReader after instantiations
@@ -449,7 +557,7 @@ func (m *Minerva) SetThreads(threads int) {
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
 func (m *Minerva) Hashrate() float64 {
-	log.Debug("minerva  hashrate","hash", m.hashrate.Rate1())
+	log.Debug("minerva  hashrate", "hash", m.hashrate.Rate1())
 	return m.hashrate.Rate1()
 }
 
