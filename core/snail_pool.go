@@ -105,8 +105,6 @@ type SnailChain interface {
 	GetBlockByHash(hash common.Hash) *types.SnailBlock
 
 	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
-
-	Validator() SnailValidator
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -179,7 +177,6 @@ type SnailPool struct {
 	scope event.SubscriptionScope
 
 	fruitFeed event.Feed
-	//recordFeed event.Feed
 	fastBlockFeed event.Feed
 	mu            sync.RWMutex
 	journal       *snailJournal // Journal of local fruit to back up to disk
@@ -191,14 +188,14 @@ type SnailPool struct {
 	fastchainEventCh  chan types.ChainFastEvent
 	fastchainEventSub event.Subscription
 
+	validator	SnailValidator
+
 	engine consensus.Engine // Consensus engine used for validating
 
 	muFruit     sync.RWMutex
 	muFastBlock sync.RWMutex
 
 	allFastBlocks map[common.Hash]*types.Block
-
-	//fruitFastBlocks  map[common.Hash]*types.Block // the fastBlocks have fruit
 
 	//fastBlockList    *list.List
 	fastBlockPending *list.List
@@ -221,7 +218,7 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
 // fruits/fastblock from the network.
-func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastBlockChain *BlockChain, chain SnailChain, engine consensus.Engine) *SnailPool {
+func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain SnailChain, engine consensus.Engine, sv SnailValidator) *SnailPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	//config SnailPoolConfig
 	config = (&config).sanitize()
@@ -230,10 +227,11 @@ func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastB
 	// Create the transaction pool with its initial settings
 	pool := &SnailPool{
 		config:      config,
-		chainconfig: chainconfig,
 		fastchain:   fastBlockChain,
 		chain:       chain,
 		engine:      engine,
+
+		validator:   sv,
 
 		chainHeadCh:     make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
@@ -242,7 +240,6 @@ func NewSnailPool(config SnailPoolConfig, chainconfig *params.ChainConfig, fastB
 
 		allFastBlocks: make(map[common.Hash]*types.Block),
 
-		//fastBlockList: 	list.New(),
 		fastBlockPending: list.New(),
 
 		newFruitCh:   make(chan *types.SnailBlock, fruitChanSize),
@@ -309,18 +306,18 @@ func (pool *SnailPool) updateFruit(fastBlock *types.Block, toLock bool) error {
 	f := pool.allFruits[fastBlock.Hash()]
 	if f == nil {
 		return ErrNotExist
-	} else {
-		if err := pool.chain.Validator().ValidateFruit(f, nil, true); err != nil {
-			log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
-			allReplaceCounter.Inc(1)
-			delete(pool.allFruits, fastBlock.Hash())
-			fruitpendingReplaceCounter.Inc(1)
-			delete(pool.fruitPending, fastBlock.Hash())
-			return ErrInvalidHash
-		}
-
-		pool.fruitPending[fastBlock.Hash()] = f
 	}
+	if err := pool.validator.ValidateFruit(f, nil, true); err != nil {
+		log.Info("update fruit validation error ", "fruit ", f.Hash(), "number", f.FastNumber(), " err: ", err)
+		allReplaceCounter.Inc(1)
+		delete(pool.allFruits, fastBlock.Hash())
+		fruitpendingReplaceCounter.Inc(1)
+		delete(pool.fruitPending, fastBlock.Hash())
+		return ErrInvalidHash
+	}
+
+	pool.fruitPending[fastBlock.Hash()] = f
+
 	return nil
 }
 
@@ -387,7 +384,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
-		if err := pool.chain.Validator().ValidateFruit(fruit, nil, true); err != nil {
+		if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
 			log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 			return err
 		}
@@ -403,7 +400,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			return pool.appendFruit(fruit, true)
 		}
 	} else {
-		if err := pool.chain.Validator().ValidateFruit(fruit, nil, true); err != nil {
+		if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
 			if err == types.ErrSnailHeightNotYet {
 				return pool.appendFruit(fruit, false)
 			}

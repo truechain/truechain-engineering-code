@@ -205,7 +205,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	etrue.snailPool = core.NewSnailPool(config.SnailPool,etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	etrue.snailPool = core.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
 	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
