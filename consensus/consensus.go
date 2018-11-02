@@ -74,6 +74,11 @@ type SnailChainReader interface {
 
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
+
+	SetElection(e CommitteeElection)
+
+	SetSnailChainReader(scr SnailChainReader)
+
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
@@ -107,14 +112,14 @@ type Engine interface {
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
 
-	VerifyFreshness(fruit , block *types.SnailHeader) error
+	VerifyFreshness(chain SnailChainReader, fruit , block *types.SnailHeader, canonical bool) error
 
 	VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
-	PrepareSnail(chain ChainReader, header *types.SnailHeader) error
+	PrepareSnail(chain SnailChainReader, header *types.SnailHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.

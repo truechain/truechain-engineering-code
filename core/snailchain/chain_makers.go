@@ -36,7 +36,7 @@ type BlockGen struct {
 	chainReader consensus.SnailChainReader
 	header      *types.SnailHeader
 
-	gasPool *GasPool
+	//gasPool *GasPool
 	uncles  []*types.SnailHeader
 
 	fruits []*types.SnailBlock
@@ -49,7 +49,8 @@ type BlockGen struct {
 // SetCoinbase sets the coinbase of the generated block.
 // It can be called at most once.
 func (b *BlockGen) SetCoinbase(addr common.Address) {
-	if b.gasPool != nil {
+	//if b.gasPool != nil
+	{
 		if len(b.fruits) > 0 {
 			panic("coinbase must be set before adding transactions")
 		}
@@ -90,7 +91,8 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
 func (b *BlockGen) AddTxWithChain(bc *SnailBlockChain, tx *types.Transaction) {
-	if b.gasPool == nil {
+	//if b.gasPool == nil
+	{
 		b.SetCoinbase(common.Address{})
 	}
 	//TODO not need 20180804

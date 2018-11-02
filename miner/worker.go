@@ -49,6 +49,7 @@ const (
 	chainHeadChanSize = 64
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize = 64
+	fastchainHeadChanSize = 1024
 )
 
 var (
@@ -117,6 +118,9 @@ type worker struct {
 
 	fastBlockCh  chan types.NewFastBlocksEvent
 	fastBlockSub event.Subscription //for fast block pool
+	fastchainEventCh  chan types.ChainFastEvent
+	fastchainEventSub event.Subscription//for fast block pool
+
 
 	chainHeadCh  chan types.ChainSnailHeadEvent
 	chainHeadSub event.Subscription
@@ -130,7 +134,7 @@ type worker struct {
 	etrue     Backend
 	chain     *chain.SnailBlockChain
 	fastchain *core.BlockChain
-	proc      chain.Validator
+	proc      core.SnailValidator
 	chainDb   ethdb.Database
 
 	coinbase  common.Address
@@ -166,7 +170,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		mux:    mux,
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
 		fruitCh:      make(chan types.NewFruitsEvent, txChanSize),
-		fastBlockCh:  make(chan types.NewFastBlocksEvent, txChanSize),
+		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
 		chainHeadCh:  make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		chainSideCh:  make(chan types.ChainSnailSideEvent, chainSideChanSize),
 		minedfruitCh: make(chan types.NewMinedFruitEvent, txChanSize),
@@ -189,7 +193,9 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	worker.minedfruitSub = etrue.SnailBlockChain().SubscribeNewFruitEvent(worker.minedfruitCh)
 
 	worker.fruitSub = etrue.SnailPool().SubscribeNewFruitEvent(worker.fruitCh)
-	worker.fastBlockSub = etrue.SnailPool().SubscribeNewFastBlockEvent(worker.fastBlockCh)
+	worker.fastchainEventSub = worker.fastchain.SubscribeChainEvent(worker.fastchainEventCh)
+
+	//pool.fastchain.SubscribeChainHeadEvent(pool.fastchainHeadCh)
 
 	go worker.update()
 
@@ -330,7 +336,7 @@ func (self *worker) update() {
 	//defer self.txsSub.Unsubscribe()
 	defer self.chainHeadSub.Unsubscribe()
 	defer self.chainSideSub.Unsubscribe()
-	defer self.fastBlockSub.Unsubscribe()
+	defer self.fastchainEventSub.Unsubscribe()
 	defer self.fruitSub.Unsubscribe()
 	defer self.minedfruitSub.Unsubscribe()
 
@@ -357,7 +363,7 @@ func (self *worker) update() {
 
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
-			log.Info("chain slide", "number", ev.Block.Number(), "hash", ev.Block.Hash())
+			log.Info("chain side", "number", ev.Block.Number(), "hash", ev.Block.Hash())
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  chainHeadCh", "chain block number", ev.Block.Number())
 				if atomic.LoadInt32(&self.mining) == 1 {
@@ -382,8 +388,9 @@ func (self *worker) update() {
 					self.commitNewWork()
 				}
 			}
-		case <-self.fastBlockCh:
+		case <-self.fastchainEventCh:
 			log.Debug("------------start commit new work  fastBlockCh")
+		/*
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  fastBlockCh")
 				if atomic.LoadInt32(&self.mining) == 1 {
@@ -391,7 +398,7 @@ func (self *worker) update() {
 				}
 			} else {
 				log.Debug("------------start commit new work  true?????")
-			}
+			}*/
 		case <-self.minedfruitCh:
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  minedfruitCh")
@@ -400,10 +407,26 @@ func (self *worker) update() {
 				}
 
 			}
+
+		case ev:=<-self.fastBlockCh:
+			log.Info("get fast block event","fb hight",ev.FastBlocks[0].Number())
+			if !self.atCommintNewWoker {
+				log.Debug("star commit new work  fastBlockCh")
+				if atomic.LoadInt32(&self.mining) == 1 {
+					self.commitNewWork()
+				}
+			} else {
+				log.Debug("------------start commit new work  true?????")
+			}
+			return
+
 		case <-self.minedfruitSub.Err():
 			return
+
+
+
 		// TODO fast block event
-		case <-self.fastBlockSub.Err():
+		case <-self.fastchainEventSub.Err():
 
 			return
 		case <-self.fruitSub.Err():
@@ -656,7 +679,7 @@ func (self *worker) commitNewWork() {
 	header.PointerHash = pointer.Hash()
 	header.PointerNumber = pointer.Number()
 
-	if err := self.engine.PrepareSnail(self.fastchain, header); err != nil {
+	if err := self.engine.PrepareSnail(self.chain, header); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		self.atCommintNewWoker = false
 		return
@@ -748,7 +771,7 @@ func (self *worker) updateSnapshot() {
 
 func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) error {
 
-	err := engine.VerifyFreshness(fruit.Header(), env.header)
+	err := engine.VerifyFreshness(bc, fruit.Header(), env.header, true)
 	if err != nil {
 		log.Debug("commitFruit verify freshness error", "err", err, "fruit", fruit.FastNumber(), "pointer", fruit.PointNumber(), "block", env.header.Number)
 		return err

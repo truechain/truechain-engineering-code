@@ -92,7 +92,7 @@ type Truechain struct {
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
-	APIBackend *EthAPIBackend
+	APIBackend *TrueAPIBackend
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -192,6 +192,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// TODO: start bloom indexer
 	//etrue.bloomIndexer.Start(etrue.blockchain)
 
+	sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	etrue.snailblockchain.SetValidator(sv)
+
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
@@ -206,12 +209,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
-	etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
+	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
-	ethash.SetElection(etrue.election)
-	ethash.SetSnailChainReader(etrue.snailblockchain)
-
+	etrue.engine.SetElection(etrue.election)
+	etrue.engine.SetSnailChainReader(etrue.snailblockchain)
 	etrue.election.SetEngine(etrue.engine)
+
 	coinbase, _ := etrue.Etherbase()
 	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, coinbase)
 	if etrue.protocolManager, err = NewProtocolManager(
@@ -230,7 +233,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
 	}
 
-	etrue.APIBackend = &EthAPIBackend{etrue, nil}
+	etrue.APIBackend = &TrueAPIBackend{etrue, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -302,7 +305,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	}
 }
 
-// APIs return the collection of RPC services the ethereum package offers.
+// APIs return the collection of RPC services the etrue package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Truechain) APIs() []rpc.API {
 	apis := trueapi.GetAPIs(s.APIBackend)
@@ -317,7 +320,7 @@ func (s *Truechain) APIs() []rpc.API {
 			{
 				Namespace: name,
 				Version:   "1.0",
-				Service:   NewPublicEthereumAPI(s),
+				Service:   NewPublicTruechainAPI(s),
 				Public:    true,
 			},{
 				Namespace: name,
@@ -470,6 +473,8 @@ func (s *Truechain) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Truechain protocol implementation.
 func (s *Truechain) Start(srvr *p2p.Server) error {
+	//start fruit journal
+	s.snailPool.Start()
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -509,6 +514,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
 	//sender.Start()
+
 	return nil
 }
 

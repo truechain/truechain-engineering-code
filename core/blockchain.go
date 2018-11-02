@@ -31,7 +31,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -94,7 +93,7 @@ type BlockChain struct {
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
 	hc               *HeaderChain
-	sc               *snailchain.SnailBlockChain
+	sc               SnailChain
 	rmLogsFeed       event.Feed
 	chainFeed        event.Feed
 	chainSideFeed    event.Feed
@@ -286,9 +285,9 @@ func (bc *BlockChain) loadLastState() error {
 
 func (bc *BlockChain) GetLastRow() *types.BlockReward {
 
-	sNumber := bc.CurrentBlock().NumberU64()
+	sNumber := bc.sc.CurrentBlock().NumberU64()
 
-	fmt.Println(sNumber)
+	//fmt.Println(sNumber)
 	for i := sNumber; i > 0; i-- {
 
 		sBlock := bc.sc.GetBlockByNumber(i)
@@ -1158,7 +1157,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateBody(block, true) //update
+			err = bc.Validator().ValidateBody(block, false) //update
 		}
 		switch {
 		case err == ErrKnownBlock:

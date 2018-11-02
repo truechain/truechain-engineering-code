@@ -10,7 +10,7 @@ var (
 	ErrSnailHeightNotYet = errors.New("Snail height not yet")
 
 	//ErrSnailBlockNotOnTheCain Snail block not on the cain
-	ErrSnailBlockNotOnTheCain = errors.New("Snail block not on the cain")
+	ErrSnailBlockNotOnTheCain = errors.New("Snail block not on the chain")
 
 	//ErrSnailBlockTooSlow Snail block too slow
 	ErrSnailBlockTooSlow = errors.New("Snail block too slow")

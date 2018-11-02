@@ -333,19 +333,19 @@ var (
 	}
 	//snail pool settings
 	SnailPoolJournalFlag = cli.StringFlag{
-		Name:  "snailpool.journal",
+		Name:  "fruitpool.journal",
 		Usage: "Disk journal for local fruit to survive node restarts",
-		Value: core.DefaultHybridPoolConfig.Journal,
+		Value: core.DefaultSnailPoolConfig.Journal,
 	}
 	SnailPoolRejournalFlag = cli.DurationFlag{
-		Name:  "snailpool.rejournal",
-		Usage: "Time interval to regenerate the local snail journal",
-		Value: core.DefaultHybridPoolConfig.Rejournal,
+		Name:  "fruitpool.rejournal",
+		Usage: "Time interval to regenerate the local fruit journal",
+		Value: core.DefaultSnailPoolConfig.Rejournal,
 	}
 	SnailPoolFruitCountFlag = cli.Uint64Flag{
-		Name:  "txpool.fruitcount",
+		Name:  "fruitpool.count",
 		Usage: "Maximum amount of fruits in fruitPending",
-		Value: core.DefaultHybridPoolConfig.FruitCount,
+		Value: core.DefaultSnailPoolConfig.FruitCount,
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
@@ -1409,22 +1409,22 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 		Fatalf("%v", snailErr)
 	}
 	var engine consensus.Engine
-	if config.Clique != nil {
-		//TODO not need clique
-		//engine = clique.New(config.Clique, chainDb)
-	} else {
-		engine = ethash.NewFaker()
-		if !ctx.GlobalBool(FakePoWFlag.Name) {
-			engine = ethash.New(ethash.Config{
-				CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
-				CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
-				CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
-				DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
-				DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
-				DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
-			})
-		}
+	// if config.Clique != nil {
+	// 	//TODO not need clique
+	// 	//engine = clique.New(config.Clique, chainDb)
+	// } else {
+	engine = ethash.NewFaker()
+	if !ctx.GlobalBool(FakePoWFlag.Name) {
+		engine = ethash.New(ethash.Config{
+			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
+			CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
+			CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
+			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
+			DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
+			DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
+		})
 	}
+	// }
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}

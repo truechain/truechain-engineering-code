@@ -52,7 +52,7 @@ const (
 	sendNodeTime     = 30 * time.Second
 	subSignStr       = 24
 
-	fetchBlockTime = 5
+	fetchBlockTime = 3
 	blockInterval  = 20
 )
 
@@ -269,6 +269,7 @@ func (nodeWork *nodeInfoWork) loadNodeWork(receivedCommitteeInfo *types.Committe
 	nodeWork.cacheSign = make(map[string]types.Sign)
 	nodeWork.cryptoNode = nil
 }
+
 func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 	log.Debug(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
 		"nodeWork1", self.nodeInfoWorks[0].isCurrent, "nodeWork2", self.nodeInfoWorks[1].isCurrent,
@@ -433,6 +434,13 @@ func (self *PbftAgent) putCacheInsertChain(receiveBlock *types.Block) error {
 		fastBlocks         []*types.Block
 		receiveBlockHeight = receiveBlock.Number()
 	)
+	//delete from cacheBlock map where receiveBlockHeight >= heightNumber
+	for number,_:= range self.cacheBlock{
+		if receiveBlockHeight.Cmp(number) >=0{
+			delete(self.cacheBlock, number)
+		}
+	}
+	//insert block into Blockchain from cacheBlock map where heightNumber > receiveBlockHeight
 	for i := receiveBlockHeight.Uint64() + 1; ; i++ {
 		if block, ok := self.cacheBlock[big.NewInt(int64(i))]; ok {
 			fastBlocks = append(fastBlocks, block)

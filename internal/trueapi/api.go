@@ -268,7 +268,7 @@ func (s *PublicFruitPoolAPI) Status() map[string]hexutil.Uint {
 	pending, unVerified := s.b.SnailPoolStats()
 	return map[string]hexutil.Uint{
 		"pending":    hexutil.Uint(pending),
-		"unVerified": hexutil.Uint(unVerified),
+		"unverified": hexutil.Uint(unVerified),
 	}
 }
 
@@ -554,6 +554,18 @@ func NewPublicBlockChainAPI(b Backend) *PublicBlockChainAPI {
 	return &PublicBlockChainAPI{b}
 }
 
+// SnailBlockNumber returns the block number of the snailchain head.
+func (s *PublicBlockChainAPI) SnailBlockNumber() hexutil.Uint64 {
+	header, _ := s.b.SnailHeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
+	return hexutil.Uint64(header.Number.Uint64())
+}
+
+func (s *PublicBlockChainAPI) FruitNumber() hexutil.Uint64 {
+	block, _ := s.b.SnailBlockByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
+	fruits := block.Fruits()
+	return hexutil.Uint64(fruits[len(fruits)-1].FastNumber().Uint64())
+}
+
 // BlockNumber returns the block number of the chain head.
 func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
@@ -622,6 +634,26 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 	}
 	return nil, err
 }
+
+func (s *PublicBlockChainAPI) GetFruitByNumber(ctx context.Context, fastblockNr rpc.BlockNumber, fullSigns bool)(map[string]interface{}, error) {
+	block, err := s.b.BlockByNumber(ctx, fastblockNr)
+	if block != nil {
+		if (err == nil) {
+			return s.GetFruitByHash(ctx, block.Hash(), fullSigns)
+		}
+
+	}
+	return nil, err
+}
+
+func (s *PublicBlockChainAPI) GetFruitByHash(ctx context.Context, blockHash common.Hash, fullSigns bool)(map[string]interface{}, error) {
+	block, err := s.b.GetFruit(ctx, blockHash)
+	if (block != nil) {
+		return s.rpcOutputFruit(block, fullSigns)
+	}
+	return nil, err
+}
+
 
 // GetUncleByBlockNumberAndIndex returns the uncle block for the given block hash and index. When fullTx is true
 // all transactions in the block are returned in full detail, otherwise only the transaction hash is returned.
@@ -823,6 +855,11 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args CallArgs) (h
 	return hexutil.Uint64(hi), nil
 }
 
+func (s *PublicBlockChainAPI) GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error) {
+	detail, err := s.b.GetCommittee(id)
+	return detail, err
+}
+
 // ExecutionResult groups all structured logs emitted by the EVM
 // while replaying a transaction in debug mode as well as transaction
 // execution status, the amount of gas used and the return value
@@ -961,7 +998,6 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
 		"sha3Uncles":      head.UncleHash,
-		"logsBloom":       head.Bloom,
 		"miner":           head.Coinbase,
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
@@ -1001,10 +1037,53 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 	return fields, nil
 }
 
+func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interface{}, error) {
+	head := fruit.Header() // copies the header once
+	fields := map[string]interface{}{
+		"number":          (*hexutil.Big)(head.Number),
+		"hash":            fruit.Hash(),
+		"fastHash":        head.FastHash,
+		"fastNumber":      head.FastNumber,
+		"nonce":           head.Nonce,
+		"mixHash":         head.MixDigest,
+		"sha3Uncles":      head.UncleHash,
+		"miner":           head.Coinbase,
+		"difficulty":      (*hexutil.Big)(head.Difficulty),
+		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
+		"extraData":       hexutil.Bytes(head.Extra),
+		"size":            hexutil.Uint64(fruit.Size()),
+		"timestamp":       (*hexutil.Big)(head.Time),
+	}
+	signs := fruit.Signs()
+	if fullSigns {
+		pbftSigns := make([]interface{}, len(signs))
+		for i, sign := range signs {
+			signInfo := map[string]interface{} {
+				"fastHash": sign.FastHash,
+				"fastHeight": sign.FastHeight,
+				"result": sign.Result,
+				"sign": hexutil.Bytes(sign.Sign),
+			}
+			pbftSigns[i] = signInfo
+		}
+		fields["signs"] = pbftSigns;
+	} else {
+		fields["signs"] = len(signs)
+	}
+	return fields, nil
+}
 // rpcOutputSnailBlock uses the generalized output filler.
 // TODO: maybe add argument/flag: fullFruit to return block with full fruit details
 func (s *PublicBlockChainAPI) rpcOutputSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]interface{}, error) {
 	fields, err := RPCMarshalSnailBlock(b, inclFruit)
+	if err != nil {
+		return nil, err
+	}
+	return fields, err
+}
+
+func (s *PublicBlockChainAPI) rpcOutputFruit(b *types.SnailBlock, fullSigns bool) (map[string]interface{}, error) {
+	fields, err := RPCMarshalFruit(b, fullSigns)
 	if err != nil {
 		return nil, err
 	}

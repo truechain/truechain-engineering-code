@@ -58,6 +58,10 @@ const (
 	fruitChanSize = 256
 )
 
+var (
+	daoChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the DAO handshake challenge
+)
+
 // errIncompatibleConfig is returned if the requested protocols and configs are
 // not compatible (low protocol version restrictions and high requirements).
 var errIncompatibleConfig = errors.New("incompatible configuration")
