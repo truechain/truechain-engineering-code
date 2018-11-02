@@ -104,13 +104,6 @@ type P2PConfig struct {
 	// Address to advertise to peers for them to dial
 	ExternalAddress string `mapstructure:"external_address"`
 
-	// Comma separated list of seed nodes to connect to
-	// We only use these if we can’t connect to peers in the addrbook
-	Seeds string `mapstructure:"seeds"`
-
-	// Comma separated list of nodes to keep persistent connections to
-	PersistentPeers string `mapstructure:"persistent_peers"`
-
 	// UPNP port forwarding
 	UPNP bool `mapstructure:"upnp"`
 
@@ -134,15 +127,6 @@ type P2PConfig struct {
 
 	// Rate at which packets can be received, in bytes/second
 	RecvRate int64 `mapstructure:"recv_rate"`
-
-	// Set true to enable the peer-exchange reactor
-	PexReactor bool `mapstructure:"pex"`
-
-	// Seed mode, in which node constantly crawls the network and looks for
-	// peers. If another node asks it for addresses, it responds and disconnects.
-	//
-	// Does not work if the peer-exchange reactor is disabled.
-	SeedMode bool `mapstructure:"seed_mode"`
 
 	// Comma separated list of peer IDs to keep private (will not be gossiped to
 	// other peers)
@@ -176,8 +160,6 @@ func DefaultP2PConfig() *P2PConfig {
 		MaxPacketMsgPayloadSize: 1024,    // 1 kB
 		SendRate:                5120000, // 5 mB/s
 		RecvRate:                5120000, // 5 mB/s
-		PexReactor:              true,
-		SeedMode:                false,
 		AllowDuplicateIP:        true, // so non-breaking yet
 		HandshakeTimeout:        20 * time.Second,
 		DialTimeout:             3 * time.Second,
