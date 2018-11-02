@@ -581,12 +581,7 @@ func (e *Election) getLastNumber(beginSnail, endSnail *big.Int) *big.Int {
 
 	fruits := endElectionBlock.Fruits()
 	lastFruitNumber := fruits[len(fruits)-1].FastNumber()
-	firstFruitNumber := beginElectionBlock.Fruits()[0].FastNumber()
-
-	periodNumber := new(big.Int).Sub(lastFruitNumber, firstFruitNumber)
-	periodNumber.Div(periodNumber, big.NewInt(2))
-
-	lastFastNumber := new(big.Int).Add(lastFruitNumber, periodNumber)
+	lastFastNumber := new(big.Int).Add(lastFruitNumber, params.ElectionSwitchoverNumber)
 
 	return lastFastNumber
 }
