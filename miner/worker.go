@@ -350,7 +350,7 @@ func (self *worker) update() {
 				if atomic.LoadInt32(&self.mining) == 1 {
 					self.commitNewWork()
 				}
-			}else{
+			}/*else{
 				// need stop who is miner the has already mined block
 				if ev.Block.Number().Cmp(self.current.header.Number) >= 0{
 					log.Info("get chainHead stop the mined ","get block",ev.Block.Number(),"miner block ",self.current.header.Number)
@@ -358,7 +358,7 @@ func (self *worker) update() {
 						agent.Stop()
 					}
 				}
-			}
+			}*/
 
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
@@ -509,6 +509,7 @@ func (self *worker) wait() {
 				if stat == chain.CanonStatTy {
 					events = append(events, types.ChainSnailHeadEvent{Block: block})
 				}
+				events = append(events, types.NewMinedFruitEvent{Block: block})
 				self.chain.PostChainEvents(events)
 
 				// Insert the block into the set of pending ones to wait for confirmations
@@ -578,7 +579,7 @@ func (self *worker) commitNewWork() {
 	parent := self.chain.CurrentBlock()
 	self.atCommintNewWoker = true
 
-	log.Info("------in commitNewWork")
+	log.Debug("------in commitNewWork")
 
 	//can not start miner when  fruits and fast block
 	tstamp := tstart.Unix()
