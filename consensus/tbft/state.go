@@ -699,10 +699,8 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	cs.eventBus.PublishEventNewRound(cs.RoundStateEvent())
 	// cs.metrics.Rounds.Set(float64(round))
 
-	// Wait for txs to be available in the mempool
-	// before we enterPropose in round 0. If the last block changed the app hash,
-	// we may need an empty "proof" block, and enterPropose immediately.
-	waitForTxs := cs.config.WaitForTxs() && round == 0 && !cs.needProofBlock(height)
+	// Wait for txs to be available in the txpool and we enterPropose in round 0.
+	waitForTxs := cs.config.WaitForTxs() && round == 0
 	if waitForTxs {
 		if cs.config.CreateEmptyBlocksInterval > 0 {
 			cs.scheduleTimeout(cs.config.EmptyBlocksInterval(), height, round, ttypes.RoundStepNewRound)
@@ -711,18 +709,6 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	} else {
 		cs.enterPropose(height, round)
 	}
-}
-
-// needProofBlock returns true on the first height (so the genesis app hash is signed right away)
-// and where the last block (height-1) caused the app hash to change
-func (cs *ConsensusState) needProofBlock(height uint64) bool {
-	if height == 1 {
-		return true
-	}
-
-	// lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
-	// return !bytes.Equal(cs.state.AppHash, lastBlockMeta.Header.AppHash)
-	return true
 }
 
 func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
