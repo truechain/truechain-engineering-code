@@ -18,7 +18,6 @@ package params
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -39,9 +38,9 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(2000000),
-			MinimumFruitDifficulty: big.NewInt(2000),
-			DurationLimit:          big.NewInt(600),
+			MinimumDifficulty:      MinimumDifficulty,
+			MinimumFruitDifficulty: MinimumFruitDifficulty,
+			DurationLimit:          DurationLimit,
 		}),
 	}
 
@@ -49,9 +48,9 @@ var (
 	TestnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(18928),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(2000000),
-			MinimumFruitDifficulty: big.NewInt(2000),
-			DurationLimit:          big.NewInt(600),
+			MinimumDifficulty:      MinimumDifficulty,
+			MinimumFruitDifficulty: MinimumFruitDifficulty,
+			DurationLimit:          DurationLimit,
 		}),
 	}
 
@@ -90,39 +89,69 @@ type ChainConfig struct {
 	ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
 
 	// Various consensus engines
-	Minerva *MinervaConfig `json:"minerva,omitempty"`
+	Minerva *MinervaConfig `json:"minerva"`
 	//Clique *CliqueConfig  `json:"clique,omitempty"`
+}
+
+func (c *ChainConfig) UnmarshalJSON(input []byte) error {
+	type ChainConfig struct {
+		ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
+
+		Minerva *MinervaConfig `json:"minerva"`
+	}
+	var dec ChainConfig
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	c.ChainID = dec.ChainID
+	if c.Minerva == nil {
+		c.Minerva = &(MinervaConfig{
+			MinimumDifficulty:      MinimumDifficulty,
+			MinimumFruitDifficulty: MinimumFruitDifficulty,
+			DurationLimit:          DurationLimit,
+		})
+	} else {
+		c.Minerva = dec.Minerva
+	}
+
+	return nil
 }
 
 // MinervaConfig is the consensus engine configs for proof-of-work based sealing.
 type MinervaConfig struct {
-	MinimumDifficulty      *big.Int `json:"minimumDifficulty,omitempty"`
-	MinimumFruitDifficulty *big.Int `json:"minimumFruitDifficulty,omitempty"`
-	DurationLimit          *big.Int `json:"durationLimit,omitempty"`
+	MinimumDifficulty      *big.Int `json:"minimumDifficulty"`
+	MinimumFruitDifficulty *big.Int `json:"minimumFruitDifficulty"`
+	DurationLimit          *big.Int `json:"durationLimit"`
 }
 
 func (c *MinervaConfig) UnmarshalJSON(input []byte) error {
 	type MinervaConfig struct {
-		MinimumDifficulty      *math.HexOrDecimal256 `json:"minimumDifficulty,omitempty"`
-		MinimumFruitDifficulty *math.HexOrDecimal256 `json:"minimumFruitDifficulty,omitempty"`
-		DurationLimit          *math.HexOrDecimal256 `json:"durationLimit,omitempty"`
+		MinimumDifficulty      *math.HexOrDecimal256 `json:"minimumDifficulty"`
+		MinimumFruitDifficulty *math.HexOrDecimal256 `json:"minimumFruitDifficulty"`
+		DurationLimit          *math.HexOrDecimal256 `json:"durationLimit"`
 	}
 	var dec MinervaConfig
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
 	if dec.MinimumDifficulty == nil {
-		return errors.New("missing required field 'MinimumDifficulty' for Genesis")
+		c.MinimumDifficulty = MinimumDifficulty
+		//return errors.New("missing required field 'MinimumDifficulty' for Genesis")
+	} else {
+		c.MinimumDifficulty = (*big.Int)(dec.MinimumDifficulty)
 	}
-	c.MinimumDifficulty = (*big.Int)(dec.MinimumDifficulty)
 	if dec.MinimumFruitDifficulty == nil {
-		return errors.New("missing required field 'MinimumFruitDifficulty' for Genesis")
+		c.MinimumFruitDifficulty = MinimumFruitDifficulty
+		//return errors.New("missing required field 'MinimumFruitDifficulty' for Genesis")
+	} else {
+		c.MinimumFruitDifficulty = (*big.Int)(dec.MinimumFruitDifficulty)
 	}
-	c.MinimumFruitDifficulty = (*big.Int)(dec.MinimumFruitDifficulty)
 	if dec.DurationLimit == nil {
-		return errors.New("missing required field 'DurationLimit' for Genesis")
+		c.DurationLimit = DurationLimit
+		//return errors.New("missing required field 'DurationLimit' for Genesis")
+	} else {
+		c.DurationLimit = (*big.Int)(dec.DurationLimit)
 	}
-	c.DurationLimit = (*big.Int)(dec.DurationLimit)
 	return nil
 }
 
