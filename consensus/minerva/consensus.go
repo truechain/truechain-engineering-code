@@ -545,8 +545,8 @@ func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block
 }
 
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
-	// m.CheckDataSetState(header.Number.Uint64())
-	_, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	dataset := m.getDataset(header.Number.Uint64())
+	_, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
 		last := result[16:]
@@ -793,10 +793,9 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 		return errInvalidDifficulty
 	}
 	// Recompute the digest and PoW value and verify against the header
-	//number := header.Number.Uint64()
-
+	dataset := m.getDataset(header.Number.Uint64())
 	//m.CheckDataSetState(header.Number.Uint64())
-	digest, result := truehashLight(m.dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	digest, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest

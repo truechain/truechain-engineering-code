@@ -49,7 +49,7 @@ func TestTestMode(t *testing.T) {
 		if err := minerva.VerifySnailSeal(nil, header); err != nil {
 			t.Fatalf("unexpected verification error: %v", err)
 		}
-	case <-time.NewTimer(time.Second).C:
+	case <-time.NewTimer(time.Second * 5).C:
 		t.Error("sealing result timeout")
 	}
 }
