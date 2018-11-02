@@ -1029,15 +1029,10 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	// At this point, +2/3 prevoted for a particular block.
 
 	// If we're already locked on that block, precommit it, and update the LockedRound
-<<<<<<< HEAD
 	if (cs.LockedBlock != nil) &&  func() bool {
 			hash := cs.LockedBlock.Hash()
 			return help.EqualHashes(hash[:],blockID.Hash)
 	}() {
-=======
-	tmpBlock := cs.LockedBlock.Hash()
-	if help.EqualHashes(tmpBlock[:], blockID.Hash) {
->>>>>>> b85cc25b5065412dc2c0a571f8089e274f5af460
 		log.Info("enterPrecommit: +2/3 prevoted locked block. Relocking")
 		cs.LockedRound = uint(round)
 		cs.eventBus.PublishEventRelock(cs.RoundStateEvent())
