@@ -552,27 +552,16 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	seedkey3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x049620df839696f4451842fd543b38d171f7f215dcd2c7fcd813c0206f097206a67b25ad719fbb62570c4a4ba467ec61aa396788e3ae79c704a62ea759beca3175"))
 	seedkey4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04f714bb815a9ecc505eae7e756b63753850df92a0fe4c99dc8b6660ba17bbcbb88000d9efb524eb38746ef4505ad2ab1895efccbcc966d4c685c811bda7c9d8ef"))
 
-	seedkey5, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04574194462132a05d45923f322f13bfa12dbe2e536c3743915ef16d412353d7e060a835cded6f9883efc1ce1feec99c04c930e7561741b0da5286185328edeff5"))
-	seedkey6, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a49218f37e7640a7809f7f2b7213c0db128ace84288a23cf6ed00e2e26fa83d9c3f7ae1dfad2f4d9b28fc4ab846c32751f53a8614d253d96e217725e8ef80f68"))
-	seedkey7, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04c9194f5bf60f9d51ecccc869df245ccaa313e40343625a9368d8bc284e17e034dcaa592355968bfc26dc086c9574fcf81e4f7009d70ebd8a217ead24b5a3edc6"))
-	seedkey8, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x046b0cd08cf85d0bc61214033ca353b221897808eb69fc78e6be234857acda15a64445a0d47e146605683ff859db50244f8566a1d166f887102000b4e58584277d"))
-	seedkey9, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04aa09d866ba5a229798d88bdb1f1774aa18ba1fbad3335319296a2d6c749f37a792677cdcb7e51db49d45725c0691cc4f592b8156774567a43a67dff2869a14bf"))
-	seedkey10, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04731b126dfee319cd594c7f8c0b5831f53d53be80cf1c388802ca6b903d5328989b62abb6db5dcd5ba95a299442ebfdeeaf892d3440fbcd410aa144a24a71745d"))
-	seedkey11, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04dfb7a1f0c3d51e8a3f54d9e8b60a0710e33737ff899160ea9fabba3417e610b17c91d7a434bfe1e717459ad4f9bafa01fdcc5790fa2f581c02419e8c27af645c"))
-	seedkey12, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x041c96578ce1a662a8e4d158338e8ebbbc7f5f703590eeb11cfaffd0153bbffc827bbfa2a085e62d68dbc58793d9b5b5eee9af858ad732c11efbfa8413cdbc7d18"))
-	seedkey13, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0485a695f5ffaa932ca3df1cf76eb973927858e1955af93b698e662bc34b9c3ffb650753207dec97f1b37a7f6e43447823da036e005023f8db536ef7dc96c3b292"))
-	seedkey14, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0479a1b0ca954f1f92a5d090b32ebdc359b9897db9f564847ad50d40749e050429ddbd6a781c838e7b81ded83d089664f5e8434a21fa29530bfbf7351db9ad0c8a"))
-	//seedkey15, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04074940e9c0b9a760881f8027573483b238687a9b349a812d5bae1e2beaf0fcda007b5920804a9eae319e798bc35b71e26f105abd0980cdc6a7af4ad36860711f"))
-	//seedkey16, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04d8b14b77628b0843d99daa05b64feb05edf203faae7a3a1ab6ddeb2c65d97cebc1a672aa9b77a66ec02ce9820c4b2d1acd7f787081ee51528caed65bd8b0c37a"))
-	//seedkey17, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04cae56bbfe43e5a13ba04d0480a93ccf983ed8792c5360d05cecbe9e23209a6c89456f6a93959c6df1911ff86b97c64774620d414ddb0ee107b8ac8abe4b859b7"))
-	// seedkey18, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0427ddb370d76974851824317614d36a096d4f30cdaaf41f3def7c5273f5068ee738072c1f8bdee2d32495b1086827fc55a0aee544c09eb4d370ab960f79551e82"))
-	// seedkey19, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x042cc58e015149f5f1c1deb3c44e5b714b08c7eaf8974436b750991bca99422449fbd237719c03da3d2861362f1b7cd2258b2df212ee46adc8ea302b5b656021d9"))
-	// seedkey20, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x043a5bdd8ee2e9f1ee2c30fb1edaddf57bd2e89c30074f0b60bc55ef9c8592d9cb494eecc02cf790c3265c0714bbbc2f31480372d09f53835ddae022a66da9ff80"))
-	// seedkey21, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0453e40cd692a70cff4761c65917703e28bfc3bd152119a2eba38719a76a8e06de6a1e066c8426d58c123d3265a7364755a9036533992ddcc04a2256610bf3d094"))
-	// seedkey22, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x047e5d4b18ed909f86877346b206e8f2a55ba3c413c16efccc8776277decdaec3029bc11e7097330728ec3a83fc5836cd271a17e994206191475f556db29d7d119"))
-	// seedkey23, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04493b5c8d3b79ea613158d3618eb4d304cded8ab86c6aae426cd15ceec5a076c821757bbc079ade778419c552a088901ae01c5e3003769d8d93e0b0b1dc1fff91"))
-	// seedkey24, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x040c362e304fa52540a65139298dc3ca53538f070654f232614cc5e3137ff5a5bef0fc95c722e181fb44df421fc911c68d4bf22c41a05ac91a268737238743e875"))
-	// seedkey25, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04c7b8da951d402926d79e43d06cc12024f01be1a9e7632dc783c747e876b718affc7ec33c4de96c33f3ff3dd497165c2cb1b643cb1756a0b3b4740577e22c28e3"))
+	seedkey5, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04c0617eef5000dc4a48fb4483735a33c7b2e58e3301fec13b55e9369f8b2bd04c59d899a1fe977b06a3db71fd7c8036b564ffa07171071835a7bb9e24cff22312"))
+	seedkey6, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0420bf209047d5eace814848692360a83065841ee91445a8b71b6092f681bf7741a5497ae0a28c401cda133ba8d12ca3dbc6ae756d2fc55288abc159c2ddf601fc"))
+	seedkey7, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x043736280e96284f5d9460fd874f2dbe6b82ae29d7f348b931f540cc7612f41f20319c76ac90f3de8c68db2e9c7cf9bdfe0fca62046b0f35d01404d49d1de2a43e"))
+	seedkey8, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x042896914b006d756bd5536069cf99d99e6dd7c8efb5dca582c44b6be293701f1c3a70f1d38de52e4180618fc9b9fbf1896ef445e7f3e51160a8b0e4ed5dc7823b"))
+	seedkey9, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04b548e8a1180c649efe64db740dce38417a8fde8a77bf659cf485489d8e608032f71c96cb6988fa3e55927b43a7d70572599be8792c446bdd6261114632767b44"))
+	seedkey10, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0440fae92a40624911932dfc31cfb93c2ba4a865ec8b640f15b7886daf2a2d93ad697a310d521af8552130305a00c96d7a27aad990b24264d7637a81ed46836a52"))
+	seedkey11, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x043177df05ba2ad027e3a1f657002b8530206c07c747f86c28b5a9d9a7b11680bd03ee22710b6013446e9925fa82a3a72de396b4839a81b2cb5fc93fd1ee6f5a78"))
+	seedkey12, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x040eed64a645c75e8436bc3680eb89db0592d4e95bbf865127b712d4840529864094a0b1c7a6389a33c0e03bc1633e7ed160235ba77a654a6a781b68ed8500ab1c"))
+	seedkey13, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04f61cdcd76e0a52f299378b53f182a5e135ea8cca327c11a2fbcc475daf3f0be858a3bda72352cb49d27dc28520ca6f708a39b0f12c49595beb76b3eec253959d"))
+	seedkey14, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x048be0f382ee382517c2858f7d3abd2421469aac42bc04a6e964ed71e718c58e4178b2e8d1e0671885b66eb7ccfa432e0ea4958d08ce5f18d8e77e7dcf5191cfd5"))
 
 	coinbase := common.HexToAddress("0x0000000000000000000000000000000000000000")
 	// amount, _ := new(big.Int).SetString("90000000000000000000000", 10)
@@ -582,7 +571,7 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		ExtraData: nil,
 		//hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535")
 		GasLimit:   20971520,
-		Difficulty: big.NewInt(6000000),
+		Difficulty: big.NewInt(100000),
 		Timestamp:  1537891200,
 		Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
@@ -606,17 +595,6 @@ func DefaultTestnetGenesisBlock() *Genesis {
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey12},
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey13},
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey14},
-			//&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey15},
-			//&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey16},
-			//&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey17},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey18},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey19},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey20},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey21},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey22},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey23},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey24},
-			// &types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey25},
 		},
 	}
 }
