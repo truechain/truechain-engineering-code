@@ -11,6 +11,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"testing"
+	"time"
 )
 
 type PbftAgentProxyImp struct {
@@ -22,17 +23,18 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-var ID = big.NewInt(0)
+var ID = big.NewInt(1)
 
 func getID() *big.Int {
-	ID = new(big.Int).Add(ID, big.NewInt(1))
 	return ID
 }
 
 func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getID()
-	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
+	header.Time = big.NewInt(time.Now().Unix())
+	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
+	time.Sleep(time.Second * 5)
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
@@ -49,11 +51,12 @@ func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) error {
 }
 
 func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {
-	println("[AGENT]", "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
+	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
 func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {
-	println("[AGENT]", "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
+	ID = new(big.Int).Add(ID, big.NewInt(1))
+	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
 
