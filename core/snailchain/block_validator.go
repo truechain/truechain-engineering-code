@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
-	"math/big"
-
 	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -61,9 +59,6 @@ type BlockValidator struct {
 	election  consensus.CommitteeElection
 	fastchain consensus.ChainReader
 }
-
-// freshFruitSize is the freshness of fruit according to the paper
-var fruitFreshness *big.Int = big.NewInt(17)
 
 // NewBlockValidator returns a new block validator which is safe for re-use
 func NewBlockValidator(config *params.ChainConfig, blockchain *SnailBlockChain, engine consensus.Engine) *BlockValidator {
@@ -127,7 +122,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 				"fruit", fruit.FastNumber(),  "pre", temp)
 			return ErrInvalidFruits
 		}
-		if err := v.ValidateFruit(fruit, block); err != nil {
+		if err := v.ValidateFruit(fruit, block, false); err != nil {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(),  "err", err)
 			return err
 		}
@@ -165,7 +160,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 
 
 
-func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
+func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
 	//
 	currentNumber := v.fastchain.CurrentHeader().Number
@@ -190,7 +185,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock) error {
 	if block != nil {
 		blockHeader = block.Header()
 	}
-	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader)
+	err := v.engine.VerifyFreshness(fruit.Header(), blockHeader, canonical)
 	if err != nil {
 		log.Debug("ValidateFruit verify freshness error.", "err", err, "fruit", fruit.FastNumber())
 		return err

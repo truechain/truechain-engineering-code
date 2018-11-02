@@ -805,6 +805,11 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 
 var lastSnailWrite uint64
 
+// Get lowlevel persistence database
+func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
+	return bc.db
+}
+
 // WriteBlock writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
@@ -982,6 +987,11 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			continue
 
 		case err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(block.ParentHash()):
+			bc.futureBlocks.Add(block.Hash(), block)
+			stats.queued++
+			continue
+
+		case err == ErrInvalidFast:
 			bc.futureBlocks.Add(block.Hash(), block)
 			stats.queued++
 			continue
@@ -1407,6 +1417,11 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	block := bc.GetBlock(hash, number)
 
 	return block, index
+}
+
+func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) (*types.SnailBlock) {
+	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
+	return fruit
 }
 
 func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {

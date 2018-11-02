@@ -20,10 +20,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"math/big"
 	"runtime"
 	"time"
+
+	"github.com/truechain/truechain-engineering-code/crypto"
 
 	"github.com/truechain/truechain-engineering-code/log"
 
@@ -38,16 +39,12 @@ import (
 
 // Minerva protocol constants.
 var (
-	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
+	FrontierBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+	ByzantiumBlockReward  = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 
-	//FruitReward *big.Int = big.NewInt(3.333e+16)
-	//BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
 
 	maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
-
-	//FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -489,7 +486,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 	// validate the signatures of this fruit
 	members := m.election.GetCommittee(fastnumber)
 	if members == nil {
-		log.Warn("validate fruit get committee failed.", "number", fastnumber)
+		log.Warn("VerifySigns get committee failed.", "number", fastnumber)
 		return consensus.ErrInvalidSign
 	}
 	count := 0
@@ -499,15 +496,15 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 		}
 	}
 	// pbft signs check bug will fix next release
-	if count <= len(members)*2/3 {
-		log.Warn("validate fruit signs number error", "signs", len(signs), "agree", count, "members", len(members))
+	if count <= len(members) * 2 / 3 {
+		log.Warn("VerifySigns number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
 
 	_, errs := m.election.VerifySigns(signs)
 	for _, err := range errs {
 		if err != nil {
-			log.Warn("validate fruit VerifySigns error", "err", err)
+			log.Warn("VerifySigns error", "err", err)
 			return err
 		}
 	}
@@ -515,7 +512,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) erro
 	return nil
 }
 
-func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
+func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader, canonical bool) error {
 	var headerNumber *big.Int
 	if block == nil {
 		// when block is nil, is used to verify new fruits for next block
@@ -528,10 +525,17 @@ func (m *Minerva) VerifyFreshness(fruit, block *types.SnailHeader) error {
 	if pointer == nil {
 		return types.ErrSnailHeightNotYet
 	}
-	if pointer.Hash() != fruit.PointerHash {
-		log.Debug("VerifyFreshness get pointer failed.", "fruit", fruit.FastNumber, "pointerNumber", fruit.PointerNumber, "pointerHash", fruit.PointerHash,
-			"fruitNumber", fruit.Number, "pointer", pointer.Hash())
-		return consensus.ErrUnknownPointer
+	if canonical {
+		if pointer.Hash() != fruit.PointerHash {
+			log.Debug("VerifyFreshness get pointer failed.", "fruit", fruit.FastNumber, "pointerNumber", fruit.PointerNumber, "pointerHash", fruit.PointerHash,
+				"fruitNumber", fruit.Number, "pointer", pointer.Hash())
+			return consensus.ErrUnknownPointer
+		}
+	} else {
+		pointer = m.sbc.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
+		if pointer == nil {
+			return consensus.ErrUnknownPointer
+		}
 	}
 	freshNumber := new(big.Int).Sub(headerNumber, pointer.Number)
 	if freshNumber.Cmp(params.FruitFreshness) > 0 {
@@ -607,8 +611,8 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 
 func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 	// algorithm:
-	// diff = (average_diff +
-	//         (average_diff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	// diff = (averageDiff +
+	//         (averageDiff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
 	//        )
 
 	period := big.NewInt(int64(len(parents)))
@@ -628,7 +632,7 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 	for _, parent := range parentHeaders {
 		diff.Add(diff, parent.Difficulty)
 	}
-	average_diff := new(big.Int).Div(diff, period)
+	averageDiff := new(big.Int).Div(diff, period)
 
 	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
 
@@ -649,20 +653,20 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(y)
 	}
 
-	// (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
-	y.Div(average_diff, params.DifficultyBoundDivisor90)
+	// (averageDiff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	y.Div(averageDiff, params.DifficultyBoundDivisor90)
 	x.Mul(y, x)
 
 	x.Div(x, durationDivisor)
 
-	x.Add(average_diff, x)
+	x.Add(averageDiff, x)
 
 	// minimum difficulty can ever be (before exponential factor)
 	if x.Cmp(params.MinimumDifficulty) < 0 {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", average_diff, "diff", x,
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", averageDiff, "diff", x,
 		"time", new(big.Int).Sub(bigTime, bigParentTime), "period", period)
 
 	return x
@@ -670,8 +674,8 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 
 func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 	// algorithm:
-	// diff = (average_diff +
-	//         (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	// diff = (averageDiff +
+	//         (averageDiff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
 	//        )
 
 	period := big.NewInt(int64(len(parents)))
@@ -691,7 +695,7 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 	for _, parent := range parentHeaders {
 		diff.Add(diff, parent.Difficulty)
 	}
-	average_diff := new(big.Int).Div(diff, period)
+	averageDiff := new(big.Int).Div(diff, period)
 
 	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
 
@@ -712,20 +716,20 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(y)
 	}
 
-	// (average_diff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
-	y.Div(average_diff, params.DifficultyBoundDivisor)
+	// (averageDiff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	y.Div(averageDiff, params.DifficultyBoundDivisor)
 	x.Mul(y, x)
 
 	x.Div(x, durationDivisor)
 
-	x.Add(average_diff, x)
+	x.Add(averageDiff, x)
 
 	// minimum difficulty can ever be (before exponential factor)
 	if x.Cmp(params.MinimumDifficulty) < 0 {
 		x.Set(params.MinimumDifficulty)
 	}
 
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", average_diff, "diff", x, "period", period)
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", averageDiff, "diff", x, "period", period)
 
 	return x
 }
@@ -768,7 +772,7 @@ func calcDifficulty(time uint64, parent *types.SnailHeader) *big.Int {
 	return x
 }
 
-// VerifySeal implements consensus.Engine, checking whether the given block satisfies
+// VerifySnailSeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
 func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
 	// If we're running a fake PoW, accept any seal as valid
@@ -826,6 +830,9 @@ func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) err
 	}
 	return nil
 }
+
+
+
 func (m *Minerva) PrepareSnail(chain consensus.ChainReader, header *types.SnailHeader) error {
 	parents := m.getParents(m.sbc, header)
 	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
@@ -884,7 +891,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
 
-	//header.Root = state.IntermediateRoot(true)
+	//header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
 	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil

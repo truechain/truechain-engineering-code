@@ -286,9 +286,9 @@ func (bc *BlockChain) loadLastState() error {
 
 func (bc *BlockChain) GetLastRow() *types.BlockReward {
 
-	sNumber := bc.CurrentBlock().NumberU64()
+	sNumber := bc.sc.CurrentBlock().NumberU64()
 
-	fmt.Println(sNumber)
+	//fmt.Println(sNumber)
 	for i := sNumber; i > 0; i-- {
 
 		sBlock := bc.sc.GetBlockByNumber(i)
