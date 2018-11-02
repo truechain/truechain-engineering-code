@@ -868,8 +868,9 @@ func (self *worker) commitFastNumber(fastBlockHight, snailFruitsLastFastNumber *
 
 	log.Debug("--------commitFastBlocksByWoker Info2 ", "pendind fruit min fb", pendingFruits[0].FastNumber(), "max fb", pendingFruits[len(pendingFruits)-1].FastNumber())
 
-	if pendingFruits[0].FastNumber().Cmp(snailFruitsLastFastNumber) > 0 {
-		return new(big.Int).Add(snailFruitsLastFastNumber, common.Big1)
+	nextFruit := new(big.Int).Add(snailFruitsLastFastNumber, common.Big1)
+	if pendingFruits[0].FastNumber().Cmp(nextFruit) > 0 {
+		return nextFruit
 	}
 	// find the realy need miner fastblock
 	for i, fb := range pendingFruits {
