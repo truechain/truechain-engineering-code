@@ -93,34 +93,6 @@ func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 	// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 	// Note we currently use the addrBook regardless at least for AddOurAddress
 	addrBook := pex.NewAddrBook(config.P2P.AddrBookFile(), config.P2P.AddrBookStrict)
-
-	// Filter peers by addr or pubkey with an ABCI query.
-	// If the query return code is OK, add peer.
-	// XXX: Query format subject to change
-	if config.FilterPeers {
-		// NOTE: addr is ip:port
-		//sw.SetAddrFilter(func(addr net.Addr) error {
-		//	resQuery, err := proxyApp.Query().QuerySync(abci.RequestQuery{Path: fmt.Sprintf("/p2p/filter/addr/%s", addr.String())})
-		//	if err != nil {
-		//		return err
-		//	}
-		//	if resQuery.IsErr() {
-		//		return fmt.Errorf("Error querying abci app: %v", resQuery)
-		//	}
-		//	return nil
-		//})
-		//sw.SetIDFilter(func(id p2p.ID) error {
-		//	resQuery, err := proxyApp.Query().QuerySync(abci.RequestQuery{Path: fmt.Sprintf("/p2p/filter/id/%s", id)})
-		//	if err != nil {
-		//		return err
-		//	}
-		//	if resQuery.IsErr() {
-		//		return fmt.Errorf("Error querying abci app: %v", resQuery)
-		//	}
-		//	return nil
-		//})
-	}
-
 	eventBus := ttypes.NewEventBus()
 	// services which will be publishing and/or subscribing for messages (events)
 	// consensusReactor will set it on consensusState and blockExecutor

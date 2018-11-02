@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -26,16 +25,9 @@ var (
 	defaultDataDir       = "data"
 
 	defaultConfigFileName  = "config.toml"
-	defaultGenesisJSONName = "genesis.json"
-
-	defaultPrivValName  = "priv_validator.json"
-	defaultNodeKeyName  = "node_key.json"
 	defaultAddrBookName = "addrbook.json"
 
 	defaultConfigFilePath  = filepath.Join(defaultConfigDir, defaultConfigFileName)
-	defaultGenesisJSONPath = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
-	defaultPrivValPath     = filepath.Join(defaultConfigDir, defaultPrivValName)
-	defaultNodeKeyPath     = filepath.Join(defaultConfigDir, defaultNodeKeyName)
 	defaultAddrBookPath    = filepath.Join(defaultConfigDir, defaultAddrBookName)
 )
 
@@ -43,26 +35,17 @@ var (
 type Config struct {
 	// Top level options use an anonymous struct
 	BaseConfig `mapstructure:",squash"`
-
 	// Options for services
-	RPC             *RPCConfig             `mapstructure:"rpc"`
 	P2P             *P2PConfig             `mapstructure:"p2p"`
-	Mempool         *MempoolConfig         `mapstructure:"mempool"`
 	Consensus       *ConsensusConfig       `mapstructure:"consensus"`
-	TxIndex         *TxIndexConfig         `mapstructure:"tx_index"`
-	Instrumentation *InstrumentationConfig `mapstructure:"instrumentation"`
 }
 
 // DefaultConfig returns a default configuration for a truechain node
 func DefaultConfig() *Config {
 	return &Config{
 		BaseConfig:      DefaultBaseConfig(),
-		RPC:             DefaultRPCConfig(),
 		P2P:             DefaultP2PConfig(),
-		Mempool:         DefaultMempoolConfig(),
 		Consensus:       DefaultConsensusConfig(),
-		TxIndex:         DefaultTxIndexConfig(),
-		Instrumentation: DefaultInstrumentationConfig(),
 	}
 }
 
@@ -70,21 +53,14 @@ func DefaultConfig() *Config {
 func TestConfig() *Config {
 	return &Config{
 		BaseConfig:      TestBaseConfig(),
-		RPC:             TestRPCConfig(),
 		P2P:             TestP2PConfig(),
-		Mempool:         TestMempoolConfig(),
 		Consensus:       TestConsensusConfig(),
-		TxIndex:         TestTxIndexConfig(),
-		Instrumentation: TestInstrumentationConfig(),
 	}
 }
 
 // SetRoot sets the RootDir for all Config structs
 func (cfg *Config) SetRoot(root string) *Config {
-	cfg.BaseConfig.RootDir = root
-	cfg.RPC.RootDir = root
 	cfg.P2P.RootDir = root
-	cfg.Mempool.RootDir = root
 	cfg.Consensus.RootDir = root
 	return cfg
 }
@@ -94,178 +70,27 @@ func (cfg *Config) SetRoot(root string) *Config {
 
 // BaseConfig defines the base configuration for a truechain node
 type BaseConfig struct {
-
-	// chainID is unexposed and immutable but here for convenience
-	chainID string
-
-	// The root directory for all data.
-	// This should be set in viper so it can unmarshal into this struct
-	RootDir string `mapstructure:"home"`
-
-	// Path to the JSON file containing the initial validator set and other meta data
-	Genesis string `mapstructure:"genesis_file"`
-
-	// Path to the JSON file containing the private key to use as a validator in the consensus protocol
-	PrivValidator string `mapstructure:"priv_validator_file"`
-
-	// A JSON file containing the private key to use for p2p authenticated encryption
-	NodeKey string `mapstructure:"node_key_file"`
-
 	// A custom human readable name for this node
 	Moniker string `mapstructure:"moniker"`
-
-	// TCP or UNIX socket address for truechain to listen on for
-	// connections from an external PrivValidator process
-	PrivValidatorListenAddr string `mapstructure:"priv_validator_laddr"`
-
-	// TCP or UNIX socket address of the ABCI application,
-	// or the name of an ABCI application compiled in with the truechain binary
-	ProxyApp string `mapstructure:"proxy_app"`
-
-	// Mechanism to connect to the ABCI application: socket | grpc
-	ABCI string `mapstructure:"abci"`
-
-	// Output level for logging
-	LogLevel string `mapstructure:"log_level"`
-
-	// TCP or UNIX socket address for the profiling server to listen on
-	ProfListenAddress string `mapstructure:"prof_laddr"`
-
-	// If this node is many blocks behind the tip of the chain, FastSync
-	// allows them to catchup quickly by downloading blocks in parallel
-	// and verifying their commits
-	FastSync bool `mapstructure:"fast_sync"`
 
 	// If true, query the ABCI app on connecting to a new peer
 	// so the app can decide if we should keep the connection or not
 	FilterPeers bool `mapstructure:"filter_peers"` // false
-
-	// Database backend: leveldb | memdb
-	DBBackend string `mapstructure:"db_backend"`
-
-	// Database directory
-	DBPath string `mapstructure:"db_dir"`
 }
 
 // DefaultBaseConfig returns a default base configuration for a truechain node
 func DefaultBaseConfig() BaseConfig {
 	return BaseConfig{
-		Genesis:           defaultGenesisJSONPath,
-		PrivValidator:     defaultPrivValPath,
-		NodeKey:           defaultNodeKeyPath,
 		Moniker:           defaultMoniker,
-		ProxyApp:          "tcp://127.0.0.1:26658",
-		ABCI:              "socket",
-		LogLevel:          DefaultPackageLogLevels(),
-		ProfListenAddress: "",
-		FastSync:          true,
 		FilterPeers:       false,
-		DBBackend:         "leveldb",
-		DBPath:            "data",
 	}
 }
 
 // TestBaseConfig returns a base configuration for testing a truechain node
 func TestBaseConfig() BaseConfig {
 	cfg := DefaultBaseConfig()
-	cfg.chainID = "tbft_test"
-	cfg.ProxyApp = "kvstore"
-	cfg.FastSync = false
-	cfg.DBBackend = "memdb"
 	return cfg
 }
-
-func (cfg BaseConfig) ChainID() string {
-	return cfg.chainID
-}
-
-// GenesisFile returns the full path to the genesis.json file
-func (cfg BaseConfig) GenesisFile() string {
-	return rootify(cfg.Genesis, cfg.RootDir)
-}
-
-// PrivValidatorFile returns the full path to the priv_validator.json file
-func (cfg BaseConfig) PrivValidatorFile() string {
-	return rootify(cfg.PrivValidator, cfg.RootDir)
-}
-
-// NodeKeyFile returns the full path to the node_key.json file
-func (cfg BaseConfig) NodeKeyFile() string {
-	return rootify(cfg.NodeKey, cfg.RootDir)
-}
-
-// DBDir returns the full path to the database directory
-func (cfg BaseConfig) DBDir() string {
-	return rootify(cfg.DBPath, cfg.RootDir)
-}
-
-// DefaultLogLevel returns a default log level of "error"
-func DefaultLogLevel() string {
-	return "error"
-}
-
-// DefaultPackageLogLevels returns a default log level setting so all packages
-// log at "error", while the `state` and `main` packages log at "info"
-func DefaultPackageLogLevels() string {
-	return fmt.Sprintf("main:info,state:info,*:%s", DefaultLogLevel())
-}
-
-//-----------------------------------------------------------------------------
-// RPCConfig
-
-// RPCConfig defines the configuration options for the truechain RPC server
-type RPCConfig struct {
-	RootDir string `mapstructure:"home"`
-
-	// TCP or UNIX socket address for the RPC server to listen on
-	ListenAddress string `mapstructure:"laddr"`
-
-	// TCP or UNIX socket address for the gRPC server to listen on
-	// NOTE: This server only supports /broadcast_tx_commit
-	GRPCListenAddress string `mapstructure:"grpc_laddr"`
-
-	// Maximum number of simultaneous connections.
-	// Does not include RPC (HTTP&WebSocket) connections. See max_open_connections
-	// If you want to accept more significant number than the default, make sure
-	// you increase your OS limits.
-	// 0 - unlimited.
-	GRPCMaxOpenConnections int `mapstructure:"grpc_max_open_connections"`
-
-	// Activate unsafe RPC commands like /dial_persistent_peers and /unsafe_flush_mempool
-	Unsafe bool `mapstructure:"unsafe"`
-
-	// Maximum number of simultaneous connections (including WebSocket).
-	// Does not include gRPC connections. See grpc_max_open_connections
-	// If you want to accept more significant number than the default, make sure
-	// you increase your OS limits.
-	// 0 - unlimited.
-	MaxOpenConnections int `mapstructure:"max_open_connections"`
-}
-
-// DefaultRPCConfig returns a default configuration for the RPC server
-func DefaultRPCConfig() *RPCConfig {
-	return &RPCConfig{
-		ListenAddress: "tcp://0.0.0.0:26657",
-
-		GRPCListenAddress:      "",
-		GRPCMaxOpenConnections: 900, // no ipv4
-
-		Unsafe: false,
-		// should be < {ulimit -Sn} - {MaxNumPeers} - {N of wal, db and other open files}
-		// 1024 - 50 - 50 = 924 = ~900
-		MaxOpenConnections: 900,
-	}
-}
-
-// TestRPCConfig returns a configuration for testing the RPC server
-func TestRPCConfig() *RPCConfig {
-	cfg := DefaultRPCConfig()
-	cfg.ListenAddress = "tcp://0.0.0.0:36657"
-	cfg.GRPCListenAddress = "tcp://0.0.0.0:36658"
-	cfg.Unsafe = true
-	return cfg
-}
-
 //-----------------------------------------------------------------------------
 // P2PConfig
 
@@ -397,44 +222,6 @@ func DefaultFuzzConnConfig() *FuzzConnConfig {
 }
 
 //-----------------------------------------------------------------------------
-// MempoolConfig
-
-// MempoolConfig defines the configuration options for the truechain mempool
-type MempoolConfig struct {
-	RootDir      string `mapstructure:"home"`
-	Recheck      bool   `mapstructure:"recheck"`
-	RecheckEmpty bool   `mapstructure:"recheck_empty"`
-	Broadcast    bool   `mapstructure:"broadcast"`
-	WalPath      string `mapstructure:"wal_dir"`
-	Size         int    `mapstructure:"size"`
-	CacheSize    int    `mapstructure:"cache_size"`
-}
-
-// DefaultMempoolConfig returns a default configuration for the truechain mempool
-func DefaultMempoolConfig() *MempoolConfig {
-	return &MempoolConfig{
-		Recheck:      true,
-		RecheckEmpty: true,
-		Broadcast:    true,
-		WalPath:      filepath.Join(defaultDataDir, "mempool.wal"),
-		Size:         100000,
-		CacheSize:    100000,
-	}
-}
-
-// TestMempoolConfig returns a configuration for testing the truechain mempool
-func TestMempoolConfig() *MempoolConfig {
-	cfg := DefaultMempoolConfig()
-	cfg.CacheSize = 1000
-	return cfg
-}
-
-// WalDir returns the full path to the mempool's write-ahead log
-func (cfg *MempoolConfig) WalDir() string {
-	return rootify(cfg.WalPath, cfg.RootDir)
-}
-
-//-----------------------------------------------------------------------------
 // ConsensusConfig
 
 // ConsensusConfig defines the configuration for the truechain consensus service,
@@ -551,82 +338,6 @@ func (cfg *ConsensusConfig) WalFile() string {
 // SetWalFile sets the path to the write-ahead log file
 func (cfg *ConsensusConfig) SetWalFile(walFile string) {
 	cfg.walFile = walFile
-}
-
-//-----------------------------------------------------------------------------
-// TxIndexConfig
-
-// TxIndexConfig defines the configuration for the transaction
-// indexer, including tags to index.
-type TxIndexConfig struct {
-	// What indexer to use for transactions
-	//
-	// Options:
-	//   1) "null"
-	//   2) "kv" (default) - the simplest possible indexer, backed by key-value storage (defaults to levelDB; see DBBackend).
-	Indexer string `mapstructure:"indexer"`
-
-	// Comma-separated list of tags to index (by default the only tag is tx hash)
-	//
-	// It's recommended to index only a subset of tags due to possible memory
-	// bloat. This is, of course, depends on the indexer's DB and the volume of
-	// transactions.
-	IndexTags string `mapstructure:"index_tags"`
-
-	// When set to true, tells indexer to index all tags. Note this may be not
-	// desirable (see the comment above). IndexTags has a precedence over
-	// IndexAllTags (i.e. when given both, IndexTags will be indexed).
-	IndexAllTags bool `mapstructure:"index_all_tags"`
-}
-
-// DefaultTxIndexConfig returns a default configuration for the transaction indexer.
-func DefaultTxIndexConfig() *TxIndexConfig {
-	return &TxIndexConfig{
-		Indexer:      "kv",
-		IndexTags:    "",
-		IndexAllTags: false,
-	}
-}
-
-// TestTxIndexConfig returns a default configuration for the transaction indexer.
-func TestTxIndexConfig() *TxIndexConfig {
-	return DefaultTxIndexConfig()
-}
-
-//-----------------------------------------------------------------------------
-// InstrumentationConfig
-
-// InstrumentationConfig defines the configuration for metrics reporting.
-type InstrumentationConfig struct {
-	// When true, Prometheus metrics are served under /metrics on
-	// PrometheusListenAddr.
-	// Check out the documentation for the list of available metrics.
-	Prometheus bool `mapstructure:"prometheus"`
-
-	// Address to listen for Prometheus collector(s) connections.
-	PrometheusListenAddr string `mapstructure:"prometheus_listen_addr"`
-
-	// Maximum number of simultaneous connections.
-	// If you want to accept more significant number than the default, make sure
-	// you increase your OS limits.
-	// 0 - unlimited.
-	MaxOpenConnections int `mapstructure:"max_open_connections"`
-}
-
-// DefaultInstrumentationConfig returns a default configuration for metrics
-// reporting.
-func DefaultInstrumentationConfig() *InstrumentationConfig {
-	return &InstrumentationConfig{
-		Prometheus:           false,
-		PrometheusListenAddr: ":26660",
-		MaxOpenConnections:   3,
-	}
-}
-
-// TestInstrumentationConfig returns a default configuration for metrics
-// reporting.
-func TestInstrumentationConfig() *InstrumentationConfig {
-	return DefaultInstrumentationConfig()
 }
 
 //-----------------------------------------------------------------------------
