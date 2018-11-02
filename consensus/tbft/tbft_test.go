@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -34,7 +35,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	header.Number = getID()
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	time.Sleep(time.Second * 5)
+	//time.Sleep(time.Second * 5)
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
@@ -55,7 +56,9 @@ func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.B
 	return nil
 }
 func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {
-	ID = new(big.Int).Add(ID, big.NewInt(1))
+	if pap.Name == "Agent1" {
+		ID = new(big.Int).Add(ID, big.NewInt(1))
+	}
 	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
@@ -110,7 +113,7 @@ func TestPbftRunForOne(t *testing.T) {
 }
 
 func TestPbftRunFor4(t *testing.T) {
-	log.OpenLogDebug(4)
+	//log.OpenLogDebug(4)
 	start := make(chan int)
 	pr1, _ := crypto.GenerateKey()
 	pr2, _ := crypto.GenerateKey()
@@ -128,36 +131,60 @@ func TestPbftRunFor4(t *testing.T) {
 	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
 	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
+
+	con1 := new(config.ConsensusConfig)
+	*con1 = *config1.Consensus
+	con1.WalPath = filepath.Join("data", "cs.wal1", "wal")
+	*config1.Consensus = *con1
+
 	n1, _ := NewNode(config1, "1", pr1, agent1)
 	n1.Start()
 
 	config2 := new(config.Config)
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
-	*p2p2 = *config1.P2P
+	*p2p2 = *config2.P2P
 	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
 	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
+
+	con2 := new(config.ConsensusConfig)
+	*con2 = *config2.Consensus
+	con2.WalPath = filepath.Join("data", "cs.wal2", "wal")
+	*config2.Consensus = *con2
+
 	n2, _ := NewNode(config2, "1", pr2, agent2)
 	n2.Start()
 
 	config3 := new(config.Config)
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
-	*p2p3 = *config1.P2P
+	*p2p3 = *config3.P2P
 	p2p3.ListenAddress = "tcp://127.0.0.1:28895"
 	p2p3.ExternalAddress = "tcp://127.0.0.1:28896"
 	*config3.P2P = *p2p3
+
+	con3 := new(config.ConsensusConfig)
+	*con3 = *config3.Consensus
+	con3.WalPath = filepath.Join("data", "cs.wal3", "wal")
+	*config3.Consensus = *con3
+
 	n3, _ := NewNode(config3, "1", pr3, agent3)
 	n3.Start()
 
 	config4 := new(config.Config)
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
-	*p2p4 = *config1.P2P
+	*p2p4 = *config4.P2P
 	p2p4.ListenAddress = "tcp://127.0.0.1:28897"
 	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
 	*config4.P2P = *p2p4
+
+	con4 := new(config.ConsensusConfig)
+	*con4 = *config4.Consensus
+	con4.WalPath = filepath.Join("data", "cs.wal4", "wal")
+	*config4.Consensus = *con4
+
 	n4, _ := NewNode(config4, "1", pr4, agent4)
 	n4.Start()
 
@@ -221,6 +248,12 @@ func TestRunPbft1(t *testing.T) {
 	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
 	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
+
+	con1 := new(config.ConsensusConfig)
+	*con1 = *config1.Consensus
+	con1.WalPath = filepath.Join("data", "cs.wal1", "wal")
+	*config1.Consensus = *con1
+
 	n1, _ := NewNode(config1, "1", pr1, agent1)
 
 	c1 := new(types.CommitteeInfo)
@@ -272,6 +305,12 @@ func TestRunPbft2(t *testing.T) {
 	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
 	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
+
+	con2 := new(config.ConsensusConfig)
+	*con2 = *config2.Consensus
+	con2.WalPath = filepath.Join("data", "cs.wal2", "wal")
+	*config2.Consensus = *con2
+
 	n2, _ := NewNode(config2, "1", pr2, agent2)
 
 	c1 := new(types.CommitteeInfo)
@@ -323,6 +362,12 @@ func TestRunPbft3(t *testing.T) {
 	p2p3.ListenAddress = "tcp://127.0.0.1:28895"
 	p2p3.ExternalAddress = "tcp://127.0.0.1:28896"
 	*config3.P2P = *p2p3
+
+	con3 := new(config.ConsensusConfig)
+	*con3 = *config3.Consensus
+	con3.WalPath = filepath.Join("data", "cs.wal3", "wal")
+	*config3.Consensus = *con3
+
 	n3, _ := NewNode(config3, "1", pr3, agent3)
 
 	c1 := new(types.CommitteeInfo)
@@ -374,6 +419,12 @@ func TestRunPbft4(t *testing.T) {
 	p2p4.ListenAddress = "tcp://127.0.0.1:28897"
 	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
 	*config4.P2P = *p2p4
+
+	con4 := new(config.ConsensusConfig)
+	*con4 = *config4.Consensus
+	con4.WalPath = filepath.Join("data", "cs.wal4", "wal")
+	*config4.Consensus = *con4
+
 	n4, _ := NewNode(config4, "1", pr4, agent4)
 
 	c1 := new(types.CommitteeInfo)
