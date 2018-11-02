@@ -53,7 +53,6 @@ func TestDifficulty(t *testing.T) {
 	dt.config("Frontier", params.ChainConfig{})
 
 	dt.config("Byzantium", params.ChainConfig{
-		ByzantiumBlock: big.NewInt(0),
 	})
 
 	dt.config("Frontier", *params.TestnetChainConfig)

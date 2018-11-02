@@ -128,19 +128,18 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain 
 			return consensus.ErrUnknownPointer
 		}
 		return m.verifySnailHeader(chain, fastchain, header, pointer, nil, false, seal)
-	} else {
-		// Short circuit if the header is known, or it's parent not
-		if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
-			return nil
-		}
-		parents := m.getParents(chain, header)
-		if parents == nil {
-			return consensus.ErrUnknownAncestor
-		}
-
-		// Sanity checks passed, do a proper verification
-		return m.verifySnailHeader(chain, fastchain, header, nil, parents, false, seal)
 	}
+	// Short circuit if the header is known, or it's parent not
+	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
+		return nil
+	}
+	parents := m.getParents(chain, header)
+	if parents == nil {
+		return consensus.ErrUnknownAncestor
+	}
+
+	// Sanity checks passed, do a proper verification
+	return m.verifySnailHeader(chain, fastchain, header, nil, parents, false, seal)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -553,10 +552,9 @@ func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) 
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
 
 		return actDiff, header.FruitDifficulty
-	} else {
-		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(result[:16]))
-		return actDiff, header.Difficulty
 	}
+	actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(result[:16]))
+	return actDiff, header.Difficulty
 }
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -581,7 +579,7 @@ var (
 // given the parent block's time and difficulty.
 func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
 
-	return calcDifficulty90(time, parents)
+	return calcDifficulty(config, time, parents)
 
 	//return calcDifficulty(time, parents[0])
 }
@@ -598,8 +596,9 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 		diff = new(big.Int).Div(diff, big.NewInt(3))
 	}
 
-	if diff.Cmp(params.MinimumFruitDifficulty) < 0 {
-		diff.Set(params.MinimumFruitDifficulty)
+	minimum := config.Minerva.MinimumFruitDifficulty
+	if diff.Cmp(minimum) < 0 {
+		diff.Set(minimum)
 	}
 
 	//log.Debug("CalcFruitDifficulty", "delta", delta, "diff", diff)
@@ -607,7 +606,7 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 	return diff
 }
 
-func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
+func calcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
 	// algorithm:
 	// diff = (averageDiff +
 	//         (averageDiff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
@@ -632,7 +631,7 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 	}
 	averageDiff := new(big.Int).Div(diff, period)
 
-	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
+	durationDivisor := new(big.Int).Mul(config.Minerva.DurationLimit, period)
 
 	bigTime := new(big.Int).SetUint64(time)
 	bigParentTime := new(big.Int).Set(parentHeaders[0].Time)
@@ -651,70 +650,7 @@ func calcDifficulty90(time uint64, parents []*types.SnailHeader) *big.Int {
 		x.Set(y)
 	}
 
-	// (averageDiff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
-	y.Div(averageDiff, params.DifficultyBoundDivisor90)
-	x.Mul(y, x)
-
-	x.Div(x, durationDivisor)
-
-	x.Add(averageDiff, x)
-
-	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
-	}
-
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", averageDiff, "diff", x,
-		"time", new(big.Int).Sub(bigTime, bigParentTime), "period", period)
-
-	return x
-}
-
-func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
-	// algorithm:
-	// diff = (averageDiff +
-	//         (averageDiff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
-	//        )
-
-	period := big.NewInt(int64(len(parents)))
-	parentHeaders := parents
-
-	/* get average diff */
-	diff := big.NewInt(0)
-	if parents[0].Number.Cmp(common.Big0) == 0 {
-		period.Sub(period, common.Big1)
-		parentHeaders = parents[1:]
-	}
-	if period.Cmp(common.Big0) == 0 {
-		// only have genesis block
-		return parents[0].Difficulty
-	}
-
-	for _, parent := range parentHeaders {
-		diff.Add(diff, parent.Difficulty)
-	}
-	averageDiff := new(big.Int).Div(diff, period)
-
-	durationDivisor := new(big.Int).Mul(params.DurationLimit, period)
-
-	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parentHeaders[0].Time)
-
-	// holds intermediate values to make the algo easier to read & audit
-	x := new(big.Int)
-	y := new(big.Int)
-
-	// 86400 - (block_timestamp - parent_timestamp)
-	x.Add(durationDivisor, bigParentTime)
-	x.Sub(x, bigTime)
-
-	// (max(86400 - (block_timestamp - parent_timestamp), -86400)
-	y.Mul(durationDivisor, bigMinus1)
-	if x.Cmp(y) < 0 {
-		x.Set(y)
-	}
-
-	// (averageDiff / 32) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	// (averageDiff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
 	y.Div(averageDiff, params.DifficultyBoundDivisor)
 	x.Mul(y, x)
 
@@ -723,49 +659,12 @@ func calcDifficulty2(time uint64, parents []*types.SnailHeader) *big.Int {
 	x.Add(averageDiff, x)
 
 	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
+	if x.Cmp(config.Minerva.MinimumDifficulty) < 0 {
+		x.Set(config.Minerva.MinimumDifficulty)
 	}
 
-	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", averageDiff, "diff", x, "period", period)
-
-	return x
-}
-
-// calcDifficulty is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time given the
-// parent block's time and difficulty.
-func calcDifficulty(time uint64, parent *types.SnailHeader) *big.Int {
-	// algorithm:
-	// diff = (parent_diff +
-	//         (parent_diff / 32 * max(1 - (block_timestamp - parent_timestamp) // 600, -1))
-	//        )
-
-	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parent.Time)
-
-	// holds intermediate values to make the algo easier to read & audit
-	x := new(big.Int)
-	y := new(big.Int)
-
-	// 1 - (block_timestamp - parent_timestamp) // 600
-	x.Sub(bigTime, bigParentTime)
-	x.Div(x, params.DurationLimit)
-	x.Sub(big1, x)
-
-	// max(1 - (block_timestamp - parent_timestamp) // 10, -1)
-	if x.Cmp(bigMinus1) < 0 {
-		x.Set(bigMinus1)
-	}
-	// (parent_diff + parent_diff // 32 * max(1 - (block_timestamp - parent_timestamp) // 600, -1))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
-	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
-
-	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
-	}
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", averageDiff, "diff", x,
+		"time", new(big.Int).Sub(bigTime, bigParentTime), "period", period)
 
 	return x
 }
@@ -838,7 +737,7 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 	header.Difficulty = m.CalcSnailDifficulty(chain, header.Time.Uint64(), parents)
 
 	if header.FastNumber == nil {
-		header.FruitDifficulty = new(big.Int).Set(params.MinimumFruitDifficulty)
+		header.FruitDifficulty = new(big.Int).Set(chain.Config().Minerva.MinimumFruitDifficulty)
 	} else {
 		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
 		if pointer == nil {
@@ -1020,9 +919,8 @@ func getDistributionRatio(fragmentation int) (miner, committee float64, e error)
 func powerf(x float64, n int64) float64 {
 	if n == 0 {
 		return 1
-	} else {
-		return x * powerf(x, n-1)
 	}
+	return x * powerf(x, n-1)
 }
 
 //Get the total reward for the current block
