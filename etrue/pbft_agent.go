@@ -45,8 +45,8 @@ const (
 	nextCommittee           //next committee
 )
 const (
-	blockRewordSpace = 12
-	fastToFruitSpace = 1200
+	/*blockRewordSpace = 12
+	fastToFruitSpace = 1200*/
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
@@ -717,7 +717,7 @@ func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 	if blockFruits != nil && len(blockFruits) > 0 {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
-		if space >= fastToFruitSpace {
+		if space >= params.FastToFruitSpace.Int64() {
 			return types.ErrSnailBlockTooSlow
 		}
 	}
@@ -734,7 +734,7 @@ func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-	if space >= blockRewordSpace {
+	if space >= params.SnailConfirmInterval.Int64() {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		if sb != nil {
