@@ -179,7 +179,7 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 		}
 		return err
 	}
-	
+
 	// It passed the checks. Sign the proposal
 	sig, err := Validator.PrivKey.Sign(signBytes)
 	if err != nil {
@@ -348,7 +348,7 @@ func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
 	bz, err := cdc.MarshalBinary(bzs)
 	return NewPartSetFromData(bz, partSize)
 }
-func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block,error) {
+func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	if reader.IsComplete() {
 		maxsize := int64(MaxBlockBytes)
 		bytes := make([]byte, maxsize, maxsize)
@@ -356,13 +356,13 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block,error) {
 		if err != nil {
 			return nil, err
 		}
-		var block ctypes.Block 
-		if err = rlp.DecodeBytes(bytes,&block);err != nil {
+		var block ctypes.Block
+		if err = rlp.DecodeBytes(bytes, &block); err != nil {
 			return nil, err
 		}
-		return &block,nil
+		return &block, nil
 	}
-	return nil,errors.New("not complete")
+	return nil, errors.New("not complete")
 }
 
 func (state *stateAgent) GetChainID() string {
@@ -372,7 +372,8 @@ func (state *stateAgent) SetPrivValidator(priv *privValidator) {
 	state.Priv = priv
 }
 func (state *stateAgent) MakeBlock() (*ctypes.Block, *PartSet) {
-	block, err := state.Agent.FetchFastBlock()
+	committeeID := big.NewInt(1)
+	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
 		return nil, nil
 	}
@@ -392,7 +393,7 @@ func (state *stateAgent) ValidateBlock(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("block not have")
 	}
-	err := state.Agent.VerifyFastBlock(block)
+	_, err := state.Agent.VerifyFastBlock(block)
 	if err != nil {
 		return err
 	}

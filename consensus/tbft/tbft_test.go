@@ -55,7 +55,7 @@ func IdAdd(agent string) {
 	IdCache[agent] = new(big.Int).Add(IdCache[agent], big.NewInt(1))
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	header.Time = big.NewInt(time.Now().Unix())
@@ -63,18 +63,17 @@ func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	//time.Sleep(time.Second * 5)
 	return types.NewBlock(header, nil, nil, nil), nil
 }
-func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
+func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
 	//if rand.Intn(100) > 30 {
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
+	return nil, nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) error {
+func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
 	IdAdd(pap.Name)
 	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {
