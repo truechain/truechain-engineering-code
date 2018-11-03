@@ -11,6 +11,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -27,12 +28,36 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 var ID = big.NewInt(1)
 
 func getID() *big.Int {
+	ID = new(big.Int).Add(ID, big.NewInt(1))
 	return ID
+}
+
+var IdCache = make(map[string]*big.Int)
+
+func IdCacheInit() {
+	IdCache["Agent1"] = big.NewInt(1)
+	IdCache["Agent2"] = big.NewInt(1)
+	IdCache["Agent3"] = big.NewInt(1)
+	IdCache["Agent4"] = big.NewInt(1)
+}
+
+var lock, lock2 sync.Mutex
+
+func getIDForCache(agent string) *big.Int {
+	lock.Lock()
+	defer lock.Unlock()
+	return IdCache[agent]
+}
+
+func IdAdd(agent string) {
+	lock2.Lock()
+	defer lock2.Unlock()
+	IdCache[agent] = new(big.Int).Add(IdCache[agent], big.NewInt(1))
 }
 
 func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
 	header := new(types.Header)
-	header.Number = getID()
+	header.Number = getIDForCache(pap.Name) //getID()
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	//time.Sleep(time.Second * 5)
@@ -47,6 +72,7 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) error {
+	IdAdd(pap.Name)
 	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
 	return nil
 }
@@ -55,10 +81,11 @@ func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.B
 	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
+
+var BcCount = 0
+
 func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {
-	if pap.Name == "Agent1" {
-		ID = new(big.Int).Add(ID, big.NewInt(1))
-	}
+	IdAdd(pap.Name)
 	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
 	return nil
 }
@@ -96,6 +123,7 @@ func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 }
 
 func TestPbftRunForOne(t *testing.T) {
+	IdCacheInit()
 	start := make(chan int)
 	pr, _ := crypto.GenerateKey()
 	agent1 := NewPbftAgent("Agent1")
@@ -114,6 +142,7 @@ func TestPbftRunForOne(t *testing.T) {
 
 func TestPbftRunFor4(t *testing.T) {
 	//log.OpenLogDebug(4)
+	IdCacheInit()
 	start := make(chan int)
 	pr1, _ := crypto.GenerateKey()
 	pr2, _ := crypto.GenerateKey()
@@ -232,7 +261,8 @@ func TestPbftRunFor4(t *testing.T) {
 }
 
 func TestRunPbft1(t *testing.T) {
-	log.OpenLogDebug(4)
+	log.OpenLogDebug(4, "1")
+	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
 	pr2 := getPrivateKey(2)
@@ -289,7 +319,8 @@ func TestRunPbft1(t *testing.T) {
 }
 
 func TestRunPbft2(t *testing.T) {
-	log.OpenLogDebug(4)
+	log.OpenLogDebug(4, "2")
+	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
 	pr2 := getPrivateKey(2)
@@ -346,7 +377,8 @@ func TestRunPbft2(t *testing.T) {
 }
 
 func TestRunPbft3(t *testing.T) {
-	log.OpenLogDebug(4)
+	log.OpenLogDebug(4, "3")
+	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
 	pr2 := getPrivateKey(2)
@@ -403,7 +435,8 @@ func TestRunPbft3(t *testing.T) {
 }
 
 func TestRunPbft4(t *testing.T) {
-	log.OpenLogDebug(4)
+	log.OpenLogDebug(4, "4")
+	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
 	pr2 := getPrivateKey(2)
