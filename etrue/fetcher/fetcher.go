@@ -685,7 +685,7 @@ func (f *Fetcher) loop() {
 					if f.getPendingBlock(hash) == nil {
 						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]))
 
-						if txnHash == announce.header.TxHash && announce.origin == task.peer {
+						if txnHash == announce.header.TxHash && announce.origin == task.peer && len(task.signs[i]) > 0 && task.signs[i][0].FastHash == hash {
 							// Mark the body matched, reassemble if still unknown
 							matched = true
 
