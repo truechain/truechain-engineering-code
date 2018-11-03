@@ -122,20 +122,10 @@ func (self *Miner) loop() {
 	for {
 		select {
 		case ch := <-self.electionCh:
-			/*
-				log.Info("-------------------------miner committerMenn","publickey",self.publickey)
-
-				for _, m:=range ch.CommitteeMembers{
-					log.Info("******   miner committerMenn","publickey",m.Publickey)
-				}
-			*/
-
 			switch ch.Option {
 			case types.CommitteeStart:
 				// alread to start mining need stop
-				//if self.shouldStart == 1 || self.mining == 1 {
 				if self.Mining() {
-					//	log.Info("-------------------------miner committerMenn","publickey",self.publickey)
 					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
 						// i am committee
 						self.Stop()
@@ -148,7 +138,6 @@ func (self *Miner) loop() {
 
 			case types.CommitteeSwitchover:
 				// alread to start mining need stop
-				//if self.shouldStart == 1 || self.mining == 1 {
 				if self.Mining() {
 					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
 						// i am committee
