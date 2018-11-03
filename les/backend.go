@@ -85,7 +85,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEthereum, error)
 	if err != nil {
 		return nil, err
 	}
-	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	chainConfig, genesisHash, genesisErr, _, _, _ := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, isCompat := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !isCompat {
 		return nil, genesisErr
 	}
@@ -177,29 +177,38 @@ func (s *LightDummyAPI) Mining() bool {
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *LightEthereum) APIs() []rpc.API {
-	return append(trueapi.GetAPIs(s.ApiBackend), []rpc.API{
-		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   &LightDummyAPI{},
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.ApiBackend, true),
-			Public:    true,
-		}, {
+	apis :=trueapi.GetAPIs(s.ApiBackend)
+	namespaces :=[]string{"etrue","eth"}
+	for _,name :=range namespaces {
+		apis = append(apis,[]rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   &LightDummyAPI{},
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   filters.NewPublicFilterAPI(s.ApiBackend, true),
+				Public:    true,
+			},
+
+		}...)
+	}
+	apis = append( apis,[]rpc.API{
+		  {
 			Namespace: "net",
 			Version:   "1.0",
 			Service:   s.netRPCService,
 			Public:    true,
 		},
 	}...)
+	return  apis
 }
 
 func (s *LightEthereum) ResetWithGenesisBlock(gb *types.Block) {

@@ -36,11 +36,11 @@ type BlockGen struct {
 	chainReader consensus.SnailChainReader
 	header      *types.SnailHeader
 
-	gasPool  *GasPool
-	uncles   []*types.SnailHeader
+	//gasPool *GasPool
+	uncles  []*types.SnailHeader
 
-	fruits   []*types.SnailBlock
-	signs    []*types.PbftSign
+	fruits []*types.SnailBlock
+	signs  []*types.PbftSign
 
 	config *params.ChainConfig
 	engine consensus.Engine
@@ -49,7 +49,8 @@ type BlockGen struct {
 // SetCoinbase sets the coinbase of the generated block.
 // It can be called at most once.
 func (b *BlockGen) SetCoinbase(addr common.Address) {
-	if b.gasPool != nil {
+	//if b.gasPool != nil
+	{
 		if len(b.fruits) > 0 {
 			panic("coinbase must be set before adding transactions")
 		}
@@ -90,17 +91,18 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
 func (b *BlockGen) AddTxWithChain(bc *SnailBlockChain, tx *types.Transaction) {
-	if b.gasPool == nil {
+	//if b.gasPool == nil
+	{
 		b.SetCoinbase(common.Address{})
 	}
 	//TODO not need 20180804
 	/*
-	receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
-	if err != nil {
-		panic(err)
-	}
-	b.txs = append(b.txs, tx)
-	b.receipts = append(b.receipts, receipt)
+		receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
+		if err != nil {
+			panic(err)
+		}
+		b.txs = append(b.txs, tx)
+		b.receipts = append(b.receipts, receipt)
 	*/
 }
 
@@ -135,7 +137,8 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = b.engine.CalcSnailDifficulty(b.chainReader, b.header.Time.Uint64(), b.parent.Header())
+
+	b.header.Difficulty = b.engine.CalcSnailDifficulty(b.chainReader, b.header.Time.Uint64(), []*types.SnailHeader{b.parent.Header()})
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -150,12 +153,12 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.SnailBlock) {
+func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
 	if config == nil {
 		config = params.TestChainConfig
 	}
 	blocks := make(types.SnailBlocks, n)
-	genblock := func(i int, parent *types.SnailBlock) (*types.SnailBlock) {
+	genblock := func(i int, parent *types.SnailBlock) *types.SnailBlock {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
 		blockchain, _ := NewSnailBlockChain(db, nil, config, engine, vm.Config{})
@@ -163,16 +166,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine 
 
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, config: config, engine: engine}
 		b.header = makeHeader(b.chainReader, parent, b.engine)
-
-		// Mutate the state and block according to any hard-fork specs
-		if daoBlock := config.DAOForkBlock; daoBlock != nil {
-			limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
-			if b.header.Number.Cmp(daoBlock) >= 0 && b.header.Number.Cmp(limit) < 0 {
-				if config.DAOForkSupport {
-					b.header.Extra = common.CopyBytes(params.DAOForkBlockExtra)
-				}
-			}
-		}
 
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
@@ -206,14 +199,14 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 	return &types.SnailHeader{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), &types.SnailHeader{
+		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), []*types.SnailHeader{&types.SnailHeader{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
-			Difficulty: parent.Difficulty(),
+			Difficulty: parent.BlockDifficulty(),
 			UncleHash:  parent.UncleHash(),
-		}),
-		Number:   new(big.Int).Add(parent.Number(), common.Big1),
-		Time:     time,
+		}}),
+		Number: new(big.Int).Add(parent.Number(), common.Big1),
+		Time:   time,
 	}
 }
 

@@ -85,7 +85,7 @@ type BlockChain interface {
 	GetHeaderByNumber(number uint64) *types.Header
 	GetAncestor(hash common.Hash, number, ancestor uint64, maxNonCanonical *uint64) (common.Hash, uint64)
 	Genesis() *types.Block
-	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
 }
 
 type txPool interface {
@@ -201,16 +201,16 @@ func NewProtocolManager(chainConfig *params.ChainConfig, lightSync bool, protoco
 		return nil, errIncompatibleConfig
 	}
 
-	removePeer := manager.removePeer
-	if disableClientRemovePeer {
-		removePeer = func(id string) {}
-	}
+	//removePeer := manager.removePeer
+	//if disableClientRemovePeer {
+	//	removePeer = func(id string) {}
+	//}
 
-	if lightSync {
-		manager.downloader = downloader.New(downloader.LightSync, chainDb, manager.eventMux, nil, blockchain, removePeer)
-		manager.peers.notify((*downloaderPeerNotify)(manager))
-		manager.fetcher = newLightFetcher(manager)
-	}
+	//if lightSync {
+	//	manager.downloader = downloader.New(downloader.LightSync, chainDb, manager.eventMux, blockchain, nil, removePeer)
+	//	manager.peers.notify((*downloaderPeerNotify)(manager))
+	//	manager.fetcher = newLightFetcher(manager)
+	//}
 
 	return manager, nil
 }
@@ -511,14 +511,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// A batch of headers arrived to one of our previous requests
 		var resp struct {
 			ReqID, BV uint64
-			Headers   []*types.Header
+			Headers   []*types.SnailHeader
 		}
 		if err := msg.Decode(&resp); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
 		if pm.fetcher != nil && pm.fetcher.requestedID(resp.ReqID) {
-			pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
+			//pm.fetcher.deliverHeaders(p, resp.ReqID, resp.Headers)
 		} else {
 			err := pm.downloader.DeliverHeaders(p.id, resp.Headers)
 			if err != nil {
@@ -1244,6 +1244,30 @@ func (pc *peerConnection) RequestHeadersByHash(origin common.Hash, amount int, s
 	return nil
 }
 
+func (pc *peerConnection) RequestSnailHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
+	reqID := genReqID()
+	rq := &distReq{
+		getCost: func(dp distPeer) uint64 {
+			peer := dp.(*peer)
+			return peer.GetRequestCost(GetBlockHeadersMsg, amount)
+		},
+		canSend: func(dp distPeer) bool {
+			return dp.(*peer) == pc.peer
+		},
+		request: func(dp distPeer) func() {
+			peer := dp.(*peer)
+			cost := peer.GetRequestCost(GetBlockHeadersMsg, amount)
+			peer.fcServer.QueueRequest(reqID, cost)
+			return func() { peer.RequestSnailHeadersByHash(reqID, cost, origin, amount, skip, reverse) }
+		},
+	}
+	_, ok := <-pc.manager.reqDist.queue(rq)
+	if !ok {
+		return ErrNoPeers
+	}
+	return nil
+}
+
 func (pc *peerConnection) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
 	reqID := genReqID()
 	rq := &distReq{
@@ -1268,13 +1292,37 @@ func (pc *peerConnection) RequestHeadersByNumber(origin uint64, amount int, skip
 	return nil
 }
 
-func (d *downloaderPeerNotify) registerPeer(p *peer) {
-	pm := (*ProtocolManager)(d)
-	pc := &peerConnection{
-		manager: pm,
-		peer:    p,
+func (pc *peerConnection) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
+	reqID := genReqID()
+	rq := &distReq{
+		getCost: func(dp distPeer) uint64 {
+			peer := dp.(*peer)
+			return peer.GetRequestCost(GetBlockHeadersMsg, amount)
+		},
+		canSend: func(dp distPeer) bool {
+			return dp.(*peer) == pc.peer
+		},
+		request: func(dp distPeer) func() {
+			peer := dp.(*peer)
+			cost := peer.GetRequestCost(GetBlockHeadersMsg, amount)
+			peer.fcServer.QueueRequest(reqID, cost)
+			return func() { peer.RequestHeadersByNumber(reqID, cost, origin, amount, skip, reverse) }
+		},
 	}
-	pm.downloader.RegisterLightPeer(p.id, ethVersion, pc)
+	_, ok := <-pc.manager.reqDist.queue(rq)
+	if !ok {
+		return ErrNoPeers
+	}
+	return nil
+}
+
+func (d *downloaderPeerNotify) registerPeer(p *peer) {
+	//pm := (*ProtocolManager)(d)
+	//pc := &peerConnection{
+	//	manager: pm,
+	//	peer:    p,
+	//}
+	//pm.downloader.RegisterLightPeer(p.id, ethVersion, pc)
 }
 
 func (d *downloaderPeerNotify) unregisterPeer(p *peer) {

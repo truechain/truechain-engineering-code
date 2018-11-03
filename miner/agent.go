@@ -18,11 +18,10 @@ package miner
 
 import (
 	"sync"
-
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
@@ -101,8 +100,8 @@ out:
 }
 
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
-	//Neo for test
-	log.Info("start to mine and to be consensus", " difficulty ", work.header.Difficulty)
+	log.Info("start to mine", "block", work.Block.Number(), "fruits", len(work.Block.Fruits()),
+		" fast", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty())
 	// the mine with consensus
 	/*
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
@@ -119,7 +118,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	// the new flow for fruit and block 20180624
 	send := make(chan *types.SnailBlock, 10)
 	abort := make(chan struct{})
-	go self.engine.ConSnailSeal(self.chain, work.Block, abort, send)
+	go self.engine.ConSeal(self.chain, work.Block, abort, send)
 
 	var result *types.SnailBlock
 	mineloop:
@@ -144,8 +143,10 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 }
 
 func (self *CpuAgent) GetHashRate() int64 {
+	
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		return int64(pow.Hashrate())
 	}
+
 	return 0
 }

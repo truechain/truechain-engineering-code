@@ -74,6 +74,11 @@ type SnailChainReader interface {
 
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
+
+	SetElection(e CommitteeElection)
+
+	SetSnailChainReader(scr SnailChainReader)
+
 	// Author retrieves the Ethereum address of the account that minted the given
 	// block, which may be different from the header's coinbase if a consensus
 	// engine is based on signatures.
@@ -84,13 +89,19 @@ type Engine interface {
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
 	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
-	VerifySnailHeader(chain SnailChainReader, header *types.SnailHeader, seal bool) error
+	VerifySnailHeader(chain SnailChainReader, fastchain ChainReader, header *types.SnailHeader, seal bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
 	// a results channel to retrieve the async verifications (the order is that of
 	// the input slice).
 	VerifyHeaders(chain ChainReader, headers []*types.Header, seals []bool) (chan<- struct{}, <-chan error)
+
+	// VerifySnailHeaders is similar to VerifySnailHeader, but verifies a batch of headers concurrently.
+	// VerifySnailHeaders only verifies snail header rather than fruit header.
+	// The method returns a quit channel to abort the operations and
+	// a results channel to retrieve the async verifications (the order is that of
+	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
 	// VerifyUncles verifies that the given block's uncles conform to the consensus
@@ -101,34 +112,32 @@ type Engine interface {
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
 
+	VerifyFreshness(chain SnailChainReader, fruit , block *types.SnailHeader, canonical bool) error
+
+	VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error
+
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
-	PrepareSnail(chain SnailChainReader, header *types.SnailHeader) error
+	PrepareSnail(chain ChainReader, snailchain SnailChainReader, header *types.SnailHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDB,
-		txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error)
+		txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error)
 	FinalizeSnail(chain SnailChainReader, header *types.SnailHeader,
 		uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error)
 
-	//Call allocation gas before FinalizeFast
-	FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error
-
 	// Seal generates a new block for the given input block with the local miner's
-	// seal place on top.
-	Seal(chain ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error)
-	SealSnail(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
+	Seal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
 
 	// ConSeal generates a new block for the given input block with the local miner's
 	// seal place on top.
-	ConSeal(chain ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block)
-	ConSnailSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
+	ConSeal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock)
 
-	CalcSnailDifficulty(chain SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int
+	CalcSnailDifficulty(chain SnailChainReader, time uint64, parents []*types.SnailHeader) *big.Int
 
 	GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int)
 

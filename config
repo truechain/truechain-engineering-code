@@ -1,6 +1,0 @@
-[Etrue]
-EnableElection = true
-CommitteeKey = "0xd878614f687c663baf7cdcbc32cc0fc88a036cdc6850023d880b03984426a629"
-Host = "192.168.46.24"
-Port = 10080
-Etherbase = "0x1074f7deccf8c66efcd0106e034d3356b7db3f2c"

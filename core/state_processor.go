@@ -24,7 +24,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 
-	"log"
 	"math/big"
 )
 
@@ -63,10 +62,6 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs   []*types.Log
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
-	// Mutate the the block and state according to any hard-fork specs
-	/*if fp.config.DAOForkSupport && fp.config.DAOForkBlock != nil && fp.config.DAOForkBlock.Cmp(block.Number()) == 0 {
-		misc.ApplyDAOHardFork(statedb)
-	}*/
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
@@ -78,15 +73,9 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs = append(allLogs, receipt.Logs...)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts)
+	_, err := fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
 	if err != nil {
-		panic(err)
-	}
-
-	//Commission allocation
-	err = fp.engine.FinalizeFastGas(statedb, block.Number(), block.Hash(), feeAmount)
-	if err != nil {
-		log.Panic(err)
+		return nil, nil, 0, err
 	}
 
 	return receipts, allLogs, *usedGas, nil
@@ -96,7 +85,8 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, uint64, error) {
+func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
+	statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, feeAmount *big.Int, cfg vm.Config) (*types.Receipt, uint64, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
 	if err != nil {
 		return nil, 0, err
@@ -113,13 +103,12 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool, 
 	}
 	// Update the state with pending changes
 	var root []byte
-	if config.IsByzantium(header.Number) {
-		statedb.Finalise(true)
-	} else {
-		root = statedb.IntermediateRoot(config.IsEIP158(header.Number)).Bytes()
-	}
+
+	statedb.Finalise(true)
+
 	*usedGas += gas
-	feeAmount = new(big.Int).Add(new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice()), feeAmount)
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	feeAmount.Add(fee, feeAmount)
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.

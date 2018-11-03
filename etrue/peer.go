@@ -38,7 +38,7 @@ var (
 
 const (
 	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownSigns       = 1024  // Maximum signs to keep in the known list
+	maxKnownSigns       = 32768 // Maximum signs to keep in the known list
 	maxKnownNodeInfo    = 1024  // Maximum node info to keep in the known list
 	maxKnownFruits      = 1024  // Maximum fruits hashes to keep in the known list (prevent DOS)
 	maxKnownSnailBlocks = 1024  // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
@@ -53,7 +53,7 @@ const (
 	// contain a single transaction, or thousands.
 	maxQueuedSigns = 128
 	// contain a single transaction, or thousands.
-	maxQueuedFruits = 128
+	maxQueuedFruits     = 128
 	maxQueuedSnailBlock = 4
 	// maxQueuedProps is the maximum number of block propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
@@ -104,24 +104,24 @@ type peer struct {
 	*p2p.Peer
 	rw p2p.MsgReadWriter
 
-	version  int         // Protocol version negotiated
-	forkDrop *time.Timer // Timed connection dropper if forks aren't validated in time
+	version int // Protocol version negotiated
 
-	head common.Hash
-	td   *big.Int
-	lock sync.RWMutex
+	head     common.Hash
+	fastHead common.Hash
+	td       *big.Int
+	lock     sync.RWMutex
 
-	knownTxs          *set.Set                  // Set of transaction hashes known to be known by this peer
-	knownSign         *set.Set                  // Set of sign  known to be known by this peer
-	knownNodeInfos    *set.Set                  // Set of node info  known to be known by this peer
-	knownFruits       *set.Set                  // Set of fruits hashes known to be known by this peer
-	knownSnailBlocks  *set.Set                  // Set of snailBlocks hashes known to be known by this peer
-	knownFastBlocks   *set.Set                  // Set of fast block hashes known to be known by this peer
-	queuedTxs         chan []*types.Transaction // Queue of transactions to broadcast to the peer
-	queuedSign        chan []*types.PbftSign    // Queue of sign to broadcast to the peer
-	queuedNodeInfo    chan *types.EncrptoNodeMessage         // a node info to broadcast to the peer
-	queuedFruits      chan []*types.SnailBlock  // Queue of fruits to broadcast to the peer
-	queuedFastProps   chan *propFastEvent       // Queue of fast blocks to broadcast to the peer
+	knownTxs         *set.Set                       // Set of transaction hashes known to be known by this peer
+	knownSign        *set.Set                       // Set of sign  known to be known by this peer
+	knownNodeInfos   *set.Set                       // Set of node info  known to be known by this peer
+	knownFruits      *set.Set                       // Set of fruits hashes known to be known by this peer
+	knownSnailBlocks *set.Set                       // Set of snailBlocks hashes known to be known by this peer
+	knownFastBlocks  *set.Set                       // Set of fast block hashes known to be known by this peer
+	queuedTxs        chan []*types.Transaction      // Queue of transactions to broadcast to the peer
+	queuedSign       chan []*types.PbftSign         // Queue of sign to broadcast to the peer
+	queuedNodeInfo   chan *types.EncryptNodeMessage // a node info to broadcast to the peer
+	queuedFruits     chan []*types.SnailBlock       // Queue of fruits to broadcast to the peer
+	queuedFastProps  chan *propFastEvent            // Queue of fast blocks to broadcast to the peer
 
 	queuedSnailBlock chan *snailBlockEvent // Queue of newSnailBlock to broadcast to the peer
 
@@ -131,25 +131,25 @@ type peer struct {
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 	return &peer{
-		Peer:            p,
-		rw:              rw,
-		version:         version,
-		id:              fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:        set.New(),
-		knownSign:       set.New(),
-		knownNodeInfos:  set.New(),
-		knownFruits:     set.New(),
-		knownSnailBlocks:     set.New(),
-		knownFastBlocks: set.New(),
-		queuedTxs:       make(chan []*types.Transaction, maxQueuedTxs),
-		queuedSign:      make(chan []*types.PbftSign, maxQueuedSigns),
-		queuedNodeInfo:  make(chan *types.EncrptoNodeMessage, maxQueuedNodeInfo),
-		queuedFruits: make(chan []*types.SnailBlock, maxQueuedFruits),
-		queuedFastProps: make(chan *propFastEvent, maxQueuedFastProps),
+		Peer:             p,
+		rw:               rw,
+		version:          version,
+		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
+		knownTxs:         set.New(),
+		knownSign:        set.New(),
+		knownNodeInfos:   set.New(),
+		knownFruits:      set.New(),
+		knownSnailBlocks: set.New(),
+		knownFastBlocks:  set.New(),
+		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
+		queuedSign:       make(chan []*types.PbftSign, maxQueuedSigns),
+		queuedNodeInfo:   make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
+		queuedFruits:     make(chan []*types.SnailBlock, maxQueuedFruits),
+		queuedFastProps:  make(chan *propFastEvent, maxQueuedFastProps),
 
 		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedSnailBlock),
-		queuedFastAnns:  make(chan *types.Block, maxQueuedFastAnns),
-		term:         make(chan struct{}),
+		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
+		term:             make(chan struct{}),
 	}
 }
 
@@ -181,13 +181,15 @@ func (p *peer) broadcast() {
 
 		//add for fruit
 		case fruits := <-p.queuedFruits:
-			if err := p.Sendfruits(fruits); err != nil {
+			if err := p.SendFruits(fruits); err != nil {
 				return
 			}
 			p.Log().Trace("Broadcast fruits", "count", len(fruits))
 
 		case snailBlock := <-p.queuedSnailBlock:
+			p.Log().Debug("Propagated snailBlock begin", "peer", p.RemoteAddr(), "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 			if err := p.SendNewSnailBlock(snailBlock.block, snailBlock.td); err != nil {
+				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 				return
 			}
 			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
@@ -199,7 +201,7 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Propagated fast block", "number", prop.block.Number(), "hash", prop.block.Hash())
 
 		case block := <-p.queuedFastAnns:
-			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}, []types.PbftSign{*block.GetLeaderSign()}); err != nil {
+			if err := p.SendNewFastBlockHashes([]common.Hash{block.Hash()}, []uint64{block.NumberU64()}, []*types.PbftSign{block.GetLeaderSign()}); err != nil {
 				return
 			}
 			p.Log().Trace("Announced fast block", "number", block.Number(), "hash", block.Hash())
@@ -349,12 +351,12 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 
 //SendNodeInfo sends node info to the peer and includes the hashes
 // in its signs hash set for future reference.
-func (p *peer) SendNodeInfo(nodeInfo *types.EncrptoNodeMessage) error {
+func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
 
-func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncrptoNodeMessage) {
+func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	select {
 	case p.queuedNodeInfo <- nodeInfo:
 		p.knownNodeInfos.Add(nodeInfo.Hash())
@@ -365,7 +367,7 @@ func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncrptoNodeMessage) {
 
 //Sendfruits sends fruits to the peer and includes the hashes
 // in its fruit hash set for future reference.
-func (p *peer) Sendfruits(fruits types.Fruits) error {
+func (p *peer) SendFruits(fruits types.Fruits) error {
 	for _, fruit := range fruits {
 		p.knownFruits.Add(fruit.Hash())
 	}
@@ -384,10 +386,9 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	}
 }
 
-
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
-func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, signs []types.PbftSign) error {
+func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, signs []*types.PbftSign) error {
 	for _, hash := range hashes {
 		p.knownFastBlocks.Add(hash)
 	}
@@ -451,15 +452,59 @@ func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int)
 	}
 }
 
+// SendSnailFastBlockHeaders sends a batch of block headers to the remote peer.
+func (p *peer) SendSnailBlockHeaders(headers []*types.SnailHeader) error {
+	return p2p.Send(p.rw, SnailBlockHeadersMsg, headers)
+}
+
+// RequestOneFastHeader is a wrapper around the header query functions to fetch a
+// single fast header. It is used solely by the fetcher fast.
+func (p *peer) RequestOneSnailHeader(hash common.Hash) error {
+	p.Log().Debug("Fetching single header", "hash", hash)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
+}
+
+// RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
+// specified header query, based on the hash of an origin block.
+func (p *peer) RequestSnailHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
+	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+}
+
+// RequestSnailHeadersByNumber fetches a batch of blocks' headers corresponding to the
+// specified header query, based on the number of an origin block.
+func (p *peer) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
+	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+}
+
+// RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
+// specified.
+func (p *peer) RequestSnailBodies(hashes []common.Hash) error {
+	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
+	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, hashes)
+}
+
 // SendFastBlockHeaders sends a batch of block headers to the remote peer.
 func (p *peer) SendFastBlockHeaders(headers []*types.Header) error {
 	return p2p.Send(p.rw, FastBlockHeadersMsg, headers)
+}
+
+// SendFastBlockHeaders sends a batch of block headers to the remote peer.
+func (p *peer) SendOneFastBlockHeader(headers []*types.Header) error {
+	return p2p.Send(p.rw, FastOneBlockHeadersMsg, headers)
 }
 
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
 func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {
 	return p2p.Send(p.rw, FastBlockBodiesMsg, bodies)
+}
+
+// SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
+// an already RLP encoded format.
+func (p *peer) SendSnailBlockBodiesRLP(bodies []rlp.RawValue) error {
+	return p2p.Send(p.rw, SnailBlockBodiesMsg, bodies)
 }
 
 // SendNodeDataRLP sends a batch of arbitrary internal data, corresponding to the
@@ -477,62 +522,80 @@ func (p *peer) SendReceiptsRLP(receipts []rlp.RawValue) error {
 // RequestOneFastHeader is a wrapper around the header query functions to fetch a
 // single fast header. It is used solely by the fetcher fast.
 func (p *peer) RequestOneFastHeader(hash common.Hash) error {
-	p.Log().Debug("Fetching single header", "hash", hash)
+	p.Log().Debug("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
 	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the hash of an origin block.
-func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
+	if isFastchain {
+		p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		return p2p.Send(p.rw, GetFastOneBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+	}
+	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 }
 
 // RequestHeadersByNumber fetches a batch of blocks' headers corresponding to the
 // specified header query, based on the number of an origin block.
-func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
-	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, reverse bool, isFastchain bool) error {
+
+	if isFastchain {
+		p.Log().Debug("Fetching batch of headers GetFastBlockHeadersMsg number", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+	}
+	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg number", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+
 }
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
-func (p *peer) RequestBodies(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
-	return p2p.Send(p.rw, GetFastBlockBodiesMsg, hashes)
+func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
+
+	if isFastchain {
+		p.Log().Debug("Fetching batch of block bodies  GetFastBlockBodiesMsg", "count", len(hashes))
+		return p2p.Send(p.rw, GetFastBlockBodiesMsg, hashes)
+	}
+	p.Log().Debug("Fetching batch of block bodies  GetSnailBlockBodiesMsg", "count", len(hashes))
+	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, hashes)
 }
 
 // RequestNodeData fetches a batch of arbitrary data from a node's known state
 // data, corresponding to the specified hashes.
-func (p *peer) RequestNodeData(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of state data", "count", len(hashes))
+func (p *peer) RequestNodeData(hashes []common.Hash, isFastchain bool) error {
+
+	p.Log().Debug("Fetching batch of state data  GetNodeDataMsg", "count", len(hashes))
 	return p2p.Send(p.rw, GetNodeDataMsg, hashes)
 }
 
 // RequestReceipts fetches a batch of transaction receipts from a remote node.
-func (p *peer) RequestReceipts(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of receipts", "count", len(hashes))
+func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
+	p.Log().Debug("Fetching batch of receipts  GetReceiptsMsg", "count", len(hashes))
 	return p2p.Send(p.rw, GetReceiptsMsg, hashes)
 }
 
 // Handshake executes the etrue protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
-func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash) error {
+func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastGenesis common.Hash) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 	var status statusData // safe to read after two values have been received from errc
 
 	go func() {
 		errc <- p2p.Send(p.rw, StatusMsg, &statusData{
-			ProtocolVersion: uint32(p.version),
-			NetworkId:       network,
-			TD:              td,
-			CurrentBlock:    head,
-			GenesisBlock:    genesis,
+			ProtocolVersion:  uint32(p.version),
+			NetworkId:        network,
+			TD:               td,
+			CurrentBlock:     head,
+			GenesisBlock:     genesis,
+			CurrentFastBlock: fastHead,
+			GenesisFastBlock: fastGenesis,
 		})
 	}()
 	go func() {
-		errc <- p.readStatus(network, &status, genesis)
+		errc <- p.readStatus(network, &status, genesis, fastGenesis)
 	}()
 	timeout := time.NewTimer(handshakeTimeout)
 	defer timeout.Stop()
@@ -550,7 +613,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 	return nil
 }
 
-func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash) (err error) {
+func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash, fastGenesis common.Hash) (err error) {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -567,6 +630,9 @@ func (p *peer) readStatus(network uint64, status *statusData, genesis common.Has
 	}
 	if status.GenesisBlock != genesis {
 		return errResp(ErrGenesisBlockMismatch, "%x (!= %x)", status.GenesisBlock[:8], genesis[:8])
+	}
+	if status.GenesisFastBlock != fastGenesis {
+		return errResp(ErrFastGenesisBlockMismatch, "%x (!= %x)", status.GenesisFastBlock[:8], fastGenesis[:8])
 	}
 	if status.NetworkId != network {
 		return errResp(ErrNetworkIdMismatch, "%d (!= %d)", status.NetworkId, network)

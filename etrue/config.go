@@ -24,19 +24,20 @@ import (
 	"runtime"
 	"time"
 
+	"crypto/ecdsa"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
 var DefaultConfig = Config{
-	SyncMode: downloader.FastSync,
+	SyncMode: downloader.FullSync,
 	Ethash: ethash.Config{
 		CacheDir:       "minerva",
 		CachesInMem:    2,
@@ -51,11 +52,15 @@ var DefaultConfig = Config{
 	TrieTimeout:   60 * time.Minute,
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
-	TxPool: core.DefaultTxPoolConfig,
+	TxPool:    core.DefaultTxPoolConfig,
+	SnailPool: core.DefaultSnailPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
+	MinerThreads: 2,
+	Port:         30310,
+	StandByPort:  30311,
 }
 
 func init() {
@@ -78,8 +83,8 @@ type Config struct {
 	// The genesis block, which is inserted if the database is empty.
 	// If nil, the Truechain main net block is used.
 	Genesis *core.Genesis
-	FastGenesis *core.Genesis
-	SnailGenesis *snailchain.Genesis
+	// FastGenesis  *fastchain.Genesis
+	// SnailGenesis *snailchain.Genesis
 
 	// Protocol options
 	NetworkId uint64 // Network ID to use for selecting peers to connect to
@@ -95,7 +100,9 @@ type Config struct {
 	EnableElection bool `toml:",omitempty"`
 	// CommitteeKey is the ECDSA private key for committee member.
 	// If this filed is empty, can't be a committee member.
-	CommitteeKey  []byte `toml:",omitempty"`
+	CommitteeKey []byte `toml:",omitempty"`
+
+	PrivateKey *ecdsa.PrivateKey `toml:"-"`
 
 	// Host is the host interface on which to start the pbft server. If this
 	// field is empty, can't be a committee member.
@@ -103,6 +110,9 @@ type Config struct {
 
 	// Port is the TCP port number on which to start the pbft server.
 	Port int `toml:",omitempty"`
+
+	// StandByPort is the TCP port number on which to start the pbft server.
+	StandByPort int `toml:",omitempty"`
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`
@@ -123,6 +133,9 @@ type Config struct {
 	// Transaction pool options
 	TxPool core.TxPoolConfig
 
+	//fruit pool options
+	SnailPool core.SnailPoolConfig
+
 	// Gas Price Oracle options
 	GPO gasprice.Config
 
@@ -132,7 +145,11 @@ type Config struct {
 	// Miscellaneous options
 	DocRoot string `toml:"-"`
 
+	// true indicate singlenode start
 	NodeType bool `toml:",omitempty"`
+
+	//true indicate only mine fruit
+	MineFruit bool `toml:",omitempty"`
 }
 
 type configMarshaling struct {

@@ -50,7 +50,6 @@ func main() {
 		err     error
 	)
 	flag.Parse()
-
 	glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(false)))
 	glogger.Verbosity(log.Lvl(*verbosity))
 	glogger.Vmodule(*vmodule)

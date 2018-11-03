@@ -22,8 +22,6 @@ import (
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/rlp"
@@ -42,7 +40,7 @@ var ProtocolName = "etrue"
 var ProtocolVersions = []uint{eth63, eth62}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{17, 8}
+var ProtocolLengths = []uint64{27, 8}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -68,6 +66,14 @@ const (
 	NodeDataMsg    = 0x0e
 	GetReceiptsMsg = 0x0f
 	ReceiptsMsg    = 0x10
+
+	//snail sync
+	GetSnailBlockHeadersMsg   = 0x11
+	SnailBlockHeadersMsg      = 0x12
+	GetSnailBlockBodiesMsg    = 0x13
+	SnailBlockBodiesMsg       = 0x14
+	GetFastOneBlockHeadersMsg = 0x15
+	FastOneBlockHeadersMsg    = 0x16
 )
 
 type errCode int
@@ -79,6 +85,7 @@ const (
 	ErrProtocolVersionMismatch
 	ErrNetworkIdMismatch
 	ErrGenesisBlockMismatch
+	ErrFastGenesisBlockMismatch
 	ErrNoStatusMsg
 	ErrExtraStatusMsg
 	ErrSuspendedPeer
@@ -90,15 +97,16 @@ func (e errCode) String() string {
 
 // XXX change once legacy code is out
 var errorToString = map[int]string{
-	ErrMsgTooLarge:             "Message too long",
-	ErrDecode:                  "Invalid message",
-	ErrInvalidMsgCode:          "Invalid message code",
-	ErrProtocolVersionMismatch: "Protocol version mismatch",
-	ErrNetworkIdMismatch:       "NetworkId mismatch",
-	ErrGenesisBlockMismatch:    "Genesis block mismatch",
-	ErrNoStatusMsg:             "No status message",
-	ErrExtraStatusMsg:          "Extra status message",
-	ErrSuspendedPeer:           "Suspended peer",
+	ErrMsgTooLarge:              "Message too long",
+	ErrDecode:                   "Invalid message",
+	ErrInvalidMsgCode:           "Invalid message code",
+	ErrProtocolVersionMismatch:  "Protocol version mismatch",
+	ErrNetworkIdMismatch:        "NetworkId mismatch",
+	ErrGenesisBlockMismatch:     "Genesis block mismatch",
+	ErrFastGenesisBlockMismatch: "Fast Genesis block mismatch",
+	ErrNoStatusMsg:              "No status message",
+	ErrExtraStatusMsg:           "Extra status message",
+	ErrSuspendedPeer:            "Suspended peer",
 }
 
 type txPool interface {
@@ -111,54 +119,55 @@ type txPool interface {
 
 	// SubscribeNewTxsEvent should return an event subscription of
 	// NewTxsEvent and send events to the given channel.
-	SubscribeNewTxsEvent(chan<- core.NewTxsEvent) event.Subscription
+	SubscribeNewTxsEvent(chan<- types.NewTxsEvent) event.Subscription
 	// for fruits and records
-	//SubscribeNewFruitsEvent(chan<- core.NewFruitsEvent) event.Subscription
+	//SubscribeNewFruitsEvent(chan<- types.NewFruitsEvent) event.Subscription
 }
 
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
 	PendingFruits() ([]*types.SnailBlock, error)
-	SubscribeNewFruitEvent(chan<- snailchain.NewFruitsEvent) event.Subscription
+	SubscribeNewFruitEvent(chan<- types.NewFruitsEvent) event.Subscription
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
-	PendingFastBlocks() (*types.Block, error)
+	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
-	SubscribeNewFastBlockEvent(chan<- snailchain.NewFastBlocksEvent) event.Subscription
+	SubscribeNewFastBlockEvent(chan<- types.NewFastBlocksEvent) event.Subscription
+	RemovePendingFruitByFastHash(fasthash common.Hash)
 }
 
 type AgentNetworkProxy interface {
 	// SubscribeNewFastBlockEvent should return an event subscription of
 	// NewBlockEvent and send events to the given channel.
-	SubscribeNewFastBlockEvent(chan<- core.NewBlockEvent) event.Subscription
+	SubscribeNewFastBlockEvent(chan<- types.NewBlockEvent) event.Subscription
 	// SubscribeNewPbftSignEvent should return an event subscription of
 	// PbftSignEvent and send events to the given channel.
-	SubscribeNewPbftSignEvent(chan<- core.PbftSignEvent) event.Subscription
+	SubscribeNewPbftSignEvent(chan<- types.PbftSignEvent) event.Subscription
 	// SubscribeNodeInfoEvent should return an event subscription of
 	// NodeInfoEvent and send events to the given channel.
-	SubscribeNodeInfoEvent(chan<- core.NodeInfoEvent) event.Subscription
+	SubscribeNodeInfoEvent(chan<- types.NodeInfoEvent) event.Subscription
 	// AddRemoteNodeInfo should add the given NodeInfo to the pbft agent.
-	AddRemoteNodeInfo(*types.EncrptoNodeMessage) error
-	// AcquireCommitteeAuth check current node whether committee.
-	AcquireCommitteeAuth(*big.Int) bool
+	AddRemoteNodeInfo(*types.EncryptNodeMessage) error
 }
 
 // statusData is the network packet for the status message.
 type statusData struct {
-	ProtocolVersion uint32
-	NetworkId       uint64
-	TD              *big.Int
-	CurrentBlock    common.Hash
-	GenesisBlock    common.Hash
+	ProtocolVersion  uint32
+	NetworkId        uint64
+	TD               *big.Int
+	CurrentBlock     common.Hash
+	GenesisBlock     common.Hash
+	CurrentFastBlock common.Hash
+	GenesisFastBlock common.Hash
 }
 
 // newBlockHashesData is the network packet for the block announcements.
 type newBlockHashesData []struct {
 	Hash   common.Hash // Hash of one particular block being announced
 	Number uint64      // Number of one particular block being announced
-	Sign   types.PbftSign
+	Sign   *types.PbftSign
 }
 
 // getBlockHeadersData represents a block header query.
@@ -213,7 +222,7 @@ type newBlockData struct {
 // newFastBlockData is the network packet for the block propagation message.
 type newSnailBlockData struct {
 	Block *types.SnailBlock
-	td    int
+	TD    *big.Int
 }
 
 // blockBody represents the data content of a single block.
@@ -224,3 +233,12 @@ type blockBody struct {
 
 // blockBodiesData is the network packet for block content distribution.
 type blockBodiesData []*blockBody
+
+// blockBody represents the data content of a single block.
+type snailBlockBody struct {
+	Fruits []*types.SnailBlock
+	Signs  []*types.PbftSign
+}
+
+// blockBodiesData is the network packet for block content distribution.
+type snailBlockBodiesData []*snailBlockBody

@@ -24,28 +24,26 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/truechain/truechain-engineering-code/crypto"
+
+	"github.com/truechain/truechain-engineering-code/log"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/math"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/consensus/misc"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/fatih/set.v0"
 )
 
-// Ethash proof-of-work protocol constants.
+// Minerva protocol constants.
 var (
-	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
-
-	FruitReward *big.Int = big.NewInt(3.333e+16)
-	BlockReward *big.Int = new(big.Int).Mul(big.NewInt(2e+18), big10)
+	FrontierBlockReward  = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+	ByzantiumBlockReward = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
 
 	maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
-
-	FruitBlockRatio *big.Int = big.NewInt(64) // difficulty ratio between fruit and block
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -62,6 +60,7 @@ var (
 	errInvalidDifficulty = errors.New("non-positive difficulty")
 	errInvalidMixDigest  = errors.New("invalid mix digest")
 	errInvalidPoW        = errors.New("invalid proof-of-work")
+	errInvalidFast       = errors.New("invalid fast number")
 )
 
 // Author implements consensus.Engine, returning the header's coinbase as the
@@ -75,7 +74,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum m engine.
-func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -91,32 +90,56 @@ func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header
 	return m.verifyHeader(chain, header, parent)
 }
 
-func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, header *types.SnailHeader, seal bool) error {
+func (m *Minerva) getParents(chain consensus.SnailChainReader, header *types.SnailHeader) []*types.SnailHeader {
+	number := header.Number.Uint64()
+	period := params.DifficultyPeriod.Uint64()
+	if number < period {
+		period = number
+	}
+	//log.Info("getParents", "number", header.Number, "period", period)
+	parents := make([]*types.SnailHeader, period)
+	hash := header.ParentHash
+	for i := uint64(1); i <= period; i++ {
+		if number-i < 0 {
+			break
+		}
+		parent := chain.GetHeader(hash, number-i)
+		if parent == nil {
+			log.Warn("getParents get parent failed.", "number", number-i, "hash", hash)
+			return nil
+		}
+		parents[period-i] = parent
+		hash = parent.ParentHash
+	}
+
+	return parents
+}
+
+func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header *types.SnailHeader, seal bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if m.config.PowMode == ModeFullFake {
 		return nil
 	}
 
+	if header.Fruit {
+		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
+		if pointer == nil {
+			log.Warn("VerifySnailHeader get pointer failed.", "fNumber", header.FastNumber, "pNumber", header.PointerNumber, "pHash", header.PointerHash)
+			return consensus.ErrUnknownPointer
+		}
+		return m.verifySnailHeader(chain, fastchain, header, pointer, nil, false, seal)
+	}
 	// Short circuit if the header is known, or it's parent not
-	number := header.Number.Uint64()
-
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
+	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
+		return nil
+	}
+	parents := m.getParents(chain, header)
+	if parents == nil {
 		return consensus.ErrUnknownAncestor
 	}
 
-	//TODO for fruit
-
-	if header.Fruit {
-		return m.verifySnailHeader(chain, header, parent, false, seal)
-	}
-
-	if chain.GetHeader(header.Hash(), number) != nil {
-		return nil
-	}
-
 	// Sanity checks passed, do a proper verification
-	return m.verifySnailHeader(chain, header, parent, false, seal)
+	return m.verifySnailHeader(chain, fastchain, header, nil, parents, false, seal)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -184,6 +207,7 @@ func (m *Minerva) VerifyHeaders(chain consensus.ChainReader, headers []*types.He
 	}()
 	return abort, errorsOut
 }
+
 func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers []*types.SnailHeader,
 	seals []bool) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
@@ -205,13 +229,25 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 	var (
 		inputs = make(chan int)
 		done   = make(chan int, workers)
-		errors = make([]error, len(headers))
+		errs   = make([]error, len(headers))
 		abort  = make(chan struct{})
 	)
+
+	parents := m.getParents(chain, headers[0])
+	if parents == nil {
+		abort, results := make(chan struct{}), make(chan error, len(headers))
+		for i := 0; i < len(headers); i++ {
+			results <- errors.New("invalid parents")
+		}
+		return abort, results
+	}
+	parents = append(parents, headers...)
+
 	for i := 0; i < workers; i++ {
+		//m.verifySnailHeader(chain, nil, nil, par, false, seals[i])
 		go func() {
 			for index := range inputs {
-				errors[index] = m.verifySnailHeaderWorker(chain, headers, seals, index)
+				errs[index] = m.verifySnailHeaderWorker(chain, headers, parents, seals, index)
 				done <- index
 			}
 		}()
@@ -234,7 +270,7 @@ func (m *Minerva) VerifySnailHeaders(chain consensus.SnailChainReader, headers [
 				}
 			case index := <-done:
 				for checked[index] = true; checked[out]; out++ {
-					errorsOut <- errors[out]
+					errorsOut <- errs[out]
 					if out == len(headers)-1 {
 						return
 					}
@@ -266,27 +302,32 @@ func (m *Minerva) verifyHeaderWorker(chain consensus.ChainReader, headers []*typ
 	return m.verifyHeader(chain, headers[index], parent)
 	//return nil
 }
-func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers []*types.SnailHeader,
-	seals []bool, index int) error {
-	var parent *types.SnailHeader
 
-	if index == 0 {
-		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
-	} else if headers[index-1].Hash() == headers[index].ParentHash {
-		parent = headers[index-1]
-	}
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
+func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, headers, parents []*types.SnailHeader,
+	seals []bool, index int) error {
+	//var parent *types.SnailHeader
+
+	/*
+		if index == 0 {
+			parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
+		} else if headers[index-1].Hash() == headers[index].ParentHash {
+			parent = headers[index-1]
+		}
+		if parent == nil {
+			return consensus.ErrUnknownAncestor
+		}
+	*/
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
 		return nil // known block
 	}
+	count := len(parents) - len(headers) + index
+	parentHeaders := parents[:count]
 
-	return m.verifySnailHeader(chain, headers[index], parent, false, seals[index])
+	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index])
 }
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
-// rules of the stock Ethereum ethash engine.
+// rules of the stock Truechain minerva engine.
 func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *types.SnailBlock) error {
 
 	// If we're running a full engine faking, accept any input as valid
@@ -323,33 +364,12 @@ func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *typ
 
 	// Verify each of the uncles that it's recent, but not an ancestor
 	//TODO Snail chain not uncles
-	/*
-		for _, uncle := range block.Uncles() {
-			// Make sure every uncle is rewarded only once
-			hash := uncle.Hash()
-			if uncles.Has(hash) {
-				return errDuplicateUncle
-			}
-			uncles.Add(hash)
 
-			// Make sure the uncle has a valid ancestry
-			if ancestors[hash] != nil {
-				return errUncleIsAncestor
-			}
-			if ancestors[uncle.ParentHash] == nil || uncle.ParentHash == block.ParentHash() {
-				return errDanglingUncle
-			}
-			if err := ethash.verifyHeader(chain, uncle, ancestors[uncle.ParentHash], true, true); err != nil {
-				return err
-			}
-		}
-	*/
 	return nil
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules of the
-// stock Ethereum ethash engine.
-// See YP section 4.3.4. "Block Header Validity"
+// stock Truechain minerva engine.
 func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *types.Header) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
@@ -357,10 +377,12 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 	}
 	// Verify the header's timestamp
 	if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+		fmt.Println(consensus.ErrFutureBlock.Error(), "header", header.Time, "now", time.Now().Unix(),
+			"cmp:", big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix()))
 		return consensus.ErrFutureBlock
 	}
 
-	if header.Time.Cmp(parent.Time) <= 0 {
+	if header.Time.Cmp(parent.Time) < 0 {
 		return errZeroBlockTime
 	}
 
@@ -391,8 +413,8 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 
 	return nil
 }
-func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, parent *types.SnailHeader,
-	uncle bool, seal bool) error {
+func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header, pointer *types.SnailHeader,
+	parents []*types.SnailHeader, uncle bool, seal bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -403,49 +425,36 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 			return errLargeBlockTime
 		}
 	} else {
-		if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
-			return consensus.ErrFutureBlock
+		if !header.Fruit {
+			if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
+				return consensus.ErrFutureBlock
+			}
 		}
 	}
-	if header.Time.Cmp(parent.Time) <= 0 {
-		return errZeroBlockTime
+	if !header.Fruit {
+		if header.Time.Cmp(parents[len(parents)-1].Time) <= 0 {
+			return errZeroBlockTime
+		}
+
+		// Verify the block's difficulty based in it's timestamp and parent's difficulty
+		expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parents)
+
+		if expected.Cmp(header.Difficulty) != 0 {
+			return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
+		}
+	} else {
+		fastHeader := fastchain.GetHeader(header.FastHash, header.FastNumber.Uint64())
+		if fastHeader == nil {
+			log.Warn("verifySnailHeader get fast failed.", "fNumber", header.FastNumber, "fHash", header.FastHash)
+			return errInvalidFast
+		}
+		// Verify the block's difficulty based in it's timestamp and parent's difficulty
+		expected := m.CalcFruitDifficulty(chain, header.Time.Uint64(), fastHeader.Time.Uint64(), pointer)
+
+		if expected.Cmp(header.FruitDifficulty) != 0 {
+			return fmt.Errorf("invalid fruit difficulty: have %v, want %v", header.FruitDifficulty, expected)
+		}
 	}
-
-	// Verify the block's difficulty based in it's timestamp and parent's difficulty
-	expected := m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
-
-	if expected.Cmp(header.Difficulty) != 0 {
-		return fmt.Errorf("invalid difficulty: have %v, want %v", header.Difficulty, expected)
-	}
-
-	// Verify that the gas limit is <= 2^63-1
-
-	//TODO snail chian gaslimit
-	/*
-		cap := uint64(0x7fffffffffffffff)
-		if header.GasLimit > cap {
-			return fmt.Errorf("invalid gasLimit: have %v, max %v", header.GasLimit, cap)
-		}
-		// Verify that the gasUsed is <= gasLimit
-		if header.GasUsed > header.GasLimit {
-			return fmt.Errorf("invalid gasUsed: have %d, gasLimit %d", header.GasUsed, header.GasLimit)
-		}
-
-		// Verify that the gas limit remains within allowed bounds
-		diff := int64(parent.GasLimit) - int64(header.GasLimit)
-		if diff < 0 {
-			diff *= -1
-		}
-		limit := parent.GasLimit / params.GasLimitBoundDivisor
-
-		if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
-			return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
-		}
-		// Verify that the block number is parent's +1
-		if diff := new(big.Int).Sub(header.Number, parent.Number); diff.Cmp(big.NewInt(1)) != 0 {
-			return consensus.ErrInvalidNumber
-		}
-	*/
 
 	// Verify the engine specific seal securing the block
 	if seal {
@@ -453,50 +462,99 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, header, pa
 			return err
 		}
 	}
-	// If all checks passed, validate any special fields for hard forks
-	if err := misc.VerifyDAOSnailHeaderExtraData(chain.Config(), header); err != nil {
-		return err
-	}
-	if err := misc.VerifySnailForkHashes(chain.Config(), header, uncle); err != nil {
-		return err
-	}
+
 	return nil
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
-func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uint64, parent *types.SnailHeader) *big.Int {
-	return CalcDifficulty(chain.Config(), time, parent)
+func (m *Minerva) CalcSnailDifficulty(chain consensus.SnailChainReader, time uint64, parents []*types.SnailHeader) *big.Int {
+	return CalcDifficulty(chain.Config(), time, parents)
+}
+
+func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uint64, fastTime uint64, pointer *types.SnailHeader) *big.Int {
+	return CalcFruitDifficulty(chain.Config(), time, fastTime, pointer)
+}
+
+// VerifySigns check the sings included in fast block or fruit
+//
+func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error {
+	// validate the signatures of this fruit
+	members := m.election.GetCommittee(fastnumber)
+	if members == nil {
+		log.Warn("VerifySigns get committee failed.", "number", fastnumber)
+		return consensus.ErrInvalidSign
+	}
+	count := 0
+	for _, sign := range signs {
+		if sign.Result == types.VoteAgree {
+			count++
+		}
+	}
+	// pbft signs check bug will fix next release
+	if count <= len(members)*2/3 {
+		log.Warn("VerifySigns number error", "signs", len(signs), "agree", count, "members", len(members))
+		return consensus.ErrInvalidSign
+	}
+
+	_, errs := m.election.VerifySigns(signs)
+	for _, err := range errs {
+		if err != nil {
+			log.Warn("VerifySigns error", "err", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error {
+	var headerNumber *big.Int
+	if block == nil {
+		// when block is nil, is used to verify new fruits for next block
+		headerNumber = new(big.Int).Add(chain.CurrentHeader().Number, common.Big1)
+	} else {
+		headerNumber = block.Number
+	}
+	// check freshness
+	pointer := chain.GetHeaderByNumber(fruit.PointerNumber.Uint64())
+	if pointer == nil {
+		return types.ErrSnailHeightNotYet
+	}
+	if canonical {
+		if pointer.Hash() != fruit.PointerHash {
+			log.Debug("VerifyFreshness get pointer failed.", "fruit", fruit.FastNumber, "pointerNumber", fruit.PointerNumber, "pointerHash", fruit.PointerHash,
+				"fruitNumber", fruit.Number, "pointer", pointer.Hash())
+			return consensus.ErrUnknownPointer
+		}
+	} else {
+		pointer = chain.GetHeader(fruit.PointerHash, fruit.PointerNumber.Uint64())
+		if pointer == nil {
+			return consensus.ErrUnknownPointer
+		}
+	}
+	freshNumber := new(big.Int).Sub(headerNumber, pointer.Number)
+	if freshNumber.Cmp(params.FruitFreshness) > 0 {
+		log.Debug("VerifyFreshness failed.", "fruit sb", fruit.Number, "fruit fb", fruit.FastNumber, "poiner", pointer.Number, "current", headerNumber)
+		return consensus.ErrFreshness
+	}
+
+	return nil
 }
 
 func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
-	number := header.Number.Uint64()
-
-	cache := m.cache(number)
-	size := datasetSize(number)
-	if m.config.PowMode == ModeTest {
-		size = 32 * 1024
-	}
-	_, result := hashimotoLight(size, cache.cache, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
+	dataset := m.getDataset(header.Number.Uint64())
+	_, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if header.Fruit {
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
-		fruitDiff := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 
-		return actDiff, fruitDiff
-	} else {
-		actDiff := new(big.Int).Div(maxUint256, new(big.Int).SetBytes(result))
-		return actDiff, header.Difficulty
+		return actDiff, header.FruitDifficulty
 	}
-}
-
-// CalcDifficulty is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time
-// given the parent block's time and difficulty.
-func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.SnailHeader) *big.Int {
-	return calcDifficulty(time, parent)
+	actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(result[:16]))
+	return actDiff, header.Difficulty
 }
 
 // Some weird constants to avoid constant memory allocs for them.
@@ -508,191 +566,110 @@ var (
 	big9          = big.NewInt(9)
 	big10         = big.NewInt(10)
 	big32         = big.NewInt(32)
-	bigMinus1     = big.NewInt(-1)
-	bigMinus99    = big.NewInt(-99)
-	big2999999    = big.NewInt(2999999)
+
+	big90 = big.NewInt(90)
+
+	bigMinus1  = big.NewInt(-1)
+	bigMinus99 = big.NewInt(-99)
+	big2999999 = big.NewInt(2999999)
 )
 
-// calcDifficulty is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time given the
-// parent block's time and difficulty.
-func calcDifficulty(time uint64, parent *types.SnailHeader) *big.Int {
-	// algorithm:
-	// diff = (parent_diff +
-	//         (parent_diff / 32 * max(1 - (block_timestamp - parent_timestamp) // 600, -1))
-	//        )
+// CalcDifficulty is the difficulty adjustment algorithm. It returns
+// the difficulty that a new block should have when created at time
+// given the parent block's time and difficulty.
+func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
 
-	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parent.Time)
+	return calcDifficulty(config, time, parents)
 
-	// holds intermediate values to make the algo easier to read & audit
-	x := new(big.Int)
-	y := new(big.Int)
-
-	// 1 - (block_timestamp - parent_timestamp) // 600
-	x.Sub(bigTime, bigParentTime)
-	x.Div(x, params.DurationLimit)
-	x.Sub(big1, x)
-
-	// max(1 - (block_timestamp - parent_timestamp) // 10, -1)
-	if x.Cmp(bigMinus1) < 0 {
-		x.Set(bigMinus1)
-	}
-	// (parent_diff + parent_diff // 32 * max(1 - (block_timestamp - parent_timestamp) // 600, -1))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
-	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
-
-	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
-	}
-
-	return x
+	//return calcDifficulty(time, parents[0])
 }
 
-// calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time given the
-// parent block's time and difficulty. The calculation uses the Byzantium rules.
-func calcDifficultyByzantium(time uint64, parent *types.SnailHeader) *big.Int {
-	// https://github.com/ethereum/EIPs/issues/100.
-	// algorithm:
-	// diff = (parent_diff +
-	//         (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - ((timestamp - parent.timestamp) // 9), -99))
-	//        ) + 2^(periodCount - 2)
+func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint64, pointer *types.SnailHeader) *big.Int {
+	diff := new(big.Int).Div(pointer.Difficulty, params.FruitBlockRatio)
 
-	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parent.Time)
+	delta := time - fastTime
 
-	// holds intermediate values to make the algo easier to read & audit
-	x := new(big.Int)
-	y := new(big.Int)
-
-	// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
-	x.Sub(bigTime, bigParentTime)
-	x.Div(x, big9)
-	if parent.UncleHash == types.EmptyUncleHash {
-		x.Sub(big1, x)
-	} else {
-		x.Sub(big2, x)
-	}
-	// max((2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9, -99)
-	if x.Cmp(bigMinus99) < 0 {
-		x.Set(bigMinus99)
-	}
-	// parent_diff + (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - ((timestamp - parent.timestamp) // 9), -99))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
-	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
-
-	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
-	}
-	// calculate a fake block number for the ice-age delay:
-	//   https://github.com/ethereum/EIPs/pull/669
-	//   fake_block_number = min(0, block.number - 3_000_000
-	fakeBlockNumber := new(big.Int)
-	if parent.Number.Cmp(big2999999) >= 0 {
-		fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, big2999999) // Note, parent is 1 less than the actual block number
-	}
-	// for the exponential factor
-	periodCount := fakeBlockNumber
-	periodCount.Div(periodCount, expDiffPeriod)
-
-	// the exponential factor, commonly referred to as "the bomb"
-	// diff = diff + 2^(periodCount - 2)
-	if periodCount.Cmp(big1) > 0 {
-		y.Sub(periodCount, big2)
-		y.Exp(big2, y, nil)
-		x.Add(x, y)
-	}
-	return x
-}
-
-// calcDifficultyHomestead is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time given the
-// parent block's time and difficulty. The calculation uses the Homestead rules.
-func calcDifficultyHomestead(time uint64, parent *types.SnailHeader) *big.Int {
-	// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
-	// algorithm:
-	// diff = (parent_diff +
-	//         (parent_diff / 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
-	//        ) + 2^(periodCount - 2)
-
-	bigTime := new(big.Int).SetUint64(time)
-	bigParentTime := new(big.Int).Set(parent.Time)
-
-	// holds intermediate values to make the algo easier to read & audit
-	x := new(big.Int)
-	y := new(big.Int)
-
-	// 1 - (block_timestamp - parent_timestamp) // 10
-	x.Sub(bigTime, bigParentTime)
-	x.Div(x, big10)
-	x.Sub(big1, x)
-
-	// max(1 - (block_timestamp - parent_timestamp) // 10, -99)
-	if x.Cmp(bigMinus99) < 0 {
-		x.Set(bigMinus99)
-	}
-	// (parent_diff + parent_diff // 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
-	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
-
-	// minimum difficulty can ever be (before exponential factor)
-	if x.Cmp(params.MinimumDifficulty) < 0 {
-		x.Set(params.MinimumDifficulty)
-	}
-	// for the exponential factor
-	periodCount := new(big.Int).Add(parent.Number, big1)
-	periodCount.Div(periodCount, expDiffPeriod)
-
-	// the exponential factor, commonly referred to as "the bomb"
-	// diff = diff + 2^(periodCount - 2)
-	if periodCount.Cmp(big1) > 0 {
-		y.Sub(periodCount, big2)
-		y.Exp(big2, y, nil)
-		x.Add(x, y)
-	}
-	return x
-}
-
-// calcDifficultyFrontier is the difficulty adjustment algorithm. It returns the
-// difficulty that a new block should have when created at time given the parent
-// block's time and difficulty. The calculation uses the Frontier rules.
-func calcDifficultyFrontier(time uint64, parent *types.SnailHeader) *big.Int {
-	diff := new(big.Int)
-	adjust := new(big.Int).Div(parent.Difficulty, params.DifficultyBoundDivisor)
-	bigTime := new(big.Int)
-	bigParentTime := new(big.Int)
-
-	bigTime.SetUint64(time)
-	bigParentTime.Set(parent.Time)
-
-	if bigTime.Sub(bigTime, bigParentTime).Cmp(params.DurationLimit) < 0 {
-		diff.Add(parent.Difficulty, adjust)
-	} else {
-		diff.Sub(parent.Difficulty, adjust)
-	}
-	if diff.Cmp(params.MinimumDifficulty) < 0 {
-		diff.Set(params.MinimumDifficulty)
+	if delta > 20 {
+		diff = new(big.Int).Div(diff, big.NewInt(2))
+	} else if delta > 10 && delta <= 20 {
+		diff = new(big.Int).Mul(diff, big.NewInt(2))
+		diff = new(big.Int).Div(diff, big.NewInt(3))
 	}
 
-	periodCount := new(big.Int).Add(parent.Number, big1)
-	periodCount.Div(periodCount, expDiffPeriod)
-	if periodCount.Cmp(big1) > 0 {
-		// diff = diff + 2^(periodCount - 2)
-		expDiff := periodCount.Sub(periodCount, big2)
-		expDiff.Exp(big2, expDiff, nil)
-		diff.Add(diff, expDiff)
-		diff = math.BigMax(diff, params.MinimumDifficulty)
+	minimum := config.Minerva.MinimumFruitDifficulty
+	if diff.Cmp(minimum) < 0 {
+		diff.Set(minimum)
 	}
+
+	//log.Debug("CalcFruitDifficulty", "delta", delta, "diff", diff)
+
 	return diff
 }
 
-// VerifySeal implements consensus.Engine, checking whether the given block satisfies
+func calcDifficulty(config *params.ChainConfig, time uint64, parents []*types.SnailHeader) *big.Int {
+	// algorithm:
+	// diff = (averageDiff +
+	//         (averageDiff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	//        )
+
+	period := big.NewInt(int64(len(parents)))
+	parentHeaders := parents
+
+	/* get average diff */
+	diff := big.NewInt(0)
+	if parents[0].Number.Cmp(common.Big0) == 0 {
+		period.Sub(period, common.Big1)
+		parentHeaders = parents[1:]
+	}
+	if period.Cmp(common.Big0) == 0 {
+		// only have genesis block
+		return parents[0].Difficulty
+	}
+
+	for _, parent := range parentHeaders {
+		diff.Add(diff, parent.Difficulty)
+	}
+	averageDiff := new(big.Int).Div(diff, period)
+
+	durationDivisor := new(big.Int).Mul(config.Minerva.DurationLimit, period)
+
+	bigTime := new(big.Int).SetUint64(time)
+	bigParentTime := new(big.Int).Set(parentHeaders[0].Time)
+
+	// holds intermediate values to make the algo easier to read & audit
+	x := new(big.Int)
+	y := new(big.Int)
+
+	// 86400 - (block_timestamp - parent_timestamp)
+	x.Add(durationDivisor, bigParentTime)
+	x.Sub(x, bigTime)
+
+	// (max(86400 - (block_timestamp - parent_timestamp), -86400)
+	y.Mul(durationDivisor, bigMinus1)
+	if x.Cmp(y) < 0 {
+		x.Set(y)
+	}
+
+	// (averageDiff / 2) * (max(86400 - (block_timestamp - parent_timestamp), -86400) // 86400)
+	y.Div(averageDiff, params.DifficultyBoundDivisor)
+	x.Mul(y, x)
+
+	x.Div(x, durationDivisor)
+
+	x.Add(averageDiff, x)
+
+	// minimum difficulty can ever be (before exponential factor)
+	if x.Cmp(config.Minerva.MinimumDifficulty) < 0 {
+		x.Set(config.Minerva.MinimumDifficulty)
+	}
+
+	log.Debug("Calc diff", "parent", parentHeaders[0].Difficulty, "avg", averageDiff, "diff", x,
+		"time", new(big.Int).Sub(bigTime, bigParentTime), "period", period)
+
+	return x
+}
+
+// VerifySnailSeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
 func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
 	// If we're running a fake PoW, accept any seal as valid
@@ -711,42 +688,29 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	if header.Difficulty.Sign() <= 0 {
 		return errInvalidDifficulty
 	}
-	// Recompute the digest and PoW value and verify against the header
-	number := header.Number.Uint64()
-
-	cache := m.cache(number)
-	size := datasetSize(number)
-	if m.config.PowMode == ModeTest {
-		size = 32 * 1024
+	if header.FruitDifficulty.Sign() <= 0 {
+		return errInvalidDifficulty
 	}
-	digest, result := hashimotoLight(size, cache.cache, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
-	// Caches are unmapped in a finalizer. Ensure that the cache stays live
-	// until after the call to hashimotoLight so it's not unmapped while being used.
-	runtime.KeepAlive(cache)
+	// Recompute the digest and PoW value and verify against the header
+	dataset := m.getDataset(header.Number.Uint64())
+	//m.CheckDataSetState(header.Number.Uint64())
+	digest, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
 		return errInvalidMixDigest
 	}
 
-	//TODO for fruit
-
-	target := new(big.Int).Div(maxUint256, header.Difficulty)
-	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
-		fruitDifficulty.Set(params.MinimumFruitDifficulty)
-	}
-	fruitTarget := new(big.Int).Div(maxUint128, fruitDifficulty)
-
 	if header.Fruit {
-		// TODO need know how to get fruits
-		if header.Number.Uint64() > 0 {
-			last := result[16:]
-			if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
-				// fmt.Printf("last is  %v", new(big.Int).SetBytes(last))
-				// fmt.Printf("fruitTarget is %v", fruitTarget)
-				return errInvalidPoW
-			}
-		} else if new(big.Int).SetBytes(result).Cmp(target) > 0 {
+		fruitTarget := new(big.Int).Div(maxUint128, header.FruitDifficulty)
+
+		last := result[16:]
+		if new(big.Int).SetBytes(last).Cmp(fruitTarget) > 0 {
+			return errInvalidPoW
+		}
+	} else {
+		target := new(big.Int).Div(maxUint128, header.Difficulty)
+		last := result[:16]
+		if new(big.Int).SetBytes(last).Cmp(target) > 0 {
 			return errInvalidPoW
 		}
 	}
@@ -755,35 +719,68 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 }
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
-// header to conform to the ethash protocol. The changes are done inline.
+// header to conform to the minerva protocol. The changes are done inline.
 func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) error {
 	if parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1); parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
 	return nil
 }
-func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.SnailHeader) error {
-	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if parent == nil {
+
+func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.SnailChainReader, header *types.SnailHeader) error {
+	parents := m.getParents(chain, header)
+	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if parents == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Difficulty = m.CalcSnailDifficulty(chain, header.Time.Uint64(), parent)
+	header.Difficulty = m.CalcSnailDifficulty(chain, header.Time.Uint64(), parents)
+
+	if header.FastNumber == nil {
+		header.FruitDifficulty = new(big.Int).Set(chain.Config().Minerva.MinimumFruitDifficulty)
+	} else {
+		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
+		if pointer == nil {
+			return consensus.ErrUnknownPointer
+		}
+		fast := fastchain.GetHeader(header.FastHash, header.FastNumber.Uint64())
+		if fast == nil {
+			return consensus.ErrUnknownFast
+		}
+
+		header.FruitDifficulty = m.CalcFruitDifficulty(chain, header.Time.Uint64(), fast.Time.Uint64(), pointer)
+	}
+
 	return nil
 }
 
 // Finalize implements consensus.Engine, accumulating the block fruit and uncle rewards,
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
-	txs []*types.Transaction, receipts []*types.Receipt) (*types.Block, error) {
+	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
+		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
+		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
+		if sBlockHeader == nil {
+			return nil, types.ErrSnailHeightNotYet
+		}
+		if sBlockHeader.Hash() != header.SnailHash {
+			return nil, types.ErrSnailBlockNotOnTheCain
+		}
 		sBlock := m.sbc.GetBlock(header.SnailHash, header.SnailNumber.Uint64())
 		if sBlock == nil {
-			return nil, consensus.ErrInvalidNumber
+			return nil, types.ErrSnailHeightNotYet
 		}
-		accumulateRewardsFast(m, state, header, sBlock)
+		err := accumulateRewardsFast(m.election, state, header, sBlock)
+		if err != nil {
+			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+			return nil, err
+		}
 	}
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
-	return types.NewBlock(header, txs, receipts, nil), nil
+	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
+		return nil, err
+	}
+	header.Root = state.IntermediateRoot(true)
+	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
@@ -794,25 +791,34 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
-//gas allocation
-func (m *Minerva) FinalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, gasLimit *big.Int) error {
+// gas allocation
+func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
+	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
+	if feeAmount.Uint64() == 0 {
+		return nil
+	}
 	committee := m.election.GetCommittee(fastNumber)
 	committeeGas := big.NewInt(0)
-	if len(committee) != 0 {
-		committeeGas = new(big.Int).Div(gasLimit, big.NewInt(int64(len(committee))))
+	if len(committee) == 0 {
+		return errors.New("not have committee")
 	}
+	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
+		LogPrint("gas", v.Coinbase, committeeGas)
 	}
 	return nil
+}
+
+func LogPrint(info string, addr common.Address, amount *big.Int) {
+	log.Debug("[Consensus AddBalance]", "info", info, "CoinBase:", addr.String(), "amount", amount)
 }
 
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
-
-	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(header.Number)
+func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
+	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
 
 	if e != nil {
 		return e
@@ -820,6 +826,7 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
+	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
 
 	//miner fruit award
 	blockFruits := sBlock.Body().Fruits
@@ -828,7 +835,10 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
 		for _, v := range sBlock.Body().Fruits {
 			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
+			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
 		}
+	} else {
+		return consensus.ErrInvalidBlock
 	}
 
 	//committee's award
@@ -840,31 +850,39 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
 
-		addr, err := m.election.VerifySigns(signs)
-		if len(addr) != len(err) {
-			return consensus.ErrInvalidSingsLength
+		committeeMembers, errs := election.VerifySigns(signs)
+
+		if len(committeeMembers) != len(errs) {
+			return consensus.ErrInvalidSignsLength
 		}
 
 		//Effective and not evil
 		var fruitOkAddr []common.Address
-		for i := 0; i < len(addr); i++ {
-			v := addr[i]
-			if v == nil || err[i] != nil {
+		for i, cm := range committeeMembers {
+			if errs[i] != nil {
 				continue
 			}
-			if signs[i].Result == 0 {
-				if _, ok := failAddr[v.Coinbase]; !ok {
-					fruitOkAddr = append(fruitOkAddr, v.Coinbase)
+			cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
+
+			if signs[i].Result == types.VoteAgree {
+				if _, ok := failAddr[cmPubAddr]; !ok {
+					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
 				}
 			} else {
-				failAddr[v.Coinbase] = false
+				failAddr[cmPubAddr] = false
 			}
+		}
+
+		if len(fruitOkAddr) == 0 {
+			log.Error("fruitOkAddr", "Error", consensus.ErrInvalidSignsLength.Error())
+			return nil
 		}
 
 		// Equal by fruit
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
+			LogPrint("committee", v, committeeCoinFruitMember)
 		}
 	}
 
@@ -873,15 +891,15 @@ func accumulateRewardsFast(m *Minerva, state *state.StateDB, header *types.Heade
 
 //Reward for block allocation
 func getBlockReward(num *big.Int) (committee, minerBlock, minerFruit *big.Int, e error) {
-	base := new(big.Int).Div(getCurrentCoin(num), Big1e13).Int64()
+	base := new(big.Int).Div(getCurrentCoin(num), Big1e6).Int64()
 	m, c, e := getDistributionRatio(NetworkFragmentsNuber)
 	if e != nil {
 		return
 	}
 
-	committee = new(big.Int).Mul(big.NewInt(int64(c*float64(base))), Big1e13)
-	minerBlock = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/2)), Big1e13)
-	minerFruit = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/2)), Big1e13)
+	committee = new(big.Int).Mul(big.NewInt(int64(c*float64(base))), Big1e6)
+	minerBlock = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/3*2)), Big1e6)
+	minerFruit = new(big.Int).Mul(big.NewInt(int64(m*float64(base)/3)), Big1e6)
 	return
 }
 
@@ -890,28 +908,23 @@ func getDistributionRatio(fragmentation int) (miner, committee float64, e error)
 	if fragmentation <= SqrtMin {
 		return 0.8, 0.2, nil
 	}
-
 	if fragmentation >= SqrtMax {
 		return 0.2, 0.8, nil
 	}
-
-	committee, ok := SqrtMap[fragmentation]
-	if !ok {
-		return 0, 0, errors.New("SqrtMap init fail")
-	}
+	committee = SqrtArray[fragmentation]
 	return 1 - committee, committee, nil
 }
 
 func powerf(x float64, n int64) float64 {
 	if n == 0 {
 		return 1
-	} else {
-		return x * powerf(x, n-1)
 	}
+	return x * powerf(x, n-1)
 }
 
+//Get the total reward for the current block
 func getCurrentCoin(h *big.Int) *big.Int {
 	d := h.Int64() / int64(SnailBlockRewardsChangeInterval)
 	ratio := big.NewInt(int64(powerf(0.98, d) * float64(SnailBlockRewardsBase)))
-	return new(big.Int).Mul(ratio, Big1e13)
+	return new(big.Int).Mul(ratio, Big1e6)
 }

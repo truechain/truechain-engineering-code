@@ -157,6 +157,7 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 			return fmt.Errorf("interrupted")
 		}
 		missing := missingBlocks(chain, blocks[:i])
+
 		if len(missing) == 0 {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
@@ -185,6 +186,10 @@ func missingBlocks(chain *core.BlockChain, blocks []*types.Block) []*types.Block
 	}
 	return nil
 }
+
+
+
+
 
 // ExportChain exports a blockchain into the specified file, truncating any data
 // already present in the file.

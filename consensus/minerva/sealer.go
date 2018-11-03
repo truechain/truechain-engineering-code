@@ -18,7 +18,6 @@ package minerva
 
 import (
 	crand "crypto/rand"
-	"github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"math/big"
 	"math/rand"
@@ -33,11 +32,9 @@ import (
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (m *Minerva) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
-	return nil, nil
-}
-func (m *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error) {
+func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error) {
 	// If we're running a fake PoW, simply return a 0 nonce immediately
+	log.Debug("? in Seal ?   ")
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
 		header.Nonce, header.MixDigest = types.BlockNonce{}, common.Hash{}
@@ -45,7 +42,7 @@ func (m *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.Snail
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if m.shared != nil {
-		return m.shared.SealSnail(chain, block, stop)
+		return m.shared.Seal(chain, block, stop)
 	}
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
@@ -92,19 +89,17 @@ func (m *Minerva) SealSnail(chain consensus.SnailChainReader, block *types.Snail
 		// Thread count was changed on user request, restart
 		close(abort)
 		pend.Wait()
-		return m.SealSnail(chain, block, stop)
+		return m.Seal(chain, block, stop)
 	}
 	// Wait for all miners to terminate and return the block
 	pend.Wait()
 	return result, nil
 }
 
-// Seal implements consensus.Engine, attempting to find a nonce that satisfies
+// ConSeal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
-func (m *Minerva) ConSeal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}, send chan *types.Block) {
-	//return nil,nil
-}
-func (m *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
+func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
+	log.Debug(" +++++++++get in Conseal ", "fb number", block.FastNumber(), "threads", m.threads)
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -114,8 +109,9 @@ func (m *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.Sn
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if m.shared != nil {
-		m.shared.ConSnailSeal(chain, block, stop, send)
+		m.shared.ConSeal(chain, block, stop, send)
 	}
+
 	// Create a runner and the multiple search threads it directs
 	abort := make(chan struct{})
 	found := make(chan *types.SnailBlock)
@@ -133,10 +129,18 @@ func (m *Minerva) ConSnailSeal(chain consensus.SnailChainReader, block *types.Sn
 	}
 	m.lock.Unlock()
 	if threads == 0 {
-		threads = runtime.NumCPU()
+		cpuNumber := runtime.NumCPU()
+		log.Info("Seal get cpu number", "number", cpuNumber)
+
+		// remain one cpu to process fast block
+		threads = cpuNumber - 1
+		if threads <= 0 {
+			threads = 1
+		}
 	}
 	if threads < 0 {
 		threads = 0 // Allows disabling local mining without extra logic around local/remote
+		//log.Error("Stop mining for CPU number less than 2 or set threads number error.")
 	}
 	var pend sync.WaitGroup
 	for i := 0; i < threads; i++ {
@@ -161,15 +165,15 @@ mineloop:
 			// One of the threads found a block or fruit return it
 			send <- result
 			// TODO snail need a flag to distinguish furit and block
-			
-			if block.Fruits() != nil{
+
+			if block.Fruits() != nil {
 				if !result.IsFruit() {
 					// stop threads when get a block, wait for outside abort when result is fruit
 					close(abort)
 					pend.Wait()
 					break mineloop
 				}
-			}else{
+			} else {
 				close(abort)
 				pend.Wait()
 				break mineloop
@@ -180,7 +184,7 @@ mineloop:
 			// Thread count was changed on user request, restart
 			close(abort)
 			pend.Wait()
-			m.ConSnailSeal(chain, block, stop, send)
+			m.ConSeal(chain, block, stop, send)
 			break mineloop
 		}
 	}
@@ -190,110 +194,27 @@ mineloop:
 	//return result, nil
 }
 
-// mine is the actual proof-of-work miner that searches for a nonce starting from
-// seed that results in correct final block difficulty.
-func (m *Minerva) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
-	// backup
-	/*
-		// Extract some data from the header
-		var (
-			header          = block.Header()
-			hash            = header.HashNoNonce().Bytes()
-			target          = new(big.Int).Div(maxUint256, header.Difficulty)
-			fruitDifficulty = new(big.Int).Div(header.Difficulty, FruitBlockRatio)
-			fruitTarget     = new(big.Int).Div(maxUint128, fruitDifficulty)
-			number          = header.Number.Uint64()
-			dataset         = m.dataset(number)
-		)
-		// Start generating random nonces until we abort or find a good one
-		var (
-			attempts = int64(0)
-			nonce    = seed
-		)
-		logger := log.New("miner", id)
-		logger.Trace("Started ethash search for new nonces", "seed", seed)
-	search:
-		for {
-			select {
-			case <-abort:
-				// Mining terminated, update stats and abort
-				logger.Trace("Ethash nonce search aborted", "attempts", nonce-seed)
-				ethash.hashrate.Mark(attempts)
-				break search
-
-			default:
-				// We don't have to update hash rate on every nonce, so update after after 2^X nonces
-				attempts++
-				if (attempts % (1 << 15)) == 0 {
-					ethash.hashrate.Mark(attempts)
-					attempts = 0
-				}
-				// Compute the PoW value of this nonce
-				digest, result := hashimotoFull(dataset.dataset, hash, nonce)
-				if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
-					// Correct nonce found, create a new header with it
-					header = types.CopyHeader(header)
-					header.Nonce = types.EncodeNonce(nonce)
-					header.MixDigest = common.BytesToHash(digest)
-					header.Fruit = false
-
-					// Seal and return a block (if still needed)
-					select {
-					case found <- block.WithSeal(header):
-						logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
-					case <-abort:
-						logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
-					}
-					break search
-				} else {
-					lastResult := result[16:]
-					if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
-						// last 128 bit < Dpf, get a fruit
-						header = types.CopyHeader(header)
-						header.Nonce = types.EncodeNonce(nonce)
-						header.MixDigest = common.BytesToHash(digest)
-						header.Fruit = true
-
-						// Seal and return a block (if still needed)
-						select {
-						case found <- block.WithSeal(header):
-							logger.Trace("IsFruit nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
-						case <-abort:
-							logger.Trace("IsFruit nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
-						}
-					}
-				}
-				nonce++
-			}
-		}
-		// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
-		// during sealing so it's not unmapped while being read.
-		runtime.KeepAlive(dataset)
-	*/
-}
 func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort chan struct{}, found chan *types.SnailBlock) {
 	// Extract some data from the header
 	var (
-		header          = block.Header()
-		hash            = header.HashNoNonce().Bytes()
-		target          = new(big.Int).Div(maxUint256, header.Difficulty)
+		header      = block.Header()
+		hash        = header.HashNoNonce().Bytes()
+		target      = new(big.Int).Div(maxUint128, header.Difficulty)
+		fruitTarget = new(big.Int).Div(maxUint128, header.FruitDifficulty)
 
-		number          = header.Number.Uint64()
-		dataset         = m.dataset(number)
+		dataset = m.getDataset(block.Number().Uint64())
 	)
-	fruitDifficulty := new(big.Int).Div(header.Difficulty, FruitBlockRatio)
 
-	if fruitDifficulty.Cmp(params.MinimumFruitDifficulty) < 0 {
-		fruitDifficulty.Set(params.MinimumFruitDifficulty)
-	}
-	fruitTarget     := new(big.Int).Div(maxUint128, fruitDifficulty)
+	//m.CheckDataSetState(block.Number().Uint64())
+
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
-	logger.Trace("Started ethash search for new nonces", "seed", seed)
+	log.Trace("mineSnail", "miner", id, "block num", block.Number(), "fb num", block.FastNumber())
+	logger.Trace("Started truehash search for new nonces", "seed", seed)
 search:
 	for {
 		select {
@@ -311,11 +232,12 @@ search:
 				attempts = 0
 			}
 			// Compute the PoW value of this nonce
-			digest, result := hashimotoFull(dataset.dataset, hash, nonce)
+			digest, result := truehashFull(dataset.dataset, hash, nonce)
 
-			if new(big.Int).SetBytes(result).Cmp(target) <= 0 {
+			headResult := result[:16]
+			if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
-				if block.Fruits() != nil{
+				if block.Fruits() != nil {
 					header = types.CopySnailHeader(header)
 					header.Nonce = types.EncodeNonce(nonce)
 					header.MixDigest = common.BytesToHash(digest)
@@ -325,16 +247,16 @@ search:
 					// Seal and return a block (if still needed)
 					select {
 					case found <- block.WithSeal(header):
-						logger.Trace("Ethash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
+						logger.Trace("Truehash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 					case <-abort:
-						logger.Trace("Ethash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
+						logger.Trace("Truehash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
 					}
 					break search
 				}
-				
+
 			} else {
 				lastResult := result[16:]
-				if header.FastNumber.Uint64() !=0 {
+				if header.FastNumber.Uint64() != 0 {
 					if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
 						// last 128 bit < Dpf, get a fruit
 						header = types.CopySnailHeader(header)
@@ -342,7 +264,7 @@ search:
 						header.MixDigest = common.BytesToHash(digest)
 						//TODO need add fruit flow
 						header.Fruit = true
-
+						log.Debug("sealer mineSnail", "miner fruit fb", header.Number)
 						// Seal and return a block (if still needed)
 						select {
 						case found <- block.WithSeal(header):
@@ -358,5 +280,86 @@ search:
 	}
 	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
 	// during sealing so it's not unmapped while being read.
-	runtime.KeepAlive(dataset)
+	//runtime.KeepAlive(dataset)
+}
+
+func (m *Minerva) truehashTableInit(tableLookup []uint64) {
+
+	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
+
+	for k := 0; k < TBLSIZE; k++ {
+		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
+		}
+		//fmt.Printf("%d,", k+1)
+	}
+	genLookupTable(tableLookup[:], table[:])
+	//trueInit = 1
+}
+
+func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, []uint64) {
+
+	const offset_cnst = 0x1f
+	const skip_cnst = 0x3
+	var offset [32768]int
+	var skip [32768]int
+
+	cur_block_num := blockNum
+	res := cur_block_num % UPDATABLOCKLENGTH
+	sblockchain := m.sbc
+	//current block number is invaild
+
+	if res <= STARTUPDATENUM {
+		return false, nil
+	}
+	var st_block_num uint64 = uint64(cur_block_num - res)
+
+	for i := 0; i < 8192; i++ {
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
+		val := header.Hash().Bytes()
+		offset[i*4] = (int(val[0]) & offset_cnst) - 16
+		offset[i*4+1] = (int(val[1]) & offset_cnst) - 16
+		offset[i*4+2] = (int(val[2]) & offset_cnst) - 16
+		offset[i*4+3] = (int(val[3]) & offset_cnst) - 16
+	}
+
+	for i := 0; i < 2048; i++ {
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(8192))
+		val := header.Hash().Bytes()
+		for k := 0; k < 16; k++ {
+			skip[i*16+k] = (int(val[k]) & skip_cnst) + 1
+		}
+	}
+
+	ds := m.UpdateTBL(offset, skip, plookup_tbl)
+
+	return true, ds
+}
+
+func (m *Minerva) UpdateTBL(offset [32768]int, skip [32768]int, plookup_tbl []uint64) []uint64 {
+
+	lktWz := uint32(DATALENGTH / 64)
+	lktSz := uint32(DATALENGTH) * lktWz
+
+	for k := 0; k < TBLSIZE; k++ {
+
+		plkt := uint32(k) * lktSz
+
+		for x := 0; x < DATALENGTH; x++ {
+			idx := k*DATALENGTH + x
+			pos := offset[idx] + x
+			sk := skip[idx]
+			pos0 := pos - sk*PMTSIZE
+			pos1 := pos + sk*PMTSIZE
+			for y := pos0; y < pos1; y += sk {
+				if y >= 0 && y < 2048 {
+					vI := uint32(y / 64)
+					vR := uint32(y % 64)
+					plookup_tbl[plkt+vI] |= 1 << vR
+				}
+			}
+			plkt += lktWz
+		}
+	}
+	return plookup_tbl
 }

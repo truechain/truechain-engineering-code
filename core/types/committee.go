@@ -1,24 +1,27 @@
 package types
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"encoding/binary"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/crypto"
-	"log"
-	"math/big"
-	"time"
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"math/big"
+	"time"
 )
 
 const (
 	CommitteeStart      = iota // start pbft consensus
 	CommitteeStop              // stop pbft consensus
 	CommitteeSwitchover        //switch pbft committee
+	CommitteeOver              // notify current pbft committee end block
+)
+
+const (
+	VoteAgreeAgainst = iota //vote against
+	VoteAgree               //vote  agree
 )
 
 type CommitteeMembers []*CommitteeMember
@@ -53,6 +56,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 type CommitteeNode struct {
 	IP        string
 	Port      uint
+	Port2     uint
 	Coinbase  common.Address
 	Publickey []byte
 }
@@ -67,9 +71,9 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock() (*Block, error)
-	VerifyFastBlock(*Block) error
-	BroadcastFastBlock(*Block) error
+	FetchFastBlock(committeeId *big.Int) (*Block, error)
+	VerifyFastBlock(*Block) (*PbftSign, error)
+	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 }
 
@@ -77,30 +81,8 @@ type PbftServerProxy interface {
 	PutCommittee(committeeInfo *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
-}
-
-/*func (voteSign *PbftSign) PrepareData() []byte {
-	result,_ :=rlp.EncodeToBytes(voteSign.Result)
-	height,_ :=rlp.EncodeToBytes(voteSign.FastHeight)
-	data := bytes.Join(
-		[][]byte{
-			voteSign.FastHash[:],
-			result,
-			height,
-		},
-		[]byte{},
-	)
-	return data
-}*/
-
-// IntToHex converts an int64 to a byte array
-func IntToHex(num interface{}) []byte {
-	buff := new(bytes.Buffer)
-	err := binary.Write(buff, binary.BigEndian, num)
-	if err != nil {
-		log.Panic(err)
-	}
-	return buff.Bytes()
+	SetCommitteeStop(committeeId *big.Int, stop uint64) error
+	GetCommitteeStatus(committeeID *big.Int) map[string]interface{}
 }
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
@@ -126,14 +108,21 @@ type CommitteeInfo struct {
 type EncryptCommitteeNode []byte
 type Sign []byte
 
-type EncrptoNodeMessage struct {
+type EncryptNodeMessage struct {
 	CreatedAt   time.Time
 	CommitteeId *big.Int
 	Nodes       []EncryptCommitteeNode
-	Sign //sign msg
+	Sign        //sign msg
 }
 
-func (c *EncrptoNodeMessage) Hash() common.Hash {
+func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
+	return RlpHash([]interface{}{
+		c.Nodes,
+		c.CommitteeId,
+	})
+}
+
+func (c *EncryptNodeMessage) Hash() common.Hash {
 	return RlpHash(c)
 }
 

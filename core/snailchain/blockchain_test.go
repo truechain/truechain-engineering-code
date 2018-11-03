@@ -18,19 +18,19 @@ package snailchain
 
 import (
 	"fmt"
-	"math/big"
-	"math/rand"
-	"sync"
-	"testing"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"math/big"
+	"math/rand"
+	"sync"
+	"testing"
 )
 
 // So we can deterministically seed different blockchains
@@ -146,7 +146,7 @@ func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) 
 			return err
 		}
 		blockchain.mu.Lock()
-		rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
+		rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(blockchain.GetBlockDifficulty(block), blockchain.GetTdByHash(block.ParentHash())))
 		rawdb.WriteBlock(blockchain.db, block)
 		blockchain.mu.Unlock()
 	}
@@ -423,7 +423,7 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 		}
 	}
 	// Make sure the chain total difficulty is the correct one
-	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
+	want := new(big.Int).Add(blockchain.GetBlockDifficulty(blockchain.genesisBlock), big.NewInt(td))
 	if full {
 		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
@@ -1104,9 +1104,6 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 		gspec   = &Genesis{
 			Config: &params.ChainConfig{
 				ChainID:        big.NewInt(1),
-				HomesteadBlock: new(big.Int),
-				EIP155Block:    new(big.Int),
-				EIP158Block:    big.NewInt(2),
 			},
 			//Alloc: GenesisAlloc{address: {Balance: funds}},
 		}
@@ -1289,13 +1286,13 @@ func TestLargeReorgTrieGC(t *testing.T) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (
-		signer          = types.HomesteadSigner{}
-		testBankKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		signer         = types.HomesteadSigner{}
+		testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		//testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
 		//bankFunds       = big.NewInt(100000000000000000)
-		gspec           = Genesis{
+		gspec = Genesis{
 			Config: params.TestChainConfig,
-		/*	Alloc: GenesisAlloc{
+			/*	Alloc: GenesisAlloc{
 				testBankAddress: {Balance: bankFunds},
 				common.HexToAddress("0xc0de"): {
 					Code:    []byte{0x60, 0x01, 0x50},

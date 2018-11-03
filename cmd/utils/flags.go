@@ -19,6 +19,7 @@ package utils
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -34,9 +35,13 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/fdlimit"
 	"github.com/truechain/truechain-engineering-code/consensus"
+
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
+	"bytes"
+
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -53,13 +58,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
-	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"github.com/truechain/truechain-engineering-code/p2p/nat"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 	"github.com/truechain/truechain-engineering-code/params"
 	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
-	"encoding/hex"
 )
 
 var (
@@ -168,24 +171,40 @@ var (
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}
 	SingleNodeFlag = cli.BoolFlag{
-		Name: "singlenode",
+		Name:  "singlenode",
 		Usage: "sing node model",
 	}
-	BFTPortFlag = cli.IntFlag{
-		Name: "bftport",
+	MineFruitFlag = cli.BoolFlag{
+		Name:  "minefruit",
+		Usage: "only mine fruit",
+	}
+	EnableElectionFlag = cli.BoolFlag{
+		Name:  "election",
+		Usage: "enable election",
+	}
+	BFTPortFlag = cli.Uint64Flag{
+		Name:  "bftport",
 		Usage: "committee node port ",
-		Value:	10080,
+		//Value: 10080,
+	}
+	BFTStandByPortFlag = cli.Uint64Flag{
+		Name:  "bftport2",
+		Usage: "committee node standBy port ",
+		//Value: 10090,
 	}
 	BFTIPFlag = cli.StringFlag{
-		Name: "bftip",
+		Name:  "bftip",
 		Usage: "committee node ip",
 		//Value: "127.0.0.1",
 	}
-	CommitteeKeyFlag = cli.StringFlag{
-		Name: "bftkey",
-		Usage: "generate privatekey.",
+	BftKeyFileFlag = cli.StringFlag{
+		Name:  "bftkey",
+		Usage: "committee generate privatekey",
 	}
-
+	BftKeyHexFlag = cli.StringFlag{
+		Name:  "bftkeyhex",
+		Usage: "committee generate privatekey as hex (for testing)",
+	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
@@ -312,6 +331,22 @@ var (
 		Usage: "Maximum amount of time non-executable transaction are queued",
 		Value: etrue.DefaultConfig.TxPool.Lifetime,
 	}
+	//snail pool settings
+	SnailPoolJournalFlag = cli.StringFlag{
+		Name:  "fruitpool.journal",
+		Usage: "Disk journal for local fruit to survive node restarts",
+		Value: core.DefaultSnailPoolConfig.Journal,
+	}
+	SnailPoolRejournalFlag = cli.DurationFlag{
+		Name:  "fruitpool.rejournal",
+		Usage: "Time interval to regenerate the local fruit journal",
+		Value: core.DefaultSnailPoolConfig.Rejournal,
+	}
+	SnailPoolFruitCountFlag = cli.Uint64Flag{
+		Name:  "fruitpool.count",
+		Usage: "Maximum amount of fruits in fruitPending",
+		Value: core.DefaultSnailPoolConfig.FruitCount,
+	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -341,7 +376,7 @@ var (
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
 		Usage: "Number of CPU threads to use for mining",
-		Value: runtime.NumCPU(),
+		Value: runtime.NumCPU() - 1,
 	}
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
@@ -350,6 +385,11 @@ var (
 	}
 	EtherbaseFlag = cli.StringFlag{
 		Name:  "etherbase",
+		Usage: "Public address for block mining rewards (default = first account created)",
+		Value: "0",
+	}
+	CoinbaseFlag = cli.StringFlag{
+		Name:  "coinbase",
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
@@ -476,7 +516,7 @@ var (
 	ListenPortFlag = cli.IntFlag{
 		Name:  "port",
 		Usage: "Network listening port",
-		Value: 30303,
+		Value: 30313,
 	}
 	BootnodesFlag = cli.StringFlag{
 		Name:  "bootnodes",
@@ -590,8 +630,6 @@ var (
 		Usage: "InfluxDB `host` tag attached to all measurements",
 		Value: "localhost",
 	}
-
-
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -637,6 +675,30 @@ func setNodeKey(ctx *cli.Context, cfg *p2p.Config) {
 	}
 }
 
+func setBftCommitteeKey(ctx *cli.Context, cfg *etrue.Config) {
+	var (
+		hex  = ctx.GlobalString(BftKeyHexFlag.Name)
+		file = ctx.GlobalString(BftKeyFileFlag.Name)
+		key  *ecdsa.PrivateKey
+		err  error
+	)
+	log.Debug("", "file:", file, "hex:", hex)
+	switch {
+	case file != "" && hex != "":
+		Fatalf("Options %q and %q are mutually exclusive", BftKeyFileFlag.Name, BftKeyHexFlag.Name)
+	case file != "":
+		if key, err = crypto.LoadECDSA(file); err != nil {
+			Fatalf("Option %q: %v", BftKeyFileFlag.Name, err)
+		}
+		cfg.PrivateKey = key
+	case hex != "":
+		if key, err = crypto.HexToECDSA(hex); err != nil {
+			Fatalf("Option %q: %v", BftKeyHexFlag.Name, err)
+		}
+		cfg.PrivateKey = key
+	}
+}
+
 // setNodeUserIdent creates the user identifier from CLI flags.
 func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 	if identity := ctx.GlobalString(IdentityFlag.Name); len(identity) > 0 {
@@ -671,34 +733,6 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 			continue
 		}
 		cfg.BootstrapNodes = append(cfg.BootstrapNodes, node)
-	}
-}
-
-// setBootstrapNodesV5 creates a list of bootstrap nodes from the command line
-// flags, reverting to pre-configured ones if none have been specified.
-func setBootstrapNodesV5(ctx *cli.Context, cfg *p2p.Config) {
-	urls := params.DiscoveryV5Bootnodes
-	switch {
-	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV5Flag.Name):
-		if ctx.GlobalIsSet(BootnodesV5Flag.Name) {
-			urls = strings.Split(ctx.GlobalString(BootnodesV5Flag.Name), ",")
-		} else {
-			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
-		}
-	case ctx.GlobalBool(RinkebyFlag.Name):
-		urls = params.RinkebyBootnodes
-	case cfg.BootstrapNodesV5 != nil:
-		return // already set, don't apply defaults.
-	}
-
-	cfg.BootstrapNodesV5 = make([]*discv5.Node, 0, len(urls))
-	for _, url := range urls {
-		node, err := discv5.ParseNode(url)
-		if err != nil {
-			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
-			continue
-		}
-		cfg.BootstrapNodesV5 = append(cfg.BootstrapNodesV5, node)
 	}
 }
 
@@ -840,6 +874,12 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *etrue.Config) {
 			Fatalf("Option %q: %v", EtherbaseFlag.Name, err)
 		}
 		cfg.Etherbase = account.Address
+	} else if ctx.GlobalIsSet(CoinbaseFlag.Name) {
+		account, err := MakeAddress(ks, ctx.GlobalString(CoinbaseFlag.Name))
+		if err != nil {
+			Fatalf("Option %q: %v", CoinbaseFlag.Name, err)
+		}
+		cfg.Etherbase = account.Address
 	}
 }
 
@@ -866,7 +906,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 	setNAT(ctx, cfg)
 	setListenAddress(ctx, cfg)
 	setBootstrapNodes(ctx, cfg)
-	setBootstrapNodesV5(ctx, cfg)
+	//setBootstrapNodesV5(ctx, cfg)
 
 	lightClient := ctx.GlobalBool(LightModeFlag.Name) || ctx.GlobalString(SyncModeFlag.Name) == "light"
 	lightServer := ctx.GlobalInt(LightServFlag.Name) != 0
@@ -947,7 +987,6 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 		cfg.DataDir = filepath.Join(node.DefaultDataDir(), "rinkeby")
 	}
 
-
 	if ctx.GlobalIsSet(KeyStoreDirFlag.Name) {
 		cfg.KeyStoreDir = ctx.GlobalString(KeyStoreDirFlag.Name)
 	}
@@ -1022,6 +1061,19 @@ func setEthash(ctx *cli.Context, cfg *etrue.Config) {
 	}
 }
 
+func setSnailPool(ctx *cli.Context, cfg *core.SnailPoolConfig) {
+	if ctx.GlobalIsSet(SnailPoolJournalFlag.Name) {
+		cfg.Journal = ctx.GlobalString(SnailPoolJournalFlag.Name)
+	}
+	if ctx.GlobalIsSet(SnailPoolRejournalFlag.Name) {
+		cfg.Rejournal = ctx.GlobalDuration(SnailPoolRejournalFlag.Name)
+	}
+	if ctx.GlobalIsSet(SnailPoolFruitCountFlag.Name) {
+		cfg.FruitCount = ctx.GlobalUint64(SnailPoolFruitCountFlag.Name)
+	}
+
+}
+
 // checkExclusive verifies that only a single isntance of the provided flags was
 // set by the user. Each flag might optionally be followed by a string type to
 // specialize it further.
@@ -1070,8 +1122,8 @@ func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
 	}
 }
 
-// SetEthConfig applies etrue-related command line flags to the config.
-func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
+// SetTruechainConfig applies etrue-related command line flags to the config.
+func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
 	checkExclusive(ctx, DeveloperFlag, TestnetFlag, RinkebyFlag)
 	checkExclusive(ctx, FastSyncFlag, LightModeFlag, SyncModeFlag)
@@ -1083,16 +1135,16 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
-
-	switch {
+	setSnailPool(ctx, &cfg.SnailPool)
+	/*switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	case ctx.GlobalBool(FastSyncFlag.Name):
 		cfg.SyncMode = downloader.FastSync
 	case ctx.GlobalBool(LightModeFlag.Name):
 		cfg.SyncMode = downloader.LightSync
+	}*/
 
-	}
 	if ctx.GlobalIsSet(LightServFlag.Name) {
 		cfg.LightServ = ctx.GlobalInt(LightServFlag.Name)
 	}
@@ -1103,24 +1155,51 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.NetworkId = ctx.GlobalUint64(NetworkIdFlag.Name)
 	}
 
+	if ctx.GlobalBool(MineFruitFlag.Name) {
+		cfg.MineFruit = true
+	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
-	}
-	if ctx.GlobalIsSet(BFTPortFlag.Name) {
-		cfg.Port = ctx.GlobalInt(BFTPortFlag.Name)
 	}
 	if ctx.GlobalIsSet(BFTIPFlag.Name) {
 		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
 	}
-	if ctx.GlobalIsSet(CommitteeKeyFlag.Name) {
-		var err error
-		key :=ctx.GlobalString(CommitteeKeyFlag.Name)
-		fmt.Println("key:",key)
-		cfg.CommitteeKey,err= hex.DecodeString(key)
-		if err != nil{
-			log.Info(" CommitteeKeyFlag DecodeString error ")
+	if ctx.GlobalIsSet(BFTPortFlag.Name) {
+		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
+	}
+	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
+		cfg.StandByPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
+	}
+
+	//set PrivateKey by config,file or hex
+	setBftCommitteeKey(ctx, cfg)
+	if cfg.PrivateKey == nil {
+		//set PrivateKey by default file
+		cfg.PrivateKey = stack.Config().BftCommitteeKey()
+	}
+	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
+	if bytes.Equal(cfg.CommitteeKey, []byte{}) {
+		Fatalf("init load CommitteeKey  nil.")
+	}
+	if ctx.GlobalBool(EnableElectionFlag.Name) {
+		cfg.EnableElection = true
+	}
+	if cfg.EnableElection && !cfg.NodeType {
+		if cfg.Host == "" {
+			Fatalf("election set true,Option %q  must be exist.", BFTIPFlag.Name)
+		}
+		if cfg.Port == 0 {
+			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
+		}
+		if cfg.StandByPort == 0 {
+			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
+		}
+		if cfg.Port == cfg.StandByPort {
+			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name, BFTStandByPortFlag.Name)
 		}
 	}
+	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
+		"ip", cfg.Host, "port", cfg.Port, "election", cfg.EnableElection, "singlenode", cfg.NodeType)
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheDatabaseFlag.Name) {
 		cfg.DatabaseCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
@@ -1156,12 +1235,12 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	switch {
 	case ctx.GlobalBool(TestnetFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 3
+			cfg.NetworkId = 18928
 		}
 		cfg.Genesis = core.DefaultTestnetGenesisBlock()
 	case ctx.GlobalBool(RinkebyFlag.Name):
 		if !ctx.GlobalIsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 4
+			cfg.NetworkId = 100
 		}
 		cfg.Genesis = core.DefaultRinkebyGenesisBlock()
 	case ctx.GlobalBool(DeveloperFlag.Name):
@@ -1195,6 +1274,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if gen := ctx.GlobalInt(TrieCacheGenFlag.Name); gen > 0 {
 		state.MaxTrieCacheGen = uint16(gen)
 	}
+	log.Info("", "cfg.SyncMode", cfg.SyncMode)
 }
 
 // SetDashboardConfig applies dashboard related command line flags to the config.
@@ -1317,31 +1397,34 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chainDb ethdb.Database) {
+func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, schain *snailchain.SnailBlockChain, chainDb ethdb.Database) {
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
-	config, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+	config, _, err, _, _, snailErr := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
 	if err != nil {
 		Fatalf("%v", err)
 	}
-	var engine consensus.Engine
-	if config.Clique != nil {
-		//TODO not need clique
-		//engine = clique.New(config.Clique, chainDb)
-	} else {
-		engine = ethash.NewFaker()
-		if !ctx.GlobalBool(FakePoWFlag.Name) {
-			engine = ethash.New(ethash.Config{
-				CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
-				CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
-				CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
-				DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
-				DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
-				DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
-			})
-		}
+	if snailErr != nil {
+		Fatalf("%v", snailErr)
 	}
+	var engine consensus.Engine
+	// if config.Clique != nil {
+	// 	//TODO not need clique
+	// 	//engine = clique.New(config.Clique, chainDb)
+	// } else {
+	engine = ethash.NewFaker()
+	if !ctx.GlobalBool(FakePoWFlag.Name) {
+		engine = ethash.New(ethash.Config{
+			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
+			CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
+			CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
+			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
+			DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
+			DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
+		})
+	}
+	// }
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
@@ -1350,15 +1433,24 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
 		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
+	scache := &snailchain.CacheConfig{
+		Disabled:      ctx.GlobalString(GCModeFlag.Name) == "archive",
+		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	}
+
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
-	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+
+	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, scache, config, engine, vmcfg)
+
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
-	return chain, chainDb
+	return fchain, schain, chainDb
 }
 
 // MakeConsolePreloads retrieves the absolute paths for the console JavaScript

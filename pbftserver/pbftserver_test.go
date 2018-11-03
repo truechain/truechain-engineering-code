@@ -7,16 +7,19 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"math/big"
 	"math/rand"
+	"sync"
 	"testing"
+	"time"
 )
 
 /*
 type PbftAgentProxy interface {
 	FetchFastBlock() (*FastBlock, error)
 	VerifyFastBlock(*FastBlock) error
-	BroadcastFastBlock(*FastBlock) error
+	BroadcastFastBlock(*FastBlock)
 	BroadcastSign(sign *PbftSign,block *FastBlock) error
 }
 */
@@ -30,30 +33,39 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 	return &pap
 }
 
-var ID = big.NewInt(0)
+var ID = big.NewInt(1)
 
 func getID() *big.Int {
 	ID = new(big.Int).Add(ID, big.NewInt(1))
 	return ID
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock() (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getID()
+	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	return types.NewBlock(header, nil, nil, nil), nil
+	if rand.Intn(100) > 90 {
+		return types.NewBlock(header, nil, nil, nil), nil
+	} else {
+		ID = new(big.Int).Add(ID, big.NewInt(-1))
+		return nil, types.ErrSnailBlockTooSlow
+	}
+
 }
-func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) error {
-	//if rand.Intn(100) > 30 {
+func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
+	//if rand.Intn(100) > 50 {
+	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
+	s := new(types.PbftSign)
+	s.Result = 1
+	return s, nil
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) error {
+func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
 	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil
 }
 
 func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {
@@ -140,33 +152,87 @@ func addServer2(id int, agent *PbftAgentProxyImp) *PbftServerMgr {
 	return NewPbftServerMgr(pk, priv, agent)
 }
 
+type Node struct {
+	lock sync.Mutex
+	Data map[int]int
+}
+
 func TestPbftServerTemp(t *testing.T) {
-	for {
-		fmt.Println(rand.Intn(100) > 70)
-
-	}
-
-	a := 0
-	for i := 49; i >= 0; i-- {
-		a += i
-	}
+	var a map[string]interface{}
+	a = make(map[string]interface{}, 0)
+	a["1"] = 1
 	fmt.Println(a)
 	return
 
-	s := []int{1, 2, 3}
-
-	fmt.Println(s[1:])
-
-	for i := len(s) - 1; i >= 0; i-- {
-		if i != 0 {
-			z := append(s[:i], s[i+1:]...)
-			fmt.Println(i, z)
-		} else {
-			z := s[1:]
-			fmt.Println(i, z)
+	n := &Node{Data: make(map[int]int)}
+	n.Data[1] = 1
+	go func() {
+		for i := 0; i < 10000; i++ {
+			n.lock.Lock()
+			fmt.Println(fmt.Sprintf("%p", &n.lock))
+			n.Data[i] = i
+			n.lock.Unlock()
 		}
+	}()
 
+	go func() {
+		for i := 0; i < 10000; i++ {
+			n.lock.Lock()
+			fmt.Println(fmt.Sprintf("%p", &n.lock))
+			n.Data[i] = i
+			n.lock.Unlock()
+		}
+	}()
+
+	go func() {
+		for i := 0; i < 10000; i++ {
+			n.lock.Lock()
+			for _, v := range n.Data {
+				fmt.Println(v)
+			}
+			n.lock.Unlock()
+		}
+	}()
+
+	for i := 0; i < 10000; i++ {
+		n.lock.Lock()
+		c := n.Data[i]
+		fmt.Println(fmt.Sprintf("%p", &n.lock), c)
+		n.lock.Unlock()
 	}
+
+	return
+
+	d := make(chan int)
+
+	msg := &consensus.MsgLogs{}
+
+	msg.SetCommitMsgs("1", nil)
+	msg.SetCommitMsgs("2", nil)
+	msg.SetCommitMsgs("3", nil)
+	msg.SetCommitMsgs("4", nil)
+	msg.SetCommitMsgs("5", nil)
+	msg.SetCommitMsgs("6", nil)
+
+	go func() {
+		for {
+			msg.GetCommitOne()
+			time.Sleep(time.Millisecond * 50)
+		}
+	}()
+
+	go func() {
+		for {
+			msg.SetCommitMsgs("1", nil)
+			msg.SetCommitMsgs("2", nil)
+			msg.SetCommitMsgs("3", nil)
+			msg.SetCommitMsgs("4", nil)
+			msg.SetCommitMsgs("5", nil)
+			msg.SetCommitMsgs("6", nil)
+		}
+	}()
+
+	<-d
 }
 
 func TestPbftServerStart(t *testing.T) {
@@ -203,21 +269,25 @@ func TestPbftServerStart(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	node4 := new(types.CommitteeNode)
 	node4.IP = "127.0.0.1"
 	node4.Port = 10014
+	node4.Port2 = 10024
 	node4.Publickey = crypto.FromECDSAPub(m4.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -278,6 +348,69 @@ func TestPbftServerStart3(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10012
+	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
+
+	node2 := new(types.CommitteeNode)
+	node2.IP = "127.0.0.1"
+	node2.Port = 10021
+	node2.Port2 = 10022
+	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
+
+	node3 := new(types.CommitteeNode)
+	node3.IP = "127.0.0.1"
+	node3.Port = 10031
+	node3.Port2 = 10032
+	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
+
+	var nodes []*types.CommitteeNode
+	nodes = append(nodes, node1, node2, node3)
+
+	ser1.PutCommittee(c1)
+	ser1.PutNodes(c1.Id, nodes)
+	go ser1.Notify(c1.Id, 0)
+
+	ser2.PutCommittee(c1)
+	ser2.PutNodes(c1.Id, nodes)
+	go ser2.Notify(c1.Id, 0)
+
+	ser3.PutCommittee(c1)
+	ser3.PutNodes(c1.Id, nodes)
+	go ser3.Notify(c1.Id, 0)
+
+	<-start
+}
+
+func TestPbftServerStartChange3(t *testing.T) {
+	start := make(chan bool)
+
+	pa1 := NewPbftAgent("Agent1")
+	pa2 := NewPbftAgent("Agent2")
+	pa3 := NewPbftAgent("Agent3")
+
+	ser1 := addServer(pa1)
+	ser2 := addServer(pa2)
+	ser3 := addServer(pa3)
+
+	fmt.Println(ser1, ser2, ser3)
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = ser1.pk
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = ser2.pk
+	m3 := new(types.CommitteeMember)
+	m3.Publickey = ser3.pk
+
+	c1.Members = append(c1.Members, m1, m2, m3)
+
+	ser1.PutCommittee(c1)
+
+	node1 := new(types.CommitteeNode)
+	node1.IP = "127.0.0.1"
+	node1.Port = 10011
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
@@ -305,6 +438,28 @@ func TestPbftServerStart3(t *testing.T) {
 	ser3.PutNodes(c1.Id, nodes)
 	go ser3.Notify(c1.Id, 0)
 
+	time.Sleep(time.Second * 32)
+	ser1.Notify(c1.Id, 1)
+	ser2.Notify(c1.Id, 1)
+	ser3.Notify(c1.Id, 1)
+
+	time.Sleep(time.Second * 30)
+
+	c2 := new(types.CommitteeInfo)
+	c2.Id = big.NewInt(2)
+	c2.Members = append(c2.Members, m2, m1, m3)
+
+	ser1.PutCommittee(c2)
+	ser2.PutCommittee(c2)
+	ser3.PutCommittee(c2)
+	time.Sleep(time.Second * 5)
+	ser1.PutNodes(c2.Id, nodes)
+	ser2.PutNodes(c2.Id, nodes)
+	ser3.PutNodes(c2.Id, nodes)
+
+	ser1.Notify(c2.Id, 0)
+	ser2.Notify(c2.Id, 0)
+	ser3.Notify(c2.Id, 0)
 	<-start
 }
 
@@ -668,16 +823,19 @@ func TestPbftServerStart31(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -734,16 +892,19 @@ func TestPbftServerStart32(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode
@@ -804,16 +965,19 @@ func TestPbftServerStart33(t *testing.T) {
 	node1 := new(types.CommitteeNode)
 	node1.IP = "127.0.0.1"
 	node1.Port = 10011
+	node1.Port2 = 10021
 	node1.Publickey = crypto.FromECDSAPub(m1.Publickey)
 
 	node2 := new(types.CommitteeNode)
 	node2.IP = "127.0.0.1"
 	node2.Port = 10012
+	node2.Port2 = 10022
 	node2.Publickey = crypto.FromECDSAPub(m2.Publickey)
 
 	node3 := new(types.CommitteeNode)
 	node3.IP = "127.0.0.1"
 	node3.Port = 10013
+	node3.Port2 = 10023
 	node3.Publickey = crypto.FromECDSAPub(m3.Publickey)
 
 	var nodes []*types.CommitteeNode

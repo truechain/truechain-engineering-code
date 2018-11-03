@@ -3,6 +3,7 @@ package consensus
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"math/big"
 )
 
@@ -34,9 +35,10 @@ type ConsensusHelp interface {
 }
 type ConsensusVerify interface {
 	SignMsg(h int64, res uint) *SignedVoteMsg
-	CheckMsg(msg *RequestMsg) error
-	ReplyResult(msg *RequestMsg, res uint) bool
+	CheckMsg(msg *RequestMsg) (*types.PbftSign, error)
+	ReplyResult(msg *RequestMsg, signs []*types.PbftSign, res uint) bool
 	InsertBlock(msg *PrePrepareMsg) bool
+	RepeatFetch(id *big.Int, height int64)
 }
 type ConsensusFinish interface {
 	ConsensusFinish()

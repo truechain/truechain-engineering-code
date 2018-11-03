@@ -14,25 +14,21 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package ethash implements the ethash proof-of-work consensus engine.
+// Package minverva implements the truechain hybrid consensus engine.
 package minerva
 
 import (
 	"errors"
-	"fmt"
-	"math"
 	"math/big"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
 	"unsafe"
 
-	"encoding/json"
 	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -49,11 +45,11 @@ var (
 
 	maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 
-	// sharedEthash is a full instance that can be shared between multiple users.
-	sharedEthash = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
+	// sharedMinerva is a full instance that can be shared between multiple users.
+	sharedMinerva = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
 
 	// algorithmRevision is the data structure version used for file naming.
-	algorithmRevision = 23
+	algorithmRevision = 1
 
 	// dumpMagic is a dataset dump header to sanity check a data dump.
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
@@ -61,8 +57,11 @@ var (
 	//Snail block rewards initial 116.48733*10^18
 	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
 
-	//Snail block rewards base value 16.48733* 10^5
-	SnailBlockRewardsBase = 11648733
+	//Snail block rewards base value is 115.555555555555 * 10^12
+	SnailBlockRewardsBase = 115555555555555
+
+	//up to wei  SnailBlockRewardsBase * this is wei
+	Big1e6 = big.NewInt(1e6)
 
 	//Snail block rewards change interval 4500 blocks
 	SnailBlockRewardsChangeInterval = 4500
@@ -72,8 +71,6 @@ var (
 
 	//BaseBig
 	BaseBig = big.NewInt(1e18)
-
-	Big1e13 = big.NewInt(1e13)
 
 	//The number of main network fragments is currently fixed at 1
 	NetworkFragmentsNuber = 1
@@ -85,8 +82,6 @@ var (
 	//Generating formula :TestOutSqrt
 	SqrtMin = 25
 	SqrtMax = 6400
-
-	SqrtMap = make(map[int]float64)
 
 	//Snail block body fruit initial 30*10^15
 	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
@@ -213,7 +208,7 @@ func newlru(what string, maxItems int, new func(epoch uint64) interface{}) *lru 
 		maxItems = 1
 	}
 	cache, _ := simplelru.NewLRU(maxItems, func(key, value interface{}) {
-		log.Trace("Evicted ethash "+what, "epoch", key)
+		log.Trace("Evicted minerva "+what, "epoch", key)
 	})
 	return &lru{what: what, new: new, cache: cache}
 }
@@ -231,14 +226,14 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		if lru.future > 0 && lru.future == epoch {
 			item = lru.futureItem
 		} else {
-			log.Trace("Requiring new ethash "+lru.what, "epoch", epoch)
+			log.Trace("Requiring new minerva "+lru.what, "epoch", epoch)
 			item = lru.new(epoch)
 		}
 		lru.cache.Add(epoch, item)
 	}
 	// Update the 'future item' if epoch is larger than previously seen.
 	if epoch < maxEpoch-1 && lru.future < epoch+1 {
-		log.Trace("Requiring new future ethash "+lru.what, "epoch", epoch+1)
+		log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
 		future = lru.new(epoch + 1)
 		lru.future = epoch + 1
 		lru.futureItem = future
@@ -246,178 +241,31 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	return item, future
 }
 
-// cache wraps an ethash cache with some metadata to allow easier concurrent use.
-type cache struct {
-	epoch uint64    // Epoch for which this cache is relevant
-	dump  *os.File  // File descriptor of the memory mapped cache
-	mmap  mmap.MMap // Memory map itself to unmap before releasing
-	cache []uint32  // The actual cache data content (may be memory mapped)
-	once  sync.Once // Ensures the cache is generated only once
-}
-
-// newCache creates a new ethash verification cache and returns it as a plain Go
-// interface to be usable in an LRU cache.
-func newCache(epoch uint64) interface{} {
-	return &cache{epoch: epoch}
-}
-
-// generate ensures that the cache content is generated before use.
-func (c *cache) generate(dir string, limit int, test bool) {
-	c.once.Do(func() {
-		size := cacheSize(c.epoch*epochLength + 1)
-		seed := seedHash(c.epoch*epochLength + 1)
-		if test {
-			size = 1024
-		}
-		// If we don't store anything on disk, generate and return.
-		if dir == "" {
-			c.cache = make([]uint32, size/4)
-			generateCache(c.cache, c.epoch, seed)
-			return
-		}
-		// Disk storage is needed, this will get fancy
-		var endian string
-		if !isLittleEndian() {
-			endian = ".be"
-		}
-		path := filepath.Join(dir, fmt.Sprintf("cache-R%d-%x%s", algorithmRevision, seed[:8], endian))
-		logger := log.New("epoch", c.epoch)
-
-		// We're about to mmap the file, ensure that the mapping is cleaned up when the
-		// cache becomes unused.
-		runtime.SetFinalizer(c, (*cache).finalizer)
-
-		// Try to load the file from disk and memory map it
-		var err error
-		c.dump, c.mmap, c.cache, err = memoryMap(path)
-		if err == nil {
-			logger.Debug("Loaded old ethash cache from disk")
-			return
-		}
-		logger.Debug("Failed to load old ethash cache", "err", err)
-
-		// No previous cache available, create a new cache file to fill
-		c.dump, c.mmap, c.cache, err = memoryMapAndGenerate(path, size, func(buffer []uint32) { generateCache(buffer, c.epoch, seed) })
-		if err != nil {
-			logger.Error("Failed to generate mapped ethash cache", "err", err)
-
-			c.cache = make([]uint32, size/4)
-			generateCache(c.cache, c.epoch, seed)
-		}
-		// Iterate over all previous instances and delete old ones
-		for ep := int(c.epoch) - limit; ep >= 0; ep-- {
-			seed := seedHash(uint64(ep)*epochLength + 1)
-			path := filepath.Join(dir, fmt.Sprintf("cache-R%d-%x%s", algorithmRevision, seed[:8], endian))
-			os.Remove(path)
-		}
-	})
-}
-
-// finalizer unmaps the memory and closes the file.
-func (c *cache) finalizer() {
-	if c.mmap != nil {
-		c.mmap.Unmap()
-		c.dump.Close()
-		c.mmap, c.dump = nil, nil
-	}
-}
-
-// dataset wraps an ethash dataset with some metadata to allow easier concurrent use.
+// dataset wraps an truehash dataset with some metadata to allow easier concurrent use.
 type dataset struct {
-	epoch   uint64    // Epoch for which this cache is relevant
-	dump    *os.File  // File descriptor of the memory mapped cache
-	mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset []uint32  // The actual cache data content
-	once    sync.Once // Ensures the cache is generated only once
+	epoch uint64 // Epoch for which this cache is relevant
+	//dump    *os.File  // File descriptor of the memory mapped cache
+	//mmap    mmap.MMap // Memory map itself to unmap before releasing
+	dataset  []uint64  // The actual cache data content
+	once     sync.Once // Ensures the cache is generated only once
+	dateInit int
+	//oddFlag		int
+	//evenFlag	int
 }
 
-// newDataset creates a new ethash mining dataset and returns it as a plain Go
-// interface to be usable in an LRU cache.
+// newDataset creates a new truehash mining dataset
 func newDataset(epoch uint64) interface{} {
-	return &dataset{epoch: epoch}
-}
-
-// generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(dir string, limit int, test bool) {
-	d.once.Do(func() {
-		csize := cacheSize(d.epoch*epochLength + 1)
-		dsize := datasetSize(d.epoch*epochLength + 1)
-		seed := seedHash(d.epoch*epochLength + 1)
-		if test {
-			csize = 1024
-			dsize = 32 * 1024
-		}
-		// If we don't store anything on disk, generate and return
-		if dir == "" {
-			cache := make([]uint32, csize/4)
-			generateCache(cache, d.epoch, seed)
-
-			d.dataset = make([]uint32, dsize/4)
-			generateDataset(d.dataset, d.epoch, cache)
-		}
-		// Disk storage is needed, this will get fancy
-		var endian string
-		if !isLittleEndian() {
-			endian = ".be"
-		}
-		path := filepath.Join(dir, fmt.Sprintf("full-R%d-%x%s", algorithmRevision, seed[:8], endian))
-		logger := log.New("epoch", d.epoch)
-
-		// We're about to mmap the file, ensure that the mapping is cleaned up when the
-		// cache becomes unused.
-		runtime.SetFinalizer(d, (*dataset).finalizer)
-
-		// Try to load the file from disk and memory map it
-		var err error
-		d.dump, d.mmap, d.dataset, err = memoryMap(path)
-		if err == nil {
-			logger.Debug("Loaded old ethash dataset from disk")
-			return
-		}
-		logger.Debug("Failed to load old ethash dataset", "err", err)
-
-		// No previous dataset available, create a new dataset file to fill
-		cache := make([]uint32, csize/4)
-		generateCache(cache, d.epoch, seed)
-
-		d.dump, d.mmap, d.dataset, err = memoryMapAndGenerate(path, dsize, func(buffer []uint32) { generateDataset(buffer, d.epoch, cache) })
-		if err != nil {
-			logger.Error("Failed to generate mapped ethash dataset", "err", err)
-
-			d.dataset = make([]uint32, dsize/2)
-			generateDataset(d.dataset, d.epoch, cache)
-		}
-		// Iterate over all previous instances and delete old ones
-		for ep := int(d.epoch) - limit; ep >= 0; ep-- {
-			seed := seedHash(uint64(ep)*epochLength + 1)
-			path := filepath.Join(dir, fmt.Sprintf("full-R%d-%x%s", algorithmRevision, seed[:8], endian))
-			os.Remove(path)
-		}
-	})
-}
-
-// finalizer closes any file handlers and memory maps open.
-func (d *dataset) finalizer() {
-	if d.mmap != nil {
-		d.mmap.Unmap()
-		d.dump.Close()
-		d.mmap, d.dump = nil, nil
+	ds := &dataset{
+		epoch:    epoch,
+		dateInit: 0,
+		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
+	//truehashTableInit(ds.evenDataset)
+
+	return ds
 }
 
-// MakeCache generates a new ethash cache and optionally stores it to disk.
-func MakeCache(block uint64, dir string) {
-	c := cache{epoch: block / epochLength}
-	c.generate(dir, math.MaxInt32, false)
-}
-
-// MakeDataset generates a new ethash dataset and optionally stores it to disk.
-func MakeDataset(block uint64, dir string) {
-	d := dataset{epoch: block / epochLength}
-	d.generate(dir, math.MaxInt32, false)
-}
-
-// Mode defines the type and amount of PoW verification an ethash engine makes.
+// Mode defines the type and amount of PoW verification an minerva engine makes.
 type Mode uint
 
 const (
@@ -428,7 +276,7 @@ const (
 	ModeFullFake
 )
 
-// Config are the configuration parameters of the ethash.
+// Config are the configuration parameters of the minerva.
 type Config struct {
 	CacheDir       string
 	CachesInMem    int
@@ -439,12 +287,10 @@ type Config struct {
 	PowMode        Mode
 }
 
-// Minerva is a consensus engine based on proot-of-work implementing the truechain fpow
-// algorithm.
 type Minerva struct {
 	config Config
 
-	caches   *lru // In memory caches to avoid regenerating too often
+	//caches   *lru // In memory caches to avoid regenerating too often
 	datasets *lru // In memory datasets to avoid regenerating too often
 
 	// Mining related fields
@@ -464,60 +310,94 @@ type Minerva struct {
 	election consensus.CommitteeElection
 }
 
-var MinervaLocal *Minerva
+//var MinervaLocal *Minerva
 
-//Init sqrt const
-func InitSqrt() {
-	var a []ConstSqrt
-	json.Unmarshal([]byte(SqrtString), &a)
-	for _, v := range a {
-		SqrtMap[v.Num] = v.Sqrt
-	}
-}
-
-// New creates a full sized ethash PoW scheme.
+// New creates a full sized minerva hybrid consensus scheme.
 func New(config Config) *Minerva {
 	if config.CachesInMem <= 0 {
-		log.Warn("One ethash cache must always be in memory", "requested", config.CachesInMem)
+		//log.Warn("One minerva cache must always be in memory", "requested", config.CachesInMem)
 		config.CachesInMem = 1
 	}
 	if config.CacheDir != "" && config.CachesOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash caches", "dir", config.CacheDir, "count", config.CachesOnDisk)
+		//log.Info("Disk storage enabled for minerva caches", "dir", config.CacheDir, "count", config.CachesOnDisk)
 	}
 	if config.DatasetDir != "" && config.DatasetsOnDisk > 0 {
-		log.Info("Disk storage enabled for ethash DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
+		//log.Info("Disk storage enabled for minerva DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
 
-	InitSqrt()
-
-	MinervaLocal = &Minerva{
-		config:   config,
-		caches:   newlru("cache", config.CachesInMem, newCache),
+	minerva := &Minerva{
+		config: config,
+		//caches:   newlru("cache", config.CachesInMem, newCache),
 		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
 
-	return MinervaLocal
+	//MinervaLocal.CheckDataSetState(1)
+	minerva.getDataset(1)
+
+	return minerva
+}
+
+// dataset tries to retrieve a mining dataset for the specified block number
+func (m *Minerva) getDataset(block uint64) *dataset {
+	// Retrieve the requested ethash dataset
+	epoch := block / epochLength
+	currentI, futureI := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	current.generate(block, m)
+	if futureI != nil {
+		future := futureI.(*dataset)
+		future.generate(block, m)
+
+	}
+	return current
+}
+
+// generate ensures that the dataset content is generated before use.
+func (d *dataset) generate(blockNum uint64, m *Minerva) {
+	if d.dateInit == 0 {
+		//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+		if blockNum <= UPDATABLOCKLENGTH {
+			m.truehashTableInit(d.dataset)
+
+		} else {
+			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+			flag, ds := m.updateLookupTBL(bn, d.dataset)
+			if flag {
+				d.dataset = ds
+			}
+		}
+		d.dateInit = 1
+	}
+
+	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
+		m.updateLookupTBL(blockNum, d.dataset)
+		flag, ds := m.updateLookupTBL(blockNum, d.dataset)
+		if flag {
+			d.dataset = ds
+		}
+	}
 }
 
 //Append interface SnailChainReader after instantiations
-func SetSnailChainReader(scr consensus.SnailChainReader) {
-	MinervaLocal.sbc = scr
+func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
+	m.sbc = scr
 }
 
 //Append interface CommitteeElection after instantiation
-func SetElection(e consensus.CommitteeElection) {
-	MinervaLocal.election = e
+func (m *Minerva) SetElection(e consensus.CommitteeElection) {
+	m.election = e
 }
 
-// NewTester creates a small sized ethash PoW scheme useful only for testing
+// NewTester creates a small sized minerva scheme useful only for testing
 // purposes.
 func NewTester() *Minerva {
 	return New(Config{CachesInMem: 1, PowMode: ModeTest})
 }
 
-// NewFaker creates a ethash consensus engine with a fake PoW scheme that accepts
+// NewFaker creates a minerva consensus engine with a fake PoW scheme that accepts
 // all blocks' seal as valid, though they still have to conform to the Ethereum
 // consensus rules.
 func NewFaker() *Minerva {
@@ -528,7 +408,7 @@ func NewFaker() *Minerva {
 	}
 }
 
-// NewFakeFailer creates a ethash consensus engine with a fake PoW scheme that
+// NewFakeFailer creates a minerva consensus engine with a fake PoW scheme that
 // accepts all blocks as valid apart from the single one specified, though they
 // still have to conform to the Ethereum consensus rules.
 func NewFakeFailer(fail uint64) *Minerva {
@@ -540,7 +420,7 @@ func NewFakeFailer(fail uint64) *Minerva {
 	}
 }
 
-// NewFakeDelayer creates a ethash consensus engine with a fake PoW scheme that
+// NewFakeDelayer creates a minerva consensus engine with a fake PoW scheme that
 // accepts all blocks as valid, but delays verifications by some time, though
 // they still have to conform to the Ethereum consensus rules.
 func NewFakeDelayer(delay time.Duration) *Minerva {
@@ -552,7 +432,7 @@ func NewFakeDelayer(delay time.Duration) *Minerva {
 	}
 }
 
-// NewFullFaker creates an ethash consensus engine with a full fake scheme that
+// NewFullFaker creates an minerva consensus engine with a full fake scheme that
 // accepts all blocks as valid, without checking any consensus rules whatsoever.
 func NewFullFaker() *Minerva {
 	return &Minerva{
@@ -562,49 +442,10 @@ func NewFullFaker() *Minerva {
 	}
 }
 
-// NewShared creates a full sized ethash PoW shared between all requesters running
+// NewShared creates a full sized minerva shared between all requesters running
 // in the same process.
 func NewShared() *Minerva {
-	return &Minerva{shared: sharedEthash}
-}
-
-// cache tries to retrieve a verification cache for the specified block number
-// by first checking against a list of in-memory caches, then against caches
-// stored on disk, and finally generating one if none can be found.
-func (m *Minerva) cache(block uint64) *cache {
-	epoch := block / epochLength
-	currentI, futureI := m.caches.get(epoch)
-	current := currentI.(*cache)
-
-	// Wait for generation finish.
-	current.generate(m.config.CacheDir, m.config.CachesOnDisk, m.config.PowMode == ModeTest)
-
-	// If we need a new future cache, now's a good time to regenerate it.
-	if futureI != nil {
-		future := futureI.(*cache)
-		go future.generate(m.config.CacheDir, m.config.CachesOnDisk, m.config.PowMode == ModeTest)
-	}
-	return current
-}
-
-// dataset tries to retrieve a mining dataset for the specified block number
-// by first checking against a list of in-memory datasets, then against DAGs
-// stored on disk, and finally generating one if none can be found.
-func (m *Minerva) dataset(block uint64) *dataset {
-	epoch := block / epochLength
-	currentI, futureI := m.datasets.get(epoch)
-	current := currentI.(*dataset)
-
-	// Wait for generation finish.
-	current.generate(m.config.DatasetDir, m.config.DatasetsOnDisk, m.config.PowMode == ModeTest)
-
-	// If we need a new future dataset, now's a good time to regenerate it.
-	if futureI != nil {
-		future := futureI.(*dataset)
-		go future.generate(m.config.DatasetDir, m.config.DatasetsOnDisk, m.config.PowMode == ModeTest)
-	}
-
-	return current
+	return &Minerva{shared: sharedMinerva}
 }
 
 // Threads returns the number of mining threads currently enabled. This doesn't
@@ -641,6 +482,7 @@ func (m *Minerva) SetThreads(threads int) {
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
 func (m *Minerva) Hashrate() float64 {
+	log.Debug("minerva  hashrate", "hash", m.hashrate.Rate1())
 	return m.hashrate.Rate1()
 }
 

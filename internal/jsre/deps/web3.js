@@ -3699,6 +3699,10 @@ var isPredefinedBlockNumber = function (blockNumber) {
     return blockNumber === 'latest' || blockNumber === 'pending' || blockNumber === 'earliest';
 };
 
+var isPredefinedNoPendingNumber = function (blockNumber) {
+    return blockNumber === 'latest' ||  blockNumber === 'earliest';
+};
+
 var inputDefaultBlockNumberFormatter = function (blockNumber) {
     if (blockNumber === undefined) {
         return config.defaultBlock;
@@ -3710,6 +3714,15 @@ var inputBlockNumberFormatter = function (blockNumber) {
     if (blockNumber === undefined) {
         return undefined;
     } else if (isPredefinedBlockNumber(blockNumber)) {
+        return blockNumber;
+    }
+    return utils.toHex(blockNumber);
+};
+
+var inputNoPendingNumberFormatter = function (blockNumber) {
+    if (blockNumber === undefined) {
+        return undefined;
+    } else if (isPredefinedNoPendingNumber(blockNumber)) {
         return blockNumber;
     }
     return utils.toHex(blockNumber);
@@ -3829,12 +3842,45 @@ var outputBlockFormatter = function(block) {
         block.number = utils.toDecimal(block.number);
 
     block.difficulty = utils.toBigNumber(block.difficulty);
-    block.totalDifficulty = utils.toBigNumber(block.totalDifficulty);
+    // block.totalDifficulty = utils.toBigNumber(block.totalDifficulty);
 
     if (utils.isArray(block.transactions)) {
         block.transactions.forEach(function(item){
             if(!utils.isString(item))
                 return outputTransactionFormatter(item);
+        });
+    }
+
+    return block;
+};
+
+/**
+ * Formats the output of a snail block to its proper values
+ *
+ * @method outputSnailFormatter
+ * @param {Object} block
+ * @returns {Object}
+*/
+var outputSnailFormatter = function(block) {
+
+    // transform to number
+    block.size = utils.toDecimal(block.size);
+    block.timestamp = utils.toDecimal(block.timestamp);
+    if(block.number !== null)
+        block.number = utils.toDecimal(block.number);
+
+    block.difficulty = utils.toBigNumber(block.difficulty);
+    block.fruitDifficulty = utils.toBigNumber(block.fruitDifficulty);
+
+    block.beginFruitNumber = utils.toDecimal(block.beginFruitNumber);
+    block.endFruitNumber = utils.toDecimal(block.endFruitNumber);
+
+    if (utils.isArray(block.fruits)) {
+        block.fruits.forEach(function(item){
+            if(!utils.isString(item)) {
+                // TODO: Format full fruit data
+                // return outputFruitFormatter(item);
+            }
         });
     }
 
@@ -3950,6 +3996,7 @@ var outputSyncingFormatter = function(result) {
 module.exports = {
     inputDefaultBlockNumberFormatter: inputDefaultBlockNumberFormatter,
     inputBlockNumberFormatter: inputBlockNumberFormatter,
+    inputNoPendingNumberFormatter: inputNoPendingNumberFormatter,
     inputCallFormatter: inputCallFormatter,
     inputTransactionFormatter: inputTransactionFormatter,
     inputAddressFormatter: inputAddressFormatter,
@@ -3958,6 +4005,7 @@ module.exports = {
     outputTransactionFormatter: outputTransactionFormatter,
     outputTransactionReceiptFormatter: outputTransactionReceiptFormatter,
     outputBlockFormatter: outputBlockFormatter,
+    outputSnailFormatter: outputSnailFormatter,
     outputLogFormatter: outputLogFormatter,
     outputPostFormatter: outputPostFormatter,
     outputSyncingFormatter: outputSyncingFormatter
@@ -5210,6 +5258,14 @@ var blockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "etrue_getBlockByHash" : "etrue_getBlockByNumber";
 };
 
+var snailBlockCall = function (args) {
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "etrue_getSnailBlockByHash" : "etrue_getSnailBlockByNumber";
+};
+
+var fruitCall = function (args) {
+    return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? "etrue_getFruitByHash" : "etrue_getFruitByNumber";
+};
+
 var transactionFromBlockCall = function (args) {
     return (utils.isString(args[0]) && args[0].indexOf('0x') === 0) ? 'etrue_getTransactionByBlockHashAndIndex' : 'etrue_getTransactionByBlockNumberAndIndex';
 };
@@ -5293,8 +5349,31 @@ var methods = function () {
         name: 'getBlock',
         call: blockCall,
         params: 2,
-        inputFormatter: [formatters.inputBlockNumberFormatter, function (val) { return !!val; }],
+        inputFormatter: [formatters.inputNoPendingNumberFormatter, function (val) { return !!val; }],
         outputFormatter: formatters.outputBlockFormatter
+    });
+    
+    var getRewardBlock = new Method({
+        name: 'getRewardBlock',
+        call: 'etrue_getRewardBlock',
+        params: 1,
+        inputFormatter: [formatters.inputDefaultBlockNumberFormatter]
+    });
+
+    var getSnail = new Method({
+        name: 'getSnail',
+        call: snailBlockCall,
+        params: 2,
+        inputFormatter: [formatters.inputBlockNumberFormatter, function (val) { return !!val; }],
+        outputFormatter: formatters.outputSnailFormatter
+    });
+
+    var getFruit = new Method({
+        name: 'getFruit',
+        call: fruitCall,
+        params: 2,
+        inputFormatter: [formatters.inputBlockNumberFormatter, function (val) { return !!val; }]
+        // outputFormatter: formatters.outputSnailFormatter
     });
 
     var getUncle = new Method({
@@ -5431,11 +5510,29 @@ var methods = function () {
         params: 0
     });
 
+    var getCommittee = new Method({
+        name: 'getCommittee',
+        call: 'etrue_getCommittee',
+        params: 1,
+        inputFormatter: [formatters.inputNoPendingNumberFormatter]
+        // outputFormatter: formatters.outputSnailFormatter
+    });
+    
+    var getCurrentState = new Method({
+        name: 'getCurrentState',
+        call: 'etrue_getCurrentState',
+        params: 0
+        // outputFormatter: formatters.outputSnailFormatter
+    });
+
     return [
         getBalance,
         getStorageAt,
         getCode,
         getBlock,
+        getRewardBlock,
+        getSnail,
+        getFruit,
         getUncle,
         getCompilers,
         getBlockTransactionCount,
@@ -5454,7 +5551,9 @@ var methods = function () {
         compileLLL,
         compileSerpent,
         submitWork,
-        getWork
+        getWork,
+        getCommittee,
+        getCurrentState
     ];
 };
 
@@ -5491,6 +5590,25 @@ var properties = function () {
         new Property({
             name: 'blockNumber',
             getter: 'etrue_blockNumber',
+            outputFormatter: utils.toDecimal
+        }),
+        new Property({
+            name: 'snailBlockNumber',
+            getter: 'etrue_snailBlockNumber',
+            outputFormatter: utils.toDecimal
+        }),
+        new Property({
+            name: 'rewardSnailBlock',
+            getter: 'etrue_rewardSnailBlock'
+        }),
+        new Property({
+            name: 'fruitNumber',
+            getter: 'etrue_fruitNumber',
+            outputFormatter: utils.toDecimal
+        }),
+        new Property({
+            name: 'committeeNumber',
+            getter: 'etrue_committeeNumber',
             outputFormatter: utils.toDecimal
         }),
         new Property({

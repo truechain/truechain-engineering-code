@@ -126,7 +126,7 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		// Calculate the "target" to be returned to the external miner
 		n := big.NewInt(1)
 		n.Lsh(n, 255)
-		n.Div(n, block.Difficulty())
+		n.Div(n, block.BlockDifficulty())
 		n.Lsh(n, 1)
 		res[2] = common.BytesToHash(n.Bytes()).Hex()
 
@@ -153,6 +153,8 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result := work.Block.Header()
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
+
+	//pointer := a.snailchain.GetHeaderByHash(result.PointerHash)
 
 	if err := a.engine.VerifySnailSeal(a.snailchain, result); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
