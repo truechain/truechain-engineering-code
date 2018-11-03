@@ -261,7 +261,7 @@ func TestPbftRunFor4(t *testing.T) {
 }
 
 func TestRunPbft1(t *testing.T) {
-	log.OpenLogDebug(4, "1")
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
@@ -319,7 +319,7 @@ func TestRunPbft1(t *testing.T) {
 }
 
 func TestRunPbft2(t *testing.T) {
-	log.OpenLogDebug(4, "2")
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
@@ -377,7 +377,7 @@ func TestRunPbft2(t *testing.T) {
 }
 
 func TestRunPbft3(t *testing.T) {
-	log.OpenLogDebug(4, "3")
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
@@ -435,7 +435,7 @@ func TestRunPbft3(t *testing.T) {
 }
 
 func TestRunPbft4(t *testing.T) {
-	log.OpenLogDebug(4, "4")
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(1)
