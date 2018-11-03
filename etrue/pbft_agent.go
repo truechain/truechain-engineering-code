@@ -166,7 +166,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 	self.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
 		Port:      uint(config.Port),
-		Port2:     uint(config.StandByPort),
+		Port2:     uint(config.StandbyPort),
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&self.privateKey.PublicKey),
 	}
@@ -180,7 +180,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 		self.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
 	}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode,
-		", port", config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
+		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
 		", coinbase", self.committeeNode.Coinbase,
 		",pubKey", hex.EncodeToString(self.committeeNode.Publickey))
 }

@@ -26,6 +26,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		CommitteeKey  			hexutil.Bytes `toml:",omitempty"`
 		Host	                string `toml:",omitempty"`
 		Port	                int `toml:",omitempty"`
+		StandbyPort	            int `toml:",omitempty"`
 		SkipBcVersionCheck      bool `toml:"-"`
 		DatabaseHandles         int  `toml:"-"`
 		DatabaseCache           int
@@ -49,6 +50,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.CommitteeKey = c.CommitteeKey
 	enc.Host = c.Host
 	enc.Port = c.Port
+	enc.StandbyPort = c.StandbyPort
 	enc.SkipBcVersionCheck = c.SkipBcVersionCheck
 	enc.DatabaseHandles = c.DatabaseHandles
 	enc.DatabaseCache = c.DatabaseCache
@@ -73,6 +75,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		CommitteeKey  			*hexutil.Bytes `toml:",omitempty"`
 		Host	                *string `toml:",omitempty"`
 		Port	                *int `toml:",omitempty"`
+		StandbyPort	            *int `toml:",omitempty"`
 		LightServ               *int  `toml:",omitempty"`
 		LightPeers              *int  `toml:",omitempty"`
 		SkipBcVersionCheck      *bool `toml:"-"`
@@ -112,6 +115,9 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.Port != nil {
 		c.Port = *dec.Port
+	}
+	if dec.StandbyPort != nil {
+		c.StandbyPort = *dec.StandbyPort
 	}
 	if dec.LightServ != nil {
 		c.LightServ = *dec.LightServ
