@@ -227,7 +227,7 @@ search:
 		default:
 			// We don't have to update hash rate on every nonce, so update after after 2^X nonces
 			attempts++
-			if (attempts % (1 << 15)) == 0 {
+			if (attempts % (1 << 12)) == 0 {
 				m.hashrate.Mark(attempts)
 				attempts = 0
 			}
