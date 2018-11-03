@@ -540,10 +540,10 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 			log.Debug("[leader]", "server count", c)
 			if b {
 				lock.PSLogInfo("[leader]", "server count", c, "server", "start")
-				time.Sleep(time.Second * ServerWait * 18)
+				time.Sleep(time.Second * ServerWait)
 				break
 			}
-			time.Sleep(time.Second)
+			//time.Sleep(time.Second)
 		}
 	}
 	if id64 > 0 {
