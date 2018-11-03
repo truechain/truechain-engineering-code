@@ -660,6 +660,9 @@ func (f *Fetcher) loop() {
 			// Schedule the retrieved headers for body completion
 			for _, announce := range incomplete {
 				hash := announce.header.Hash()
+				if _, ok := f.completing[hash]; ok {
+					continue
+				}
 				f.fetched[hash] = append(f.fetched[hash], announce)
 				if len(f.fetched) == 1 {
 					f.rescheduleComplete(completeTimer)
