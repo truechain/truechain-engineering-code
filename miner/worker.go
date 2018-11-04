@@ -831,7 +831,7 @@ func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
 
 	lenFruit := len(fruits)
 
-	log.Debug("copy Pendding Fruit begin info len of fruit %d",lenFruit,"frist fb num",fruits[0].FastNumber(),"last fb num",fruits[len(fruits)-1].FastNumber(),"mined fruit fb num",self.minedFruit.FastNumber())
+	log.Debug("copy Pendding Fruit begin info len of fruit","frist fb num",fruits[0].FastNumber(),"last fb num",fruits[len(fruits)-1].FastNumber(),"mined fruit fb num",self.minedFruit.FastNumber(),"len ",lenFruit)
 	for i,f:=range fruits{
 		if f.FastNumber().Cmp(self.minedFruit.FastNumber()) <0 {
 			self.coypPendingFruits = append(self.coypPendingFruits,f)
@@ -850,7 +850,7 @@ func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
 			}
 		}
 	}
-	log.Debug("copy Pendding Fruit after info len of fruit %d",len(self.coypPendingFruits),"frist fb num",self.coypPendingFruits[0].FastNumber(),"last fb num",self.coypPendingFruits[len(self.coypPendingFruits)-1].FastNumber(),"mined fruit fb num",self.minedFruit.FastNumber())
+	log.Debug("copy Pendding Fruit after info len of fruit ","frist fb num",self.coypPendingFruits[0].FastNumber(),"last fb num",self.coypPendingFruits[len(self.coypPendingFruits)-1].FastNumber(),"mined fruit fb num",self.minedFruit.FastNumber(),"len ",len(self.coypPendingFruits))
 
 }
 
