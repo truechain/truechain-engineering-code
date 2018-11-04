@@ -835,7 +835,7 @@ func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
 	for i,f:=range fruits{
 		if f.FastNumber().Cmp(self.minedFruit.FastNumber()) <0 {
 			self.coypPendingFruits = append(self.coypPendingFruits,f)
-			if i == lenFruit{
+			if i == lenFruit-1{
 				self.coypPendingFruits = append(self.coypPendingFruits, self.minedFruit)
 			}
 		}else{
@@ -847,6 +847,10 @@ func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
 				break
 			}else{
 				// the minedFruit already in the pengding fruits so do not care
+				// only one in the fruits and equal or the frits fruits is equal
+				if self.coypPendingFruits == nil{
+					self.coypPendingFruits = append(self.coypPendingFruits,f)
+				}
 			}
 		}
 	}
