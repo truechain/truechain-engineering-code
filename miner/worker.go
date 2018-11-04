@@ -423,6 +423,11 @@ func (self *worker) wait() {
 
 			block := result.Block
 
+			for agent := range self.agents {
+				log.Info("worker wait to ========================")
+				agent.GetHashRate()
+			}
+
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
 					// if it does't include a fast block signs, it's not a fruit
