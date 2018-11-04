@@ -626,6 +626,9 @@ func (self *worker) commitNewWork() {
 		return
 	}
 
+	//for create a new fruits for worker
+	self.copyPendingFruit(fruits)
+
 	// only miner fruit if not fruit set only miner the fruit
 	if self.FruitOnly {
 		fruits = nil
@@ -812,8 +815,8 @@ func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBloc
 
 		if len(fruitset) > 0 {
 			self.current.fruits = fruitset
-			//for create a new fruits for worker
-			self.copyPendingFruit(fruitset)
+
+
 		}
 	}
 }
