@@ -38,8 +38,8 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(100000),
-			MinimumFruitDifficulty: big.NewInt(200),
+			MinimumDifficulty:      big.NewInt(20000),
+			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(60),
 		}),
 	}
@@ -70,9 +70,6 @@ var (
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig)}
 
-	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
-	// and accepted by the Ethereum core developers into the Clique consensus.
-	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}

@@ -213,7 +213,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 		nonce    = seed
 	)
 	logger := log.New("miner", id)
-	log.Debug("mineSnail", "miner", id, "block num", block.Number(), "fb num", block.FastNumber())
+	log.Trace("mineSnail", "miner", id, "block num", block.Number(), "fb num", block.FastNumber())
 	logger.Trace("Started truehash search for new nonces", "seed", seed)
 search:
 	for {
@@ -227,7 +227,7 @@ search:
 		default:
 			// We don't have to update hash rate on every nonce, so update after after 2^X nonces
 			attempts++
-			if (attempts % (1 << 15)) == 0 {
+			if (attempts % (1 << 12)) == 0 {
 				m.hashrate.Mark(attempts)
 				attempts = 0
 			}

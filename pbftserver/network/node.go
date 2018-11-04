@@ -557,6 +557,12 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		//lock.PSLog("node PrePrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.PrePrepareMsg)))
 		lock.PSLog("node routeMsg", msg.(*consensus.PrePrepareMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.PrePrepareMsg).Height)
+		if CurrentStage != nil {
+			lock.PSLogInfo("clear stage ", msg.(*consensus.PrePrepareMsg).Height)
+			node.PutStatus(msg.(*consensus.PrePrepareMsg).Height, nil)
+			CurrentStage = nil
+		}
+
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 
 			// Copy buffered messages first.

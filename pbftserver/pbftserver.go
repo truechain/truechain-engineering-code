@@ -426,8 +426,13 @@ func getNodeStatus(s *serverInfo, parent bool) map[string]interface{} {
 		ch = ch - 1
 	}
 	status := node.GetStatus(ch)
-	nodes["prepareMsgs"] = status.MsgLogs.GetPrepareMessages()
-	nodes["commitMsgs"] = status.MsgLogs.GetCommitMessages()
+	if status == nil || status.MsgLogs == nil {
+		nodes["prepareMsgs"] = make(map[string]*consensus.VoteMsg)
+		nodes["commitMsgs"] = make(map[string]*consensus.VoteMsg)
+	} else {
+		nodes["prepareMsgs"] = status.MsgLogs.GetPrepareMessages()
+		nodes["commitMsgs"] = status.MsgLogs.GetCommitMessages()
+	}
 	return nodes
 }
 
@@ -540,10 +545,10 @@ func (ss *PbftServerMgr) runServer(server *serverInfo, id *big.Int) {
 			log.Debug("[leader]", "server count", c)
 			if b {
 				lock.PSLogInfo("[leader]", "server count", c, "server", "start")
-				time.Sleep(time.Second * ServerWait * 18)
+				time.Sleep(time.Second * ServerWait)
 				break
 			}
-			time.Sleep(time.Second)
+			//time.Sleep(time.Second)
 		}
 	}
 	if id64 > 0 {
