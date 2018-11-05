@@ -949,9 +949,21 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 // Content returning all the
 // pending fruits sorted by fast number.
 func (pool *SnailPool) Content() []*types.SnailBlock {
-	fruits, error := pool.PendingFruits()
-	if error != nil {
-		return nil
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+
+	for _, fruit := range pool.fruitPending {
+		fruits = append(fruits, types.CopyFruit(fruit))
+	}
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
+
+	for _, v := range fruits {
+		rtfruits = append(rtfruits, v)
 	}
 	return fruits
 }
