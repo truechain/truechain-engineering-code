@@ -85,7 +85,7 @@ var BcCount = 0
 
 func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {
 	IdAdd(pap.Name)
-	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
+	println("[AGENT]", pap.Name, "--------", "BroadcastConsensus", "Number:", block.Header().Number.Uint64())
 	return nil
 }
 
