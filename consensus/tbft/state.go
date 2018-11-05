@@ -900,23 +900,23 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	if cs.LockedBlock != nil {
 		log.Info("enterPrevote: Block was locked")
 		tmp := cs.LockedBlock.Hash()
-		cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.LockedBlockParts.Header())
+		cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.LockedBlockParts.Header(),nil)
 		return
 	}
 
 	// If ProposalBlock is nil, prevote nil.
 	if cs.ProposalBlock == nil {
 		log.Info("enterPrevote: ProposalBlock is nil")
-		cs.signAddVote(ttypes.VoteTypePrevote, nil, ttypes.PartSetHeader{})
+		cs.signAddVote(ttypes.VoteTypePrevote, nil, ttypes.PartSetHeader{},nil)
 		return
 	}
 
 	// Validate proposal block
-	_,err := cs.state.ValidateBlock(cs.ProposalBlock)
+	ksign,err := cs.state.ValidateBlock(cs.ProposalBlock)
 	if err != nil {
 		// ProposalBlock is invalid, prevote nil.
 		log.Error("enterPrevote: ProposalBlock is invalid", "err", err)
-		cs.signAddVote(ttypes.VoteTypePrevote, nil, ttypes.PartSetHeader{})
+		cs.signAddVote(ttypes.VoteTypePrevote, nil, ttypes.PartSetHeader{},nil)
 		return
 	}
 
@@ -925,7 +925,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	// and the proposal block parts are validated as they are received (against the merkle hash in the proposal)
 	log.Info("enterPrevote: ProposalBlock is valid")
 	tmp := cs.ProposalBlock.Hash()
-	cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.ProposalBlockParts.Header())
+	cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.ProposalBlockParts.Header(),ksign)
 }
 
 // Enter: any +2/3 prevotes at next round.
@@ -983,7 +983,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		} else {
 			log.Info("enterPrecommit: No +2/3 prevotes during enterPrecommit. Precommitting nil.")
 		}
-		cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{})
+		cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{},nil)
 		return
 	}
 
@@ -1007,7 +1007,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 			cs.LockedBlockParts = nil
 			cs.eventBus.PublishEventUnlock(cs.RoundStateEvent())
 		}
-		cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{})
+		cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{},nil)
 		return
 	}
 
@@ -1021,7 +1021,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		log.Info("enterPrecommit: +2/3 prevoted locked block. Relocking")
 		cs.LockedRound = uint(round)
 		cs.eventBus.PublishEventRelock(cs.RoundStateEvent())
-		cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader)
+		cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader,nil)
 		return
 	}
 
@@ -1030,14 +1030,15 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	if help.EqualHashes(tmpPro[:], blockID.Hash) {
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", blockID.Hash)
 		// Validate the block.
-		if _,err := cs.state.ValidateBlock(cs.ProposalBlock); err != nil {
+		ksign,err := cs.state.ValidateBlock(cs.ProposalBlock)
+		if err != nil {
 			help.PanicSanity(fmt.Sprintf("enterPrecommit: +2/3 prevoted for an invalid block: %v", err))
 		}
 		cs.LockedRound = uint(round)
 		cs.LockedBlock = cs.ProposalBlock
 		cs.LockedBlockParts = cs.ProposalBlockParts
 		cs.eventBus.PublishEventLock(cs.RoundStateEvent())
-		cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader)
+		cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader,ksign)
 		return
 	}
 
@@ -1053,7 +1054,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(blockID.PartsHeader)
 	}
 	cs.eventBus.PublishEventUnlock(cs.RoundStateEvent())
-	cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{})
+	cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{},nil)
 }
 
 // Enter: any +2/3 precommits for next round.
@@ -1547,13 +1548,22 @@ func (cs *ConsensusState) signVote(type_ byte, hash []byte, header ttypes.PartSe
 }
 
 // sign the vote and publish on internalMsgQueue
-func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.PartSetHeader) *ttypes.Vote {
+func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.PartSetHeader,keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
 	// if we don't have a key or we're not in the validator set, do nothing
 	if cs.privValidator == nil || !cs.Validators.HasAddress(cs.privValidator.GetAddress()) {
 		return nil
 	}
 	vote, err := cs.signVote(type_, hash, header)
 	if err == nil {
+		if hash != nil && keepsign == nil {
+			if prevote := cs.Votes.Prevotes(int(cs.Round));prevote != nil {
+				keepsign = prevote.GetSignByAddress(cs.privValidator.GetAddress())
+			}
+		}
+		if hash != nil && keepsign != nil && bytes.Equal(hash,keepsign.Hash[:]) {
+			vote.Result = keepsign.Result
+			copy(vote.ResultSign,keepsign.Sign)
+		}
 		cs.sendInternalMessage(msgInfo{&VoteMessage{vote}, ""})
 		log.Info("Signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)
 		return vote
