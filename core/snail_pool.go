@@ -822,27 +822,16 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 	return rtfruits
 }
 
-// PendingFruits retrieves all currently verified fruits, sorted by fast number.
+// PendingFruits retrieves all currently verified fruits.
 // The returned fruit set is a copy and can be freely modified by calling code.
-func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
-	// new flow return all fruits
+func (pool *SnailPool) PendingFruits() map[common.Hash]*types.SnailBlock {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
-
-	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
-
+	var rtfruits map[common.Hash]*types.SnailBlock
 	for _, fruit := range pool.fruitPending {
-		fruits = append(fruits, types.CopyFruit(fruit))
+		pool.fruitPending[fruit.FastHash()] = types.CopyFruit(fruit)
 	}
-
-	var blockby types.SnailBlockBy = types.FruitNumber
-	blockby.Sort(fruits)
-
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
-	return rtfruits, nil
+	return rtfruits
 }
 
 // SubscribeNewFruitEvent registers a subscription of NewFruitEvent and
@@ -949,9 +938,21 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 // Content returning all the
 // pending fruits sorted by fast number.
 func (pool *SnailPool) Content() []*types.SnailBlock {
-	fruits, error := pool.PendingFruits()
-	if error != nil {
-		return nil
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+
+	for _, fruit := range pool.fruitPending {
+		fruits = append(fruits, types.CopyFruit(fruit))
+	}
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
+
+	for _, v := range fruits {
+		rtfruits = append(rtfruits, v)
 	}
 	return fruits
 }
