@@ -831,6 +831,9 @@ func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
 
 	lenFruit := len(fruits)
 
+	// clear copyPendingFruit
+	self.copyPendingFruits = nil
+
 	log.Debug("copy Pendding Fruit begin info len of fruit","frist fb num",fruits[0].FastNumber(),"last fb num",fruits[len(fruits)-1].FastNumber(),"mined fruit fb num",self.minedFruit.FastNumber(),"len ",lenFruit)
 	for i,f:=range fruits{
 		if f.FastNumber().Cmp(self.minedFruit.FastNumber()) <0 {
@@ -951,6 +954,8 @@ func (self *worker) commitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chai
 		for i := range signs {
 			self.current.signs[i] = types.CopyPbftSign(signs[i])
 		}
+
+
 	}
 
 	return nil
