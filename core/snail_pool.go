@@ -73,7 +73,6 @@ var (
 	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
 )
 
-
 // SnailChain defines a small collection of methods needed to access the local snail block chain.
 // Temporary interface for snail block chain
 type SnailChain interface {
@@ -176,7 +175,7 @@ type SnailPool struct {
 
 	scope event.SubscriptionScope
 
-	fruitFeed event.Feed
+	fruitFeed     event.Feed
 	fastBlockFeed event.Feed
 	mu            sync.RWMutex
 	journal       *snailJournal // Journal of local fruit to back up to disk
@@ -188,7 +187,7 @@ type SnailPool struct {
 	fastchainEventCh  chan types.ChainFastEvent
 	fastchainEventSub event.Subscription
 
-	validator	SnailValidator
+	validator SnailValidator
 
 	engine consensus.Engine // Consensus engine used for validating
 
@@ -226,14 +225,14 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 
 	// Create the transaction pool with its initial settings
 	pool := &SnailPool{
-		config:      config,
-		fastchain:   fastBlockChain,
-		chain:       chain,
-		engine:      engine,
+		config:    config,
+		fastchain: fastBlockChain,
+		chain:     chain,
+		engine:    engine,
 
-		validator:   sv,
+		validator: sv,
 
-		chainHeadCh:     make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
+		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
@@ -283,7 +282,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 	return pool
 }
 
-func (pool *SnailPool) Start(){
+func (pool *SnailPool) Start() {
 	// If journaling is enabled, load from disk
 	if pool.config.Journal != "" {
 		pool.journal = newSnailJournal(pool.config.Journal)
@@ -933,7 +932,6 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 
 	return nil
 }
-
 
 // Content returning all the
 // pending fruits sorted by fast number.
