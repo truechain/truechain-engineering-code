@@ -425,11 +425,6 @@ func (self *worker) wait() {
 
 			block := result.Block
 
-			for agent := range self.agents {
-				log.Info("worker wait to ========================")
-				agent.GetHashRate()
-			}
-
 			if block.IsFruit() {
 				if block.FastNumber() == nil {
 					// if it does't include a fast block signs, it's not a fruit
@@ -439,9 +434,8 @@ func (self *worker) wait() {
 					continue
 				}
 
-
 				if self.minedFruit == nil{
-					log.Info("🍒  ----mined fruit 1", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("🍒  mined fruit 1", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -450,7 +444,7 @@ func (self *worker) wait() {
 				}else{
 					if self.minedFruit.FastNumber().Cmp(block.FastNumber()) != 0{
 
-						log.Info("🍒  ----mined fruit 2", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("🍒  mined fruit 2", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -458,27 +452,6 @@ func (self *worker) wait() {
 						self.minedFruit = types.CopyFruit(block)
 					}
 				}
-				/*
-				// add fruit once
-				log.Debug("wait in fruit flow ", "self.FastBlockNumber", self.FastBlockNumber, "block.FastNumber()", block.FastNumber())
-				if self.FastBlockNumber != nil {
-					if self.FastBlockNumber.Cmp(block.FastNumber()) == 0 {
-						log.Info("🍒  ----mined fruit 1", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
-						var newFruits []*types.SnailBlock
-						newFruits = append(newFruits, block)
-						self.etrue.SnailPool().AddRemoteFruits(newFruits)
-						// store the mined fruit to woker.minedfruit
-						self.minedFruit = types.CopyFruit(block)
-					}
-				} else {
-					log.Info("🍒 ----mined fruit 2", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
-					var newFruits []*types.SnailBlock
-					newFruits = append(newFruits, block)
-					self.etrue.SnailPool().AddRemoteFruits(newFruits)
-				}
-				*/
-				// make sure the fast number has been fruit
-				//self.FastBlockNumber.SetUint64(block.FastNumber().Uint64() + 1)
 
 				// only have fast block not fruits we need commit new work
 				if self.current.fruits == nil {
@@ -630,8 +603,6 @@ func (self *worker) commitNewWork() {
 	if !self.FruitOnly {
 		self.commitFruits(fruits, self.chain, self.engine)
 	}
-
-
 
 	if work.fruits != nil {
 		log.Debug("commitNewWork fruits", "first", work.fruits[0].FastNumber(), "last", work.fruits[len(work.fruits)-1].FastNumber())
