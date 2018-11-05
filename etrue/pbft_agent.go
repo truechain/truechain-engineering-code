@@ -668,6 +668,10 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
+	//assign Proposer
+	pubKey,_ :=crypto.UnmarshalPubkey(self.committeeNode.Publickey)
+	header.Proposer =crypto.PubkeyToAddress(*pubKey)
+
 	if err := self.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
 		return nil, err
 	}
