@@ -288,15 +288,15 @@ func (g *Genesis) MustFastCommit(db ethdb.Database) *types.Block {
 	return block
 }
 
-// DefaultGenesisBlock returns the Ethereum main net genesis block.
+// DefaultGenesisBlock returns the TrueChain main net genesis block.
 func DefaultFastGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	return &Genesis{
 		Config:     params.MainnetChainConfig,
-		Nonce:      66,
+		Nonce:      928,
 		ExtraData:  nil,
 		GasLimit:   88080384,
-		Difficulty: big.NewInt(600000),
+		Difficulty: big.NewInt(20000),
 		//	Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
@@ -438,7 +438,7 @@ func (g *Genesis) MustSnailCommit(db ethdb.Database) *types.SnailBlock {
 	return block
 }
 
-// DefaultGenesisBlock returns the Ethereum main net genesis block.
+// DefaultGenesisBlock returns the Truechain main net snail block.
 func DefaultGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a3e174523b1054e14f123580bce258745e65591c2a4ee44764e55eb87a3782c9920d306e6121d4f10f8726800497ad9ca5a0bfdfe0832779dbaf7b95b3bf0111"))
@@ -448,10 +448,10 @@ func DefaultGenesisBlock() *Genesis {
 
 	return &Genesis{
 		Config:     params.MainnetChainConfig,
-		Nonce:      66,
+		Nonce:      928,
 		ExtraData:  nil,
 		GasLimit:   88080384,
-		Difficulty: big.NewInt(100000),
+		Difficulty: big.NewInt(20000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
@@ -567,11 +567,11 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	// amount, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	return &Genesis{
 		Config:    params.TestnetChainConfig,
-		Nonce:     66,
+		Nonce:     928,
 		ExtraData: nil,
 		//hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535")
 		GasLimit:   20971520,
-		Difficulty: big.NewInt(40000),
+		Difficulty: big.NewInt(6000000),
 		Timestamp:  1537891200,
 		Coinbase:   common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),

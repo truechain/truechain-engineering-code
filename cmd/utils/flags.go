@@ -1192,7 +1192,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
 	}
 	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
-		cfg.StandByPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
+		cfg.StandbyPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
 	}
 
 	//set PrivateKey by config,file or hex
@@ -1215,10 +1215,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
-		if cfg.StandByPort == 0 {
+		if cfg.StandbyPort == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
 		}
-		if cfg.Port == cfg.StandByPort {
+		if cfg.Port == cfg.StandbyPort {
 			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name, BFTStandByPortFlag.Name)
 		}
 	}

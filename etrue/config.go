@@ -115,7 +115,7 @@ type Config struct {
 	Port int `toml:",omitempty"`
 
 	// StandByPort is the TCP port number on which to start the pbft server.
-	StandByPort int `toml:",omitempty"`
+	StandbyPort int `toml:",omitempty"`
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`

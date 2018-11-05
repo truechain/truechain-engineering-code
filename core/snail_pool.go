@@ -73,7 +73,6 @@ var (
 	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
 )
 
-
 // SnailChain defines a small collection of methods needed to access the local snail block chain.
 // Temporary interface for snail block chain
 type SnailChain interface {
@@ -176,7 +175,7 @@ type SnailPool struct {
 
 	scope event.SubscriptionScope
 
-	fruitFeed event.Feed
+	fruitFeed     event.Feed
 	fastBlockFeed event.Feed
 	mu            sync.RWMutex
 	journal       *snailJournal // Journal of local fruit to back up to disk
@@ -188,7 +187,7 @@ type SnailPool struct {
 	fastchainEventCh  chan types.ChainFastEvent
 	fastchainEventSub event.Subscription
 
-	validator	SnailValidator
+	validator SnailValidator
 
 	engine consensus.Engine // Consensus engine used for validating
 
@@ -226,14 +225,14 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 
 	// Create the transaction pool with its initial settings
 	pool := &SnailPool{
-		config:      config,
-		fastchain:   fastBlockChain,
-		chain:       chain,
-		engine:      engine,
+		config:    config,
+		fastchain: fastBlockChain,
+		chain:     chain,
+		engine:    engine,
 
-		validator:   sv,
+		validator: sv,
 
-		chainHeadCh:     make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
+		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
 
 		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
@@ -283,7 +282,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 	return pool
 }
 
-func (pool *SnailPool) Start(){
+func (pool *SnailPool) Start() {
 	// If journaling is enabled, load from disk
 	if pool.config.Journal != "" {
 		pool.journal = newSnailJournal(pool.config.Journal)
@@ -822,27 +821,17 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 	return rtfruits
 }
 
-// PendingFruits retrieves all currently verified fruits, sorted by fast number.
+// PendingFruits retrieves all currently verified fruits.
 // The returned fruit set is a copy and can be freely modified by calling code.
-func (pool *SnailPool) PendingFruits() ([]*types.SnailBlock, error) {
-	// new flow return all fruits
+func (pool *SnailPool) PendingFruits() map[common.Hash]*types.SnailBlock {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
 
-	var fruits types.SnailBlocks
-	var rtfruits types.SnailBlocks
-
+	rtfruits := make(map[common.Hash]*types.SnailBlock)
 	for _, fruit := range pool.fruitPending {
-		fruits = append(fruits, types.CopyFruit(fruit))
+		rtfruits[fruit.FastHash()] = types.CopyFruit(fruit)
 	}
-
-	var blockby types.SnailBlockBy = types.FruitNumber
-	blockby.Sort(fruits)
-
-	for _, v := range fruits {
-		rtfruits = append(rtfruits, v)
-	}
-	return rtfruits, nil
+	return rtfruits
 }
 
 // SubscribeNewFruitEvent registers a subscription of NewFruitEvent and
@@ -945,13 +934,24 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	return nil
 }
 
-
 // Content returning all the
 // pending fruits sorted by fast number.
 func (pool *SnailPool) Content() []*types.SnailBlock {
-	fruits, error := pool.PendingFruits()
-	if error != nil {
-		return nil
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	var fruits types.SnailBlocks
+	var rtfruits types.SnailBlocks
+
+	for _, fruit := range pool.fruitPending {
+		fruits = append(fruits, types.CopyFruit(fruit))
+	}
+
+	var blockby types.SnailBlockBy = types.FruitNumber
+	blockby.Sort(fruits)
+
+	for _, v := range fruits {
+		rtfruits = append(rtfruits, v)
 	}
 	return fruits
 }
