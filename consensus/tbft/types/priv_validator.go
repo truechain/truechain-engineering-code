@@ -55,6 +55,10 @@ type privValidator struct {
 
 	mtx sync.Mutex
 }
+type KeepBlockSign struct {
+	Result 			uint
+	Sign 			[]byte
+}
 
 func NewPrivValidator(priv ecdsa.PrivateKey) PrivValidator {
 	return &privValidator{
@@ -310,7 +314,7 @@ type StateAgent interface {
 	GetChainID() string
 	UpdateHeight(height uint64)
 	MakeBlock() (*ctypes.Block, *PartSet)
-	ValidateBlock(block *ctypes.Block) error
+	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
 	GetAddress() help.Address
@@ -391,15 +395,18 @@ func (state *stateAgent) ConsensusCommit(block *ctypes.Block) error {
 	}
 	return nil
 }
-func (state *stateAgent) ValidateBlock(block *ctypes.Block) error {
+func (state *stateAgent) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
 	if block == nil {
-		return errors.New("block not have")
+		return nil,errors.New("block not have")
 	}
-	_, err := state.Agent.VerifyFastBlock(block)
+	sign, err := state.Agent.VerifyFastBlock(block)
 	if err != nil {
-		return err
+		return nil,err
 	}
-	return nil
+	return &KeepBlockSign{
+				Result:			sign.Result,
+				Sign:			sign.Sign,		
+			} ,nil
 }
 func (state *stateAgent) GetValidator() *ValidatorSet {
 	return state.Validators
