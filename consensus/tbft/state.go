@@ -645,7 +645,6 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	default:
 		panic(fmt.Sprintf("Invalid timeout step: %v", ti.Step))
 	}
-
 }
 
 //-----------------------------------------------------------------------------
@@ -913,7 +912,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	}
 
 	// Validate proposal block
-	err := cs.state.ValidateBlock(cs.ProposalBlock)
+	_,err := cs.state.ValidateBlock(cs.ProposalBlock)
 	if err != nil {
 		// ProposalBlock is invalid, prevote nil.
 		log.Error("enterPrevote: ProposalBlock is invalid", "err", err)
@@ -1031,7 +1030,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	if help.EqualHashes(tmpPro[:], blockID.Hash) {
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", blockID.Hash)
 		// Validate the block.
-		if err := cs.state.ValidateBlock(cs.ProposalBlock); err != nil {
+		if _,err := cs.state.ValidateBlock(cs.ProposalBlock); err != nil {
 			help.PanicSanity(fmt.Sprintf("enterPrecommit: +2/3 prevoted for an invalid block: %v", err))
 		}
 		cs.LockedRound = uint(round)
@@ -1164,9 +1163,10 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		log.Debug(fmt.Sprintf("finalizeCommit(%v): Invalid args. Current step: %v/%v/%v", height, cs.Height, cs.Round, cs.Step))
 		return
 	}
-
-	blockID, ok := cs.Votes.Precommits(int(cs.CommitRound)).TwoThirdsMajority()
+	voteset := cs.Votes.Precommits(int(cs.CommitRound))
+	blockID, ok := voteset.TwoThirdsMajority()
 	block, blockParts := cs.ProposalBlock, cs.ProposalBlockParts
+	signs,ierr := voteset.MakePbftSigns()
 
 	if !ok {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, commit does not have two thirds majority"))
@@ -1174,11 +1174,15 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	if !blockParts.HasHeader(blockID.PartsHeader) {
 		help.PanicSanity(fmt.Sprintf("Expected ProposalBlockParts header to be commit header"))
 	}
+	if ierr != nil || signs == nil {
+		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, make signs error=%s",ierr.Error()))
+	}
+
 	hash := block.Hash()
 	if !help.EqualHashes(hash[:], blockID.Hash) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
-	if err := cs.state.ValidateBlock(block); err != nil {
+	if _,err := cs.state.ValidateBlock(block); err != nil {
 		help.PanicSanity(fmt.Sprintf("+2/3 committed an invalid block: %v", err))
 	}
 
@@ -1223,6 +1227,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash wont reflect these txs until the next block.
 	var err error
+	block.SetSign(signs)
 	err = cs.state.ConsensusCommit(block)
 	if err != nil {
 		log.Error("Error on ApplyBlock. Did the application crash? Please restart getrue", "err", err)
