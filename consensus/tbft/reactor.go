@@ -456,10 +456,12 @@ OUTER_LOOP:
 			if prs.ProposalBlockParts == nil {
 				blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
 				if blockMeta == nil {
-					help.PanicSanity(fmt.Sprintf("Failed to load block %d when blockStore is at %d",
-						prs.Height, conR.conS.blockStore.MaxBlockHeight()))
+					// help.PanicSanity(fmt.Sprintf("Failed to load block %d when blockStore is at %d",
+					// 	prs.Height, conR.conS.blockStore.MaxBlockHeight()))
+					time.Sleep(conR.conS.config.PeerGossipSleep())
+				} else {
+					ps.InitProposalBlockParts(blockMeta.BlockID.PartsHeader)
 				}
-				ps.InitProposalBlockParts(blockMeta.BlockID.PartsHeader)
 				// continue the loop since prs is a copy and not effected by this initialization
 				continue OUTER_LOOP
 			}
