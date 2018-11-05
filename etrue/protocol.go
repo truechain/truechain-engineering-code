@@ -127,7 +127,7 @@ type txPool interface {
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
-	PendingFruits() ([]*types.SnailBlock, error)
+	PendingFruits() map[common.Hash]*types.SnailBlock
 	SubscribeNewFruitEvent(chan<- types.NewFruitsEvent) event.Subscription
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error

@@ -68,7 +68,7 @@ func (pm *ProtocolManager) syncTransactions(p *peer) {
 // syncFruits starts sending all currently pending fruits to the given peer.
 func (pm *ProtocolManager) syncFruits(p *peer) {
 	var fruits types.SnailBlocks
-	pending, _ := pm.SnailPool.PendingFruits()
+	pending := pm.SnailPool.PendingFruits()
 	for _, batch := range pending {
 		fruits = append(fruits, batch)
 	}
