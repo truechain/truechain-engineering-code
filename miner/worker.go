@@ -362,7 +362,7 @@ func (self *worker) update() {
 
 		// Handle ChainSideEvent
 		case ev := <-self.chainSideCh:
-			log.Info("chain side", "number", ev.Block.Number(), "hash", ev.Block.Hash())
+			log.Debug("chain side", "number", ev.Block.Number(), "hash", ev.Block.Hash())
 			if !self.atCommintNewWoker {
 				log.Debug("star commit new work  chainHeadCh", "chain block number", ev.Block.Number())
 				if atomic.LoadInt32(&self.mining) == 1 {
@@ -387,8 +387,6 @@ func (self *worker) update() {
 				if atomic.LoadInt32(&self.mining) == 1 {
 					self.commitNewWork()
 				}
-			} else {
-				log.Debug("------------start commit new work  fastchainEventCh true?????")
 			}
 		case <-self.minedfruitCh:
 			if !self.atCommintNewWoker {
@@ -831,23 +829,9 @@ func (self *worker) commitFastNumber(fastBlockHight, snailFruitsLastFastNumber *
 
 	log.Debug("--------commitFastBlocksByWoker Info", "snailFruitsLastFastNumber", snailFruitsLastFastNumber, "fastBlockHight", fastBlockHight)
 
-	// get pending fruits again
-	/*
-	pendingFruits, errFruit := self.etrue.SnailPool().PendingFruits()
-	if errFruit != nil {
-		return nil
-	}
-
-	// not fruits in pengding list
-	if pendingFruits == nil {
-		return new(big.Int).Add(snailFruitsLastFastNumber, common.Big1)
-	}
-	*/
-
 	if copyPendingFruits == nil{
 		return new(big.Int).Add(snailFruitsLastFastNumber, common.Big1)
 	}
-
 
 	log.Debug("--------commitFastBlocksByWoker Info2 ", "pendind fruit min fb", copyPendingFruits[0].FastNumber(), "max fb", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
 
