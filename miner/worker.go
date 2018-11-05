@@ -433,7 +433,7 @@ func (self *worker) wait() {
 				}
 
 				if self.minedFruit == nil{
-					log.Info("🍒  mined fruit 1", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+					log.Info("🍒  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
 					self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -442,7 +442,7 @@ func (self *worker) wait() {
 				}else{
 					if self.minedFruit.FastNumber().Cmp(block.FastNumber()) != 0{
 
-						log.Info("🍒  mined fruit 2", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
+						log.Info("🍒  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
 						self.etrue.SnailPool().AddRemoteFruits(newFruits)
@@ -882,7 +882,7 @@ func (self *worker) commitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chai
 	fastNumber := self.commitFastNumber(fastBlockHight, snailFruitsLastFastNumber,fruits)
 	if fastNumber != nil {
 		self.FastBlockNumber = fastNumber
-		log.Info("-------find the one", "fb number", self.FastBlockNumber)
+		log.Debug("-------find the one", "fb number", self.FastBlockNumber)
 		fbMined := fc.GetBlockByNumber(self.FastBlockNumber.Uint64())
 		self.current.header.FastNumber = fbMined.Number()
 		self.current.header.FastHash = fbMined.Hash()

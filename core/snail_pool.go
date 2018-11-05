@@ -826,7 +826,7 @@ func (pool *SnailPool) local() []*types.SnailBlock {
 func (pool *SnailPool) PendingFruits() map[common.Hash]*types.SnailBlock {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
-	
+
 	rtfruits := make(map[common.Hash]*types.SnailBlock)
 	for _, fruit := range pool.fruitPending {
 		rtfruits[fruit.FastHash()] = types.CopyFruit(fruit)
