@@ -450,6 +450,21 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign,error) {
 	}
 	return signs,nil
 }
+func (voteSet *VoteSet) GetSignByAddress(addr help.Address) *KeepBlockSign {
+	vote := voteSet.GetByAddress(addr[:])
+	if vote == nil {
+		return nil
+	}
+	var hash common.Hash
+	for i:=0;i<len(vote.BlockID.Hash)&&i<common.HashLength;i++ {
+		hash[i] = vote.BlockID.Hash[i]
+	}
+	return &KeepBlockSign{
+		Hash:		hash,
+		Result:		vote.Result,
+		Sign:		vote.ResultSign,
+	}
+}
 //--------------------------------------------------------------------------------
 // Strings and JSON
 
