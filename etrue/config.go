@@ -60,10 +60,10 @@ var DefaultConfig = Config{
 	},
 	MinerThreads: 2,
 	Port:         30310,
-	StandByPort:  30311,
 	RedisHost:    "",
 	RedisPort:    6379,
 	ChannelID:    0,
+	StandbyPort:  30311,
 }
 
 func init() {
