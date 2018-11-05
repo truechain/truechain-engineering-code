@@ -326,15 +326,17 @@ type stateAgent struct {
 	Validators *ValidatorSet
 	ChainID    string
 	Height     uint64
+	CID 	   uint64
 }
 
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
-	vals *ValidatorSet, height uint64) *stateAgent {
+	vals *ValidatorSet, height,cid uint64) *stateAgent {
 	return &stateAgent{
 		Agent:      agent,
 		ChainID:    chainID,
 		Validators: vals,
 		Height:     height,
+		CID:		cid,
 	}
 }
 
@@ -372,7 +374,7 @@ func (state *stateAgent) SetPrivValidator(priv *privValidator) {
 	state.Priv = priv
 }
 func (state *stateAgent) MakeBlock() (*ctypes.Block, *PartSet) {
-	committeeID := big.NewInt(1)
+	committeeID := new(big.Int).SetUint64(state.CID)
 	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
 		return nil, nil
