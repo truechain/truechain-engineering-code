@@ -215,7 +215,8 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if lastCommitHeight >= 0 {
 		lastCommitHeight--
 	}
-	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), lastCommitHeight)
+	cid := id.Uint64()
+	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), lastCommitHeight,cid)
 	if state == nil {
 		return errors.New("make the nil state")
 	}
