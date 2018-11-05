@@ -56,7 +56,7 @@ func (t *StateTest) UnmarshalJSON(in []byte) error {
 
 type stJSON struct {
 	Env  stEnv                    `json:"env"`
-	Pre  types.GenesisAlloc        `json:"pre"`
+	Pre  types.GenesisAlloc       `json:"pre"`
 	Tx   stTransaction            `json:"transaction"`
 	Out  hexutil.Bytes            `json:"out"`
 	Post map[string][]stPostState `json:"post"`
@@ -147,7 +147,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	// if logs := rlpHash(statedb.Logs()); logs != common.Hash(post.Logs) {
 	// 	return statedb, fmt.Errorf("post state logs hash mismatch: got %x, want %x", logs, post.Logs)
 	// }
-	// root, _ := statedb.Commit(config.IsEIP158(block.Number()))
+	// root, _ := statedb.Commit(true)
 	// if root != common.Hash(post.Root) {
 	// 	return statedb, fmt.Errorf("post state root mismatch: got %x, want %x", root, post.Root)
 	// }

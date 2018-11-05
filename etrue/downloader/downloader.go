@@ -338,6 +338,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
+			log.Info("drop peer snail Synchronise","id",id)
 			d.dropPeer(id)
 		}
 	default:
@@ -901,6 +902,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			// Header retrieval timed out, consider the peer bad and drop
 			p.GetLog().Debug("Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
+			p.GetLog().Info("drop peer snail fetchHeaders timout ","id",p.GetID())
 			d.dropPeer(p.GetID())
 
 			// Finish the sync gracefully instead of dumping the gathered data though
@@ -1123,6 +1125,8 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
+							peer.GetLog().Info("drop snail fast fetchParts","id",peer.GetID(),"type",kind,"fails",fails)
+
 							d.dropPeer(pid)
 						}
 					}

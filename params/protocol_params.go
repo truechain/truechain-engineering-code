@@ -81,32 +81,32 @@ const (
 )
 
 var (
-	DifficultyBoundDivisor = big.NewInt(32)   // The bound divisor of the difficulty, used in the update calculations.
-	DifficultyBoundDivisor90 = big.NewInt(2)   // The bound divisor of the difficulty, used in the update calculations.
+	DifficultyBoundDivisor = big.NewInt(2)       // The bound divisor of the difficulty, used in the update calculations.
 	GenesisDifficulty      = big.NewInt(6000000) // Difficulty of the Genesis block.
-	MinimumDifficulty      = big.NewInt(2000000) // The minimum that the difficulty may ever be.
+	MinimumDifficulty      = big.NewInt(2000000)  // The minimum that the difficulty may ever be.
 	MinimumFruitDifficulty = big.NewInt(2000)
-	DurationLimit          = big.NewInt(600)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+	DurationLimit          = big.NewInt(600) // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 
-	DifficultyPeriod		= big.NewInt(144)		//
+	DifficultyPeriod = big.NewInt(144) //
 
-	FruitBlockRatio			= big.NewInt(600) // difficulty ratio between fruit and snail block
+	FruitBlockRatio = big.NewInt(600) // difficulty ratio between fruit and snail block
 
-	FruitFreshness		    = big.NewInt(17)		// fruit freshness
+	FruitFreshness = big.NewInt(17) // fruit freshness
 
-	MinimumFruits           int = 50
-	MaximumFruits			int = 500
+	MinimumFruits int = 60
+	MaximumFruits int = 600
 )
 
-
 var (
-	ElectionPeriodNumber      	= big.NewInt(144) 			// snail block period number
-	ElectionSwitchoverNumber  	= big.NewInt(10000)
+	SnailConfirmInterval   = big.NewInt(12)
 
-	ElectionFruitsThreshold 	uint64 = 100		 // fruit size threshold for committee election
+	FastToFruitSpace       = big.NewInt(1200)
 
-	MaximumCommitteeNumber 		= big.NewInt(30)
-	MinimumCommitteeNumber 		= big.NewInt(4)
+	ElectionPeriodNumber     = big.NewInt(180) // snail block period number
+	ElectionSwitchoverNumber = big.NewInt(9600)
 
-	SnailConfirmInterval		= big.NewInt(12)
+	ElectionFruitsThreshold uint64 = 100 // fruit size threshold for committee election
+
+	MaximumCommitteeNumber = big.NewInt(30)
+	MinimumCommitteeNumber = big.NewInt(4)
 )

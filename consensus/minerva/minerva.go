@@ -246,25 +246,19 @@ type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset  *[]uint64  // The actual cache data content
-	oddDataset []uint64
-	evenDataset []uint64
-	once    sync.Once // Ensures the cache is generated only once
-	dateInit	int
-	oddFlag		int
-	evenFlag	int
+	dataset  []uint64  // The actual cache data content
+	once     sync.Once // Ensures the cache is generated only once
+	dateInit int
+	//oddFlag		int
+	//evenFlag	int
 }
 
 // newDataset creates a new truehash mining dataset
-func newDataset(epoch uint64) *dataset {
+func newDataset(epoch uint64) interface{} {
 	ds := &dataset{
-		epoch:   epoch,
-		dateInit : 0,
-		//dataset: make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
-		oddFlag  : 0,
-		evenFlag : 0,
-		oddDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
-		evenDataset : make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
+		epoch:    epoch,
+		dateInit: 0,
+		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
 
@@ -293,14 +287,11 @@ type Config struct {
 	PowMode        Mode
 }
 
-// Minerva is a consensus engine based on proot-of-work implementing the truechain fpow
-// algorithm.
 type Minerva struct {
 	config Config
 
 	//caches   *lru // In memory caches to avoid regenerating too often
-	//datasets *lru // In memory datasets to avoid regenerating too often
-	dataset *dataset
+	datasets *lru // In memory datasets to avoid regenerating too often
 
 	// Mining related fields
 	rand     *rand.Rand    // Properly seeded random source for nonces
@@ -319,7 +310,7 @@ type Minerva struct {
 	election consensus.CommitteeElection
 }
 
-var MinervaLocal *Minerva
+//var MinervaLocal *Minerva
 
 // New creates a full sized minerva hybrid consensus scheme.
 func New(config Config) *Minerva {
@@ -334,28 +325,70 @@ func New(config Config) *Minerva {
 		//log.Info("Disk storage enabled for minerva DAGs", "dir", config.DatasetDir, "count", config.DatasetsOnDisk)
 	}
 
-	MinervaLocal = &Minerva{
+	minerva := &Minerva{
 		config: config,
 		//caches:   newlru("cache", config.CachesInMem, newCache),
-		//datasets: newlru("dataset", config.DatasetsInMem, newDataset),
-		dataset:  newDataset(0),
+		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
 
-	MinervaLocal.CheckDataSetState(1)
+	//MinervaLocal.CheckDataSetState(1)
+	minerva.getDataset(1)
 
-	return MinervaLocal
+	return minerva
+}
+
+// dataset tries to retrieve a mining dataset for the specified block number
+func (m *Minerva) getDataset(block uint64) *dataset {
+	// Retrieve the requested ethash dataset
+	epoch := block / epochLength
+	currentI, futureI := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	current.generate(block, m)
+	if futureI != nil {
+		future := futureI.(*dataset)
+		future.generate(block, m)
+
+	}
+	return current
+}
+
+// generate ensures that the dataset content is generated before use.
+func (d *dataset) generate(blockNum uint64, m *Minerva) {
+	if d.dateInit == 0 {
+		//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+		if blockNum <= UPDATABLOCKLENGTH {
+			m.truehashTableInit(d.dataset)
+
+		} else {
+			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+			flag, ds := m.updateLookupTBL(bn, d.dataset)
+			if flag {
+				d.dataset = ds
+			}
+		}
+		d.dateInit = 1
+	}
+
+	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
+		m.updateLookupTBL(blockNum, d.dataset)
+		flag, ds := m.updateLookupTBL(blockNum, d.dataset)
+		if flag {
+			d.dataset = ds
+		}
+	}
 }
 
 //Append interface SnailChainReader after instantiations
-func SetSnailChainReader(scr consensus.SnailChainReader) {
-	MinervaLocal.sbc = scr
+func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
+	m.sbc = scr
 }
 
 //Append interface CommitteeElection after instantiation
-func SetElection(e consensus.CommitteeElection) {
-	MinervaLocal.election = e
+func (m *Minerva) SetElection(e consensus.CommitteeElection) {
+	m.election = e
 }
 
 // NewTester creates a small sized minerva scheme useful only for testing
@@ -449,6 +482,7 @@ func (m *Minerva) SetThreads(threads int) {
 // Hashrate implements PoW, returning the measured rate of the search invocations
 // per second over the last minute.
 func (m *Minerva) Hashrate() float64 {
+	log.Debug("minerva  hashrate", "hash", m.hashrate.Rate1())
 	return m.hashrate.Rate1()
 }
 

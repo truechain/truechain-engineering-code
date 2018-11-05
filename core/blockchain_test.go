@@ -17,19 +17,19 @@
 package core
 
 import (
+	"fmt"
+	"math/big"
+	"testing"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core/fastchain"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"testing"
-	"fmt"
 )
 
 // So we can deterministically seed different blockchains
@@ -44,14 +44,13 @@ var (
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
 	var (
 		db          = ethdb.NewMemDatabase()
-		BaseGenesis = new(Genesis)
 	)
 
-	BaseGenesis.Fast = new(fastchain.Genesis)
-	genesis := BaseGenesis.Fast.MustCommit(db)
+	BaseGenesis := DefaultFastGenesisBlock()
+	genesis := BaseGenesis.MustFastCommit(db)
 	// Initialize a fresh chain with only a genesis block
-	//初始化一个新链
-	blockchain, errs := NewBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
+	//Initialize a new chain
+	blockchain, errs := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 	fmt.Println(errs)
 	// Create and inject the requested chain
 	if n == 0 {
@@ -69,7 +68,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 	return db, blockchain, err
 }
 
-//测试块插入到链上
+//The test block is inserted into the chain
 func TestInsertBlock(t *testing.T) {
 
 	_, blockchain, err := newCanonical(ethash.NewFaker(), 0, true)
@@ -86,7 +85,7 @@ func TestInsertBlock(t *testing.T) {
 	t.Log("this block number:", blocks[0].NumberU64())
 	t.Log("this block hash:", blocks[0].Hash())
 
-	//获取生成块的hash
+	//Gets the hash of the generated block
 	thast := rawdb.ReadHeadBlockHash(blockchain.db)
 	if blocks[len(blocks)-1].Hash() != thast {
 		t.Fatalf("Write/Get HeadBlockHash failed")
@@ -96,7 +95,7 @@ func TestInsertBlock(t *testing.T) {
 	t.Log("this block hash:", thast)
 }
 
-func newSendTransaction(nonce uint64,bc *BlockChain, datasize int) *types.Transaction {
+func newSendTransaction(nonce uint64, bc *BlockChain, datasize int) *types.Transaction {
 	var (
 		//sendInterval = 5 * time.Second // Time interval to send record
 
@@ -115,20 +114,20 @@ func newSendTransaction(nonce uint64,bc *BlockChain, datasize int) *types.Transa
 	return tx
 }
 
-//测试块插入到链上（含交易）
+//Insert test blocks into the chain (including transactions)
 func TestEIP155Transition(t *testing.T) {
-	//构建参数
+	//Build parameters
 	var (
 		db         = ethdb.NewMemDatabase()
 		key, _     = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address    = crypto.PubkeyToAddress(key.PublicKey)
 		funds      = big.NewInt(1000000000)
 		deleteAddr = common.Address{1}
-		gspec      = &fastchain.Genesis{
-			Config: &params.ChainConfig{ChainID: big.NewInt(1), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)},
+		gspec      = &Genesis{
+			Config: &params.ChainConfig{ChainID: big.NewInt(1)},
 			Alloc:  types.GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
-		genesis = gspec.MustCommit(db)
+		genesis = gspec.MustFastCommit(db)
 	)
 
 	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
@@ -196,7 +195,7 @@ func TestEIP155Transition(t *testing.T) {
 	}
 
 	// generate an invalid chain id transaction
-	config := &params.ChainConfig{ChainID: big.NewInt(2), EIP155Block: big.NewInt(2), HomesteadBlock: new(big.Int)}
+	config := &params.ChainConfig{ChainID: big.NewInt(2)}
 	blocks, _ = GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), db, 4, func(i int, block *BlockGen) {
 		var (
 			tx      *types.Transaction
@@ -219,8 +218,6 @@ func TestEIP155Transition(t *testing.T) {
 	}
 }
 
-
-
 func TestEIP161AccountRemoval(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
@@ -229,16 +226,13 @@ func TestEIP161AccountRemoval(t *testing.T) {
 		address = crypto.PubkeyToAddress(key.PublicKey)
 		funds   = big.NewInt(1000000000)
 		theAddr = common.Address{1}
-		gspec   = &fastchain.Genesis{
+		gspec   = &Genesis{
 			Config: &params.ChainConfig{
-				ChainID:        big.NewInt(1),
-				HomesteadBlock: new(big.Int),
-				EIP155Block:    new(big.Int),
-				EIP158Block:    big.NewInt(2),
+				ChainID: big.NewInt(1),
 			},
 			Alloc: types.GenesisAlloc{address: {Balance: funds}},
 		}
-		genesis = gspec.MustCommit(db)
+		genesis = gspec.MustFastCommit(db)
 	)
 	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
 	defer blockchain.Stop()

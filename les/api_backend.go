@@ -64,6 +64,11 @@ func (b *LesApiBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 	return b.etrue.blockchain.GetHeaderByNumberOdr(ctx, uint64(blockNr))
 }
 
+// TODO: fixed lightchain func.
+func (b *LesApiBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
+	return nil, nil
+}
+
 func (b *LesApiBackend) BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error) {
 	header, err := b.HeaderByNumber(ctx, blockNr)
 	if header == nil || err != nil {
@@ -87,6 +92,11 @@ func (b *LesApiBackend) StateAndHeaderByNumber(ctx context.Context, blockNr rpc.
 
 func (b *LesApiBackend) GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error) {
 	return b.etrue.blockchain.GetBlockByHash(ctx, blockHash)
+}
+
+// TODO: fixed lightchain func.
+func (b *LesApiBackend) GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error) {
+	return nil, nil
 }
 
 // TODO: fixed lightchain func.
@@ -146,19 +156,19 @@ func (b *LesApiBackend) TxPoolContent() (map[common.Address]types.Transactions, 
 	return b.etrue.txPool.Content()
 }
 
-func (b *LesApiBackend) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event.Subscription {
 	return b.etrue.txPool.SubscribeNewTxsEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeChainEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeChainHeadEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeChainSideEvent(ch)
 }
 
@@ -166,8 +176,33 @@ func (b *LesApiBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.etrue.blockchain.SubscribeLogsEvent(ch)
 }
 
-func (b *LesApiBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
+func (b *LesApiBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return b.etrue.blockchain.SubscribeRemovedLogsEvent(ch)
+}
+
+func (b *LesApiBackend) GetReward(number int64) *types.BlockReward {
+	//if number < 0 {
+	//	return b.etrue.blockchain.CurrentReward()
+	//}
+
+	//return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
+	return nil
+}
+
+func (b *LesApiBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (b *LesApiBackend) SnailPoolContent() []*types.SnailBlock {
+	return nil
+}
+
+func (b *LesApiBackend) SnailPoolInspect() []*types.SnailBlock {
+	return nil
+}
+
+func (b *LesApiBackend) SnailPoolStats() (pending int, unVerified int) {
+	return 0,0
 }
 
 func (b *LesApiBackend) Downloader() *downloader.Downloader {

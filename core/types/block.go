@@ -134,6 +134,7 @@ type Header struct {
 	Root        common.Hash `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash common.Hash `json:"receiptsRoot"     gencodec:"required"`
+	Proposer    common.Address 	`json:"maker"            gencodec:"required"`
 	Bloom       Bloom       `json:"logsBloom"        gencodec:"required"`
 	SnailHash   common.Hash `json:"snailHash"        gencodec:"required"`
 	SnailNumber *big.Int    `json:"snailNumber"      gencodec:"required"`
@@ -182,7 +183,7 @@ type Body struct {
 	Signs        []*PbftSign
 }
 
-// Block Reward
+// BlockReward
 type BlockReward struct {
 	FastHash    common.Hash `json:"FastHash"        gencodec:"required"`
 	FastNumber  *big.Int    `json:"FastNumber"      gencodec:"required"`
@@ -190,7 +191,7 @@ type BlockReward struct {
 	SnailNumber *big.Int    `json:"SnailNumber"      gencodec:"required"`
 }
 
-// FastBlock represents an entire block in the Ethereum blockchain.
+// Block represents an entire block in the Ethereum blockchain.
 type Block struct {
 	header       *Header
 	transactions Transactions
@@ -213,7 +214,7 @@ type Block struct {
 	ReceivedFrom interface{}
 }
 
-// NewFastBlock creates a new fastblock. The input data is copied,
+// NewBlock creates a new fast block. The input data is copied,
 // changes to header and to the field values will not affect the
 // block.
 //
@@ -267,12 +268,16 @@ func (b *Body) GetLeaderSign() *PbftSign {
 	return nil
 }
 
-// NewFastBlockWithHeader creates a block with the given header data. The
+// NewBlockWithHeader creates a fast block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
 func NewBlockWithHeader(header *Header) *Block {
 	return &Block{header: CopyHeader(header)}
 }
+
+
+// CopyHeader creates a deep copy of a fast block header to prevent side effects from
+// modifying a header variable.
 func CopyHeader(h *Header) *Header {
 	cpy := *h
 	if cpy.Time = new(big.Int); h.Time != nil {
@@ -336,6 +341,8 @@ func (b *Block) GasUsed() uint64       { return b.header.GasUsed }
 func (b *Block) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
 func (b *Block) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
 
+
+func (b *Block) Proposer() common.Address { return b.header.Proposer }
 func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *Block) SnailHash() common.Hash   { return b.header.SnailHash }
 func (b *Block) Bloom() Bloom             { return b.header.Bloom }
@@ -442,7 +449,7 @@ func (b *Block) Hash() common.Hash {
 
 //go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
 
-// Header represents a block header in the Ethereum truechain.
+// SnailHeader represents a block header in the Ethereum truechain.
 type SnailHeader struct {
 	ParentHash      common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash       common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -472,7 +479,7 @@ type SnailBody struct {
 	Signs  []*PbftSign
 }
 
-// Block represents an entire block in the Ethereum blockchain.
+// SnailBlock represents an entire snail block in the TrueChain snail chain.
 type SnailBlock struct {
 	header *SnailHeader
 	fruits SnailBlocks
@@ -592,7 +599,6 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 	if len(fruits) == 0 {
 		b.header.FruitsHash = EmptyRootHash
 	} else {
-		// TODO: get fruits hash
 		b.header.FruitsHash = DeriveSha(Fruits(fruits))
 		b.fruits = make([]*SnailBlock, len(fruits))
 		for i := range fruits {
@@ -622,11 +628,7 @@ func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
 	return &SnailBlock{header: CopySnailHeader(header)}
 }
 
-func NewFruitWithHeader(header *SnailHeader) *SnailBlock {
-	return &SnailBlock{header: CopySnailHeader(header)}
-}
 
-// TODO: implement copy function
 func CopyFruit(f *SnailBlock) *SnailBlock {
 	//return NewSnailBlockWithHeader(f.Header()).WithBody(f.fruits, f.signs, f.uncles)
 	b := &SnailBlock{
@@ -651,7 +653,7 @@ func CopyFruit(f *SnailBlock) *SnailBlock {
 	return b
 }
 
-// CopyHeader creates a deep copy of a block header to prevent side effects from
+// CopySnailHeader creates a deep copy of a snail block header to prevent side effects from
 // modifying a header variable.
 func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	cpy := *h
@@ -673,6 +675,10 @@ func CopySnailHeader(h *SnailHeader) *SnailHeader {
 	if cpy.PointerNumber = new(big.Int); h.PointerNumber != nil {
 		cpy.PointerNumber.Set(h.PointerNumber)
 	}
+	if len(h.Publickey) > 0 {
+		cpy.Publickey = make([]byte, len(h.Publickey))
+		copy(cpy.Publickey, h.Publickey)
+	}
 	if len(h.Extra) > 0 {
 		cpy.Extra = make([]byte, len(h.Extra))
 		copy(cpy.Extra, h.Extra)
@@ -692,7 +698,7 @@ func CopyPbftSign(s *PbftSign) *PbftSign {
 	return &cpy
 }
 
-// DecodeRLP decodes the Ethereum
+// DecodeRLP decodes the SnailBlock
 func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
 	var eb extsnailblock
 	_, size, _ := s.Kind()
@@ -704,7 +710,7 @@ func (b *SnailBlock) DecodeRLP(s *rlp.Stream) error {
 	return nil
 }
 
-// EncodeRLP serializes b into the Ethereum RLP block format.
+// EncodeRLP serializes b into the TrueChain RLP block format.
 func (b *SnailBlock) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extsnailblock{
 		Header: b.header,
