@@ -824,15 +824,18 @@ func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBloc
 //create a new list that maye add one fruit who just mined but not add in to pending list
 // make sure not need mined the same fruit
 func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
+	// clear copyPendingFruit
+	self.copyPendingFruits = nil
 
 	if fruits == nil{
+		log.Info("copyPendingFruit pendingFruits is nul")
+		self.copyPendingFruits = append(self.copyPendingFruits, self.minedFruit)
 		return
 	}
 
 	lenFruit := len(fruits)
 
-	// clear copyPendingFruit
-	self.copyPendingFruits = nil
+	
 
 	log.Debug("copy Pendding Fruit begin info len of fruit","frist fb num",fruits[0].FastNumber(),"last fb num",fruits[len(fruits)-1].FastNumber(),"mined fruit fb num",self.minedFruit.FastNumber(),"len ",lenFruit)
 	for i,f:=range fruits{
