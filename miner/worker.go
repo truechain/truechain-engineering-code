@@ -841,8 +841,12 @@ func (self *worker) copyPendingFruit(fruits []*types.SnailBlock){
 		}else{
 			if f.FastNumber().Cmp(self.minedFruit.FastNumber()) >0 {
 
-				if fruits[i-1].FastNumber().Cmp(self.minedFruit.FastNumber()) != 0{
+				if i == 0{
 					self.copyPendingFruits = append(self.copyPendingFruits, self.minedFruit)
+				}else {
+					if fruits[i-1].FastNumber().Cmp(self.minedFruit.FastNumber()) != 0 {
+						self.copyPendingFruits = append(self.copyPendingFruits, self.minedFruit)
+					}
 				}
 
 				for j:=i;j< lenFruit ;j++{
