@@ -37,6 +37,7 @@ const (
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize    = 100 * 1024
 	fruitsyncPackSize = 100 * 1024
+	maxheight		  = 600
 )
 
 type txsync struct {
@@ -292,8 +293,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
 					//time.Sleep(1*time.Second)
 
-					if height > 500 {
-						height = 500
+					if height > maxheight {
+						height = maxheight
 					}
 
 					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
