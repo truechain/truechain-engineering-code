@@ -1,4 +1,4 @@
-package consensus
+package tbft
 
 import (
 	"github.com/truechain/truechain-engineering-code/common"

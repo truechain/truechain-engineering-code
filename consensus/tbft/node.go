@@ -1,4 +1,4 @@
-package consensus
+package tbft
 
 import (
 	"crypto/ecdsa"
@@ -281,3 +281,10 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	}
 	return ttypes.NewValidatorSet(vals)
 }
+func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
+	return nil
+}
+func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
+	return nil
+}
+

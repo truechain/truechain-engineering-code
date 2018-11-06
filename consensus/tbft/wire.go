@@ -1,4 +1,4 @@
-package consensus
+package tbft
 
 import (
 	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"

@@ -1,6 +1,6 @@
 // +build gofuzz
 
-package consensus
+package tbft
 
 import (
 	"bytes"
