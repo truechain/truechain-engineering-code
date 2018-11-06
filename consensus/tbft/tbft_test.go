@@ -35,13 +35,16 @@ func getID() *big.Int {
 var IdCache = make(map[string]*big.Int)
 
 func IdCacheInit() {
+	lock = new(sync.Mutex)
+	lock2 = new(sync.Mutex)
+
 	IdCache["Agent1"] = big.NewInt(1)
 	IdCache["Agent2"] = big.NewInt(1)
 	IdCache["Agent3"] = big.NewInt(1)
 	IdCache["Agent4"] = big.NewInt(1)
 }
 
-var lock, lock2 sync.Mutex
+var lock, lock2 *sync.Mutex
 
 func getIDForCache(agent string) *big.Int {
 	lock.Lock()
