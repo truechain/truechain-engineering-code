@@ -326,23 +326,25 @@ type StateAgent interface {
 	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
 }
 
-type stateAgent struct {
+type StateAgentImpl struct {
 	Priv       *privValidator
 	Agent      ctypes.PbftAgentProxy
 	Validators *ValidatorSet
 	ChainID    string
-	Height     uint64
+	NewHeight  uint64
+	EndHeight  uint64
 	CID 	   uint64
 }
 
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
-	vals *ValidatorSet, height,cid uint64) *stateAgent {
-	return &stateAgent{
-		Agent:      agent,
-		ChainID:    chainID,
-		Validators: vals,
-		Height:     height,
-		CID:		cid,
+	vals *ValidatorSet, height,cid uint64) *StateAgentImpl {
+	return &StateAgentImpl{
+		Agent:      	agent,
+		ChainID:    	chainID,
+		Validators: 	vals,
+		NewHeight:     	height,
+		EndHeight:		height+1,		// defualt newheight + 1
+		CID:			cid,
 	}
 }
 
@@ -373,21 +375,25 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	return nil, errors.New("not complete")
 }
 
-func (state *stateAgent) GetChainID() string {
+func (state *StateAgentImpl) SetEndHeight(h uint64) {
+	state.EndHeight = h
+}
+func (state *StateAgentImpl) GetChainID() string {
 	return state.ChainID
 }
-func (state *stateAgent) SetPrivValidator(priv *privValidator) {
+func (state *StateAgentImpl) SetPrivValidator(priv *privValidator) {
 	state.Priv = priv
 }
-func (state *stateAgent) MakeBlock() (*ctypes.Block, *PartSet) {
+func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet) {
 	committeeID := new(big.Int).SetUint64(state.CID)
+
 	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
 		return nil, nil
 	}
 	return block, MakePartSet(BlockPartSizeBytes, block)
 }
-func (state *stateAgent) ConsensusCommit(block *ctypes.Block) error {
+func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
@@ -397,7 +403,7 @@ func (state *stateAgent) ConsensusCommit(block *ctypes.Block) error {
 	}
 	return nil
 }
-func (state *stateAgent) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
+func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
 	if block == nil {
 		return nil,errors.New("block not have")
 	}
@@ -411,36 +417,36 @@ func (state *stateAgent) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, err
 		Hash:			sign.FastHash,	
 	} ,err
 }
-func (state *stateAgent) GetValidator() *ValidatorSet {
+func (state *StateAgentImpl) GetValidator() *ValidatorSet {
 	return state.Validators
 }
-func (state *stateAgent) GetLastValidator() *ValidatorSet {
+func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
 }
-func (state *stateAgent) GetLastBlockHeight() uint64 {
-	return state.Height
+func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
+	return state.NewHeight
 }
-func (state *stateAgent) UpdateHeight(height uint64) {
-	if height > state.Height {
-		state.Height = height
+func (state *StateAgentImpl) UpdateHeight(height uint64) {
+	if height > state.NewHeight {
+		state.NewHeight = height
 	}
 }
-func (state *stateAgent) GetAddress() help.Address {
+func (state *StateAgentImpl) GetAddress() help.Address {
 	return state.Priv.GetAddress()
 }
-func (state *stateAgent) GetPubKey() tcrypto.PubKey {
+func (state *StateAgentImpl) GetPubKey() tcrypto.PubKey {
 	return state.Priv.GetPubKey()
 }
-func (state *stateAgent) SignVote(chainID string, vote *Vote) error {
+func (state *StateAgentImpl) SignVote(chainID string, vote *Vote) error {
 	return state.Priv.SignVote(chainID, vote)
 }
-func (state *stateAgent) SignProposal(chainID string, proposal *Proposal) error {
+func (state *StateAgentImpl) SignProposal(chainID string, proposal *Proposal) error {
 	return state.Priv.signProposal(chainID, proposal)
 }
-func (state *stateAgent) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
+func (state *StateAgentImpl) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
 	return state.Priv.SignHeartbeat(chainID, heartbeat)
 }
-func (state *stateAgent) Broadcast(height *big.Int) {
+func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {
 	// 	state.Agent.BroadcastFastBlock(fb)
 	// }
