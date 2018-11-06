@@ -802,8 +802,9 @@ func (cs *ConsensusState) defaultDecideProposal(height uint64, round int) {
 		block, blockParts = cs.ValidBlock, cs.ValidBlockParts
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
-		block, blockParts = cs.createProposalBlock()
-		if block == nil { // on error
+		var berr error
+		block, blockParts,berr = cs.createProposalBlock()
+		if block == nil || berr != nil { // on error
 			return
 		}
 	}
@@ -855,7 +856,7 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // is returned for convenience so we can log the proposal block.
 // Returns nil block upon error.
 // NOTE: keep it side-effect free for clarity.
-func (cs *ConsensusState) createProposalBlock() (block *types.Block, blockParts *ttypes.PartSet) {
+func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet,error) {
 	// remove commit in block
 	return cs.state.MakeBlock()
 }

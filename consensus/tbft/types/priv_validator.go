@@ -315,7 +315,7 @@ type StateAgent interface {
 	GetLastBlockHeight() uint64
 	GetChainID() string
 	UpdateHeight(height uint64)
-	MakeBlock() (*ctypes.Block, *PartSet)
+	MakeBlock() (*ctypes.Block, *PartSet,error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
@@ -348,7 +348,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 	}
 }
 
-func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
+func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
 	bzs, err := rlp.EncodeToBytes(block)
@@ -356,7 +356,10 @@ func MakePartSet(partSize uint, block *ctypes.Block) *PartSet {
 		panic(err)
 	}
 	bz, err := cdc.MarshalBinary(bzs)
-	return NewPartSetFromData(bz, partSize)
+	if err != nil {
+		return nil,err
+	}
+	return NewPartSetFromData(bz, partSize),nil
 }
 func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	if reader.IsComplete() {
@@ -384,14 +387,21 @@ func (state *StateAgentImpl) GetChainID() string {
 func (state *StateAgentImpl) SetPrivValidator(priv *privValidator) {
 	state.Priv = priv
 }
-func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet) {
+func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
 
 	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
-		return nil, nil
+		return nil, nil,err
 	}
-	return block, MakePartSet(BlockPartSizeBytes, block)
+	if block.NumberU64() > state.EndHeight {
+		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
+	}
+	if block.NumberU64() != state.NewHeight {
+		state.UpdateHeight(block.NumberU64())
+	}
+	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
+	return block,parts,err2
 }
 func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
@@ -427,7 +437,7 @@ func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
 	return state.NewHeight
 }
 func (state *StateAgentImpl) UpdateHeight(height uint64) {
-	if height > state.NewHeight {
+	if height != state.NewHeight {
 		state.NewHeight = height
 	}
 }
