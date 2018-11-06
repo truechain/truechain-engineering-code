@@ -22,6 +22,7 @@ type service struct {
 	sw               *p2p.Switch
 	consensusState   *ConsensusState   // latest consensus state
 	consensusReactor *ConsensusReactor // for participating in the consensus
+	sa 				 *ttypes.StateAgentImpl
 }
 
 const (
@@ -56,7 +57,9 @@ func (s *service) stop() error {
 	s.sw.Stop()
 	return nil
 }
-
+func (s *service) getStateAgent() *ttypes.StateAgentImpl {
+	return s.sa
+}
 //------------------------------------------------------------------------------
 
 // Node is the highest level interface to a full truechain node.
@@ -189,7 +192,6 @@ func (n *Node) Notify(id *big.Int, action int) error {
 		} else {
 			return errors.New("wrong conmmitt ID:" + id.String())
 		}
-
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
 			server.stop()
@@ -225,6 +227,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		sw:             p2p.NewSwitch(n.config.P2P),
 		consensusState: NewConsensusState(n.config.Consensus, state, store),
 	}
+	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
 	service.sw.SetAddrBook(n.addrBook)
@@ -282,7 +285,12 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	return ttypes.NewValidatorSet(vals)
 }
 func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
-	return nil
+	if server, ok := n.services[committeeId.Uint64()]; ok {
+		server.getStateAgent().SetEndHeight(committeeId.Uint64())
+		return nil
+	} else {
+		return errors.New("wrong conmmitt ID:" + committeeId.String())
+	}
 }
 func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 	return nil
