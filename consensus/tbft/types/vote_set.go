@@ -428,15 +428,15 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign,error) {
 	if voteSet.maj23 == nil {
 		return nil,errors.New("there was no pok")
 	}
-	votesByBlock, ok := voteSet.votesByBlock[voteSet.maj23.Key()]
-	if !ok {
+	blockid := voteSet.maj23
+	if _, ok := voteSet.votesByBlock[blockid.Key()];!ok {
 		return nil,errors.New(fmt.Sprintf("none blockhash was vote,hash=%X",voteSet.maj23.Hash))
 	}
 	signs := make([]*ttypes.PbftSign,0)
-	for i, vote := range votesByBlock.votes {
-		if res := votesByBlock.bitArray.GetIndex(uint(i));res {
+	for i, vote := range voteSet.votes {
+		if res := voteSet.votesBitArray.GetIndex(uint(i));res {
 			var hash common.Hash
-			copy(hash[:],voteSet.maj23.Hash)
+			copy(hash[:],blockid.Hash)
 			s := &ttypes.PbftSign {
 				FastHash:		hash,
 				FastHeight:		new(big.Int).SetUint64(vote.Height),
