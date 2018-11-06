@@ -402,14 +402,14 @@ func (state *stateAgent) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, err
 		return nil,errors.New("block not have")
 	}
 	sign, err := state.Agent.VerifyFastBlock(block)
-	if err != nil && (err != ctypes.ErrHeightNotYet || err != ctypes.ErrSnailHeightNotYet){
-		return nil,err
-	}
+	// if err != nil && (err != ctypes.ErrHeightNotYet || err != ctypes.ErrSnailHeightNotYet){
+	// 	return nil,err
+	// }
 	return &KeepBlockSign{
 		Result:			sign.Result,
 		Sign:			sign.Sign,	
 		Hash:			sign.FastHash,	
-	} ,nil
+	} ,err
 }
 func (state *stateAgent) GetValidator() *ValidatorSet {
 	return state.Validators
