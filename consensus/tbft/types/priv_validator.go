@@ -9,6 +9,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/common"
 	"math/big"
 	"sync"
 	"time"
@@ -58,6 +59,7 @@ type privValidator struct {
 type KeepBlockSign struct {
 	Result 			uint
 	Sign 			[]byte
+	Hash			common.Hash
 }
 
 func NewPrivValidator(priv ecdsa.PrivateKey) PrivValidator {
@@ -400,13 +402,14 @@ func (state *stateAgent) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, err
 		return nil,errors.New("block not have")
 	}
 	sign, err := state.Agent.VerifyFastBlock(block)
-	if err != nil {
+	if err != nil && (err != ctypes.ErrHeightNotYet || err != ctypes.ErrSnailHeightNotYet){
 		return nil,err
 	}
 	return &KeepBlockSign{
-				Result:			sign.Result,
-				Sign:			sign.Sign,		
-			} ,nil
+		Result:			sign.Result,
+		Sign:			sign.Sign,	
+		Hash:			sign.FastHash,	
+	} ,nil
 }
 func (state *stateAgent) GetValidator() *ValidatorSet {
 	return state.Validators

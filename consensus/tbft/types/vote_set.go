@@ -436,9 +436,7 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign,error) {
 	for i, vote := range votesByBlock.votes {
 		if res := votesByBlock.bitArray.GetIndex(uint(i));res {
 			var hash common.Hash
-			for i:=0;i<len(voteSet.maj23.Hash)&&i<common.HashLength;i++ {
-				hash[i] = voteSet.maj23.Hash[i]
-			}
+			copy(hash[:],voteSet.maj23.Hash)
 			s := &ttypes.PbftSign {
 				FastHash:		hash,
 				FastHeight:		new(big.Int).SetUint64(vote.Height),
@@ -449,6 +447,19 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign,error) {
 		}
 	}
 	return signs,nil
+}
+func (voteSet *VoteSet) GetSignByAddress(addr help.Address) *KeepBlockSign {
+	vote := voteSet.GetByAddress(addr[:])
+	if vote == nil {
+		return nil
+	}
+	var hash common.Hash
+	copy(hash[:],vote.BlockID.Hash)
+	return &KeepBlockSign{
+		Hash:		hash,
+		Result:		vote.Result,
+		Sign:		vote.ResultSign,
+	}
 }
 //--------------------------------------------------------------------------------
 // Strings and JSON
