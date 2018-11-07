@@ -85,6 +85,8 @@ type Miner struct {
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
+	commitFlag  int32
+
 }
 
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
@@ -99,6 +101,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		electionCh: make(chan types.ElectionEvent, txChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:   1,
+		commitFlag: 1,
 	}
 
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
@@ -128,29 +131,17 @@ func (self *Miner) loop() {
 					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
 						// i am committee
 						self.Stop()
-						atomic.StoreInt32(&self.shouldStart, 1)
+						atomic.StoreInt32(&self.commitFlag, 0)
 					} else {
-						log.Debug("not in commiteer munber start")
+						atomic.StoreInt32(&self.commitFlag, 1)
+						self.Start(self.coinbase)
+						log.Debug("not in commiteer munber so start to miner")
 					}
 				}
 				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
-
-			case types.CommitteeSwitchover:
-				// alread to start mining need stop
-				if self.Mining() {
-					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
-						// i am committee
-						self.Stop()
-						atomic.StoreInt32(&self.shouldStart, 1)
-					} else {
-						log.Info("not in commiteer munber staCommitteeSwitchoverrt")
-					}
-				}
-				log.Debug("==================get  election  msg  2 CommitteeSwitchover", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
-
 			case types.CommitteeStop:
 
-				atomic.StoreInt32(&self.canStart, 1)
+				atomic.StoreInt32(&self.commitFlag, 1)
 				self.Start(self.coinbase)
 				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 			}
@@ -202,7 +193,8 @@ func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&self.canStart) == 0 {
+	if atomic.LoadInt32(&self.canStart) == 0 || atomic.LoadInt32(&self.commitFlag) == 0{
+		log.Info("start to miner","canstart",self.canStart,"commitflag",self.commitFlag)
 		return
 	}
 	atomic.StoreInt32(&self.mining, 1)
@@ -216,6 +208,7 @@ func (self *Miner) Stop() {
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)
+	atomic.StoreInt32(&self.commitFlag, 0)
 }
 
 func (self *Miner) Register(agent Agent) {
