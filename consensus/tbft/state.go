@@ -734,13 +734,45 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int) {
 		return
 	}
 	log.Info(fmt.Sprintf("tryenterPropose(%v/%v). Current: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
-	// get block 
-	block, blockParts,err := cs.createProposalBlock()
-	if err == nil || block != nil {
-		log.Info("proposal", "height:", height, "round:", round, "makeblock:", err)
+	doing := true
+	var estr string
+
+	if cs.privValidator == nil {
+		estr = fmt.Sprint("This node is not a validator")
+		doing = false 
+	} else {
+		if !cs.Validators.HasAddress(cs.privValidator.GetAddress()) {
+			estr = fmt.Sprint(estr," This node is not a validator", "addr", cs.privValidator.GetAddress(), "vals", cs.Validators)
+			doing = false 
+		} else if !cs.isProposer() {
+			estr = fmt.Sprint(estr,"Not our turn to propose", "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
+			doing = false 
+		}
+	}
+	var block *types.Block
+	var blockParts *ttypes.PartSet
+	var err error
+
+	if doing {
+		// get block 
+		block, blockParts,err = cs.createProposalBlock()
+		if err == nil || block != nil {
+			log.Info("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
+			doing =false 
+		}
+	}
+	if !doing {
+		cs.scheduleTimeout(cs.config.Propose(int(round)), height, round, ttypes.RoundStepPropose)
+		cs.updateRoundStep(round, ttypes.RoundStepPropose)
+		cs.newStep()
+		if cs.isProposalComplete() {
+			cs.enterPrevote(height, int(cs.Round))
+		}
+		log.Error(estr)
 		return 
 	}
-	// Wait for txs to be available in the txpool and we enterPropose in round 0.
+	
+	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
 	if empty && cs.config.CreateEmptyBlocks && round == 0 {
 		if cs.config.CreateEmptyBlocksInterval > 0 {
@@ -755,7 +787,6 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int) {
 
 func (cs *ConsensusState) enterPropose(height uint64, round int,blk *types.Block, bparts *ttypes.PartSet) {
 	//logger := log.With("height", height, "round", round)
-
 	if cs.Height != height || round < int(cs.Round) || (int(cs.Round) == round && ttypes.RoundStepPropose <= cs.Step) {
 		log.Debug(fmt.Sprintf("enterPropose(%v/%v): Invalid args. Current step: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
 		return
@@ -777,25 +808,11 @@ func (cs *ConsensusState) enterPropose(height uint64, round int,blk *types.Block
 
 	// If we don't get the proposal and all block parts quick enough, enterPrevote
 	cs.scheduleTimeout(cs.config.Propose(int(round)), height, round, ttypes.RoundStepPropose)
-
-	// Nothing more to do if we're not a validator
-	if cs.privValidator == nil {
-		log.Debug("This node is not a validator")
-		return
-	}
-
-	// if not a validator, we're done
-	if !cs.Validators.HasAddress(cs.privValidator.GetAddress()) {
-		log.Debug("This node is not a validator", "addr", cs.privValidator.GetAddress(), "vals", cs.Validators)
-		return
-	}
 	log.Debug("This node is a validator")
 
 	if cs.isProposer() {
 		log.Info("enterPropose: Our turn to propose", "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
 		cs.decideProposal(height, round,blk,bparts)
-	} else {
-		log.Info("enterPropose: Not our turn to propose", "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
 	}
 }
 
