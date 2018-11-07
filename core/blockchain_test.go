@@ -99,24 +99,6 @@ func TestInsertBlock(t *testing.T) {
 	t.Log("this block hash:", thast)
 }
 
-func newSendTransaction(nonce uint64, bc *BlockChain, datasize int) *types.Transaction {
-	var (
-		//sendInterval = 5 * time.Second // Time interval to send record
-
-		//sendAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"
-		sendPrivHex = "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
-
-		recvAddrHex = "68f2517b6c597ede0ae7c0559cdd4a84fd08c928"
-	)
-
-	recvAddr := common.HexToAddress(recvAddrHex)
-	signer := types.NewEIP155Signer(bc.chainConfig.ChainID)
-	acc, _ := crypto.HexToECDSA(sendPrivHex)
-
-	tx := types.NewTransaction(nonce, recvAddr, big.NewInt(1e+18), 100000, big.NewInt(1e+12), make([]byte, datasize))
-	tx, _ = types.SignTx(tx, signer, acc)
-	return tx
-}
 
 // testBlockChainImport tries to process a chain of blocks, writing them into
 // the database if successful.
@@ -313,9 +295,14 @@ func TestFastVsFullChains(t *testing.T) {
 		//else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(ablock.Uncles()) {
 		//	t.Errorf("block #%d [%x]: uncles mismatch: have %v, want %v", num, hash, fblock.Uncles(), ablock.Uncles())
 		//}
-		if freceipts, areceipts := rawdb.ReadReceipts(fastDb, hash, *rawdb.ReadHeaderNumber(fastDb, hash)), rawdb.ReadReceipts(archiveDb, hash, *rawdb.ReadHeaderNumber(archiveDb, hash)); types.DeriveSha(freceipts) != types.DeriveSha(areceipts) {
+		freceipts, areceipts := types.Receipts{},types.Receipts{}
+
+		if freceipts, areceipts = rawdb.ReadReceipts(fastDb, hash, *rawdb.ReadHeaderNumber(fastDb, hash)), rawdb.ReadReceipts(archiveDb, hash, *rawdb.ReadHeaderNumber(archiveDb, hash)); types.DeriveSha(freceipts) != types.DeriveSha(areceipts) {
 			t.Errorf("block #%d [%x]: receipts mismatch: have %v, want %v", num, hash, freceipts, areceipts)
 		}
+
+		//t.Log("fast",types.DeriveSha(freceipts) ,"archive",types.DeriveSha(areceipts) )
+
 	}
 	// Check that the canonical chains are the same between the databases
 	for i := 0; i < len(blocks)+1; i++ {
@@ -568,89 +555,6 @@ func TestLogReorgs(t *testing.T) {
 	case <-timeout.C:
 		t.Fatal("Timeout. There is no RemovedLogsEvent has been sent.")
 	}
-}
-
-func TestReorgSideEvent(t *testing.T) {
-	var (
-		db      = ethdb.NewMemDatabase()
-		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
-		gspec   = &Genesis{
-			Config: params.TestChainConfig,
-			Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}},
-		}
-		genesis = gspec.MustFastCommit(db)
-		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
-	)
-
-	blockchain, _ := NewBlockChain(db, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
-	defer blockchain.Stop()
-
-	chain, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 3, func(i int, gen *BlockGen) {})
-	if _, err := blockchain.InsertChain(chain); err != nil {
-		t.Fatalf("failed to insert chain: %v", err)
-	}
-
-	replacementBlocks, _ := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 4, func(i int, gen *BlockGen) {
-		tx, err := types.SignTx(types.NewContractCreation(gen.TxNonce(addr1), new(big.Int), 1000000, new(big.Int), nil), signer, key1)
-		if i == 2 {
-			gen.OffsetTime(-9)
-		}
-		if err != nil {
-			t.Fatalf("failed to create tx: %v", err)
-		}
-		gen.AddTx(tx)
-	})
-	chainSideCh := make(chan types.ChainFastSideEvent, 64)
-	blockchain.SubscribeChainSideEvent(chainSideCh)
-	if _, err := blockchain.InsertChain(replacementBlocks); err != nil {
-		t.Fatalf("failed to insert chain: %v", err)
-	}
-
-	// first two block of the secondary chain are for a brief moment considered
-	// side chains because up to that point the first one is considered the
-	// heavier chain.
-	expectedSideHashes := map[common.Hash]bool{
-		replacementBlocks[0].Hash(): true,
-		replacementBlocks[1].Hash(): true,
-		chain[0].Hash():             true,
-		chain[1].Hash():             true,
-		chain[2].Hash():             true,
-	}
-
-	i := 0
-
-	const timeoutDura = 10 * time.Second
-	timeout := time.NewTimer(timeoutDura)
-done:
-	for {
-		select {
-		case ev := <-chainSideCh:
-			block := ev.Block
-			if _, ok := expectedSideHashes[block.Hash()]; !ok {
-				t.Errorf("%d: didn't expect %x to be in side chain", i, block.Hash())
-			}
-			i++
-
-			if i == len(expectedSideHashes) {
-				timeout.Stop()
-
-				break done
-			}
-			timeout.Reset(timeoutDura)
-
-		case <-timeout.C:
-			t.Fatal("Timeout. Possibly not all blocks were triggered for sideevent")
-		}
-	}
-
-	// make sure no more events are fired
-	select {
-	case e := <-chainSideCh:
-		t.Errorf("unexpected event fired: %v", e)
-	case <-time.After(250 * time.Millisecond):
-	}
-
 }
 
 // Tests if the canonical block can be fetched from the database during chain insertion.
