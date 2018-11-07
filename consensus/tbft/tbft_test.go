@@ -11,6 +11,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -79,15 +81,11 @@ func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
 
-	num := 0
-	if pap.Name == "Agent2" {
-		num = 1
-	} else if pap.Name == "Agent3" {
-		num = 2
-	} else if pap.Name == "Agent4" {
-		num = 3
+	s := strings.Replace(pap.Name, "Agent", "", -1)
+	num, e := strconv.Atoi(s)
+	if e != nil {
+		num = 0
 	}
-
 	pr1 := getPrivateKey(num)
 	voteSign.Sign, err = crypto.Sign(signHash, pr1)
 	if err != nil {
