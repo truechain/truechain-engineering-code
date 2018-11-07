@@ -48,13 +48,15 @@ func NewPbftAgetTest() *PbftAgent {
 	return pbftAgent
 }
 
-func InitCommitteeInfo() *types.CommitteeInfo {
+func InitCommitteeInfo() (*types.CommitteeInfo,[]*ecdsa.PrivateKey) {
+	var priKeys []*ecdsa.PrivateKey
 	committeeInfo := &types.CommitteeInfo{
 		Id:      common.Big1,
 		Members: nil,
 	}
 	for i := 0; i < 4; i++ {
 		priKey, err := crypto.GenerateKey()
+		priKeys =append(priKeys,priKey)
 		if err != nil {
 			log.Error("initMembers", "error", err)
 		}
@@ -62,11 +64,11 @@ func InitCommitteeInfo() *types.CommitteeInfo {
 		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
 		committeeInfo.Members = append(committeeInfo.Members, m)
 	}
-	return committeeInfo
+	return committeeInfo,priKey
 }
 
 func initCommitteeInfoIncludeSelf() *types.CommitteeInfo {
-	committeeInfo := InitCommitteeInfo()
+	committeeInfo,_ := InitCommitteeInfo()
 	committeeMember := generateCommitteeMemberBySelfPriKey()
 	committeeInfo.Members = append(committeeInfo.Members, committeeMember)
 	return committeeInfo
@@ -81,7 +83,7 @@ func TestSendAndReceiveCommitteeNode(t *testing.T) {
 }
 
 func TestSendAndReceiveCommitteeNode2(t *testing.T) {
-	committeeInfo := InitCommitteeInfo()
+	committeeInfo,_ := InitCommitteeInfo()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
 	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)

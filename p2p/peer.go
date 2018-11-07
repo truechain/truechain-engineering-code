@@ -231,9 +231,7 @@ loop:
 	}
 
 	close(p.closed)
-	log.Info("Peer remove", "LocalAddr", p.LocalAddr(), "reason", reason, "err", err)
 	p.rw.close(reason)
-	log.Info("Peer remove", "RemoteAddr", p.RemoteAddr(), "reason", reason, "err", err, "remoteRequested", remoteRequested, p.Inbound())
 	p.wg.Wait()
 	return remoteRequested, err
 }

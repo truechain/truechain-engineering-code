@@ -762,11 +762,21 @@ func (e *Election) loop() {
 						//snailStartNumber = new(big.Int).Sub(snailEndNumber, params.ElectionPeriodNumber)
 					}
 
-					members := e.getElectionMembers(snailStartNumber, snailEndNumber)
-
 					lastFastNumber := e.getLastNumber(snailStartNumber, snailEndNumber)
 
 					e.committee.endFastNumber = new(big.Int).Set(lastFastNumber)
+
+					e.electionFeed.Send(types.ElectionEvent{
+						Option:           types.CommitteeOver,
+						CommitteeID:      e.committee.id,
+						CommitteeMembers: e.committee.Members(),
+						BeginFastNumber:  e.committee.beginFastNumber,
+						EndFastNumber:    e.committee.endFastNumber,
+					})
+
+					// elect next committee
+
+					members := e.getElectionMembers(snailStartNumber, snailEndNumber)
 
 					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "endfast", e.committee.endFastNumber, "members", len(members))
 
@@ -792,14 +802,6 @@ func (e *Election) loop() {
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
 					PrintCommittee(e.nextCommittee)
-					//go func(e *Election) {
-					e.electionFeed.Send(types.ElectionEvent{
-						Option:           types.CommitteeOver,
-						CommitteeID:      e.committee.id,
-						CommitteeMembers: e.committee.Members(),
-						BeginFastNumber:  e.committee.beginFastNumber,
-						EndFastNumber:    e.committee.endFastNumber,
-					})
 
 					e.electionFeed.Send(types.ElectionEvent{
 						Option:           types.CommitteeSwitchover,
@@ -807,7 +809,6 @@ func (e *Election) loop() {
 						CommitteeMembers: e.nextCommittee.Members(),
 						BeginFastNumber:  e.nextCommittee.beginFastNumber,
 					})
-					//}(e)
 				}
 			}
 			// Make logical decisions based on the Number provided by the ChainheadEvent

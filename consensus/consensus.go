@@ -119,7 +119,7 @@ type Engine interface {
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
-	PrepareSnail(chain SnailChainReader, header *types.SnailHeader) error
+	PrepareSnail(chain ChainReader, snailchain SnailChainReader, header *types.SnailHeader) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)
 	// and assembles the final block.

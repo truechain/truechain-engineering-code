@@ -591,6 +591,7 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 
 	if delta > 20 {
 		diff = new(big.Int).Div(diff, big.NewInt(2))
+		diff.Add(diff, common.Big1)
 	} else if delta > 10 && delta <= 20 {
 		diff = new(big.Int).Mul(diff, big.NewInt(2))
 		diff = new(big.Int).Div(diff, big.NewInt(3))
@@ -727,7 +728,7 @@ func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) err
 	return nil
 }
 
-func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.SnailHeader) error {
+func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.SnailChainReader, header *types.SnailHeader) error {
 	parents := m.getParents(chain, header)
 	//parent := m.sbc.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parents == nil {
@@ -742,7 +743,7 @@ func (m *Minerva) PrepareSnail(chain consensus.SnailChainReader, header *types.S
 		if pointer == nil {
 			return consensus.ErrUnknownPointer
 		}
-		fast := chain.GetHeader(header.FastHash, header.FastNumber.Uint64())
+		fast := fastchain.GetHeader(header.FastHash, header.FastNumber.Uint64())
 		if fast == nil {
 			return consensus.ErrUnknownFast
 		}

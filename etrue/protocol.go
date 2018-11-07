@@ -79,7 +79,7 @@ const (
 type errCode int
 
 const (
-	ErrMsgTooLarge = iota
+	ErrMsgTooLarge              = iota
 	ErrDecode
 	ErrInvalidMsgCode
 	ErrProtocolVersionMismatch

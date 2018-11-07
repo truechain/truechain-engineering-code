@@ -49,7 +49,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 	BaseGenesis := DefaultFastGenesisBlock()
 	genesis := BaseGenesis.MustFastCommit(db)
 	// Initialize a fresh chain with only a genesis block
-	//初始化一个新链
+	//Initialize a new chain
 	blockchain, errs := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 	fmt.Println(errs)
 	// Create and inject the requested chain
@@ -68,7 +68,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 	return db, blockchain, err
 }
 
-//测试块插入到链上
+//The test block is inserted into the chain
 func TestInsertBlock(t *testing.T) {
 
 	_, blockchain, err := newCanonical(ethash.NewFaker(), 0, true)
@@ -85,7 +85,7 @@ func TestInsertBlock(t *testing.T) {
 	t.Log("this block number:", blocks[0].NumberU64())
 	t.Log("this block hash:", blocks[0].Hash())
 
-	//获取生成块的hash
+	//Gets the hash of the generated block
 	thast := rawdb.ReadHeadBlockHash(blockchain.db)
 	if blocks[len(blocks)-1].Hash() != thast {
 		t.Fatalf("Write/Get HeadBlockHash failed")
@@ -115,9 +115,9 @@ func newSendTransaction(nonce uint64, bc *BlockChain, datasize int) *types.Trans
 	return tx
 }
 
-//测试块插入到链上（含交易）
+//Insert test blocks into the chain (including transactions)
 func TestEIP155Transition(t *testing.T) {
-	//构建参数
+	//Build parameters
 	var (
 		db         = ethdb.NewMemDatabase()
 		key, _     = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")

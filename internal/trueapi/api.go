@@ -562,6 +562,9 @@ func (s *PublicBlockChainAPI) SnailBlockNumber() hexutil.Uint64 {
 
 func (s *PublicBlockChainAPI) FruitNumber() hexutil.Uint64 {
 	block, _ := s.b.SnailBlockByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
+	if rpc.BlockNumber(block.NumberU64()) == rpc.EarliestBlockNumber {
+		return 0
+	}
 	fruits := block.Fruits()
 	return hexutil.Uint64(fruits[len(fruits)-1].FastNumber().Uint64())
 }
@@ -638,17 +641,16 @@ func (s *PublicBlockChainAPI) GetSnailBlockByHash(ctx context.Context, blockHash
 func (s *PublicBlockChainAPI) GetFruitByNumber(ctx context.Context, fastblockNr rpc.BlockNumber, fullSigns bool)(map[string]interface{}, error) {
 	block, err := s.b.BlockByNumber(ctx, fastblockNr)
 	if block != nil {
-		if (err == nil) {
+		if err == nil {
 			return s.GetFruitByHash(ctx, block.Hash(), fullSigns)
 		}
-
 	}
 	return nil, err
 }
 
 func (s *PublicBlockChainAPI) GetFruitByHash(ctx context.Context, blockHash common.Hash, fullSigns bool)(map[string]interface{}, error) {
 	block, err := s.b.GetFruit(ctx, blockHash)
-	if (block != nil) {
+	if block != nil {
 		return s.rpcOutputFruit(block, fullSigns)
 	}
 	return nil, err

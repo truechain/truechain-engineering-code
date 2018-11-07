@@ -45,8 +45,8 @@ const (
 	nextCommittee           //next committee
 )
 const (
-	blockRewordSpace = 12
-	fastToFruitSpace = 1200
+	/*blockRewordSpace = 12
+	fastToFruitSpace = 1200*/
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
@@ -166,7 +166,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 	self.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
 		Port:      uint(config.Port),
-		Port2:     uint(config.StandByPort),
+		Port2:     uint(config.StandbyPort),
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&self.privateKey.PublicKey),
 	}
@@ -180,7 +180,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 		self.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
 	}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode,
-		", port", config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
+		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
 		", coinbase", self.committeeNode.Coinbase,
 		",pubKey", hex.EncodeToString(self.committeeNode.Publickey))
 }
@@ -409,7 +409,7 @@ func (self *PbftAgent) loop() {
 				}
 			}
 		case ch := <-self.chainHeadCh:
-			log.Debug("ChainHeadCh putCacheIntoChain.", "ch.Block", ch.Block.Number())
+			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
 			go self.putCacheInsertChain(ch.Block)
 		}
 	}
@@ -668,6 +668,10 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
+	//assign Proposer
+	pubKey,_ :=crypto.UnmarshalPubkey(self.committeeNode.Publickey)
+	header.Proposer =crypto.PubkeyToAddress(*pubKey)
+
 	if err := self.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
 		return nil, err
 	}
@@ -717,7 +721,7 @@ func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 	if blockFruits != nil && len(blockFruits) > 0 {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
-		if space >= fastToFruitSpace {
+		if space >= params.FastToFruitSpace.Int64() {
 			return types.ErrSnailBlockTooSlow
 		}
 	}
@@ -734,7 +738,7 @@ func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-	if space >= blockRewordSpace {
+	if space >= params.SnailConfirmInterval.Int64() {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		if sb != nil {

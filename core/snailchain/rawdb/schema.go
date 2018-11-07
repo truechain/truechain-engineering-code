@@ -55,7 +55,7 @@ var (
 	bloomBitsPrefix = []byte("sB") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	preimagePrefix = []byte("snailchain-secure-key-")      // preimagePrefix + hash -> preimage
-	configPrefix   = []byte("snailchain-ethereum-config-") // config prefix for the db
+	configPrefix   = []byte("snailchain-truechain-config-") // config prefix for the db
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("siB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
