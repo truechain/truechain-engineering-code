@@ -756,7 +756,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int) {
 	if doing {
 		// get block 
 		block, blockParts,err = cs.createProposalBlock()
-		if err == nil || block != nil {
+		if err != nil || block != nil {
 			log.Info("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
 			doing =false 
 		}

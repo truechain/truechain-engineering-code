@@ -40,7 +40,7 @@ func TestReader(t *testing.T) {
 
 	bTmp := types.NewBlock(header, tr, re, si)
 
-	ps := types2.MakePartSet(64*1024, bTmp)
+	ps,_ := types2.MakePartSet(64*1024, bTmp)
 	pe := types2.NewPartSetFromHeader(ps.Header())
 
 	for i := 0; i < int(ps.Total()); i++ {
