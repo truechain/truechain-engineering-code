@@ -495,7 +495,7 @@ OUTER_LOOP:
 			// Peer must receive ProposalMessage first.
 			// rs.Proposal was validated, so rs.Proposal.POLRound <= rs.Round,
 			// so we definitely have rs.Votes.Prevotes(rs.Proposal.POLRound).
-			if 0 <= rs.Proposal.POLRound {
+			if 0 <= int(rs.Proposal.POLRound) {
 				msg := &ProposalPOLMessage{
 					Height:           rs.Height,
 					ProposalPOLRound: rs.Proposal.POLRound,
@@ -731,7 +731,7 @@ OUTER_LOOP:
 		{
 			rs := conR.conS.GetRoundState()
 			prs := ps.GetRoundState()
-			if rs.Height == prs.Height && prs.ProposalPOLRound >= 0 {
+			if rs.Height == prs.Height && int(prs.ProposalPOLRound) >= 0 {
 				if maj23, ok := rs.Votes.Prevotes(int(prs.ProposalPOLRound)).TwoThirdsMajority(); ok {
 					peer.TrySend(StateChannel, cdc.MustMarshalBinaryBare(&VoteSetMaj23Message{
 						Height:  prs.Height,

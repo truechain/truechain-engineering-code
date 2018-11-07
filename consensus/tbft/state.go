@@ -872,7 +872,7 @@ func (cs *ConsensusState) isProposalComplete() bool {
 	}
 	// we have the proposal. if there's a POLRound,
 	// make sure we have the prevotes from it too
-	if cs.Proposal.POLRound < 0 {
+	if int(cs.Proposal.POLRound) < 0 {
 		return true
 	}
 	// if this is false the proposer is lying or we haven't received the POL yet
@@ -1306,7 +1306,7 @@ func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 
 	// Verify POLRound, which must be -1 or between 0 and proposal.Round exclusive.
 	if int(proposal.POLRound) != -1 &&
-		(proposal.POLRound < 0 || proposal.Round <= proposal.POLRound) {
+		(int(proposal.POLRound) < 0 || proposal.Round <= proposal.POLRound) {
 		return ErrInvalidProposalPOLRound
 	}
 
@@ -1523,7 +1523,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				cs.enterPrevote(height, int(vote.Round)) // if the vote is ahead of us
 				cs.enterPrevoteWait(height, int(vote.Round))
 			}
-		} else if cs.Proposal != nil && 0 <= cs.Proposal.POLRound && cs.Proposal.POLRound == vote.Round {
+		} else if cs.Proposal != nil && 0 <= int(cs.Proposal.POLRound) && cs.Proposal.POLRound == vote.Round {
 			// If the proposal is now complete, enter prevote of cs.Round.
 			if cs.isProposalComplete() {
 				cs.enterPrevote(height, int(cs.Round))
