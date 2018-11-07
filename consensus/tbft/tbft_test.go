@@ -130,6 +130,7 @@ func InitComm() {
 	comm[1] = []byte("42c4d734786eedaf5d0c51fd2bc9bbaa6c289ed23710d9381072932456aeca18")
 	comm[2] = []byte("d878614f687c663baf7cdcbc32cc0fc88a036cdc6850023d880b03984426a629")
 	comm[3] = []byte("26981a9479b7c4d98c546451c13a78b53c695df14c1968a086219edfe60bce2f")
+	comm[4] = []byte("36981a9479b7c4d98c546451c13a78b53c695df14c1968a086219edfe60bce6f")
 }
 
 func getPrivateKey(id int) *ecdsa.PrivateKey {
@@ -177,10 +178,11 @@ func TestPbftRunFor4(t *testing.T) {
 	//log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
-	pr1, _ := crypto.GenerateKey()
-	pr2, _ := crypto.GenerateKey()
-	pr3, _ := crypto.GenerateKey()
-	pr4, _ := crypto.GenerateKey()
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
+
 	agent1 := NewPbftAgent("Agent1")
 	agent2 := NewPbftAgent("Agent2")
 	agent3 := NewPbftAgent("Agent3")
@@ -296,12 +298,14 @@ func TestPbftRunFor4(t *testing.T) {
 func TestPbftRunFor5(t *testing.T) {
 	log.OpenLogDebug(4)
 	IdCacheInit()
+
 	start := make(chan int)
-	pr1, _ := crypto.GenerateKey()
-	pr2, _ := crypto.GenerateKey()
-	pr3, _ := crypto.GenerateKey()
-	pr4, _ := crypto.GenerateKey()
-	pr5, _ := crypto.GenerateKey()
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
+	pr5 := getPrivateKey(4)
+
 	agent1 := NewPbftAgent("Agent1")
 	agent2 := NewPbftAgent("Agent2")
 	agent3 := NewPbftAgent("Agent3")
