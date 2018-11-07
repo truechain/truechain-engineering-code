@@ -409,7 +409,7 @@ func (self *PbftAgent) loop() {
 				}
 			}
 		case ch := <-self.chainHeadCh:
-			log.Debug("ChainHeadCh putCacheIntoChain.", "ch.Block", ch.Block.Number())
+			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
 			go self.putCacheInsertChain(ch.Block)
 		}
 	}
