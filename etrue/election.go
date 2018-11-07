@@ -44,6 +44,13 @@ const (
 	committeeCacheLimit     = 256
 )
 
+type ElectMode uint
+
+const (
+	ElectModeEtrue = iota
+	ElectModeFake
+)
+
 var (
 	// maxUint256 is a big integer representing 2^256-1
 	maxUint256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
@@ -88,9 +95,11 @@ type Election struct {
 	commiteeCache *lru.Cache
 	committeeList map[uint64]*committee
 
+	electionMode    ElectMode
 	committee     	*committee
 	nextCommittee 	*committee
 	mu              sync.RWMutex
+	testPrivateKeys []*ecdsa.PrivateKey
 
 	startSwitchover bool //Flag bit for handling event switching
 	singleNode      bool
@@ -119,6 +128,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
 		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
 		singleNode:       config.NodeType,
+		electionMode:     ElectModeEtrue,
 	}
 
 	// get genesis committee
@@ -137,6 +147,63 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 	}
 
 	return election
+}
+
+func NewFakeElection() *Election {
+	var priKeys []*ecdsa.PrivateKey
+	var members []*types.CommitteeMember
+
+	for i := 0; i < 4; i++ {
+		priKey, err := crypto.GenerateKey()
+		priKeys = append(priKeys,priKey)
+		if err != nil {
+			log.Error("initMembers", "error", err)
+		}
+		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+		members = append(members, m)
+	}
+
+	elected := &committee{
+		id:                  new(big.Int).Set(common.Big0),
+		beginFastNumber:     new(big.Int).Set(common.Big1),
+		endFastNumber:       new(big.Int).Set(common.Big0),
+		firstElectionNumber: new(big.Int).Set(common.Big0),
+		lastElectionNumber:  new(big.Int).Set(common.Big0),
+		switchCheckNumber:   params.ElectionPeriodNumber,
+		members:             members,
+	}
+
+	election := &Election{
+		fastchain:          nil,
+		snailchain:         nil,
+		fastChainEventCh:   make(chan types.ChainFastEvent, fastChainHeadSize),
+		snailChainEventCh:  make(chan types.ChainSnailEvent, snailchainHeadSize),
+		singleNode:         false,
+		committee:          elected,
+		electionMode:       ElectModeFake,
+		testPrivateKeys:    priKeys,
+	}
+	return election
+}
+
+func (e *Election) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error) {
+	var signs []*types.PbftSign
+	for _, privateKey := range e.testPrivateKeys {
+		voteSign := &types.PbftSign{
+			Result:     types.VoteAgree,
+			FastHeight: fb.Header().Number,
+			FastHash:   fb.Hash(),
+		}
+		var err error
+		signHash := voteSign.HashWithNoSign().Bytes()
+		voteSign.Sign, err = crypto.Sign(signHash, privateKey)
+		if err != nil {
+			log.Error("fb GenerateSign error ", "err", err)
+		}
+		signs = append(signs, voteSign)
+	}
+	return signs, nil
 }
 
 //whether assigned publickey  in  committeeMember pubKey
@@ -243,7 +310,7 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 
 	if new(big.Int).Add(snailEndNumber, params.SnailConfirmInterval).Cmp(params.ElectionPeriodNumber) < 0 {
 		committeeNum = common.Big0
-	} 
+	}
 
 	if cache, ok := e.commiteeCache.Get(committeeNum.Uint64()); ok {
 		committee := cache.([]*types.CommitteeMember)
@@ -362,6 +429,10 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 // GetCommittee gets committee members propose this fast block
 func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
+	if e.electionMode == ElectModeFake {
+		return e.committee.members
+	}
+
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
 	/*
@@ -856,7 +927,6 @@ func (e *Election) SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.S
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }
-
 
 func PrintCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
