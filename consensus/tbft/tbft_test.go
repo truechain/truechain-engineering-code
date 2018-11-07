@@ -66,12 +66,43 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	//time.Sleep(time.Second * 5)
 	return types.NewBlock(header, nil, nil, nil), nil
 }
+
+func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
+	voteSign := &types.PbftSign{
+		Result:     vote,
+		FastHeight: fb.Header().Number,
+		FastHash:   fb.Hash(),
+	}
+	if vote == types.VoteAgreeAgainst {
+		log.Warn("vote AgreeAgainst", "number", fb.Number(), "hash", fb.Hash())
+	}
+	var err error
+	signHash := voteSign.HashWithNoSign().Bytes()
+
+	num := 0
+	if pap.Name == "Agent2" {
+		num = 1
+	} else if pap.Name == "Agent3" {
+		num = 2
+	} else if pap.Name == "Agent4" {
+		num = 3
+	}
+
+	pr1 := getPrivateKey(num)
+	voteSign.Sign, err = crypto.Sign(signHash, pr1)
+	if err != nil {
+		log.Error("fb GenerateSign error ", "err", err)
+	}
+	return voteSign, err
+}
+
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
 	//if rand.Intn(100) > 30 {
 	//	return types.ErrHeightNotYet
 	//}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
-	return nil, nil
+
+	return pap.GenerateSignWithVote(block, 1)
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
@@ -127,7 +158,7 @@ func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 func TestPbftRunForOne(t *testing.T) {
 	IdCacheInit()
 	start := make(chan int)
-	pr, _ := crypto.GenerateKey()
+	pr := getPrivateKey(0)
 	agent1 := NewPbftAgent("Agent1")
 	n, _ := NewNode(config.DefaultConfig(), "1", pr, agent1)
 	n.Start()
@@ -263,7 +294,7 @@ func TestPbftRunFor4(t *testing.T) {
 }
 
 func TestPbftRunFor5(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1, _ := crypto.GenerateKey()
@@ -418,10 +449,10 @@ func TestRunPbft1(t *testing.T) {
 	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
-	pr1 := getPrivateKey(1)
-	pr2 := getPrivateKey(2)
-	pr3 := getPrivateKey(3)
-	pr4 := getPrivateKey(0)
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
 
 	agent1 := NewPbftAgent("Agent1")
 
@@ -476,10 +507,10 @@ func TestRunPbft2(t *testing.T) {
 	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
-	pr1 := getPrivateKey(1)
-	pr2 := getPrivateKey(2)
-	pr3 := getPrivateKey(3)
-	pr4 := getPrivateKey(0)
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
 
 	agent2 := NewPbftAgent("Agent2")
 
@@ -534,10 +565,10 @@ func TestRunPbft3(t *testing.T) {
 	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
-	pr1 := getPrivateKey(1)
-	pr2 := getPrivateKey(2)
-	pr3 := getPrivateKey(3)
-	pr4 := getPrivateKey(0)
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
 
 	agent3 := NewPbftAgent("Agent3")
 
@@ -592,10 +623,10 @@ func TestRunPbft4(t *testing.T) {
 	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
-	pr1 := getPrivateKey(1)
-	pr2 := getPrivateKey(2)
-	pr3 := getPrivateKey(3)
-	pr4 := getPrivateKey(0)
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
+	pr3 := getPrivateKey(2)
+	pr4 := getPrivateKey(3)
 
 	agent4 := NewPbftAgent("Agent4")
 
