@@ -419,7 +419,14 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
 	d.mux.Post(StartEvent{})
+	latestNum := uint64(0)
+
 	defer func() {
+
+		if latestNum > d.blockchain.CurrentBlock().NumberU64() && err == nil {
+			d.syncWithPeer(p,hash,td)
+		}
+
 		// reset on error
 		if err != nil {
 			d.mux.Post(FailedEvent{err})
@@ -442,6 +449,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	// Look up the sync boundaries: the common ancestor and the target block
 	latest, err := d.fetchHeight(p)
+	latestNum = latest.Number.Uint64()
 	if err != nil {
 		return err
 	}
@@ -484,7 +492,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	fetchers := []func() error{
 		func() error { return d.fetchHeaders(p, origin+1, pivot) }, // Headers are always retrieved
 		func() error { return d.fetchBodies(origin + 1) },          // Bodies are retrieved during normal and fast sync
-		//func() error { return d.fetchReceipts(origin + 1) },        // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
