@@ -64,7 +64,7 @@ func InitCommitteeInfo() (*types.CommitteeInfo,[]*ecdsa.PrivateKey) {
 		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
 		committeeInfo.Members = append(committeeInfo.Members, m)
 	}
-	return committeeInfo,priKey
+	return committeeInfo, priKeys
 }
 
 func initCommitteeInfoIncludeSelf() *types.CommitteeInfo {
