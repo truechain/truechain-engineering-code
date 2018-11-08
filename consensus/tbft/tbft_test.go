@@ -83,8 +83,10 @@ func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (
 
 	s := strings.Replace(pap.Name, "Agent", "", -1)
 	num, e := strconv.Atoi(s)
-	if e != nil {
+	if e != nil || num == 1 {
 		num = 0
+	} else {
+		num -= 1
 	}
 	pr1 := getPrivateKey(num)
 	voteSign.Sign, err = crypto.Sign(signHash, pr1)
