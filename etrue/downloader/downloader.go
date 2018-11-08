@@ -423,7 +423,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	defer func() {
 
-		if latestNum > d.blockchain.CurrentBlock().NumberU64() && err == nil {
+		if latestNum > d.blockchain.CurrentBlock().NumberU64() && err == nil && p != nil {
 			d.syncWithPeer(p,hash,td)
 		}
 
