@@ -162,7 +162,7 @@ func (self *Miner) loop() {
 func (self *Miner) update() {
 	//defer self.electionSub.Unsubscribe()
 	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, types.ElectionEvent{})
-out:
+//out:
 	for ev := range events.Chan() {
 		switch ev.Data.(type) {
 		case downloader.StartEvent:
@@ -183,9 +183,9 @@ out:
 				self.Start(self.coinbase)
 			}
 			// unsubscribe. we're only interested in this event once
-			events.Unsubscribe()
+			//events.Unsubscribe()
 			// stop immediately and ignore all further pending events
-			break out
+			//break out
 		}
 	}
 }
