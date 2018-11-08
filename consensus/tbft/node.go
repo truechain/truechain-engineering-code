@@ -26,6 +26,7 @@ type service struct {
 	sa 				 *ttypes.StateAgentImpl
 	nodeTable 		 map[p2p.ID]*nodeInfo
 	lock			 *sync.Mutex
+	updateChan		 chan bool
 }
 
 type nodeInfo struct {
@@ -46,6 +47,7 @@ func NewNodeService() *service {
 	return &service {
 		nodeTable: 		make(map[p2p.ID]*nodeInfo),
 		lock:			new(sync.Mutex),
+		updateChan:		make(chan bool),
 	}
 }
 
@@ -69,7 +71,18 @@ func (s *service) start(node *Node) error {
 	if err != nil {
 		return err
 	}
-	go s.updateNodes()
+	go func(){
+		for {
+			select {
+			case update := <- s.updateChan :
+				if update {
+					s.updateNodes()	
+				} else {
+					return 			// exit
+				}
+			}
+		}
+	}()
 	return nil
 }
 func (s *service) stop() error {
@@ -84,7 +97,7 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 	
 	s.lock.Lock()
 	defer s.lock.Unlock()
-
+	update := false
 	for _, node := range nodes {
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
@@ -96,12 +109,7 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, node.Port)))
-		if v,ok := s.nodeTable[id]; ok {
-			v.Adrress = addr
-			v.IP = node.IP
-			v.Port = node.Port			// 
-			v.Enable = false
-		} else {
+		if _,ok := s.nodeTable[id]; !ok {
 			s.nodeTable[id] = &nodeInfo{
 				ID:			id,
 				Adrress:	addr,
@@ -109,11 +117,30 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 				Port:		node.Port,
 				Enable:		false,
 			}
+			update = true
 		}	
+	}
+	if update {
+		go func() { s.updateChan <- true }()
 	}
 }
 func (s *service) updateNodes() {
-
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	for _,v := range s.nodeTable {
+		if !v.Enable {
+			s.connTo(v)
+		}
+	}
+}
+func (s *service) connTo(node *nodeInfo) {
+	if node.Enable { return }
+	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
+	if errDialErr != nil {
+		log.Error("dail peer " + errDialErr.Error())
+	} else {
+		node.Enable = true
+	}
 }
 //------------------------------------------------------------------------------
 
