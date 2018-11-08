@@ -20,15 +20,15 @@ const (
 // config/toml.go
 // NOTE: tmlibs/cli must know to look in the config dir!
 var (
-	DefaultTBFTDir 		 = ".tbft"
-	defaultConfigDir     = "config"
-	defaultDataDir       = "data"
+	DefaultTBFTDir   = ".tbft"
+	defaultConfigDir = "config"
+	defaultDataDir   = "data"
 
-	defaultConfigFileName  = "config.toml"
-	defaultAddrBookName = "addrbook.json"
+	defaultConfigFileName = "config.toml"
+	defaultAddrBookName   = "addrbook.json"
 
-	defaultConfigFilePath  = filepath.Join(defaultConfigDir, defaultConfigFileName)
-	defaultAddrBookPath    = filepath.Join(defaultConfigDir, defaultAddrBookName)
+	defaultConfigFilePath = filepath.Join(defaultConfigDir, defaultConfigFileName)
+	defaultAddrBookPath   = filepath.Join(defaultConfigDir, defaultAddrBookName)
 )
 
 // Config defines the top level configuration for a truechain node
@@ -36,25 +36,25 @@ type Config struct {
 	// Top level options use an anonymous struct
 	BaseConfig `mapstructure:",squash"`
 	// Options for services
-	P2P             *P2PConfig             `mapstructure:"p2p"`
-	Consensus       *ConsensusConfig       `mapstructure:"consensus"`
+	P2P       *P2PConfig       `mapstructure:"p2p"`
+	Consensus *ConsensusConfig `mapstructure:"consensus"`
 }
 
 // DefaultConfig returns a default configuration for a truechain node
 func DefaultConfig() *Config {
 	return &Config{
-		BaseConfig:      DefaultBaseConfig(),
-		P2P:             DefaultP2PConfig(),
-		Consensus:       DefaultConsensusConfig(),
+		BaseConfig: DefaultBaseConfig(),
+		P2P:        DefaultP2PConfig(),
+		Consensus:  DefaultConsensusConfig(),
 	}
 }
 
 // TestConfig returns a configuration that can be used for testing
 func TestConfig() *Config {
 	return &Config{
-		BaseConfig:      TestBaseConfig(),
-		P2P:             TestP2PConfig(),
-		Consensus:       TestConsensusConfig(),
+		BaseConfig: TestBaseConfig(),
+		P2P:        TestP2PConfig(),
+		Consensus:  TestConsensusConfig(),
 	}
 }
 
@@ -81,8 +81,8 @@ type BaseConfig struct {
 // DefaultBaseConfig returns a default base configuration for a truechain node
 func DefaultBaseConfig() BaseConfig {
 	return BaseConfig{
-		Moniker:           defaultMoniker,
-		FilterPeers:       false,
+		Moniker:     defaultMoniker,
+		FilterPeers: false,
 	}
 }
 
@@ -91,6 +91,7 @@ func TestBaseConfig() BaseConfig {
 	cfg := DefaultBaseConfig()
 	return cfg
 }
+
 //-----------------------------------------------------------------------------
 // P2PConfig
 
@@ -150,8 +151,8 @@ type P2PConfig struct {
 // DefaultP2PConfig returns a default configuration for the peer-to-peer layer
 func DefaultP2PConfig() *P2PConfig {
 	return &P2PConfig{
-		ListenAddress:           "tcp://127.0.0.1:26677",
-		ExternalAddress:         "tcp://127.0.0.1:26678",
+		ListenAddress:           "tcp://127.0.0.1:30310",
+		ExternalAddress:         "tcp://127.0.0.1:30311",
 		UPNP:                    false,
 		AddrBook:                defaultAddrBookPath,
 		AddrBookStrict:          true,
@@ -160,7 +161,7 @@ func DefaultP2PConfig() *P2PConfig {
 		MaxPacketMsgPayloadSize: 1024,    // 1 kB
 		SendRate:                5120000, // 5 mB/s
 		RecvRate:                5120000, // 5 mB/s
-		AllowDuplicateIP:        true, // so non-breaking yet
+		AllowDuplicateIP:        true,    // so non-breaking yet
 		HandshakeTimeout:        20 * time.Second,
 		DialTimeout:             3 * time.Second,
 		TestDialFail:            false,

@@ -44,6 +44,7 @@ func IdCacheInit() {
 	IdCache["Agent2"] = big.NewInt(1)
 	IdCache["Agent3"] = big.NewInt(1)
 	IdCache["Agent4"] = big.NewInt(1)
+	IdCache["Agent5"] = big.NewInt(1)
 }
 
 var lock, lock2 *sync.Mutex
@@ -135,7 +136,6 @@ func InitComm() {
 
 func getPrivateKey(id int) *ecdsa.PrivateKey {
 	InitComm()
-	fmt.Println(len(comm[id]), "ddd")
 	key, err := hex.DecodeString(string(comm[id]))
 	if err != nil {
 		fmt.Println(err)
