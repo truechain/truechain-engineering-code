@@ -18,16 +18,11 @@ import (
 const(
 	sendNodeTime_Test  = 30 * time.Second
 )
+
 var agent *PbftAgent
+
 func init() {
 	agent = NewPbftAgetTest()
-}
-
-func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
-	priKey := agent.privateKey
-	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	committeeMember := &types.CommitteeMember{coinbase, &priKey.PublicKey}
-	return committeeMember
 }
 
 func NewPbftAgetTest() *PbftAgent {
@@ -48,6 +43,13 @@ func NewPbftAgetTest() *PbftAgent {
 	return pbftAgent
 }
 
+func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
+	priKey := agent.privateKey
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	committeeMember := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+	return committeeMember
+}
+
 func InitCommitteeInfo() (*types.CommitteeInfo,[]*ecdsa.PrivateKey) {
 	var priKeys []*ecdsa.PrivateKey
 	committeeInfo := &types.CommitteeInfo{
@@ -64,7 +66,7 @@ func InitCommitteeInfo() (*types.CommitteeInfo,[]*ecdsa.PrivateKey) {
 		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
 		committeeInfo.Members = append(committeeInfo.Members, m)
 	}
-	return committeeInfo,priKey
+	return committeeInfo, priKeys
 }
 
 func initCommitteeInfoIncludeSelf() *types.CommitteeInfo {
@@ -187,9 +189,6 @@ func printNodeWork(t *testing.T,nodeWork *nodeInfoWork,str string){
 		", cacheSignLen=", len(nodeWork.cacheSign))
 }
 
-func TestElectionEvent(t *testing.T) {
-
-}
 
 //////////////////////////////////////////////////////////////////////////////////
 func (self *PbftAgent) sendSubScribedEvent() {
