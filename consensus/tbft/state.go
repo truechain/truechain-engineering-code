@@ -780,9 +780,9 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int,wait bool) {
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
 	if empty && cs.config.CreateEmptyBlocks && round == 0 && !wait {
-		if cs.config.CreateEmptyBlocksInterval > 0 {
+		// if cs.config.CreateEmptyBlocksInterval > 0 {
 			cs.scheduleTimeoutWithWait(timeoutInfo{cs.config.EmptyBlocksInterval(), height, uint(round), ttypes.RoundStepNewRound,true})
-		}
+		// }
 		go cs.proposalHeartbeat(height, round)
 	} else {
 		cs.enterPropose(height,round,block,blockParts)
