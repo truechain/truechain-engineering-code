@@ -343,7 +343,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		ChainID:    	chainID,
 		Validators: 	vals,
 		NewHeight:     	height,
-		EndHeight:		height+1,		// defualt newheight + 1
+		EndHeight:		0,			// defualt 0,mean not work
 		CID:			cid,
 	}
 }
@@ -394,7 +394,7 @@ func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 	if err != nil {
 		return nil, nil,err
 	}
-	if block.NumberU64() > state.EndHeight {
+	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
 	}
 	if block.NumberU64() != state.NewHeight {
