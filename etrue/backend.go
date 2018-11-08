@@ -541,7 +541,7 @@ func (s *Truechain) Stop() error {
 
 	return nil
 }
-func (s *Truechain) startPbftServer() error {
+func (s *Truechain) startPbftServer2() error {
 	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
 	if err != nil {
 		return err
@@ -556,7 +556,7 @@ func (s *Truechain) startPbftServer() error {
 	return nil
 }
 
-func (s *Truechain) startPbftServer2() error {
+func (s *Truechain) startPbftServer() error {
 	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
 	if err != nil {
 		return err
