@@ -37,10 +37,10 @@ type CanonicalJSONVote struct {
 	BlockID   CanonicalJSONBlockID `json:"block_id"`
 	Height    uint64               `json:"height"`
 	Round     uint                 `json:"round"`
-	Result	  uint				   `json:"result"`	
 	Timestamp string               `json:"timestamp"`
 	VoteType  byte                 `json:"type"`
-	ResSign	  []byte			   `json:"result_sign"`
+	// Result	  uint				   `json:"result"`	
+	// ResSign	  []byte			   `json:"result_sign"`
 }
 
 type CanonicalJSONHeartbeat struct {
@@ -92,8 +92,8 @@ func CanonicalVote(chainID string, vote *Vote) CanonicalJSONVote {
 		Round:     vote.Round,
 		Timestamp: CanonicalTime(vote.Timestamp),
 		VoteType:  vote.Type,
-		Result:	   vote.Result,
-		ResSign:   vote.ResultSign,
+		// Result:	   vote.Result,
+		// ResSign:   vote.ResultSign,
 	}
 }
 
