@@ -52,6 +52,7 @@ type timeoutInfo struct {
 	Height   uint64               `json:"height"`
 	Round    uint                 `json:"round"`
 	Step     ttypes.RoundStepType `json:"step"`
+	Wait 	 bool 				  `json:"wait"`
 }
 
 func (ti *timeoutInfo) String() string {
@@ -374,7 +375,11 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
 func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64, round int, step ttypes.RoundStepType) {
-	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, uint(round), step})
+	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, uint(round), step,false})
+}
+
+func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
+	cs.timeoutTicker.ScheduleTimeout(ti)
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -632,7 +637,7 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 		// XXX: should we fire timeout here (for timeout commit)?
 		cs.enterNewRound(ti.Height, 0)
 	case ttypes.RoundStepNewRound:
-		cs.tryEnterProposal(ti.Height, 0)
+		cs.tryEnterProposal(ti.Height, 0,ti.Wait)
 	case ttypes.RoundStepPropose:
 		cs.eventBus.PublishEventTimeoutPropose(cs.RoundStateEvent())
 		cs.enterPrevote(ti.Height, int(ti.Round))
@@ -696,7 +701,7 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 
 	cs.eventBus.PublishEventNewRound(cs.RoundStateEvent())
 	// cs.metrics.Rounds.Set(float64(round))
-	cs.tryEnterProposal(height, round)
+	cs.tryEnterProposal(height, round,false)
 }
 
 func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
@@ -728,7 +733,7 @@ func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)
 // Enter (CreateEmptyBlocks, CreateEmptyBlocksInterval > 0 ): after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
-func (cs *ConsensusState) tryEnterProposal(height uint64, round int) {
+func (cs *ConsensusState) tryEnterProposal(height uint64, round int,wait bool) {
 	if cs.Height != height || round < int(cs.Round) || (int(cs.Round) == round && ttypes.RoundStepPropose <= cs.Step) {
 		log.Debug(fmt.Sprintf("tryenterPropose(%v/%v): Invalid args. Current step: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
 		return
@@ -774,16 +779,15 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int) {
 	
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
-	if empty && cs.config.CreateEmptyBlocks && round == 0 {
+	if empty && cs.config.CreateEmptyBlocks && round == 0 && !wait {
 		if cs.config.CreateEmptyBlocksInterval > 0 {
-			cs.scheduleTimeout(cs.config.EmptyBlocksInterval(), height, round, ttypes.RoundStepNewRound)
+			cs.scheduleTimeoutWithWait(timeoutInfo{cs.config.EmptyBlocksInterval(), height, uint(round), ttypes.RoundStepNewRound,true})
 		}
 		go cs.proposalHeartbeat(height, round)
 	} else {
 		cs.enterPropose(height,round,block,blockParts)
 	}
 }
-
 
 func (cs *ConsensusState) enterPropose(height uint64, round int,blk *types.Block, bparts *ttypes.PartSet) {
 	//logger := log.With("height", height, "round", round)
