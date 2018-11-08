@@ -86,6 +86,7 @@ func (s *service) start(node *Node) error {
 	return nil
 }
 func (s *service) stop() error {
+	s.updateChan <- false
 	s.sw.Stop()
 	return nil
 }
@@ -327,24 +328,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
 	}
-	for _, v := range nodes {
-		pub, err := crypto.UnmarshalPubkey(v.Publickey)
-		if err != nil {
-			panic(err)
-		}
-		address := crypto.PubkeyToAddress(*pub)
-		id := p2p.ID(hex.EncodeToString(address[:]))
-		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
-			fmt.Sprintf("%v:%v", v.IP, v.Port)))
-		if err == nil {
-			errDialErr := server.sw.DialPeerWithAddress(addr, true)
-			if errDialErr != nil {
-				log.Error("dail peer " + errDialErr.Error())
-			}
-		} else {
-			panic(err)
-		}
-	}
+	server.putNodes(nodes)
 	return nil
 }
 func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
