@@ -107,6 +107,10 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 		}
 		// check node pk
 		address := crypto.PubkeyToAddress(*pub)
+		if ok:=s.sa.GetValidator().HasAddress(address[:]); !ok {
+			log.Error("has not address:",address,node.IP,node.Port)
+			continue
+		}	
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, node.Port)))
