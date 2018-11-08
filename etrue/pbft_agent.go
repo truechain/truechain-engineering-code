@@ -379,8 +379,9 @@ func (self *PbftAgent) loop() {
 					log.Error("CommitteeSwitchover receivedMembers is nil ", "committeeId", committeeID)
 				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
-					Id:      committeeID,
-					Members: ch.CommitteeMembers,
+					Id:          committeeID,
+					Members:     ch.CommitteeMembers,
+					StartHeight: common.Big1, // todo @shuxun fix this default value
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 
@@ -435,8 +436,8 @@ func (self *PbftAgent) putCacheInsertChain(receiveBlock *types.Block) error {
 		receiveBlockHeight = receiveBlock.Number()
 	)
 	//delete from cacheBlock map where receiveBlockHeight >= heightNumber
-	for number,_:= range self.cacheBlock{
-		if receiveBlockHeight.Cmp(number) >=0{
+	for number, _ := range self.cacheBlock {
+		if receiveBlockHeight.Cmp(number) >= 0 {
 			delete(self.cacheBlock, number)
 		}
 	}
