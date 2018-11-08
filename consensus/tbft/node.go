@@ -43,8 +43,11 @@ const (
 	Switch
 )
 
-func NewNodeService() *service {
+func NewNodeService(p2pcfg *cfg.P2PConfig,cscfg *cfg.ConsensusConfig,state ttypes.StateAgent,
+	store *ttypes.BlockStore,) *service {
 	return &service {
+		sw:             p2p.NewSwitch(p2pcfg),
+		consensusState: NewConsensusState(cscfg, state, store),
 		nodeTable: 		make(map[p2p.ID]*nodeInfo),
 		lock:			new(sync.Mutex),
 		updateChan:		make(chan bool),
@@ -310,10 +313,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("make the nil state")
 	}
 	store := ttypes.NewBlockStore()
-	service := &service{
-		sw:             p2p.NewSwitch(n.config.P2P),
-		consensusState: NewConsensusState(n.config.Consensus, state, store),
-	}
+	service := NewNodeService(n.config.P2P,n.config.Consensus, state, store)
 	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
