@@ -404,6 +404,7 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 func (s *Truechain) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
+	s.agent.committeeNode.Coinbase =etherbase
 	s.lock.Unlock()
 
 	s.miner.SetEtherbase(etherbase)
