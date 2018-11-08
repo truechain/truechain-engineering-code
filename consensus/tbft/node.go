@@ -1,6 +1,7 @@
 package tbft
 
 import (
+	"sync"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +24,16 @@ type service struct {
 	consensusState   *ConsensusState   // latest consensus state
 	consensusReactor *ConsensusReactor // for participating in the consensus
 	sa 				 *ttypes.StateAgentImpl
+	nodeTable 		 map[p2p.ID]*nodeInfo
+	lock			 *sync.Mutex
+}
+
+type nodeInfo struct {
+	ID 			p2p.ID 
+	Adrress		*p2p.NetAddress
+	IP 			string 
+	Port 		uint
+	Enable		bool
 }
 
 const (
@@ -30,6 +41,13 @@ const (
 	Stop
 	Switch
 )
+
+func NewNodeService() *service {
+	return &service {
+		nodeTable: 		make(map[p2p.ID]*nodeInfo),
+		lock:			new(sync.Mutex),
+	}
+}
 
 func (s *service) start(node *Node) error {
 	// Create & add listener
@@ -51,6 +69,7 @@ func (s *service) start(node *Node) error {
 	if err != nil {
 		return err
 	}
+	go s.updateNodes()
 	return nil
 }
 func (s *service) stop() error {
@@ -59,6 +78,42 @@ func (s *service) stop() error {
 }
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {
 	return s.sa
+}
+func (s *service) putNodes(nodes []*types.CommitteeNode) {
+	if nodes == nil {	return 		}
+	
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for _, node := range nodes {
+		pub, err := crypto.UnmarshalPubkey(node.Publickey)
+		if err != nil {
+			log.Error("putnode:",err,node.IP,node.Port)
+			continue
+		}
+		// check node pk
+		address := crypto.PubkeyToAddress(*pub)
+		id := p2p.ID(hex.EncodeToString(address[:]))
+		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
+			fmt.Sprintf("%v:%v", node.IP, node.Port)))
+		if v,ok := s.nodeTable[id]; ok {
+			v.Adrress = addr
+			v.IP = node.IP
+			v.Port = node.Port			// 
+			v.Enable = false
+		} else {
+			s.nodeTable[id] = &nodeInfo{
+				ID:			id,
+				Adrress:	addr,
+				IP:			node.IP,
+				Port:		node.Port,
+				Enable:		false,
+			}
+		}	
+	}
+}
+func (s *service) updateNodes() {
+
 }
 //------------------------------------------------------------------------------
 
