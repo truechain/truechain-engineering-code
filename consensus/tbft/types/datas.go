@@ -237,7 +237,7 @@ func (blockID BlockID) String() string {
 
 //-------------------------------------------------------
 const (
-	MaxLimitBlockStore = 2000
+	MaxLimitBlockStore = 200
 	MaxBlockBytes      = 1048510 // lMB
 )
 
