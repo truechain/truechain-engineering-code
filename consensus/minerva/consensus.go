@@ -851,7 +851,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		signs := fruit.Body().Signs
 
 		committeeMembers, errs := election.VerifySigns(signs)
-
+		fmt.Println("--------------------", committeeMembers, errs, signs)
 		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}
