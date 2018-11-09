@@ -1233,7 +1233,6 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		precommits := cs.Votes.Precommits(int(cs.CommitRound))
 		seenCommit := precommits.MakeCommit()
 		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
-		cs.state.UpdateHeight(height)
 		cs.reconstructLastCommit(seenCommit)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
@@ -1448,7 +1447,6 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 			// cs.scheduleTimeout(time.Duration(0), cs.Height, 0, ttypes.RoundStepNewHeight)
 			cs.enterNewRound(cs.Height, 0)
 		}
-
 		return
 	}
 
