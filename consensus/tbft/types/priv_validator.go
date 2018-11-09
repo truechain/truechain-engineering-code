@@ -314,7 +314,6 @@ type StateAgent interface {
 
 	GetLastBlockHeight() uint64
 	GetChainID() string
-	UpdateHeight(height uint64)
 	MakeBlock() (*ctypes.Block, *PartSet,error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
@@ -331,7 +330,7 @@ type StateAgentImpl struct {
 	Agent      ctypes.PbftAgentProxy
 	Validators *ValidatorSet
 	ChainID    string
-	NewHeight  uint64
+	LastHeight  uint64
 	EndHeight  uint64
 	CID 	   uint64
 }
@@ -342,7 +341,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		Agent:      	agent,
 		ChainID:    	chainID,
 		Validators: 	vals,
-		NewHeight:     	height,
+		LastHeight:     height,
 		EndHeight:		0,			// defualt 0,mean not work
 		CID:			cid,
 	}
@@ -397,8 +396,8 @@ func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
 	}
-	if block.NumberU64() != state.NewHeight {
-		state.UpdateHeight(block.NumberU64())
+	if block.NumberU64() > 0 {
+		state.LastHeight = block.NumberU64()-1
 	}
 	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
 	return block,parts,err2
@@ -434,12 +433,7 @@ func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
 }
 func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
-	return state.NewHeight
-}
-func (state *StateAgentImpl) UpdateHeight(height uint64) {
-	if height != state.NewHeight {
-		state.NewHeight = height
-	}
+	return state.LastHeight
 }
 func (state *StateAgentImpl) GetAddress() help.Address {
 	return state.Priv.GetAddress()
