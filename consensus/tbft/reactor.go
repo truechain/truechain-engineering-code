@@ -354,6 +354,7 @@ func (conR *ConsensusReactor) broadcastProposalHeartbeatMessage(hb *ttypes.Heart
 }
 
 func (conR *ConsensusReactor) broadcastNewRoundStepMessages(rs *ttypes.RoundState) {
+	log.Debug("broadcastNewRoundStepMessages", "makeRoundStepMessages", "in")
 	nrsMsg, csMsg := makeRoundStepMessages(rs)
 	if nrsMsg != nil {
 		conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(nrsMsg))
@@ -408,6 +409,7 @@ func makeRoundStepMessages(rs *ttypes.RoundState) (nrsMsg *NewRoundStepMessage, 
 }
 
 func (conR *ConsensusReactor) sendNewRoundStepMessages(peer p2p.Peer) {
+	log.Debug("sendNewRoundStepMessages", "makeRoundStepMessages", "in")
 	rs := conR.conS.GetRoundState()
 	nrsMsg, csMsg := makeRoundStepMessages(rs)
 	if nrsMsg != nil {

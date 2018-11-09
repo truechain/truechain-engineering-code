@@ -381,7 +381,7 @@ func (self *PbftAgent) loop() {
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:          committeeID,
 					Members:     ch.CommitteeMembers,
-					StartHeight: common.Big1, // todo @shuxun fix this default value
+					StartHeight: self.fastChain.CurrentBlock().Number(), // todo @shuxun fix this default value
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 
