@@ -398,7 +398,7 @@ func makeRoundStepMessages(rs *ttypes.RoundState) (nrsMsg *NewRoundStepMessage, 
 		SecondsSinceStartTime: uint(time.Since(rs.StartTime).Seconds()),
 		LastCommitRound:       uint(rs.LastCommit.Round()),
 	}
-	if rs.Step == ttypes.RoundStepCommit {
+	if rs.Step == ttypes.RoundStepCommit && rs.ProposalBlockParts != nil {
 		csMsg = &CommitStepMessage{
 			Height:           rs.Height,
 			BlockPartsHeader: rs.ProposalBlockParts.Header(),
