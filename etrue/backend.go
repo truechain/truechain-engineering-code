@@ -283,6 +283,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:
+		log.Info("-----Fake mode")
 		log.Warn("Ethash used in fake mode")
 		return ethash.NewFaker()
 	case ethash.ModeTest:
