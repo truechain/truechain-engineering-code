@@ -142,16 +142,12 @@ type SnailPool struct {
 	scope event.SubscriptionScope
 
 	fruitFeed     event.Feed
-	fastBlockFeed event.Feed
 	mu            sync.RWMutex
 	journal       *snailJournal // Journal of local fruit to back up to disk
 
 	//chainHeadCh  chan ChainHeadEvent
 	chainHeadCh  chan types.ChainSnailHeadEvent
 	chainHeadSub event.Subscription
-
-	fastchainEventCh  chan types.ChainFastEvent
-	fastchainEventSub event.Subscription
 
 	validator SnailValidator
 
@@ -165,7 +161,6 @@ type SnailPool struct {
 	//fastBlockList    *list.List
 	fastBlockPending *list.List
 
-	newFastBlockCh chan *types.Block
 
 	allFruits    map[common.Hash]*types.SnailBlock
 	fruitPending map[common.Hash]*types.SnailBlock
@@ -194,9 +189,6 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 		validator: sv,
 
 		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
-		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
-
-		newFastBlockCh: make(chan *types.Block, fastBlockChanSize),
 
 		allFastBlocks: make(map[common.Hash]*types.Block),
 
@@ -209,7 +201,6 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 	pool.reset(nil, chain.CurrentBlock())
 
 	// Subscribe events from blockchain
-	pool.fastchainEventSub = pool.fastchain.SubscribeChainEvent(pool.fastchainEventCh)
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	//pool.minedFruitSub = pool.eventMux.Subscribe(NewMinedFruitEvent{})
@@ -374,43 +365,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	return nil
 }
 
-func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
-	pool.muFastBlock.Lock()
-	defer pool.muFastBlock.Unlock()
 
-	//check exist
-	if _, ok := pool.allFastBlocks[fastBlock.Hash()]; ok {
-		return ErrExist
-	}
-
-	if uint64(len(pool.allFastBlocks)) >= pool.config.FastCount {
-		return ErrExceedNumber
-	}
-
-	pool.muFruit.Lock()
-	defer pool.muFruit.Unlock()
-
-	log.Debug("addFastBlock", "fast", fastBlock.Number(), "hash", fastBlock.Hash())
-
-	pool.allFastBlocks[fastBlock.Hash()] = fastBlock
-	//check fruit already exist
-	if _, ok := pool.fruitPending[fastBlock.Hash()]; ok {
-		return ErrMined
-	}
-
-	if _, ok := pool.allFruits[fastBlock.Hash()]; ok {
-		if err := pool.updateFruit(fastBlock, false); err == nil {
-			return ErrMined
-		}
-	}
-
-	// TODO: check sign numbers
-	pool.insertFastBlockWithLock(pool.fastBlockPending, fastBlock)
-
-	go pool.fastBlockFeed.Send(types.NewFastBlocksEvent{types.Blocks{fastBlock}})
-
-	return nil
-}
 
 // loop is the fruit pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and fruit
@@ -443,22 +398,12 @@ func (pool *SnailPool) loop() {
 				pool.mu.Unlock()
 			}
 
-		case ev := <-pool.fastchainEventCh:
-			if ev.Block != nil {
-				log.Debug("get new fastblock", "number", ev.Block.Number())
-				go pool.AddRemoteFastBlock([]*types.Block{ev.Block})
-				//pool.addFastBlock(ev.Block)
-			}
 
 		case fruit := <-pool.newFruitCh:
 			if fruit != nil {
 				pool.addFruit(fruit)
 			}
 
-		case fastBlock := <-pool.newFastBlockCh:
-			if fastBlock != nil {
-				pool.addFastBlock(fastBlock)
-			}
 
 			// Be unsubscribed due to system stopped
 		case <-pool.chainHeadSub.Err():
@@ -806,17 +751,6 @@ func (pool *SnailPool) insertFastBlockWithLock(fastBlockList *list.List, fastBlo
 	return nil
 }
 
-// AddRemoteFastBlock is for test only
-func (pool *SnailPool) AddRemoteFastBlock(fastBlocks []*types.Block) []error {
-	errs := make([]error, len(fastBlocks))
-
-	for _, fastBlock := range fastBlocks {
-		f := types.NewBlockWithHeader(fastBlock.Header()).WithBody(fastBlock.Transactions(), fastBlock.Signs(), nil)
-		pool.newFastBlockCh <- f
-	}
-
-	return errs
-}
 
 // PendingFastBlocks retrieves one currently fast block.
 // The returned fast block is a copy and can be freely modified by calling code.
@@ -852,11 +786,6 @@ func (pool *SnailPool) PendingFastBlocks() ([]*types.Block, error) {
 
 }
 
-// SubscribeNewFastBlockEvent registers a subscription of NewFastBlocksEvent
-// and starts sending event to the given channel.
-func (pool *SnailPool) SubscribeNewFastBlockEvent(ch chan<- types.NewFastBlocksEvent) event.Subscription {
-	return pool.scope.Track(pool.fastBlockFeed.Subscribe(ch))
-}
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	//check integrity
