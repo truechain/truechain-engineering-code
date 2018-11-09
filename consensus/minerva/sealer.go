@@ -105,7 +105,8 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		header := block.Header()
 		header.Nonce, header.MixDigest = types.BlockNonce{}, common.Hash{}
 		send <- block.WithSeal(header)
-		log.Debug("come to fake mode and return")
+		log.Debug(" -------  fake mode   ----- ", "fb number", block.FastNumber(), "threads", m.threads)
+
 		return block.WithSeal(header), nil
 	}
 	// If we're running a shared PoW, delegate sealing to it
