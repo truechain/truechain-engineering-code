@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/debug"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/prints"
 	"io"
 	"sync"
 )
@@ -145,6 +147,7 @@ func (ps *PartSet) HasHeader(header PartSetHeader) bool {
 
 func (ps *PartSet) BitArray() *help.BitArray {
 	fmt.Println("ps", ps)
+	prints.PrintStack()
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 	return ps.partsBitArray.Copy()
