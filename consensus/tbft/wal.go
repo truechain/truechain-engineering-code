@@ -157,6 +157,7 @@ func (wal *baseWAL) SearchForEndHeight(height uint64, options *WALSearchOptions)
 	min, max := wal.group.MinIndex(), wal.group.MaxIndex()
 	log.Debug("Searching for height", "height", height, "min", min, "max", max)
 	for index := max; index >= min; index-- {
+		log.Debug("Searching for height _A", "index", index, "min", min, "max", max)
 		gr, err = wal.group.NewReader(index)
 		if err != nil {
 			log.Debug("NewReader error", "err", err.Error())
@@ -194,6 +195,7 @@ func (wal *baseWAL) SearchForEndHeight(height uint64, options *WALSearchOptions)
 			}
 		}
 		gr.Close()
+		log.Debug("Searching for height _B", "index", index, "min", min, "max", max)
 	}
 
 	return nil, false, nil
