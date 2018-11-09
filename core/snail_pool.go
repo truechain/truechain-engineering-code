@@ -35,8 +35,6 @@ import (
 )
 
 const (
-	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	//recordChanSize = 100
 	fastBlockChanSize = 1024
 	fruitChanSize     = 1024
 
@@ -47,7 +45,7 @@ const (
 var fruitFreshness = big.NewInt(17)
 
 var (
-	// ErrInvalidSender is returned if the transaction contains an invalid signature.
+
 	ErrInvalidSign = errors.New("invalid sign")
 
 	ErrInvalidPointer = errors.New("invalid pointer block")
@@ -106,19 +104,17 @@ type SnailChain interface {
 	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
 }
 
-// TxPoolConfig are the configuration parameters of the transaction pool.
+// SnailPoolConfig are the configuration parameters of the fruit pool.
 type SnailPoolConfig struct {
-	NoLocals  bool          // Whether local transaction handling should be disabled
 	Journal   string        // Journal of local fruits to survive node restarts
 	Rejournal time.Duration // Time interval to regenerate the local fruit journal
 	FruitCount uint64
 	FastCount  uint64
 }
 
-// DefaultTxPoolConfig contains the default configurations for the transaction
+// DefaultSnailPoolConfig contains the default configurations for the fruit
 // pool.
 var DefaultSnailPoolConfig = SnailPoolConfig{
-	//Journal: "fruits.rlp",
 	Journal: "fruits.rlp",
 	Rejournal: time.Hour,
 	FruitCount: 8192,
@@ -136,20 +132,17 @@ func (config *SnailPoolConfig) sanitize() SnailPoolConfig {
 	return conf
 }
 
-// TxPool contains all currently known transactions. Transactions
+// SnailPool contains all currently known fruit. fruits
 // enter the pool when they are received from the network or submitted
 // locally. They exit the pool when they are included in the blockchain.
 //
-// The pool separates processable transactions (which can be applied to the
-// current state) and future transactions. Transactions move between those
+// The pool separates processable fruits (which can be applied to the
+// current state) and future fruits. fruits move between those
 // two states over time as they are received and processed.
 type SnailPool struct {
 	config      SnailPoolConfig
-	chainconfig *params.ChainConfig
-	//chain       *BlockChain
 	chain     SnailChain
 	fastchain *BlockChain
-	gasPrice  *big.Int
 
 	scope event.SubscriptionScope
 
@@ -186,22 +179,17 @@ type SnailPool struct {
 
 	//header *types.Block
 	header *types.SnailBlock
-
-	gasUsed uint64
-	gasPool *GasPool // available gas used to pack transactions
-
 	wg sync.WaitGroup // for shutdown sync
 }
 
 // NewSnailPool creates a new fruit/fastblock pool to gather, sort and filter inbound
 // fruits/fastblock from the network.
 func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain SnailChain, engine consensus.Engine, sv SnailValidator) *SnailPool {
-	// Sanitize the input to ensure no vulnerable gas prices are set
+
 	//config SnailPoolConfig
 	config = (&config).sanitize()
-	//config := DefaultSnailPoolConfig
 
-	// Create the transaction pool with its initial settings
+	// Create the fruit pool with its initial settings
 	pool := &SnailPool{
 		config:    config,
 		fastchain: fastBlockChain,
@@ -261,7 +249,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain Snai
 }
 
 func (pool *SnailPool) Start() {
-	// If journaling is enabled, load from disk
+	// If journaling is enabled, load fruit from disk
 	if pool.config.Journal != "" {
 		pool.journal = newSnailJournal(pool.config.Journal)
 		if err := pool.journal.load(pool.AddLocals); err != nil {
@@ -429,8 +417,8 @@ func (pool *SnailPool) addFastBlock(fastBlock *types.Block) error {
 	return nil
 }
 
-// loop is the transaction pool's main event loop, waiting for and reacting to
-// outside blockchain events as well as for various reporting and transaction
+// loop is the fruit pool's main event loop, waiting for and reacting to
+// outside blockchain events as well as for various reporting and fruit
 // eviction events.
 func (pool *SnailPool) loop() {
 	defer pool.wg.Done()
@@ -444,7 +432,7 @@ func (pool *SnailPool) loop() {
 	journal := time.NewTicker(pool.config.Rejournal)
 	defer journal.Stop()
 
-	// Track the previous head headers for transaction reorgs
+	// Track the previous head headers for fruit reorgs
 	head := pool.chain.CurrentBlock()
 
 	// Keep waiting for and reacting to the various events
@@ -485,14 +473,9 @@ func (pool *SnailPool) loop() {
 		case <-report.C:
 			// TODO: pool report
 
-			// Handle inactive account transaction eviction
-		case <-evict.C:
-			pool.mu.Lock()
-			pool.mu.Unlock()
 
 			// Handle local fruit journal rotation
 		case <-journal.C:
-			// TODO: support journal
 			if pool.journal != nil {
 				pool.mu.Lock()
 				if err := pool.journal.rotate(pool.local()); err != nil {
@@ -706,29 +689,22 @@ func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
 	pool.allFastBlocks[fastblock.Hash()] = fastblock
 }
 
-// Stop terminates the transaction pool.
+// Stop terminates the fruit pool.
 func (pool *SnailPool) Stop() {
-	// Unsubscribe all subscriptions registered from txpool
+	// Unsubscribe all subscriptions registered from snailpool
 	pool.scope.Close()
 
 	// Unsubscribe subscriptions registered from blockchain
 	pool.chainHeadSub.Unsubscribe()
 	pool.wg.Wait()
 
-	// TODO: journal close
+
 	if pool.journal != nil {
 		pool.journal.close()
 	}
 	log.Info("Snail pool stopped")
 }
 
-// GasPrice returns the current gas price enforced by the transaction pool.
-func (pool *SnailPool) GasPrice() *big.Int {
-	pool.mu.RLock()
-	defer pool.mu.RUnlock()
-
-	return new(big.Int).Set(pool.gasPrice)
-}
 
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
