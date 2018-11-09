@@ -157,6 +157,7 @@ func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 }
 
 func TestPbftRunForOne(t *testing.T) {
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr := getPrivateKey(0)

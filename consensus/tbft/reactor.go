@@ -3,14 +3,14 @@ package tbft
 import (
 	"errors"
 	"fmt"
-	"reflect"
-	"sync"
-	"time"
+	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/log"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"reflect"
+	"sync"
+	"time"
 )
 
 const (
@@ -1177,7 +1177,7 @@ func (ps *PeerState) ApplyNewRoundStepMessage(msg *NewRoundStepMessage) {
 			ps.PRS.LastCommit = nil
 		}
 		// We'll update the BitArray capacity later.
-		ps.PRS.CatchupCommitRound =  ^uint(0)
+		ps.PRS.CatchupCommitRound = ^uint(0)
 		ps.PRS.CatchupCommit = nil
 	}
 }
