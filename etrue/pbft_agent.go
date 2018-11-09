@@ -46,7 +46,7 @@ const (
 )
 const (
 	blockRewordSpace = 12
-	fastToFruitSpace = 1200
+	fastToFruitSpace = 12000000000
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
