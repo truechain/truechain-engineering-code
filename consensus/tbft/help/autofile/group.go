@@ -662,6 +662,7 @@ func (gr *GroupReader) openFile(index uint) error {
 	defer gr.Group.mtx.Unlock()
 
 	if index > gr.Group.maxIndex {
+		fmt.Println("openFile:", index, gr.Group.maxIndex)
 		return io.EOF
 	}
 
