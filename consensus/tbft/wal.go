@@ -2,17 +2,17 @@ package tbft
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	auto "github.com/truechain/truechain-engineering-code/consensus/tbft/help/autofile"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	"github.com/truechain/truechain-engineering-code/log"
 	"hash/crc32"
 	"io"
 	"path/filepath"
 	"time"
-	"errors"
-	"github.com/truechain/truechain-engineering-code/log"
-	auto "github.com/truechain/truechain-engineering-code/consensus/tbft/help/autofile"
-	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 )
 
 const (
@@ -74,7 +74,7 @@ type baseWAL struct {
 func NewWAL(walFile string) (*baseWAL, error) {
 	err := help.EnsureDir(filepath.Dir(walFile), 0700)
 	if err != nil {
-		return nil, errors.New(fmt.Sprint(err,"failed to ensure WAL directory is in place"))
+		return nil, errors.New(fmt.Sprint(err, "failed to ensure WAL directory is in place"))
 	}
 
 	group, err := auto.OpenGroup(walFile)
@@ -157,8 +157,10 @@ func (wal *baseWAL) SearchForEndHeight(height uint64, options *WALSearchOptions)
 	min, max := wal.group.MinIndex(), wal.group.MaxIndex()
 	log.Debug("Searching for height", "height", height, "min", min, "max", max)
 	for index := max; index >= min; index-- {
+		log.Debug("Searching for height _A", "index", index, "min", min, "max", max)
 		gr, err = wal.group.NewReader(index)
 		if err != nil {
+			log.Debug("NewReader error", "err", err.Error())
 			return nil, false, err
 		}
 
@@ -180,6 +182,7 @@ func (wal *baseWAL) SearchForEndHeight(height uint64, options *WALSearchOptions)
 				continue
 			} else if err != nil {
 				gr.Close()
+				log.Debug("dec.Decode error", "err", err.Error())
 				return nil, false, err
 			}
 
@@ -192,6 +195,7 @@ func (wal *baseWAL) SearchForEndHeight(height uint64, options *WALSearchOptions)
 			}
 		}
 		gr.Close()
+		log.Debug("Searching for height _B", "index", index, "min", min, "max", max)
 	}
 
 	return nil, false, nil
