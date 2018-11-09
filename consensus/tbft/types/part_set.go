@@ -144,6 +144,7 @@ func (ps *PartSet) HasHeader(header PartSetHeader) bool {
 }
 
 func (ps *PartSet) BitArray() *help.BitArray {
+	fmt.Println("ps", ps)
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 	return ps.partsBitArray.Copy()
