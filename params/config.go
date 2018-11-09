@@ -101,7 +101,7 @@ func (c *ChainConfig) UnmarshalJSON(input []byte) error {
 		return err
 	}
 	c.ChainID = dec.ChainID
-	if c.Minerva == nil {
+	if dec.Minerva == nil {
 		c.Minerva = &(MinervaConfig{
 			MinimumDifficulty:      MinimumDifficulty,
 			MinimumFruitDifficulty: MinimumFruitDifficulty,
@@ -167,7 +167,12 @@ func (c MinervaConfig) MarshalJSON() ([]byte, error) {
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *MinervaConfig) String() string {
-	return "minerva"
+	return fmt.Sprintf("{MinimumDifficulty: %v MinimumFruitDifficulty: %v DurationLimit: %v}",
+		c.MinimumDifficulty,
+		c.MinimumFruitDifficulty,
+		c.DurationLimit,
+	)
+	//return "minerva"
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
