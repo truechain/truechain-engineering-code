@@ -123,7 +123,7 @@ func (af *AutoFile) openFile() error {
 	return nil
 }
 
-func (af *AutoFile) Size() (uint64, error) {
+func (af *AutoFile) Size() (int64, error) {
 	af.mtx.Lock()
 	defer af.mtx.Unlock()
 
@@ -133,13 +133,13 @@ func (af *AutoFile) Size() (uint64, error) {
 			if err == os.ErrNotExist {
 				return 0, nil
 			}
-			return 0, err
+			return -1, err
 		}
 	}
 	stat, err := af.file.Stat()
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
-	return uint64(stat.Size()), nil
+	return stat.Size(), nil
 
 }
