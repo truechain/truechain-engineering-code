@@ -105,7 +105,7 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		header := block.Header()
 		header.Nonce, header.MixDigest = types.BlockNonce{}, common.Hash{}
 		send <- block.WithSeal(header)
-		//return block.WithSeal(header), nil
+		return block.WithSeal(header), nil
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if m.shared != nil {
