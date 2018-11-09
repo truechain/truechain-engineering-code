@@ -359,7 +359,7 @@ func (self *PbftAgent) loop() {
 				}
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(committeeID, int(ch.Option))
+					self.server.Notify(committeeID, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				committeeID := copyCommitteeId(ch.CommitteeID)
@@ -367,7 +367,7 @@ func (self *PbftAgent) loop() {
 					continue
 				}
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					go self.server.Notify(committeeID, int(ch.Option))
+					self.server.Notify(committeeID, int(ch.Option))
 				}
 				self.stopSend()
 			case types.CommitteeSwitchover:
