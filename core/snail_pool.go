@@ -37,18 +37,13 @@ import (
 const (
 	fastBlockChanSize = 1024
 	fruitChanSize     = 1024
-
 	fastchainHeadChanSize = 1024
 )
 
-// freshFruitSize is the freshness of fruit according to the paper
-var fruitFreshness = big.NewInt(17)
 
 var (
 
 	ErrInvalidSign = errors.New("invalid sign")
-
-	ErrInvalidPointer = errors.New("invalid pointer block")
 
 	ErrExist = errors.New("already exist")
 
@@ -58,7 +53,7 @@ var (
 
 	//ErrFreshness          = errors.New("fruit not fresh")
 	ErrMined              = errors.New("already mined")
-	ErrNoFastBlockToMiner = errors.New("the fastblocks is null")
+
 )
 
 var (
