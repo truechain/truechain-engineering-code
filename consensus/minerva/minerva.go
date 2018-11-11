@@ -19,6 +19,7 @@ package minerva
 
 import (
 	"errors"
+	"github.com/truechain/truechain-engineering-code/etrue"
 	"math/big"
 	"math/rand"
 	"os"
@@ -391,6 +392,11 @@ func (m *Minerva) SetElection(e consensus.CommitteeElection) {
 	m.election = e
 }
 
+func (m *Minerva) GetElection() consensus.CommitteeElection {
+	return m.election
+
+}
+
 // NewTester creates a small sized minerva scheme useful only for testing
 // purposes.
 func NewTester() *Minerva {
@@ -405,6 +411,7 @@ func NewFaker() *Minerva {
 		config: Config{
 			PowMode: ModeFake,
 		},
+		election: etrue.NewFakeElection(),
 	}
 }
 
@@ -417,6 +424,7 @@ func NewFakeFailer(fail uint64) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeFail: fail,
+		election: etrue.NewFakeElection(),
 	}
 }
 
