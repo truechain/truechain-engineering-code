@@ -18,7 +18,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/etrue"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
@@ -246,8 +245,8 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-		election := etrue.NewFakeElection()
-		b.engine.SetElection(election)
+		//election := etrue.NewFakeElection()
+		//b.engine.SetElection(election)
 	})
 	return blocks
 }
