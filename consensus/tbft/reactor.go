@@ -252,17 +252,26 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
 		}
+		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 34)
 		switch msg := msg.(type) {
 		case *VoteMessage:
 			cs := conR.conS
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 35)
 			cs.mtx.Lock()
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 36)
 			height, valSize, lastCommitSize := cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			cs.mtx.Unlock()
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 37)
 			ps.EnsureVoteBitArrays(height, valSize)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 38)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 39)
 			ps.SetHasVote(msg.Vote)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 40)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
+				log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 41)
 				conR.Switch.MarkPeerAsGood(src)
+				log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 42)
 			}
 			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 444)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
