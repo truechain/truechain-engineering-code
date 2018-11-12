@@ -74,7 +74,7 @@ var (
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), new(MinervaConfig)}
+	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty,MinimumFruitDifficulty,DurationLimit}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
