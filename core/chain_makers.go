@@ -178,7 +178,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
-
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
 			gen(i, b)
@@ -187,6 +186,9 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		if b.engine != nil {
 			//fmt.Println("====================================================")
 			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+
+			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
+			block.SetSign(sign)
 			// Write state changes to db
 			root, err := statedb.Commit(true)
 			if err != nil {
@@ -243,6 +245,8 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
+		//election := etrue.NewFakeElection()
+		//b.engine.SetElection(election)
 	})
 	return blocks
 }

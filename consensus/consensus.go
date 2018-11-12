@@ -74,8 +74,9 @@ type SnailChainReader interface {
 
 // Engine is an algorithm agnostic consensus engine.
 type Engine interface {
-
 	SetElection(e CommitteeElection)
+
+	GetElection() CommitteeElection
 
 	SetSnailChainReader(scr SnailChainReader)
 
@@ -112,7 +113,7 @@ type Engine interface {
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
 
-	VerifyFreshness(chain SnailChainReader, fruit , block *types.SnailHeader, canonical bool) error
+	VerifyFreshness(chain SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error
 
 	VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error
 
@@ -153,6 +154,8 @@ type CommitteeElection interface {
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
 	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
+
+	GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error)
 }
 
 // PoW is a consensus engine based on proof-of-work.
