@@ -134,9 +134,9 @@ func VerifySign(etrue *Truechain) {
 func CheckSign(etrue *Truechain) {
 	fb := etrue.blockchain.CurrentBlock()
 	signs := fb.Signs()
-	members := etrue.election.committee.members
+	members := etrue.election.GetCurrentCommittee().Members()
 	fmt.Println("fb.Number", fb.Number())
-	fmt.Println("committee", etrue.election.committee)
+	fmt.Println("committee", etrue.election.GetCurrentCommittee())
 	fmt.Println("len(members) :", len(members), "len(signs) :", len(signs))
 
 	t := 0

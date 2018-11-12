@@ -237,6 +237,14 @@ func (e *Election) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error)
 	return signs, nil
 }
 
+func (e *Election) GetGenesisCommittee()  []*types.CommitteeMember {
+	return e.genesisCommittee
+}
+
+func (e *Election) GetCurrentCommittee() *committee {
+	return e.committee
+}
+
 //whether assigned publickey  in  committeeMember pubKey
 func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey []byte) *types.CommitteeMember {
 	if len(members) == 0 {
