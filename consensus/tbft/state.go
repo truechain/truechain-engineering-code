@@ -1595,6 +1595,7 @@ func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.Par
 		}
 		if hash != nil && keepsign != nil && bytes.Equal(hash,keepsign.Hash[:]) {
 			vote.Result = keepsign.Result
+			vote.ResultSign = make([]byte,len(keepsign.Sign))
 			copy(vote.ResultSign,keepsign.Sign)
 		}
 		cs.sendInternalMessage(msgInfo{&VoteMessage{vote}, ""})
