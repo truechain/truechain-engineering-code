@@ -160,12 +160,13 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		return
 	}
 	log.Debug("Receive", "src", src, "chId", chID, "msg", msg)
-
+	defer log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -1)
 	// Get peer states
 	ps := src.Get(ttypes.PeerStateKey).(*PeerState)
 
 	switch chID {
 	case StateChannel:
+		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 11)
 		switch msg := msg.(type) {
 		case *NewRoundStepMessage:
 			ps.ApplyNewRoundStepMessage(msg)
@@ -220,6 +221,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		}
 
 	case DataChannel:
+		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 22)
 		if conR.FastSync() {
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
@@ -227,7 +229,9 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		switch msg := msg.(type) {
 		case *ProposalMessage:
 			ps.SetHasProposal(msg.Proposal)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 111)
 			conR.conS.peerMsgQueue <- msgInfo{msg, string(src.ID())}
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -111)
 		case *ProposalPOLMessage:
 			ps.ApplyProposalPOLMessage(msg)
 		case *BlockPartMessage:
@@ -235,12 +239,15 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			if numBlocks := ps.RecordBlockPart(msg); numBlocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 112)
 			conR.conS.peerMsgQueue <- msgInfo{msg, string(src.ID())}
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -112)
 		default:
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
 
 	case VoteChannel:
+		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 33)
 		if conR.FastSync() {
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
@@ -257,15 +264,16 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
-
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 113)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -113)
 		default:
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
 
 	case VoteSetBitsChannel:
+		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 44)
 		if conR.FastSync() {
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
