@@ -260,7 +260,6 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		return ErrNotExist
 	}
 
-	// TODO: check signature
 	log.Debug("add fruit ", "fastnumber", fruit.FastNumber(), "hash", fruit.Hash())
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
