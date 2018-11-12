@@ -152,6 +152,10 @@ type Config struct {
 	MineFruit bool `toml:",omitempty"`
 }
 
+func (c *Config) GetNodeType() bool {
+	return c.NodeType
+}
+
 type configMarshaling struct {
 	ExtraData hexutil.Bytes
 }
