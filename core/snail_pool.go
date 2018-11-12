@@ -300,6 +300,9 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 func (pool *SnailPool) loop() {
 	defer pool.wg.Done()
 
+	// Start the stats reporting and fruit eviction tickers
+	var prevPending, prevUnverified int
+
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
 
@@ -337,7 +340,14 @@ func (pool *SnailPool) loop() {
 
 			// Handle stats reporting ticks
 		case <-report.C:
-			// TODO: pool report
+			pool.mu.RLock()
+			pending, unverified := pool.stats()
+			pool.mu.RUnlock()
+
+			if pending != prevPending || unverified != prevUnverified {
+				log.Debug("fruit pool status report", "pending", pending, "unverified", unverified)
+				prevPending, prevUnverified = pending, unverified
+			}
 
 			// Handle local fruit journal rotation
 		case <-journal.C:
@@ -659,7 +669,7 @@ func (pool *SnailPool) Content() []*types.SnailBlock {
 }
 
 // Inspect returning all the
-// unVerifiedFruits fruits sorted by fast number.
+// unverifiedFruits fruits sorted by fast number.
 func (pool *SnailPool) Inspect() []*types.SnailBlock {
 
 	pool.muFruit.Lock()
@@ -684,8 +694,14 @@ func (pool *SnailPool) Inspect() []*types.SnailBlock {
 }
 
 // Stats returning all the
-// pending fruits count and unVerifiedFruits fruits count.
-func (pool *SnailPool) Stats() (pending int, unVerified int) {
+// pending fruits count and unverifiedFruits fruits count.
+func (pool *SnailPool) Stats() (int, int) {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+	return pool.stats()
+}
+
+func (pool *SnailPool) stats() (int, int) {
 
 	return len(pool.fruitPending), len(pool.allFruits) - len(pool.fruitPending)
 }
