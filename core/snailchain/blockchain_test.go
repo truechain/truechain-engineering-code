@@ -31,6 +31,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"github.com/truechain/truechain-engineering-code/core"
 )
 
 // So we can deterministically seed different blockchains
@@ -45,11 +46,11 @@ var (
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *SnailBlockChain, error) {
 	var (
 		db      = ethdb.NewMemDatabase()
-		genesis = new(Genesis).MustCommit(db)
+		genesis = new(core.Genesis).MustSnailCommit(db)
 	)
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewSnailBlockChain(db, nil, params.AllEthashProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewSnailBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
