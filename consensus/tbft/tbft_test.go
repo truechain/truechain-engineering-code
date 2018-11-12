@@ -169,7 +169,7 @@ func TestPbftRunForOne(t *testing.T) {
 	m1 := new(types.CommitteeMember)
 	m1.Publickey = GetPub(pr)
 	c1.Members = append(c1.Members, m1)
-	c1.StartHeight = common.Big1
+	c1.StartHeight = common.Big0
 	n.PutCommittee(c1)
 	n.Notify(c1.Id, Start)
 	<-start

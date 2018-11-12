@@ -142,7 +142,7 @@ func NewConsensusState(
 	cs.updateToState(state)
 	// Don't call scheduleRound0 yet.
 	// We do that upon Start().
-	cs.reconstructLastCommit(nil)
+	cs.reconstructLastCommit()
 	cs.BaseService = *help.NewBaseService("ConsensusState", cs)
 	for _, option := range options {
 		option(cs)
@@ -398,8 +398,9 @@ func (cs *ConsensusState) sendInternalMessage(mi msgInfo) {
 
 // Reconstruct LastCommit from SeenCommit, which we saved along with the block,
 // (which happens even before saving the state)
-func (cs *ConsensusState) reconstructLastCommit(seenCommit *ttypes.Commit) {
+func (cs *ConsensusState) reconstructLastCommit() {
 	LastBlockHeight := cs.state.GetLastBlockHeight()
+	seenCommit := cs.blockStore.LoadBlockCommit(LastBlockHeight)
 	if LastBlockHeight == 0 || seenCommit == nil {
 		return
 	}
@@ -1233,7 +1234,6 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		precommits := cs.Votes.Precommits(int(cs.CommitRound))
 		seenCommit := precommits.MakeCommit()
 		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
-		cs.reconstructLastCommit(seenCommit)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
