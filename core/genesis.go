@@ -505,6 +505,12 @@ func GenesisFastBlockForTesting(db ethdb.Database, addr common.Address, balance 
 	return g.MustFastCommit(db)
 }
 
+// // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
+func GenesisSnailBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
+	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
+	return g.MustSnailCommit(db)
+}
+
 // be seeded with the
 func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Override the default period to the user requested one
