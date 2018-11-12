@@ -26,7 +26,9 @@ import "C"
 
 import (
 	"errors"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
+	"runtime/debug"
 	"unsafe"
 )
 
@@ -158,6 +160,8 @@ func CompressPubkey(x, y *big.Int) []byte {
 
 func checkSignature(sig []byte) error {
 	if len(sig) != 65 {
+		log.Error("checkSignature", "sig", string(sig))
+		debug.PrintStack()
 		return ErrInvalidSignatureLen
 	}
 	if sig[64] >= 4 {
