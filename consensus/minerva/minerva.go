@@ -19,7 +19,6 @@ package minerva
 
 import (
 	"errors"
-	"github.com/truechain/truechain-engineering-code/etrue"
 	"math/big"
 	"math/rand"
 	"os"
@@ -411,7 +410,6 @@ func NewFaker() *Minerva {
 		config: Config{
 			PowMode: ModeFake,
 		},
-		election: etrue.NewFakeElection(),
 	}
 }
 
@@ -424,7 +422,6 @@ func NewFakeFailer(fail uint64) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeFail: fail,
-		election: etrue.NewFakeElection(),
 	}
 }
 
