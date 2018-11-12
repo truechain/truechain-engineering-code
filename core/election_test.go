@@ -14,25 +14,24 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
-package etrue
+package core
 
 import (
 	"testing"
 
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/core"
 )
 
 func makeTestBlock() *types.Block {
 	db := ethdb.NewMemDatabase()
-	BaseGenesis := new(core.Genesis)
+	BaseGenesis := new(Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   core.FastCalcGasLimit(genesis),
+		GasLimit:   FastCalcGasLimit(genesis),
 	}
 	fb := types.NewBlock(header, nil, nil, nil)
 	return fb

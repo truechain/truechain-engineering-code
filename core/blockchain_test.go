@@ -17,7 +17,6 @@
 package core
 
 import (
-	"github.com/truechain/truechain-engineering-code/etrue"
 	"math/big"
 	"sync"
 	"testing"
@@ -77,7 +76,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 func TestInsertBlock(t *testing.T) {
 
 	engine := ethash.NewFaker()
-	engine.SetElection(etrue.NewFakeElection())
+	engine.SetElection(NewFakeElection())
 	_, blockchain, err := newCanonical(engine, 0, true)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
