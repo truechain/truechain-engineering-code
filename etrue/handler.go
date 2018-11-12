@@ -447,7 +447,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
-			p.Log().Debug("Truechain message handling failed", "err", err)
+			p.Log().Info("Truechain message handling failed", "err", err)
 			return err
 		}
 	}
@@ -1114,7 +1114,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
+	timeString := time.Now().Sub(now).String()
+	if strings.Contains(timeString, "h") {
+		log.Info("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
+		return errors.New(fmt.Sprintf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr()))
+	}
+
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
 	return nil
 }
 

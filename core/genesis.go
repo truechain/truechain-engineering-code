@@ -289,29 +289,29 @@ func (g *Genesis) MustFastCommit(db ethdb.Database) *types.Block {
 }
 
 // DefaultGenesisBlock returns the TrueChain main net genesis block.
-func DefaultFastGenesisBlock() *Genesis {
-	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	return &Genesis{
-		Config:     params.MainnetChainConfig,
-		Nonce:      928,
-		ExtraData:  nil,
-		GasLimit:   88080384,
-		Difficulty: big.NewInt(20000),
-		//	Alloc:      decodePrealloc(mainnetAllocData),
-		Alloc: map[common.Address]types.GenesisAccount{
-			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
-			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
-			common.HexToAddress("0x04d2252a3e0ca7c2aa81247ca33060855a34a808"): {Balance: i},
-			common.HexToAddress("0x05712ff78d08eaf3e0f1797aaf4421d9b24f8679"): {Balance: i},
-			common.HexToAddress("0x764727f61dd0717a48236842435e9aefab6723c3"): {Balance: i},
-			common.HexToAddress("0x764986534dba541d5061e04b9c561abe3f671178"): {Balance: i},
-			common.HexToAddress("0x0fd0bbff2e5b3ddb4f030ff35eb0fe06658646cf"): {Balance: i},
-			common.HexToAddress("0x40b3a743ba285a20eaeee770d37c093276166568"): {Balance: i},
-			common.HexToAddress("0x9d3c4a33d3bcbd2245a1bebd8e989b696e561eae"): {Balance: i},
-			common.HexToAddress("0x35c9d83c3de709bbd2cb4a8a42b89e0317abe6d4"): {Balance: i},
-		},
-	}
-}
+// func DefaultFastGenesisBlock() *Genesis {
+// 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+// 	return &Genesis{
+// 		Config:     params.MainnetChainConfig,
+// 		Nonce:      928,
+// 		ExtraData:  nil,
+// 		GasLimit:   88080384,
+// 		Difficulty: big.NewInt(20000),
+// 		//	Alloc:      decodePrealloc(mainnetAllocData),
+// 		Alloc: map[common.Address]types.GenesisAccount{
+// 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
+// 			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
+// 			common.HexToAddress("0x04d2252a3e0ca7c2aa81247ca33060855a34a808"): {Balance: i},
+// 			common.HexToAddress("0x05712ff78d08eaf3e0f1797aaf4421d9b24f8679"): {Balance: i},
+// 			common.HexToAddress("0x764727f61dd0717a48236842435e9aefab6723c3"): {Balance: i},
+// 			common.HexToAddress("0x764986534dba541d5061e04b9c561abe3f671178"): {Balance: i},
+// 			common.HexToAddress("0x0fd0bbff2e5b3ddb4f030ff35eb0fe06658646cf"): {Balance: i},
+// 			common.HexToAddress("0x40b3a743ba285a20eaeee770d37c093276166568"): {Balance: i},
+// 			common.HexToAddress("0x9d3c4a33d3bcbd2245a1bebd8e989b696e561eae"): {Balance: i},
+// 			common.HexToAddress("0x35c9d83c3de709bbd2cb4a8a42b89e0317abe6d4"): {Balance: i},
+// 		},
+// 	}
+// }
 
 // SetupGenesisBlock writes or updates the genesis block in db.
 // The block that will be used is:

@@ -131,6 +131,7 @@ func (self *Miner) loop() {
 				if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
 					// i am committee
 					if self.Mining() {
+						atomic.StoreInt32(&self.commitFlag, 0)
 						self.Stop()
 					}
 					atomic.StoreInt32(&self.commitFlag, 0)
@@ -210,7 +211,7 @@ func (self *Miner) Stop() {
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)
-	atomic.StoreInt32(&self.commitFlag, 0)
+
 }
 
 func (self *Miner) Register(agent Agent) {
