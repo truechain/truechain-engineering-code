@@ -36,7 +36,6 @@ type BlockGen struct {
 	chainReader consensus.SnailChainReader
 	header      *types.SnailHeader
 
-	//gasPool *GasPool
 	uncles  []*types.SnailHeader
 
 	fruits []*types.SnailBlock
@@ -52,13 +51,11 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 	//if b.gasPool != nil
 	{
 		if len(b.fruits) > 0 {
-			panic("coinbase must be set before adding transactions")
+			panic("coinbase must be set before adding fruits")
 		}
 		panic("coinbase can only be set once")
 	}
 	b.header.Coinbase = addr
-	//TODO not gaslimit 20180804
-	//b.gasPool = new(GasPool).AddGas(b.header.GasLimit)
 }
 
 func (b *BlockGen) AddFruit(block *types.SnailBlock) {
