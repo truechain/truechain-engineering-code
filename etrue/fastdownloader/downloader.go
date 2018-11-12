@@ -473,7 +473,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		d.committed = 0
 	}
 	// Initiate the sync using a concurrent header and content retrieval algorithm
-	//使用并发标头和内容检索算法启动同步
 	d.queue.Prepare(origin+1, d.mode)
 	if d.syncInitHook != nil {
 		d.syncInitHook(origin, height)
