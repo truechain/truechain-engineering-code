@@ -314,9 +314,11 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		log.Error(fmt.Sprintf("Unknown chId %X", chID))
 	}
 
+	log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -1111111)
 	if err != nil {
 		log.Error("Error in Receive()", "err", err)
 	}
+	log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -1111112)
 }
 
 // SetEventBus sets event bus.
