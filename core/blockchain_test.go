@@ -17,6 +17,7 @@
 package core
 
 import (
+	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"sync"
 	"testing"
@@ -48,14 +49,11 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 		db = ethdb.NewMemDatabase()
 	)
 
-	BaseGenesis := DefaultFastGenesisBlock()
+	BaseGenesis := DefaultGenesisBlock()
 	genesis := BaseGenesis.MustFastCommit(db)
 	// Initialize a fresh chain with only a genesis block
 	//Initialize a new chain
 	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	//fmt.Println(errs)
-
-	//fmt.Println(errs)
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil
@@ -322,7 +320,10 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 		genesis = gspec.MustFastCommit(gendb)
 	)
 	height := uint64(1024)
-	blocks, receipts := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), gendb, int(height), nil)
+	engine := ethash.NewFaker()
+	engine.SetElection(NewFakeElection())
+
+	blocks, receipts := GenerateChain(gspec.Config, genesis,engine , gendb, int(height), nil)
 
 	// Configure a subchain to roll back
 	remove := []common.Hash{}
@@ -345,7 +346,9 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	archiveDb := ethdb.NewMemDatabase()
 	gspec.MustFastCommit(archiveDb)
 
-	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+	engine1 := ethash.NewFaker()
+	engine1.SetElection(NewFakeElection())
+	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, engine1, vm.Config{})
 	if n, err := archive.InsertChain(blocks); err != nil {
 		t.Fatalf("failed to process block %d: %v", n, err)
 	}
@@ -355,10 +358,16 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	archive.Rollback(remove)
 	assert(t, "archive", archive, height/2, height/2, height/2)
 
+
+	log.Info("archive","state",archive.CurrentBlock().Root())
 	// Import the chain as a non-archive node and ensure all pointers are updated
 	fastDb := ethdb.NewMemDatabase()
 	gspec.MustFastCommit(fastDb)
-	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, ethash.NewFaker(), vm.Config{})
+
+	engine = ethash.NewFaker()
+	engine.SetElection(NewFakeElection())
+
+	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, engine, vm.Config{})
 	defer fast.Stop()
 
 	headers := make([]*types.Header, len(blocks))
@@ -375,6 +384,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	fast.Rollback(remove)
 	assert(t, "fast", fast, height/2, height/2, 0)
 
+	log.Info("fast","state",archive.CurrentBlock().Root())
 	// Import the chain as a light node and ensure all pointers are updated
 	lightDb := ethdb.NewMemDatabase()
 	gspec.MustFastCommit(lightDb)
@@ -388,6 +398,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	assert(t, "light", light, height, 0, 0)
 	light.Rollback(remove)
 	assert(t, "light", light, height/2, 0, 0)
+	log.Info("light","state",archive.CurrentBlock().Root())
 }
 
 // Tests that chain reorganisations handle transaction removals and reinsertions.

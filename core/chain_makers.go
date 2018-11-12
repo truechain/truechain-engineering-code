@@ -169,6 +169,9 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	if config == nil {
 		config = params.TestChainConfig
 	}
+
+
+
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
