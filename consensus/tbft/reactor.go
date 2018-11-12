@@ -3,7 +3,7 @@ package tbft
 import (
 	"errors"
 	"fmt"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
@@ -255,7 +255,9 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		switch msg := msg.(type) {
 		case *VoteMessage:
 			cs := conR.conS
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 222)
 			cs.mtx.Lock()
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -222)
 			height, valSize, lastCommitSize := cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			cs.mtx.Unlock()
 			ps.EnsureVoteBitArrays(height, valSize)
@@ -271,7 +273,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
-
+		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -33)
 	case VoteSetBitsChannel:
 		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 44)
 		if conR.FastSync() {
