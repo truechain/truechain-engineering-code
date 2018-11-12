@@ -260,12 +260,15 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -222)
 			height, valSize, lastCommitSize := cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			cs.mtx.Unlock()
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -2222)
 			ps.EnsureVoteBitArrays(height, valSize)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
 			ps.SetHasVote(msg.Vote)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 333)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -333)
 			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 113)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
 			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -113)
