@@ -255,23 +255,18 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		switch msg := msg.(type) {
 		case *VoteMessage:
 			cs := conR.conS
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 222)
 			cs.mtx.Lock()
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -222)
 			height, valSize, lastCommitSize := cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			cs.mtx.Unlock()
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -2222)
 			ps.EnsureVoteBitArrays(height, valSize)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
 			ps.SetHasVote(msg.Vote)
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 333)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -333)
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 113)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 444)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -113)
+			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -444)
 		default:
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))

@@ -11,11 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
-	"github.com/truechain/truechain-engineering-code/log"
+	"crypto/elliptic"
 	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"crypto/elliptic"
+	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 const (
@@ -234,7 +234,7 @@ func (c *MConnection) flush() {
 // Catch panics, usually caused by remote disconnects.
 func (c *MConnection) _recover() {
 	if r := recover(); r != nil {
-		err := errors.New(fmt.Sprint(r,"recovered panic in MConnection"))
+		err := errors.New(fmt.Sprint(r, "recovered panic in MConnection"))
 		c.stopForError(err)
 	}
 }
@@ -532,6 +532,7 @@ FOR_LOOP:
 				log.Debug("Received bytes", "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
 				// NOTE: This means the reactor.Receive runs in the same thread as the p2p recv routine
 				c.onReceive(pkt.ChannelID, msgBytes)
+				log.Debug("Received bytes end", "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
 			}
 		default:
 			err := fmt.Errorf("Unknown message type %v", reflect.TypeOf(packet))
@@ -774,7 +775,7 @@ type Packet interface {
 
 func RegisterPacket(cdc *amino.Codec) {
 	cdc.RegisterInterface((*Packet)(nil), nil)
-	cdc.RegisterInterface((*elliptic.Curve)(nil),nil)
+	cdc.RegisterInterface((*elliptic.Curve)(nil), nil)
 	cdc.RegisterConcrete(elliptic.CurveParams{}, "true/p2p/p256", nil)
 	cdc.RegisterConcrete(PacketPing{}, "true/p2p/PacketPing", nil)
 	cdc.RegisterConcrete(PacketPong{}, "true/p2p/PacketPong", nil)
