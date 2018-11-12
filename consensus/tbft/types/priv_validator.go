@@ -313,6 +313,7 @@ type StateAgent interface {
 	GetLastValidator() *ValidatorSet
 
 	GetLastBlockHeight() uint64
+	UpdateBlockHeight(h uint64)
 	GetChainID() string
 	MakeBlock() (*ctypes.Block, *PartSet,error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
@@ -434,6 +435,9 @@ func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 }
 func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
 	return state.LastHeight
+}
+func (state *StateAgentImpl) UpdateBlockHeight(h uint64) {
+	state.LastHeight = h
 }
 func (state *StateAgentImpl) GetAddress() help.Address {
 	return state.Priv.GetAddress()
