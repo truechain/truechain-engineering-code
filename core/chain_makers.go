@@ -243,10 +243,11 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
 func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-		//election := etrue.NewFakeElection()
-		//b.engine.SetElection(election)
+
 	})
+
 	return blocks
 }
