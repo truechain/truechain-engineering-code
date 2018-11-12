@@ -50,12 +50,12 @@ type BlockGen struct {
 // It can be called at most once.
 func (b *BlockGen) SetCoinbase(addr common.Address) {
 	//if b.gasPool != nil
-	//{
-	//	if len(b.fruits) > 0 {
-	//		panic("coinbase must be set before adding transactions")
-	//	}
-	//	panic("coinbase can only be set once")
-	//}
+	{
+		if len(b.fruits) > 0 {
+			panic("coinbase must be set before adding fruits")
+		}
+		panic("coinbase can only be set once")
+	}
 	b.header.Coinbase = addr
 	//TODO not gaslimit 20180804
 	//b.gasPool = new(GasPool).AddGas(b.header.GasLimit)

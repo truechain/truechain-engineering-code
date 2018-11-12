@@ -53,9 +53,7 @@ const (
 )
 
 var (
-	// fruit freshness
-	//fruitFreshness *big.Int = big.NewInt(17)
-	//pinter hash Fresh
+
 	pointerHashFresh *big.Int = big.NewInt(7)
 )
 

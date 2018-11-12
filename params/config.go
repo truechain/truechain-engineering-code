@@ -172,7 +172,6 @@ func (c *MinervaConfig) String() string {
 		c.MinimumFruitDifficulty,
 		c.DurationLimit,
 	)
-	//return "minerva"
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.

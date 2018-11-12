@@ -127,23 +127,26 @@ func (self *Miner) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				// alread to start mining need stop
-				if self.Mining() {
-					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
-						// i am committee
-						self.Stop()
+
+				if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
+					// i am committee
+					if self.Mining() {
 						atomic.StoreInt32(&self.commitFlag, 0)
-					} else {
-						atomic.StoreInt32(&self.commitFlag, 1)
-						self.Start(self.coinbase)
-						log.Debug("not in commiteer munber so start to miner")
+						self.Stop()
 					}
+					atomic.StoreInt32(&self.commitFlag, 0)
+				} else {
+					log.Debug("not in commiteer munber so start to miner")
+					atomic.StoreInt32(&self.commitFlag, 1)
+					self.Start(self.coinbase)
+
 				}
 				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 			case types.CommitteeStop:
 
+				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 				atomic.StoreInt32(&self.commitFlag, 1)
 				self.Start(self.coinbase)
-				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 			}
 		case <-self.electionSub.Err():
 			return
@@ -208,7 +211,7 @@ func (self *Miner) Stop() {
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)
-	atomic.StoreInt32(&self.commitFlag, 0)
+
 }
 
 func (self *Miner) Register(agent Agent) {

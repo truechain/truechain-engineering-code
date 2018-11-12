@@ -180,6 +180,25 @@ func NewElction(fastBlockChain *BlockChain, snailBlockChain SnailBlockChain, con
 	return election
 }
 
+func (e *Election) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error) {
+	var signs []*types.PbftSign
+	for _, privateKey := range e.testPrivateKeys {
+		voteSign := &types.PbftSign{
+			Result:     types.VoteAgree,
+			FastHeight: fb.Header().Number,
+			FastHash:   fb.Hash(),
+		}
+		var err error
+		signHash := voteSign.HashWithNoSign().Bytes()
+		voteSign.Sign, err = crypto.Sign(signHash, privateKey)
+		if err != nil {
+			log.Error("fb GenerateSign error ", "err", err)
+		}
+		signs = append(signs, voteSign)
+	}
+	return signs, nil
+}
+
 func NewFakeElection() *Election {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
@@ -966,6 +985,7 @@ func (e *Election) SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.S
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }
+
 
 func PrintCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
