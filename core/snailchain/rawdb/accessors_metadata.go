@@ -15,7 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package rawdb
- 
+
 import (
 	"encoding/json"
 
@@ -69,22 +69,4 @@ func WriteChainConfig(db DatabaseWriter, hash common.Hash, cfg *params.ChainConf
 	if err := db.Put(configKey(hash), data); err != nil {
 		log.Crit("Failed to store chain config", "err", err)
 	}
-}
-
-// ReadPreimage retrieves a single preimage of the provided hash.
-func ReadPreimage(db DatabaseReader, hash common.Hash) []byte {
-	data, _ := db.Get(preimageKey(hash))
-	return data
-}
-
-// WritePreimages writes the provided set of preimages to the database. `number` is the
-// current block number, and is used for debug messages only.
-func WritePreimages(db DatabaseWriter, number uint64, preimages map[common.Hash][]byte) {
-	for hash, preimage := range preimages {
-		if err := db.Put(preimageKey(hash), preimage); err != nil {
-			log.Crit("Failed to store trie preimage", "err", err)
-		}
-	}
-	preimageCounter.Inc(int64(len(preimages)))
-	preimageHitCounter.Inc(int64(len(preimages)))
 }

@@ -14,21 +14,20 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
-package etrue
+package core
 
 import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/ethdb"
 	"math/big"
 	"sync"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -58,7 +57,7 @@ var (
 
 var (
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
-	ErrInvalidSign   = errors.New("invalid sign")
+	//ErrInvalidSign   = errors.New("invalid sign")
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
 )
@@ -113,13 +112,45 @@ type Election struct {
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
 
-	fastchain  *core.BlockChain
-	snailchain *snailchain.SnailBlockChain
+	fastchain  *BlockChain
+	snailchain SnailBlockChain
 
 	engine consensus.Engine
 }
 
-func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.SnailBlockChain, config *Config) *Election {
+// LightChain encapsulates functions required to synchronise a light chain.
+type SnailLightChain interface {
+
+	// CurrentHeader retrieves the head header from the local chain.
+	CurrentHeader() *types.SnailHeader
+
+}
+
+// BlockChain encapsulates functions required to sync a (full or fast) blockchain.
+type SnailBlockChain interface {
+	SnailLightChain
+
+	// CurrentBlock retrieves the head block from the local chain.
+	CurrentBlock() *types.SnailBlock
+
+	GetGenesisCommittee() []*types.CommitteeMember
+
+	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
+
+	GetDatabase() ethdb.Database
+
+	GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64)
+
+	GetBlockByNumber(number uint64) *types.SnailBlock
+}
+
+type Config interface {
+
+	GetNodeType() bool
+}
+
+
+func NewElction(fastBlockChain *BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
 	election := &Election{
 		fastchain:        fastBlockChain,
@@ -127,7 +158,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain *snailchain.Sna
 		committeeList:    make(map[uint64]*committee),
 		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
 		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
-		singleNode:       config.NodeType,
+		singleNode:       config.GetNodeType(),
 		electionMode:     ElectModeEtrue,
 	}
 
@@ -204,6 +235,14 @@ func (e *Election) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error)
 		signs = append(signs, voteSign)
 	}
 	return signs, nil
+}
+
+func (e *Election) GetGenesisCommittee()  []*types.CommitteeMember {
+	return e.genesisCommittee
+}
+
+func (e *Election) GetCurrentCommittee() *committee {
+	return e.committee
 }
 
 //whether assigned publickey  in  committeeMember pubKey
@@ -927,6 +966,7 @@ func (e *Election) SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.S
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }
+
 
 func PrintCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)

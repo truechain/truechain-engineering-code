@@ -75,7 +75,7 @@ type Truechain struct {
 	snailPool *core.SnailPool
 
 	agent    *PbftAgent
-	election *Election
+	election *core.Election
 
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -207,7 +207,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.snailPool = core.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = core.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 

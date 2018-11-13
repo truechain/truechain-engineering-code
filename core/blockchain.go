@@ -886,13 +886,13 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	// Update the head fast sync block if better
 	bc.mu.Lock()
 	head := blockChain[len(blockChain)-1]
-	if td := bc.GetTd(head.Hash(), head.NumberU64()); td != nil { // Rewind may have occurred, skip in that case
-		currentFastBlock := bc.CurrentFastBlock()
-		if bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64()).Cmp(td) < 0 {
-			rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
-			bc.currentFastBlock.Store(head)
-		}
-	}
+	//if td := bc.GetTd(head.Hash(), head.NumberU64()); td != nil { // Rewind may have occurred, skip in that case
+	//currentFastBlock := bc.CurrentFastBlock()
+	//if bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64()).Cmp(td) < 0 {
+	rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
+	bc.currentFastBlock.Store(head)
+	//}
+	//}
 	bc.mu.Unlock()
 
 	log.Info("Imported new block receipts",
@@ -1157,7 +1157,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateBody(block, false) //update
+			err = bc.Validator().ValidateBody(block, true) //update
 		}
 		switch {
 		case err == ErrKnownBlock:

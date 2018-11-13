@@ -24,7 +24,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
@@ -136,7 +135,7 @@ func printChain(bc *SnailBlockChain) {
 func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) error {
 	for _, block := range chain {
 		// Try and process the block
-		err := blockchain.engine.VerifySnailHeader(blockchain, block.Header(), true)
+		err := blockchain.engine.VerifySnailHeader(blockchain,nil, block.Header(),true)
 		if err == nil {
 			err = blockchain.validator.ValidateBody(block)
 		}
@@ -147,7 +146,7 @@ func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) 
 			return err
 		}
 		blockchain.mu.Lock()
-		rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(blockchain.GetBlockDifficulty(block), blockchain.GetTdByHash(block.ParentHash())))
+		rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
 		rawdb.WriteBlock(blockchain.db, block)
 		blockchain.mu.Unlock()
 	}
@@ -159,7 +158,7 @@ func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) 
 func testHeaderChainImport(chain []*types.SnailHeader, blockchain *SnailBlockChain) error {
 	for _, header := range chain {
 		// Try and validate the header
-		if err := blockchain.engine.VerifySnailHeader(blockchain, header, false); err != nil {
+		if err := blockchain.engine.VerifySnailHeader(blockchain, nil, header, false); err != nil {
 			return err
 		}
 		// Manually insert the header into the database, but don't reorganise (allows subsequent testing)
@@ -424,7 +423,7 @@ func testReorg(t *testing.T, first, second []int64, td int64, full bool) {
 		}
 	}
 	// Make sure the chain total difficulty is the correct one
-	want := new(big.Int).Add(blockchain.GetBlockDifficulty(blockchain.genesisBlock), big.NewInt(td))
+	want := new(big.Int).Add(blockchain.genesisBlock.Difficulty(), big.NewInt(td))
 	if full {
 		if have := blockchain.GetTdByHash(blockchain.CurrentBlock().Hash()); have.Cmp(want) != 0 {
 			t.Errorf("total difficulty mismatch: have %v, want %v", have, want)
@@ -1167,7 +1166,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	db := ethdb.NewMemDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(core.Genesis).MustSnailCommit(db)
 	blocks := GenerateChain(params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
@@ -1183,7 +1182,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Import the canonical and fork chain side by side, verifying the current block
 	// and current header consistency
 	diskdb := ethdb.NewMemDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(core.Genesis).MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 	if err != nil {
@@ -1212,7 +1211,7 @@ func TestTrieForkGC(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	db := ethdb.NewMemDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(core.Genesis).MustSnailCommit(db)
 	blocks := GenerateChain(params.TestChainConfig, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
@@ -1227,7 +1226,7 @@ func TestTrieForkGC(t *testing.T) {
 	}
 	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
 	diskdb := ethdb.NewMemDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(core.Genesis).MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 	if err != nil {
@@ -1250,7 +1249,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	engine := minerva.NewFaker()
 
 	db := ethdb.NewMemDatabase()
-	genesis := new(Genesis).MustCommit(db)
+	genesis := new(core.Genesis).MustSnailCommit(db)
 
 	shared := GenerateChain(params.TestChainConfig, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 	original := GenerateChain(params.TestChainConfig, shared[len(shared)-1], engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
@@ -1258,7 +1257,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 
 	// Import the shared chain and the original canonical one
 	diskdb := ethdb.NewMemDatabase()
-	new(Genesis).MustCommit(diskdb)
+	new(core.Genesis).MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 	if err != nil {
@@ -1287,11 +1286,11 @@ func TestLargeReorgTrieGC(t *testing.T) {
 // Benchmarks large blocks with value transfers to non-existing accounts
 func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks int, recipientFn func(uint64) common.Address, dataFn func(uint64) []byte) {
 	var (
-		signer         = types.HomesteadSigner{}
-		testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+		//signer         = types.HomesteadSigner{}
+		//testBankKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		//testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
 		//bankFunds       = big.NewInt(100000000000000000)
-		gspec = Genesis{
+		gspec = core.Genesis{
 			Config: params.TestChainConfig,
 			/*	Alloc: GenesisAlloc{
 				testBankAddress: {Balance: bankFunds},
@@ -1306,11 +1305,11 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 	// Generate the original common chain segment and the two competing forks
 	engine := minerva.NewFaker()
 	db := ethdb.NewMemDatabase()
-	genesis := gspec.MustCommit(db)
+	genesis := gspec.MustSnailCommit(db)
 
 	blockGenerator := func(i int, block *BlockGen) {
 		block.SetCoinbase(common.Address{1})
-		for txi := 0; txi < numTxs; txi++ {
+		/*for txi := 0; txi < numTxs; txi++ {
 			uniq := uint64(i*numTxs + txi)
 			recipient := recipientFn(uniq)
 			//recipient := common.BigToAddress(big.NewInt(0).SetUint64(1337 + uniq))
@@ -1319,7 +1318,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 				b.Error(err)
 			}
 			block.AddTx(tx)
-		}
+		}*/
 	}
 
 	shared := GenerateChain(params.TestChainConfig, genesis, engine, db, numBlocks, blockGenerator)
@@ -1328,7 +1327,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 	for i := 0; i < b.N; i++ {
 		// Import the shared chain and the original canonical one
 		diskdb := ethdb.NewMemDatabase()
-		gspec.MustCommit(diskdb)
+		gspec.MustSnailCommit(diskdb)
 
 		chain, err := NewSnailBlockChain(diskdb, nil, params.TestChainConfig, engine, vm.Config{})
 		if err != nil {

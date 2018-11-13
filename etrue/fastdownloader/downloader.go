@@ -61,6 +61,8 @@ var (
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
 	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
 
+	reorgProtHeaderDelay = 2  // Number of headers to delay delivering to cover mini reorgs
+
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderForceVerify    = 24              // Number of headers to verify before and after the pivot to accept it
@@ -471,7 +473,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		d.committed = 0
 	}
 	// Initiate the sync using a concurrent header and content retrieval algorithm
-	//使用并发标头和内容检索算法启动同步
 	d.queue.Prepare(origin+1, d.mode)
 	if d.syncInitHook != nil {
 		d.syncInitHook(origin, height)
