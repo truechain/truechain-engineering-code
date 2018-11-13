@@ -160,6 +160,7 @@ func (p *peerConnection) GetID() string {return p.id}
 func (p *peerConnection) GetVersion() int {return p.version}
 
 func (p *peerConnection) GetPeer() etrue.Peer {return p.peer}
+func (p *peerConnection) SetPeer(peer etrue.Peer) {p.peer=peer}
 func (p *peerConnection) GetLog() log.Logger {return p.log}
 func (p *peerConnection) GetLock() *sync.RWMutex {return &p.lock}
 

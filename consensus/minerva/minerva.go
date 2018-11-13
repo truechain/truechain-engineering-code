@@ -391,6 +391,11 @@ func (m *Minerva) SetElection(e consensus.CommitteeElection) {
 	m.election = e
 }
 
+func (m *Minerva) GetElection() consensus.CommitteeElection {
+	return m.election
+
+}
+
 // NewTester creates a small sized minerva scheme useful only for testing
 // purposes.
 func NewTester() *Minerva {

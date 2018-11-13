@@ -93,7 +93,7 @@ type PbftAgent struct {
 	endFastNumber        map[*big.Int]*big.Int
 
 	server   types.PbftServerProxy
-	election *Election
+	election *core.Election
 
 	mu           *sync.Mutex //generateBlock mutex
 	cacheBlockMu *sync.Mutex //PbftAgent.cacheBlock mutex
@@ -138,7 +138,7 @@ type AgentWork struct {
 }
 
 // NodeInfoEvent is posted when nodeInfo send
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election, coinbase common.Address) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *core.Election, coinbase common.Address) *PbftAgent {
 	self := &PbftAgent{
 		config:               config,
 		engine:               engine,
@@ -179,7 +179,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 	}
 	//if singlenode start, node as committeeMember
 	if self.singleNode {
-		committees := self.election.genesisCommittee
+		committees := self.election.GetGenesisCommittee()
 		if len(committees) != 1 {
 			log.Error("singlenode start,must assign genesis_single.json")
 		}

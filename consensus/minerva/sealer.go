@@ -107,7 +107,7 @@ func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBl
 		send <- block.WithSeal(header)
 		log.Debug(" -------  fake mode   ----- ", "fb number", block.FastNumber(), "threads", m.threads)
 
-		//return  nil
+		return
 	}
 	// If we're running a shared PoW, delegate sealing to it
 	if m.shared != nil {
@@ -311,13 +311,22 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 	sblockchain := m.sbc
 	//current block number is invaild
 
+	if sblockchain == nil{
+		return  false, nil
+	}
+
 	if res <= STARTUPDATENUM {
 		return false, nil
 	}
 	var st_block_num uint64 = uint64(cur_block_num - res)
 
 	for i := 0; i < 8192; i++ {
+
+
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
+		if header == nil{
+			return false,nil
+		}
 		val := header.Hash().Bytes()
 		offset[i*4] = (int(val[0]) & offset_cnst) - 16
 		offset[i*4+1] = (int(val[1]) & offset_cnst) - 16

@@ -36,6 +36,7 @@ type BlockGen struct {
 	chainReader consensus.SnailChainReader
 	header      *types.SnailHeader
 
+	//gasPool *GasPool
 	uncles  []*types.SnailHeader
 
 	fruits []*types.SnailBlock
@@ -48,14 +49,12 @@ type BlockGen struct {
 // SetCoinbase sets the coinbase of the generated block.
 // It can be called at most once.
 func (b *BlockGen) SetCoinbase(addr common.Address) {
-	//if b.gasPool != nil
-	{
-		if len(b.fruits) > 0 {
-			panic("coinbase must be set before adding fruits")
-		}
-		panic("coinbase can only be set once")
+	if len(b.fruits) > 0 {
+		panic("coinbase must be set before adding fruits")
 	}
 	b.header.Coinbase = addr
+	//TODO not gaslimit 20180804
+	//b.gasPool = new(GasPool).AddGas(b.header.GasLimit)
 }
 
 func (b *BlockGen) AddFruit(block *types.SnailBlock) {
@@ -65,42 +64,6 @@ func (b *BlockGen) AddFruit(block *types.SnailBlock) {
 // SetExtra sets the extra data field of the generated block.
 func (b *BlockGen) SetExtra(data []byte) {
 	b.header.Extra = data
-}
-
-// AddTx adds a transaction to the generated block. If no coinbase has
-// been set, the block's coinbase is set to the zero address.
-//
-// AddTx panics if the transaction cannot be executed. In addition to
-// the protocol-imposed limitations (gas limit, etc.), there are some
-// further limitations on the content of transactions that can be
-// added. Notably, contract code relying on the BLOCKHASH instruction
-// will panic during execution.
-func (b *BlockGen) AddTx(tx *types.Transaction) {
-	b.AddTxWithChain(nil, tx)
-}
-
-// AddTxWithChain adds a transaction to the generated block. If no coinbase has
-// been set, the block's coinbase is set to the zero address.
-//
-// AddTxWithChain panics if the transaction cannot be executed. In addition to
-// the protocol-imposed limitations (gas limit, etc.), there are some
-// further limitations on the content of transactions that can be
-// added. If contract code relies on the BLOCKHASH instruction,
-// the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(bc *SnailBlockChain, tx *types.Transaction) {
-	//if b.gasPool == nil
-	{
-		b.SetCoinbase(common.Address{})
-	}
-	//TODO not need 20180804
-	/*
-		receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
-		if err != nil {
-			panic(err)
-		}
-		b.txs = append(b.txs, tx)
-		b.receipts = append(b.receipts, receipt)
-	*/
 }
 
 // Number returns the block number of the block being generated.
