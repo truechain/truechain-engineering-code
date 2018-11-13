@@ -1,16 +1,17 @@
 package types
 
 import (
-	"math/big"
 	"bytes"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/log"
+	"math/big"
 	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/common"
 )
 
 // UNSTABLE
@@ -134,6 +135,7 @@ func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
 	if voteSet == nil {
 		help.PanicSanity("AddVote() on nil VoteSet")
 	}
+	log.Debug("mtx", "lock", 1)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 
@@ -293,6 +295,7 @@ func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	if voteSet == nil {
 		help.PanicSanity("SetPeerMaj23() on nil VoteSet")
 	}
+	log.Debug("mtx", "lock", 2)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 
@@ -328,6 +331,7 @@ func (voteSet *VoteSet) BitArray() *help.BitArray {
 	if voteSet == nil {
 		return nil
 	}
+	log.Debug("mtx", "lock", 3)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.votesBitArray.Copy()
@@ -337,6 +341,7 @@ func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *help.BitArray {
 	if voteSet == nil {
 		return nil
 	}
+	log.Debug("mtx", "lock", 4)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	votesByBlock, ok := voteSet.votesByBlock[blockID.Key()]
@@ -351,6 +356,7 @@ func (voteSet *VoteSet) GetByIndex(valIndex uint) *Vote {
 	if voteSet == nil {
 		return nil
 	}
+	log.Debug("mtx", "lock", 5)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.votes[valIndex]
@@ -360,6 +366,7 @@ func (voteSet *VoteSet) GetByAddress(address []byte) *Vote {
 	if voteSet == nil {
 		return nil
 	}
+	log.Debug("mtx", "lock", 6)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	valIndex, val := voteSet.valSet.GetByAddress(address)
@@ -373,6 +380,7 @@ func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
 	if voteSet == nil {
 		return false
 	}
+	log.Debug("mtx", "lock", 7)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.maj23 != nil
@@ -385,6 +393,7 @@ func (voteSet *VoteSet) IsCommit() bool {
 	if voteSet.type_ != VoteTypePrecommit {
 		return false
 	}
+	log.Debug("mtx", "lock", 8)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.maj23 != nil
@@ -394,12 +403,14 @@ func (voteSet *VoteSet) HasTwoThirdsAny() bool {
 	if voteSet == nil {
 		return false
 	}
+	log.Debug("mtx", "lock", 9)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.sum > voteSet.valSet.TotalVotingPower()*2/3
 }
 
 func (voteSet *VoteSet) HasAll() bool {
+	log.Debug("mtx", "lock", 10)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.sum == voteSet.valSet.TotalVotingPower()
@@ -411,6 +422,7 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	if voteSet == nil {
 		return BlockID{}, false
 	}
+	log.Debug("mtx", "lock", 11)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	if voteSet.maj23 != nil {
@@ -419,34 +431,35 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	return BlockID{}, false
 }
 
-func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign,error) {
+func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign, error) {
 	if voteSet == nil {
-		return nil,errors.New("no voteset")
+		return nil, errors.New("no voteset")
 	}
+	log.Debug("mtx", "lock", 12)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	if voteSet.maj23 == nil {
-		return nil,errors.New("there was no pok")
+		return nil, errors.New("there was no pok")
 	}
 	blockid := voteSet.maj23
-	if _, ok := voteSet.votesByBlock[blockid.Key()];!ok {
-		return nil,errors.New(fmt.Sprintf("none blockhash was vote,hash=%X",voteSet.maj23.Hash))
+	if _, ok := voteSet.votesByBlock[blockid.Key()]; !ok {
+		return nil, errors.New(fmt.Sprintf("none blockhash was vote,hash=%X", voteSet.maj23.Hash))
 	}
-	signs := make([]*ttypes.PbftSign,0)
+	signs := make([]*ttypes.PbftSign, 0)
 	for i, vote := range voteSet.votes {
-		if res := voteSet.votesBitArray.GetIndex(uint(i));res {
+		if res := voteSet.votesBitArray.GetIndex(uint(i)); res {
 			var hash common.Hash
-			copy(hash[:],blockid.Hash)
-			s := &ttypes.PbftSign {
-				FastHash:		hash,
-				FastHeight:		new(big.Int).SetUint64(vote.Height),
-				Result:			vote.Result,
-				Sign:			vote.ResultSign,
+			copy(hash[:], blockid.Hash)
+			s := &ttypes.PbftSign{
+				FastHash:   hash,
+				FastHeight: new(big.Int).SetUint64(vote.Height),
+				Result:     vote.Result,
+				Sign:       vote.ResultSign,
 			}
-			signs = append(signs,s)
+			signs = append(signs, s)
 		}
 	}
-	return signs,nil
+	return signs, nil
 }
 func (voteSet *VoteSet) GetSignByAddress(addr help.Address) *KeepBlockSign {
 	vote := voteSet.GetByAddress(addr[:])
@@ -454,13 +467,14 @@ func (voteSet *VoteSet) GetSignByAddress(addr help.Address) *KeepBlockSign {
 		return nil
 	}
 	var hash common.Hash
-	copy(hash[:],vote.BlockID.Hash)
+	copy(hash[:], vote.BlockID.Hash)
 	return &KeepBlockSign{
-		Hash:		hash,
-		Result:		vote.Result,
-		Sign:		vote.ResultSign,
+		Hash:   hash,
+		Result: vote.Result,
+		Sign:   vote.ResultSign,
 	}
 }
+
 //--------------------------------------------------------------------------------
 // Strings and JSON
 
@@ -472,6 +486,7 @@ func (voteSet *VoteSet) String() string {
 }
 
 func (voteSet *VoteSet) StringIndented(indent string) string {
+	log.Debug("mtx", "lock", 13)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	voteStrings := make([]string, len(voteSet.votes))
@@ -498,6 +513,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 // Marshal the VoteSet to JSON. Same as String(), just in JSON,
 // and without the height/round/type_ (since its already included in the votes).
 func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
+	log.Debug("mtx", "lock", 14)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return cdc.MarshalJSON(VoteSetJSON{
@@ -520,6 +536,7 @@ type VoteSetJSON struct {
 // the fraction of power that has voted like:
 // "BA{29:xx__x__x_x___x__x_______xxx__} 856/1304 = 0.66"
 func (voteSet *VoteSet) BitArrayString() string {
+	log.Debug("mtx", "lock", 15)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.bitArrayString()
@@ -533,6 +550,7 @@ func (voteSet *VoteSet) bitArrayString() string {
 
 // Returns a list of votes compressed to more readable strings.
 func (voteSet *VoteSet) VoteStrings() []string {
+	log.Debug("mtx", "lock", 16)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	return voteSet.voteStrings()
@@ -554,6 +572,7 @@ func (voteSet *VoteSet) StringShort() string {
 	if voteSet == nil {
 		return "nil-VoteSet"
 	}
+	log.Debug("mtx", "lock", 17)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 	_, _, frac := voteSet.sumTotalFrac()
@@ -575,6 +594,7 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	if voteSet.type_ != VoteTypePrecommit {
 		help.PanicSanity("Cannot MakeCommit() unless VoteSet.Type is VoteTypePrecommit")
 	}
+	log.Debug("mtx", "lock", 18)
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 

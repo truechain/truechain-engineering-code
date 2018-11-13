@@ -370,9 +370,11 @@ FOR_LOOP:
 			c.sendMonitor.Update(int(_n))
 			c.flush()
 		case <-c.quit:
+			log.Debug("c.quit")
 			break FOR_LOOP
 		case <-c.send:
 			// Send some PacketMsgs
+			log.Debug("c.send")
 			eof := c.sendSomePacketMsgs()
 			if !eof {
 				// Keep sendRoutine awake.
