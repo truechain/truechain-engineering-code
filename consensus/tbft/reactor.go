@@ -955,8 +955,10 @@ func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
 func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader) (vote *ttypes.Vote, ok bool) {
+	log.Debug("PickVoteToSend", "lock", 1)
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
+	defer log.Debug("PickVoteToSend", "lock", -1)
 
 	if votes.Size() == 0 {
 		return nil, false
