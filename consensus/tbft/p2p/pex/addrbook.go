@@ -7,14 +7,14 @@ package pex
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	"github.com/truechain/truechain-engineering-code/log"
 	"math"
 	"net"
 	"sync"
 	"time"
-	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 const (
