@@ -3,7 +3,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"strings"
 	"sync"
@@ -122,11 +121,6 @@ func (voteSet *VoteSet) Size() uint {
 	return uint(voteSet.valSet.Size())
 }
 
-func UnlockVoteMtx(voteSet *VoteSet) {
-	voteSet.mtx.Unlock()
-	log.Debug("mtx", "lock", -1)
-}
-
 // Returns added=true if vote is valid and new.
 // Otherwise returns err=ErrVote[
 //		UnexpectedStep | InvalidIndex | InvalidAddress |
@@ -140,9 +134,8 @@ func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
 	if voteSet == nil {
 		help.PanicSanity("AddVote() on nil VoteSet")
 	}
-	log.Debug("mtx", "lock", 1)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 
 	return voteSet.addVote(vote)
 }
@@ -300,9 +293,8 @@ func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	if voteSet == nil {
 		help.PanicSanity("SetPeerMaj23() on nil VoteSet")
 	}
-	log.Debug("mtx", "lock", 2)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 
 	blockKey := blockID.Key()
 
@@ -336,9 +328,8 @@ func (voteSet *VoteSet) BitArray() *help.BitArray {
 	if voteSet == nil {
 		return nil
 	}
-	log.Debug("mtx", "lock", 3)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.votesBitArray.Copy()
 }
 
@@ -346,9 +337,8 @@ func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *help.BitArray {
 	if voteSet == nil {
 		return nil
 	}
-	log.Debug("mtx", "lock", 4)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	votesByBlock, ok := voteSet.votesByBlock[blockID.Key()]
 	if ok {
 		return votesByBlock.bitArray.Copy()
@@ -361,9 +351,8 @@ func (voteSet *VoteSet) GetByIndex(valIndex uint) *Vote {
 	if voteSet == nil {
 		return nil
 	}
-	log.Debug("mtx", "lock", 5)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.votes[valIndex]
 }
 
@@ -371,9 +360,8 @@ func (voteSet *VoteSet) GetByAddress(address []byte) *Vote {
 	if voteSet == nil {
 		return nil
 	}
-	log.Debug("mtx", "lock", 6)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	valIndex, val := voteSet.valSet.GetByAddress(address)
 	if val == nil {
 		help.PanicSanity("GetByAddress(address) returned nil")
@@ -385,9 +373,8 @@ func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
 	if voteSet == nil {
 		return false
 	}
-	log.Debug("mtx", "lock", 7)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.maj23 != nil
 }
 
@@ -398,9 +385,8 @@ func (voteSet *VoteSet) IsCommit() bool {
 	if voteSet.type_ != VoteTypePrecommit {
 		return false
 	}
-	log.Debug("mtx", "lock", 8)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.maj23 != nil
 }
 
@@ -408,16 +394,14 @@ func (voteSet *VoteSet) HasTwoThirdsAny() bool {
 	if voteSet == nil {
 		return false
 	}
-	log.Debug("mtx", "lock", 9)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.sum > voteSet.valSet.TotalVotingPower()*2/3
 }
 
 func (voteSet *VoteSet) HasAll() bool {
-	log.Debug("mtx", "lock", 10)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.sum == voteSet.valSet.TotalVotingPower()
 }
 
@@ -427,9 +411,8 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	if voteSet == nil {
 		return BlockID{}, false
 	}
-	log.Debug("mtx", "lock", 11)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	if voteSet.maj23 != nil {
 		return *voteSet.maj23, true
 	}
@@ -440,9 +423,8 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign, error) {
 	if voteSet == nil {
 		return nil, errors.New("no voteset")
 	}
-	log.Debug("mtx", "lock", 12)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	if voteSet.maj23 == nil {
 		return nil, errors.New("there was no pok")
 	}
@@ -491,9 +473,8 @@ func (voteSet *VoteSet) String() string {
 }
 
 func (voteSet *VoteSet) StringIndented(indent string) string {
-	log.Debug("mtx", "lock", 13)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	voteStrings := make([]string, len(voteSet.votes))
 	for i, vote := range voteSet.votes {
 		if vote == nil {
@@ -518,9 +499,8 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 // Marshal the VoteSet to JSON. Same as String(), just in JSON,
 // and without the height/round/type_ (since its already included in the votes).
 func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
-	log.Debug("mtx", "lock", 14)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return cdc.MarshalJSON(VoteSetJSON{
 		voteSet.voteStrings(),
 		voteSet.bitArrayString(),
@@ -541,9 +521,8 @@ type VoteSetJSON struct {
 // the fraction of power that has voted like:
 // "BA{29:xx__x__x_x___x__x_______xxx__} 856/1304 = 0.66"
 func (voteSet *VoteSet) BitArrayString() string {
-	log.Debug("mtx", "lock", 15)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.bitArrayString()
 }
 
@@ -555,9 +534,8 @@ func (voteSet *VoteSet) bitArrayString() string {
 
 // Returns a list of votes compressed to more readable strings.
 func (voteSet *VoteSet) VoteStrings() []string {
-	log.Debug("mtx", "lock", 16)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	return voteSet.voteStrings()
 }
 
@@ -577,9 +555,8 @@ func (voteSet *VoteSet) StringShort() string {
 	if voteSet == nil {
 		return "nil-VoteSet"
 	}
-	log.Debug("mtx", "lock", 17)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 	_, _, frac := voteSet.sumTotalFrac()
 	return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v) %v %v}`,
 		voteSet.height, voteSet.round, voteSet.type_, voteSet.maj23, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
@@ -599,9 +576,8 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	if voteSet.type_ != VoteTypePrecommit {
 		help.PanicSanity("Cannot MakeCommit() unless VoteSet.Type is VoteTypePrecommit")
 	}
-	log.Debug("mtx", "lock", 18)
 	voteSet.mtx.Lock()
-	defer UnlockVoteMtx(voteSet)
+	defer voteSet.mtx.Unlock()
 
 	// Make sure we have a 2/3 majority
 	if voteSet.maj23 == nil {

@@ -23,7 +23,9 @@ const (
 
 	blocksToContributeToBecomeGoodPeer = 10000
 )
+
 var RecvCount int64 = 0
+
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -55,6 +57,7 @@ func (conR *ConsensusReactor) updateCount() int64 {
 	c := RecvCount
 	return c
 }
+
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
@@ -165,14 +168,11 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		conR.Switch.StopPeerForError(src, err)
 		return
 	}
-	log.Debug("Receive,id:",cc, "src", src, "chId", chID, "msg", msg)
-	defer log.Debug("Receive+++++++,id:",cc, "src", src, "chId", chID, "flag", -1)
 	// Get peer states
 	ps := src.Get(ttypes.PeerStateKey).(*PeerState)
 
 	switch chID {
 	case StateChannel:
-		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 11)
 		switch msg := msg.(type) {
 		case *NewRoundStepMessage:
 			ps.ApplyNewRoundStepMessage(msg)
@@ -227,7 +227,6 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		}
 
 	case DataChannel:
-		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 22)
 		if conR.FastSync() {
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
@@ -235,9 +234,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		switch msg := msg.(type) {
 		case *ProposalMessage:
 			ps.SetHasProposal(msg.Proposal)
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 111)
 			conR.conS.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -111)
 		case *ProposalPOLMessage:
 			ps.ApplyProposalPOLMessage(msg)
 		case *BlockPartMessage:
@@ -245,9 +242,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			if numBlocks := ps.RecordBlockPart(msg); numBlocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 112)
 			conR.conS.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -112)
 		default:
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -259,31 +254,26 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		}
 		switch msg := msg.(type) {
 		case *VoteMessage:
-			log.Debug("enter vote,id:",cc, "chId", chID, "flag", 101)
 			cs := conR.conS
-			var height uint64 
-			var valSize,lastCommitSize uint 
-			func(){
+			var height uint64
+			var valSize, lastCommitSize uint
+			func() {
 				cs.mtx.Lock()
 				defer cs.mtx.Unlock()
 				height, valSize, lastCommitSize = cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			}()
-			ps.EnsureVoteBitArrays(height, valSize)		
+			ps.EnsureVoteBitArrays(height, valSize)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
 			ps.SetHasVote(msg.Vote)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
-			log.Debug("enter vote,id:",cc, "chId", chID, "flag", 102)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("enter vote,id:",cc, "chId", chID, "flag", 103)
 		default:
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
-		log.Debug("enter vote,id:",cc, "chId", chID, "flag", 104)
 	case VoteSetBitsChannel:
-		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 44)
 		if conR.FastSync() {
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
@@ -322,7 +312,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 	if err != nil {
 		log.Error("Error in Receive()", "err", err)
 	}
-	log.Debug("enter vote,id:",cc, "chId", chID, "flag", 105)
+	log.Debug("enter vote,id:", cc, "chId", chID, "flag", 105)
 }
 
 // SetEventBus sets event bus.
@@ -955,10 +945,8 @@ func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
 func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader) (vote *ttypes.Vote, ok bool) {
-	log.Debug("PickVoteToSend", "lock", 1)
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-	defer log.Debug("PickVoteToSend", "lock", -1)
 
 	if votes.Size() == 0 {
 		return nil, false
