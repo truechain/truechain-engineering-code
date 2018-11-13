@@ -261,21 +261,23 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			var height uint64
 			var valSize, lastCommitSize uint
 			func() {
-				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 10000)
+				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 102)
 				cs.mtx.Lock()
 				defer cs.mtx.Unlock()
-				defer log.Debug("enter vote", "id", cc, "chId", chID, "flag", -10000)
+				defer log.Debug("enter vote", "id", cc, "chId", chID, "flag", 103)
 				height, valSize, lastCommitSize = cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			}()
 			ps.EnsureVoteBitArrays(height, valSize)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
 			ps.SetHasVote(msg.Vote)
+			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 104)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
+				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 105)
 				conR.Switch.MarkPeerAsGood(src)
 			}
-			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 102)
+			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 106)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 103)
+			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 107)
 		default:
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
@@ -319,7 +321,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 	if err != nil {
 		log.Error("Error in Receive()", "err", err)
 	}
-	log.Debug("enter vote", "id", cc, "chId", chID, "flag", 104)
+	log.Debug("enter vote", "id", cc, "chId", chID, "flag", 108)
 }
 
 // SetEventBus sets event bus.
