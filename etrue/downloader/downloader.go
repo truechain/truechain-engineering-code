@@ -419,13 +419,13 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
 	d.mux.Post(StartEvent{})
-	latestNum := uint64(0)
+	//latestNum := uint64(0)
 
 	defer func() {
 
-		if latestNum > d.blockchain.CurrentBlock().NumberU64() && err == nil && p != nil {
-			d.syncWithPeer(p,hash,td)
-		}
+		//if latestNum > d.blockchain.CurrentBlock().NumberU64() && err == nil && p != nil {
+		//	d.syncWithPeer(p,hash,td)
+		//}
 
 		// reset on error
 		if err != nil {
@@ -449,7 +449,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	// Look up the sync boundaries: the common ancestor and the target block
 	latest, err := d.fetchHeight(p)
-	latestNum = latest.Number.Uint64()
+	//latestNum = latest.Number.Uint64()
 	if err != nil {
 		return err
 	}
