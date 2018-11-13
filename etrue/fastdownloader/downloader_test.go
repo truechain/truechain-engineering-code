@@ -193,7 +193,7 @@ func (dl *downloadTester) terminate() {
 }
 
 // sync starts synchronizing with a remote peer, blocking until it completes.
-func (dl *downloadTester) sync(id string, td *big.Int, mode SyncMode) error {
+func (dl *downloadTester) sync(id string, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	dl.lock.RLock()
 	hash := dl.peerHashes[id][0]
 	// If no particular TD was requested, load from the peer's blockchain
@@ -206,7 +206,7 @@ func (dl *downloadTester) sync(id string, td *big.Int, mode SyncMode) error {
 	dl.lock.RUnlock()
 
 	// Synchronise with the chosen peer and ensure proper cleanup afterwards
-	err := dl.downloader.synchronise(id, hash, td, mode)
+	err := dl.downloader.synchronise(id, hash, td, mode,origin,height)
 	select {
 	case <-dl.downloader.cancelCh:
 		// Ok, downloader fully cancelled after sync cycle
@@ -680,8 +680,18 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks, receipts)
 
+	pNum := tester.peerChainNums["peer"]
+	Num := tester.CurrentBlock().NumberU64()
+
+	origin := Num
+	height := pNum - Num
+
+	if height <0 {
+		height=0
+	}
+
 	// Synchronise with the peer and make sure all relevant data was retrieved
-	if err := tester.sync("peer", nil, mode); err != nil {
+	if err := tester.sync("peer", nil, mode,origin,height); err != nil {
 		t.Fatalf("failed to synchronise blocks: %v", err)
 	}
 	assertOwnChain(t, tester, targetBlocks+1)
@@ -715,7 +725,7 @@ func testThrottling(t *testing.T, protocol int, mode SyncMode) {
 	// Start a synchronisation concurrently
 	errc := make(chan error)
 	go func() {
-		errc <- tester.sync("peer", nil, mode)
+		errc <- tester.sync("peer", nil, mode,uint64(0),0)
 	}()
 	// Iteratively take some blocks, always checking the retrieval count
 	for {

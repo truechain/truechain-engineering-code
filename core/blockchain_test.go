@@ -75,13 +75,14 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *B
 //The test block is inserted into the chain
 func TestInsertBlock(t *testing.T) {
 
+
 	_, blockchain, err := newCanonical(ethash.NewFaker(), 0, true)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	blocks := makeBlockChain(blockchain.CurrentBlock(), 1, ethash.NewFullFaker(), blockchain.db, 0)
+	blocks := makeBlockChain(blockchain.CurrentBlock(), 1, blockchain.engine, blockchain.db, 0)
 	if _, err := blockchain.InsertChain(blocks); err != nil {
 		t.Fatalf("Failed to insert block: %v", err)
 	}
@@ -99,42 +100,41 @@ func TestInsertBlock(t *testing.T) {
 	t.Log("this block hash:", thast)
 }
 
-
 // testBlockChainImport tries to process a chain of blocks, writing them into
 // the database if successful.
 func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 	for _, block := range chain {
-	// Try and process the block
-	err := blockchain.engine.VerifyHeader(blockchain, block.Header(), true)
-	if err == nil {
-	err = blockchain.validator.ValidateBody(block,false)
-}
-	if err != nil {
-	if err == ErrKnownBlock {
-	continue
-}
-	return err
-}
-	statedb, err := state.New(blockchain.GetBlockByHash(block.ParentHash()).Root(), blockchain.stateCache)
-	if err != nil {
-	return err
-}
-	receipts, _, usedGas, err := blockchain.Processor().Process(block, statedb, vm.Config{})
-	if err != nil {
-	blockchain.reportBlock(block, receipts, err)
-	return err
-}
-	err = blockchain.validator.ValidateState(block, blockchain.GetBlockByHash(block.ParentHash()), statedb, receipts, usedGas)
-	if err != nil {
-	blockchain.reportBlock(block, receipts, err)
-	return err
-}
-	blockchain.mu.Lock()
-	//rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
-	rawdb.WriteBlock(blockchain.db, block)
-	statedb.Commit(false)
-	blockchain.mu.Unlock()
-}
+		// Try and process the block
+		err := blockchain.engine.VerifyHeader(blockchain, block.Header(), true)
+		if err == nil {
+			err = blockchain.validator.ValidateBody(block, false)
+		}
+		if err != nil {
+			if err == ErrKnownBlock {
+				continue
+			}
+			return err
+		}
+		statedb, err := state.New(blockchain.GetBlockByHash(block.ParentHash()).Root(), blockchain.stateCache)
+		if err != nil {
+			return err
+		}
+		receipts, _, usedGas, err := blockchain.Processor().Process(block, statedb, vm.Config{})
+		if err != nil {
+			blockchain.reportBlock(block, receipts, err)
+			return err
+		}
+		err = blockchain.validator.ValidateState(block, blockchain.GetBlockByHash(block.ParentHash()), statedb, receipts, usedGas)
+		if err != nil {
+			blockchain.reportBlock(block, receipts, err)
+			return err
+		}
+		blockchain.mu.Lock()
+		//rawdb.WriteTd(blockchain.db, block.Hash(), block.NumberU64(), new(big.Int).Add(block.Difficulty(), blockchain.GetTdByHash(block.ParentHash())))
+		rawdb.WriteBlock(blockchain.db, block)
+		statedb.Commit(false)
+		blockchain.mu.Unlock()
+	}
 	return nil
 }
 
@@ -142,19 +142,18 @@ func testBlockChainImport(chain types.Blocks, blockchain *BlockChain) error {
 // the database if successful.
 func testHeaderChainImport(chain []*types.Header, blockchain *BlockChain) error {
 	for _, header := range chain {
-	// Try and validate the header
-	if err := blockchain.engine.VerifyHeader(blockchain, header, false); err != nil {
-	return err
-}
-	// Manually insert the header into the database, but don't reorganise (allows subsequent testing)
-	blockchain.mu.Lock()
-	//rawdb.WriteTd(blockchain.db, header.Hash(), header.Number.Uint64(), new(big.Int).Add(header.Difficulty, blockchain.GetTdByHash(header.ParentHash)))
-	rawdb.WriteHeader(blockchain.db, header)
-	blockchain.mu.Unlock()
-}
+		// Try and validate the header
+		if err := blockchain.engine.VerifyHeader(blockchain, header, false); err != nil {
+			return err
+		}
+		// Manually insert the header into the database, but don't reorganise (allows subsequent testing)
+		blockchain.mu.Lock()
+		//rawdb.WriteTd(blockchain.db, header.Hash(), header.Number.Uint64(), new(big.Int).Add(header.Difficulty, blockchain.GetTdByHash(header.ParentHash)))
+		rawdb.WriteHeader(blockchain.db, header)
+		blockchain.mu.Unlock()
+	}
 	return nil
 }
-
 
 // Tests that chains missing links do not get accepted by the processor.
 func TestBrokenHeaderChain(t *testing.T) { testBrokenChain(t, false) }
@@ -181,8 +180,6 @@ func testBrokenChain(t *testing.T, full bool) {
 		}
 	}
 }
-
-
 
 // Tests that the insertion functions detect banned hashes.
 func TestBadHeaderHashes(t *testing.T) { testBadHashes(t, false) }
@@ -295,7 +292,7 @@ func TestFastVsFullChains(t *testing.T) {
 		//else if types.CalcUncleHash(fblock.Uncles()) != types.CalcUncleHash(ablock.Uncles()) {
 		//	t.Errorf("block #%d [%x]: uncles mismatch: have %v, want %v", num, hash, fblock.Uncles(), ablock.Uncles())
 		//}
-		freceipts, areceipts := types.Receipts{},types.Receipts{}
+		freceipts, areceipts := types.Receipts{}, types.Receipts{}
 
 		if freceipts, areceipts = rawdb.ReadReceipts(fastDb, hash, *rawdb.ReadHeaderNumber(fastDb, hash)), rawdb.ReadReceipts(archiveDb, hash, *rawdb.ReadHeaderNumber(archiveDb, hash)); types.DeriveSha(freceipts) != types.DeriveSha(areceipts) {
 			t.Errorf("block #%d [%x]: receipts mismatch: have %v, want %v", num, hash, freceipts, areceipts)
@@ -508,7 +505,6 @@ func TestChainTxReorgs(t *testing.T) {
 		}
 	}
 }
-
 
 func TestLogReorgs(t *testing.T) {
 

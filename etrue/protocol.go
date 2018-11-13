@@ -132,9 +132,8 @@ type SnailPool interface {
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
-	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
-	SubscribeNewFastBlockEvent(chan<- types.NewFastBlocksEvent) event.Subscription
+
 	RemovePendingFruitByFastHash(fasthash common.Hash)
 }
 
