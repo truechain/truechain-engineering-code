@@ -122,6 +122,11 @@ func (voteSet *VoteSet) Size() uint {
 	return uint(voteSet.valSet.Size())
 }
 
+func UnlockVoteMtx(voteSet *VoteSet) {
+	voteSet.mtx.Unlock()
+	log.Debug("mtx", "lock", -1)
+}
+
 // Returns added=true if vote is valid and new.
 // Otherwise returns err=ErrVote[
 //		UnexpectedStep | InvalidIndex | InvalidAddress |
@@ -137,7 +142,7 @@ func (voteSet *VoteSet) AddVote(vote *Vote) (added bool, err error) {
 	}
 	log.Debug("mtx", "lock", 1)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 
 	return voteSet.addVote(vote)
 }
@@ -297,7 +302,7 @@ func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	}
 	log.Debug("mtx", "lock", 2)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 
 	blockKey := blockID.Key()
 
@@ -333,7 +338,7 @@ func (voteSet *VoteSet) BitArray() *help.BitArray {
 	}
 	log.Debug("mtx", "lock", 3)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.votesBitArray.Copy()
 }
 
@@ -343,7 +348,7 @@ func (voteSet *VoteSet) BitArrayByBlockID(blockID BlockID) *help.BitArray {
 	}
 	log.Debug("mtx", "lock", 4)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	votesByBlock, ok := voteSet.votesByBlock[blockID.Key()]
 	if ok {
 		return votesByBlock.bitArray.Copy()
@@ -358,7 +363,7 @@ func (voteSet *VoteSet) GetByIndex(valIndex uint) *Vote {
 	}
 	log.Debug("mtx", "lock", 5)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.votes[valIndex]
 }
 
@@ -368,7 +373,7 @@ func (voteSet *VoteSet) GetByAddress(address []byte) *Vote {
 	}
 	log.Debug("mtx", "lock", 6)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	valIndex, val := voteSet.valSet.GetByAddress(address)
 	if val == nil {
 		help.PanicSanity("GetByAddress(address) returned nil")
@@ -382,7 +387,7 @@ func (voteSet *VoteSet) HasTwoThirdsMajority() bool {
 	}
 	log.Debug("mtx", "lock", 7)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.maj23 != nil
 }
 
@@ -395,7 +400,7 @@ func (voteSet *VoteSet) IsCommit() bool {
 	}
 	log.Debug("mtx", "lock", 8)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.maj23 != nil
 }
 
@@ -405,14 +410,14 @@ func (voteSet *VoteSet) HasTwoThirdsAny() bool {
 	}
 	log.Debug("mtx", "lock", 9)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.sum > voteSet.valSet.TotalVotingPower()*2/3
 }
 
 func (voteSet *VoteSet) HasAll() bool {
 	log.Debug("mtx", "lock", 10)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.sum == voteSet.valSet.TotalVotingPower()
 }
 
@@ -424,7 +429,7 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	}
 	log.Debug("mtx", "lock", 11)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	if voteSet.maj23 != nil {
 		return *voteSet.maj23, true
 	}
@@ -437,7 +442,7 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign, error) {
 	}
 	log.Debug("mtx", "lock", 12)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	if voteSet.maj23 == nil {
 		return nil, errors.New("there was no pok")
 	}
@@ -488,7 +493,7 @@ func (voteSet *VoteSet) String() string {
 func (voteSet *VoteSet) StringIndented(indent string) string {
 	log.Debug("mtx", "lock", 13)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	voteStrings := make([]string, len(voteSet.votes))
 	for i, vote := range voteSet.votes {
 		if vote == nil {
@@ -515,7 +520,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
 	log.Debug("mtx", "lock", 14)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return cdc.MarshalJSON(VoteSetJSON{
 		voteSet.voteStrings(),
 		voteSet.bitArrayString(),
@@ -538,7 +543,7 @@ type VoteSetJSON struct {
 func (voteSet *VoteSet) BitArrayString() string {
 	log.Debug("mtx", "lock", 15)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.bitArrayString()
 }
 
@@ -552,7 +557,7 @@ func (voteSet *VoteSet) bitArrayString() string {
 func (voteSet *VoteSet) VoteStrings() []string {
 	log.Debug("mtx", "lock", 16)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	return voteSet.voteStrings()
 }
 
@@ -574,7 +579,7 @@ func (voteSet *VoteSet) StringShort() string {
 	}
 	log.Debug("mtx", "lock", 17)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 	_, _, frac := voteSet.sumTotalFrac()
 	return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v) %v %v}`,
 		voteSet.height, voteSet.round, voteSet.type_, voteSet.maj23, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
@@ -596,7 +601,7 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	}
 	log.Debug("mtx", "lock", 18)
 	voteSet.mtx.Lock()
-	defer voteSet.mtx.Unlock()
+	defer UnlockVoteMtx(voteSet)
 
 	// Make sure we have a 2/3 majority
 	if voteSet.maj23 == nil {
