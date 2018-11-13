@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common/math"
 	osMath "math"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 type diffTest struct {
@@ -70,17 +72,26 @@ func TestCalcDifficulty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//for name, test := range tests {
-	//	number := new(big.Int).Sub(test.CurrentBlocknumber, big.NewInt(1))
-	//	diff := CalcDifficulty(config, test.CurrentTimestamp, &types.SnailHeader{
-	//		Number:     number,
-	//		Time:       new(big.Int).SetUint64(test.ParentTimestamp),
-	//		Difficulty: test.ParentDifficulty,
-	//	})
-	//	if diff.Cmp(test.CurrentDifficulty) != 0 {
-	//		t.Error(name, "failed. Expected", test.CurrentDifficulty, "and calculated", diff)
-	//	}
-	//}
+	//config := &params.ChainConfig{HomesteadBlock: big.NewInt(1150000)}
+	config := &params.ChainConfig{}
+	var parents []*types.SnailHeader
+
+
+
+	for name, test := range tests {
+		number := new(big.Int).Sub(test.CurrentBlocknumber, big.NewInt(1))
+		/*parents[1]=&types.SnailHeader{
+			Number:     number,
+			Time:       new(big.Int).SetUint64(test.ParentTimestamp),
+			Difficulty: test.ParentDifficulty,
+		}*/
+		parents = append(parents,&types.SnailHeader{Number:number, Time:new(big.Int).SetUint64(test.ParentTimestamp), Difficulty: test.ParentDifficulty,})
+
+		diff := CalcDifficulty(config, test.CurrentTimestamp,parents)
+		if diff.Cmp(test.CurrentDifficulty) != 0 {
+			t.Error(name, "failed. Expected", test.CurrentDifficulty, "and calculated", diff)
+		}
+	}
 }
 
 func TestAccountDiv(t *testing.T) {
@@ -123,12 +134,7 @@ func TestOutSqrt(t *testing.T) {
 //The unit of output is wei
 //6 bits at the end are cleared
 func TestSnailAwardForHeight(t *testing.T) {
-	a := big.NewInt(999)
-	b := new(big.Int).Div(a, big.NewInt(0))
-	fmt.Println(b)
-	return
-
-	for i := 1; i < 100; i++ {
+	for i := 1; i < 1000; i++ {
 		snailBlockNumber := new(big.Int).SetInt64(int64(1 + 4500*(i-1)))
 		fmt.Println("snailBlockNumber:", snailBlockNumber, "Award:", getCurrentCoin(snailBlockNumber))
 		committeeAward, minerAward, minerFruitAward, _ := getBlockReward(snailBlockNumber)

@@ -48,8 +48,10 @@ type Backend interface {
 	// BlockChain API
 	SetHead(number uint64)
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
+	SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error)
 	BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error)
 	SnailBlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailBlock, error)
+	GetFruit(ctx context.Context, fastblockHash common.Hash) (*types.SnailBlock, error)
 	StateAndHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*state.StateDB, *types.Header, error)
 	GetBlock(ctx context.Context, blockHash common.Hash) (*types.Block, error)
 	GetSnailBlock(ctx context.Context, blockHash common.Hash) (*types.SnailBlock, error)
@@ -60,7 +62,7 @@ type Backend interface {
 	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
 	SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription
 	GetReward(number int64) *types.BlockReward
-
+	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
 
 	// TxPool API
 	SendTx(ctx context.Context, signedTx *types.Transaction) error
@@ -73,30 +75,52 @@ type Backend interface {
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
+
+	// SnailPool API
+	SnailPoolContent() []*types.SnailBlock
+	SnailPoolInspect() []*types.SnailBlock
+	SnailPoolStats() (pending int, unVerified int)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
-	return []rpc.API{
+	var apis []rpc.API
+	namespaces := []string{"etrue", "eth"}
+	for _, name := range namespaces {
+		apis = append(apis, []rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTrueAPI(apiBackend),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicBlockChainAPI(apiBackend),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
+				Public:    true,
+			}, {
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
+				Public:    true,
+			},
+		}...)
+	}
+	apis = append(apis, []rpc.API{
 		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicTrueAPI(apiBackend),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicBlockChainAPI(apiBackend),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
-			Public:    true,
-		}, {
 			Namespace: "txpool",
 			Version:   "1.0",
 			Service:   NewPublicTxPoolAPI(apiBackend),
+			Public:    true,
+		}, {
+			Namespace: "fruitpool",
+			Version:   "1.0",
+			Service:   NewPublicFruitPoolAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "debug",
@@ -108,15 +132,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPrivateDebugAPI(apiBackend),
 		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicAccountAPI(apiBackend.AccountManager()),
-			Public:    true,
-		}, {
 			Namespace: "personal",
 			Version:   "1.0",
 			Service:   NewPrivateAccountAPI(apiBackend, nonceLock),
 			Public:    false,
 		},
-	}
+	}...)
+	return apis
 }

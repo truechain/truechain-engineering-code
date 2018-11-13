@@ -31,7 +31,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -94,7 +93,7 @@ type BlockChain struct {
 	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
 
 	hc               *HeaderChain
-	sc               *snailchain.SnailBlockChain
+	sc               SnailChain
 	rmLogsFeed       event.Feed
 	chainFeed        event.Feed
 	chainSideFeed    event.Feed
@@ -189,20 +188,20 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 		return nil, err
 	}
 	// Check the current state of the block hashes and make sure that we do not have any of the bad blocks in our chain
-	//for hash := range BadHashes {
-	//	if header := bc.GetHeaderByHash(hash); header != nil {
-	//
-	//		// get the canonical block corresponding to the offending header's number
-	//		headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
-	//
-	//		// make sure the headerByNumber (if present) is in our current canonical chain
-	//		if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
-	//			log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
-	//			bc.SetHead(header.Number.Uint64() - 1)
-	//			log.Error("Chain rewind was successful, resuming normal operation")
-	//		}
-	//	}
-	//}
+	for hash := range BadHashes {
+		if header := bc.GetHeaderByHash(hash); header != nil {
+
+			// get the canonical block corresponding to the offending header's number
+			headerByNumber := bc.GetHeaderByNumber(header.Number.Uint64())
+
+			// make sure the headerByNumber (if present) is in our current canonical chain
+			if headerByNumber != nil && headerByNumber.Hash() == header.Hash() {
+				log.Error("Found bad hash, rewinding chain", "number", header.Number, "hash", header.ParentHash)
+				bc.SetHead(header.Number.Uint64() - 1)
+				log.Error("Chain rewind was successful, resuming normal operation")
+			}
+		}
+	}
 
 	// Take ownership of this particular state
 	go bc.update()
@@ -286,9 +285,9 @@ func (bc *BlockChain) loadLastState() error {
 
 func (bc *BlockChain) GetLastRow() *types.BlockReward {
 
-	sNumber := bc.CurrentBlock().NumberU64()
+	sNumber := bc.sc.CurrentBlock().NumberU64()
 
-	fmt.Println(sNumber)
+	//fmt.Println(sNumber)
 	for i := sNumber; i > 0; i-- {
 
 		sBlock := bc.sc.GetBlockByNumber(i)
@@ -887,13 +886,13 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 	// Update the head fast sync block if better
 	bc.mu.Lock()
 	head := blockChain[len(blockChain)-1]
-	if td := bc.GetTd(head.Hash(), head.NumberU64()); td != nil { // Rewind may have occurred, skip in that case
-		currentFastBlock := bc.CurrentFastBlock()
-		if bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64()).Cmp(td) < 0 {
-			rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
-			bc.currentFastBlock.Store(head)
-		}
-	}
+	//if td := bc.GetTd(head.Hash(), head.NumberU64()); td != nil { // Rewind may have occurred, skip in that case
+	//currentFastBlock := bc.CurrentFastBlock()
+	//if bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64()).Cmp(td) < 0 {
+	rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
+	bc.currentFastBlock.Store(head)
+	//}
+	//}
 	bc.mu.Unlock()
 
 	log.Info("Imported new block receipts",
@@ -1148,10 +1147,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			break
 		}
 		// If the header is a banned one, straight out abort
-		//if BadHashes[block.Hash()] {
-		//	bc.reportBlock(block, nil, ErrBlacklistedHash)
-		//	return i, events, coalescedLogs, ErrBlacklistedHash
-		//}
+		if BadHashes[block.Hash()] {
+			bc.reportBlock(block, nil, ErrBlacklistedHash)
+			return i, events, coalescedLogs, ErrBlacklistedHash
+		}
 
 		// Wait for the block's verification to complete
 		bstart := time.Now()

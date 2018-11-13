@@ -79,7 +79,7 @@ const (
 type errCode int
 
 const (
-	ErrMsgTooLarge = iota
+	ErrMsgTooLarge              = iota
 	ErrDecode
 	ErrInvalidMsgCode
 	ErrProtocolVersionMismatch
@@ -127,14 +127,13 @@ type txPool interface {
 type SnailPool interface {
 	AddRemoteFruits([]*types.SnailBlock) []error
 	//AddRemoteSnailBlocks([]*types.SnailBlock) []error
-	PendingFruits() ([]*types.SnailBlock, error)
+	PendingFruits() map[common.Hash]*types.SnailBlock
 	SubscribeNewFruitEvent(chan<- types.NewFruitsEvent) event.Subscription
 	//SubscribeNewSnailBlockEvent(chan<- core.NewSnailBlocksEvent) event.Subscription
 	//AddRemoteRecords([]*types.PbftRecord) []error
 	//AddRemoteRecords([]*types.PbftRecord) []error
-	PendingFastBlocks() ([]*types.Block, error)
 	//SubscribeNewRecordEvent(chan<- core.NewRecordsEvent) event.Subscription
-	SubscribeNewFastBlockEvent(chan<- types.NewFastBlocksEvent) event.Subscription
+
 	RemovePendingFruitByFastHash(fasthash common.Hash)
 }
 
@@ -167,7 +166,7 @@ type statusData struct {
 type newBlockHashesData []struct {
 	Hash   common.Hash // Hash of one particular block being announced
 	Number uint64      // Number of one particular block being announced
-	Sign   types.PbftSign
+	Sign   *types.PbftSign
 }
 
 // getBlockHeadersData represents a block header query.

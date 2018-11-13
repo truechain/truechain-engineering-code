@@ -75,7 +75,7 @@ type Truechain struct {
 	snailPool *core.SnailPool
 
 	agent    *PbftAgent
-	election *Election
+	election *core.Election
 
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -92,7 +92,7 @@ type Truechain struct {
 	bloomRequests chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
-	APIBackend *EthAPIBackend
+	APIBackend *TrueAPIBackend
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -192,21 +192,29 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// TODO: start bloom indexer
 	//etrue.bloomIndexer.Start(etrue.blockchain)
 
+	sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	etrue.snailblockchain.SetValidator(sv)
+
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
+
+	if config.SnailPool.Journal != "" {
+		config.SnailPool.Journal = ctx.ResolvePath(config.SnailPool.Journal)
+	}
+
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	etrue.snailPool = core.NewSnailPool(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	etrue.snailPool = core.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = core.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
-	etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
+	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
-	ethash.SetElection(etrue.election)
-	ethash.SetSnailChainReader(etrue.snailblockchain)
-
+	etrue.engine.SetElection(etrue.election)
+	etrue.engine.SetSnailChainReader(etrue.snailblockchain)
 	etrue.election.SetEngine(etrue.engine)
+
 	coinbase, _ := etrue.Etherbase()
 	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, coinbase)
 	if etrue.protocolManager, err = NewProtocolManager(
@@ -225,7 +233,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		etrue.miner.SetElection(etrue.config.EnableElection, crypto.FromECDSAPub(&committeeKey.PublicKey))
 	}
 
-	etrue.APIBackend = &EthAPIBackend{etrue, nil}
+	etrue.APIBackend = &TrueAPIBackend{etrue, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
@@ -275,6 +283,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:
+		log.Info("-----Fake mode")
 		log.Warn("Ethash used in fake mode")
 		return ethash.NewFaker()
 	case ethash.ModeTest:
@@ -297,7 +306,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	}
 }
 
-// APIs return the collection of RPC services the ethereum package offers.
+// APIs return the collection of RPC services the etrue package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Truechain) APIs() []rpc.API {
 	apis := trueapi.GetAPIs(s.APIBackend)
@@ -305,33 +314,40 @@ func (s *Truechain) APIs() []rpc.API {
 	// Append any APIs exposed explicitly by the consensus engine
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
+	// Append etrue	APIs and  Eth APIs
+	namespaces :=[]string{"etrue","eth"}
+	for _,name :=range namespaces{
+		apis = append(apis,[]rpc.API{
+			{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicTruechainAPI(s),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   NewPublicMinerAPI(s),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
+				Public:    true,
+			},{
+				Namespace: name,
+				Version:   "1.0",
+				Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
+				Public:    true,
+			},
+		}...)
+	}
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
-		{
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicEthereumAPI(s),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   NewPublicMinerAPI(s),
-			Public:    true,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
-			Public:    true,
-		}, {
+		 {
 			Namespace: "miner",
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
 			Public:    false,
-		}, {
-			Namespace: "etrue",
-			Version:   "1.0",
-			Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
-			Public:    true,
 		}, {
 			Namespace: "admin",
 			Version:   "1.0",
@@ -389,6 +405,7 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 func (s *Truechain) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
+	s.agent.committeeNode.Coinbase =etherbase
 	s.lock.Unlock()
 
 	s.miner.SetEtherbase(etherbase)
@@ -458,6 +475,8 @@ func (s *Truechain) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Truechain protocol implementation.
 func (s *Truechain) Start(srvr *p2p.Server) error {
+	//start fruit journal
+	s.snailPool.Start()
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -497,6 +516,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 
 	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
 	//sender.Start()
+
 	return nil
 }
 

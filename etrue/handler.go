@@ -58,6 +58,10 @@ const (
 	fruitChanSize = 256
 )
 
+var (
+	daoChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the DAO handshake challenge
+)
+
 // errIncompatibleConfig is returned if the requested protocols and configs are
 // not compatible (low protocol version restrictions and high requirements).
 var errIncompatibleConfig = errors.New("incompatible configuration")
@@ -443,7 +447,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
-			p.Log().Debug("Truechain message handling failed", "err", err)
+			p.Log().Info("Truechain message handling failed", "err", err)
 			return err
 		}
 	}
@@ -481,7 +485,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "query>>>", query)
+
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -592,7 +596,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		hashMode := query.Origin.Hash != (common.Hash{})
 		first := true
 		maxNonCanonical := uint64(100)
-		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>","query",query)
+
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -1099,8 +1103,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// a singe block (as the true TD is below the propagated block), however this
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
-			tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			log.Debug("SnailBlockMsg>>tdd>>>>","tdd",tdd)
+			//tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+			//fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				go pm.synchronise(p)
@@ -1110,7 +1114,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
+	timeString := time.Now().Sub(now).String()
+	if strings.Contains(timeString, "h") {
+		log.Info("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
+		return errors.New(fmt.Sprintf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr()))
+	}
+
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
 	return nil
 }
 

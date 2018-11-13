@@ -22,7 +22,7 @@ var Modules = map[string]string{
 	"chequebook": Chequebook_JS,
 	"clique":     Clique_JS,
 	"debug":      Debug_JS,
-	"true":       Etrue_JS,
+	"etrue":       Etrue_JS,
 	"miner":      Miner_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
@@ -30,6 +30,7 @@ var Modules = map[string]string{
 	"shh":        Shh_JS,
 	"swarmfs":    SWARMFS_JS,
 	"txpool":     TxPool_JS,
+	"fruitpool":  FruitPool_JS,
 }
 
 const Chequebook_JS = `
@@ -470,6 +471,13 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
 		}),
 		new web3._extend.Method({
+			name: 'setCoinbase',
+			call: 'miner_setEtherbase',
+			params: 1,
+			inputFormatter: [web3._extend.formatters.inputAddressFormatter]
+		}),
+
+		new web3._extend.Method({
 			name: 'setExtra',
 			call: 'miner_setExtra',
 			params: 1
@@ -477,7 +485,7 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'setElection',
 			call: 'miner_setElection',
-			params: 1
+			params: 2
 		}),
 		new web3._extend.Method({
 			name: 'setGasPrice',
@@ -486,8 +494,8 @@ web3._extend({
 			inputFormatter: [web3._extend.utils.fromDecimal]
 		}),
 		new web3._extend.Method({
-			name: 'getHashrate',
-			call: 'miner_getHashrate'
+			name: 'getHashRate',
+			call: 'miner_getHashRate'
 		}),
 	],
 	properties: []
@@ -632,6 +640,28 @@ web3._extend({
 				status.queued = web3._extend.utils.toDecimal(status.queued);
 				return status;
 			}
+		}),
+	]
+});
+`
+
+const FruitPool_JS = `
+web3._extend({
+	property: 'fruitpool',
+	methods: [],
+	properties:
+	[
+		new web3._extend.Property({
+			name: 'content',
+			getter: 'fruitpool_content'
+		}),
+		new web3._extend.Property({
+			name: 'inspect',
+			getter: 'fruitpool_inspect'
+		}),
+		new web3._extend.Property({
+			name: 'status',
+			getter: 'fruitpool_status'
 		}),
 	]
 });

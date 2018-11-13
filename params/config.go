@@ -17,10 +17,12 @@
 package params
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/common/math"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -34,46 +36,45 @@ var (
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(1),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
+		ChainID: big.NewInt(1),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(10000),
+			MinimumFruitDifficulty: big.NewInt(100),
+			DurationLimit:          big.NewInt(60),
+		}),
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	TestnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(18928),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
+		ChainID: big.NewInt(18928),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(2000000),
+			MinimumFruitDifficulty: big.NewInt(2000),
+			DurationLimit:          big.NewInt(600),
+		}),
 	}
 
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	RinkebyChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(100),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: nil,
-		Clique: &CliqueConfig{
-			Period: 15,
-			Epoch:  30000,
-		},
-	}
+	// RinkebyChainConfig = &ChainConfig{
+	// 	ChainID: big.NewInt(100),
+	// 	Clique: &CliqueConfig{
+	// 		Period: 15,
+	// 		Epoch:  30000,
+	// 	},
+	// }
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, new(EthashConfig), nil}
+	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig)}
 
-	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
-	// and accepted by the Ethereum core developers into the Clique consensus.
-	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty,MinimumFruitDifficulty,DurationLimit}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -84,75 +85,128 @@ var (
 type ChainConfig struct {
 	ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
 
-	ByzantiumBlock      *big.Int `json:"byzantiumBlock,omitempty"`      // Byzantium switch block (nil = no fork, 0 = already on byzantium)
-	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
-
 	// Various consensus engines
-	Ethash *EthashConfig `json:"ethash,omitempty"`
-	Clique *CliqueConfig `json:"clique,omitempty"`
+	Minerva *MinervaConfig `json:"minerva"`
+	//Clique *CliqueConfig  `json:"clique,omitempty"`
 }
 
-// EthashConfig is the consensus engine configs for proof-of-work based sealing.
-type EthashConfig struct{}
+func (c *ChainConfig) UnmarshalJSON(input []byte) error {
+	type ChainConfig struct {
+		ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
+
+		Minerva *MinervaConfig `json:"minerva"`
+	}
+	var dec ChainConfig
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	c.ChainID = dec.ChainID
+	if dec.Minerva == nil {
+		c.Minerva = &(MinervaConfig{
+			MinimumDifficulty:      MinimumDifficulty,
+			MinimumFruitDifficulty: MinimumFruitDifficulty,
+			DurationLimit:          DurationLimit,
+		})
+	} else {
+		c.Minerva = dec.Minerva
+	}
+
+	return nil
+}
+
+// MinervaConfig is the consensus engine configs for proof-of-work based sealing.
+type MinervaConfig struct {
+	MinimumDifficulty      *big.Int `json:"minimumDifficulty"`
+	MinimumFruitDifficulty *big.Int `json:"minimumFruitDifficulty"`
+	DurationLimit          *big.Int `json:"durationLimit"`
+}
+
+func (c *MinervaConfig) UnmarshalJSON(input []byte) error {
+	type MinervaConfig struct {
+		MinimumDifficulty      *math.HexOrDecimal256 `json:"minimumDifficulty"`
+		MinimumFruitDifficulty *math.HexOrDecimal256 `json:"minimumFruitDifficulty"`
+		DurationLimit          *math.HexOrDecimal256 `json:"durationLimit"`
+	}
+	var dec MinervaConfig
+	if err := json.Unmarshal(input, &dec); err != nil {
+		return err
+	}
+	if dec.MinimumDifficulty == nil {
+		c.MinimumDifficulty = MinimumDifficulty
+		//return errors.New("missing required field 'MinimumDifficulty' for Genesis")
+	} else {
+		c.MinimumDifficulty = (*big.Int)(dec.MinimumDifficulty)
+	}
+	if dec.MinimumFruitDifficulty == nil {
+		c.MinimumFruitDifficulty = MinimumFruitDifficulty
+		//return errors.New("missing required field 'MinimumFruitDifficulty' for Genesis")
+	} else {
+		c.MinimumFruitDifficulty = (*big.Int)(dec.MinimumFruitDifficulty)
+	}
+	if dec.DurationLimit == nil {
+		c.DurationLimit = DurationLimit
+		//return errors.New("missing required field 'DurationLimit' for Genesis")
+	} else {
+		c.DurationLimit = (*big.Int)(dec.DurationLimit)
+	}
+	return nil
+}
+
+func (c MinervaConfig) MarshalJSON() ([]byte, error) {
+	type MinervaConfig struct {
+		MinimumDifficulty      *math.HexOrDecimal256 `json:"minimumDifficulty,omitempty"`
+		MinimumFruitDifficulty *math.HexOrDecimal256 `json:"minimumFruitDifficulty,omitempty"`
+		DurationLimit          *math.HexOrDecimal256 `json:"durationLimit,omitempty"`
+	}
+	var enc MinervaConfig
+	enc.MinimumDifficulty = (*math.HexOrDecimal256)(c.MinimumDifficulty)
+	enc.MinimumFruitDifficulty = (*math.HexOrDecimal256)(c.MinimumFruitDifficulty)
+	enc.DurationLimit = (*math.HexOrDecimal256)(c.DurationLimit)
+	return json.Marshal(&enc)
+}
 
 // String implements the stringer interface, returning the consensus engine details.
-func (c *EthashConfig) String() string {
-	return "ethash"
+func (c *MinervaConfig) String() string {
+	return fmt.Sprintf("{MinimumDifficulty: %v MinimumFruitDifficulty: %v DurationLimit: %v}",
+		c.MinimumDifficulty,
+		c.MinimumFruitDifficulty,
+		c.DurationLimit,
+	)
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
-type CliqueConfig struct {
-	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
-	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-}
+// type CliqueConfig struct {
+// 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
+// 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
+// }
 
-// String implements the stringer interface, returning the consensus engine details.
-func (c *CliqueConfig) String() string {
-	return "clique"
-}
+// // String implements the stringer interface, returning the consensus engine details.
+// func (c *CliqueConfig) String() string {
+// 	return "clique"
+// }
 
 // String implements the fmt.Stringer interface.
 func (c *ChainConfig) String() string {
 	var engine interface{}
 	switch {
-	case c.Ethash != nil:
-		engine = c.Ethash
-	case c.Clique != nil:
-		engine = c.Clique
+	case c.Minerva != nil:
+		engine = c.Minerva
+	// case c.Clique != nil:
+	// 	engine = c.Clique
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Byzantium: %v Constantinople: %v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Engine: %v}",
 		c.ChainID,
-		c.ByzantiumBlock,
-		c.ConstantinopleBlock,
 		engine,
 	)
-}
-
-// IsByzantium returns whether num is either equal to the Byzantium fork block or greater.
-func (c *ChainConfig) IsByzantium(num *big.Int) bool {
-	return isForked(c.ByzantiumBlock, num)
-}
-
-// IsConstantinople returns whether num is either equal to the Constantinople fork block or greater.
-func (c *ChainConfig) IsConstantinople(num *big.Int) bool {
-	return isForked(c.ConstantinopleBlock, num)
 }
 
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
 func (c *ChainConfig) GasTable(num *big.Int) GasTable {
-	if num == nil {
-		return GasTableHomestead
-	}
-	switch {
-	case c.IsConstantinople(num):
-		return GasTableConstantinople
-	default:
-		return GasTableEIP158
-	}
+	return GasTableEIP158
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
@@ -174,12 +228,6 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *Confi
 }
 
 func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
-	if isForkIncompatible(c.ByzantiumBlock, newcfg.ByzantiumBlock, head) {
-		return newCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
-	}
-	if isForkIncompatible(c.ConstantinopleBlock, newcfg.ConstantinopleBlock, head) {
-		return newCompatError("Constantinople fork block", c.ConstantinopleBlock, newcfg.ConstantinopleBlock)
-	}
 	return nil
 }
 
@@ -244,8 +292,7 @@ func (err *ConfigCompatError) Error() string {
 // Rules is a one time interface meaning that it shouldn't be used in between transition
 // phases.
 type Rules struct {
-	ChainID     *big.Int
-	IsByzantium bool
+	ChainID *big.Int
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -254,5 +301,5 @@ func (c *ChainConfig) Rules(num *big.Int) Rules {
 	if chainID == nil {
 		chainID = new(big.Int)
 	}
-	return Rules{ChainID: new(big.Int).Set(chainID), IsByzantium: c.IsByzantium(num)}
+	return Rules{ChainID: new(big.Int).Set(chainID)}
 }

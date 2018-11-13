@@ -25,6 +25,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
+	"time"
+	"fmt"
 )
 
 // BlockGen creates blocks for testing.
@@ -36,7 +38,7 @@ type BlockGen struct {
 	chainReader consensus.SnailChainReader
 	header      *types.SnailHeader
 
-	gasPool *GasPool
+	//gasPool *GasPool
 	uncles  []*types.SnailHeader
 
 	fruits []*types.SnailBlock
@@ -49,11 +51,8 @@ type BlockGen struct {
 // SetCoinbase sets the coinbase of the generated block.
 // It can be called at most once.
 func (b *BlockGen) SetCoinbase(addr common.Address) {
-	if b.gasPool != nil {
-		if len(b.fruits) > 0 {
-			panic("coinbase must be set before adding transactions")
-		}
-		panic("coinbase can only be set once")
+	if len(b.fruits) > 0 {
+		panic("coinbase must be set before adding fruits")
 	}
 	b.header.Coinbase = addr
 	//TODO not gaslimit 20180804
@@ -67,41 +66,6 @@ func (b *BlockGen) AddFruit(block *types.SnailBlock) {
 // SetExtra sets the extra data field of the generated block.
 func (b *BlockGen) SetExtra(data []byte) {
 	b.header.Extra = data
-}
-
-// AddTx adds a transaction to the generated block. If no coinbase has
-// been set, the block's coinbase is set to the zero address.
-//
-// AddTx panics if the transaction cannot be executed. In addition to
-// the protocol-imposed limitations (gas limit, etc.), there are some
-// further limitations on the content of transactions that can be
-// added. Notably, contract code relying on the BLOCKHASH instruction
-// will panic during execution.
-func (b *BlockGen) AddTx(tx *types.Transaction) {
-	b.AddTxWithChain(nil, tx)
-}
-
-// AddTxWithChain adds a transaction to the generated block. If no coinbase has
-// been set, the block's coinbase is set to the zero address.
-//
-// AddTxWithChain panics if the transaction cannot be executed. In addition to
-// the protocol-imposed limitations (gas limit, etc.), there are some
-// further limitations on the content of transactions that can be
-// added. If contract code relies on the BLOCKHASH instruction,
-// the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(bc *SnailBlockChain, tx *types.Transaction) {
-	if b.gasPool == nil {
-		b.SetCoinbase(common.Address{})
-	}
-	//TODO not need 20180804
-	/*
-		receipt, _, err := ApplyTransaction(b.config, bc, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
-		if err != nil {
-			panic(err)
-		}
-		b.txs = append(b.txs, tx)
-		b.receipts = append(b.receipts, receipt)
-	*/
 }
 
 // Number returns the block number of the block being generated.
@@ -187,6 +151,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine 
 }
 
 func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engine consensus.Engine) *types.SnailHeader {
+
 	var time *big.Int
 	if parent.Time() == nil {
 		time = big.NewInt(10)
@@ -223,5 +188,100 @@ func makeBlockChain(parent *types.SnailBlock, n int, engine consensus.Engine, db
 	blocks := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
+
 	return blocks
 }
+
+func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSize int,config *params.ChainConfig,
+	pubkey []byte,coinbaseAddr common.Address,signs []*types.PbftSign,isBlock bool) (*types.SnailBlock,error){
+
+	var  fruitsetCopy []*types.SnailBlock
+	var pointerHashFresh *big.Int = big.NewInt(7)
+
+
+	if chain == nil{
+		return  nil,fmt.Errorf("chain is nil")
+	}
+
+	// create head
+	parent := chain.CurrentBlock()
+	snailFruitsLastFastNumber := parent.Fruits()[len(parent.Fruits())-1].FastNumber()
+	//parentNum := parent.Number()
+
+	if isBlock{
+		if makeFruitSize < params.MinimumFruits || snailFruitsLastFastNumber.Int64()>= int64(makeStartFastNum){
+			return  nil,fmt.Errorf("fruitSet is nill or size less then 60")
+		}
+	}
+
+
+	makeHead := func(chain *SnailBlockChain,pubkey []byte,coinbaseAddr common.Address,fastNumber *big.Int,isFruit bool)(*types.SnailHeader) {
+		parent := chain.CurrentBlock()
+		num := parent.Number()
+		tstamp := time.Now().Unix()
+		header := &types.SnailHeader{
+			ParentHash: parent.Hash(),
+			Publickey:  pubkey,
+			Number:     num.Add(num, common.Big1),
+			Time:       big.NewInt(tstamp),
+			Coinbase: coinbaseAddr,
+			Fruit: isFruit,
+			FastNumber:fastNumber,
+		}
+
+		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
+		if pointerNum.Cmp(common.Big0) < 0 {
+			pointerNum = new(big.Int).Set(common.Big0)
+		}
+		pointer := chain.GetBlockByNumber(pointerNum.Uint64())
+		header.PointerHash = pointer.Hash()
+		header.PointerNumber = pointer.Number()
+
+
+		return header
+	}
+
+	makeFruit := func(chain *SnailBlockChain,fastNumber *big.Int,pubkey []byte,coinbaseAddr common.Address) (*types.SnailBlock,error){
+		head := makeHead(chain,pubkey,coinbaseAddr,fastNumber,true)
+		fruit :=  types.NewSnailBlock(
+			head,
+			nil,
+			signs,
+			nil,
+		)
+		return fruit,nil
+	}
+
+	// creat fruits
+	if isBlock {
+		for i := makeStartFastNum; i< makeStartFastNum+makeFruitSize; i++{
+			fruit ,err:= makeFruit(chain,new(big.Int).SetInt64(int64(i)),pubkey,coinbaseAddr)
+			if err != nil{
+				return nil, err
+			}
+			fruitsetCopy = append(fruitsetCopy,fruit )
+		}
+		if len(fruitsetCopy) != makeFruitSize{
+			return nil,fmt.Errorf("fruits make fail the length less then makeFruitSize")
+		}
+
+		block := types.NewSnailBlock(
+			makeHead(chain,pubkey,coinbaseAddr,new(big.Int).SetInt64(int64(makeStartFastNum)),false),
+			fruitsetCopy,
+			signs,
+			nil,
+		)
+		return  block,nil
+
+	}else{
+		fruit ,err:= makeFruit(chain,new(big.Int).SetInt64(int64(makeStartFastNum)),pubkey,coinbaseAddr)
+		if err != nil{
+			return nil, err
+		}
+		return fruit,nil
+	}
+
+	return nil,nil
+
+}
+

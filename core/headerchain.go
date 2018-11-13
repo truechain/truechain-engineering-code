@@ -131,7 +131,7 @@ func (fhc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-func (fhc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, err error) {
+func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, err error) {
 	// Cache some values to prevent constant recalculation
 	var (
 		hash   = header.Hash()
@@ -150,7 +150,7 @@ func (fhc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, e
 	//	log.Crit("Failed to write header total difficulty", "err", err)
 	//}
 
-	rawdb.WriteHeader(fhc.chainDb, header)
+	rawdb.WriteHeader(hc.chainDb, header)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -192,8 +192,17 @@ func (fhc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, e
 	//	status = SideStatTy
 	//}
 
-	fhc.headerCache.Add(hash, header)
-	fhc.numberCache.Add(hash, number)
+	// Extend the canonical chain with the new header
+	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
+	rawdb.WriteHeadHeaderHash(hc.chainDb, hash)
+
+	hc.currentHeaderHash = hash
+	hc.currentHeader.Store(types.CopyHeader(header))
+
+	status = CanonStatTy
+
+	hc.headerCache.Add(hash, header)
+	hc.numberCache.Add(hash, number)
 
 	return
 }
@@ -233,16 +242,16 @@ func (fhc *HeaderChain) ValidateHeaderChain(chain []*types.Header, checkFreq int
 	defer close(abort)
 
 	// Iterate over the headers and ensure they all check out
-	for i, _ := range chain {
+	for i, header := range chain {
 		// If the chain is terminating, stop processing blocks
 		if fhc.procInterrupt() {
 			log.Debug("Premature abort during headers verification")
 			return 0, errors.New("aborted")
 		}
 		// If the header is a banned one, straight out abort
-		//if BadHashes[header.Hash()] {
-		//	return i, ErrBlacklistedHash
-		//}
+		if BadHashes[header.Hash()] {
+			return i, ErrBlacklistedHash
+		}
 		// Otherwise wait for headers checks and ensure they pass
 		if err := <-results; err != nil {
 			return i, err

@@ -338,6 +338,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 			// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 			log.Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", id)
 		} else {
+			log.Info("drop peer snail Synchronise","id",id)
 			d.dropPeer(id)
 		}
 	default:
@@ -418,7 +419,14 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
 	d.mux.Post(StartEvent{})
+	//latestNum := uint64(0)
+
 	defer func() {
+
+		//if latestNum > d.blockchain.CurrentBlock().NumberU64() && err == nil && p != nil {
+		//	d.syncWithPeer(p,hash,td)
+		//}
+
 		// reset on error
 		if err != nil {
 			d.mux.Post(FailedEvent{err})
@@ -441,6 +449,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	// Look up the sync boundaries: the common ancestor and the target block
 	latest, err := d.fetchHeight(p)
+	//latestNum = latest.Number.Uint64()
 	if err != nil {
 		return err
 	}
@@ -483,7 +492,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	fetchers := []func() error{
 		func() error { return d.fetchHeaders(p, origin+1, pivot) }, // Headers are always retrieved
 		func() error { return d.fetchBodies(origin + 1) },          // Bodies are retrieved during normal and fast sync
-		//func() error { return d.fetchReceipts(origin + 1) },        // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
@@ -901,6 +909,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			// Header retrieval timed out, consider the peer bad and drop
 			p.GetLog().Debug("Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
+			p.GetLog().Info("drop peer snail fetchHeaders timout ","id",p.GetID())
 			d.dropPeer(p.GetID())
 
 			// Finish the sync gracefully instead of dumping the gathered data though
@@ -1123,6 +1132,8 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
+							peer.GetLog().Info("drop snail fast fetchParts","id",peer.GetID(),"type",kind,"fails",fails)
+
 							d.dropPeer(pid)
 						}
 					}

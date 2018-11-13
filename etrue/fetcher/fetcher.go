@@ -39,7 +39,7 @@ const (
 	maxQueueDist     = 1024                   // Maximum allowed distance from the chain head to queue
 	maxSignDist      = 8192                   // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit       = 256                     // Maximum number of unique blocks a peer may have delivered
+	blockLimit       = 256                    // Maximum number of unique blocks a peer may have delivered
 	signLimit        = 2560                   // Maximum number of unique sign a peer may have delivered
 	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
 )
@@ -82,7 +82,7 @@ type announce struct {
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
 	header *types.Header // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
-	sign   types.PbftSign
+	sign   *types.PbftSign
 
 	origin string // Identifier of the peer originating the notification
 
@@ -258,7 +258,7 @@ func (f *Fetcher) Stop() {
 
 // Notify announces the fetcher of the potential availability of a new block in
 // the network.
-func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign types.PbftSign, time time.Time,
+func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *types.PbftSign, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
 	block := &announce{
 		hash:        hash,
@@ -481,7 +481,6 @@ func (f *Fetcher) loop() {
 
 		case notification := <-f.notify:
 			// A block was announced, make sure the peer isn't DOSing us
-			f.blockMutex.Lock()
 			propAnnounceInMeter.Mark(1)
 
 			count := f.announces[notification.origin] + 1
@@ -514,7 +513,6 @@ func (f *Fetcher) loop() {
 			if len(f.announced) == 1 {
 				f.rescheduleFetch(fetchTimer)
 			}
-			f.blockMutex.Unlock()
 
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
@@ -629,7 +627,7 @@ func (f *Fetcher) loop() {
 				if announce := f.fetching[hash]; announce != nil && announce.origin == task.peer && f.fetched[hash] == nil && f.completing[hash] == nil && f.getPendingBlock(hash) == nil {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
-						log.Trace("Invalid fast block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
+						log.Info("Invalid fast block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
 						f.dropPeer(announce.origin)
 						f.forgetHash(hash)
 						continue
@@ -645,7 +643,7 @@ func (f *Fetcher) loop() {
 
 							block := types.NewBlockWithHeader(header)
 							block.ReceivedAt = task.time
-							block.AppendSign(&announce.sign)
+							block.AppendSign(announce.sign)
 
 							complete = append(complete, block)
 							f.completing[hash] = announce
@@ -713,7 +711,7 @@ func (f *Fetcher) loop() {
 								// mecMark
 								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], nil, nil)
 								block.ReceivedAt = task.time
-								block.AppendSign(&announce.sign)
+								block.AppendSign(announce.sign)
 
 								blocks = append(blocks, block)
 							} else {
@@ -842,6 +840,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			} else {
 				// Run the import on a new thread
 				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
+				f.enterQueue = true
 			}
 		}
 
@@ -900,9 +899,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			block:  block,
 		}
 		f.queues[peer] = count
-		f.blockMutex.Lock()
-		f.queued[hash] = op
-		f.blockMutex.Unlock()
+		f.setPendingBlock(hash, op)
 
 		opMulti := &injectMulti{}
 		f.blockMultiHash[number] = append(f.blockMultiHash[number], hash)
@@ -1027,6 +1024,14 @@ func (f *Fetcher) getPendingBlock(hash common.Hash) *inject {
 		return nil
 	} else {
 		return f.queued[hash]
+	}
+}
+
+func (f *Fetcher) setPendingBlock(hash common.Hash, op *inject) {
+	f.blockMutex.Lock()
+	defer f.blockMutex.Unlock()
+	if _, ok := f.queued[hash]; !ok {
+		f.queued[hash] = op
 	}
 }
 

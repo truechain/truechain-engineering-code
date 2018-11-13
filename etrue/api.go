@@ -41,29 +41,37 @@ import (
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
-// PublicEthereumAPI provides an API to access Truechain full node-related
+// PublicTruechainAPI provides an API to access Truechain full node-related
 // information.
-type PublicEthereumAPI struct {
+type PublicTruechainAPI struct {
 	e *Truechain
 }
 
-// NewPublicEthereumAPI creates a new Truechain protocol API for full nodes.
-func NewPublicEthereumAPI(e *Truechain) *PublicEthereumAPI {
-	return &PublicEthereumAPI{e}
+// NewPublicTruechainAPI creates a new Truechain protocol API for full nodes.
+func NewPublicTruechainAPI(e *Truechain) *PublicTruechainAPI {
+	return &PublicTruechainAPI{e}
 }
 
 // Etherbase is the address that mining rewards will be send to
-func (api *PublicEthereumAPI) Etherbase() (common.Address, error) {
+func (api *PublicTruechainAPI) Etherbase() (common.Address, error) {
 	return api.e.Etherbase()
 }
 
 // Coinbase is the address that mining rewards will be send to (alias for Etherbase)
-func (api *PublicEthereumAPI) Coinbase() (common.Address, error) {
+func (api *PublicTruechainAPI) Coinbase() (common.Address, error) {
 	return api.Etherbase()
 }
 
+func (api *PublicTruechainAPI) CommitteeNumber() uint64{
+	return api.e.agent.CommitteeNumber()
+}
+
+func (api *PublicTruechainAPI) GetCurrentState() map[string]interface{}{
+	return api.e.agent.GetCommitteeStatus()
+}
+
 // Hashrate returns the POW hashrate
-func (api *PublicEthereumAPI) Hashrate() hexutil.Uint64 {
+func (api *PublicTruechainAPI) Hashrate() hexutil.Uint64 {
 	return hexutil.Uint64(api.e.Miner().HashRate())
 }
 
@@ -180,6 +188,17 @@ func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
 	return true, nil
 }
 
+// SetElection sets the election .
+func (api *PrivateMinerAPI) SetElection(toElect bool, pubkey []byte) (bool, error) {
+	if len(pubkey)<=0{
+		return false, fmt.Errorf("SetElection fail the pubkey is nil")
+	}
+
+	api.e.Miner().SetElection(toElect,pubkey);
+
+	return true, nil
+}
+
 // SetGasPrice sets the minimum accepted gas price for the miner.
 func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.lock.Lock()
@@ -197,8 +216,8 @@ func (api *PrivateMinerAPI) SetEtherbase(etherbase common.Address) bool {
 }
 
 // GetHashrate returns the current hashrate of the miner.
-func (api *PrivateMinerAPI) GetHashrate() uint64 {
-	return uint64(api.e.miner.HashRate())
+func (api *PrivateMinerAPI) GetHashRate() uint64 {
+	return uint64(api.e.Miner().HashRate())
 }
 
 // PrivateAdminAPI is the collection of Truechain full node-related APIs

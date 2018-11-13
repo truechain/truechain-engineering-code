@@ -331,6 +331,22 @@ var (
 		Usage: "Maximum amount of time non-executable transaction are queued",
 		Value: etrue.DefaultConfig.TxPool.Lifetime,
 	}
+	//snail pool settings
+	SnailPoolJournalFlag = cli.StringFlag{
+		Name:  "fruitpool.journal",
+		Usage: "Disk journal for local fruit to survive node restarts",
+		Value: core.DefaultSnailPoolConfig.Journal,
+	}
+	SnailPoolRejournalFlag = cli.DurationFlag{
+		Name:  "fruitpool.rejournal",
+		Usage: "Time interval to regenerate the local fruit journal",
+		Value: core.DefaultSnailPoolConfig.Rejournal,
+	}
+	SnailPoolFruitCountFlag = cli.Uint64Flag{
+		Name:  "fruitpool.count",
+		Usage: "Maximum amount of fruits in fruitPending",
+		Value: core.DefaultSnailPoolConfig.FruitCount,
+	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
 		Name:  "cache",
@@ -369,6 +385,11 @@ var (
 	}
 	EtherbaseFlag = cli.StringFlag{
 		Name:  "etherbase",
+		Usage: "Public address for block mining rewards (default = first account created)",
+		Value: "0",
+	}
+	CoinbaseFlag = cli.StringFlag{
+		Name:  "coinbase",
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
@@ -853,6 +874,12 @@ func setEtherbase(ctx *cli.Context, ks *keystore.KeyStore, cfg *etrue.Config) {
 			Fatalf("Option %q: %v", EtherbaseFlag.Name, err)
 		}
 		cfg.Etherbase = account.Address
+	} else if ctx.GlobalIsSet(CoinbaseFlag.Name) {
+		account, err := MakeAddress(ks, ctx.GlobalString(CoinbaseFlag.Name))
+		if err != nil {
+			Fatalf("Option %q: %v", CoinbaseFlag.Name, err)
+		}
+		cfg.Etherbase = account.Address
 	}
 }
 
@@ -1034,6 +1061,19 @@ func setEthash(ctx *cli.Context, cfg *etrue.Config) {
 	}
 }
 
+func setSnailPool(ctx *cli.Context, cfg *core.SnailPoolConfig) {
+	if ctx.GlobalIsSet(SnailPoolJournalFlag.Name) {
+		cfg.Journal = ctx.GlobalString(SnailPoolJournalFlag.Name)
+	}
+	if ctx.GlobalIsSet(SnailPoolRejournalFlag.Name) {
+		cfg.Rejournal = ctx.GlobalDuration(SnailPoolRejournalFlag.Name)
+	}
+	if ctx.GlobalIsSet(SnailPoolFruitCountFlag.Name) {
+		cfg.FruitCount = ctx.GlobalUint64(SnailPoolFruitCountFlag.Name)
+	}
+
+}
+
 // checkExclusive verifies that only a single isntance of the provided flags was
 // set by the user. Each flag might optionally be followed by a string type to
 // specialize it further.
@@ -1095,7 +1135,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	setGPO(ctx, &cfg.GPO)
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
-
+	setSnailPool(ctx, &cfg.SnailPool)
 	/*switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
@@ -1128,7 +1168,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
 	}
 	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
-		cfg.StandByPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
+		cfg.StandbyPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
 	}
 
 	//set PrivateKey by config,file or hex
@@ -1151,10 +1191,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		if cfg.Port == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
-		if cfg.StandByPort == 0 {
+		if cfg.StandbyPort == 0 {
 			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
 		}
-		if cfg.Port == cfg.StandByPort {
+		if cfg.Port == cfg.StandbyPort {
 			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name, BFTStandByPortFlag.Name)
 		}
 	}
@@ -1369,22 +1409,22 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 		Fatalf("%v", snailErr)
 	}
 	var engine consensus.Engine
-	if config.Clique != nil {
-		//TODO not need clique
-		//engine = clique.New(config.Clique, chainDb)
-	} else {
-		engine = ethash.NewFaker()
-		if !ctx.GlobalBool(FakePoWFlag.Name) {
-			engine = ethash.New(ethash.Config{
-				CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
-				CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
-				CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
-				DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
-				DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
-				DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
-			})
-		}
+	// if config.Clique != nil {
+	// 	//TODO not need clique
+	// 	//engine = clique.New(config.Clique, chainDb)
+	// } else {
+	engine = ethash.NewFaker()
+	if !ctx.GlobalBool(FakePoWFlag.Name) {
+		engine = ethash.New(ethash.Config{
+			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
+			CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
+			CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
+			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
+			DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
+			DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
+		})
 	}
+	// }
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}

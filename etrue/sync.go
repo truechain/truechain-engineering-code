@@ -37,6 +37,7 @@ const (
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize    = 100 * 1024
 	fruitsyncPackSize = 100 * 1024
+	maxheight		  = 600
 )
 
 type txsync struct {
@@ -68,7 +69,7 @@ func (pm *ProtocolManager) syncTransactions(p *peer) {
 // syncFruits starts sending all currently pending fruits to the given peer.
 func (pm *ProtocolManager) syncFruits(p *peer) {
 	var fruits types.SnailBlocks
-	pending, _ := pm.SnailPool.PendingFruits()
+	pending := pm.SnailPool.PendingFruits()
 	for _, batch := range pending {
 		fruits = append(fruits, batch)
 	}
@@ -271,60 +272,55 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
-		log.Debug("Fast FetchHeight start ","NOW TIME",time.Now().String(),"currentBlockNumber",pm.blockchain.CurrentBlock().NumberU64())
-		header,err := pm.fdownloader.FetchHeight(peer.id);
-
-
-		if err!=nil || header == nil{
-			log.Debug("pTd.Cmp(td) <= 0 ","err",err,"header",header)
+		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
+		header, err := pm.fdownloader.FetchHeight(peer.id);
+		if err != nil || header == nil {
+			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
 		}
 
-		log.Debug("Fast FetchHeight end","NOW TIME",time.Now().String(),"currentBlockNumber",pm.blockchain.CurrentBlock().NumberU64(),"PeerCurrentBlockNumber",header.Number.Uint64())
-		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header",header.Number.Uint64())
-		if  header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
+		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
+		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
+		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 
 			for {
 
 				fbNum := pm.blockchain.CurrentBlock().NumberU64()
 				height := header.Number.Uint64() - fbNum
 
+				if height > 0 {
 
-				if height >0{
+					//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+					//time.Sleep(1*time.Second)
 
-						//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
+					if height > maxheight {
+						height = maxheight
+					}
+
+					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
+					for {
+
+						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
 						//time.Sleep(1*time.Second)
-
-						if height >500{
-							height=500
+						if err != nil {
+							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+							return
 						}
 
-						log.Debug(">>>>>>>>>>>>>>222", "fbNum",fbNum,"heigth",height,"currentNum",fbNum)
-						for{
+						fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
 
-
-							err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-							//time.Sleep(1*time.Second)
-							if err != nil {
-								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
-								return
-							}
-
-							fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
-
-							if (fbNum + height) > fbNumLast   {
-								log.Info("fastDownloader while", "fbNum",fbNum,"heigth",height,"currentNum",fbNumLast)
-								height = (fbNum + height) - fbNumLast
-								fbNum = fbNumLast
-								continue
-							}
-							break
+						if (fbNum + height) > fbNumLast {
+							log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", fbNumLast)
+							height = (fbNum + height) - fbNumLast
+							fbNum = fbNumLast
+							continue
 						}
-					}else {
 						break
+					}
+				} else {
+					break
 				}
-				}
-
+			}
 
 		}
 		return
