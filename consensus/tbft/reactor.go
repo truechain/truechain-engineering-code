@@ -23,7 +23,7 @@ const (
 
 	blocksToContributeToBecomeGoodPeer = 10000
 )
-
+var RecvCount int64 = 0
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -48,6 +48,13 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 	return conR
 }
 
+func (conR *ConsensusReactor) updateCount() int64 {
+	conR.mtx.Lock()
+	defer conR.mtx.Unlock()
+	RecvCount++
+	c := RecvCount
+	return c
+}
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
@@ -147,20 +154,19 @@ func (conR *ConsensusReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // proposals, block parts, and votes are ordered by the receiveRoutine
 // NOTE: blocks on consensus state for proposals, block parts, and votes
 func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
-	log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 1)
+	cc := conR.updateCount()
 	if !conR.IsRunning() {
 		log.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
 		return
 	}
-	log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 2)
 	msg, err := decodeMsg(msgBytes)
 	if err != nil {
 		log.Error("Error decoding message", "src", src, "chId", chID, "msg", msg, "err", err, "bytes", msgBytes)
 		conR.Switch.StopPeerForError(src, err)
 		return
 	}
-	log.Debug("Receive", "src", src, "chId", chID, "msg", msg)
-	defer log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -1)
+	log.Debug("Receive,id:",cc, "src", src, "chId", chID, "msg", msg)
+	defer log.Debug("Receive+++++++,id:",cc, "src", src, "chId", chID, "flag", -1)
 	// Get peer states
 	ps := src.Get(ttypes.PeerStateKey).(*PeerState)
 
@@ -247,40 +253,35 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		}
 
 	case VoteChannel:
-		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 33)
 		if conR.FastSync() {
 			log.Info("Ignoring message received during fastSync", "msg", msg)
 			return
 		}
-		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 34)
 		switch msg := msg.(type) {
 		case *VoteMessage:
+			log.Debug("enter vote,id:",cc, "chId", chID, "flag", 101)
 			cs := conR.conS
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 35)
-			cs.mtx.Lock()
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 36)
-			height, valSize, lastCommitSize := cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
-			cs.mtx.Unlock()
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 37)
-			ps.EnsureVoteBitArrays(height, valSize)
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 38)
+			var height uint64 
+			var valSize,lastCommitSize uint 
+			func(){
+				cs.mtx.Lock()
+				defer cs.mtx.Unlock()
+				height, valSize, lastCommitSize = cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
+			}()
+			ps.EnsureVoteBitArrays(height, valSize)		
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 39)
 			ps.SetHasVote(msg.Vote)
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 40)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
-				log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 41)
 				conR.Switch.MarkPeerAsGood(src)
-				log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 42)
 			}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 444)
+			log.Debug("enter vote,id:",cc, "chId", chID, "flag", 102)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -444)
+			log.Debug("enter vote,id:",cc, "chId", chID, "flag", 103)
 		default:
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
-		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -33)
+		log.Debug("enter vote,id:",cc, "chId", chID, "flag", 104)
 	case VoteSetBitsChannel:
 		log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", 44)
 		if conR.FastSync() {
@@ -318,11 +319,10 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		log.Error(fmt.Sprintf("Unknown chId %X", chID))
 	}
 
-	log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -1111111)
 	if err != nil {
 		log.Error("Error in Receive()", "err", err)
 	}
-	log.Debug("Receive++++++++++++++++++++", "src", src, "chId", chID, "flag", -1111112)
+	log.Debug("enter vote,id:",cc, "chId", chID, "flag", 105)
 }
 
 // SetEventBus sets event bus.
