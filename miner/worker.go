@@ -53,9 +53,7 @@ const (
 )
 
 var (
-	// fruit freshness
-	//fruitFreshness *big.Int = big.NewInt(17)
-	//pinter hash Fresh
+
 	pointerHashFresh *big.Int = big.NewInt(7)
 )
 
@@ -593,13 +591,14 @@ func (self *worker) commitNewWork() {
 
 	fruits := self.etrue.SnailPool().PendingFruits()
 
+	pendingFruits := self.copyPendingFruit(fruits,self.chain)
 	//for create a new fruits for worker
 	//self.copyPendingFruit(fruits)
-	self.commitFastBlocksByWoker(self.copyPendingFruit(fruits), self.chain, self.fastchain, self.engine)
+	self.commitFastBlocksByWoker(pendingFruits, self.chain, self.fastchain, self.engine)
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !self.FruitOnly {
-		self.commitFruits(fruits, self.chain, self.engine)
+		self.commitFruits(pendingFruits, self.chain, self.engine)
 	}
 
 	if work.fruits != nil {
@@ -723,13 +722,14 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 // TODO: check fruits continue with last snail block
 // find all fruits and start to the last parent fruits number and end continue fruit list
-func (self *worker) commitFruits(fruitlist map[common.Hash]*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
-	var fruits []*types.SnailBlock
+	//var fruits []*types.SnailBlock
 
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()
+
 
 	if len(fs) > 0 {
 		currentFastNumber = fs[len(fs)-1].FastNumber()
@@ -737,10 +737,11 @@ func (self *worker) commitFruits(fruitlist map[common.Hash]*types.SnailBlock, bc
 		// genesis block
 		currentFastNumber = new(big.Int).Set(common.Big0)
 	}
-
+	/*
 	if len(fruitlist) == 0{
 		return
 	}
+
 
 	for _,v:= range fruitlist{
 		fruits = append(fruits, v)
@@ -748,7 +749,11 @@ func (self *worker) commitFruits(fruitlist map[common.Hash]*types.SnailBlock, bc
 
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(fruits)
+	*/
 
+	if fruits == nil{
+		return
+	}
 
 	log.Debug("commitFruits fruit pool list", "f min fb", fruits[0].FastNumber(), "f max fb", fruits[len(fruits)-1].FastNumber())
 
@@ -797,21 +802,35 @@ func (self *worker) commitFruits(fruitlist map[common.Hash]*types.SnailBlock, bc
 
 //create a new list that maye add one fruit who just mined but not add in to pending list
 // make sure not need mined the same fruit
-func (self *worker) copyPendingFruit(fruits map[common.Hash]*types.SnailBlock ) []*types.SnailBlock{
+func (self *worker) copyPendingFruit(fruits map[common.Hash]*types.SnailBlock,bc *chain.SnailBlockChain ) []*types.SnailBlock{
 
+
+	// get current block the biggest fruit fastnumber
+	snailblockFruits := bc.CurrentBlock().Fruits()
+	snailFruitsLastFastNumber := new(big.Int).Set(common.Big0)
+	if len(snailblockFruits) > 0 {
+		snailFruitsLastFastNumber = snailblockFruits[len(snailblockFruits)-1].FastNumber()
+	}
 
 	var copyPendingFruits []*types.SnailBlock
 
-
+	// del less then block fruits fast number fruit
 	for _,v:= range fruits{
-		copyPendingFruits = append(copyPendingFruits, v)
-	}
-
-	if self.minedFruit != nil {
-		if _, ok := fruits[ self.minedFruit.FastHash()]; !ok {
-			copyPendingFruits = append(copyPendingFruits, self.minedFruit)
+		if v.FastNumber().Cmp(snailFruitsLastFastNumber) >0 {
+			copyPendingFruits = append(copyPendingFruits, v)
 		}
 	}
+
+
+	if self.minedFruit != nil {
+		if self.minedFruit.FastNumber().Cmp(snailFruitsLastFastNumber)>0 {
+			if _, ok := fruits[ self.minedFruit.FastHash()]; !ok {
+				copyPendingFruits = append(copyPendingFruits, self.minedFruit)
+			}
+		}
+	}
+
+
 
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(copyPendingFruits)

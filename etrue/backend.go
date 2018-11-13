@@ -75,7 +75,7 @@ type Truechain struct {
 	snailPool *core.SnailPool
 
 	agent    *PbftAgent
-	election *Election
+	election *core.Election
 
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -207,7 +207,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.snailPool = core.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = core.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
@@ -283,6 +283,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:
+		log.Info("-----Fake mode")
 		log.Warn("Ethash used in fake mode")
 		return ethash.NewFaker()
 	case ethash.ModeTest:
@@ -404,6 +405,7 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 func (s *Truechain) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
+	s.agent.committeeNode.Coinbase =etherbase
 	s.lock.Unlock()
 
 	s.miner.SetEtherbase(etherbase)

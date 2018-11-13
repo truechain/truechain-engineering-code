@@ -161,6 +161,10 @@ type Config struct {
 	Password  string
 }
 
+func (c *Config) GetNodeType() bool {
+	return c.NodeType
+}
+
 type configMarshaling struct {
 	ExtraData hexutil.Bytes
 }
