@@ -196,6 +196,7 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 	pubkey []byte,coinbaseAddr common.Address,signs []*types.PbftSign,isBlock bool) (*types.SnailBlock,error){
 
 	var  fruitsetCopy []*types.SnailBlock
+	var pointerHashFresh *big.Int = big.NewInt(7)
 
 
 	if chain == nil{
@@ -212,15 +213,12 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 			return  nil,fmt.Errorf("fruitSet is nill or size less then 60")
 		}
 	}
-	if makeFastNum.Cmp(snailFruitsLastFastNumber) <=0 {
-		return  nil,fmt.Errorf("fast number less then current block's fruitset fast number")
-	}
 
 
 	makeHead := func(chain *SnailBlockChain,pubkey []byte,coinbaseAddr common.Address,fastNumber *big.Int,isFruit bool)(*types.SnailHeader) {
 		parent := chain.CurrentBlock()
 		num := parent.Number()
-		tstamp = time.Now().Unix()
+		tstamp := time.Now().Unix()
 		header := &types.SnailHeader{
 			ParentHash: parent.Hash(),
 			Publickey:  pubkey,
@@ -235,7 +233,7 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 		if pointerNum.Cmp(common.Big0) < 0 {
 			pointerNum = new(big.Int).Set(common.Big0)
 		}
-		pointer := self.chain.GetBlockByNumber(pointerNum.Uint64())
+		pointer := chain.GetBlockByNumber(pointerNum.Uint64())
 		header.PointerHash = pointer.Hash()
 		header.PointerNumber = pointer.Number()
 
@@ -256,8 +254,8 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 
 	// creat fruits
 	if isBlock {
-		for i = makeStartFastNum; i< makeStartFastNum+makeFruitSize; i++{
-			fruit ,err:= makeFruit(chain,new(big.Int).SetInt64(i),pubkey,coinbaseAddr)
+		for i := makeStartFastNum; i< makeStartFastNum+makeFruitSize; i++{
+			fruit ,err:= makeFruit(chain,new(big.Int).SetInt64(int64(i)),pubkey,coinbaseAddr)
 			if err != nil{
 				return nil, err
 			}
