@@ -168,8 +168,8 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		conR.Switch.StopPeerForError(src, err)
 		return
 	}
-	log.Debug("Receive","id",cc, "src", src, "chId", chID, "msg", msg)
-	defer log.Debug("Receive+++++++","id",cc, "src", src, "chId", chID, "flag", -1)
+	log.Debug("Receive", "id", cc, "src", src, "chId", chID, "msg", msg)
+	defer log.Debug("Receive+++++++", "id", cc, "src", src, "chId", chID, "flag", -1)
 	// Get peer states
 	ps := src.Get(ttypes.PeerStateKey).(*PeerState)
 
@@ -256,13 +256,15 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		}
 		switch msg := msg.(type) {
 		case *VoteMessage:
-			log.Debug("enter vote","id",cc, "chId", chID, "flag", 101)
+			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 101)
 			cs := conR.conS
 			var height uint64
 			var valSize, lastCommitSize uint
 			func() {
+				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 10000)
 				cs.mtx.Lock()
 				defer cs.mtx.Unlock()
+				defer log.Debug("enter vote", "id", cc, "chId", chID, "flag", -10000)
 				height, valSize, lastCommitSize = cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			}()
 			ps.EnsureVoteBitArrays(height, valSize)
@@ -271,9 +273,9 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
-			log.Debug("enter vote","id",cc, "chId", chID, "flag", 102)
+			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 102)
 			cs.peerMsgQueue <- msgInfo{msg, string(src.ID())}
-			log.Debug("enter vote","id",cc, "chId", chID, "flag", 103)
+			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 103)
 		default:
 			// don't punish (leave room for soft upgrades)
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
@@ -317,7 +319,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 	if err != nil {
 		log.Error("Error in Receive()", "err", err)
 	}
-	log.Debug("enter vote","id", cc, "chId", chID, "flag", 104)
+	log.Debug("enter vote", "id", cc, "chId", chID, "flag", 104)
 }
 
 // SetEventBus sets event bus.
