@@ -186,9 +186,11 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			log.Debug("enterVoteMessageEnd", "id", cc, "chId", chID, "flag", 320)
 		case *VoteSetMaj23Message:
 			cs := conR.conS
+			log.Debug("mtxlock", "lock", 1)
 			cs.mtx.Lock()
 			height, votes := cs.Height, cs.Votes
 			cs.mtx.Unlock()
+			log.Debug("mtxlock", "lock", -1)
 			if height != msg.Height {
 				return
 			}
@@ -264,15 +266,17 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			var valSize, lastCommitSize uint
 			func() {
 				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 102)
-				log.Debug("enter vote","id", cc, "chId", chID, "flag", 102,"mux",fmt.Sprintf("%p",&cs.mtx))
+				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 102, "mux", fmt.Sprintf("%p", &cs.mtx))
+				log.Debug("mtxlock", "lock", 2)
 				cs.mtx.Lock()
 				defer cs.mtx.Unlock()
+				log.Debug("mtxlock", "lock", -2)
 				defer log.Debug("enter vote", "id", cc, "chId", chID, "flag", 103)
 				height, valSize, lastCommitSize = cs.Height, cs.Validators.Size(), cs.LastCommit.Size()
 			}()
 			ps.EnsureVoteBitArrays(height, valSize)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
-			ps.SetHasVote(msg.Vote,cc)
+			ps.SetHasVote(msg.Vote, cc)
 			log.Debug("enter vote", "id", cc, "chId", chID, "flag", 104)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 105)
@@ -293,10 +297,11 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		switch msg := msg.(type) {
 		case *VoteSetBitsMessage:
 			cs := conR.conS
+			log.Debug("mtxlock", "lock", 3)
 			cs.mtx.Lock()
 			height, votes := cs.Height, cs.Votes
 			cs.mtx.Unlock()
-
+			log.Debug("mtxlock", "lock", -3)
 			if height == msg.Height {
 				var ourVotes *help.BitArray
 				switch msg.Type {
@@ -977,7 +982,7 @@ func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader) (vote *ttypes.Vo
 		return nil, false // Not something worth sending
 	}
 	if index, ok := votes.BitArray().Sub(psVotes).PickRandom(); ok {
-		ps.setHasVote(height, round, type_, index,-1)
+		ps.setHasVote(height, round, type_, index, -1)
 		return votes.GetByIndex(index), true
 	}
 	return nil, false
@@ -1134,16 +1139,16 @@ func (ps *PeerState) BlockPartsSent() uint {
 }
 
 // SetHasVote sets the given vote as known by the peer
-func (ps *PeerState) SetHasVote(vote *ttypes.Vote,cc int64) {
+func (ps *PeerState) SetHasVote(vote *ttypes.Vote, cc int64) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	ps.setHasVote(vote.Height, int(vote.Round), vote.Type, vote.ValidatorIndex,cc)
+	ps.setHasVote(vote.Height, int(vote.Round), vote.Type, vote.ValidatorIndex, cc)
 }
 
-func (ps *PeerState) setHasVote(height uint64, round int, type_ byte, index uint,cc int64) {
+func (ps *PeerState) setHasVote(height uint64, round int, type_ byte, index uint, cc int64) {
 	//logger := ps.logger.With("peerH/R", fmt.Sprintf("%d/%d", ps.PRS.Height, ps.PRS.Round), "H/R", cmn.Fmt("%d/%d", height, round))
-	log.Debug("setHasVote", "type", type_, "index", index,"cc",cc)
+	log.Debug("setHasVote", "type", type_, "index", index, "cc", cc)
 
 	// NOTE: some may be nil BitArrays -> no side effects.
 	psVotes := ps.getVoteBitArray(height, round, type_)
@@ -1238,7 +1243,7 @@ func (ps *PeerState) ApplyProposalPOLMessage(msg *ProposalPOLMessage) {
 
 // ApplyHasVoteMessage updates the peer state for the new vote.
 func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
-	log.Debug("ApplyHasVoteMessage++++","mux",fmt.Sprintf("%p",&ps.mtx))
+	log.Debug("ApplyHasVoteMessage++++", "mux", fmt.Sprintf("%p", &ps.mtx))
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -1246,7 +1251,7 @@ func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
 		return
 	}
 
-	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index,0)
+	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index, 0)
 }
 
 // ApplyVoteSetBitsMessage updates the peer state for the bit-array of votes
