@@ -1,6 +1,7 @@
 package help
 
 import (
+	"github.com/truechain/truechain-engineering-code/log"
 	"sync"
 	"time"
 )
@@ -26,16 +27,20 @@ func NewThrottleTimer(name string, dur time.Duration) *ThrottleTimer {
 	var ch = make(chan struct{})
 	var quit = make(chan struct{})
 	var t = &ThrottleTimer{Name: name, Ch: ch, dur: dur, quit: quit}
+	log.Debug("ThrottleTimer", "lock", 2)
 	t.mtx.Lock()
 	t.timer = time.AfterFunc(dur, t.fireRoutine)
 	t.mtx.Unlock()
+	log.Debug("ThrottleTimer", "lock", -2)
 	t.timer.Stop()
 	return t
 }
 
 func (t *ThrottleTimer) fireRoutine() {
+	log.Debug("ThrottleTimer", "lock", 1)
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	defer log.Debug("ThrottleTimer", "lock", -1)
 	select {
 	case t.Ch <- struct{}{}:
 		t.isSet = false
@@ -47,8 +52,10 @@ func (t *ThrottleTimer) fireRoutine() {
 }
 
 func (t *ThrottleTimer) Set() {
+	log.Debug("ThrottleTimer", "lock", 3)
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	defer log.Debug("ThrottleTimer", "lock", -3)
 	if !t.isSet {
 		t.isSet = true
 		t.timer.Reset(t.dur)
@@ -56,8 +63,10 @@ func (t *ThrottleTimer) Set() {
 }
 
 func (t *ThrottleTimer) Unset() {
+	log.Debug("ThrottleTimer", "lock", 4)
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	defer log.Debug("ThrottleTimer", "lock", -4)
 	t.isSet = false
 	t.timer.Stop()
 }
@@ -69,7 +78,9 @@ func (t *ThrottleTimer) Stop() bool {
 		return false
 	}
 	close(t.quit)
+	log.Debug("ThrottleTimer", "lock", 5)
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	defer log.Debug("ThrottleTimer", "lock", -5)
 	return t.timer.Stop()
 }
