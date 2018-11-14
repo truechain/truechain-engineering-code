@@ -447,7 +447,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
-			p.Log().Debug("Truechain message handling failed", "err", err)
+			p.Log().Info("Truechain message handling failed", "err", err)
 			return err
 		}
 	}
@@ -778,12 +778,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			signs[i] = body.Signs
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0 || len(signs) > 0
+		filter := len(transactions) > 0
 		if filter {
-			transactions, signs = pm.fetcherFast.FilterBodies(p.id, transactions, signs, time.Now())
+			transactions = pm.fetcherFast.FilterBodies(p.id, transactions, time.Now())
 		}
 		// mecMark
-		if len(transactions) > 0 || len(signs) > 0 || !filter {
+		if len(transactions) > 0 || !filter {
 			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
@@ -1114,7 +1114,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", time.Now().Sub(now))
+	timeString := time.Now().Sub(now).String()
+	if strings.Contains(timeString, "h") {
+		log.Info("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
+		return errors.New(fmt.Sprintf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr()))
+	}
+
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
 	return nil
 }
 
@@ -1141,7 +1147,8 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
-			peer.AsyncSendNewFastBlockHash(block)
+			peer.AsyncSendNewFastBlock(block)
+			//peer.AsyncSendNewFastBlockHash(block)
 		}
 		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign() != nil, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}

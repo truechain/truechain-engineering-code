@@ -38,8 +38,8 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(100000),
-			MinimumFruitDifficulty: big.NewInt(200),
+			MinimumDifficulty:      big.NewInt(10000),
+			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(60),
 		}),
 	}
@@ -48,9 +48,9 @@ var (
 	TestnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(18928),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      MinimumDifficulty,
-			MinimumFruitDifficulty: MinimumFruitDifficulty,
-			DurationLimit:          DurationLimit,
+			MinimumDifficulty:      big.NewInt(2000000),
+			MinimumFruitDifficulty: big.NewInt(2000),
+			DurationLimit:          big.NewInt(600),
 		}),
 	}
 
@@ -74,7 +74,7 @@ var (
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), new(MinervaConfig)}
+	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty,MinimumFruitDifficulty,DurationLimit}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -101,7 +101,7 @@ func (c *ChainConfig) UnmarshalJSON(input []byte) error {
 		return err
 	}
 	c.ChainID = dec.ChainID
-	if c.Minerva == nil {
+	if dec.Minerva == nil {
 		c.Minerva = &(MinervaConfig{
 			MinimumDifficulty:      MinimumDifficulty,
 			MinimumFruitDifficulty: MinimumFruitDifficulty,
@@ -167,7 +167,11 @@ func (c MinervaConfig) MarshalJSON() ([]byte, error) {
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *MinervaConfig) String() string {
-	return "minerva"
+	return fmt.Sprintf("{MinimumDifficulty: %v MinimumFruitDifficulty: %v DurationLimit: %v}",
+		c.MinimumDifficulty,
+		c.MinimumFruitDifficulty,
+		c.DurationLimit,
+	)
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.

@@ -60,7 +60,7 @@ var DefaultConfig = Config{
 	},
 	MinerThreads: 2,
 	Port:         30310,
-	StandByPort:  30311,
+	StandbyPort:  30311,
 }
 
 func init() {
@@ -112,7 +112,7 @@ type Config struct {
 	Port int `toml:",omitempty"`
 
 	// StandByPort is the TCP port number on which to start the pbft server.
-	StandByPort int `toml:",omitempty"`
+	StandbyPort int `toml:",omitempty"`
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`
@@ -150,6 +150,10 @@ type Config struct {
 
 	//true indicate only mine fruit
 	MineFruit bool `toml:",omitempty"`
+}
+
+func (c *Config) GetNodeType() bool {
+	return c.NodeType
 }
 
 type configMarshaling struct {

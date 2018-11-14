@@ -134,6 +134,7 @@ type Header struct {
 	Root        common.Hash `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash common.Hash `json:"receiptsRoot"     gencodec:"required"`
+	Proposer    common.Address 	`json:"maker"            gencodec:"required"`
 	Bloom       Bloom       `json:"logsBloom"        gencodec:"required"`
 	SnailHash   common.Hash `json:"snailHash"        gencodec:"required"`
 	SnailNumber *big.Int    `json:"snailNumber"      gencodec:"required"`
@@ -340,6 +341,8 @@ func (b *Block) GasUsed() uint64       { return b.header.GasUsed }
 func (b *Block) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
 func (b *Block) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
 
+
+func (b *Block) Proposer() common.Address { return b.header.Proposer }
 func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
 func (b *Block) SnailHash() common.Hash   { return b.header.SnailHash }
 func (b *Block) Bloom() Bloom             { return b.header.Bloom }

@@ -114,7 +114,6 @@ type PbftAgentFetcher interface {
 type bodyFilterTask struct {
 	peer         string                 // The source peer of block bodies
 	transactions [][]*types.Transaction // Collection of transactions per block bodies
-	signs        [][]*types.PbftSign    // Collection of sign per block bodies
 	time         time.Time              // Arrival time of the blocks' contents
 }
 
@@ -338,8 +337,8 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign) {
-	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
+func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, time time.Time) [][]*types.Transaction {
+	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions))
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -347,20 +346,20 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	select {
 	case f.bodyFilter <- filter:
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 	// Request the filtering of the body list
 	select {
-	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, signs: signs, time: time}:
+	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, time: time}:
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		return task.transactions, task.signs
+		return task.transactions
 	case <-f.quit:
-		return nil, nil
+		return nil
 	}
 }
 
@@ -482,7 +481,6 @@ func (f *Fetcher) loop() {
 
 		case notification := <-f.notify:
 			// A block was announced, make sure the peer isn't DOSing us
-			f.blockMutex.Lock()
 			propAnnounceInMeter.Mark(1)
 
 			count := f.announces[notification.origin] + 1
@@ -515,7 +513,6 @@ func (f *Fetcher) loop() {
 			if len(f.announced) == 1 {
 				f.rescheduleFetch(fetchTimer)
 			}
-			f.blockMutex.Unlock()
 
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
@@ -622,7 +619,7 @@ func (f *Fetcher) loop() {
 
 			// Split the batch of headers into unknown ones (to return to the caller),
 			// known incomplete ones (requiring body retrievals) and completed blocks.
-			unknown, incomplete := []*types.Header{}, []*announce{}
+			unknown, incomplete, complete := []*types.Header{}, []*announce{}, []*types.Block{}
 			for _, header := range task.headers {
 				hash := header.Hash()
 
@@ -630,7 +627,7 @@ func (f *Fetcher) loop() {
 				if announce := f.fetching[hash]; announce != nil && announce.origin == task.peer && f.fetched[hash] == nil && f.completing[hash] == nil && f.getPendingBlock(hash) == nil {
 					// If the delivered header does not match the promised number, drop the announcer
 					if header.Number.Uint64() != announce.number {
-						log.Trace("Invalid fast block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
+						log.Info("Invalid fast block number fetched", "peer", announce.origin, "hash", header.Hash(), "announced", announce.number, "provided", header.Number)
 						f.dropPeer(announce.origin)
 						f.forgetHash(hash)
 						continue
@@ -640,6 +637,18 @@ func (f *Fetcher) loop() {
 						announce.header = header
 						announce.time = task.time
 
+						// If the block is empty (header only), short circuit into the final import queue
+						if header.TxHash == types.DeriveSha(types.Transactions{}) {
+							log.Debug("Block empty, skipping fast body retrieval", "peer", announce.origin, "number", header.Number, "hash", header.Hash(), "sign", announce.sign.Hash())
+
+							block := types.NewBlockWithHeader(header)
+							block.ReceivedAt = task.time
+							block.AppendSign(announce.sign)
+
+							complete = append(complete, block)
+							f.completing[hash] = announce
+							continue
+						}
 						// Otherwise add to the list of blocks needing completion
 						incomplete = append(incomplete, announce)
 					} else {
@@ -660,9 +669,18 @@ func (f *Fetcher) loop() {
 			// Schedule the retrieved headers for body completion
 			for _, announce := range incomplete {
 				hash := announce.header.Hash()
+				if _, ok := f.completing[hash]; ok {
+					continue
+				}
 				f.fetched[hash] = append(f.fetched[hash], announce)
 				if len(f.fetched) == 1 {
 					f.rescheduleComplete(completeTimer)
+				}
+			}
+			// Schedule the header-only blocks for import
+			for _, block := range complete {
+				if announce := f.completing[block.Hash()]; announce != nil {
+					f.enqueue(announce.origin, block)
 				}
 			}
 
@@ -677,7 +695,7 @@ func (f *Fetcher) loop() {
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
 
 			blocks := []*types.Block{}
-			for i := 0; i < len(task.transactions) && i < len(task.signs); i++ {
+			for i := 0; i < len(task.transactions); i++ {
 				// Match up a body to any possible completion request
 				matched := false
 
@@ -685,14 +703,15 @@ func (f *Fetcher) loop() {
 					if f.getPendingBlock(hash) == nil {
 						txnHash := types.DeriveSha(types.Transactions(task.transactions[i]))
 
-						if txnHash == announce.header.TxHash && announce.origin == task.peer && len(task.signs[i]) > 0 && task.signs[i][0].FastHash == hash {
+						if txnHash == announce.header.TxHash && announce.origin == task.peer {
 							// Mark the body matched, reassemble if still unknown
 							matched = true
 
 							if f.getBlock(hash) == nil {
 								// mecMark
-								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], nil)
+								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], nil, nil)
 								block.ReceivedAt = task.time
+								block.AppendSign(announce.sign)
 
 								blocks = append(blocks, block)
 							} else {
@@ -703,7 +722,6 @@ func (f *Fetcher) loop() {
 				}
 				if matched {
 					task.transactions = append(task.transactions[:i], task.transactions[i+1:]...)
-					task.signs = append(task.signs[:i], task.signs[i+1:]...)
 					i--
 					continue
 				}
@@ -881,9 +899,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			block:  block,
 		}
 		f.queues[peer] = count
-		f.blockMutex.Lock()
-		f.queued[hash] = op
-		f.blockMutex.Unlock()
+		f.setPendingBlock(hash, op)
 
 		opMulti := &injectMulti{}
 		f.blockMultiHash[number] = append(f.blockMultiHash[number], hash)
@@ -1008,6 +1024,14 @@ func (f *Fetcher) getPendingBlock(hash common.Hash) *inject {
 		return nil
 	} else {
 		return f.queued[hash]
+	}
+}
+
+func (f *Fetcher) setPendingBlock(hash common.Hash, op *inject) {
+	f.blockMutex.Lock()
+	defer f.blockMutex.Unlock()
+	if _, ok := f.queued[hash]; !ok {
+		f.queued[hash] = op
 	}
 }
 
