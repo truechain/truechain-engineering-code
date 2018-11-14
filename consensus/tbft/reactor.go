@@ -622,7 +622,7 @@ OUTER_LOOP:
 		// Special catchup logic.
 		// If peer is lagging by height 1, send LastCommit.
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
-			if ps.PickSendVote(rs.LastCommit) {
+			if ps.PickSendVote(rs.LastCommit,-22) {
 				log.Debug("Picked rs.LastCommit to send", "height", prs.Height)
 				continue OUTER_LOOP
 			}
@@ -634,7 +634,7 @@ OUTER_LOOP:
 			// Load the block commit for prs.Height,
 			// which contains precommit signatures for prs.Height.
 			commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
-			if ps.PickSendVote(commit) {
+			if ps.PickSendVote(commit,-23) {
 				log.Debug("Picked Catchup commit to send", "height", prs.Height)
 				continue OUTER_LOOP
 			}
@@ -659,7 +659,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 
 	// If there are lastCommits to send...
 	if prs.Step == ttypes.RoundStepNewHeight {
-		if ps.PickSendVote(rs.LastCommit) {
+		if ps.PickSendVote(rs.LastCommit,-24) {
 			log.Debug("Picked rs.LastCommit to send")
 			return true
 		}
@@ -667,7 +667,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	// If there are POL prevotes to send...
 	if prs.Step <= ttypes.RoundStepPropose && int(prs.Round) != -1 && prs.Round <= rs.Round && int(prs.ProposalPOLRound) != -1 {
 		if polPrevotes := rs.Votes.Prevotes(int(prs.ProposalPOLRound)); polPrevotes != nil {
-			if ps.PickSendVote(polPrevotes) {
+			if ps.PickSendVote(polPrevotes,-25) {
 				log.Debug("Picked rs.Prevotes(prs.ProposalPOLRound) to send",
 					"round", prs.ProposalPOLRound)
 				return true
@@ -676,21 +676,21 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	}
 	// If there are prevotes to send...
 	if prs.Step <= ttypes.RoundStepPrevoteWait && int(prs.Round) != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round))) {
+		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round)),-26) {
 			log.Debug("Picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true
 		}
 	}
 	// If there are precommits to send...
 	if prs.Step <= ttypes.RoundStepPrecommitWait && int(prs.Round) != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Precommits(int(prs.Round))) {
+		if ps.PickSendVote(rs.Votes.Precommits(int(prs.Round)),-27) {
 			log.Debug("Picked rs.Precommits(prs.Round) to send", "round", prs.Round)
 			return true
 		}
 	}
 	// If there are prevotes to send...Needed because of validBlock mechanism
 	if int(prs.Round) != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round))) {
+		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round)),-28) {
 			log.Debug("Picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true
 		}
@@ -698,7 +698,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	// If there are POLPrevotes to send...
 	if int(prs.ProposalPOLRound) != -1 {
 		if polPrevotes := rs.Votes.Prevotes(int(prs.ProposalPOLRound)); polPrevotes != nil {
-			if ps.PickSendVote(polPrevotes) {
+			if ps.PickSendVote(polPrevotes,-29) {
 				log.Debug("Picked rs.Prevotes(prs.ProposalPOLRound) to send",
 					"round", prs.ProposalPOLRound)
 				return true
@@ -949,8 +949,8 @@ func (ps *PeerState) SetHasProposalBlockPart(height uint64, round uint, index ui
 
 // PickSendVote picks a vote and sends it to the peer.
 // Returns true if vote was sent.
-func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
-	if vote, ok := ps.PickVoteToSend(votes); ok {
+func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader,cc int64) bool {
+	if vote, ok := ps.PickVoteToSend(votes,cc); ok {
 		msg := &VoteMessage{vote}
 		log.Debug("Sending vote message", "ps", ps, "vote", vote)
 		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
@@ -961,8 +961,7 @@ func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 // PickVoteToSend picks a vote to send to the peer.
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
-func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader) (vote *ttypes.Vote, ok bool) {
-	log.Debug("PickVoteToSend +++++++++++++++++++++++++++++")
+func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader,cc int64) (vote *ttypes.Vote, ok bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
@@ -983,7 +982,7 @@ func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader) (vote *ttypes.Vo
 		return nil, false // Not something worth sending
 	}
 	if index, ok := votes.BitArray().Sub(psVotes).PickRandom(); ok {
-		ps.setHasVote(height, round, type_, index, -1)
+		ps.setHasVote(height, round, type_, index, cc)
 		return votes.GetByIndex(index), true
 	}
 	return nil, false
@@ -993,13 +992,15 @@ func (ps *PeerState) getVoteBitArray(height uint64, round int, type_ byte) *help
 	if !ttypes.IsVoteTypeValid(type_) {
 		return nil
 	}
-
+	
 	if ps.PRS.Height == height {
 		if int(ps.PRS.Round) == round {
 			switch type_ {
 			case ttypes.VoteTypePrevote:
+				log.Debug("getVoteBitArray Prevotes")
 				return ps.PRS.Prevotes
 			case ttypes.VoteTypePrecommit:
+				log.Debug("getVoteBitArray Precommits")
 				return ps.PRS.Precommits
 			}
 		}
@@ -1008,12 +1009,14 @@ func (ps *PeerState) getVoteBitArray(height uint64, round int, type_ byte) *help
 			case ttypes.VoteTypePrevote:
 				return nil
 			case ttypes.VoteTypePrecommit:
+				log.Debug("getVoteBitArray CatchupCommit")
 				return ps.PRS.CatchupCommit
 			}
 		}
 		if int(ps.PRS.ProposalPOLRound) == round {
 			switch type_ {
 			case ttypes.VoteTypePrevote:
+				log.Debug("getVoteBitArray ProposalPOL")
 				return ps.PRS.ProposalPOL
 			case ttypes.VoteTypePrecommit:
 				return nil
@@ -1027,6 +1030,7 @@ func (ps *PeerState) getVoteBitArray(height uint64, round int, type_ byte) *help
 			case ttypes.VoteTypePrevote:
 				return nil
 			case ttypes.VoteTypePrecommit:
+				log.Debug("getVoteBitArray LastCommit")
 				return ps.PRS.LastCommit
 			}
 		}
@@ -1154,7 +1158,9 @@ func (ps *PeerState) setHasVote(height uint64, round int, type_ byte, index uint
 	// NOTE: some may be nil BitArrays -> no side effects.
 	psVotes := ps.getVoteBitArray(height, round, type_)
 	if psVotes != nil {
+		log.Debug("setHasVote", "type", type_, "index", index, "cc", cc)
 		psVotes.SetIndex(index, true)
+		log.Debug("setHasVoteEnd", "type", type_, "index", index, "cc", cc)
 	}
 }
 
