@@ -127,15 +127,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	chainConfig, genesisHash, genesisErr, snailConfig, snailHash, snailErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	chainConfig, genesisHash, _, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
-	if _, ok := snailErr.(*params.ConfigCompatError); snailErr != nil && !ok {
-		return nil, snailErr
-	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
-	log.Info("Initialised chain configuration", "config", snailConfig)
 
 	etrue := &Truechain{
 		config:         config,
@@ -185,11 +181,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
-	if compat, ok := snailErr.(*params.ConfigCompatError); ok {
-		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-		etrue.snailblockchain.SetHead(compat.RewindTo)
-		rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
-	}
+	// TODO: rewind snail if case of incompatible config
+	// if compat, ok := snailErr.(*params.ConfigCompatError); ok {
+	// 	log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+	// 	etrue.snailblockchain.SetHead(compat.RewindTo)
+	// 	rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
+	// }
+
 	// TODO: start bloom indexer
 	//etrue.bloomIndexer.Start(etrue.blockchain)
 

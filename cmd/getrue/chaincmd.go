@@ -182,14 +182,9 @@ func initGenesis(ctx *cli.Context) error {
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
 		}
-		_, fastHash, fastErr, _, snailHash, snailErr := core.SetupGenesisBlock(chaindb, genesis)
-		// _, hash, err := fastchain.SetupGenesisBlock(chaindb, genesis.Fast)
-		if fastErr != nil {
-			utils.Fatalf("Failed to write fast genesis block: %v", fastErr)
-		}
-		// _, snailHash, err := snailchain.SetupGenesisBlock(chaindb, genesis.Snail)
-		if snailErr != nil {
-			utils.Fatalf("Failed to write snail genesis block: %v", snailErr)
+		_, fastHash, snailHash, genesisErr := core.SetupGenesisBlock(chaindb, genesis)
+		if genesisErr != nil {
+			utils.Fatalf("Failed to write fast genesis block: %v", genesisErr)
 		}
 		log.Info("Successfully wrote genesis state", "database", name, "fastHash", fastHash, "snail", snailHash)
 	}
