@@ -27,6 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"time"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core"
 )
 
 // BlockGen creates blocks for testing.
@@ -192,8 +193,14 @@ func makeBlockChain(parent *types.SnailBlock, n int, engine consensus.Engine, db
 	return blocks
 }
 
-func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSize int,config *params.ChainConfig,
-	pubkey []byte,coinbaseAddr common.Address,signs []*types.PbftSign,isBlock bool) (*types.SnailBlock,error){
+//create block,fruit
+// chain: for snail chain
+// fastchian: for fast chain
+// makeStartFastNum,makeFruitSize :if you create  a block the fruitset  startnumber and size this is fastblock number
+//pubkey : for election
+// coinbaseAddr: for coin
+func makeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, makeStartFastNum int,makeFruitSize int,
+	pubkey []byte,coinbaseAddr common.Address,isBlock bool) (*types.SnailBlock,error){
 
 	var  fruitsetCopy []*types.SnailBlock
 	var pointerHashFresh *big.Int = big.NewInt(7)
@@ -241,12 +248,30 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 		return header
 	}
 
-	makeFruit := func(chain *SnailBlockChain,fastNumber *big.Int,pubkey []byte,coinbaseAddr common.Address) (*types.SnailBlock,error){
+	copySignsByFastNum := func(fc *core.BlockChain,fNumber *big.Int)([]*types.PbftSign ,error) {
+
+		if fc.CurrentBlock().Number().Cmp(fNumber) <0{
+			return  nil,fmt.Errorf("fastblocknumber highter then fast chain hight")
+		}
+
+		fastSigns := fc.GetBlockByNumber(fNumber.Uint64()).Signs()
+		return fastSigns ,nil
+
+	}
+
+	makeFruit := func(chain *SnailBlockChain,fChain *core.BlockChain,fastNumber *big.Int,pubkey []byte,coinbaseAddr common.Address) (*types.SnailBlock,error){
+
 		head := makeHead(chain,pubkey,coinbaseAddr,fastNumber,true)
+
+		fSign, err :=copySignsByFastNum(fChain,fastNumber)
+		if  err !=nil {
+			return nil, err
+		}
+
 		fruit :=  types.NewSnailBlock(
 			head,
 			nil,
-			signs,
+			fSign,
 			nil,
 		)
 		return fruit,nil
@@ -254,8 +279,8 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 
 	// creat fruits
 	if isBlock {
-		for i := makeStartFastNum; i< makeStartFastNum+makeFruitSize; i++{
-			fruit ,err:= makeFruit(chain,new(big.Int).SetInt64(int64(i)),pubkey,coinbaseAddr)
+		for i := makeStartFastNum; i<= makeStartFastNum+makeFruitSize; i++{
+			fruit ,err:= makeFruit(chain,fastchain,new(big.Int).SetInt64(int64(i)),pubkey,coinbaseAddr)
 			if err != nil{
 				return nil, err
 			}
@@ -265,16 +290,21 @@ func makeSnailBlockFruit(chain *SnailBlockChain,makeStartFastNum int,makeFruitSi
 			return nil,fmt.Errorf("fruits make fail the length less then makeFruitSize")
 		}
 
+		fSign, err :=copySignsByFastNum(fastchain,new(big.Int).SetUint64(uint64(makeStartFastNum)))
+		if  err !=nil {
+			return nil, err
+		}
+
 		block := types.NewSnailBlock(
 			makeHead(chain,pubkey,coinbaseAddr,new(big.Int).SetInt64(int64(makeStartFastNum)),false),
 			fruitsetCopy,
-			signs,
+			fSign,
 			nil,
 		)
 		return  block,nil
 
 	}else{
-		fruit ,err:= makeFruit(chain,new(big.Int).SetInt64(int64(makeStartFastNum)),pubkey,coinbaseAddr)
+		fruit ,err:= makeFruit(chain,fastchain,new(big.Int).SetInt64(int64(makeStartFastNum)),pubkey,coinbaseAddr)
 		if err != nil{
 			return nil, err
 		}
