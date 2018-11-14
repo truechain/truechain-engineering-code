@@ -47,6 +47,15 @@ type MsgBuffer struct {
 	CommitMsgs     []*consensus.VoteMsg
 }
 
+func (msg *MsgBuffer) Clear() {
+	msg = &MsgBuffer{
+		ReqMsgs:        make([]*consensus.RequestMsg, 0),
+		PrePrepareMsgs: make([]*consensus.PrePrepareMsg, 0),
+		PrepareMsgs:    make([]*consensus.VoteMsg, 0),
+		CommitMsgs:     make([]*consensus.VoteMsg, 0),
+	}
+}
+
 type View struct {
 	ID      int64
 	Primary string
@@ -535,6 +544,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
 		if CurrentStage != nil {
 			lock.PSLogInfo("clear stage ", msg.(*consensus.RequestMsg).Height)
+			node.MsgBuffer.Clear()
 			node.PutStatus(msg.(*consensus.RequestMsg).Height, nil)
 			CurrentStage = nil
 		}
@@ -559,6 +569,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		CurrentStage := node.GetStatus(msg.(*consensus.PrePrepareMsg).Height)
 		if CurrentStage != nil {
 			lock.PSLogInfo("clear stage ", msg.(*consensus.PrePrepareMsg).Height)
+			node.MsgBuffer.Clear()
 			node.PutStatus(msg.(*consensus.PrePrepareMsg).Height, nil)
 			CurrentStage = nil
 		}
