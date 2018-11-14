@@ -183,6 +183,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		case *HasVoteMessage:
 			log.Debug("enterVoteMessage", "id", cc, "chId", chID, "flag", 320)
 			ps.ApplyHasVoteMessage(msg)
+			log.Debug("enterVoteMessageEnd", "id", cc, "chId", chID, "flag", 320)
 		case *VoteSetMaj23Message:
 			cs := conR.conS
 			cs.mtx.Lock()
@@ -263,6 +264,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			var valSize, lastCommitSize uint
 			func() {
 				log.Debug("enter vote", "id", cc, "chId", chID, "flag", 102)
+				log.Debug("enter vote","id", cc, "chId", chID, "flag", 102,"mux",fmt.Sprintf("%p",&cs.mtx))
 				cs.mtx.Lock()
 				defer cs.mtx.Unlock()
 				defer log.Debug("enter vote", "id", cc, "chId", chID, "flag", 103)
@@ -322,7 +324,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 	if err != nil {
 		log.Error("Error in Receive()", "err", err)
 	}
-	log.Debug("enter vote", "id", cc, "chId", chID, "flag", 108)
+	log.Debug("ReceiveEnd", "id", cc, "chId", chID, "flag", 108)
 }
 
 // SetEventBus sets event bus.
@@ -1236,6 +1238,7 @@ func (ps *PeerState) ApplyProposalPOLMessage(msg *ProposalPOLMessage) {
 
 // ApplyHasVoteMessage updates the peer state for the new vote.
 func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
+	log.Debug("ApplyHasVoteMessage++++","mux",fmt.Sprintf("%p",&ps.mtx))
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
