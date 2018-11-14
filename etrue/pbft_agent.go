@@ -56,11 +56,9 @@ const (
 )
 
 var (
-	tpsMetrics = metrics.NewMeter()
-	tpsMeter   = metrics.Register("etrue/pbftAgent/tps", tpsMetrics)
-
-	pbftConsensusMetrics = metrics.NewTimer()
-	pbftConsensusTimer   = metrics.Register("etrue/pbftAgent/pbftConsensus", pbftConsensusMetrics)
+	tpsMetrics =metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
+	//pbftConsensusMetrics =metrics.NewRegisteredTimer("etrue/pbftAgent/pbftConsensus", nil)
+	pbftConsensusCounter   = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 )
 
 var (
@@ -907,8 +905,9 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 		return err
 	}
 	//record consensus time  of committee
-	startTime :=time.Unix(fb.Header().Time.Int64(),0)
-	pbftConsensusMetrics.UpdateSince(startTime)
+	consensusTime :=time.Now().Unix() -fb.Header().Time.Int64()
+	pbftConsensusCounter.Clear()
+	pbftConsensusCounter.Inc(consensusTime)
 	log.Debug("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
