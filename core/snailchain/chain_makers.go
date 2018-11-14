@@ -199,7 +199,7 @@ func makeBlockChain(parent *types.SnailBlock, n int, engine consensus.Engine, db
 // makeStartFastNum,makeFruitSize :if you create  a block the fruitset  startnumber and size this is fastblock number
 //pubkey : for election
 // coinbaseAddr: for coin
-func makeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, makeStartFastNum int,makeFruitSize int,
+func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, makeStartFastNum int,makeFruitSize int,
 	pubkey []byte,coinbaseAddr common.Address,isBlock bool) (*types.SnailBlock,error){
 
 	var  fruitsetCopy []*types.SnailBlock
