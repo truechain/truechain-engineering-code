@@ -906,6 +906,9 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
+	//record consensus time  of committee
+	startTime :=time.Unix(fb.Header().Time.Int64(),0)
+	pbftConsensusMetrics.UpdateSince(startTime)
 	log.Debug("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
