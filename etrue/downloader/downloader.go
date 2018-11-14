@@ -1411,7 +1411,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 		for _, fr := range result.Fruits {
 
-			log.Debug("Fruits:", "Fruit Number", fr.FastNumber())
+			log.Trace("Fruits:", "Fruit Number", fr.FastNumber())
 		}
 
 		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  snail block >>>>>>>>", "snailNumber", result.Sheader.Number, "Phash", result.Sheader.ParentHash, "hash", result.Sheader.Hash())
