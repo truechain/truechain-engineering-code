@@ -982,7 +982,9 @@ func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader, cc int64) (vote 
 		return nil, false // Not something worth sending
 	}
 	if index, ok := votes.BitArray().Sub(psVotes).PickRandom(); ok {
+		log.Debug("SetHasVote", "run", 3)
 		ps.setHasVote(height, round, type_, index, cc)
+		log.Debug("SetHasVote", "run", -3)
 		return votes.GetByIndex(index), true
 	}
 	return nil, false
@@ -1147,7 +1149,8 @@ func (ps *PeerState) BlockPartsSent() uint {
 func (ps *PeerState) SetHasVote(vote *ttypes.Vote, cc int64) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-
+	defer log.Debug("SetHasVote", "run", -1)
+	log.Debug("SetHasVote", "run", 1)
 	ps.setHasVote(vote.Height, int(vote.Round), vote.Type, vote.ValidatorIndex, cc)
 }
 
@@ -1253,11 +1256,12 @@ func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
 	log.Debug("ApplyHasVoteMessage++++", "mux", fmt.Sprintf("%p", &ps.mtx))
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
+	defer log.Debug("SetHasVote", "run", -2)
 
 	if ps.PRS.Height != msg.Height {
 		return
 	}
-
+	log.Debug("SetHasVote", "run", 2)
 	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index, 0)
 }
 

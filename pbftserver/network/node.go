@@ -104,7 +104,6 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 		FinishChan:         make(chan int64, 100),
 		RetryPrePrepareMsg: make(map[int64]*consensus.PrePrepareMsg),
 	}
-
 	// Start message dispatcher
 	go node.dispatchMsg()
 
