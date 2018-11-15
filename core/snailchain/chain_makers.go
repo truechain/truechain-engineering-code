@@ -137,7 +137,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 
 		if b.engine != nil {
 			// TODO: add fruits support
-			block, _ := MakeSnailBlockFruit(blockchain, fastChain, n * params.MinimumFruits, params.MinimumFruits, blockchain.genesisBlock.PublicKey(), blockchain.genesisBlock.Coinbase(), true)
+			block, _ := MakeSnailBlockFruit(blockchain, fastChain, n * params.MinimumFruits, params.MinimumFruits, blockchain.genesisBlock.PublicKey(), blockchain.genesisBlock.Coinbase(), true,nil)
 			//block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, b.uncles, b.fruits, b.signs)
 
 			return block
@@ -201,10 +201,11 @@ func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int,
 //pubkey : for election
 // coinbaseAddr: for coin
 func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, makeStartFastNum int,makeFruitSize int,
-	pubkey []byte,coinbaseAddr common.Address,isBlock bool) (*types.SnailBlock,error){
+	pubkey []byte,coinbaseAddr common.Address,isBlock bool,diff *big.Int) (*types.SnailBlock,error){
 
 	var  fruitsetCopy []*types.SnailBlock
 	var pointerHashFresh = big.NewInt(7)
+	var snailFruitsLastFastNumber *big.Int
 
 
 	if chain == nil{
@@ -213,7 +214,12 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 	// create head
 	parent := chain.CurrentBlock()
-	snailFruitsLastFastNumber := parent.Fruits()[len(parent.Fruits())-1].FastNumber()
+	if parent.Fruits() !=nil{
+		snailFruitsLastFastNumber = parent.Fruits()[len(parent.Fruits())-1].FastNumber()
+	}else{
+		snailFruitsLastFastNumber = new(big.Int).SetUint64(0)
+	}
+
 	//parentNum := parent.Number()
 
 	if isBlock{
@@ -235,6 +241,7 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 			Coinbase: coinbaseAddr,
 			Fruit: isFruit,
 			FastNumber:fastNumber,
+			Difficulty:diff,
 		}
 
 		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
