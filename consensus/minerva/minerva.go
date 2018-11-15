@@ -231,13 +231,13 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		}
 		lru.cache.Add(epoch, item)
 	}
-	// Update the 'future item' if epoch is larger than previously seen.
-	if epoch < maxEpoch-1 && lru.future < epoch+1 {
-		log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
-		future = lru.new(epoch + 1)
-		lru.future = epoch + 1
-		lru.futureItem = future
-	}
+	//Update the 'future item' if epoch is larger than previously seen.
+	//if epoch < maxEpoch-1 && lru.future < epoch+1 {
+	//	log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
+	//	future = lru.new(epoch + 1)
+	//	lru.future = epoch + 1
+	//	lru.futureItem = future
+	//}
 	return item, future
 }
 
@@ -249,8 +249,6 @@ type dataset struct {
 	dataset  []uint64  // The actual cache data content
 	once     sync.Once // Ensures the cache is generated only once
 	dateInit int
-	Flag     int
-	//evenFlag	int
 }
 
 // newDataset creates a new truehash mining dataset
@@ -258,7 +256,6 @@ func newDataset(epoch uint64) interface{} {
 	ds := &dataset{
 		epoch:    epoch,
 		dateInit: 0,
-		Flag:     0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
@@ -344,49 +341,46 @@ func New(config Config) *Minerva {
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
 	epoch := block / epochLength
-	currentI, futureI := m.datasets.get(epoch)
+	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
 	current.generate(block, m)
-	if futureI != nil {
-		future := futureI.(*dataset)
-		future.generate(block, m)
 
-	}
+	//if futureI != nil {
+	//	future := futureI.(*dataset)
+	//	future.generate(block, m)
+	//
+	//}
 	return current
 }
 
 // generate ensures that the dataset content is generated before use.
 func (d *dataset) generate(blockNum uint64, m *Minerva) {
-	if d.dateInit == 0 {
-		//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-		if blockNum <= UPDATABLOCKLENGTH {
-			m.truehashTableInit(d.dataset)
+	d.once.Do(func() {
+		if d.dateInit == 0 {
+			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+			if blockNum <= UPDATABLOCKLENGTH {
+				m.truehashTableInit(d.dataset)
 
-		} else {
-			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-			d.Flag = 0
-			flag, ds := m.updateLookupTBL(bn, d.dataset)
-			if flag {
-				d.dataset = ds
+			} else {
+				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				//d.Flag = 0
+				flag, ds := m.updateLookupTBL(bn, d.dataset)
+				if flag {
+					d.dataset = ds
+				}
 			}
+			d.dateInit = 1
 		}
-		d.dateInit = 1
-	}
+	})
 
-	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
-		//m.updateLookupTBL(blockNum, d.dataset)
-		if d.Flag == 0 {
-			flag, ds := m.updateLookupTBL(blockNum, d.dataset)
-			if flag {
-				d.dataset = ds
-				d.Flag = 1
-			}
+	if blockNum%UPDATABLOCKLENGTH == STARTUPDATENUM+1 {
+		epoch := blockNum / epochLength
+		currentI, _ := m.datasets.get(epoch + 1)
+		current := currentI.(*dataset)
+		if current.dateInit == 0 {
+			current.generate(blockNum, m)
 		}
-	}
-
-	if blockNum%UPDATABLOCKLENGTH == 1 {
-		d.Flag = 0
 	}
 }
 

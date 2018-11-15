@@ -27,7 +27,6 @@ import (
 	"sync"
 	"testing"
 
-	"fmt"
 	"math/big"
 )
 
@@ -91,9 +90,16 @@ func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 
 func TestAwardTest(t *testing.T) {
 	//getCurrentBlockCoins(big.NewInt(5000));
-	fmt.Println(getCurrentCoin(big.NewInt(1)))
-	fmt.Println(getCurrentCoin(big.NewInt(5000)))
-	fmt.Println(getCurrentCoin(big.NewInt(9000)))
+	//fmt.Println(getCurrentCoin(big.NewInt(1)))
+	//fmt.Println(getCurrentCoin(big.NewInt(5000)))
+	//fmt.Println(getCurrentCoin(big.NewInt(9000)))
+	//
+	//fmt.Println(getBlockReward(big.NewInt(9000)))
 
-	fmt.Println(getBlockReward(big.NewInt(9000)))
+	//for i := 0; i < 3 ;i++  {
+	//	NewTester()
+	//for i := 1; i < 102400 ; i+=10240 {
+	//	m.getDataset(uint64(i))
+	//}
+	//}
 }
