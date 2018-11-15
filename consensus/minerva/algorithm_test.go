@@ -42,7 +42,11 @@ func TestTruehash(t *testing.T) {
 	wantDigest := hexutil.MustDecode("0xe4073cffaef931d37117cefd9afd27ea0f1cad6a981dd2605c4a1ac97c519800")
 	wantResult := hexutil.MustDecode("0xd3539235ee2e6f8db665c0a72169f55b7f6c605712330b778ec3944f0eb5a557")
 
+	//wantDigest := hexutil.MustDecode("0x47af990afa74cf47281fe85246e796e7963fce8e05c443d221aaf1ebaf238b1d")
+	//wantResult := hexutil.MustDecode("0x47af990afa74cf47281fe85246e796e7963fce8e05c443d221aaf1ebaf238b1d")
+
 	digest, result := truehashLight(dataset, hash, nonce)
+	//println("have %x",digest)
 	if !bytes.Equal(digest, wantDigest) {
 		t.Errorf("light truehash digest mismatch: have %x, want %x", digest, wantDigest)
 	}
