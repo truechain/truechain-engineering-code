@@ -956,7 +956,8 @@ func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader, cc int64) bool {
 		log.Debug("PickSendVote", "vote", vote)
 		//msg := &VoteMessage{vote}
 		msg := &VoteMessage{Vote: vote.Copy()}
-		log.Debug("Sending vote message", "ps", ps, "vote", vote)
+		log.Debug("PickSendVote", "in2", ok)
+		log.Debug("PickSendVote", "vote2", vote)
 		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
 	}
 	log.Debug("PickSendVote", "in", false)
