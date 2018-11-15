@@ -26,6 +26,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -37,7 +38,7 @@ var (
 	testdb       = ethdb.NewMemDatabase()
 	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
-	genesis      = snailchain.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	genesis      = core.GenesisSnailBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 	unknownBlock = types.NewSnailBlock(&types.SnailHeader{}, nil, nil, nil)
 )
 
@@ -46,8 +47,8 @@ var (
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
-	blocks, _ := snailchain.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), testdb, n, func(i int, block *snailchain.BlockGen) {
-		block.SetCoinbase(common.Address{seed})
+	blocks := snailchain.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), testdb, n, func(i int, block *snailchain.BlockGen) {
+		//block.SetCoinbase(common.Address{seed})
 
 		// If the block number is a multiple of 5, add a bonus uncle to the block
 		if i%5 == 0 {

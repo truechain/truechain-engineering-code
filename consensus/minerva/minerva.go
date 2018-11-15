@@ -249,7 +249,7 @@ type dataset struct {
 	dataset  []uint64  // The actual cache data content
 	once     sync.Once // Ensures the cache is generated only once
 	dateInit int
-	//oddFlag		int
+	Flag     int
 	//evenFlag	int
 }
 
@@ -258,6 +258,7 @@ func newDataset(epoch uint64) interface{} {
 	ds := &dataset{
 		epoch:    epoch,
 		dateInit: 0,
+		Flag:     0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
@@ -364,6 +365,7 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 
 		} else {
 			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+			d.Flag = 0
 			flag, ds := m.updateLookupTBL(bn, d.dataset)
 			if flag {
 				d.dataset = ds
@@ -373,11 +375,18 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 	}
 
 	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
-		m.updateLookupTBL(blockNum, d.dataset)
-		flag, ds := m.updateLookupTBL(blockNum, d.dataset)
-		if flag {
-			d.dataset = ds
+		//m.updateLookupTBL(blockNum, d.dataset)
+		if d.Flag == 0 {
+			flag, ds := m.updateLookupTBL(blockNum, d.dataset)
+			if flag {
+				d.dataset = ds
+				d.Flag = 1
+			}
 		}
+	}
+
+	if blockNum%UPDATABLOCKLENGTH == 1 {
+		d.Flag = 0
 	}
 }
 
