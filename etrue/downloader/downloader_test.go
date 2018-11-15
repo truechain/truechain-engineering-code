@@ -116,8 +116,6 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	fastblocks, _ ,blockchain:= core.GenerateBlockChain(params.TestChainConfig, genesis, ethash.NewFaker(), dl.peerDb, 0, func(i int, block *core.BlockGen) {
 		block.SetCoinbase(common.Address{0x00})
 
-		// If the block number is multiple of 3, send a few bonus transactions to the miner
-
 	})
 
 	blockchain.InsertChain(fastblocks)
