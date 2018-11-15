@@ -282,7 +282,7 @@ search:
 	}
 	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
 	// during sealing so it's not unmapped while being read.
-	//runtime.KeepAlive(dataset)
+	runtime.KeepAlive(dataset)
 }
 
 func (m *Minerva) truehashTableInit(tableLookup []uint64) {
