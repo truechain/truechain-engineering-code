@@ -1427,14 +1427,11 @@ func TestTransactionPoolUnderpricing(t *testing.T) {
 }
 
 func TestTxSignTime(t *testing.T) {
-	keys := make([]*ecdsa.PrivateKey, 4)
-	for i := 0; i < len(keys); i++ {
-		keys[i], _ = crypto.GenerateKey()
-	}
+	priKey, _ := crypto.GenerateKey()
 	// Generate and queue a batch of transactions, both pending and queued
 	txs := types.Transactions{}
 	for i := 0; i < 50000; i++ {
-		txs = append(txs, pricedTransaction(uint64(i), 100000, big.NewInt(1), keys[0]))
+		txs = append(txs, pricedTransaction(uint64(i), 100000, big.NewInt(1), priKey))
 	}
 	signer := types.HomesteadSigner{}
 	t1 := time.Now()
