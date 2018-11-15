@@ -17,11 +17,19 @@
 package core
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	// "github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/params"
+)
+
+var (
+	// canonicalSeed = 1
 )
 
 func makeTestBlock() *types.Block {
@@ -42,7 +50,7 @@ func TestElectionTestMode(t *testing.T) {
 	// by local node
 	election := NewFakeElection()
 	members := election.GetCommittee(common.Big1)
-	if len(members) != 4 {
+	if int64(len(members)) != params.MinimumCommitteeNumber.Int64() {
 		t.Errorf("Commit members count error %v", len(members))
 	}
 }
@@ -66,5 +74,105 @@ func TestVerifySigns(t *testing.T) {
 		if err != nil {
 			t.Errorf("Pbft fake signs failed, error=%v", err)
 		}
+	}
+}
+
+func committeeEqual(left, right []*types.CommitteeMember) bool {
+	var members map[common.Address]*types.CommitteeMember
+	for _, l := range left {
+		members[l.Coinbase] = l
+	}
+	for _, r := range right {
+		if m, ok := members[r.Coinbase]; ok {
+			if string(crypto.FromECDSAPub(m.Publickey)) != string(crypto.FromECDSAPub(r.Publickey)) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+/*
+func newSnail(n int) *snailchain.SnailBlockChain {
+	var (
+		testdb  = ethdb.NewMemDatabase()
+		genesis = new(core.Genesis).MustSnailCommit(testdb)
+		engine  = minerva.NewFaker()
+	)
+	snailchain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	blocks := makeBlockChain(genesis, n, engine, testdb, canonicalSeed)
+	snailchain.InsertChain(blocks)
+	return snailchain
+}
+
+func makeBlockChain(parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
+	blocks := snailchain.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *snailchain.BlockGen) {
+	})
+	return blocks
+}
+*/
+
+func TestElection1Members(t *testing.T) {
+	// snail := newSnail(180)
+	election := NewFakeElection()
+	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
+	if len(members) == 0 {
+		t.Errorf("Committee election get none member")
+	}
+	if int64(len(members)) > params.MaximumCommitteeNumber.Int64() {
+		t.Errorf("Elected members exceed MAX member num")
+	}
+}
+
+func TestElection2Members(t *testing.T) {
+	// snail := newSnail(180)
+	// defer snail.Stop()
+	election := NewFakeElection()
+
+	end := new(big.Int).Mul(big.NewInt(2), params.ElectionPeriodNumber)
+	end.Sub(end, params.SnailConfirmInterval)
+	begin := new(big.Int).Add(new(big.Int).Sub(end, params.ElectionPeriodNumber), common.Big1)
+
+	members := election.electCommittee(begin, end)
+	if len(members) == 0 {
+		t.Errorf("Committee election get none member")
+	}
+	if int64(len(members)) > params.MaximumCommitteeNumber.Int64() {
+		t.Errorf("Elected members exceed MAX member num")
+	}
+}
+
+func TestGenesisCommittee(t *testing.T) {
+	nums := []int64{1, 2, 3, 168, 179, 180}
+	// snail := newSnail(180)
+	// defer snail.Stop()
+	// t.Logf("create snail chain %v", snail.CurrentBlock().Number())
+	election := NewFakeElection()
+
+	// Get Genesis Committee
+	for _, n := range nums {
+		members := election.GetCommittee(big.NewInt(n))
+		if !committeeEqual(members, election.snailchain.GetGenesisCommittee()) {
+			t.Errorf("Elected members error for fast 1")
+		}
+	}
+}
+
+func TestGetCommittee(t *testing.T) {
+	// snail := newSnail(360)
+	// defer snail.Stop()
+	// t.Logf("create snail chain %v", snail.CurrentBlock().Number())
+	election := NewFakeElection()
+	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
+	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
+
+	if !committeeEqual(election.GetCommittee(last), election.snailchain.GetGenesisCommittee()) {
+		t.Errorf("Elected members error for genesis committee last fast")
+	}
+
+	if !committeeEqual(election.GetCommittee(new(big.Int).Add(last, common.Big1)), members) {
+		t.Errorf("Elected members error for committee1 first fast")
 	}
 }
