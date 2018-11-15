@@ -1421,7 +1421,6 @@ func (d *Downloader) processFullSyncContent() error {
 	for {
 		results := d.queue.Results(true)
 		if len(results) == 0 {
-			log.Debug("processFullSyncContent>>>>>>>>>>>>>>>>>>>==0")
 			return nil
 		}
 		if d.chainInsertHook != nil {

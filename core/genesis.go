@@ -347,7 +347,7 @@ func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainC
 	if genesis != nil {
 		hash := genesis.ToSnailBlock(nil).Hash()
 		if hash != stored {
-			return genesis.Config, hash, &types.GenesisMismatchError{stored, hash}
+			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
 	}
 
@@ -362,7 +362,7 @@ func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainC
 	// Special case: don't change the existing config of a non-mainnet chain if no new
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
-	if genesis == nil && stored != params.MainnetGenesisHash {
+	if genesis == nil && stored != params.MainnetSnailGenesisHash {
 		return storedcfg, stored, nil
 	}
 
@@ -480,7 +480,11 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return g.Config
 	case ghash == params.MainnetGenesisHash:
 		return params.MainnetChainConfig
+	case ghash == params.MainnetSnailGenesisHash:
+		return params.MainnetChainConfig
 	case ghash == params.TestnetGenesisSHash:
+		return params.TestnetChainConfig
+	case ghash == params.TestnetSnailGenesisHash:
 		return params.TestnetChainConfig
 	default:
 		return params.AllMinervaProtocolChanges
