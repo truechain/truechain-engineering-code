@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -105,8 +106,13 @@ func newTester() *downloadTester {
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, heavy bool) ([]common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock) {
-	// Generate the block chain
-	blocks := snailchain.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), dl.peerDb, n, func(i int, block *snailchain.BlockGen) {
+
+
+	// Initialize a fresh chain with only a genesis block
+	// Initialize a new chain
+	blockchain, _ := core.NewBlockChain( dl.peerDb, nil, params.AllMinervaProtocolChanges, ethash.NewFaker(), vm.Config{})
+
+	blocks := snailchain.GenerateChain(params.TestChainConfig,blockchain, parent, ethash.NewFaker(), dl.peerDb, n, func(i int, block *snailchain.BlockGen) {
 		//block.SetCoinbase(common.Address{seed})
 		block.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 		// If a heavy chain is requested, delay blocks to raise difficulty
