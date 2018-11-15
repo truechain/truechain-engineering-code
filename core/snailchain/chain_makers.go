@@ -205,6 +205,7 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 	var  fruitsetCopy []*types.SnailBlock
 	var pointerHashFresh = big.NewInt(7)
+	var snailFruitsLastFastNumber *big.Int
 
 
 	if chain == nil{
@@ -213,7 +214,12 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 	// create head
 	parent := chain.CurrentBlock()
-	snailFruitsLastFastNumber := parent.Fruits()[len(parent.Fruits())-1].FastNumber()
+	if parent.Fruits() !=nil{
+		snailFruitsLastFastNumber = parent.Fruits()[len(parent.Fruits())-1].FastNumber()
+	}else{
+		snailFruitsLastFastNumber = new(big.Int).SetUint64(0)
+	}
+
 	//parentNum := parent.Number()
 
 	if isBlock{
