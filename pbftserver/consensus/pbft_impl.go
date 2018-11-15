@@ -43,6 +43,16 @@ func (m *MsgLogs) GetPrepareMessages() map[string]*VoteMsg {
 	return m.prepareMsgs
 }
 
+func (m *MsgLogs) Clear() {
+	m = &MsgLogs{
+		ReqMsg:      nil,
+		prepareMsgs: make(map[string]*VoteMsg),
+		commitMsgs:  make(map[string]*VoteMsg),
+		lockPrepare: new(sync.Mutex),
+		lockCommit:  new(sync.Mutex),
+	}
+}
+
 func (m *MsgLogs) GetCommitMessages() map[string]*VoteMsg {
 	m.lockCommit.Lock()
 	defer m.lockCommit.Unlock()

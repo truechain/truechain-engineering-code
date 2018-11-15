@@ -116,7 +116,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
+func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
 	if config == nil {
 		config = params.TestChainConfig
 	}
@@ -137,7 +137,8 @@ func GenerateChain(config *params.ChainConfig, parent *types.SnailBlock, engine 
 
 		if b.engine != nil {
 			// TODO: add fruits support
-			block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, b.uncles, b.fruits, b.signs)
+			block, _ := MakeSnailBlockFruit(blockchain, fastChain, n * params.MinimumFruits, params.MinimumFruits, blockchain.genesisBlock.PublicKey(), blockchain.genesisBlock.Coinbase(), true)
+			//block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, b.uncles, b.fruits, b.signs)
 
 			return block
 		}
@@ -163,7 +164,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 	return &types.SnailHeader{
 		ParentHash: parent.Hash(),
 		Coinbase:   parent.Coinbase(),
-		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), []*types.SnailHeader{&types.SnailHeader{
+		Difficulty: engine.CalcSnailDifficulty(chain, time.Uint64(), []*types.SnailHeader{{
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.BlockDifficulty(),
@@ -175,8 +176,8 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.SnailHeader, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailHeader {
-	blocks := makeBlockChain(types.NewSnailBlockWithHeader(parent), n, engine, db, seed)
+func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailHeader {
+	blocks := makeBlockChain(fastChain, types.NewSnailBlockWithHeader(parent), n, engine, db, seed)
 	headers := make([]*types.SnailHeader, len(blocks))
 	for i, block := range blocks {
 		headers[i] = block.Header()
@@ -185,8 +186,8 @@ func makeHeaderChain(parent *types.SnailHeader, n int, engine consensus.Engine, 
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
-	blocks := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
+func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
+	blocks := GenerateChain(params.TestChainConfig, fastChain, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
 
@@ -203,7 +204,7 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 	pubkey []byte,coinbaseAddr common.Address,isBlock bool) (*types.SnailBlock,error){
 
 	var  fruitsetCopy []*types.SnailBlock
-	var pointerHashFresh *big.Int = big.NewInt(7)
+	var pointerHashFresh = big.NewInt(7)
 
 
 	if chain == nil{
