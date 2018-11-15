@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/core/vm"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -33,10 +32,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/trie"
-	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
 var (
@@ -110,7 +109,29 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 
 	// Initialize a fresh chain with only a genesis block
 	// Initialize a new chain
-	blockchain, _ := core.NewBlockChain( dl.peerDb, nil, params.AllMinervaProtocolChanges, ethash.NewFaker(), vm.Config{})
+
+
+	BaseGenesis := core.DefaultGenesisBlock()
+	genesis := BaseGenesis.MustFastCommit(dl.peerDb)
+	_, _ ,blockchain:= core.GenerateBlockChain(params.TestChainConfig, genesis, ethash.NewFaker(), dl.peerDb, 0, func(i int, block *core.BlockGen) {
+		block.SetCoinbase(common.Address{0x00})
+
+		// If the block number is multiple of 3, send a few bonus transactions to the miner
+		//if i%3 == 2 {
+		//	for j := 0; j < i%4+1; j++ {
+		//		tx, err := types.SignTx(types.NewTransaction(block.TxNonce(address), common.Address{0x00}, big.NewInt(1000), params.TxGas, nil, nil), signer, key)
+		//		if err != nil {
+		//			panic(err)
+		//		}
+		//		block.AddTx(tx)
+		//	}
+		//}
+		// If the block number is a multiple of 5, add a few bonus uncles to the block
+		//if i%5 == 5 {
+		//	block.AddUncle(&types.Header{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
+		//}
+	})
+
 
 	blocks := snailchain.GenerateChain(params.TestChainConfig,blockchain, parent, ethash.NewFaker(), dl.peerDb, n, func(i int, block *snailchain.BlockGen) {
 		//block.SetCoinbase(common.Address{seed})
@@ -120,21 +141,6 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 			block.OffsetTime(-1)
 		}
 		// If the block number is multiple of 3, send a bonus transaction to the miner
-		//if parent == dl.genesis && i%3 == 0 {
-		//	signer := types.MakeSigner(params.TestChainConfig, block.Number())
-		//	tx, err := types.SignTx(types.NewTransaction(block.(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil), signer, testKey)
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//	block.AddTx(tx)
-		//}
-		// If the block number is a multiple of 5, add a bonus uncle to the block
-		//if i > 0 && i%5 == 0 {
-		//	block.AddUncle(&types.Header{
-		//		ParentHash: block.PrevBlock(i - 1).Hash(),
-		//		Number:     big.NewInt(block.Number().Int64() - 1),
-		//	})
-		//}
 	})
 	// Convert the block-chain into a hash-chain and header/block maps
 	hashes := make([]common.Hash, n+1)
