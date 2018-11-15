@@ -214,7 +214,7 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 	// create head
 	parent := chain.CurrentBlock()
-	if parent.Fruits() !=nil{
+	if parent.Fruits() !=nil && len(parent.Fruits()) != 0{
 		snailFruitsLastFastNumber = parent.Fruits()[len(parent.Fruits())-1].FastNumber()
 	}else{
 		snailFruitsLastFastNumber = new(big.Int).SetUint64(0)
