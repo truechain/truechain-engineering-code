@@ -17,6 +17,7 @@
 package minerva
 
 import (
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"io/ioutil"
 	"time"
@@ -98,8 +99,10 @@ func TestAwardTest(t *testing.T) {
 
 	//for i := 0; i < 3 ;i++  {
 	//	NewTester()
-	//for i := 1; i < 102400 ; i+=10240 {
-	//	m.getDataset(uint64(i))
-	//}
-	//}
+	m := NewTester()
+	for i := 1; i < 22444; i += 10240 {
+		fmt.Println(i)
+		m.getDataset(uint64(i))
+		//time.Sleep(time.Second*5)
+	}
 }

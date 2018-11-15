@@ -303,29 +303,28 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 
 	const offset_cnst = 0x1f
 	const skip_cnst = 0x3
-	var offset [32768]int
-	var skip [32768]int
+	var offset [TBSIZE]int
+	var skip [TBSIZE]int
 
-	cur_block_num := blockNum
-	res := cur_block_num % UPDATABLOCKLENGTH
+	cur_block_num := blockNum                //  10241 22441  10242
+	res := cur_block_num % UPDATABLOCKLENGTH // 10241 10241  10242
 	sblockchain := m.sbc
 	//current block number is invaild
 
-	if sblockchain == nil{
-		return  false, nil
+	if sblockchain == nil {
+		return false, nil
 	}
 
 	if res <= STARTUPDATENUM {
 		return false, nil
 	}
-	var st_block_num uint64 = uint64(cur_block_num - res)
+	var st_block_num uint64 = uint64(cur_block_num - res) // 0 12000
 
-	for i := 0; i < 8192; i++ {
+	for i := 0; i < HDSIZE; i++ {
 
-
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
-		if header == nil{
-			return false,nil
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + 1)
+		if header == nil {
+			return false, nil
 		}
 		val := header.Hash().Bytes()
 		offset[i*4] = (int(val[0]) & offset_cnst) - 16
@@ -334,8 +333,8 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 		offset[i*4+3] = (int(val[3]) & offset_cnst) - 16
 	}
 
-	for i := 0; i < 2048; i++ {
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(8192))
+	for i := 0; i < TAILSIZE; i++ {
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(HDSIZE) + 1)
 		val := header.Hash().Bytes()
 		for k := 0; k < 16; k++ {
 			skip[i*16+k] = (int(val[k]) & skip_cnst) + 1
@@ -347,7 +346,7 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 	return true, ds
 }
 
-func (m *Minerva) UpdateTBL(offset [32768]int, skip [32768]int, plookup_tbl []uint64) []uint64 {
+func (m *Minerva) UpdateTBL(offset [TBSIZE]int, skip [TBSIZE]int, plookup_tbl []uint64) []uint64 {
 
 	lktWz := uint32(DATALENGTH / 64)
 	lktSz := uint32(DATALENGTH) * lktWz
@@ -363,7 +362,7 @@ func (m *Minerva) UpdateTBL(offset [32768]int, skip [32768]int, plookup_tbl []ui
 			pos0 := pos - sk*PMTSIZE
 			pos1 := pos + sk*PMTSIZE
 			for y := pos0; y < pos1; y += sk {
-				if y >= 0 && y < 2048 {
+				if y >= 0 && y < TAILSIZE {
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
 					plookup_tbl[plkt+vI] |= 1 << vR

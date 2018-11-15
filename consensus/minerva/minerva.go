@@ -357,6 +357,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 // generate ensures that the dataset content is generated before use.
 func (d *dataset) generate(blockNum uint64, m *Minerva) {
 	d.once.Do(func() {
+		//fmt.Println("d.once:",blockNum)
 		if d.dateInit == 0 {
 			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 			if blockNum <= UPDATABLOCKLENGTH {
@@ -368,18 +369,26 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 				flag, ds := m.updateLookupTBL(bn, d.dataset)
 				if flag {
 					d.dataset = ds
+				} else {
+					log.Error("updateLookupTBL is err  ", "blockNum is:  ", blockNum)
 				}
 			}
 			d.dateInit = 1
 		}
 	})
 
+	//go d.updateTable(blockNum, m)
+
+}
+
+func (d *dataset) updateTable(blockNum uint64, m *Minerva) {
 	if blockNum%UPDATABLOCKLENGTH == STARTUPDATENUM+1 {
 		epoch := blockNum / epochLength
 		currentI, _ := m.datasets.get(epoch + 1)
 		current := currentI.(*dataset)
 		if current.dateInit == 0 {
 			current.generate(blockNum, m)
+			//fmt.Println(blockNum)
 		}
 	}
 }
