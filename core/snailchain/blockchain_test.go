@@ -45,18 +45,25 @@ var (
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *SnailBlockChain, *core.BlockChain, error) {
 	var (
 		db      = ethdb.NewMemDatabase()
-		genesis = new(core.Genesis).MustSnailCommit(db)
+		commonGenesis = new(core.Genesis)
+		genesis = commonGenesis.MustSnailCommit(db)
+		fastGenesis = commonGenesis.MustFastCommit(db)
 	)
 
-	_, fastChain ,_ := core.NewCanonical(minerva.NewFaker(), (n * params.MinimumFruits), true)
+	fastChain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	// Initialize a fresh chain with only a genesis block
-	blockchain, _ := NewSnailBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	blockchain, _ := NewSnailBlockChain(db, nil, params.TestChainConfig, engine, vm.Config{})
+	blockchain.SetValidator(NewBlockValidator(chainConfig, fastChain, blockchain, engine))
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, fastChain, nil
 	}
 	if full {
+		fastBlocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, db, n * params.MinimumFruits, func(i int, b *core.BlockGen) {
+			b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+		})
+		fastChain.InsertChain(fastBlocks)
 		// Full block-chain requested
 		blocks := makeBlockChain(fastChain, genesis, n, engine, db, canonicalSeed)
 		_, err := blockchain.InsertChain(blocks)
@@ -188,7 +195,7 @@ func TestLastBlock(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	blocks := makeBlockChain(fastChain, blockchain.CurrentBlock(), 1, minerva.NewFullFaker(), blockchain.db, 0)
+	blocks := makeBlockChain(fastChain, blockchain.CurrentBlock(), 1, minerva.NewFaker(), blockchain.db, 0)
 	if _, err := blockchain.InsertChain(blocks); err != nil {
 		t.Fatalf("Failed to insert block: %v", err)
 	}
