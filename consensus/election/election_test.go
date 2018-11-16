@@ -17,22 +17,24 @@
 package election
 
 import (
-	"github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"math/big"
 	"testing"
 
 	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	// "github.com/truechain/truechain-engineering-code/core/snailchain"
+	// "github.com/truechain/truechain-engineering-code/etrue"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var (
-	// canonicalSeed = 1
+	canonicalSeed = 1
 )
 
 func makeTestBlock() *types.Block {
@@ -47,6 +49,10 @@ func makeTestBlock() *types.Block {
 	fb := types.NewBlock(header, nil, nil, nil)
 	return fb
 }
+
+type nodeType struct{}
+
+func (nodeType) GetNodeType() bool { return false }
 
 func TestElectionTestMode(t *testing.T) {
 	// TestMode election return a local static committee, whose members are generated barely
@@ -81,7 +87,7 @@ func TestVerifySigns(t *testing.T) {
 }
 
 func committeeEqual(left, right []*types.CommitteeMember) bool {
-	var members map[common.Address]*types.CommitteeMember
+	members := make(map[common.Address]*types.CommitteeMember)
 	for _, l := range left {
 		members[l.Coinbase] = l
 	}
@@ -97,41 +103,33 @@ func committeeEqual(left, right []*types.CommitteeMember) bool {
 	return true
 }
 
-
 func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	var (
 		testdb  = ethdb.NewMemDatabase()
-		// genesis = new(core.Genesis).MustSnailCommit(testdb)
 		genesis = core.DefaultGenesisBlock()
 		engine  = minerva.NewFaker()
 	)
-	cache := &core.CacheConfig{
-		TrieNodeLimit: DefaultConfig.TrieCache,
-		TrieTimeLimit: DefaultConfig.TrieTimeout,
-	}
 	fastGenesis := genesis.MustFastCommit(testdb)
-	fastchain, err := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	fastchain, _ := core.NewBlockChain(testdb, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 	fastblocks := makeFast(fastGenesis, n * params.MinimumFruits, engine, testdb, canonicalSeed)
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailchain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
-	blocks := makeSnail(fastchain, snailGenesis, n, engine, testdb, canonicalSeed)
-	snailchain.InsertChain(blocks)
+	snail, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	blocks := makeSnail(snail, fastchain, snailGenesis, n, engine, testdb, canonicalSeed)
+	snail.InsertChain(blocks)
 
-	return snailchain, fastchain
+	return snail, fastchain
 }
 
-func makeSnail(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
-	blocks := snailchain.GenerateChain(params.TestChainConfig, fastChain, parent, engine, db, n, func(i int, b *snailchain.BlockGen) {
-		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-	})
+func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
+	blocks , _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n * params.MinimumFruits,
+		parent.PublicKey(), parent.Coinbase(), true,nil)
 	return blocks
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
 func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
-	engine.SetElection(core.NewFakeElection())
 	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
@@ -139,8 +137,39 @@ func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Data
 	return blocks
 }
 
+func TestGenesisCommittee(t *testing.T) {
+	nums := []int64{1, 2, 3, 168, 179, 180}
+	snail, fast := makeChain(180)
+	// snail := newSnail(180)
+	// defer snail.Stop()
+	// t.Logf("create snail chain %v", snail.CurrentBlock().Number())
+	election := NewElction(fast, snail, nodeType{})
 
-func TestElection1Members(t *testing.T) {
+	// Get Genesis Committee
+	for _, n := range nums {
+		members := election.GetCommittee(big.NewInt(n))
+		if !committeeEqual(members, snail.GetGenesisCommittee()) {
+			t.Errorf("Elected members error for fast 1")
+		}
+	}
+}
+
+func TestGetCommittee(t *testing.T) {
+	snail, fast := makeChain(180)
+	election := NewElction(fast, snail, nodeType{})
+	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
+	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
+
+	if !committeeEqual(election.GetCommittee(last), election.snailchain.GetGenesisCommittee()) {
+		t.Errorf("Elected members error for genesis committee last fast")
+	}
+
+	if !committeeEqual(election.GetCommittee(new(big.Int).Add(last, common.Big1)), members) {
+		t.Errorf("Elected members error for committee1 first fast")
+	}
+}
+
+func TestCommitteeMembers(t *testing.T) {
 	// snail := newSnail(180)
 	election := NewFakeElection()
 	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
@@ -152,7 +181,7 @@ func TestElection1Members(t *testing.T) {
 	}
 }
 
-func TestElection2Members(t *testing.T) {
+func TestCommittee2Members(t *testing.T) {
 	// snail := newSnail(180)
 	// defer snail.Stop()
 	election := NewFakeElection()
@@ -167,38 +196,5 @@ func TestElection2Members(t *testing.T) {
 	}
 	if int64(len(members)) > params.MaximumCommitteeNumber.Int64() {
 		t.Errorf("Elected members exceed MAX member num")
-	}
-}
-
-func TestGenesisCommittee(t *testing.T) {
-	nums := []int64{1, 2, 3, 168, 179, 180}
-	snail, fast := makeChain(180)
-	// snail := newSnail(180)
-	// defer snail.Stop()
-	// t.Logf("create snail chain %v", snail.CurrentBlock().Number())
-	election := core.NewElction(fast, snail, nil)
-
-	// Get Genesis Committee
-	for _, n := range nums {
-		members := election.GetCommittee(big.NewInt(n))
-		if !committeeEqual(members, snail.GetGenesisCommittee()) {
-			t.Errorf("Elected members error for fast 1")
-		}
-	}
-}
-func TestGetCommittee(t *testing.T) {
-	// snail := newSnail(360)
-	// defer snail.Stop()
-	// t.Logf("create snail chain %v", snail.CurrentBlock().Number())
-	election := NewFakeElection()
-	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
-	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
-
-	if !committeeEqual(election.GetCommittee(last), election.snailchain.GetGenesisCommittee()) {
-		t.Errorf("Elected members error for genesis committee last fast")
-	}
-
-	if !committeeEqual(election.GetCommittee(new(big.Int).Add(last, common.Big1)), members) {
-		t.Errorf("Elected members error for committee1 first fast")
 	}
 }

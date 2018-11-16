@@ -146,10 +146,8 @@ type SnailBlockChain interface {
 }
 
 type Config interface {
-
 	GetNodeType() bool
 }
-
 
 func NewElction(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
