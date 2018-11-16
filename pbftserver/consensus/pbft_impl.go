@@ -205,15 +205,6 @@ func (state *State) StartConsensus(request *RequestMsg) (*PrePrepareMsg, error) 
 func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 	// Get ReqMsgs and save it to its logs like the primary.
 	state.MsgLogs.ReqMsg = prePrepareMsg.RequestMsg
-	log.Error("msg", "state0", state.MsgLogs.ReqMsg.Timestamp)
-	log.Error("RequestMsg", "digest0", prePrepareMsg.Digest)
-	log.Error("state", "p1", &state.MsgLogs.ReqMsg)
-	digest1, _ := digest(state.MsgLogs.ReqMsg)
-	log.Error("RequestMsg", "digest1", digest1)
-	digest2, _ := digest(prePrepareMsg.RequestMsg)
-	log.Error("RequestMsg", "digest2", digest2)
-
-	log.Error("RequestMsg", "digest2", prePrepareMsg.Digest)
 
 	// Verify if v, n(a.k.a. sequenceID), d are correct.
 	if !state.verifyMsg(prePrepareMsg.ViewID, prePrepareMsg.SequenceID, prePrepareMsg.Digest) {
@@ -305,8 +296,6 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 		return false
 	}
 	//}
-	log.Error("msg", "state", state.MsgLogs.ReqMsg.Timestamp)
-	log.Error("state", "p2", &state.MsgLogs.ReqMsg)
 	digest, err := digest(state.MsgLogs.ReqMsg)
 	if err != nil {
 		lock.PSLog("[digest]", "error", err.Error())
