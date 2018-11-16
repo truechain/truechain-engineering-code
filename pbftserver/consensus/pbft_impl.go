@@ -296,7 +296,6 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 		return false
 	}
 	//}
-
 	digest, err := digest(state.MsgLogs.ReqMsg)
 	if err != nil {
 		lock.PSLog("[digest]", "error", err.Error())

@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package snailchain
 
 import (
-	"errors"
 	"math"
 	"sync"
 	"time"
@@ -27,26 +26,15 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/core"
 )
 
 const (
 	fruitChanSize = 1024
+	chainHeadChanSize = 10
 )
 
-var (
-	ErrInvalidSign = errors.New("invalid sign")
-
-	ErrExist = errors.New("already exist")
-
-	ErrNotExist = errors.New("not exist")
-
-	ErrInvalidHash = errors.New("invalid hash")
-
-	//ErrFreshness          = errors.New("fruit not fresh")
-
-)
 
 var (
 	// Metrics for the pending pool
@@ -56,40 +44,13 @@ var (
 	// Metrics for the allfruit pool
 	allDiscardCounter = metrics.NewRegisteredCounter("fruitpool/all/discard", nil)
 	allReplaceCounter = metrics.NewRegisteredCounter("fruitpool/all/replace", nil)
+
+	evictionInterval    = time.Minute     // Time interval to check for evictable fruits
+	statsReportInterval = 8 * time.Second // Time interval to report fruits pool stats
 )
 
-// SnailChain defines a small collection of methods needed to access the local snail block chain.
-// Temporary interface for snail block chain
-type SnailChain interface {
-	// Config retrieves the blockchain's chain configuration.
-	Config() *params.ChainConfig
 
-	// CurrentHeader retrieves the current header from the local chain.
-	CurrentHeader() *types.SnailHeader
 
-	// GetHeader retrieves a block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
-
-	// GetHeaderByNumber retrieves a block header from the database by number.
-	GetHeaderByNumber(number uint64) *types.SnailHeader
-
-	// GetHeaderByHash retrieves a block header from the database by its hash.
-	GetHeaderByHash(hash common.Hash) *types.SnailHeader
-
-	// CurrentBlock retrieves the current block from the local chain.
-	CurrentBlock() *types.SnailBlock
-
-	// GetBlock retrieves a block from the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
-
-	// GetBlockByNumber retrieves a snail block from the database by number.
-	GetBlockByNumber(number uint64) *types.SnailBlock
-
-	// GetBlockByHash retrieves a snail block from the database by its hash.
-	GetBlockByHash(hash common.Hash) *types.SnailBlock
-
-	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
-}
 
 // SnailPoolConfig are the configuration parameters of the fruit pool.
 type SnailPoolConfig struct {
@@ -126,8 +87,8 @@ func (config *SnailPoolConfig) sanitize() SnailPoolConfig {
 // two states over time as they are received and processed.
 type SnailPool struct {
 	config    SnailPoolConfig
-	chain     SnailChain
-	fastchain *BlockChain
+	chain     core.SnailChain
+	fastchain *core.BlockChain
 
 	scope event.SubscriptionScope
 
@@ -139,7 +100,7 @@ type SnailPool struct {
 	chainHeadCh  chan types.ChainSnailHeadEvent
 	chainHeadSub event.Subscription
 
-	validator SnailValidator
+	validator core.SnailValidator
 
 	engine consensus.Engine // Consensus engine used for validating
 
@@ -157,7 +118,7 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit pool to gather, sort and filter inbound
 // fruits from the network.
-func NewSnailPool(config SnailPoolConfig, fastBlockChain *BlockChain, chain SnailChain, engine consensus.Engine, sv SnailValidator) *SnailPool {
+func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain core.SnailChain, engine consensus.Engine, sv core.SnailValidator) *SnailPool {
 
 	//config SnailPoolConfig
 	config = (&config).sanitize()
@@ -219,7 +180,7 @@ func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
 
 func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
-		return ErrExceedNumber
+		return core.ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
 

@@ -224,13 +224,13 @@ func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine 
 	}
 
 
-
+	blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts,*BlockChain) {
+	genblock := func(i int, parent *types.Block, statedb *state.StateDB,blockchain *BlockChain) (*types.Block, types.Receipts) {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
-		defer blockchain.Stop()
+
+		//defer blockchain.Stop()
 
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
@@ -253,24 +253,23 @@ func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine 
 			if err := statedb.Database().TrieDB().Commit(root, false); err != nil {
 				panic(fmt.Sprintf("trie write error: %v", err))
 			}
-			return block, b.receipts,blockchain
+			return block, b.receipts
 		}
-		return nil, nil,nil
+		return nil, nil
 	}
 
-	blockchains := &BlockChain{}
 	for i := 0; i < n; i++ {
 		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
 		if err != nil {
 			panic(err)
 		}
-		block, receipt, blockchain := genblock(i, parent, statedb)
+		block, receipt := genblock(i, parent, statedb,blockchain)
 		blocks[i] = block
 		receipts[i] = receipt
 		parent = block
-		blockchains = blockchain
+
 	}
-	return blocks, receipts,blockchains
+	return blocks, receipts,blockchain
 }
 
 
@@ -304,12 +303,43 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
 func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
-
-	engine.SetElection(NewFakeElection())
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 
 	})
 
 	return blocks
+}
+
+func NewCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+	db,blockchain,err := newCanonical(engine, n, full)
+	return db,blockchain,err
+}
+// newCanonical creates a chain database, and injects a deterministic canonical
+// chain. Depending on the full flag, if creates either a full block chain or a
+// header only chain.
+func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+	var (
+		db = ethdb.NewMemDatabase()
+	)
+
+	BaseGenesis := DefaultGenesisBlock()
+	genesis := BaseGenesis.MustFastCommit(db)
+	// Initialize a fresh chain with only a genesis block
+	//Initialize a new chain
+	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	// Create and inject the requested chain
+	if n == 0 {
+		return db, blockchain, nil
+	}
+	if full {
+		// Full block-chain requested
+		blocks := makeBlockChain(genesis, n, engine, db, 1)
+		_, err := blockchain.InsertChain(blocks)
+		return db, blockchain, err
+	}
+	// Header-only chain requested
+	headers := makeHeaderChain(genesis.Header(), n, engine, db, 1)
+	_, err := blockchain.InsertHeaderChain(headers, 1)
+	return db, blockchain, err
 }

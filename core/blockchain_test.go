@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -41,34 +40,6 @@ var (
 	forkSeed      = 2
 )
 
-// newCanonical creates a chain database, and injects a deterministic canonical
-// chain. Depending on the full flag, if creates either a full block chain or a
-// header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
-	var (
-		db = ethdb.NewMemDatabase()
-	)
-
-	BaseGenesis := DefaultGenesisBlock()
-	genesis := BaseGenesis.MustFastCommit(db)
-	// Initialize a fresh chain with only a genesis block
-	//Initialize a new chain
-	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	// Create and inject the requested chain
-	if n == 0 {
-		return db, blockchain, nil
-	}
-	if full {
-		// Full block-chain requested
-		blocks := makeBlockChain(genesis, n, engine, db, canonicalSeed)
-		_, err := blockchain.InsertChain(blocks)
-		return db, blockchain, err
-	}
-	// Header-only chain requested
-	headers := makeHeaderChain(genesis.Header(), n, engine, db, canonicalSeed)
-	_, err := blockchain.InsertHeaderChain(headers, 1)
-	return db, blockchain, err
-}
 
 //The test block is inserted into the chain
 func TestInsertBlock(t *testing.T) {
@@ -321,12 +292,11 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	)
 	height := uint64(1024)
 	engine := ethash.NewFaker()
-	engine.SetElection(NewFakeElection())
 
 	blocks, receipts := GenerateChain(gspec.Config, genesis,engine , gendb, int(height), nil)
 
 	// Configure a subchain to roll back
-	remove := []common.Hash{}
+	var remove []common.Hash
 	for _, block := range blocks[height/2:] {
 		remove = append(remove, block.Hash())
 	}
@@ -347,7 +317,6 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	gspec.MustFastCommit(archiveDb)
 
 	engine1 := ethash.NewFaker()
-	engine1.SetElection(NewFakeElection())
 	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, engine1, vm.Config{})
 	if n, err := archive.InsertChain(blocks); err != nil {
 		t.Fatalf("failed to process block %d: %v", n, err)
@@ -365,7 +334,6 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	gspec.MustFastCommit(fastDb)
 
 	engine = ethash.NewFaker()
-	engine.SetElection(NewFakeElection())
 
 	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, engine, vm.Config{})
 	defer fast.Stop()
@@ -811,7 +779,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}
 		b.StopTimer()
 		if got := chain.CurrentBlock().Transactions().Len(); got != numTxs*numBlocks {
-			b.Fatalf("Transactions were not included, expected %d, got %d", (numTxs * numBlocks), got)
+			b.Fatalf("Transactions were not included, expected %d, got %d", numTxs * numBlocks, got)
 
 		}
 	}

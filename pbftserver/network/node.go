@@ -213,6 +213,26 @@ func (node *Node) GetStatus(height int64) *consensus.State {
 	return nil
 }
 
+func (node *Node) SetStatusClear(height int64) {
+	node.lock.Lock()
+	defer node.lock.Unlock()
+	id := height % StateMax
+	if state, ok := node.States[id]; ok {
+		state.Clear = true
+		node.States[id] = state
+	}
+}
+
+func (node *Node) GetStatusClear(height int64) bool {
+	node.lock.Lock()
+	defer node.lock.Unlock()
+	id := height % StateMax
+	if state, ok := node.States[id]; ok {
+		return state.Clear
+	}
+	return false
+}
+
 func (node *Node) handleResult(msg *consensus.ReplyMsg) {
 	var res uint = 0
 	if msg.Result == "Executed" {
