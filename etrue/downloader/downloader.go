@@ -610,7 +610,7 @@ func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.SnailHeader, er
 			}
 			head := headers[0]
 			if head == nil || head.Number == nil {
-				p.GetLog().Debug("Remote head header is nil")
+				p.GetLog().Debug("Remote head header is nil","head",head)
 				return nil, errBadPeer
 			}
 			p.GetLog().Debug("Remote head header identified", "number", head.Number, "hash", head.Hash())
