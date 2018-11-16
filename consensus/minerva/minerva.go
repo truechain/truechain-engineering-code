@@ -22,18 +22,23 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"bytes"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"sync"
 	"time"
 	"unsafe"
+	"crypto/ecdsa"
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
@@ -419,6 +424,7 @@ func NewFaker() *Minerva {
 		config: Config{
 			PowMode: ModeFake,
 		},
+		election: newFakeElection(),
 	}
 }
 
@@ -510,4 +516,68 @@ func (m *Minerva) APIs(chain consensus.ChainReader) []rpc.API {
 // dataset.
 func SeedHash(block uint64) []byte {
 	return seedHash(block)
+}
+
+type fakeElection struct {
+	privates    []*ecdsa.PrivateKey
+	members     []*types.CommitteeMember
+}
+
+func newFakeElection() *fakeElection {
+	var priKeys []*ecdsa.PrivateKey
+	var members []*types.CommitteeMember
+
+	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
+		priKey, err := crypto.GenerateKey()
+		priKeys = append(priKeys,priKey)
+		if err != nil {
+			log.Error("initMembers", "error", err)
+		}
+		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+		members = append(members, m)
+	}
+	return &fakeElection{privates: priKeys, members: members}
+}
+
+func (e *fakeElection) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
+	 return e.members
+}
+
+func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
+	var (
+		members = make([]*types.CommitteeMember, len(signs))
+		errs = make([]error, len(signs))
+	)
+
+	for i, sign := range signs {
+		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
+		pubkeyByte := crypto.FromECDSAPub(pubkey)
+		for _, m := range e.members {
+			if bytes.Equal(pubkeyByte, crypto.FromECDSAPub(m.Publickey)) {
+				members[i] = m
+			}
+		}
+	}
+
+	return members, errs
+}
+
+func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error) {
+	var signs []*types.PbftSign
+	for _, privateKey := range e.privates {
+		voteSign := &types.PbftSign{
+			Result:     types.VoteAgree,
+			FastHeight: fb.Header().Number,
+			FastHash:   fb.Hash(),
+		}
+		var err error
+		signHash := voteSign.HashWithNoSign().Bytes()
+		voteSign.Sign, err = crypto.Sign(signHash, privateKey)
+		if err != nil {
+			log.Error("fb GenerateSign error ", "err", err)
+		}
+		signs = append(signs, voteSign)
+	}
+	return signs, nil
 }

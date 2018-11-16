@@ -452,7 +452,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		}
 	}
 
-	log.Info("get committee", "electFirst", beginElectionNumber, "electLast", endElectionNumber, "lastFast", lastFastNumber)
+	log.Debug("get committee", "electFirst", beginElectionNumber, "electLast", endElectionNumber, "lastFast", lastFastNumber)
 
 	members := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 	return &committee{

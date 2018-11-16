@@ -292,7 +292,6 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	)
 	height := uint64(1024)
 	engine := ethash.NewFaker()
-	engine.SetElection(NewFakeElection())
 
 	blocks, receipts := GenerateChain(gspec.Config, genesis,engine , gendb, int(height), nil)
 
@@ -318,7 +317,6 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	gspec.MustFastCommit(archiveDb)
 
 	engine1 := ethash.NewFaker()
-	engine1.SetElection(NewFakeElection())
 	archive, _ := NewBlockChain(archiveDb, nil, gspec.Config, engine1, vm.Config{})
 	if n, err := archive.InsertChain(blocks); err != nil {
 		t.Fatalf("failed to process block %d: %v", n, err)
@@ -336,7 +334,6 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	gspec.MustFastCommit(fastDb)
 
 	engine = ethash.NewFaker()
-	engine.SetElection(NewFakeElection())
 
 	fast, _ := NewBlockChain(fastDb, nil, gspec.Config, engine, vm.Config{})
 	defer fast.Stop()
