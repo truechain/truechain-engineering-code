@@ -312,3 +312,36 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 
 	return blocks
 }
+
+func NewCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+	db,blockchain,err := newCanonical(engine, n, full)
+	return db,blockchain,err
+}
+// newCanonical creates a chain database, and injects a deterministic canonical
+// chain. Depending on the full flag, if creates either a full block chain or a
+// header only chain.
+func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+	var (
+		db = ethdb.NewMemDatabase()
+	)
+
+	BaseGenesis := DefaultGenesisBlock()
+	genesis := BaseGenesis.MustFastCommit(db)
+	// Initialize a fresh chain with only a genesis block
+	//Initialize a new chain
+	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	// Create and inject the requested chain
+	if n == 0 {
+		return db, blockchain, nil
+	}
+	if full {
+		// Full block-chain requested
+		blocks := makeBlockChain(genesis, n, engine, db, 1)
+		_, err := blockchain.InsertChain(blocks)
+		return db, blockchain, err
+	}
+	// Header-only chain requested
+	headers := makeHeaderChain(genesis.Header(), n, engine, db, 1)
+	_, err := blockchain.InsertHeaderChain(headers, 1)
+	return db, blockchain, err
+}

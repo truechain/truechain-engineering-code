@@ -48,7 +48,8 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *S
 		genesis = new(core.Genesis).MustSnailCommit(db)
 	)
 
-	fastChain := core.NewCanonical(minerva.NewFaker(), n * params.MinimumFruits, true)
+	_, fastChain ,_ := core.NewCanonical(minerva.NewFaker(), (n * params.MinimumFruits), true)
+
 	// Initialize a fresh chain with only a genesis block
 	blockchain, _ := NewSnailBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
@@ -1168,7 +1169,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 
 	db := ethdb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
-	fastChain := core.NewCanonical(minerva.NewFaker(), 0, true)
+	_,fastChain,_ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
@@ -1214,7 +1215,7 @@ func TestTrieForkGC(t *testing.T) {
 
 	db := ethdb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
-	fastChain := core.NewCanonical(minerva.NewFaker(), 0, true)
+	_,fastChain,_ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
@@ -1254,7 +1255,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
 
-	fastChain := core.NewCanonical(minerva.NewFaker(), 0, true)
+	_,fastChain,_ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 	original := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
 	competitor := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
@@ -1324,7 +1325,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 			block.AddTx(tx)
 		}*/
 	}
-	fastChain := core.NewCanonical(minerva.NewFaker(), 0, true)
+	_,fastChain,_ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, numBlocks, blockGenerator)
 	b.StopTimer()
 	b.ResetTimer()
