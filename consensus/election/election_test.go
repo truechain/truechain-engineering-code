@@ -17,6 +17,9 @@
 package election
 
 import (
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"math/big"
 	"testing"
 
@@ -34,12 +37,12 @@ var (
 
 func makeTestBlock() *types.Block {
 	db := ethdb.NewMemDatabase()
-	BaseGenesis := new(Genesis)
+	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   FastCalcGasLimit(genesis),
+		GasLimit:   core.FastCalcGasLimit(genesis),
 	}
 	fb := types.NewBlock(header, nil, nil, nil)
 	return fb
@@ -94,7 +97,7 @@ func committeeEqual(left, right []*types.CommitteeMember) bool {
 	return true
 }
 
-/*
+
 func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	var (
 		testdb  = ethdb.NewMemDatabase()
@@ -135,7 +138,7 @@ func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Data
 
 	return blocks
 }
-*/
+
 
 func TestElection1Members(t *testing.T) {
 	// snail := newSnail(180)
