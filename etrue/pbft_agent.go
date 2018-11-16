@@ -27,6 +27,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -91,7 +92,7 @@ type PbftAgent struct {
 	endFastNumber        map[*big.Int]*big.Int
 
 	server   types.PbftServerProxy
-	election *core.Election
+	election *elect.Election
 
 	mu           *sync.Mutex //generateBlock mutex
 	cacheBlockMu *sync.Mutex //PbftAgent.cacheBlock mutex
@@ -136,7 +137,7 @@ type AgentWork struct {
 }
 
 // NodeInfoEvent is posted when nodeInfo send
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *core.Election, coinbase common.Address) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election, coinbase common.Address) *PbftAgent {
 	self := &PbftAgent{
 		config:               config,
 		engine:               engine,

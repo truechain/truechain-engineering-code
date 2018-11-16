@@ -31,6 +31,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -75,7 +76,7 @@ type Truechain struct {
 	snailPool *chain.SnailPool
 
 	agent    *PbftAgent
-	election *core.Election
+	election *elect.Election
 
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -207,7 +208,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = core.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = elect.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
