@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package snailchain
 
 import (
 	"fmt"
@@ -28,22 +28,29 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/ethdb"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/core"
 )
 
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
 // sideeffects used during testing.
 var testSnailPoolConfig SnailPoolConfig
-var blockchain *BlockChain
-var snailblockchain *snailchain.SnailBlockChain
+var blockchain *core.BlockChain
+var snailblockchain *SnailBlockChain
 var engine consensus.Engine
 var chainConfig *params.ChainConfig
+var peerDb  ethdb.Database // Database of the peers containing all data
 
 func init() {
+	peerDb = ethdb.NewMemDatabase()
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""
+
+	blockchain, _ =core.NewBlockChain( peerDb, nil, params.AllMinervaProtocolChanges, ethash.NewFaker(), vm.Config{})
 }
 
 type testSnailChain struct {
@@ -121,7 +128,8 @@ func fruit(fastNumber *big.Int, fruitDifficulty *big.Int) *types.SnailBlock {
 }
 
 func setupSnailPool() (*SnailPool) {
-	sv := snailchain.NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
+
+	sv := NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
 	snailblockchain := &testSnailChain{new(event.Feed)}
 	pool := NewSnailPool(testSnailPoolConfig, blockchain, snailblockchain, engine, sv)
 	return pool
@@ -328,7 +336,7 @@ func testFruitJournaling(t *testing.T) {
 	// Terminate the old pool,create a new pool and ensure relevant fruit survive
 	pool.Stop()
 
-	sv := snailchain.NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
+	sv := NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
 	pool = NewSnailPool(testSnailPoolConfig, blockchain, snailblockchain, engine, sv)
 
 	pending, unverified = pool.Stats()
@@ -342,7 +350,7 @@ func testFruitJournaling(t *testing.T) {
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
-	sv = snailchain.NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
+	sv = NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
 	pool = NewSnailPool(testSnailPoolConfig, blockchain, snailblockchain, engine, sv)
 	pending, unverified = pool.Stats()
 	if pending != 0 {

@@ -335,17 +335,17 @@ var (
 	SnailPoolJournalFlag = cli.StringFlag{
 		Name:  "fruitpool.journal",
 		Usage: "Disk journal for local fruit to survive node restarts",
-		Value: core.DefaultSnailPoolConfig.Journal,
+		Value: snailchain.DefaultSnailPoolConfig.Journal,
 	}
 	SnailPoolRejournalFlag = cli.DurationFlag{
 		Name:  "fruitpool.rejournal",
 		Usage: "Time interval to regenerate the local fruit journal",
-		Value: core.DefaultSnailPoolConfig.Rejournal,
+		Value: snailchain.DefaultSnailPoolConfig.Rejournal,
 	}
 	SnailPoolFruitCountFlag = cli.Uint64Flag{
 		Name:  "fruitpool.count",
 		Usage: "Maximum amount of fruits in fruitPending",
-		Value: core.DefaultSnailPoolConfig.FruitCount,
+		Value: snailchain.DefaultSnailPoolConfig.FruitCount,
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
@@ -1061,7 +1061,7 @@ func setEthash(ctx *cli.Context, cfg *etrue.Config) {
 	}
 }
 
-func setSnailPool(ctx *cli.Context, cfg *core.SnailPoolConfig) {
+func setSnailPool(ctx *cli.Context, cfg *snailchain.SnailPoolConfig) {
 	if ctx.GlobalIsSet(SnailPoolJournalFlag.Name) {
 		cfg.Journal = ctx.GlobalString(SnailPoolJournalFlag.Name)
 	}
