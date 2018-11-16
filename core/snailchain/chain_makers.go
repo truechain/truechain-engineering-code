@@ -28,6 +28,7 @@ import (
 	"time"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core"
+	//"github.com/truechain/磊/true/core/snailchain"
 )
 
 // BlockGen creates blocks for testing.
@@ -137,7 +138,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 
 		if b.engine != nil {
 			// TODO: add fruits support
-			block, _ := MakeSnailBlockFruit(blockchain, fastChain, n * params.MinimumFruits, params.MinimumFruits, blockchain.genesisBlock.PublicKey(), blockchain.genesisBlock.Coinbase(), true,nil)
+			block, _ := MakeSnailBlockFruit(blockchain, fastChain, 1,n * params.MinimumFruits, params.MinimumFruits, blockchain.genesisBlock.PublicKey(), blockchain.genesisBlock.Coinbase(), true,nil)
 			//block, _ := b.engine.FinalizeSnail(b.chainReader, b.header, b.uncles, b.fruits, b.signs)
 
 			return block
@@ -200,7 +201,7 @@ func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int,
 // makeStartFastNum,makeFruitSize :if you create  a block the fruitset  startnumber and size this is fastblock number
 //pubkey : for election
 // coinbaseAddr: for coin
-func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, makeStartFastNum int,makeFruitSize int,
+func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain,makeBlockNum int, makeStartFastNum int,makeFruitSize int,
 	pubkey []byte,coinbaseAddr common.Address,isBlock bool,diff *big.Int) (*types.SnailBlock,error){
 
 	var  fruitsetCopy []*types.SnailBlock
@@ -231,12 +232,12 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 	makeHead := func(chain *SnailBlockChain,pubkey []byte,coinbaseAddr common.Address,fastNumber *big.Int,isFruit bool)(*types.SnailHeader) {
 		parent := chain.CurrentBlock()
-		num := parent.Number()
+		//num := parent.Number()
 		tstamp := time.Now().Unix()
 		header := &types.SnailHeader{
 			ParentHash: parent.Hash(),
 			Publickey:  pubkey,
-			Number:     num.Add(num, common.Big1),
+			Number:    new(big.Int).SetUint64(uint64(makeBlockNum)),
 			Time:       big.NewInt(tstamp),
 			Coinbase: coinbaseAddr,
 			Fruit: isFruit,
@@ -287,7 +288,7 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 	// creat fruits
 	if isBlock {
-		for i := makeStartFastNum; i<= makeStartFastNum+makeFruitSize; i++{
+		for i := makeStartFastNum; i< makeStartFastNum+makeFruitSize; i++{
 			fruit ,err:= makeFruit(chain,fastchain,new(big.Int).SetInt64(int64(i)),pubkey,coinbaseAddr)
 			if err != nil{
 				return nil, err
@@ -323,3 +324,24 @@ func MakeSnailBlockFruit(chain *SnailBlockChain,fastchain *core.BlockChain, make
 
 }
 
+
+func MakeSnailBlockFruits(chain *SnailBlockChain,fastchain *core.BlockChain, makeStarblockNumber int,makeblockSize int,
+	makeStartFastNum int,makeFruitSize int, pubkey []byte,coinbaseAddr common.Address,isBlock bool,diff *big.Int) ([]*types.SnailBlock,error) {
+
+	var blocks types.SnailBlocks
+	//var snailFruitsLastFastNumber *big.Int
+	//blocks = make(types.SnailBlock,makeblockSize)
+
+	j:=1
+	for i:=makeStarblockNumber; i< makeblockSize+makeStarblockNumber; i++ {
+
+		block ,err:=MakeSnailBlockFruit(chain,fastchain,i,makeStartFastNum*j,params.MinimumFruits,pubkey,coinbaseAddr,true,diff)
+		if err != nil{
+			return nil,err
+		}
+		blocks= append(blocks,block)
+		j++
+	}
+
+	return blocks ,nil
+}
