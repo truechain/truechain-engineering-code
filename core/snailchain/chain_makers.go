@@ -28,8 +28,10 @@ import (
 	"time"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core"
-	//"github.com/truechain/磊/true/core/snailchain"
-)
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	//"github.com/truechain/truechain-engineering-code/etrue"
+
+	)
 
 // BlockGen creates blocks for testing.
 // See GenerateChain for a detailed explanation.
@@ -344,4 +346,47 @@ func MakeSnailBlockFruits(chain *SnailBlockChain,fastchain *core.BlockChain, mak
 	}
 
 	return blocks ,nil
+}
+
+
+func MakeChain(fastBlockNumbers int,snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
+	var (
+		testdb  = ethdb.NewMemDatabase()
+		// genesis = new(core.Genesis).MustSnailCommit(testdb)
+		genesis = core.DefaultGenesisBlock()
+		engine  = minerva.NewFaker()
+
+	)
+	//blocks := make(types.SnailBlocks, 2)
+	cache := &core.CacheConfig{
+		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	}
+
+	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits{
+		return nil,nil
+	}
+
+	fastGenesis := genesis.MustFastCommit(testdb)
+	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	//fastblocks := makeFast(fastGenesis, n * params.MinimumFruits, engine, testdb, canonicalSeed)
+
+	//engine.SetElection(core.NewFakeElection())
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, fastBlockNumbers, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+	})
+
+	fastchain.InsertChain(fastblocks)
+
+	snailGenesis := genesis.MustSnailCommit(testdb)
+	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+
+	blocks1 , err := MakeSnailBlockFruits(snailChain, fastchain, 1,snailBlockNumbers , 1,fastBlockNumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true,nil)
+	if err!=nil{
+		return nil,nil
+	}
+	snailChain.InsertChain(blocks1)
+
+
+	return snailChain, fastchain
 }
