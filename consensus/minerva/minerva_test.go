@@ -27,7 +27,6 @@ import (
 	"sync"
 	"testing"
 
-	"fmt"
 	"math/big"
 )
 
@@ -91,9 +90,33 @@ func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 
 func TestAwardTest(t *testing.T) {
 	//getCurrentBlockCoins(big.NewInt(5000));
-	fmt.Println(getCurrentCoin(big.NewInt(1)))
-	fmt.Println(getCurrentCoin(big.NewInt(5000)))
-	fmt.Println(getCurrentCoin(big.NewInt(9000)))
+	//fmt.Println(getCurrentCoin(big.NewInt(1)))
+	//fmt.Println(getCurrentCoin(big.NewInt(5000)))
+	//fmt.Println(getCurrentCoin(big.NewInt(9000)))
+	//
+	//fmt.Println(getBlockReward(big.NewInt(9000)))
 
-	fmt.Println(getBlockReward(big.NewInt(9000)))
+	//snailchain.MakeChain(160,2)
+	//sblock := snailChain.GetBlockByNumber(uint64(1))
+	//header := &types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(100), FastNumber: big.NewInt(2)}
+	//minerva := NewTester()
+	//results := make(chan *types.SnailBlock)
+	//
+	////block := types.NewSnailBlockWithHeader(header)
+	//header :=sblock.Header()
+	//go minerva.ConSeal(nil, sblock, nil, results)
+	//
+	//select {
+	//case block := <-results:
+	//	header.Fruit = block.IsFruit()
+	//	header.Nonce = types.EncodeNonce(block.Nonce())
+	//	header.MixDigest = block.MixDigest()
+	//
+	//	if err := minerva.VerifySnailSeal(nil, header); err != nil {
+	//		t.Fatalf("unexpected verification error: %v", err)
+	//	}
+	//case <-time.NewTimer(time.Second * 500).C:
+	//	t.Error("sealing result timeout")
+	//}
+
 }

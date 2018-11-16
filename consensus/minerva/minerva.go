@@ -18,23 +18,23 @@
 package minerva
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"errors"
 	"math/big"
 	"math/rand"
 	"os"
-	"bytes"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"sync"
 	"time"
 	"unsafe"
-	"crypto/ecdsa"
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/hashicorp/golang-lru/simplelru"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -237,12 +237,12 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		lru.cache.Add(epoch, item)
 	}
 	// Update the 'future item' if epoch is larger than previously seen.
-	if epoch < maxEpoch-1 && lru.future < epoch+1 {
-		log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
-		future = lru.new(epoch + 1)
-		lru.future = epoch + 1
-		lru.futureItem = future
-	}
+	//if epoch < maxEpoch-1 && lru.future < epoch+1 {
+	//	log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
+	//	future = lru.new(epoch + 1)
+	//	lru.future = epoch + 1
+	//	lru.futureItem = future
+	//}
 	return item, future
 }
 
@@ -254,8 +254,6 @@ type dataset struct {
 	dataset  []uint64  // The actual cache data content
 	once     sync.Once // Ensures the cache is generated only once
 	dateInit int
-	Flag     int
-	//evenFlag	int
 }
 
 // newDataset creates a new truehash mining dataset
@@ -263,7 +261,6 @@ func newDataset(epoch uint64) interface{} {
 	ds := &dataset{
 		epoch:    epoch,
 		dateInit: 0,
-		Flag:     0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
@@ -349,49 +346,58 @@ func New(config Config) *Minerva {
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
 	epoch := block / epochLength
-	currentI, futureI := m.datasets.get(epoch)
+	log.Debug("epoch value: ", epoch, "------", "block number is: ", block)
+	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
 	current.generate(block, m)
-	if futureI != nil {
-		future := futureI.(*dataset)
-		future.generate(block, m)
-
-	}
+	//if futureI != nil {
+	//	future := futureI.(*dataset)
+	//	future.generate(block, m)
+	//
+	//}
 	return current
 }
 
 // generate ensures that the dataset content is generated before use.
 func (d *dataset) generate(blockNum uint64, m *Minerva) {
-	if d.dateInit == 0 {
-		//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-		if blockNum <= UPDATABLOCKLENGTH {
-			m.truehashTableInit(d.dataset)
-
-		} else {
-			bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-			d.Flag = 0
-			flag, ds := m.updateLookupTBL(bn, d.dataset)
-			if flag {
-				d.dataset = ds
+	d.once.Do(func() {
+		//fmt.Println("d.once:",blockNum)
+		if d.dateInit == 0 {
+			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+			// blockNum <= UPDATABLOCKLENGTH
+			if blockNum <= UPDATABLOCKLENGTH {
+				m.truehashTableInit(d.dataset)
+				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+			} else {
+				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+				//d.Flag = 0
+				flag, ds := m.updateLookupTBL(bn, d.dataset)
+				if flag {
+					d.dataset = ds
+				} else {
+					log.Error("updateLookupTBL is err  ", "blockNum is:  ", blockNum)
+				}
 			}
+			d.dateInit = 1
 		}
-		d.dateInit = 1
-	}
+	})
 
-	if blockNum%UPDATABLOCKLENGTH >= STARTUPDATENUM {
-		//m.updateLookupTBL(blockNum, d.dataset)
-		if d.Flag == 0 {
-			flag, ds := m.updateLookupTBL(blockNum, d.dataset)
-			if flag {
-				d.dataset = ds
-				d.Flag = 1
-			}
+	//go d.updateTable(blockNum, m)
+
+}
+
+func (d *dataset) updateTable(blockNum uint64, m *Minerva) {
+	if blockNum%UPDATABLOCKLENGTH == STARTUPDATENUM+1 {
+		epoch := blockNum / epochLength
+		currentI, _ := m.datasets.get(epoch + 1)
+		current := currentI.(*dataset)
+		if current.dateInit == 0 {
+			current.generate(blockNum, m)
+			//fmt.Println(blockNum)
 		}
-	}
-
-	if blockNum%UPDATABLOCKLENGTH == 1 {
-		d.Flag = 0
 	}
 }
 
@@ -519,8 +525,8 @@ func SeedHash(block uint64) []byte {
 }
 
 type fakeElection struct {
-	privates    []*ecdsa.PrivateKey
-	members     []*types.CommitteeMember
+	privates []*ecdsa.PrivateKey
+	members  []*types.CommitteeMember
 }
 
 func newFakeElection() *fakeElection {
@@ -529,7 +535,7 @@ func newFakeElection() *fakeElection {
 
 	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
 		priKey, err := crypto.GenerateKey()
-		priKeys = append(priKeys,priKey)
+		priKeys = append(priKeys, priKey)
 		if err != nil {
 			log.Error("initMembers", "error", err)
 		}
@@ -541,13 +547,13 @@ func newFakeElection() *fakeElection {
 }
 
 func (e *fakeElection) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
-	 return e.members
+	return e.members
 }
 
 func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
 	var (
 		members = make([]*types.CommitteeMember, len(signs))
-		errs = make([]error, len(signs))
+		errs    = make([]error, len(signs))
 	)
 
 	for i, sign := range signs {

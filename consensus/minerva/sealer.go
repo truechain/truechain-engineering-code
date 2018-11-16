@@ -287,6 +287,7 @@ search:
 
 func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 
+	log.Debug("truehashTableInit start ")
 	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
 
 	for k := 0; k < TBLSIZE; k++ {
@@ -300,32 +301,35 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 }
 
 func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, []uint64) {
-
+	log.Info("updateupTBL start ，", "blockNum is:	", blockNum)
 	const offset_cnst = 0x1f
 	const skip_cnst = 0x3
 	var offset [32768]int
 	var skip [32768]int
 
 	cur_block_num := blockNum
+	//res := cur_block_num % UPDATABLOCKLENGTH
 	res := cur_block_num % UPDATABLOCKLENGTH
 	sblockchain := m.sbc
 	//current block number is invaild
 
-	if sblockchain == nil{
-		return  false, nil
+	if sblockchain == nil {
+		log.Error("sblockchain is nil  ", "blockNum is:  ", blockNum)
+		return false, nil
 	}
-
+	//res <= STARTUPDATENUM
 	if res <= STARTUPDATENUM {
+		log.Error("----The value is less than the reservation value---- ", "blockNum is:  ", blockNum)
 		return false, nil
 	}
 	var st_block_num uint64 = uint64(cur_block_num - res)
+	//for i := 0; i < 8192; i++ {
+	for i := 0; i < 2080; i++ {
 
-	for i := 0; i < 8192; i++ {
-
-
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
-		if header == nil{
-			return false,nil
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + 1)
+		if header == nil {
+			return false, nil
+			log.Error("----updateTBL--The header is nil---- ", "blockNum is:  ", blockNum)
 		}
 		val := header.Hash().Bytes()
 		offset[i*4] = (int(val[0]) & offset_cnst) - 16
@@ -334,8 +338,9 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 		offset[i*4+3] = (int(val[3]) & offset_cnst) - 16
 	}
 
-	for i := 0; i < 2048; i++ {
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(8192))
+	//for i := 0; i < 2048; i++ {
+	for i := 0; i < 520; i++ {
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(8192) + 1)
 		val := header.Hash().Bytes()
 		for k := 0; k < 16; k++ {
 			skip[i*16+k] = (int(val[k]) & skip_cnst) + 1
