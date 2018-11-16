@@ -73,12 +73,14 @@ type downloadTester struct {
 	peerMissingStates map[string]map[common.Hash]bool // State entries that fast sync should not return
 
 	lock sync.RWMutex
+
 }
 
 // newTester creates a new downloader test mocker.
 func newTester() *downloadTester {
 	testdb := ethdb.NewMemDatabase()
-	genesis := core.GenesisSnailBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
+	BaseGenesis := core.DefaultGenesisBlock()
+	genesis := BaseGenesis.MustSnailCommit(testdb)
 
 	tester := &downloadTester{
 		genesis:           genesis,
