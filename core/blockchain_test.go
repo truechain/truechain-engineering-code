@@ -41,6 +41,9 @@ var (
 	forkSeed      = 2
 )
 
+func NewCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+	return newCanonical(engine, n, full)
+}
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
@@ -326,7 +329,7 @@ func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	blocks, receipts := GenerateChain(gspec.Config, genesis,engine , gendb, int(height), nil)
 
 	// Configure a subchain to roll back
-	remove := []common.Hash{}
+	var remove []common.Hash
 	for _, block := range blocks[height/2:] {
 		remove = append(remove, block.Hash())
 	}
@@ -811,7 +814,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 		}
 		b.StopTimer()
 		if got := chain.CurrentBlock().Transactions().Len(); got != numTxs*numBlocks {
-			b.Fatalf("Transactions were not included, expected %d, got %d", (numTxs * numBlocks), got)
+			b.Fatalf("Transactions were not included, expected %d, got %d", numTxs * numBlocks, got)
 
 		}
 	}
