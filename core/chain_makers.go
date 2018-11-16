@@ -217,6 +217,63 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	return blocks, receipts
 }
 
+
+func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts,*BlockChain) {
+	if config == nil {
+		config = params.TestChainConfig
+	}
+
+
+	blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
+	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
+	genblock := func(i int, parent *types.Block, statedb *state.StateDB,blockchain *BlockChain) (*types.Block, types.Receipts) {
+		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
+		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
+
+		//defer blockchain.Stop()
+
+		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
+		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
+		// Execute any user modifications to the block and finalize it
+		if gen != nil {
+			gen(i, b)
+		}
+
+		if b.engine != nil {
+			//fmt.Println("====================================================")
+			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+
+			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
+			block.SetSign(sign)
+			// Write state changes to db
+			root, err := statedb.Commit(true)
+			if err != nil {
+				panic(fmt.Sprintf("state write error: %v", err))
+			}
+			if err := statedb.Database().TrieDB().Commit(root, false); err != nil {
+				panic(fmt.Sprintf("trie write error: %v", err))
+			}
+			return block, b.receipts
+		}
+		return nil, nil
+	}
+
+	for i := 0; i < n; i++ {
+		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
+		if err != nil {
+			panic(err)
+		}
+		block, receipt := genblock(i, parent, statedb,blockchain)
+		blocks[i] = block
+		receipts[i] = receipt
+		parent = block
+
+	}
+	return blocks, receipts,blockchain
+}
+
+
+
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time *big.Int
 	if parent.Time() == nil {
@@ -247,7 +304,7 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
 func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
 
-	engine.SetElection(NewFakeElection())
+	// engine.SetElection(NewFakeElection())
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 

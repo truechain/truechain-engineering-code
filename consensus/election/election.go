@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package election
 
 import (
 	"bytes"
@@ -30,6 +30,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -112,7 +113,7 @@ type Election struct {
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
 
-	fastchain  *BlockChain
+	fastchain  *core.BlockChain
 	snailchain SnailBlockChain
 
 	engine consensus.Engine
@@ -150,7 +151,7 @@ type Config interface {
 }
 
 
-func NewElction(fastBlockChain *BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
+func NewElction(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
 	election := &Election{
 		fastchain:        fastBlockChain,
@@ -184,7 +185,7 @@ func NewFakeElection() *Election {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
 
-	for i := 0; i < 4; i++ {
+	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
 		priKey, err := crypto.GenerateKey()
 		priKeys = append(priKeys,priKey)
 		if err != nil {

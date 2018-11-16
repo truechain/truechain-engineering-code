@@ -84,6 +84,38 @@ type CacheConfig struct {
 // important to note that GetBlock can return any block and does not need to be
 // included in the canonical one where as GetBlockByNumber always represents the
 // canonical chain.
+// SnailChain defines a small collection of methods needed to access the local snail block chain.
+// Temporary interface for snail block chain
+type SnailChain interface {
+	// Config retrieves the blockchain's chain configuration.
+	Config() *params.ChainConfig
+
+	// CurrentHeader retrieves the current header from the local chain.
+	CurrentHeader() *types.SnailHeader
+
+	// GetHeader retrieves a block header from the database by hash and number.
+	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
+
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetHeaderByNumber(number uint64) *types.SnailHeader
+
+	// GetHeaderByHash retrieves a block header from the database by its hash.
+	GetHeaderByHash(hash common.Hash) *types.SnailHeader
+
+	// CurrentBlock retrieves the current block from the local chain.
+	CurrentBlock() *types.SnailBlock
+
+	// GetBlock retrieves a block from the database by hash and number.
+	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
+
+	// GetBlockByNumber retrieves a snail block from the database by number.
+	GetBlockByNumber(number uint64) *types.SnailBlock
+
+	// GetBlockByHash retrieves a snail block from the database by its hash.
+	GetBlockByHash(hash common.Hash) *types.SnailBlock
+
+	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
+}
 type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning

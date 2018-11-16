@@ -33,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -53,7 +54,7 @@ var DefaultConfig = Config{
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
 	TxPool:    core.DefaultTxPoolConfig,
-	SnailPool: core.DefaultSnailPoolConfig,
+	SnailPool: snailchain.DefaultSnailPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
@@ -134,7 +135,7 @@ type Config struct {
 	TxPool core.TxPoolConfig
 
 	//fruit pool options
-	SnailPool core.SnailPoolConfig
+	SnailPool snailchain.SnailPoolConfig
 
 	// Gas Price Oracle options
 	GPO gasprice.Config
