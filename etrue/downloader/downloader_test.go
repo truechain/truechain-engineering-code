@@ -19,7 +19,10 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -41,6 +44,10 @@ import (
 var (
 	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress = crypto.PubkeyToAddress(testKey.PublicKey)
+	canonicalSeed = 1
+	TrieCache=    256
+	TrieTimeout=   60 * time.Minute
+
 )
 
 // Reduce some of the parameters to make the tester faster.
@@ -53,7 +60,8 @@ func init() {
 // downloadTester is a test simulator for mocking out local block chain.
 type downloadTester struct {
 	downloader *Downloader
-
+	fdownloader *fastdownloader.Downloader
+	ftester *fastdownloader.DownloadTester
 	genesis *types.SnailBlock   // Genesis blocks used by the tester and peers
 	stateDb ethdb.Database // Database used by the tester for syncing from peers
 	peerDb  ethdb.Database // Database of the peers containing all data
@@ -76,14 +84,15 @@ type downloadTester struct {
 
 }
 
+
 // newTester creates a new downloader test mocker.
 func newTester() *downloadTester {
 	testdb := ethdb.NewMemDatabase()
-	BaseGenesis := core.DefaultGenesisBlock()
-	genesis := BaseGenesis.MustSnailCommit(testdb)
+	genesis := core.GenesisSnailBlockForTesting(testdb,testAddress, big.NewInt(1000000000))
 
 	tester := &downloadTester{
 		genesis:           genesis,
+
 		peerDb:            testdb,
 		ownHashes:         []common.Hash{genesis.Hash()},
 		ownHeaders:        map[common.Hash]*types.SnailHeader{genesis.Hash(): genesis.Header()},
@@ -95,9 +104,14 @@ func newTester() *downloadTester {
 		peerChainTds:      make(map[string]map[common.Hash]*big.Int),
 		peerMissingStates: make(map[string]map[common.Hash]bool),
 	}
+
 	tester.stateDb = ethdb.NewMemDatabase()
 
-	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer,nil)
+	fasttester := fastdownloader.NewTester(testdb)
+
+	tester.ftester=fasttester
+	tester.fdownloader = fastdownloader.New(fastdownloader.FullSync, tester.stateDb, new(event.TypeMux), fasttester, nil, tester.dropPeer)
+	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer,tester.fdownloader)
 
 	return tester
 }
@@ -111,26 +125,60 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 
 	// Initialize a fresh chain with only a genesis block
 	// Initialize a new chain
+	var (
+		testdb  = dl.peerDb
+		//genesis = parent
+		engine  = ethash.NewFaker()
+
+	)
+	//blocks := make(types.SnailBlocks, 2)
+	cache := &core.CacheConfig{
+		//TrieNodeLimit: TrieCache,
+		//TrieTimeLimit: TrieTimeout,
+	}
 
 
-	BaseGenesis := core.DefaultGenesisBlock()
-	genesis := BaseGenesis.MustFastCommit(dl.peerDb)
-	fastblocks, _ ,blockchain:= core.GenerateBlockChain(params.TestChainConfig, genesis, ethash.NewFaker(), dl.peerDb, 0, func(i int, block *core.BlockGen) {
-		block.SetCoinbase(common.Address{0x00})
 
+
+	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	//fastblocks := makeFast(fastGenesis, n * params.MinimumFruits, engine, testdb, canonicalSeed)
+
+	//engine.SetElection(core.NewFakeElection())
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, dl.ftester.GetGenesis(), engine, testdb, n * params.MinimumFruits, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
-	blockchain.InsertChain(fastblocks)
+	fastchain.InsertChain(fastblocks)
 
-	blocks := snailchain.GenerateChain(params.TestChainConfig,blockchain, parent, ethash.NewFaker(), dl.peerDb, n, func(i int, block *snailchain.BlockGen) {
-		//block.SetCoinbase(common.Address{seed})
-		block.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-		// If a heavy chain is requested, delay blocks to raise difficulty
-		if heavy {
-			block.OffsetTime(-1)
-		}
-		// If the block number is multiple of 3, send a bonus transaction to the miner
-	})
+
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+
+	blocks , _ := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1,n , 1,n * params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true,nil)
+
+	snailChain.InsertChain(blocks)
+
+
+
+
+	//fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	//fastblocks := makeFast(dl.ftester.GetGenesis(), 1 * params.MinimumFruits, engine, testdb, canonicalSeed)
+	//fastchain.InsertChain(fastblocks)
+
+
+
+	//snailChain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	//blocks1 , _ := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1,2 , 1,120, genesis.PublicKey(), genesis.Coinbase(), true,nil)
+	//snailChain.InsertChain(blocks1)
+
+
+
+	//fastblocks, _ ,blockchain:= core.GenerateBlockChain(params.TestChainConfig, dl.ftester.GetGenesis(), ethash.NewFaker(), dl.peerDb, 0, func(i int, block *core.BlockGen) {
+	//	block.SetCoinbase(common.Address{0x00})
+	//})
+	//
+	//blockchain.InsertChain(fastblocks)
+
+
 	// Convert the block-chain into a hash-chain and header/block maps
 	hashes := make([]common.Hash, n+1)
 	hashes[len(hashes)-1] = parent.Hash()
@@ -149,6 +197,17 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	}
 	return hashes, headerm, blockm
 }
+
+
+// makeBlockChain creates a deterministic chain of blocks rooted at parent.
+func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
+	})
+
+	return blocks
+}
+
 
 // makeChainFork creates two chains of length n, such that h1[:f] and
 // h2[:f] are different but have a common suffix of length n-f.
@@ -634,7 +693,7 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks := tester.makeChain(10, 0, tester.genesis, false)
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 
