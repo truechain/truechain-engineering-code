@@ -3,6 +3,7 @@ package consensus
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
@@ -206,8 +207,11 @@ func (state *State) PrePrepare(prePrepareMsg *PrePrepareMsg) (*VoteMsg, error) {
 	// Get ReqMsgs and save it to its logs like the primary.
 	state.MsgLogs.ReqMsg = prePrepareMsg.RequestMsg
 
+	fmt.Println("state", "state.MsgLogs.ReqMsg", state.MsgLogs.ReqMsg)
+
 	// Verify if v, n(a.k.a. sequenceID), d are correct.
 	if !state.verifyMsg(prePrepareMsg.ViewID, prePrepareMsg.SequenceID, prePrepareMsg.Digest) {
+		log.Error("preparemsg", "msg", prePrepareMsg)
 		return nil, errors.New("pre-prepare message is corrupted")
 	}
 	// Change the stage to pre-prepared.
@@ -298,6 +302,7 @@ func (state *State) verifyMsg(viewID int64, sequenceID int64, digestGot string) 
 	//}
 
 	digest, err := digest(state.MsgLogs.ReqMsg)
+	log.Info("digest", "reqMsg", state.MsgLogs.ReqMsg)
 	if err != nil {
 		lock.PSLog("[digest]", "error", err.Error())
 		return false
