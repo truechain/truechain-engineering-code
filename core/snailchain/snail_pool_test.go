@@ -18,120 +18,88 @@ package snailchain
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
-	"testing"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
-	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"testing"
+	"io/ioutil"
+	"os"
 )
 
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
 // sideeffects used during testing.
 var testSnailPoolConfig SnailPoolConfig
-var blockchain *core.BlockChain
+var fastchain *core.BlockChain
 var snailblockchain *SnailBlockChain
 var engine consensus.Engine
 var chainConfig *params.ChainConfig
-var peerDb  ethdb.Database // Database of the peers containing all data
+var peerDb ethdb.Database // Database of the peers containing all data
+var genesis *core.Genesis
+var snailGenesis *types.SnailBlock
 
 func init() {
 	peerDb = ethdb.NewMemDatabase()
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""
+	engine = ethash.NewFaker()
+	genesis = core.DefaultGenesisBlock()
 
-	blockchain, _ =core.NewBlockChain( peerDb, nil, params.AllMinervaProtocolChanges, ethash.NewFaker(), vm.Config{})
-}
-
-type testSnailChain struct {
-	chainHeadFeed *event.Feed
-}
-
-func (bc *testSnailChain) CurrentBlock() *types.SnailBlock {
-	return types.NewSnailBlock(&types.SnailHeader{
-		ToElect: false,
-	}, nil, nil, nil)
-}
-
-func (bc *testSnailChain) Config() *params.ChainConfig {
-	return params.TestnetChainConfig
-}
-
-func (bc *testSnailChain) GetBlock(hash common.Hash, number uint64) *types.SnailBlock {
-	return bc.CurrentBlock()
-}
-
-func (bc *testSnailChain) CurrentHeader() *types.SnailHeader {
-	return &types.SnailHeader{
-		ToElect: false,
+	cache := &core.CacheConfig{
 	}
-}
-func (bc *testSnailChain) GetHeader(hash common.Hash, number uint64) *types.SnailHeader {
-	return &types.SnailHeader{
-		ToElect: false,
-	}
-}
-func (bc *testSnailChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
-	return bc.CurrentHeader()
-}
-func (bc *testSnailChain) GetHeaderByHash(hash common.Hash) *types.SnailHeader {
-	return bc.CurrentHeader()
-}
-func (bc *testSnailChain) GetBlockByNumber(number uint64) *types.SnailBlock {
-	return bc.CurrentBlock()
-}
-func (bc *testSnailChain) GetBlockByHash(hash common.Hash) *types.SnailBlock {
-	return bc.CurrentBlock()
-}
-func (bc *testSnailChain) SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription {
-	return bc.chainHeadFeed.Subscribe(ch)
+
+	fastGenesis := genesis.MustFastCommit(peerDb)
+	fastchain, _ = core.NewBlockChain(peerDb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, peerDb, 300, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+	})
+	fastchain.InsertChain(fastblocks)
+
+
+
+
+
+	snailGenesis = genesis.MustSnailCommit(peerDb)
+	snailblockchain, _ = NewSnailBlockChain(peerDb, nil, params.TestChainConfig, engine, vm.Config{})
+	/*if err != nil{
+		fmt.Print(err)
+	}*/
+	blocks1 , _ := MakeSnailBlockFruits(snailblockchain, fastchain, 1,3 , 1,180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true,nil)
+	snailblockchain.InsertChain(blocks1)
+
 }
 
-func fruit(fastNumber *big.Int, fruitDifficulty *big.Int) *types.SnailBlock {
-	//return signFruit(nonce, gaslimit, big.NewInt(1), key)
-	var header *types.SnailHeader
-	header = &types.SnailHeader{
-		header.Hash(),
-		header.Hash(),
-		common.BytesToAddress([]byte{0}),
-		header.Hash(),
-		big.NewInt(0),
-		header.Hash(),
-		header.Hash(),
-		fastNumber,
-		header.Hash(),
-		types.BytesToBloom([]byte{0}),
-		big.NewInt(0),
-		fruitDifficulty,
-		nil,
-		[]byte{0},
-		false,
-		nil,
-		[]byte{0},
-		header.Hash(),
-		[8]byte{},
-		true,
-	}
+func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 	var fruit *types.SnailBlock
-	fruit = types.NewSnailBlock(header, nil, nil, nil)
+
+	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastchain.CurrentBlock(), engine, peerDb, 1, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
+	})
+
+
+	fastchain.InsertChain(fastblocks)
+
+	fruit,err := MakeSnailBlockFruit(snailblockchain, fastchain, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
+	if err != nil{
+		fmt.Print(err)
+	}
+
 	return fruit
 }
 
 func setupSnailPool() (*SnailPool) {
 
-	sv := NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
-	snailblockchain := &testSnailChain{new(event.Feed)}
-	pool := NewSnailPool(testSnailPoolConfig, blockchain, snailblockchain, engine, sv)
+	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
+	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
 	return pool
 }
 
@@ -178,10 +146,34 @@ func validateFruitEvents(events chan types.NewFruitsEvent, count int) error {
 
 func TestInvalidFruits(t *testing.T) {
 	t.Parallel()
-	ft1 := fruit(nil, big.NewInt(0))
+	var header *types.SnailHeader
+	header = &types.SnailHeader{
+		header.Hash(),
+		header.Hash(),
+		common.BytesToAddress([]byte{0}),
+		header.Hash(),
+		big.NewInt(0),
+		header.Hash(),
+		header.Hash(),
+		big.NewInt(182),
+		header.Hash(),
+		types.BytesToBloom([]byte{0}),
+		big.NewInt(0),
+		big.NewInt(2000),
+		nil,
+		[]byte{0},
+		false,
+		nil,
+		[]byte{0},
+		header.Hash(),
+		[8]byte{},
+		true,
+	}
+	var ft *types.SnailBlock
+	ft = types.NewSnailBlock(header, nil, nil, nil)
 	pool := setupSnailPool()
 	defer pool.Stop()
-	if err := pool.addFruit(ft1); err != ErrNotExist {
+	if err := pool.addFruit(ft); err != ErrNotExist {
 		t.Error("expected", ErrNotExist)
 	}
 }
@@ -192,22 +184,22 @@ func TestFruitQueue(t *testing.T) {
 	pool := setupSnailPool()
 	defer pool.Stop()
 
-	ft := fruit(big.NewInt(1000), big.NewInt(0))
+	ft := fruit(181, big.NewInt(2000))
 	pool.addFruit(ft)
 	//if fastNumber is bigger than pool.fastchain.CurrentBlock().Number() will only add to allFruits
 	if len(pool.allFruits) != 1 {
 		t.Error("expected allFruits to be 1 is", len(pool.allFruits))
 	}
-	if len(pool.fruitPending) > 0 {
-		t.Error("expected fruit pending to be empty. is", len(pool.fruitPending))
+	if len(pool.fruitPending) != 1 {
+		t.Error("expected fruit pending to be 1. is", len(pool.fruitPending))
 	}
 
 	pool = setupSnailPool()
 	defer pool.Stop()
 
-	ft1 := fruit(big.NewInt(2), big.NewInt(0))
-	ft2 := fruit(big.NewInt(3), big.NewInt(0))
-	ft3 := fruit(big.NewInt(4), big.NewInt(0))
+	ft1 := fruit(181, big.NewInt(2000))
+	ft2 := fruit(182, big.NewInt(2000))
+	ft3 := fruit(183, big.NewInt(2000))
 
 	pool.addFruit(ft1)
 	pool.addFruit(ft2)
@@ -224,38 +216,29 @@ func TestFruitQueue(t *testing.T) {
 func TestFruitDropping(t *testing.T) {
 	t.Parallel()
 
-
 	pool := setupSnailPool()
 	defer pool.Stop()
 
 	// Add some pending fruits
 	var (
-		ft0  = fruit(big.NewInt(1), big.NewInt(0))
-		ft1  = fruit(big.NewInt(2), big.NewInt(0))
-		ft2  = fruit(big.NewInt(3), big.NewInt(0))
-		ft10 = fruit(big.NewInt(4), big.NewInt(0))
-		ft11 = fruit(big.NewInt(5), big.NewInt(0))
-		ft12 = fruit(big.NewInt(6), big.NewInt(0))
+		ft10 = fruit(181, big.NewInt(2000))
+		ft11 = fruit(182, big.NewInt(2000))
+		ft12 = fruit(183, big.NewInt(2000))
 	)
-	var fruits []*types.SnailBlock
-	fruits = append(fruits, ft0)
-	fruits = append(fruits, ft1)
-	fruits = append(fruits, ft2)
-	pool.AddRemoteFruits(fruits)
 	pool.addFruit(ft10)
 	pool.addFruit(ft11)
 	pool.addFruit(ft12)
 
 	pool.RemovePendingFruitByFastHash(ft10.FastHash())
 	// Check that pre and post validations leave the pool as is
-	if len(pool.fruitPending) != 5 {
-		t.Errorf("pending fruit mismatch: have %d, want %d", len(pool.fruitPending), 5)
+	if len(pool.fruitPending) != 2 {
+		t.Errorf("pending fruit mismatch: have %d, want %d", len(pool.fruitPending), 2)
 	}
-	if len(pool.allFruits) != 5 {
-		t.Errorf("queued fruit mismatch: have %d, want %d", len(pool.allFruits), 5)
+	if len(pool.allFruits) != 2 {
+		t.Errorf(
+			"queued fruit mismatch: have %d, want %d", len(pool.allFruits), 2)
 	}
 }
-
 
 // Tests that the pool rejects replacement fruits that a new is difficulty
 // than old one.
@@ -268,18 +251,18 @@ func TestFruitReplacement(t *testing.T) {
 
 	// Add some pending fruits
 	var (
-		ft0  = fruit(big.NewInt(1),big.NewInt(0))
-		ft2 = fruit(big.NewInt(1),big.NewInt(3))
+		ft0 = fruit(181, big.NewInt(1000))
+		ft2 = fruit(181, big.NewInt(2000))
 	)
 
 	pool.addFruit(ft0)
 	pool.addFruit(ft2)
 
-	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(3)) != 0 {
-		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(3))
+	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
+		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
 	}
-	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(3)) != 0 {
-		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(3))
+	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
+		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
 	}
 }
 
@@ -311,16 +294,16 @@ func testFruitJournaling(t *testing.T) {
 	defer pool.Stop()
 
 	// Add three fruits and ensure they are queued up
-	if err := pool.addFruit(fruit(big.NewInt(1),big.NewInt(0))); err != nil {
+	if err := pool.addFruit(fruit(181, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err := pool.addFruit(fruit(big.NewInt(2),big.NewInt(0))); err != nil {
+	if err := pool.addFruit(fruit(182, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err := pool.addFruit(fruit(big.NewInt(3),big.NewInt(0))); err != nil {
+	if err := pool.addFruit(fruit(183, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add local fruit: %v", err)
 	}
-	if err := pool.addFruit(fruit(big.NewInt(4),big.NewInt(0))); err != nil {
+	if err := pool.addFruit(fruit(184, big.NewInt(2000))); err != nil {
 		t.Fatalf("failed to add remote fruit: %v", err)
 	}
 	pending, unverified := pool.Stats()
@@ -336,8 +319,8 @@ func testFruitJournaling(t *testing.T) {
 	// Terminate the old pool,create a new pool and ensure relevant fruit survive
 	pool.Stop()
 
-	sv := NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
-	pool = NewSnailPool(testSnailPoolConfig, blockchain, snailblockchain, engine, sv)
+	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
 
 	pending, unverified = pool.Stats()
 	if unverified != 0 {
@@ -350,8 +333,8 @@ func testFruitJournaling(t *testing.T) {
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
-	sv = NewBlockValidator(chainConfig, blockchain, snailblockchain, engine)
-	pool = NewSnailPool(testSnailPoolConfig, blockchain, snailblockchain, engine, sv)
+	sv = NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
 	pending, unverified = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending fruits mismatched: have %d, want %d", pending, 0)
@@ -370,7 +353,7 @@ func BenchmarkSnailPoolInsert(b *testing.B) {
 
 	fruits := make(types.Fruits, b.N)
 	for i := 0; i < b.N; i++ {
-		fruits[i] = fruit(big.NewInt(int64(i)),big.NewInt(0))
+		fruits[i] = fruit(180+i, big.NewInt(0))
 	}
 	// Benchmark importing the fruits into the pending and allFruits
 	b.ResetTimer()
@@ -393,7 +376,7 @@ func benchmarkSnailPoolBatchInsert(b *testing.B, size int) {
 	for i := 0; i < b.N; i++ {
 		batches[i] = make(types.Fruits, size)
 		for j := 0; j < size; j++ {
-			batches[i][j] = fruit(big.NewInt(int64(size*i + j)),big.NewInt(0))
+			batches[i][j] = fruit(size*i+j, big.NewInt(0))
 		}
 	}
 	// Benchmark importing the fruits into the queue

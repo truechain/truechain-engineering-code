@@ -243,6 +243,10 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
 		parent := chain.CurrentBlock()
 		//num := parent.Number()
+		var fruitDiff  *big.Int
+		if isFruit{
+			fruitDiff=diff
+		}
 		tstamp := time.Now().Unix()
 		header := &types.SnailHeader{
 			ParentHash: parent.Hash(),
@@ -253,6 +257,8 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 			Fruit:      isFruit,
 			FastNumber: fastNumber,
 			Difficulty: diff,
+			FruitDifficulty:fruitDiff,
+			FastHash:fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
 
 		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
@@ -280,10 +286,10 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 	makeFruit := func(chain *SnailBlockChain, fChain *core.BlockChain, fastNumber *big.Int, pubkey []byte, coinbaseAddr common.Address) (*types.SnailBlock, error) {
 
 		head := makeHead(chain, pubkey, coinbaseAddr, fastNumber, true)
-		pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
+		//pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
 		fastBlock := fChain.GetBlockByNumber(fastNumber.Uint64())
 		head.FastHash = fastBlock.Hash()
-		head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.chainConfig, head.Time.Uint64(), fastBlock.Header().Time.Uint64(), pointer)
+		//head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.chainConfig, head.Time.Uint64(), fastBlock.Header().Time.Uint64(), pointer)
 
 		fSign, err := copySignsByFastNum(fChain, fastNumber)
 		if err != nil {
@@ -364,6 +370,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 		// genesis = new(core.Genesis).MustSnailCommit(testdb)
 		genesis = core.DefaultGenesisBlock()
 		engine  = minerva.NewFaker()
+		fruitnumbers int
 	)
 	//blocks := make(types.SnailBlocks, 2)
 	cache := &core.CacheConfig{
@@ -389,7 +396,11 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 
-	blocks1, err := MakeSnailBlockFruits(snailChain, fastchain, 1, snailBlockNumbers, 1, fastBlockNumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	if fastBlockNumbers > snailBlockNumbers * params.MinimumFruits{
+		fruitnumbers = snailBlockNumbers * params.MinimumFruits
+	}
+
+	blocks1, err := MakeSnailBlockFruits(snailChain, fastchain, 1, snailBlockNumbers, 1, fruitnumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	if err != nil {
 		return nil, nil
 	}
