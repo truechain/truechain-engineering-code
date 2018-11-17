@@ -197,9 +197,9 @@ func TestFruitDropping(t *testing.T) {
 
 	// Add some pending fruits
 	var (
-		ft10 = fruit(181, big.NewInt(0))
-		ft11 = fruit(182, big.NewInt(0))
-		ft12 = fruit(183, big.NewInt(0))
+		ft10 = fruit(181, big.NewInt(2000))
+		ft11 = fruit(182, big.NewInt(2000))
+		ft12 = fruit(183, big.NewInt(2000))
 	)
 	pool.addFruit(ft10)
 	pool.addFruit(ft11)
