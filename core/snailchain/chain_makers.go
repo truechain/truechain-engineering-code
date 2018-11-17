@@ -364,6 +364,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 		// genesis = new(core.Genesis).MustSnailCommit(testdb)
 		genesis = core.DefaultGenesisBlock()
 		engine  = minerva.NewFaker()
+		fruitnumbers int
 	)
 	//blocks := make(types.SnailBlocks, 2)
 	cache := &core.CacheConfig{
@@ -389,7 +390,11 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 
-	blocks1, err := MakeSnailBlockFruits(snailChain, fastchain, 1, snailBlockNumbers, 1, fastBlockNumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	if fastBlockNumbers > snailBlockNumbers * params.MinimumFruits{
+		fruitnumbers = snailBlockNumbers * params.MinimumFruits
+	}
+
+	blocks1, err := MakeSnailBlockFruits(snailChain, fastchain, 1, snailBlockNumbers, 1, fruitnumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	if err != nil {
 		return nil, nil
 	}
