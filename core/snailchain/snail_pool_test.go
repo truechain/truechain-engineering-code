@@ -18,10 +18,7 @@ package snailchain
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
-	"testing"
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -32,6 +29,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"testing"
+	"io/ioutil"
+	"os"
 )
 
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
@@ -144,15 +144,39 @@ func validateFruitEvents(events chan types.NewFruitsEvent, count int) error {
 	return nil
 }
 
-/*func TestInvalidFruits(t *testing.T) {
+func TestInvalidFruits(t *testing.T) {
 	t.Parallel()
-	ft1 := fruit(181, big.NewInt(0))
+	var header *types.SnailHeader
+	header = &types.SnailHeader{
+		header.Hash(),
+		header.Hash(),
+		common.BytesToAddress([]byte{0}),
+		header.Hash(),
+		big.NewInt(0),
+		header.Hash(),
+		header.Hash(),
+		big.NewInt(182),
+		header.Hash(),
+		types.BytesToBloom([]byte{0}),
+		big.NewInt(0),
+		big.NewInt(2000),
+		nil,
+		[]byte{0},
+		false,
+		nil,
+		[]byte{0},
+		header.Hash(),
+		[8]byte{},
+		true,
+	}
+	var ft *types.SnailBlock
+	ft = types.NewSnailBlock(header, nil, nil, nil)
 	pool := setupSnailPool()
 	defer pool.Stop()
-	if err := pool.addFruit(ft1); err != ErrNotExist {
+	if err := pool.addFruit(ft); err != ErrNotExist {
 		t.Error("expected", ErrNotExist)
 	}
-}*/
+}
 
 func TestFruitQueue(t *testing.T) {
 	t.Parallel()
