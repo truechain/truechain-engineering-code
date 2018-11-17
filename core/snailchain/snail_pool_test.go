@@ -160,7 +160,7 @@ func TestFruitQueue(t *testing.T) {
 	pool := setupSnailPool()
 	defer pool.Stop()
 
-	ft := fruit(181, big.NewInt(0))
+	ft := fruit(181, big.NewInt(2000))
 	pool.addFruit(ft)
 	//if fastNumber is bigger than pool.fastchain.CurrentBlock().Number() will only add to allFruits
 	if len(pool.allFruits) != 1 {
@@ -173,9 +173,9 @@ func TestFruitQueue(t *testing.T) {
 	pool = setupSnailPool()
 	defer pool.Stop()
 
-	ft1 := fruit(181, big.NewInt(0))
-	ft2 := fruit(182, big.NewInt(0))
-	ft3 := fruit(183, big.NewInt(0))
+	ft1 := fruit(181, big.NewInt(2000))
+	ft2 := fruit(182, big.NewInt(2000))
+	ft3 := fruit(183, big.NewInt(2000))
 
 	pool.addFruit(ft1)
 	pool.addFruit(ft2)
