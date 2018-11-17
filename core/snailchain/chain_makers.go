@@ -286,10 +286,10 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 	makeFruit := func(chain *SnailBlockChain, fChain *core.BlockChain, fastNumber *big.Int, pubkey []byte, coinbaseAddr common.Address) (*types.SnailBlock, error) {
 
 		head := makeHead(chain, pubkey, coinbaseAddr, fastNumber, true)
-		pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
+		//pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
 		fastBlock := fChain.GetBlockByNumber(fastNumber.Uint64())
 		head.FastHash = fastBlock.Hash()
-		head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.chainConfig, head.Time.Uint64(), fastBlock.Header().Time.Uint64(), pointer)
+		//head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.chainConfig, head.Time.Uint64(), fastBlock.Header().Time.Uint64(), pointer)
 
 		fSign, err := copySignsByFastNum(fChain, fastNumber)
 		if err != nil {
