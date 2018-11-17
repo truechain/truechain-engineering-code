@@ -36,22 +36,41 @@ func TestValidateBody(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		fn      func(*BlockValidator, *types.SnailBlock) error
+		fn      func() error
 		wantErr error
 	}{
 		{
-			name: "HasBlockAndState",
-			fn: func(validator *BlockValidator, block *types.SnailBlock) error {
+			name: "valid",
+			fn: func() error {
+				snail, fast, block := makeChain(1, 0)
+				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
 				return validator.ValidateBody(block)
 			},
+			wantErr: nil,
+		},
+		{
+			name: "HasBlockAndState",
+			fn: func() error {
+				snail, fast, _ := makeChain(1, 0)
+				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
+				return validator.ValidateBody(validator.bc.CurrentBlock())
+			},
 			wantErr: ErrKnownBlock,
+		},
+		{
+			name: "ErrInvalidFruits",
+			fn: func() error {
+				snail, fast, block := makeChain(2, 1)
+				validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
+				return validator.ValidateBody(block)
+			},
+			wantErr: ErrInvalidFruits,
 		},
 	}
 
 	for _, test := range tests {
-		snail, fast, block := makeChain(1)
-		validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
-		err := test.fn(validator, block)
+
+		err := test.fn()
 		// Check the return values.
 		if !reflect.DeepEqual(err, test.wantErr) {
 			spew := spew.ConfigState{DisablePointerAddresses: true, DisableCapacities: true}
@@ -61,7 +80,7 @@ func TestValidateBody(t *testing.T) {
 	}
 }
 
-func makeChain(n int) (*SnailBlockChain, *core.BlockChain, *types.SnailBlock) {
+func makeChain(n int, i int) (*SnailBlockChain, *core.BlockChain, *types.SnailBlock) {
 	var (
 		testdb = ethdb.NewMemDatabase()
 		// genesis = new(core.Genesis).MustSnailCommit(testdb)
@@ -79,7 +98,7 @@ func makeChain(n int) (*SnailBlockChain, *core.BlockChain, *types.SnailBlock) {
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 
-	blocks1, err := MakeSnailBlockFruits(snailChain, fastchain, 1, 2, 1, 120, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+	blocks1, err := MakeSnailBlockFruits(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	if err != nil {
 		return nil, nil, nil
 	}
@@ -87,7 +106,7 @@ func makeChain(n int) (*SnailBlockChain, *core.BlockChain, *types.SnailBlock) {
 
 	//InsertChain(blocks)
 
-	return snailChain, fastchain, blocks1[0]
+	return snailChain, fastchain, blocks1[i]
 }
 
 func makeSnail(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
