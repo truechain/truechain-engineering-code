@@ -48,8 +48,8 @@ var (
 
 func init() {
 
-	blockNum = 3
-	fastChainHight = 300
+	blockNum = 10
+	fastChainHight = 700
 
 
 }
@@ -127,6 +127,8 @@ func TestCommitFastBlock(t *testing.T){
 		fmt.Errorf("1 is err",err0)
 	}
 
+
+
 	// situation 2   1 2 3 4
 	for i:= startFastNum; i< (10+startFastNum); i++ {
 		fruit, _:= snailchain.MakeSnailBlockFruit(snailChainLocal,fastChainLocal,blockNum,i,1,gensisSnail.PublicKey(),gensisSnail.Coinbase(),false,nil)
@@ -140,6 +142,8 @@ func TestCommitFastBlock(t *testing.T){
 	if err != nil{
 			fmt.Errorf("1 is err",err)
 	}
+
+
 
 	// situation 3   1 2 3 5 7
 	j:=0
@@ -191,4 +195,32 @@ func TestCommitFastBlock(t *testing.T){
 
 func TestCommitFruits(t *testing.T){
 
+
+
+	var(
+		//fruitset1 []*types.SnailBlock  // nil situation
+		fruitset []*types.SnailBlock // contine but not have 60
+
+	)
+	engine  := minerva.NewFaker()
+
+	chainDb :=ethdb.NewMemDatabase()
+	chainConfig, _, _, _, _, _ := core.SetupGenesisBlock(chainDb, core.DefaultGenesisBlock())
+	//Miner := New(snailChainLocal, nil, nil, snailChainLocal.Engine(), nil, false, nil)
+	worker, _ := newTestWorker(t, chainConfig ,engine,1)
+
+	startFastNum := blockNum*params.MinimumFruits +1
+	gensisSnail :=  snailChainLocal.GetBlockByNumber(0)
+
+	//create some fruits but less then cureent block
+
+	fruitNofresh, _:= snailchain.MakeSnailBlockFruit(snailChainLocal,fastChainLocal,1,startFastNum+params.MinimumFruits+1,1,gensisSnail.PublicKey(),gensisSnail.Coinbase(),false,nil)
+
+	for i:=startFastNum;i<startFastNum+params.MinimumFruits;i++{
+		fruit,_:= snailchain.MakeSnailBlockFruit(snailChainLocal,fastChainLocal,startFastNum,i,1,gensisSnail.PublicKey(),gensisSnail.Coinbase(),false,nil)
+		fruitset=append(fruitset,fruit)
+	}
+	fruitset=append(fruitset,fruitNofresh)
+
+	worker.CommitFruits(fruitset,snailChainLocal,engine)
 }
