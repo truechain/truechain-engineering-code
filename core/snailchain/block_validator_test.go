@@ -17,8 +17,10 @@
 package snailchain
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/election"
@@ -31,9 +33,32 @@ import (
 )
 
 func TestValidateBody(t *testing.T) {
-	snail, fast, block := makeChain(1)
-	validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
-	validator.ValidateBody(block)
+
+	tests := []struct {
+		name    string
+		fn      func(*BlockValidator, *types.SnailBlock) error
+		wantErr error
+	}{
+		{
+			name: "HasBlockAndState",
+			fn: func(validator *BlockValidator, block *types.SnailBlock) error {
+				return validator.ValidateBody(block)
+			},
+			wantErr: ErrKnownBlock,
+		},
+	}
+
+	for _, test := range tests {
+		snail, fast, block := makeChain(1)
+		validator := NewBlockValidator(snail.chainConfig, fast, snail, snail.Engine())
+		err := test.fn(validator, block)
+		// Check the return values.
+		if !reflect.DeepEqual(err, test.wantErr) {
+			spew := spew.ConfigState{DisablePointerAddresses: true, DisableCapacities: true}
+			t.Errorf("%s: returned error %#v, want %#v", test.name, spew.NewFormatter(err), spew.NewFormatter(test.wantErr))
+		}
+
+	}
 }
 
 func makeChain(n int) (*SnailBlockChain, *core.BlockChain, *types.SnailBlock) {
