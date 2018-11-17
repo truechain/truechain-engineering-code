@@ -243,6 +243,10 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
 		parent := chain.CurrentBlock()
 		//num := parent.Number()
+		var fruitDiff  *big.Int
+		if isFruit{
+			fruitDiff=diff
+		}
 		tstamp := time.Now().Unix()
 		header := &types.SnailHeader{
 			ParentHash: parent.Hash(),
@@ -253,6 +257,8 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 			Fruit:      isFruit,
 			FastNumber: fastNumber,
 			Difficulty: diff,
+			FruitDifficulty:fruitDiff,
+			FastHash:fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
 
 		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
