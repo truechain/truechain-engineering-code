@@ -370,7 +370,7 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 		if err != nil {
 			return nil, err
 		}
-		var blocks types.SnailBlocks
+		//var blocks types.SnailBlocks
 
 		blocks = append(blocks, block)
 		if _, error := chain.InsertChain(blocks); error != nil {
