@@ -19,7 +19,6 @@ package downloader
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
@@ -44,10 +43,6 @@ import (
 var (
 	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 	testAddress = crypto.PubkeyToAddress(testKey.PublicKey)
-	canonicalSeed = 1
-	TrieCache=    256
-	TrieTimeout=   60 * time.Minute
-
 )
 
 // Reduce some of the parameters to make the tester faster.
@@ -120,31 +115,22 @@ func newTester() *downloadTester {
 // the returned hash chain is ordered head->parent. In addition, every 3rd block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
-func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, heavy bool) ([]common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock) {
+func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, heavy bool) ([]common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock,[]common.Hash, map[common.Hash]*types.Header, map[common.Hash]*types.Block, map[common.Hash]types.Receipts) {
 
 
 	// Initialize a fresh chain with only a genesis block
 	// Initialize a new chain
 	var (
 		testdb  = dl.peerDb
-		//genesis = parent
+		fgenesis = dl.ftester.GetGenesis()
 		engine  = ethash.NewFaker()
 
 	)
-	//blocks := make(types.SnailBlocks, 2)
-	cache := &core.CacheConfig{
-		//TrieNodeLimit: TrieCache,
-		//TrieTimeLimit: TrieTimeout,
-	}
-
-
-
+	cache := &core.CacheConfig{}
 
 	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	//fastblocks := makeFast(fastGenesis, n * params.MinimumFruits, engine, testdb, canonicalSeed)
 
-	//engine.SetElection(core.NewFakeElection())
-	fastblocks, _ := core.GenerateChain(params.TestChainConfig, dl.ftester.GetGenesis(), engine, testdb, n * params.MinimumFruits, func(i int, b *core.BlockGen) {
+	fastblocks, receipts := core.GenerateChain(params.TestChainConfig, dl.ftester.GetGenesis(), engine, testdb, n * params.MinimumFruits, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
@@ -153,31 +139,10 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 
 	snailChain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 
-	blocks , _ := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1,n , 1,n * params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true,nil)
+	blocks , err := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1,n , 1,n * params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true,nil)
 
+	fmt.Print(err)
 	snailChain.InsertChain(blocks)
-
-
-
-
-	//fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	//fastblocks := makeFast(dl.ftester.GetGenesis(), 1 * params.MinimumFruits, engine, testdb, canonicalSeed)
-	//fastchain.InsertChain(fastblocks)
-
-
-
-	//snailChain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
-	//blocks1 , _ := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1,2 , 1,120, genesis.PublicKey(), genesis.Coinbase(), true,nil)
-	//snailChain.InsertChain(blocks1)
-
-
-
-	//fastblocks, _ ,blockchain:= core.GenerateBlockChain(params.TestChainConfig, dl.ftester.GetGenesis(), ethash.NewFaker(), dl.peerDb, 0, func(i int, block *core.BlockGen) {
-	//	block.SetCoinbase(common.Address{0x00})
-	//})
-	//
-	//blockchain.InsertChain(fastblocks)
-
 
 	// Convert the block-chain into a hash-chain and header/block maps
 	hashes := make([]common.Hash, n+1)
@@ -190,22 +155,36 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	blockm[parent.Hash()] = parent
 
 
+	fn := n * params.MinimumFruits
+	// Convert the block-chain into a hash-chain and header/block maps
+	fhashes := make([]common.Hash, fn+1)
+	fhashes[len(fhashes)-1] = fgenesis.Hash()
+
+	fheaderm := make(map[common.Hash]*types.Header, fn+1)
+	fheaderm[fgenesis.Hash()] = fgenesis.Header()
+
+	fblockm := make(map[common.Hash]*types.Block, fn+1)
+	fblockm[fgenesis.Hash()] = fgenesis
+
+	receiptm := make(map[common.Hash]types.Receipts, fn+1)
+	receiptm[fgenesis.Hash()] = nil
+
+
+	for i, b := range fastblocks {
+		fhashes[len(fhashes)-i-2] = b.Hash()
+		fheaderm[b.Hash()] = b.Header()
+		fblockm[b.Hash()] = b
+		receiptm[b.Hash()] = receipts[i]
+	}
+
 	for i, b := range blocks {
 		hashes[len(hashes)-i-2] = b.Hash()
 		headerm[b.Hash()] = b.Header()
 		blockm[b.Hash()] = b
 	}
-	return hashes, headerm, blockm
-}
 
 
-// makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
-	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
-		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
-	})
-
-	return blocks
+	return hashes, headerm, blockm,fhashes, fheaderm, fblockm,receiptm
 }
 
 
@@ -213,17 +192,17 @@ func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Data
 // h2[:f] are different but have a common suffix of length n-f.
 func (dl *downloadTester) makeChainFork(n, f int, parent *types.SnailBlock, balanced bool) ([]common.Hash, []common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock, map[common.Hash]*types.SnailBlock) {
 	// Create the common suffix
-	hashes, headers, blocks := dl.makeChain(n-f, 0, parent, false)
+	hashes, headers, blocks, _, _, _, _ := dl.makeChain(n-f, 0, parent, false)
 
 	// Create the forks, making the second heavier if non balanced forks were requested
-	hashes1, headers1, blocks1 := dl.makeChain(f, 1, blocks[hashes[0]], false)
+	hashes1, headers1, blocks1, _, _, _, _ := dl.makeChain(f, 1, blocks[hashes[0]], false)
 	hashes1 = append(hashes1, hashes[1:]...)
 
 	heavy := false
 	if !balanced {
 		heavy = true
 	}
-	hashes2, headers2, blocks2 := dl.makeChain(f, 2, blocks[hashes[0]], heavy)
+	hashes2, headers2, blocks2, _, _, _, _ := dl.makeChain(f, 2, blocks[hashes[0]], heavy)
 	hashes2 = append(hashes2, hashes[1:]...)
 
 	for hash, header := range headers {
@@ -693,9 +672,11 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(10, 0, tester.genesis, false)
+	hashes, headers, blocks,fhashes, fheaders, fblocks, freceipt := tester.makeChain(10, 0, tester.genesis, false)
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
+	tester.ftester.NewPeer("peer", protocol, fhashes, fheaders, fblocks,freceipt)
+
 
 	// Synchronise with the peer and make sure all relevant data was retrieved
 	if err := tester.sync("peer", nil, mode); err != nil {
@@ -719,7 +700,7 @@ func testThrottling(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a long block chain to download and the tester
 	targetBlocks := 8 * blockCacheItems
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis,false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis,false)
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 
@@ -989,7 +970,7 @@ func testCancel(t *testing.T, protocol int, mode SyncMode) {
 	if targetBlocks >= MaxHeaderFetch {
 		targetBlocks = MaxHeaderFetch - 15
 	}
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 
@@ -1025,7 +1006,7 @@ func testMultiSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	// Create various peers with various parts of the chain
 	targetPeers := 8
 	targetBlocks := targetPeers*blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	for i := 0; i < targetPeers; i++ {
 		id := fmt.Sprintf("peer #%d", i)
@@ -1054,7 +1035,7 @@ func testMultiProtoSync(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	// Create peers of every type
 	tester.newPeer("peer 62", 62, hashes, headers, blocks)
@@ -1093,7 +1074,7 @@ func testEmptyShortCircuit(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a block chain to download
 	targetBlocks := 2*blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	tester.newPeer("peer", protocol, hashes, headers, blocks)
 
@@ -1138,7 +1119,7 @@ func testMissingHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	// Attempt a full sync with an attacker feeding gapped headers
 	tester.newPeer("attack", protocol, hashes, headers, blocks)
@@ -1173,7 +1154,7 @@ func testShiftedHeaderAttack(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	// Attempt a full sync with an attacker feeding shifted headers
 	tester.newPeer("attack", protocol, hashes, headers, blocks)
@@ -1206,7 +1187,7 @@ func testInvalidHeaderRollback(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := 3*fsHeaderSafetyNet + 256 + fsMinFullBlocks
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	// Attempt to sync with an attacker that feeds junk during the fast sync phase.
 	// This should result in the last fsHeaderSafetyNet headers being rolled back.
@@ -1296,7 +1277,7 @@ func testHighTDStarvationAttack(t *testing.T, protocol int, mode SyncMode) {
 	tester := newTester()
 	defer tester.terminate()
 
-	hashes, headers, blocks := tester.makeChain(0, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(0, 0, tester.genesis, false)
 	tester.newPeer("attack", protocol, []common.Hash{hashes[0]}, headers, blocks)
 
 	if err := tester.sync("attack", big.NewInt(1000000), mode); err != errStallingPeer {
@@ -1378,7 +1359,7 @@ func testSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	// Set a sync init hook to catch progress changes
 	starting := make(chan struct{})
@@ -1527,7 +1508,7 @@ func testFailedSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks, 0, tester.genesis, false)
 
 	// Set a sync init hook to catch progress changes
 	starting := make(chan struct{})
@@ -1603,7 +1584,7 @@ func testFakedSyncProgress(t *testing.T, protocol int, mode SyncMode) {
 
 	// Create a small block chain
 	targetBlocks := blockCacheItems - 15
-	hashes, headers, blocks := tester.makeChain(targetBlocks+3, 0, tester.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := tester.makeChain(targetBlocks+3, 0, tester.genesis, false)
 
 	// Set a sync init hook to catch progress changes
 	starting := make(chan struct{})
@@ -1738,7 +1719,7 @@ func testDeliverHeadersHang(t *testing.T, protocol int, mode SyncMode) {
 	master := newTester()
 	defer master.terminate()
 
-	hashes, headers, blocks := master.makeChain(5, 0, master.genesis, false)
+	hashes, headers, blocks,_,_,_,_ := master.makeChain(5, 0, master.genesis, false)
 	for i := 0; i < 200; i++ {
 		tester := newTester()
 		tester.peerDb = master.peerDb

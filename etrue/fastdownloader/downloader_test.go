@@ -17,7 +17,6 @@
 package fastdownloader
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -26,14 +25,11 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/trie"
 )
 
 // Reduce some of the parameters to make the tester faster.
@@ -271,7 +267,7 @@ func testForkedSync(t *testing.T, protocol int, mode SyncMode) {
 	common, fork := MaxHashFetch, 2*MaxHashFetch
 	hashesA, hashesB, headersA, headersB, blocksA, blocksB, receiptsA, receiptsB := tester.makeChainFork(common+fork, fork, tester.genesis, nil, true)
 
-	tester.newPeer("fork A", protocol, hashesA, headersA, blocksA, receiptsA)
+	tester.NewPeer("fork A", protocol, hashesA, headersA, blocksA, receiptsA)
 	tester.newPeer("fork B", protocol, hashesB, headersB, blocksB, receiptsB)
 
 	// Synchronise with the peer and make sure all blocks were retrieved
