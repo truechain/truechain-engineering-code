@@ -35,7 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	)
+)
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
@@ -61,7 +61,7 @@ var (
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
 	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
 
-	reorgProtHeaderDelay = 2  // Number of headers to delay delivering to cover mini reorgs
+	reorgProtHeaderDelay = 2 // Number of headers to delay delivering to cover mini reorgs
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected

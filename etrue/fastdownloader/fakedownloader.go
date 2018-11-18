@@ -3,8 +3,8 @@ package fastdownloader
 import (
 	"errors"
 	"fmt"
-	minerva "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/common"
+	minerva "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -18,10 +18,6 @@ import (
 	"time"
 )
 
-
-
-
-
 // downloadTester is a test simulator for mocking out local block chain.
 type DownloadTester struct {
 	downloader *Downloader
@@ -34,19 +30,18 @@ type DownloadTester struct {
 	ownHeaders  map[common.Hash]*types.Header  // Headers belonging to the tester
 	ownBlocks   map[common.Hash]*types.Block   // Blocks belonging to the tester
 	ownReceipts map[common.Hash]types.Receipts // Receipts belonging to the tester
-	ownChainNum  map[common.Hash]*big.Int       // Total difficulties of the blocks in the local chain
+	ownChainNum map[common.Hash]*big.Int       // Total difficulties of the blocks in the local chain
 
-	peerHashes   map[string][]common.Hash                  // Hash chain belonging to different test peers
-	peerHeaders  map[string]map[common.Hash]*types.Header  // Headers belonging to different test peers
-	peerBlocks   map[string]map[common.Hash]*types.Block   // Blocks belonging to different test peers
-	peerReceipts map[string]map[common.Hash]types.Receipts // Receipts belonging to different test peers
+	peerHashes    map[string][]common.Hash                  // Hash chain belonging to different test peers
+	peerHeaders   map[string]map[common.Hash]*types.Header  // Headers belonging to different test peers
+	peerBlocks    map[string]map[common.Hash]*types.Block   // Blocks belonging to different test peers
+	peerReceipts  map[string]map[common.Hash]types.Receipts // Receipts belonging to different test peers
 	peerChainNums map[string]map[common.Hash]*big.Int       // Total difficulties of the blocks in the peer chains
 
 	peerMissingStates map[string]map[common.Hash]bool // State entries that fast sync should not return
 
 	lock sync.RWMutex
 }
-
 
 var (
 	testKey, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
@@ -65,12 +60,12 @@ func NewTester(testdb *ethdb.MemDatabase) *DownloadTester {
 		ownHeaders:        map[common.Hash]*types.Header{genesis.Hash(): genesis.Header()},
 		ownBlocks:         map[common.Hash]*types.Block{genesis.Hash(): genesis},
 		ownReceipts:       map[common.Hash]types.Receipts{genesis.Hash(): nil},
-		ownChainNum:        map[common.Hash]*big.Int{genesis.Hash(): genesis.Number()},
+		ownChainNum:       map[common.Hash]*big.Int{genesis.Hash(): genesis.Number()},
 		peerHashes:        make(map[string][]common.Hash),
 		peerHeaders:       make(map[string]map[common.Hash]*types.Header),
 		peerBlocks:        make(map[string]map[common.Hash]*types.Block),
 		peerReceipts:      make(map[string]map[common.Hash]types.Receipts),
-		peerChainNums:      make(map[string]map[common.Hash]*big.Int),
+		peerChainNums:     make(map[string]map[common.Hash]*big.Int),
 		peerMissingStates: make(map[string]map[common.Hash]bool),
 	}
 	tester.stateDb = ethdb.NewMemDatabase()
@@ -80,10 +75,9 @@ func NewTester(testdb *ethdb.MemDatabase) *DownloadTester {
 	return tester
 }
 
-func (dl *DownloadTester) GetGenesis() * types.Block {
+func (dl *DownloadTester) GetGenesis() *types.Block {
 	return dl.genesis
 }
-
 
 type FloodingTestPeer struct {
 	peer   dtypes.Peer
@@ -97,7 +91,6 @@ type DownloadTesterPeer struct {
 	delay time.Duration
 	lock  sync.RWMutex
 }
-
 
 // makeChain creates a chain of n blocks starting at and including parent.
 // the returned hash chain is ordered head->parent. In addition, every 3rd block
@@ -189,6 +182,9 @@ func (dl *DownloadTester) terminate() {
 	dl.downloader.Terminate()
 }
 
+func (dl *DownloadTester) GetDownloader() *Downloader {
+	return dl.downloader
+}
 
 // sync starts synchronizing with a remote peer, blocking until it completes.
 func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
@@ -204,7 +200,7 @@ func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uin
 	dl.lock.RUnlock()
 
 	// Synchronise with the chosen peer and ensure proper cleanup afterwards
-	err := dl.downloader.synchronise(id, hash, td, mode,origin,height)
+	err := dl.downloader.synchronise(id, hash, td, mode, origin, height)
 	select {
 	case <-dl.downloader.cancelCh:
 		// Ok, downloader fully cancelled after sync cycle
@@ -346,7 +342,7 @@ func (dl *DownloadTester) InsertChain(blocks types.Blocks) (int, error) {
 		}
 		dl.ownBlocks[block.Hash()] = block
 		dl.stateDb.Put(block.Root().Bytes(), []byte{0x00})
-		dl.ownChainNum[block.Hash()] =  block.Number()
+		dl.ownChainNum[block.Hash()] = block.Number()
 	}
 	return len(blocks), nil
 }
@@ -455,8 +451,6 @@ func (dl *DownloadTester) dropPeer(id string) {
 	dl.downloader.UnregisterPeer(id)
 }
 
-
-
 // setDelay is a thread safe setter for the network delay value.
 func (dlp *DownloadTesterPeer) setDelay(delay time.Duration) {
 	dlp.lock.Lock()
@@ -499,7 +493,7 @@ func (dlp *DownloadTesterPeer) RequestHeadersByHash(origin common.Hash, amount i
 	dlp.dl.lock.RUnlock()
 
 	// Use the absolute header fetcher to satisfy the query
-	return dlp.RequestHeadersByNumber(number, amount, skip, reverse,isFastchain)
+	return dlp.RequestHeadersByNumber(number, amount, skip, reverse, isFastchain)
 }
 
 // RequestHeadersByNumber constructs a GetBlockHeaders function based on a numbered
