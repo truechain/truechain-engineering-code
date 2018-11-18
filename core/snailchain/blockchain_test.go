@@ -75,6 +75,16 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *S
 	return db, blockchain, fastChain, err
 }
 
+func TestMakeChain(t *testing.T) {
+	chain, _ := MakeChain(180, 3)
+	header := chain.GetHeaderByNumber(1)
+	if header == nil {
+		fmt.Printf("1111111111111111\n")
+	} else {
+		fmt.Printf("%x\n", header.Hash())
+	}
+}
+
 // Test fork of length N starting from block i
 func testFork(t *testing.T, blockchain *SnailBlockChain, i, n int, full bool, comparator func(td1, td2 *big.Int)) {
 	// Copy old chain up to #i into a new db
@@ -195,7 +205,7 @@ func TestLastBlock(t *testing.T) {
 	}
 	defer blockchain.Stop()
 
-	blocks := makeBlockChain(fastChain, blockchain.CurrentBlock(), 1, minerva.NewFaker(), blockchain.db, 0)
+	blocks := makeBlockChain(fastChain, blockchain.CurrentBlock(), 2, minerva.NewFaker(), blockchain.db, 0)
 	if _, err := blockchain.InsertChain(blocks); err != nil {
 		t.Fatalf("Failed to insert block: %v", err)
 	}

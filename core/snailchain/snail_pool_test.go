@@ -88,7 +88,7 @@ func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 
 	fastchain.InsertChain(fastblocks)
 
-	fruit,err := MakeSnailBlockFruit(snailblockchain, fastchain, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
+	fruit,err := MakeSnailBlockFruit(snailblockchain, fastchain, 1, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
 	if err != nil{
 		fmt.Print(err)
 	}
