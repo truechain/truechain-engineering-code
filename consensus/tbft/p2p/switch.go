@@ -512,6 +512,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 	for {
 		inConn, ok := <-l.Connections()
 		if !ok {
+			log.Debug("listenerRoutine not ok")
 			break
 		}
 
