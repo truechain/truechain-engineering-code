@@ -1516,6 +1516,9 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				(cs.ValidRound < vote.Round) &&
 				(vote.Round <= cs.Round) &&
 				func() bool {
+					if cs.ProposalBlock == nil {
+						return false
+					}
 					hash := cs.ProposalBlock.Hash()
 					return help.EqualHashes(hash[:], blockID.Hash)
 				}() {
