@@ -343,7 +343,9 @@ func TestFruitDropping(t *testing.T) {
 
 	pool := setupSnailPool()
 	defer pool.Stop()
-
+	events := make(chan types.NewFruitsEvent, 3)
+	sub := pool.fruitFeed.Subscribe(events)
+	defer sub.Unsubscribe()
 	// Add some pending fruits
 	var (
 		ft10 = fruit(181, big.NewInt(2000))
@@ -362,6 +364,9 @@ func TestFruitDropping(t *testing.T) {
 	if len(pool.allFruits) != 2 {
 		t.Errorf(
 			"queued fruit mismatch: have %d, want %d", len(pool.allFruits), 2)
+	}
+	if err := validateFruitEvents(events, 3); err != nil {
+		t.Fatalf(" replacement event firing failed: %v", err)
 	}
 }
 
@@ -384,7 +389,6 @@ func TestFruitReplacement(t *testing.T) {
 
 	pool.addFruit(ft0)
 	pool.addFruit(ft2)
-
 
 	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
 		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
