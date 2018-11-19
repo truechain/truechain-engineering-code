@@ -373,7 +373,9 @@ func TestFruitReplacement(t *testing.T) {
 	// Create a test account and fund it
 	pool := setupSnailPool()
 	defer pool.Stop()
-
+	events := make(chan types.NewFruitsEvent, 1)
+	sub := pool.fruitFeed.Subscribe(events)
+	defer sub.Unsubscribe()
 	// Add some pending fruits
 	var (
 		ft0 = fruit(181, big.NewInt(1000))
@@ -383,12 +385,17 @@ func TestFruitReplacement(t *testing.T) {
 	pool.addFruit(ft0)
 	pool.addFruit(ft2)
 
+
 	if pool.fruitPending[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
 		t.Errorf("pending fruit's difficulty mismatch: is %d, want %d", pool.fruitPending[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
 	}
 	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
 		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
 	}
+	if err := validateFruitEvents(events, 1); err != nil {
+		t.Fatalf(" replacement event firing failed: %v", err)
+	}
+
 }
 
 // Tests that local fruits are journaled to disk, but remote fruits
