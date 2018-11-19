@@ -91,6 +91,10 @@ func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header
 }
 
 func (m *Minerva) getParents(chain consensus.SnailChainReader, header *types.SnailHeader) []*types.SnailHeader {
+	return GetParents(chain, header)
+}
+
+func GetParents(chain consensus.SnailChainReader, header *types.SnailHeader) []*types.SnailHeader {
 	number := header.Number.Uint64()
 	period := params.DifficultyPeriod.Uint64()
 	if number < period {
@@ -591,6 +595,7 @@ func CalcFruitDifficulty(config *params.ChainConfig, time uint64, fastTime uint6
 
 	if delta > 20 {
 		diff = new(big.Int).Div(diff, big.NewInt(2))
+		diff.Add(diff, common.Big1)
 	} else if delta > 10 && delta <= 20 {
 		diff = new(big.Int).Mul(diff, big.NewInt(2))
 		diff = new(big.Int).Div(diff, big.NewInt(3))

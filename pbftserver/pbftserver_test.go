@@ -36,7 +36,7 @@ func NewPbftAgent(name string) *PbftAgentProxyImp {
 var ID = big.NewInt(1)
 
 func getID() *big.Int {
-	ID = new(big.Int).Add(ID, big.NewInt(1))
+	//ID = new(big.Int).Add(ID, big.NewInt(1))
 	return ID
 }
 
@@ -54,10 +54,10 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 
 }
 func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
-	//if rand.Intn(100) > 50 {
-	//	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
-	//	return types.ErrHeightNotYet
-	//}
+	if rand.Intn(100) > 50 {
+		println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64(), types.ErrHeightNotYet.Error())
+		return nil, types.ErrHeightNotYet
+	}
 	println("[AGENT]", pap.Name, "VerifyFastBlock", "Number:", block.Header().Number.Uint64())
 	s := new(types.PbftSign)
 	s.Result = 1

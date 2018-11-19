@@ -43,7 +43,7 @@ type Backend interface {
 	SnailBlockChain() *snailchain.SnailBlockChain
 	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
-	SnailPool() *core.SnailPool
+	SnailPool() *snailchain.SnailPool
 	ChainDb() ethdb.Database
 	//Election() *etrue.Election
 }
@@ -85,6 +85,8 @@ type Miner struct {
 
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
+	commitFlag  int32
+
 }
 
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
@@ -99,10 +101,10 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		electionCh: make(chan types.ElectionEvent, txChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		canStart:   1,
+		commitFlag: 1,
 	}
 
 	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
-	log.Info("init mineFruit", "mineFruit", mineFruit)
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 
 	go miner.SetFruitOnly(mineFruit)
@@ -125,35 +127,26 @@ func (self *Miner) loop() {
 			switch ch.Option {
 			case types.CommitteeStart:
 				// alread to start mining need stop
-				if self.Mining() {
-					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
-						// i am committee
-						self.Stop()
-						atomic.StoreInt32(&self.shouldStart, 1)
-					} else {
-						log.Info("not in commiteer munber start")
-					}
-				}
-				log.Info("==================get  election  msg  1 CommitteeStart", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 
-			case types.CommitteeSwitchover:
-				// alread to start mining need stop
-				if self.Mining() {
-					if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
-						// i am committee
+				if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
+					// i am committee
+					if self.Mining() {
+						atomic.StoreInt32(&self.commitFlag, 0)
 						self.Stop()
-						atomic.StoreInt32(&self.shouldStart, 1)
-					} else {
-						log.Info("not in commiteer munber staCommitteeSwitchoverrt")
 					}
-				}
-				log.Info("==================get  election  msg  2 CommitteeSwitchover", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
+					atomic.StoreInt32(&self.commitFlag, 0)
+				} else {
+					log.Debug("not in commiteer munber so start to miner")
+					atomic.StoreInt32(&self.commitFlag, 1)
+					self.Start(self.coinbase)
 
+				}
+				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 			case types.CommitteeStop:
 
-				atomic.StoreInt32(&self.canStart, 1)
+				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
+				atomic.StoreInt32(&self.commitFlag, 1)
 				self.Start(self.coinbase)
-				log.Info("==================get  election  msg  3 CommitteeStop", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
 			}
 		case <-self.electionSub.Err():
 			return
@@ -199,26 +192,26 @@ out:
 }
 
 func (self *Miner) Start(coinbase common.Address) {
-	log.Info("start miner --miner start function")
+	log.Debug("start miner --miner start function")
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&self.canStart) == 0 {
-		log.Info("Network syncing, will start miner afterwards")
+	if atomic.LoadInt32(&self.canStart) == 0 || atomic.LoadInt32(&self.commitFlag) == 0{
+		log.Info("start to miner","canstart",self.canStart,"commitflag",self.commitFlag)
 		return
 	}
 	atomic.StoreInt32(&self.mining, 1)
 
-	log.Info("Starting mining operation")
 	self.worker.start()
 	self.worker.commitNewWork()
 }
 
 func (self *Miner) Stop() {
-	log.Info(" miner   ---stop miner funtion")
+	log.Debug(" miner   ---stop miner funtion")
 	self.worker.stop()
 	atomic.StoreInt32(&self.mining, 0)
 	atomic.StoreInt32(&self.shouldStart, 0)
+
 }
 
 func (self *Miner) Register(agent Agent) {
@@ -239,8 +232,8 @@ func (self *Miner) Mining() bool {
 func (self *Miner) HashRate() (tot int64) {
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
+
 	}
-	log.Info("miner HashRate ","tot",tot)
 	// do we care this might race? is it worth we're rewriting some
 	// aspects of the worker/locking up agents so we can get an accurate
 	// hashrate?
@@ -249,8 +242,7 @@ func (self *Miner) HashRate() (tot int64) {
 			tot += agent.GetHashRate()
 		}
 	}
-	log.Info("miner HashRate 2 ","tot",tot)
-	return
+	return tot
 }
 
 func (self *Miner) SetExtra(extra []byte) error {

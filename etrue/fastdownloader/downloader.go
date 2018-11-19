@@ -35,7 +35,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	)
+)
 
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
@@ -60,6 +60,8 @@ var (
 	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
 	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
+
+	reorgProtHeaderDelay = 2 // Number of headers to delay delivering to cover mini reorgs
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
@@ -471,7 +473,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		d.committed = 0
 	}
 	// Initiate the sync using a concurrent header and content retrieval algorithm
-	//使用并发标头和内容检索算法启动同步
 	d.queue.Prepare(origin+1, d.mode)
 	if d.syncInitHook != nil {
 		d.syncInitHook(origin, height)
@@ -1420,7 +1421,6 @@ func (d *Downloader) processFullSyncContent() error {
 	for {
 		results := d.queue.Results(true)
 		if len(results) == 0 {
-			log.Debug("processFullSyncContent>>>>>>>>>>>>>>>>>>>==0")
 			return nil
 		}
 		if d.chainInsertHook != nil {

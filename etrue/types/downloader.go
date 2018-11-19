@@ -84,6 +84,7 @@ type PeerConnection interface {
 	GetLock() *sync.RWMutex
 	GetVersion() int // Eth protocol version number to switch strategies
 	GetPeer() Peer
+	SetPeer(Peer)
 	GetLog() log.Logger
 }
 

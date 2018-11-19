@@ -47,6 +47,15 @@ type MsgBuffer struct {
 	CommitMsgs     []*consensus.VoteMsg
 }
 
+func (msg *MsgBuffer) Clear() {
+	msg = &MsgBuffer{
+		ReqMsgs:        make([]*consensus.RequestMsg, 0),
+		PrePrepareMsgs: make([]*consensus.PrePrepareMsg, 0),
+		PrepareMsgs:    make([]*consensus.VoteMsg, 0),
+		CommitMsgs:     make([]*consensus.VoteMsg, 0),
+	}
+}
+
 type View struct {
 	ID      int64
 	Primary string
@@ -202,6 +211,26 @@ func (node *Node) GetStatus(height int64) *consensus.State {
 		return state
 	}
 	return nil
+}
+
+func (node *Node) SetStatusClear(height int64) {
+	node.lock.Lock()
+	defer node.lock.Unlock()
+	id := height % StateMax
+	if state, ok := node.States[id]; ok {
+		state.Clear = true
+		node.States[id] = state
+	}
+}
+
+func (node *Node) GetStatusClear(height int64) bool {
+	node.lock.Lock()
+	defer node.lock.Unlock()
+	id := height % StateMax
+	if state, ok := node.States[id]; ok {
+		return state.Clear
+	}
+	return false
 }
 
 func (node *Node) handleResult(msg *consensus.ReplyMsg) {
@@ -535,6 +564,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
 		if CurrentStage != nil {
 			lock.PSLogInfo("clear stage ", msg.(*consensus.RequestMsg).Height)
+			node.MsgBuffer.Clear()
 			node.PutStatus(msg.(*consensus.RequestMsg).Height, nil)
 			CurrentStage = nil
 		}
@@ -557,6 +587,13 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		//lock.PSLog("node PrePrepareMsg", fmt.Sprintf("%+v", msg.(*consensus.PrePrepareMsg)))
 		lock.PSLog("node routeMsg", msg.(*consensus.PrePrepareMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.PrePrepareMsg).Height)
+		if CurrentStage != nil {
+			lock.PSLogInfo("clear stage ", msg.(*consensus.PrePrepareMsg).Height)
+			node.MsgBuffer.Clear()
+			node.PutStatus(msg.(*consensus.PrePrepareMsg).Height, nil)
+			CurrentStage = nil
+		}
+
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
 
 			// Copy buffered messages first.

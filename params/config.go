@@ -27,8 +27,11 @@ import (
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash  = common.HexToHash("0x285dec13c2d2d18d8a5cf3665aa8e003d211a3ed01babbbad740eccf56336666")
-	TestnetGenesisHash  = common.HexToHash("0xcf49d73c99b1c47340b7f302c952f6457f1c0de1fd5b3252bd4707399827134f")
+	MainnetGenesisHash      = common.HexToHash("0x4c698115c8ff468038c471885d7082be4a9ee96be738d3ee20abc1a1d0e21e89")
+	TestnetGenesisHash      = common.HexToHash("0x290144fdb8893d0a0e3788cbc626109e616044e62a023a56909e55ba9c8b1b55")
+	MainnetSnailGenesisHash = common.HexToHash("0x044db0d284a7ce0038f3573116bb20b0cbd0fc7c7fd39e86e191731867147e3e")
+	TestnetSnailGenesisHash = common.HexToHash("0x9e0e83d9ef3600159bbe3c1f11faa407902146ac76e22f1ab73792f070451f03")
+
 	TestnetGenesisFHash = common.HexToHash("0xcf49d73c99b1c47340b7f302c952f6457f1c0de1fd5b3252bd4707399827134f")
 	TestnetGenesisSHash = common.HexToHash("0x00bffb8790c8e80c3b6ca76ab6986d30fdd28f67cc4a9dff2cc054e9cb1a1b09")
 )
@@ -38,8 +41,8 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(100000),
-			MinimumFruitDifficulty: big.NewInt(200),
+			MinimumDifficulty:      big.NewInt(10000),
+			MinimumFruitDifficulty: big.NewInt(100),
 			DurationLimit:          big.NewInt(60),
 		}),
 	}
@@ -48,9 +51,9 @@ var (
 	TestnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(18928),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      MinimumDifficulty,
-			MinimumFruitDifficulty: MinimumFruitDifficulty,
-			DurationLimit:          DurationLimit,
+			MinimumDifficulty:      big.NewInt(2000000),
+			MinimumFruitDifficulty: big.NewInt(2000),
+			DurationLimit:          big.NewInt(600),
 		}),
 	}
 
@@ -74,7 +77,7 @@ var (
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), new(MinervaConfig)}
+	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty,MinimumFruitDifficulty,DurationLimit}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -101,7 +104,7 @@ func (c *ChainConfig) UnmarshalJSON(input []byte) error {
 		return err
 	}
 	c.ChainID = dec.ChainID
-	if c.Minerva == nil {
+	if dec.Minerva == nil {
 		c.Minerva = &(MinervaConfig{
 			MinimumDifficulty:      MinimumDifficulty,
 			MinimumFruitDifficulty: MinimumFruitDifficulty,
@@ -167,7 +170,11 @@ func (c MinervaConfig) MarshalJSON() ([]byte, error) {
 
 // String implements the stringer interface, returning the consensus engine details.
 func (c *MinervaConfig) String() string {
-	return "minerva"
+	return fmt.Sprintf("{MinimumDifficulty: %v MinimumFruitDifficulty: %v DurationLimit: %v}",
+		c.MinimumDifficulty,
+		c.MinimumFruitDifficulty,
+		c.DurationLimit,
+	)
 }
 
 // CliqueConfig is the consensus engine configs for proof-of-authority based sealing.

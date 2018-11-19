@@ -33,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -53,14 +54,14 @@ var DefaultConfig = Config{
 	GasPrice:      big.NewInt(18 * params.Shannon),
 
 	TxPool:    core.DefaultTxPoolConfig,
-	SnailPool: core.DefaultSnailPoolConfig,
+	SnailPool: snailchain.DefaultSnailPoolConfig,
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
 	},
 	MinerThreads: 2,
 	Port:         30310,
-	StandByPort:  30311,
+	StandbyPort:  30311,
 }
 
 func init() {
@@ -112,7 +113,7 @@ type Config struct {
 	Port int `toml:",omitempty"`
 
 	// StandByPort is the TCP port number on which to start the pbft server.
-	StandByPort int `toml:",omitempty"`
+	StandbyPort int `toml:",omitempty"`
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`
@@ -134,7 +135,7 @@ type Config struct {
 	TxPool core.TxPoolConfig
 
 	//fruit pool options
-	SnailPool core.SnailPoolConfig
+	SnailPool snailchain.SnailPoolConfig
 
 	// Gas Price Oracle options
 	GPO gasprice.Config
@@ -150,6 +151,10 @@ type Config struct {
 
 	//true indicate only mine fruit
 	MineFruit bool `toml:",omitempty"`
+}
+
+func (c *Config) GetNodeType() bool {
+	return c.NodeType
 }
 
 type configMarshaling struct {

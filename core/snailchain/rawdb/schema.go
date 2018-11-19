@@ -21,7 +21,6 @@ import (
 	"encoding/binary"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 // The fields below define the low level database schema prefixing.
@@ -46,7 +45,7 @@ var (
 	headerTDSuffix        = []byte("st") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
 	headerHashSuffix      = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
 	headerNumberPrefix    = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
-	headerCommitteeSuffix = []byte("sC") // headerPrefix + num (uint64 big endian) + hash + headerCommitteeSuffix -> committee
+	headerCommitteeSuffix = []byte("sC") // num (uint64 big endian) + headerCommitteeSuffix -> committee
 
 	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("sr") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
@@ -54,14 +53,10 @@ var (
 	ftLookupPrefix  = []byte("sl") // ftLookupPrefix + hash -> fruit lookup metadata
 	bloomBitsPrefix = []byte("sB") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
-	preimagePrefix = []byte("snailchain-secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("snailchain-truechain-config-") // config prefix for the db
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("siB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
-
-	preimageCounter    = metrics.NewRegisteredCounter("db/preimage/total", nil)
-	preimageHitCounter = metrics.NewRegisteredCounter("db/preimage/hits", nil)
 )
 
 // FtLookupEntry is a positional metadata to help looking up the data content of
@@ -124,17 +119,12 @@ func bloomBitsKey(bit uint, section uint64, hash common.Hash) []byte {
 	return key
 }
 
-// preimageKey = preimagePrefix + hash
-func preimageKey(hash common.Hash) []byte {
-	return append(preimagePrefix, hash.Bytes()...)
-}
-
 // configKey = configPrefix + hash
 func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
 }
 
-// headerCommitteeKey = headerPrefix + num (uint64 big endian) + headerCommitteeSuffix
+// headerCommitteeKey = num (uint64 big endian) + headerCommitteeSuffix
 func headerCommitteeKey(number uint64) []byte {
 	return append(encodeBlockNumber(number), headerCommitteeSuffix...)
 }

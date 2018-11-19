@@ -33,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -74,10 +75,10 @@ type Truechain struct {
 	// Handlers
 	txPool *core.TxPool
 
-	snailPool *core.SnailPool
+	snailPool *chain.SnailPool
 
 	agent    *PbftAgent
-	election *Election
+	election *elect.Election
 
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -208,9 +209,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	etrue.snailPool = core.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
+	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = elect.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
@@ -286,6 +287,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chai
 	// Otherwise assume proof-of-work
 	switch config.PowMode {
 	case ethash.ModeFake:
+		log.Info("-----Fake mode")
 		log.Warn("Ethash used in fake mode")
 		return ethash.NewFaker()
 	case ethash.ModeTest:
@@ -407,6 +409,7 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 func (s *Truechain) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
+	s.agent.committeeNode.Coinbase =etherbase
 	s.lock.Unlock()
 
 	s.miner.SetEtherbase(etherbase)
@@ -454,7 +457,7 @@ func (s *Truechain) Config() *Config                   { return s.config }
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
 
-func (s *Truechain) SnailPool() *core.SnailPool { return s.snailPool }
+func (s *Truechain) SnailPool() *chain.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }
