@@ -273,7 +273,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
-		header, err := pm.fdownloader.FetchHeight(peer.id);
+		header, err := pm.fdownloader.FetchHeight(peer.id,0);
 		if err != nil || header == nil {
 			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
@@ -347,7 +347,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 	}
 
-	mode = downloader.FullSync
+	//mode = downloader.FullSync
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
