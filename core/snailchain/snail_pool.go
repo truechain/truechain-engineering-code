@@ -31,10 +31,9 @@ import (
 )
 
 const (
-	fruitChanSize = 1024
+	fruitChanSize     = 1024
 	chainHeadChanSize = 10
 )
-
 
 var (
 	// Metrics for the pending pool
@@ -48,9 +47,6 @@ var (
 	evictionInterval    = time.Minute     // Time interval to check for evictable fruits
 	statsReportInterval = 8 * time.Second // Time interval to report fruits pool stats
 )
-
-
-
 
 // SnailPoolConfig are the configuration parameters of the fruit pool.
 type SnailPoolConfig struct {
