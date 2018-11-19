@@ -210,13 +210,22 @@ func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int,
 	return blocks
 }
 
+func MakeFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
+	pubkey []byte, coinbaseAddr common.Address, diff *big.Int) (*types.SnailBlock, error) {
+	return makeSnailBlockFruitInternal(chain, fastchain, makeBlockNum, makeStartFastNum, makeFruitSize, pubkey, coinbaseAddr, false, diff)
+}
+
+func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeFruitSize int,
+	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
+	return makeSnailBlockFruitInternal(chain, fastchain, makeBlockNum, 0, makeFruitSize, pubkey, coinbaseAddr, isBlock, diff)
+}
 //create block,fruit
 // chain: for snail chain
 // fastchian: for fast chain
 // makeStartFastNum,makeFruitSize :if you create  a block the fruitset  startnumber and size this is fastblock number
 //pubkey : for election
 // coinbaseAddr: for coin
-func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeFruitSize int,
+func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
 	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
 
 	var parent = chain.CurrentBlock()
@@ -237,8 +246,9 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 		snailFruitsLastFastNumber = new(big.Int).SetUint64(0)
 	}
 
-	//parentNum := parent.Number()
-	makeStartFastNum := int(new(big.Int).Add(snailFruitsLastFastNumber, big.NewInt(1)).Int64());
+	if isBlock {
+		makeStartFastNum = int(new(big.Int).Add(snailFruitsLastFastNumber, big.NewInt(1)).Int64());
+	}
 	if isBlock {
 		if makeFruitSize < params.MinimumFruits || snailFruitsLastFastNumber.Int64() >= int64(makeStartFastNum) {
 			return nil, fmt.Errorf("fruitSet is nill or size less then 60, %d, %d", snailFruitsLastFastNumber, makeStartFastNum)
