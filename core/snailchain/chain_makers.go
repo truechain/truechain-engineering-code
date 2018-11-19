@@ -211,8 +211,8 @@ func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int,
 }
 
 func MakeFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
-	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
-	return makeSnailBlockFruitInternal(chain, fastchain, makeBlockNum, makeStartFastNum, makeFruitSize, pubkey, coinbaseAddr, isBlock, diff)
+	pubkey []byte, coinbaseAddr common.Address, diff *big.Int) (*types.SnailBlock, error) {
+	return makeSnailBlockFruitInternal(chain, fastchain, makeBlockNum, makeStartFastNum, makeFruitSize, pubkey, coinbaseAddr, false, diff)
 }
 
 func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeFruitSize int,
