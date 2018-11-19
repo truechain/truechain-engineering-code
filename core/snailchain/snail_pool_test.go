@@ -64,16 +64,12 @@ func init() {
 	})
 	fastchain.InsertChain(fastblocks)
 
-
-
-
-
 	snailGenesis = genesis.MustSnailCommit(peerDb)
 	snailblockchain, _ = NewSnailBlockChain(peerDb, nil, params.TestChainConfig, engine, vm.Config{})
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
-	blocks1 , _ := MakeSnailBlockFruits(snailblockchain, fastchain, 1,3 , 1,180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true,nil)
+	blocks1, _ := MakeSnailBlockFruits(snailblockchain, fastchain, 1, 3, 1, 180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	snailblockchain.InsertChain(blocks1)
 
 }
@@ -85,15 +81,144 @@ func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
-
 	fastchain.InsertChain(fastblocks)
 
-	fruit,err := MakeSnailBlockFruit(snailblockchain, fastchain, 1, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
-	if err != nil{
+	fruit, err := makeSnailFruit(snailblockchain, fastchain, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
+	if err != nil {
 		fmt.Print(err)
 	}
 
 	return fruit
+}
+
+func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
+	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
+
+	var fruitsetCopy []*types.SnailBlock
+	var pointerHashFresh = big.NewInt(7)
+	var snailFruitsLastFastNumber *big.Int
+
+	if chain == nil {
+		return nil, fmt.Errorf("chain is nil")
+	}
+
+	// create head
+	parent := chain.CurrentBlock()
+	if parent.Fruits() != nil && len(parent.Fruits()) != 0 {
+		snailFruitsLastFastNumber = parent.Fruits()[len(parent.Fruits())-1].FastNumber()
+	} else {
+		snailFruitsLastFastNumber = new(big.Int).SetUint64(0)
+	}
+
+	//parentNum := parent.Number()
+
+	if isBlock {
+		if makeFruitSize < params.MinimumFruits || snailFruitsLastFastNumber.Int64() >= int64(makeStartFastNum) {
+			return nil, fmt.Errorf("fruitSet is nill or size less then 60")
+		}
+	}
+
+	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
+		parent := chain.CurrentBlock()
+		//num := parent.Number()
+		var fruitDiff *big.Int
+		if isFruit {
+			fruitDiff = diff
+		}
+		tstamp := time.Now().Unix()
+		header := &types.SnailHeader{
+			ParentHash:      parent.Hash(),
+			Publickey:       pubkey,
+			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
+			Time:            big.NewInt(tstamp),
+			Coinbase:        coinbaseAddr,
+			Fruit:           isFruit,
+			FastNumber:      fastNumber,
+			Difficulty:      diff,
+			FruitDifficulty: fruitDiff,
+			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
+		}
+
+		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
+		if pointerNum.Cmp(common.Big0) < 0 {
+			pointerNum = new(big.Int).Set(common.Big0)
+		}
+		pointer := chain.GetBlockByNumber(pointerNum.Uint64())
+		header.PointerHash = pointer.Hash()
+		header.PointerNumber = pointer.Number()
+
+		return header
+	}
+
+	copySignsByFastNum := func(fc *core.BlockChain, fNumber *big.Int) ([]*types.PbftSign, error) {
+
+		if fc.CurrentBlock().Number().Cmp(fNumber) < 0 {
+			return nil, fmt.Errorf("fastblocknumber highter then fast chain hight")
+		}
+
+		fastSigns := fc.GetBlockByNumber(fNumber.Uint64()).Signs()
+		return fastSigns, nil
+
+	}
+
+	makeFruit := func(chain *SnailBlockChain, fChain *core.BlockChain, fastNumber *big.Int, pubkey []byte, coinbaseAddr common.Address) (*types.SnailBlock, error) {
+
+		head := makeHead(chain, pubkey, coinbaseAddr, fastNumber, true)
+		//pointer := chain.GetHeader(head.PointerHash, head.PointerNumber.Uint64())
+		fastBlock := fChain.GetBlockByNumber(fastNumber.Uint64())
+		head.FastHash = fastBlock.Hash()
+		//head.FruitDifficulty = minerva.CalcFruitDifficulty(chain.chainConfig, head.Time.Uint64(), fastBlock.Header().Time.Uint64(), pointer)
+
+		fSign, err := copySignsByFastNum(fChain, fastNumber)
+		if err != nil {
+			return nil, err
+		}
+
+		fruit := types.NewSnailBlock(
+			head,
+			nil,
+			fSign,
+			nil,
+		)
+		return fruit, nil
+	}
+
+	// creat fruits
+	if isBlock {
+		for i := makeStartFastNum; i < makeStartFastNum+makeFruitSize; i++ {
+			fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(i)), pubkey, coinbaseAddr)
+			if err != nil {
+				return nil, err
+			}
+			fruitsetCopy = append(fruitsetCopy, fruit)
+		}
+		if len(fruitsetCopy) != makeFruitSize {
+			return nil, fmt.Errorf("fruits make fail the length less then makeFruitSize")
+		}
+
+		fSign, err := copySignsByFastNum(fastchain, new(big.Int).SetUint64(uint64(makeStartFastNum)))
+		if err != nil {
+			return nil, err
+		}
+
+		block := types.NewSnailBlock(
+			makeHead(chain, pubkey, coinbaseAddr, new(big.Int).SetInt64(int64(makeStartFastNum)), false),
+			fruitsetCopy,
+			fSign,
+			nil,
+		)
+		return block, nil
+
+	} else {
+		fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
+		if err != nil {
+			return nil, err
+		}
+		return fruit, nil
+	}
+
+	return nil, nil
+
 }
 
 func setupSnailPool() (*SnailPool) {

@@ -27,6 +27,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -38,6 +39,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (
@@ -45,22 +47,26 @@ const (
 	nextCommittee           //next committee
 )
 const (
-	blockRewordSpace = 12
-	fastToFruitSpace = 12000000000
 	chainHeadSize    = 256
 	electionChanSize = 64
 	sendNodeTime     = 30 * time.Second
-	subSignStr       = 24
+	//subSignStr       = 24
 
-	fetchBlockTime = 3
+	fetchBlockTime = 5
 	blockInterval  = 20
+)
+
+var (
+	tpsMetrics =metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
+	//pbftConsensusMetrics =metrics.NewRegisteredTimer("etrue/pbftAgent/pbftConsensus", nil)
+	pbftConsensusCounter   = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 )
 
 var (
 	txSum           uint64 = 0
 	timeSlice       []uint64
 	txSlice         []uint64
-	tpsSlice        []float32
+	instantTpsSlice []float32
 	averageTpsSlice []float32
 )
 
@@ -86,7 +92,7 @@ type PbftAgent struct {
 	endFastNumber        map[*big.Int]*big.Int
 
 	server   types.PbftServerProxy
-	election *Election
+	election *elect.Election
 
 	mu           *sync.Mutex //generateBlock mutex
 	cacheBlockMu *sync.Mutex //PbftAgent.cacheBlock mutex
@@ -131,7 +137,7 @@ type AgentWork struct {
 }
 
 // NodeInfoEvent is posted when nodeInfo send
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *Election, coinbase common.Address) *PbftAgent {
+func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election, coinbase common.Address) *PbftAgent {
 	self := &PbftAgent{
 		config:               config,
 		engine:               engine,
@@ -166,13 +172,13 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 	self.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
 		Port:      uint(config.Port),
-		Port2:     uint(config.StandByPort),
+		Port2:     uint(config.StandbyPort),
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&self.privateKey.PublicKey),
 	}
 	//if singlenode start, node as committeeMember
 	if self.singleNode {
-		committees := self.election.genesisCommittee
+		committees := self.election.GetGenesisCommittee()
 		if len(committees) != 1 {
 			log.Error("singlenode start,must assign genesis_single.json")
 		}
@@ -180,7 +186,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 		self.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
 	}
 	log.Info("InitNodeInfo", "singleNode", self.singleNode,
-		", port", config.Port, ", standByPort", config.StandByPort, ", Host", config.Host,
+		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
 		", coinbase", self.committeeNode.Coinbase,
 		",pubKey", hex.EncodeToString(self.committeeNode.Publickey))
 }
@@ -359,7 +365,7 @@ func (self *PbftAgent) loop() {
 				}
 				self.setCommitteeInfo(currentCommittee, self.nextCommitteeInfo)
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					self.server.Notify(committeeID, int(ch.Option))
+					go self.server.Notify(committeeID, int(ch.Option))
 				}
 			case types.CommitteeStop:
 				committeeID := copyCommitteeId(ch.CommitteeID)
@@ -367,7 +373,7 @@ func (self *PbftAgent) loop() {
 					continue
 				}
 				if self.IsCommitteeMember(self.currentCommitteeInfo) {
-					self.server.Notify(committeeID, int(ch.Option))
+					go self.server.Notify(committeeID, int(ch.Option))
 				}
 				self.stopSend()
 			case types.CommitteeSwitchover:
@@ -379,8 +385,8 @@ func (self *PbftAgent) loop() {
 					log.Error("CommitteeSwitchover receivedMembers is nil ", "committeeId", committeeID)
 				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
-					Id:          committeeID,
-					Members:     ch.CommitteeMembers,
+					Id:      committeeID,
+					Members: ch.CommitteeMembers,
 					StartHeight: self.fastChain.CurrentBlock().Number(), // todo @shuxun fix this default value
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
@@ -410,7 +416,7 @@ func (self *PbftAgent) loop() {
 				}
 			}
 		case ch := <-self.chainHeadCh:
-			log.Debug("ChainHeadCh putCacheIntoChain.", "ch.Block", ch.Block.Number())
+			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
 			go self.putCacheInsertChain(ch.Block)
 		}
 	}
@@ -654,14 +660,6 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
-
-	// this will ensure we're not going off too far in the future
-	//if now := time.Now().Unix(); tstamp > now+1 {
-	//	wait := time.Duration(tstamp-now) * time.Second
-	//	log.Info("generateFastBlock too far in the future", "wait", common.PrettyDuration(wait))
-	//	time.Sleep(wait)
-	//}
-
 	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),
@@ -669,6 +667,10 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
+	//assign Proposer
+	pubKey, _ := crypto.UnmarshalPubkey(self.committeeNode.Publickey)
+	header.Proposer = crypto.PubkeyToAddress(*pubKey)
+
 	if err := self.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
 		return nil, err
 	}
@@ -713,12 +715,16 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 
 //validate space between latest fruit number of snailchain  and  lastest fastBlock number
 func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
+	if self.singleNode{
+		return nil
+	}
 	snailBlock := self.snailChain.CurrentBlock()
 	blockFruits := snailBlock.Body().Fruits
 	if blockFruits != nil && len(blockFruits) > 0 {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
-		if space >= fastToFruitSpace {
+		if space >= params.FastToFruitSpace.Int64() {
+			log.Warn("fetchFastBlock validateBlockSpace error","space",space)
 			return types.ErrSnailBlockTooSlow
 		}
 	}
@@ -735,7 +741,7 @@ func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
 	}
 	space := new(big.Int).Sub(self.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
-	if space >= blockRewordSpace {
+	if space >= params.SnailConfirmInterval.Int64() {
 		header.SnailNumber = rewardSnailHegiht
 		sb := self.snailChain.GetBlockByNumber(rewardSnailHegiht.Uint64())
 		if sb != nil {
@@ -748,10 +754,10 @@ func (self *PbftAgent) rewardSnailBlock(header *types.Header) {
 	}
 }
 
-func GetTps(currentBlock *types.Block) {
+func GetTps(currentBlock *types.Block) float32 {
 	/*r.Seed(time.Now().Unix())
 	txNum := uint64(r.Intn(1000))*/
-
+	var instantTps float32
 	nowTime := uint64(time.Now().UnixNano() / 1000000)
 	timeSlice = append(timeSlice, nowTime)
 
@@ -760,9 +766,9 @@ func GetTps(currentBlock *types.Block) {
 	txSlice = append(txSlice, txSum)
 	if len(txSlice) > 1 && len(timeSlice) > 1 {
 		eachTimeInterval := nowTime - timeSlice[len(timeSlice)-1-1]
-		tps := 1000 * float32(txNum) / float32(eachTimeInterval)
-		log.Debug("tps:", "block", currentBlock.NumberU64(), "tps", tps, "tx", txNum, "time", eachTimeInterval)
-		tpsSlice = append(tpsSlice, tps)
+		instantTps = 1000 * float32(txNum) / float32(eachTimeInterval)
+		log.Debug("tps:", "block", currentBlock.NumberU64(), "instantTps", instantTps, "tx", txNum, "time", eachTimeInterval)
+		instantTpsSlice = append(instantTpsSlice, instantTps)
 
 		var timeInterval, txInterval uint64
 		if len(timeSlice)-blockInterval > 0 && len(txSlice)-blockInterval > 0 {
@@ -776,6 +782,13 @@ func GetTps(currentBlock *types.Block) {
 		log.Debug("tps average", "tps", averageTps, "tx", txInterval, "time", timeInterval)
 		averageTpsSlice = append(averageTpsSlice, averageTps)
 	}
+	/*r.Seed(time.Now().Unix())
+		instantTps := uint64(r.Intn(100))
+	 if len(txSlice)== 1 && len(timeSlice) == 1 {
+		 tpsMetrics.Mark(int64(500))
+	 }*/
+	tpsMetrics.Mark(int64(txNum))
+	return instantTps
 }
 
 func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
@@ -893,6 +906,10 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	if err != nil {
 		return err
 	}
+	//record consensus time  of committee
+	consensusTime :=time.Now().Unix() -fb.Header().Time.Int64()
+	pbftConsensusCounter.Clear()
+	pbftConsensusCounter.Inc(consensusTime)
 	log.Debug("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
@@ -1000,7 +1017,6 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockCha
 	}
 	env.txs = append(env.txs, tx)
 	env.receipts = append(env.receipts, receipt)
-
 	return nil, receipt.Logs
 }
 
