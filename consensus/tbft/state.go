@@ -173,10 +173,8 @@ func (cs *ConsensusState) String() string {
 
 // GetRoundState returns a shallow copy of the internal consensus state.
 func (cs *ConsensusState) GetRoundState() *ttypes.RoundState {
-	log.Debug("mtxlock", "lock", 4)
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
-	defer log.Debug("mtxlock", "lock", -4)
 
 	rs := cs.RoundState // copy
 	return &rs
@@ -184,37 +182,29 @@ func (cs *ConsensusState) GetRoundState() *ttypes.RoundState {
 
 // GetRoundStateJSON returns a json of RoundState, marshalled using go-amino.
 func (cs *ConsensusState) GetRoundStateJSON() ([]byte, error) {
-	log.Debug("mtxlock", "lock", 5)
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
-	defer log.Debug("mtxlock", "lock", -5)
 	return cdc.MarshalJSON(cs.RoundState)
 }
 
 // GetRoundStateSimpleJSON returns a json of RoundStateSimple, marshalled using go-amino.
 func (cs *ConsensusState) GetRoundStateSimpleJSON() ([]byte, error) {
-	log.Debug("mtxlock", "lock", 6)
 	cs.mtx.RLock()
 	defer cs.mtx.RUnlock()
-	defer log.Debug("mtxlock", "lock", -6)
 	return cdc.MarshalJSON(cs.RoundState.RoundStateSimple())
 }
 
 // SetPrivValidator sets the private validator account for signing votes.
 func (cs *ConsensusState) SetPrivValidator(priv ttypes.PrivValidator) {
-	log.Debug("mtxlock", "lock", 7)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-	defer log.Debug("mtxlock", "lock", -7)
 	cs.privValidator = priv
 }
 
 // SetTimeoutTicker sets the local timer. It may be useful to overwrite for testing.
 func (cs *ConsensusState) SetTimeoutTicker(timeoutTicker TimeoutTicker) {
-	log.Debug("mtxlock", "lock", 8)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-	defer log.Debug("mtxlock", "lock", -8)
 	cs.timeoutTicker = timeoutTicker
 }
 
@@ -638,10 +628,8 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 
 	// the timeout will now cause a state transition
-	log.Debug("mtxlock", "lock", 10)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-	defer log.Debug("mtxlock", "lock", -10)
 
 	switch ti.Step {
 	case ttypes.RoundStepNewHeight:
