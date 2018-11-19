@@ -64,16 +64,12 @@ func init() {
 	})
 	fastchain.InsertChain(fastblocks)
 
-
-
-
-
 	snailGenesis = genesis.MustSnailCommit(peerDb)
 	snailblockchain, _ = NewSnailBlockChain(peerDb, nil, params.TestChainConfig, engine, vm.Config{})
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
-	blocks1 , _ := MakeSnailBlockFruits(snailblockchain, fastchain, 1,3 , 1,180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true,nil)
+	blocks1, _ := MakeSnailBlockFruits(snailblockchain, fastchain, 1, 3, 1, 180, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 	snailblockchain.InsertChain(blocks1)
 
 }
@@ -85,18 +81,17 @@ func fruit(fastNumber int, fruitDifficulty *big.Int) *types.SnailBlock {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
-
 	fastchain.InsertChain(fastblocks)
 
-	fruit,err := MakeSnailFruit(snailblockchain, fastchain, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
-	if err != nil{
+	fruit, err := makeSnailFruit(snailblockchain, fastchain, 1, fastNumber, 1, snailGenesis.PublicKey(), snailGenesis.Coinbase(), false, fruitDifficulty)
+	if err != nil {
 		fmt.Print(err)
 	}
 
 	return fruit
 }
 
-func MakeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
+func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeStartFastNum int, makeFruitSize int,
 	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
 
 	var fruitsetCopy []*types.SnailBlock
@@ -126,22 +121,22 @@ func MakeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
 		parent := chain.CurrentBlock()
 		//num := parent.Number()
-		var fruitDiff  *big.Int
-		if isFruit{
-			fruitDiff=diff
+		var fruitDiff *big.Int
+		if isFruit {
+			fruitDiff = diff
 		}
 		tstamp := time.Now().Unix()
 		header := &types.SnailHeader{
-			ParentHash: parent.Hash(),
-			Publickey:  pubkey,
-			Number:     new(big.Int).SetUint64(uint64(makeBlockNum)),
-			Time:       big.NewInt(tstamp),
-			Coinbase:   coinbaseAddr,
-			Fruit:      isFruit,
-			FastNumber: fastNumber,
-			Difficulty: diff,
-			FruitDifficulty:fruitDiff,
-			FastHash:fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
+			ParentHash:      parent.Hash(),
+			Publickey:       pubkey,
+			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
+			Time:            big.NewInt(tstamp),
+			Coinbase:        coinbaseAddr,
+			Fruit:           isFruit,
+			FastNumber:      fastNumber,
+			Difficulty:      diff,
+			FruitDifficulty: fruitDiff,
+			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
 
 		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
@@ -225,6 +220,7 @@ func MakeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 	return nil, nil
 
 }
+
 func setupSnailPool() (*SnailPool) {
 
 	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)

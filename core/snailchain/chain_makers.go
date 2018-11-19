@@ -247,9 +247,9 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 
 	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
 		//num := parent.Number()
-		var fruitDiff  *big.Int
-		if isFruit{
-			fruitDiff=diff
+		var fruitDiff *big.Int
+		if isFruit {
+			fruitDiff = diff
 		}
 		var tstamp *big.Int
 		if parent.Time() == nil {
@@ -258,16 +258,16 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 			tstamp = new(big.Int).Add(parent.Time(), big.NewInt(10)) // block time is fixed at 10 seconds
 		}
 		header := &types.SnailHeader{
-			ParentHash: parent.Hash(),
-			Publickey:  pubkey,
-			Number:     new(big.Int).SetUint64(uint64(makeBlockNum)),
-			Time:       tstamp,
-			Coinbase:   coinbaseAddr,
-			Fruit:      isFruit,
-			FastNumber: fastNumber,
-			Difficulty: diff,
-			FruitDifficulty:fruitDiff,
-			FastHash:fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
+			ParentHash:      parent.Hash(),
+			Publickey:       pubkey,
+			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
+			Time:            tstamp,
+			Coinbase:        coinbaseAddr,
+			Fruit:           isFruit,
+			FastNumber:      fastNumber,
+			Difficulty:      diff,
+			FruitDifficulty: fruitDiff,
+			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
 
 		pointerNum := new(big.Int).Sub(parent.Number(), pointerHashFresh)
@@ -386,14 +386,14 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 
 func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	var (
-		testdb = ethdb.NewMemDatabase()
-		genesis = core.DefaultGenesisBlock()
-		engine  = minerva.NewFaker()
+		testdb       = ethdb.NewMemDatabase()
+		genesis      = core.DefaultGenesisBlock()
+		engine       = minerva.NewFaker()
 		fruitnumbers int
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -415,7 +415,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 	snailChain.SetValidator(NewBlockValidator(nil, fastchain, snailChain, engine))
 
-	if fastBlockNumbers > snailBlockNumbers * params.MinimumFruits{
+	if fastBlockNumbers > snailBlockNumbers*params.MinimumFruits {
 		fruitnumbers = snailBlockNumbers * params.MinimumFruits
 	}
 
