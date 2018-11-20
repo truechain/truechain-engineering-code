@@ -364,11 +364,11 @@ func (node *Node) repeatPrepare(prepareMsg *consensus.VoteMsg) {
 		node.RepeatPrepare.Count = 1
 	} else if node.RepeatPrepare.Count <= 3 {
 		node.RepeatPrepare.Count += 1
+		time.Sleep(time.Second)
+		msgs := make([]*consensus.VoteMsg, 0)
+		msgs = append(msgs, prepareMsg)
+		node.MsgDelivery <- msgs
 	}
-	time.Sleep(time.Second)
-	msgs := make([]*consensus.VoteMsg, 0)
-	msgs = append(msgs, prepareMsg)
-	node.MsgDelivery <- msgs
 }
 
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
