@@ -343,7 +343,9 @@ func TestFruitDropping(t *testing.T) {
 
 	pool := setupSnailPool()
 	defer pool.Stop()
-
+	events := make(chan types.NewFruitsEvent, 3)
+	sub := pool.fruitFeed.Subscribe(events)
+	defer sub.Unsubscribe()
 	// Add some pending fruits
 	var (
 		ft10 = fruit(181, big.NewInt(2000))
@@ -363,6 +365,9 @@ func TestFruitDropping(t *testing.T) {
 		t.Errorf(
 			"queued fruit mismatch: have %d, want %d", len(pool.allFruits), 2)
 	}
+	if err := validateFruitEvents(events, 3); err != nil {
+		t.Fatalf(" replacement event firing failed: %v", err)
+	}
 }
 
 // Tests that the pool rejects replacement fruits that a new is difficulty
@@ -373,7 +378,9 @@ func TestFruitReplacement(t *testing.T) {
 	// Create a test account and fund it
 	pool := setupSnailPool()
 	defer pool.Stop()
-
+	events := make(chan types.NewFruitsEvent, 1)
+	sub := pool.fruitFeed.Subscribe(events)
+	defer sub.Unsubscribe()
 	// Add some pending fruits
 	var (
 		ft0 = fruit(181, big.NewInt(1000))
@@ -389,6 +396,10 @@ func TestFruitReplacement(t *testing.T) {
 	if pool.allFruits[ft0.FastHash()].FruitDifficulty().Cmp(big.NewInt(2000)) != 0 {
 		t.Errorf("allFruits's difficulty mismatch: is %d, want %d", pool.allFruits[ft0.FastHash()].FruitDifficulty(), big.NewInt(2000))
 	}
+	if err := validateFruitEvents(events, 1); err != nil {
+		t.Fatalf(" replacement event firing failed: %v", err)
+	}
+
 }
 
 // Tests that local fruits are journaled to disk, but remote fruits

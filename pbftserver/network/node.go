@@ -37,7 +37,13 @@ type Node struct {
 	CommitLock         sync.Mutex
 	CurrentHeight      int64
 	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
-	//stop               bool
+	RepeatPrepare      RepeatPrepare
+}
+
+type RepeatPrepare struct {
+	Digest string `json:"digest"`
+	Height int64  `json:"height"`
+	Count  int    `json:"count"`
 }
 
 type MsgBuffer struct {
@@ -352,6 +358,19 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	return nil
 }
 
+func (node *Node) repeatPrepare(prepareMsg *consensus.VoteMsg) {
+	if node.RepeatPrepare.Digest != prepareMsg.Digest {
+		node.RepeatPrepare.Digest = prepareMsg.Digest
+		node.RepeatPrepare.Count = 1
+	} else if node.RepeatPrepare.Count <= 3 {
+		node.RepeatPrepare.Count += 1
+	}
+	time.Sleep(time.Second)
+	msgs := make([]*consensus.VoteMsg, 0)
+	msgs = append(msgs, prepareMsg)
+	node.MsgDelivery <- msgs
+}
+
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	node.PrePareLock.Lock()
 	defer node.PrePareLock.Unlock()
@@ -368,6 +387,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
+		go node.repeatPrepare(prepareMsg)
 		return err
 	}
 
@@ -375,10 +395,10 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
 
-		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+		if CurrentState.CurrentStage == consensus.Prepared {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
-			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
-			commitMsg.Signs = node.GetStatus(commitMsg.Height).MySign
+			CurrentState.BlockResults = commitMsg.Pass
+			commitMsg.Signs = CurrentState.MySign
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
@@ -401,12 +421,12 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 			commitMsg.Signs = sign
 			//save Pass
-			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
+			CurrentState.BlockResults = commitMsg.Pass
 
-			node.GetStatus(commitMsg.Height).MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
+			CurrentState.MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
 
 			// Change the stage to prepared.
-			node.GetStatus(commitMsg.Height).CurrentStage = consensus.Prepared
+			CurrentState.CurrentStage = consensus.Prepared
 			LogStage("Prepare", true)
 			node.Broadcast(commitMsg, "/commit")
 			LogStage("Commit", false)
