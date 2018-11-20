@@ -234,10 +234,9 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		},
 		trackStateReq: make(chan *stateReq),
 	}
-	//log.Debug("fastQueue>>>>>>>>>>>>>", &dl.queue.active)
 
-	//go dl.qosTuner()
-	//go dl.stateFetcher()
+	go dl.qosTuner()
+	go dl.stateFetcher()
 	return dl
 }
 
@@ -276,9 +275,9 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 }
 
 // Synchronising returns whether the downloader is currently retrieving blocks.
-//func (d *Downloader) Synchronising() bool {
-//	return atomic.LoadInt32(&d.synchronising) > 0
-//}
+func (d *Downloader) Synchronising() bool {
+	return atomic.LoadInt32(&d.synchronising) > 0
+}
 
 // RegisterPeer injects a new download peer into the set of block source to be
 // used for fetching hashes and blocks from.
@@ -420,15 +419,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int, origin uint64, height uint64) (err error) {
-	//d.mux.Post(StartEvent{})
-	//defer func() {
-	//	// reset on error
-	//	if err != nil {
-	//		d.mux.Post(FailedEvent{err})
-	//	} else {
-	//		d.mux.Post(DoneEvent{})
-	//	}
-	//}()
+
 	if p.GetVersion() < 62 {
 		return errTooOld
 	}
@@ -439,13 +430,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}(time.Now())
 
 	// Look up the sync boundaries: the common ancestor and the target block
-	//latest, err := d.fetchHeight(p)
-	//if err != nil {
-	//	return err
-	//}
-	//height := latest.Number.Uint64()
-	//origin, err := d.findAncestor(p, height)-
-
 	if err != nil {
 		return err
 	}
@@ -455,6 +439,13 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}
 	d.syncStatsChainHeight = height
 	d.syncStatsLock.Unlock()
+
+	latest := &types.Header{}
+	if d.mode == FastSync {
+		if latest , err =d.FetchHeight(p.GetID(),origin+height) ; err != nil {
+			return err
+		}
+	}
 
 	// Ensure our origin point is below any fast sync pivot point
 	pivot := uint64(0)
@@ -468,6 +459,8 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 			}
 		}
 	}
+
+
 	d.committed = 1
 	if d.mode == FastSync && pivot != 0 {
 		d.committed = 0
@@ -487,13 +480,13 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
-	//if d.mode == FastSync {
-	//	fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
-	//} else if d.mode == FullSync {
-	//	fetchers = append(fetchers, d.processFullSyncContent)
-	//}
+	if d.mode == FastSync {
+		fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
+	} else if d.mode == FullSync {
+		fetchers = append(fetchers, d.processFullSyncContent)
+	}
 
-	fetchers = append(fetchers, d.processFullSyncContent)
+	//fetchers = append(fetchers, d.processFullSyncContent)
 	return d.spawnSync(fetchers)
 }
 
@@ -527,7 +520,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 
 // fetchHeight retrieves the head header of the remote peer to aid in estimating
 // the total time a pending synchronisation would take.
-func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
+func (d *Downloader) FetchHeight(id string,number uint64) (*types.Header, error) {
 
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
 		return nil, errBusy
@@ -540,7 +533,12 @@ func (d *Downloader) FetchHeight(id string) (*types.Header, error) {
 	}
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
-	go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
+	if number !=0 {
+		go p.GetPeer().RequestHeadersByNumber(number, 0, 1, false, true)
+	}else {
+		go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
+	}
+
 
 	timeout := time.After(time.Duration(10 * time.Second))
 	for {

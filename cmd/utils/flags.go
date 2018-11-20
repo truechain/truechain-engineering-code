@@ -1401,12 +1401,9 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
-	config, _, err, _, _, snailErr := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+	config, _, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
 	if err != nil {
 		Fatalf("%v", err)
-	}
-	if snailErr != nil {
-		Fatalf("%v", snailErr)
 	}
 	var engine consensus.Engine
 	// if config.Clique != nil {
