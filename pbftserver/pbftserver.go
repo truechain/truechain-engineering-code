@@ -575,9 +575,10 @@ func DelayStop(id uint64, ss *PbftServerMgr) {
 		lock.PSLog("http server stop", "id", id)
 		//server.server.Node.Stop = true
 		server.server.Stop()
+		server.server.Node.Stop = true
 		server.clear = true
 	}
-	ss.clear(big.NewInt(int64(id)))
+	ss.clear(common.Big0)
 }
 
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
