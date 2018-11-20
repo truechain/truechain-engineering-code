@@ -1213,7 +1213,7 @@ func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
 	if ps.PRS.Height != msg.Height {
 		return
 	}
-	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index, 0)
+	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index)
 }
 
 // ApplyVoteSetBitsMessage updates the peer state for the bit-array of votes
