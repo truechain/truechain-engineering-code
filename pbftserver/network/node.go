@@ -37,13 +37,7 @@ type Node struct {
 	CommitLock         sync.Mutex
 	CurrentHeight      int64
 	RetryPrePrepareMsg map[int64]*consensus.PrePrepareMsg
-	RepeatPrepare      RepeatPrepare
-}
-
-type RepeatPrepare struct {
-	Digest string `json:"digest"`
-	Height int64  `json:"height"`
-	Count  int    `json:"count"`
+	//stop               bool
 }
 
 type MsgBuffer struct {
@@ -51,15 +45,6 @@ type MsgBuffer struct {
 	PrePrepareMsgs []*consensus.PrePrepareMsg
 	PrepareMsgs    []*consensus.VoteMsg
 	CommitMsgs     []*consensus.VoteMsg
-}
-
-func (msg *MsgBuffer) Clear() {
-	msg = &MsgBuffer{
-		ReqMsgs:        make([]*consensus.RequestMsg, 0),
-		PrePrepareMsgs: make([]*consensus.PrePrepareMsg, 0),
-		PrepareMsgs:    make([]*consensus.VoteMsg, 0),
-		CommitMsgs:     make([]*consensus.VoteMsg, 0),
-	}
 }
 
 type View struct {
@@ -191,52 +176,39 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 }
 
 func (node *Node) ClearStatus(height int64) {
-	dHeight := height % StateMax
-	dHeight = dHeight - StateClear
-	if dHeight < 0 {
-		dHeight += StateMax
+	dHeight := height - StateClear
+	if dHeight >=0 {
+		delete(node.States, dHeight)
 	}
-	delete(node.States, dHeight)
 }
 
 func (node *Node) PutStatus(height int64, state *consensus.State) {
 	node.CurrentHeight = height
 	node.lock.Lock()
 	defer node.lock.Unlock()
-	id := height % StateMax
-	node.States[id] = state
+	node.States[height] = state
 	node.ClearStatus(height)
-	//fmt.Println("[status]", "put", id)
 }
+
+func (node *Node) UpdateStatus(msg *consensus.RequestMsg){
+	node.lock.Lock()
+	defer node.lock.Unlock()
+
+	if state, ok := node.States[msg.Height]; ok {
+		state.MsgLogs.ReqMsg = msg
+
+	}
+}
+
+
 
 func (node *Node) GetStatus(height int64) *consensus.State {
 	node.lock.Lock()
 	defer node.lock.Unlock()
-	id := height % StateMax
-	if state, ok := node.States[id]; ok {
+	if state, ok := node.States[height]; ok {
 		return state
 	}
 	return nil
-}
-
-func (node *Node) SetStatusClear(height int64) {
-	node.lock.Lock()
-	defer node.lock.Unlock()
-	id := height % StateMax
-	if state, ok := node.States[id]; ok {
-		state.Clear = true
-		node.States[id] = state
-	}
-}
-
-func (node *Node) GetStatusClear(height int64) bool {
-	node.lock.Lock()
-	defer node.lock.Unlock()
-	id := height % StateMax
-	if state, ok := node.States[id]; ok {
-		return state.Clear
-	}
-	return false
 }
 
 func (node *Node) handleResult(msg *consensus.ReplyMsg) {
@@ -358,19 +330,6 @@ func (node *Node) GetPrePrepare(prePrepareMsg *consensus.PrePrepareMsg) error {
 	return nil
 }
 
-func (node *Node) repeatPrepare(prepareMsg *consensus.VoteMsg) {
-	if node.RepeatPrepare.Digest != prepareMsg.Digest {
-		node.RepeatPrepare.Digest = prepareMsg.Digest
-		node.RepeatPrepare.Count = 1
-	} else if node.RepeatPrepare.Count <= 3 {
-		node.RepeatPrepare.Count += 1
-		time.Sleep(time.Second)
-		msgs := make([]*consensus.VoteMsg, 0)
-		msgs = append(msgs, prepareMsg)
-		node.MsgDelivery <- msgs
-	}
-}
-
 func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	node.PrePareLock.Lock()
 	defer node.PrePareLock.Unlock()
@@ -387,7 +346,6 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 
 	commitMsg, err := CurrentState.Prepare(prepareMsg, f)
 	if err != nil {
-		go node.repeatPrepare(prepareMsg)
 		return err
 	}
 
@@ -395,10 +353,10 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
 
-		if CurrentState.CurrentStage == consensus.Prepared {
+		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
-			CurrentState.BlockResults = commitMsg.Pass
-			commitMsg.Signs = CurrentState.MySign
+			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
+			commitMsg.Signs = node.GetStatus(commitMsg.Height).MySign
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
@@ -421,12 +379,12 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 			commitMsg.Signs = sign
 			//save Pass
-			CurrentState.BlockResults = commitMsg.Pass
+			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
 
-			CurrentState.MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
+			node.GetStatus(commitMsg.Height).MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
 
 			// Change the stage to prepared.
-			CurrentState.CurrentStage = consensus.Prepared
+			node.GetStatus(commitMsg.Height).CurrentStage = consensus.Prepared
 			LogStage("Prepare", true)
 			node.Broadcast(commitMsg, "/commit")
 			LogStage("Commit", false)
@@ -583,8 +541,8 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		lock.PSLog("node routeMsg", msg.(*consensus.RequestMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.RequestMsg).Height)
 		if CurrentStage != nil {
+			//update
 			lock.PSLogInfo("clear stage ", msg.(*consensus.RequestMsg).Height)
-			node.MsgBuffer.Clear()
 			node.PutStatus(msg.(*consensus.RequestMsg).Height, nil)
 			CurrentStage = nil
 		}
@@ -608,10 +566,7 @@ func (node *Node) routeMsg(msg interface{}) []error {
 		lock.PSLog("node routeMsg", msg.(*consensus.PrePrepareMsg).Height)
 		CurrentStage := node.GetStatus(msg.(*consensus.PrePrepareMsg).Height)
 		if CurrentStage != nil {
-			lock.PSLogInfo("clear stage ", msg.(*consensus.PrePrepareMsg).Height)
-			node.MsgBuffer.Clear()
-			node.PutStatus(msg.(*consensus.PrePrepareMsg).Height, nil)
-			CurrentStage = nil
+			CurrentStage.CurrentStage = consensus.Idle
 		}
 
 		if CurrentStage == nil || (CurrentStage.CurrentStage == consensus.Idle) {
