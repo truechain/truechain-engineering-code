@@ -64,6 +64,7 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.P
 func (ss *PbftServerMgr) Finish() error {
 	// sleep 1s
 	for _, v := range ss.servers {
+		v.server.Node.Stop = true
 		v.server.Stop()
 	}
 	return nil
