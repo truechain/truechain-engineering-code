@@ -320,11 +320,12 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, signs []*types.P
 		return false
 	}
 	lock.PSLog("[Agent]", "BroadcastConsensus", "start")
-
+	log.Error("BroadcastConsensus", "height", msg.Height)
 	err := ss.Agent.BroadcastConsensus(block)
 	lock.PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	//ss.removeBlock(height)
 	if err != nil {
+		log.Error("BroadcastConsensus", "agent Error", err.Error())
 		return false
 	}
 	return true
