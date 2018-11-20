@@ -64,6 +64,7 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.P
 func (ss *PbftServerMgr) Finish() error {
 	// sleep 1s
 	for _, v := range ss.servers {
+		v.server.Node.Stop = true
 		v.server.Stop()
 	}
 	return nil
@@ -320,11 +321,12 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, signs []*types.P
 		return false
 	}
 	lock.PSLog("[Agent]", "BroadcastConsensus", "start")
-
+	log.Error("BroadcastConsensus", "height", msg.Height)
 	err := ss.Agent.BroadcastConsensus(block)
 	lock.PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	//ss.removeBlock(height)
 	if err != nil {
+		log.Error("BroadcastConsensus", "agent Error", err.Error())
 		return false
 	}
 	return true
@@ -574,9 +576,10 @@ func DelayStop(id uint64, ss *PbftServerMgr) {
 		lock.PSLog("http server stop", "id", id)
 		//server.server.Node.Stop = true
 		server.server.Stop()
+		server.server.Node.Stop = true
 		server.clear = true
 	}
-	ss.clear(big.NewInt(int64(id)))
+	ss.clear(common.Big0)
 }
 
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
