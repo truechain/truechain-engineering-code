@@ -395,10 +395,10 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		// Attach node ID to the message
 		commitMsg.NodeID = node.NodeID
 
-		if node.GetStatus(commitMsg.Height).CurrentStage == consensus.Prepared {
+		if CurrentState.CurrentStage == consensus.Prepared {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, types.VoteAgree)
-			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
-			commitMsg.Signs = node.GetStatus(commitMsg.Height).MySign
+			CurrentState.BlockResults = commitMsg.Pass
+			commitMsg.Signs = CurrentState.MySign
 			node.BroadcastOne(commitMsg, "/commit", prepareMsg.NodeID)
 			return nil
 		}
@@ -421,12 +421,12 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
 			commitMsg.Signs = sign
 			//save Pass
-			node.GetStatus(commitMsg.Height).BlockResults = commitMsg.Pass
+			CurrentState.BlockResults = commitMsg.Pass
 
-			node.GetStatus(commitMsg.Height).MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
+			CurrentState.MsgLogs.SetCommitMsgs(node.NodeID, commitMsg)
 
 			// Change the stage to prepared.
-			node.GetStatus(commitMsg.Height).CurrentStage = consensus.Prepared
+			CurrentState.CurrentStage = consensus.Prepared
 			LogStage("Prepare", true)
 			node.Broadcast(commitMsg, "/commit")
 			LogStage("Commit", false)
