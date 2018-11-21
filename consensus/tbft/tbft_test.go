@@ -174,7 +174,74 @@ func TestPbftRunForOne(t *testing.T) {
 	n.Notify(c1.Id, Start)
 	<-start
 }
+func TestPbftRunFor2(t *testing.T) {
+	//log.OpenLogDebug(4)
+	IdCacheInit()
+	start := make(chan int)
+	pr1 := getPrivateKey(0)
+	pr2 := getPrivateKey(1)
 
+	agent1 := NewPbftAgent("Agent1")
+	agent2 := NewPbftAgent("Agent2")
+
+	config1 := new(config.Config)
+	*config1 = *config.TestConfig()
+	p2p1 := new(config.P2PConfig)
+	*p2p1 = *config1.P2P
+	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
+	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
+	*config1.P2P = *p2p1
+
+	con1 := new(config.ConsensusConfig)
+	*con1 = *config1.Consensus
+	con1.WalPath = filepath.Join("data", "cs.wal1", "wal")
+	*config1.Consensus = *con1
+
+	n1, _ := NewNode(config1, "1", pr1, agent1)
+	n1.Start()
+
+	config2 := new(config.Config)
+	*config2 = *config.TestConfig()
+	p2p2 := new(config.P2PConfig)
+	*p2p2 = *config2.P2P
+	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
+	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
+	*config2.P2P = *p2p2
+
+	con2 := new(config.ConsensusConfig)
+	*con2 = *config2.Consensus
+	con2.WalPath = filepath.Join("data", "cs.wal2", "wal")
+	*config2.Consensus = *con2
+
+	n2, _ := NewNode(config2, "1", pr2, agent2)
+	n2.Start()
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = GetPub(pr1)
+	m1.Coinbase = common.Address{0}
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = GetPub(pr2)
+	m2.Coinbase = common.Address{0}
+
+	c1.Members = append(c1.Members, m1, m2)
+	c1.StartHeight = common.Big1
+
+	cn := make([]*types.CommitteeNode, 0)
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
+
+	n1.PutCommittee(c1)
+	n1.PutNodes(common.Big1, cn)
+	n1.Notify(c1.Id, Start)
+
+	n2.PutCommittee(c1)
+	n2.PutNodes(common.Big1, cn)
+	n2.Notify(c1.Id, Start)
+
+	<-start
+}
 func TestPbftRunFor4(t *testing.T) {
 	//log.OpenLogDebug(4)
 	IdCacheInit()

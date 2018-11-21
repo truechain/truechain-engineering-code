@@ -24,8 +24,6 @@ const (
 	blocksToContributeToBecomeGoodPeer = 10000
 )
 
-var RecvCount int64 = 0
-
 //-----------------------------------------------------------------------------
 
 // ConsensusReactor defines a reactor for the consensus service.
@@ -48,14 +46,6 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 	}
 	conR.BaseReactor = *p2p.NewBaseReactor("ConsensusReactor", conR)
 	return conR
-}
-
-func (conR *ConsensusReactor) updateCount() int64 {
-	conR.mtx.Lock()
-	defer conR.mtx.Unlock()
-	RecvCount++
-	c := RecvCount
-	return c
 }
 
 // OnStart implements BaseService by subscribing to events, which later will be
@@ -157,7 +147,6 @@ func (conR *ConsensusReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // proposals, block parts, and votes are ordered by the receiveRoutine
 // NOTE: blocks on consensus state for proposals, block parts, and votes
 func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
-	cc := conR.updateCount()
 	if !conR.IsRunning() {
 		log.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
 		return
@@ -168,6 +157,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 		conR.Switch.StopPeerForError(src, err)
 		return
 	}
+	log.Debug("Receive", "src", src, "chId", chID, "msg", msg)
 	// Get peer states
 	ps := src.Get(ttypes.PeerStateKey).(*PeerState)
 
@@ -182,11 +172,9 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			ps.ApplyHasVoteMessage(msg)
 		case *VoteSetMaj23Message:
 			cs := conR.conS
-			log.Debug("mtxlock", "lock", 1)
 			cs.mtx.Lock()
 			height, votes := cs.Height, cs.Votes
 			cs.mtx.Unlock()
-			log.Debug("mtxlock", "lock", -1)
 			if height != msg.Height {
 				return
 			}
@@ -266,7 +254,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			}()
 			ps.EnsureVoteBitArrays(height, valSize)
 			ps.EnsureVoteBitArrays(height-1, lastCommitSize)
-			ps.SetHasVote(msg.Vote, cc)
+			ps.SetHasVote(msg.Vote)
 			if blocks := ps.RecordVote(msg.Vote); blocks%blocksToContributeToBecomeGoodPeer == 0 {
 				conR.Switch.MarkPeerAsGood(src)
 			}
@@ -605,7 +593,7 @@ OUTER_LOOP:
 		// Special catchup logic.
 		// If peer is lagging by height 1, send LastCommit.
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
-			if ps.PickSendVote(rs.LastCommit, -22) {
+			if ps.PickSendVote(rs.LastCommit) {
 				log.Debug("Picked rs.LastCommit to send", "height", prs.Height)
 				continue OUTER_LOOP
 			}
@@ -617,7 +605,7 @@ OUTER_LOOP:
 			// Load the block commit for prs.Height,
 			// which contains precommit signatures for prs.Height.
 			commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
-			if ps.PickSendVote(commit, -23) {
+			if ps.PickSendVote(commit) {
 				log.Debug("Picked Catchup commit to send", "height", prs.Height)
 				continue OUTER_LOOP
 			}
@@ -642,7 +630,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	log.Debug("gossipVotesForHeight", "return", "in")
 	// If there are lastCommits to send...
 	if prs.Step == ttypes.RoundStepNewHeight {
-		if ps.PickSendVote(rs.LastCommit, -24) {
+		if ps.PickSendVote(rs.LastCommit) {
 			log.Debug("Picked rs.LastCommit to send")
 			return true
 		}
@@ -650,7 +638,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	// If there are POL prevotes to send...
 	if prs.Step <= ttypes.RoundStepPropose && int(prs.Round) != -1 && prs.Round <= rs.Round && int(prs.ProposalPOLRound) != -1 {
 		if polPrevotes := rs.Votes.Prevotes(int(prs.ProposalPOLRound)); polPrevotes != nil {
-			if ps.PickSendVote(polPrevotes, -25) {
+			if ps.PickSendVote(polPrevotes) {
 				log.Debug("Picked rs.Prevotes(prs.ProposalPOLRound) to send",
 					"round", prs.ProposalPOLRound)
 				return true
@@ -659,21 +647,21 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	}
 	// If there are prevotes to send...
 	if prs.Step <= ttypes.RoundStepPrevoteWait && int(prs.Round) != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round)), -26) {
+		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round))) {
 			log.Debug("Picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true
 		}
 	}
 	// If there are precommits to send...
 	if prs.Step <= ttypes.RoundStepPrecommitWait && int(prs.Round) != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Precommits(int(prs.Round)), -27) {
+		if ps.PickSendVote(rs.Votes.Precommits(int(prs.Round))) {
 			log.Debug("Picked rs.Precommits(prs.Round) to send", "round", prs.Round)
 			return true
 		}
 	}
 	// If there are prevotes to send...Needed because of validBlock mechanism
 	if int(prs.Round) != -1 && prs.Round <= rs.Round {
-		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round)), -28) {
+		if ps.PickSendVote(rs.Votes.Prevotes(int(prs.Round))) {
 			log.Debug("Picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true
 		}
@@ -681,7 +669,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 	// If there are POLPrevotes to send...
 	if int(prs.ProposalPOLRound) != -1 {
 		if polPrevotes := rs.Votes.Prevotes(int(prs.ProposalPOLRound)); polPrevotes != nil {
-			if ps.PickSendVote(polPrevotes, -29) {
+			if ps.PickSendVote(polPrevotes) {
 				log.Debug("Picked rs.Prevotes(prs.ProposalPOLRound) to send",
 					"round", prs.ProposalPOLRound)
 				return true
@@ -932,8 +920,8 @@ func (ps *PeerState) SetHasProposalBlockPart(height uint64, round uint, index ui
 
 // PickSendVote picks a vote and sends it to the peer.
 // Returns true if vote was sent.
-func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader, cc int64) bool {
-	if vote, ok := ps.PickVoteToSend(votes, cc); ok {
+func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
+	if vote, ok := ps.PickVoteToSend(votes); ok {
 		msg := &VoteMessage{Vote: vote.Copy()}
 		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
 	}
@@ -943,7 +931,7 @@ func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader, cc int64) bool {
 // PickVoteToSend picks a vote to send to the peer.
 // Returns true if a vote was picked.
 // NOTE: `votes` must be the correct Size() for the Height().
-func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader, cc int64) (vote *ttypes.Vote, ok bool) {
+func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader) (vote *ttypes.Vote, ok bool) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 	if votes.Size() == 0 {
@@ -963,7 +951,7 @@ func (ps *PeerState) PickVoteToSend(votes ttypes.VoteSetReader, cc int64) (vote 
 		return nil, false // Not something worth sending
 	}
 	if index, ok := votes.BitArray().Sub(psVotes).PickRandom(); ok {
-		ps.setHasVote(height, round, type_, index, cc)
+		ps.setHasVote(height, round, type_, index)
 		return votes.GetByIndex(index), true
 	}
 	return nil, false
@@ -1120,18 +1108,16 @@ func (ps *PeerState) BlockPartsSent() uint {
 }
 
 // SetHasVote sets the given vote as known by the peer
-func (ps *PeerState) SetHasVote(vote *ttypes.Vote, cc int64) {
+func (ps *PeerState) SetHasVote(vote *ttypes.Vote) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-	ps.setHasVote(vote.Height, int(vote.Round), vote.Type, vote.ValidatorIndex, cc)
+	ps.setHasVote(vote.Height, int(vote.Round), vote.Type, vote.ValidatorIndex)
 }
 
-func (ps *PeerState) setHasVote(height uint64, round int, type_ byte, index uint, cc int64) {
+func (ps *PeerState) setHasVote(height uint64, round int, type_ byte, index uint) {
 	psVotes := ps.getVoteBitArray(height, round, type_)
 	if psVotes != nil {
-		log.Debug("setHasVoteBegin", "type", type_, "index", index, "cc", cc)
 		psVotes.SetIndex(index, true)
-		log.Debug("setHasVoteEnd", "type", type_, "index", index, "cc", cc)
 	}
 }
 
@@ -1227,7 +1213,7 @@ func (ps *PeerState) ApplyHasVoteMessage(msg *HasVoteMessage) {
 	if ps.PRS.Height != msg.Height {
 		return
 	}
-	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index, 0)
+	ps.setHasVote(msg.Height, int(msg.Round), msg.Type, msg.Index)
 }
 
 // ApplyVoteSetBitsMessage updates the peer state for the bit-array of votes
