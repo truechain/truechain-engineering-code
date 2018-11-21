@@ -154,17 +154,25 @@ func TestGenesisCommittee(t *testing.T) {
 }
 
 func TestGetCommittee(t *testing.T) {
-	snail, fast := makeChain(180)
+	snail, fast := makeChain(540)
 	election := NewElction(fast, snail, nodeType{})
 	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
 	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
 
-	if !committeeEqual(election.GetCommittee(last), election.snailchain.GetGenesisCommittee()) {
-		t.Errorf("Elected members error for genesis committee last fast")
+	if !committeeEqual(election.GetCommittee(last), election.GetCommittee(big.NewInt(1))) {
+		t.Errorf("Get committee members error for genesis committee last fast block")
 	}
 
 	if !committeeEqual(election.GetCommittee(new(big.Int).Add(last, common.Big1)), members) {
-		t.Errorf("Elected members error for committee1 first fast")
+		t.Errorf("Get committee members error for committee 1 first fast")
+	}
+
+	if !committeeEqual(election.GetCommittee(new(big.Int).Add(last, common.Big2)), members) {
+		t.Errorf("Get committee members error for committee 1 second fast")
+	}
+
+	if !committeeEqual(election.GetCommittee(election.getLastNumber(big.NewInt(169), big.NewInt(348))), members) {
+		t.Errorf("Get committee members error for committee 1 last fast")
 	}
 }
 
