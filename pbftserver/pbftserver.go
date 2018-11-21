@@ -48,6 +48,7 @@ type PbftServerMgr struct {
 	blockLock  sync.Mutex
 	blockMax   uint64
 	blockSleep time.Duration
+	Close      bool
 }
 
 func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.PbftAgentProxy) *PbftServerMgr {
@@ -63,6 +64,7 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.P
 
 func (ss *PbftServerMgr) Finish() error {
 	// sleep 1s
+	ss.Close = true
 	for _, v := range ss.servers {
 		v.server.Node.Stop = true
 		v.server.Stop()
@@ -367,6 +369,9 @@ func (ss *PbftServerMgr) SignMsg(h int64, res uint) *consensus.SignedVoteMsg {
 
 func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 	for {
+		if ss.Close {
+			return
+		}
 		select {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
@@ -382,6 +387,9 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 					GetReq:
 						req, err := ss.GetRequest(cid)
 						if err == types.ErrSnailBlockTooSlow {
+							if ss.Close {
+								return
+							}
 							time.Sleep(BlockSleepMax * time.Second)
 							goto GetReq
 						}

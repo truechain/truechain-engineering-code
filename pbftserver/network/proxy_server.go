@@ -22,6 +22,7 @@ type Server struct {
 	help       consensus.ConsensusHelp
 	server     *http.Server
 	ActionChan chan *consensus.ActionIn
+	Close      bool
 }
 
 func PrintNode(node *Node) {
@@ -96,6 +97,7 @@ func (server *Server) startHttpServer() {
 func (server *Server) Stop() {
 	if server.server != nil {
 		server.server.Close()
+		server.Close = true
 	}
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFinish,
