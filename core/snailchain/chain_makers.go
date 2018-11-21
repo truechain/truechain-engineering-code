@@ -275,7 +275,6 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			Coinbase:        coinbaseAddr,
 			Fruit:           isFruit,
 			FastNumber:      fastNumber,
-			Difficulty:      diff,
 			FruitDifficulty: fruitDiff,
 			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
@@ -367,29 +366,33 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 
 func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
 	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
-
 	var blocks types.SnailBlocks
+
 	//var snailFruitsLastFastNumber *big.Int
 	//blocks = make(types.SnailBlock,makeblockSize)
 
 	j := 1
 	//parent := chain.genesisBlock
 	for i := makeStarblockNumber; i < makeblockSize+makeStarblockNumber; i++ {
-
+		var blocks2 types.SnailBlocks
 		block, err := MakeSnailBlockFruit(chain, fastchain, i, params.MinimumFruits, pubkey, coinbaseAddr, true, diff)
 		if err != nil {
 			return nil, err
 		}
-		//var blocks types.SnailBlocks
+		//var blocks2 types.SnailBlocks
 
+		blocks2 = append(blocks2, block)
 		blocks = append(blocks, block)
-		if _, error := chain.InsertChain(blocks); error != nil {
+		if _, error := chain.InsertChain(blocks2); error != nil {
 			panic(error)
 		}
+
 		//parent = block
 		//blocks = append(blocks, block)
+
 		j++
 	}
+
 
 	return blocks, nil
 }
