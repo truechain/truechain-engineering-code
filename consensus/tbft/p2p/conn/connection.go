@@ -265,7 +265,7 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 
 	success := channel.sendBytes(msgBytes)
 	if success {
-		log.Info("Send Succ")
+		log.Debug("Send Succ")
 		// Wake up sendRoutine if necessary
 		select {
 		case c.send <- struct{}{}:
@@ -451,7 +451,7 @@ func (c *MConnection) sendPacketMsg() bool {
 	}
 
 	c.sendMonitor.Update(int(_n))
-	log.Info("set flush timer")
+	log.Debug("set flush timer")
 	c.flushTimer.Set()
 	return false
 }
@@ -531,10 +531,10 @@ FOR_LOOP:
 				break FOR_LOOP
 			}
 			if msgBytes != nil {
-				log.Debug("Begin...","addr",c.conn.RemoteAddr().String(), "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
+				log.Debug("Begin...", "addr", c.conn.RemoteAddr().String(), "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
 				// NOTE: This means the reactor.Receive runs in the same thread as the p2p recv routine
 				c.onReceive(pkt.ChannelID, msgBytes)
-				log.Debug("End...","addr",c.conn.RemoteAddr().String(), "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
+				log.Debug("End...", "addr", c.conn.RemoteAddr().String(), "chID", pkt.ChannelID, "msgBytes", fmt.Sprintf("%X", msgBytes))
 			}
 		default:
 			err := fmt.Errorf("Unknown message type %v", reflect.TypeOf(packet))

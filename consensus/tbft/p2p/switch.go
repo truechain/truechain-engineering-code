@@ -120,7 +120,7 @@ func (sw *Switch) ReadPeerList() {
 				pi := v.NodeInfo().String()
 				pis = append(pis, pi)
 			}
-			fmt.Println("[PeerList]", pis)
+			log.Debug("PeerList", "peers", pis)
 		}
 		time.Sleep(3 * time.Second)
 	}
