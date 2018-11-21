@@ -1060,8 +1060,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	}
 
 	// If +2/3 prevoted for proposal block, stage and precommit it
-	tmpPro := cs.ProposalBlock.Hash()
-	if help.EqualHashes(tmpPro[:], blockID.Hash) {
+	if cs.ProposalBlock != nil && help.EqualHashes(cs.ProposalBlock.Hash()[:], blockID.Hash) {
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", blockID.Hash)
 		// Validate the block.
 		ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
