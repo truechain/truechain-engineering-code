@@ -209,7 +209,7 @@ type lru struct {
 // newlru create a new least-recently-used cache for either the verification caches
 // or the mining datasets.
 func newlru(what string, maxItems int, new func(epoch uint64) interface{}) *lru {
-	if maxItems <= 0 {
+	if maxItems <= 1 {
 		maxItems = 5
 	}
 	cache, _ := simplelru.NewLRU(maxItems, func(key, value interface{}) {
@@ -382,7 +382,7 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 			} else {
 				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
 				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+				log.Info("updateLookupTBL is start,:blockNum is:  ", "------", blockNum)
 				//d.Flag = 0
 				flag, ds := m.updateLookupTBL(bn, d.dataset)
 				if flag {
