@@ -196,17 +196,17 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 				log.Error("Bad VoteSetBitsMessage field Type")
 				return
 			}
-			d1, derr := cdc.MarshalBinaryBare(&VoteSetBitsMessage{
+			if d1, derr := cdc.MarshalBinaryBare(&VoteSetBitsMessage{
 				Height:  msg.Height,
 				Round:   msg.Round,
 				Type:    msg.Type,
 				BlockID: msg.BlockID,
 				Votes:   ourVotes,
-			})
-			if derr != nil {
+			}); derr != nil {
 				panic(err)
+			} else {
+				src.TrySend(VoteSetBitsChannel, d1)
 			}
-			src.TrySend(VoteSetBitsChannel, d1)
 		case *ProposalHeartbeatMessage:
 			hb := msg.Heartbeat
 			log.Debug("Received proposal heartbeat message",
@@ -750,7 +750,7 @@ OUTER_LOOP:
 		// Maybe send Height/CatchupCommitRound/CatchupCommit.
 		{
 			prs := ps.GetRoundState()
-			if int(prs.CatchupCommitRound) != -1 && 0 < prs.Height && prs.Height <= conR.conS.blockStore.MaxBlockHeight() {
+			if prs.CatchupCommitRound != -1 && 0 < prs.Height && prs.Height <= conR.conS.blockStore.MaxBlockHeight() {
 				// update by iceming
 				// commit := conR.conS.LoadCommit(prs.Height)
 				commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
@@ -835,7 +835,7 @@ func NewPeerState(peer p2p.Peer) *PeerState {
 			Round:              ^uint(0),
 			ProposalPOLRound:   ^uint(0),
 			LastCommitRound:    ^uint(0),
-			CatchupCommitRound: ^uint(0),
+			CatchupCommitRound: -1,
 		},
 		Stats: &peerStateStats{},
 	}
@@ -971,7 +971,7 @@ func (ps *PeerState) getVoteBitArray(height uint64, round int, type_ byte) *help
 				return ps.PRS.Precommits
 			}
 		}
-		if int(ps.PRS.CatchupCommitRound) == round {
+		if ps.PRS.CatchupCommitRound == round {
 			switch type_ {
 			case ttypes.VoteTypePrevote:
 				return nil
@@ -1018,7 +1018,7 @@ func (ps *PeerState) ensureCatchupCommitRound(height uint64, round int, numValid
 	if int(ps.PRS.CatchupCommitRound) == round {
 		return // Nothing to do!
 	}
-	ps.PRS.CatchupCommitRound = uint(round)
+	ps.PRS.CatchupCommitRound = round
 	if round == int(ps.PRS.Round) {
 		ps.PRS.CatchupCommit = ps.PRS.Precommits
 	} else {
@@ -1153,7 +1153,7 @@ func (ps *PeerState) ApplyNewRoundStepMessage(msg *NewRoundStepMessage) {
 		ps.PRS.Prevotes = nil
 		ps.PRS.Precommits = nil
 	}
-	if psHeight == msg.Height && psRound != msg.Round && msg.Round == psCatchupCommitRound {
+	if psHeight == msg.Height && psRound != msg.Round && int(msg.Round) == psCatchupCommitRound {
 		// Peer caught up to CatchupCommitRound.
 		// Preserve psCatchupCommit!
 		// NOTE: We prefer to use prs.Precommits if
@@ -1170,7 +1170,7 @@ func (ps *PeerState) ApplyNewRoundStepMessage(msg *NewRoundStepMessage) {
 			ps.PRS.LastCommit = nil
 		}
 		// We'll update the BitArray capacity later.
-		ps.PRS.CatchupCommitRound = ^uint(0)
+		ps.PRS.CatchupCommitRound = -1
 		ps.PRS.CatchupCommit = nil
 	}
 }
