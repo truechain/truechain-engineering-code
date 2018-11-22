@@ -175,7 +175,7 @@ func TestPbftRunForOne(t *testing.T) {
 	<-start
 }
 func TestPbftRunFor2(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(3)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
