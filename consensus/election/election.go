@@ -548,7 +548,10 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		info["members"] = membersDisplay(e.genesisCommittee)
 		info["beginNumber"] = 1
 		if currentCommittee.id.Cmp(id) == 0 {
-			info["endNumber"] = currentCommittee.endFastNumber.Uint64()
+			// Committee end fast number may not be available when current snail lower than commiteeId * period
+			if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
+				info["endNumber"] = currentCommittee.endFastNumber.Uint64()
+			}
 		} else {
 			end := new(big.Int).Sub(params.ElectionPeriodNumber, params.SnailConfirmInterval)
 			info["endNumber"] = e.getLastNumber(big.NewInt(1), end).Uint64()
@@ -574,7 +577,10 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		info["beginNumber"] = new(big.Int).Add(e.getLastNumber(beginElectionNumber, endElectionNumber), common.Big1).Uint64()
 		// Committee end fast number may be nil if current committee is working on
 		if currentCommittee.id.Cmp(id) == 0 {
-			info["endNumber"] = currentCommittee.endFastNumber.Uint64()
+			// Committee end fast number may not be available when current snail lower than commiteeId * period
+			if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
+				info["endNumber"] = currentCommittee.endFastNumber.Uint64()
+			}
 		} else {
 			begin := new(big.Int).Add(beginElectionNumber, params.ElectionPeriodNumber)
 			end := new(big.Int).Add(endElectionNumber, params.ElectionPeriodNumber)
