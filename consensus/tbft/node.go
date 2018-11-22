@@ -97,7 +97,7 @@ func (s *service) stop() error {
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {
 	return s.sa
 }
-func (s *service) putNodes(nodes []*types.CommitteeNode) {
+func (s *service) putNodes(cid *big.Int,nodes []*types.CommitteeNode) {
 	if nodes == nil {	return 		}
 	
 	s.lock.Lock()
@@ -117,6 +117,10 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 			log.Error("has not address:",address,node.IP,node.Port)
 			continue
 		}	
+		port := node.Port2
+		if cid.Uint64() % 2 == 0 {
+			port = node.Port
+		}
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, node.Port)))
@@ -125,13 +129,13 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 				ID:			id,
 				Adrress:	addr,
 				IP:			node.IP,
-				Port:		node.Port,
+				Port:		port,
 				Enable:		false,
 			}
 			update = true
 		}	
 	}
-	log.Debug("PutNodes","Recv",strings.Join(nodeString,"\n"))
+	log.Debug("PutNodes","id",cid,"msg",strings.Join(nodeString,"\n"))
 	if update {
 		go func() { s.updateChan <- true }()
 	}
@@ -333,7 +337,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
 	}
-	server.putNodes(nodes)
+	server.putNodes(id,nodes)
 	return nil
 }
 func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
