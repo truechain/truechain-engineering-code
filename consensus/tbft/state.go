@@ -710,6 +710,9 @@ func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
 	valIndex, _ := cs.Validators.GetByAddress(addr)
 	chainID := cs.state.GetChainID()
 	for {
+		if !cs.IsRunning() {
+			return
+		}
 		rs := cs.GetRoundState()
 		// if we've already moved on, no need to send more heartbeats
 		if rs.Step > ttypes.RoundStepNewRound || int(rs.Round) > round || rs.Height > height {
