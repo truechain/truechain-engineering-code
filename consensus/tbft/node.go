@@ -1,6 +1,7 @@
 package tbft
 
 import (
+	"strings"
 	"sync"
 	"crypto/ecdsa"
 	"encoding/hex"
@@ -102,7 +103,9 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	update := false
-	for _, node := range nodes {
+	nodeString := make([]string,len(nodes))
+	for i, node := range nodes {
+		nodeString[i] = node.String()
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
 			log.Error("putnode:",err,node.IP,node.Port)
@@ -128,6 +131,7 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 			update = true
 		}	
 	}
+	log.Debug("PutNodes","Recv",strings.Join(nodeString,"\n"))
 	if update {
 		go func() { s.updateChan <- true }()
 	}
@@ -302,6 +306,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
+	log.Info("pbft PutCommittee","info",committeeInfo.String())
 	// Make StateAgent
 	lastCommitHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
@@ -321,7 +326,6 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	return nil
 }
 func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
-	fmt.Println("enter PutNode")
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}

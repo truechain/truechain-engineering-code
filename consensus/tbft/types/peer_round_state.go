@@ -24,7 +24,7 @@ type PeerRoundState struct {
 	Precommits               *help.BitArray `json:"precommits"`                  // All precommits peer has for this round
 	LastCommitRound          uint            `json:"last_commit_round"`           // Round of commit for last height. -1 if none.
 	LastCommit               *help.BitArray `json:"last_commit"`                 // All commit precommits of commit for last height.
-	CatchupCommitRound       uint            `json:"catchup_commit_round"`        // Round that we have commit for. Not necessarily unique. -1 if none.
+	CatchupCommitRound       int            `json:"catchup_commit_round"`        // Round that we have commit for. Not necessarily unique. -1 if none.
 	CatchupCommit            *help.BitArray `json:"catchup_commit"`              // All commit precommits peer has for this height & CatchupCommitRound
 }
 
