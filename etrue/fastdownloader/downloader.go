@@ -306,10 +306,10 @@ func (d *Downloader) UnregisterPeer(id string) error {
 	// Unregister the peer from the active peer set and revoke any fetch tasks
 	logger := log.New("peer", id)
 	logger.Trace("Unregistering sync peer")
-	if err := d.peers.Unregister(id); err != nil {
-		logger.Error("Failed to unregister sync peer", "err", err)
-		return err
-	}
+	//if err := d.peers.Unregister(id); err != nil {
+	//	logger.Error("Failed to unregister sync peer", "err", err)
+	//	return err
+	//}
 	d.queue.Revoke(id)
 
 	// If this peer was the master peer, abort sync immediately
@@ -438,7 +438,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	latest := &types.Header{}
 	if d.mode == FastSync {
-		if latest , err =d.FetchHeight(p.GetID(),origin+height) ; err != nil {
+		if latest , err =d.fetchHeight(p.GetID(),origin+height) ; err != nil {
 			return err
 		}
 	}
@@ -482,7 +482,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		fetchers = append(fetchers, d.processFullSyncContent)
 	}
 
-	//fetchers = append(fetchers, d.processFullSyncContent)
 	return d.spawnSync(fetchers)
 }
 
@@ -493,7 +492,7 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	d.cancelWg.Add(len(fetchers))
 	for _, fn := range fetchers {
 		fn := fn
-		go func() { defer d.cancelWg.Done(); errc <- fn() }()
+		go func() { defer d.cancelWg.Done(); log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++") ; errc <- fn() }()
 	}
 	// Wait for the first error, then terminate the others.
 	var err error
@@ -523,6 +522,16 @@ func (d *Downloader) FetchHeight(id string,number uint64) (*types.Header, error)
 	}
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
+	return d.fetchHeight(id,number)
+}
+
+
+
+// fetchHeight retrieves the head header of the remote peer to aid in estimating
+// the total time a pending synchronisation would take.
+func (d *Downloader) fetchHeight(id string,number uint64) (*types.Header, error) {
+
+
 	p := d.peers.Peer(id)
 	if p == nil {
 		return nil, errPeerNil
@@ -530,7 +539,7 @@ func (d *Downloader) FetchHeight(id string,number uint64) (*types.Header, error)
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
 	if number !=0 {
-		go p.GetPeer().RequestHeadersByNumber(number, 0, 1, false, true)
+		go p.GetPeer().RequestHeadersByNumber(number, 1, 1, false, true)
 	}else {
 		go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
 	}
@@ -562,6 +571,9 @@ func (d *Downloader) FetchHeight(id string,number uint64) (*types.Header, error)
 		}
 	}
 }
+
+
+
 
 // cancel aborts all of the operations and resets the queue. However, cancel does
 // not wait for the running download goroutines to finish. This method should be
