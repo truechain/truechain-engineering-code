@@ -627,7 +627,6 @@ OUTER_LOOP:
 }
 
 func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *ttypes.PeerRoundState, ps *PeerState) bool {
-	log.Debug("gossipVotesForHeight", "return", "in")
 	// If there are lastCommits to send...
 	if prs.Step == ttypes.RoundStepNewHeight {
 		if ps.PickSendVote(rs.LastCommit) {
@@ -676,7 +675,6 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 			}
 		}
 	}
-	log.Debug("gossipVotesForHeight", "return", false)
 	return false
 }
 
