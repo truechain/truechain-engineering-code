@@ -28,6 +28,10 @@ type service struct {
 	nodeTable 		 map[p2p.ID]*nodeInfo
 	lock			 *sync.Mutex
 	updateChan		 chan bool
+	eventBus 		*ttypes.EventBus // pub/sub for services
+	// network
+	addrBook      	pex.AddrBook         // known peers
+
 }
 
 type nodeInfo struct {
@@ -52,10 +56,18 @@ func NewNodeService(p2pcfg *cfg.P2PConfig,cscfg *cfg.ConsensusConfig,state ttype
 		nodeTable: 		make(map[p2p.ID]*nodeInfo),
 		lock:			new(sync.Mutex),
 		updateChan:		make(chan bool),
+		eventBus:		ttypes.NewEventBus(),
+		// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
+		// Note we currently use the addrBook regardless at least for AddOurAddress
+		addrBook: 		pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
 	}
 }
 
 func (s *service) start(cid *big.Int,node *Node) error {
+	err := s.eventBus.Start()
+	if err != nil {
+		return err
+	}
 	// Create & add listener
 	lstr := node.config.P2P.ListenAddress2
 	if cid.Uint64() % 2 == 0 {
@@ -65,6 +77,11 @@ func (s *service) start(cid *big.Int,node *Node) error {
 	_, lAddr := help.ProtocolAndAddress(lstr)
 	lAddrIP, lAddrPort := p2p.SplitHostPort(lAddr)
 	nodeinfo.ListenAddr = fmt.Sprintf("%v:%v", lAddrIP, lAddrPort)
+	// Add ourselves to addrbook to prevent dialing ourselves
+	s.addrBook.AddOurAddress(nodeinfo.NetAddress())
+	// Add private IDs to addrbook to block those peers being added
+	s.addrBook.AddPrivateIDs(help.SplitAndTrim(node.config.P2P.PrivatePeerIDs, ",", " "))
+
 	s.sw.SetNodeInfo(nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
 	log.Info("commitee start","node info",nodeinfo.String())
@@ -75,9 +92,10 @@ func (s *service) start(cid *big.Int,node *Node) error {
 		log.New("p2p"))
 	s.sw.AddListener(l)
 
-	s.consensusState.SetPrivValidator(node.privValidator)
+	privValidator := ttypes.NewPrivValidator(*node.priv)
+	s.consensusState.SetPrivValidator(privValidator)
 	// Start the switch (the P2P server).
-	err := s.sw.Start()
+	err = s.sw.Start()
 	if err != nil {
 		return err
 	}
@@ -97,6 +115,7 @@ func (s *service) start(cid *big.Int,node *Node) error {
 }
 func (s *service) stop() error {
 	s.updateChan <- false
+	s.eventBus.Stop()
 	s.sw.Stop()
 	return nil
 }
@@ -164,6 +183,10 @@ func (s *service) connTo(node *nodeInfo) {
 		node.Enable = true
 	}
 }
+// EventBus returns the Node's EventBus.
+func (s *service) EventBus() *ttypes.EventBus {
+	return s.eventBus
+}
 //------------------------------------------------------------------------------
 
 // Node is the highest level interface to a full truechain node.
@@ -173,13 +196,10 @@ type Node struct {
 	// configt
 	config *cfg.Config
 	Agent  types.PbftAgentProxy
-	// network
-	addrBook      pex.AddrBook         // known peers
-	privValidator ttypes.PrivValidator // local node's validator key
+	priv *ecdsa.PrivateKey			// local node's validator key
 
 	// services
 	services map[uint64]*service
-	eventBus *ttypes.EventBus // pub/sub for services
 	nodekey  p2p.NodeKey
 	nodeinfo p2p.NodeInfo
 	chainID  string
@@ -189,7 +209,6 @@ type Node struct {
 func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 	agent types.PbftAgentProxy) (*Node, error) {
 
-	privValidator := ttypes.NewPrivValidator(*priv)
 	// Optionally, start the pex reactor
 	// We need to set Seeds and PersistentPeers on the switch,
 	// since it needs to be able to use these (and their DNS names)
@@ -197,17 +216,11 @@ func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 	// but it would still be nice to have a clear list of the current "PersistentPeers"
 	// somewhere that we can return with net_info.
 
-	// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
-	// Note we currently use the addrBook regardless at least for AddOurAddress
-	addrBook := pex.NewAddrBook(config.P2P.AddrBookFile(), config.P2P.AddrBookStrict)
-	eventBus := ttypes.NewEventBus()
 	// services which will be publishing and/or subscribing for messages (events)
 	// consensusReactor will set it on consensusState and blockExecutor
 	node := &Node{
 		config:        config,
-		privValidator: privValidator,
-		addrBook:      addrBook,
-		eventBus:      eventBus,
+		priv: 		   priv,
 		chainID:       chainID,
 		Agent:         agent,
 		services:      make(map[uint64]*service),
@@ -221,23 +234,7 @@ func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 
 // OnStart starts the Node. It implements help.Service.
 func (n *Node) OnStart() error {
-	fmt.Println("tempprint Node On Start")
-	err := n.eventBus.Start()
-	if err != nil {
-		return err
-	}
-
 	n.nodeinfo = n.makeNodeInfo()
-
-	//m,_ := json.Marshal(n.nodeinfo)
-
-	//fmt.Printf("tempprint Node Info %v\n", string(m))
-	// Add ourselves to addrbook to prevent dialing ourselves
-	n.addrBook.AddOurAddress(n.nodeinfo.NetAddress())
-
-	// Add private IDs to addrbook to block those peers being added
-	n.addrBook.AddPrivateIDs(help.SplitAndTrim(n.config.P2P.PrivatePeerIDs, ",", " "))
-
 	return nil
 }
 
@@ -245,7 +242,6 @@ func (n *Node) OnStart() error {
 func (n *Node) OnStop() {
 	n.BaseService.OnStop()
 	// first stop the non-reactor services
-	n.eventBus.Stop()
 	// now stop the reactors
 	// TODO: gracefully disconnect from peers.
 }
@@ -256,11 +252,6 @@ func (n *Node) RunForever() {
 	//cmn.TrapSignal(func() {
 	//	n.Stop()
 	//})
-}
-
-// EventBus returns the Node's EventBus.
-func (n *Node) EventBus() *ttypes.EventBus {
-	return n.eventBus
 }
 
 func (n *Node) makeNodeInfo() p2p.NodeInfo {
@@ -330,8 +321,8 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
-	service.sw.SetAddrBook(n.addrBook)
-	service.consensusReactor.SetEventBus(n.eventBus)
+	service.sw.SetAddrBook(service.addrBook)
+	service.consensusReactor.SetEventBus(service.eventBus)
 
 	n.services[id.Uint64()] = service
 	return nil
