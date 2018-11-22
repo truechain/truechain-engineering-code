@@ -749,9 +749,11 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait bool) 
 		if !cs.Validators.HasAddress(cs.privValidator.GetAddress()) {
 			estr = fmt.Sprint(estr, " This node is not a validator", "addr", cs.privValidator.GetAddress(), "vals", cs.Validators)
 			doing = false
+			log.Error(estr)
 		} else if !cs.isProposer() {
 			estr = fmt.Sprint(estr, "Not our turn to propose", "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
 			doing = false
+			log.Info(estr)
 		}
 	}
 	var block *types.Block
@@ -773,7 +775,6 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait bool) 
 		if cs.isProposalComplete() {
 			cs.enterPrevote(height, int(cs.Round))
 		}
-		log.Error(estr)
 		return
 	}
 
