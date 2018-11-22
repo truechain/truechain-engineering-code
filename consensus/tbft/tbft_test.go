@@ -335,13 +335,13 @@ func TestPbftRunFor4(t *testing.T) {
 	m4.Publickey = GetPub(pr4)
 	m4.Coinbase = common.Address{0}
 	c1.Members = append(c1.Members, m1, m2, m3, m4)
-	c1.StartHeight = common.Big1
+	c1.StartHeight = common.Big0
 
 	cn := make([]*types.CommitteeNode, 0)
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28895, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Port2: 28891, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Port2: 28894, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28895, Port2: 28896, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Port2: 28899, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
 
 	n1.PutCommittee(c1)
 	n1.PutNodes(common.Big1, cn)
@@ -358,6 +358,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n4.PutCommittee(c1)
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
+
 
 	<-start
 }
@@ -458,10 +459,10 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	c1.StartHeight = common.Big0
 
 	cn := make([]*types.CommitteeNode, 0)
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28895, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Port2: 28891, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Port2: 28894, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28895, Port2: 28896, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Port2: 28899, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
 
 	n1.PutCommittee(c1)
 	n1.PutNodes(common.Big1, cn)
@@ -484,7 +485,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n3.SetCommitteeStop(c1.Id, 16)
 	n4.SetCommitteeStop(c1.Id, 16)
 
-	time.Sleep(100 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	c2 := *c1
 	c2.Id = common.Big2
