@@ -362,7 +362,7 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 }
 func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 	if server, ok := n.services[committeeId.Uint64()]; ok {
-		server.getStateAgent().SetEndHeight(committeeId.Uint64())
+		server.getStateAgent().SetEndHeight(stop)
 		return nil
 	} else {
 		return errors.New("wrong conmmitt ID:" + committeeId.String())
