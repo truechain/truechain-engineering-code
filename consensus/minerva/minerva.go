@@ -377,8 +377,8 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 			// blockNum <= UPDATABLOCKLENGTH
 			if blockNum <= UPDATABLOCKLENGTH {
-				m.truehashTableInit(d.dataset)
 				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+				m.truehashTableInit(d.dataset)
 			} else {
 				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
 				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
