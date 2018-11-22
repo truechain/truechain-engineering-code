@@ -1152,25 +1152,30 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 	// The Locked* fields no longer matter.
 	// Move them over to ProposalBlock if they match the commit hash,
 	// otherwise they'll be cleared in updateToState
-	lock := cs.LockedBlock.Hash()
-	if help.EqualHashes(lock[:], blockID.Hash) {
-		log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", blockID.Hash)
-		cs.ProposalBlock = cs.LockedBlock
-		cs.ProposalBlockParts = cs.LockedBlockParts
-	}
-
+	if cs.LockedBlock != nil {
+		lock := cs.LockedBlock.Hash()
+		if help.EqualHashes(lock[:], blockID.Hash) {
+			log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", blockID.Hash)
+			cs.ProposalBlock = cs.LockedBlock
+			cs.ProposalBlockParts = cs.LockedBlockParts
+		}	
+	} 
 	// If we don't have the block being committed, set up to get it.
-	pro := cs.ProposalBlock.Hash()
-	if !help.EqualHashes(pro[:], blockID.Hash) {
-		if !cs.ProposalBlockParts.HasHeader(blockID.PartsHeader) {
-			log.Info("Commit is for a block we don't know about. Set ProposalBlock=nil", "proposal", cs.ProposalBlock.Hash(), "commit", blockID.Hash)
-			// We're getting the wrong block.
-			// Set up ProposalBlockParts and keep waiting.
-			cs.ProposalBlock = nil
-			cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(blockID.PartsHeader)
-		} else {
-			// We just need to keep waiting.
+	if cs.ProposalBlock != nil {
+		pro := cs.ProposalBlock.Hash()
+		if !help.EqualHashes(pro[:], blockID.Hash) {
+			if !cs.ProposalBlockParts.HasHeader(blockID.PartsHeader) {
+				log.Info("Commit is for a block we don't know about. Set ProposalBlock=nil", "proposal", cs.ProposalBlock.Hash(), "commit", blockID.Hash)
+				// We're getting the wrong block.
+				// Set up ProposalBlockParts and keep waiting.
+				cs.ProposalBlock = nil
+				cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(blockID.PartsHeader)
+			} else {
+				// We just need to keep waiting.
+			}
 		}
+	} else {
+		log.Info("Attempt enterCommit failed. There was ProposalBlock, that for <nil>.")
 	}
 }
 
@@ -1185,6 +1190,10 @@ func (cs *ConsensusState) tryFinalizeCommit(height uint64) {
 	blockID, ok := cs.Votes.Precommits(int(cs.CommitRound)).TwoThirdsMajority()
 	if !ok || len(blockID.Hash) == 0 {
 		log.Error("Attempt to finalize failed. There was no +2/3 majority, or +2/3 was for <nil>.")
+		return
+	}
+	if cs.ProposalBlock == nil {
+		log.Error("Attempt to finalize failed. There was ProposalBlock, that for <nil>.")
 		return
 	}
 	block := cs.ProposalBlock.Hash()

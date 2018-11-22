@@ -293,6 +293,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
 			server.stop()
+			delete(n.services,id.Uint64())
 		}
 		return nil
 	case Switch:
