@@ -100,7 +100,8 @@ type P2PConfig struct {
 	RootDir string `mapstructure:"home"`
 
 	// Address to listen for incoming connections
-	ListenAddress string `mapstructure:"laddr"`
+	ListenAddress1 string `mapstructure:"laddr"`
+	ListenAddress2 string `mapstructure:"laddr"`
 
 	// Address to advertise to peers for them to dial
 	ExternalAddress string `mapstructure:"external_address"`
@@ -151,8 +152,9 @@ type P2PConfig struct {
 // DefaultP2PConfig returns a default configuration for the peer-to-peer layer
 func DefaultP2PConfig() *P2PConfig {
 	return &P2PConfig{
-		ListenAddress:           "tcp://0.0.0.0:30310",
-		ExternalAddress:         "tcp://0.0.0.0:30311",
+		ListenAddress1:          "tcp://0.0.0.0:30310",
+		ListenAddress2:          "tcp://0.0.0.0:30311",
+		ExternalAddress:         "tcp://0.0.0.0:30411",
 		UPNP:                    false,
 		AddrBook:                defaultAddrBookPath,
 		AddrBookStrict:          true,
@@ -173,7 +175,8 @@ func DefaultP2PConfig() *P2PConfig {
 // TestP2PConfig returns a configuration for testing the peer-to-peer layer
 func TestP2PConfig() *P2PConfig {
 	cfg := DefaultP2PConfig()
-	cfg.ListenAddress = "tcp://0.0.0.0:36656"
+	cfg.ListenAddress1 = "tcp://0.0.0.0:36656"
+	cfg.ListenAddress2 = "tcp://0.0.0.0:36657"
 	cfg.FlushThrottleTimeout = 10
 	cfg.AllowDuplicateIP = true
 	return cfg

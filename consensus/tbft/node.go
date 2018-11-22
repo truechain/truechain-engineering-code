@@ -5,7 +5,7 @@ import (
 	"sync"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"encoding/json"
+	// "encoding/json"
 	"errors"
 	"fmt"
 	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
@@ -55,20 +55,26 @@ func NewNodeService(p2pcfg *cfg.P2PConfig,cscfg *cfg.ConsensusConfig,state ttype
 	}
 }
 
-func (s *service) start(node *Node) error {
+func (s *service) start(cid *big.Int,node *Node) error {
 	// Create & add listener
+	lstr := node.config.P2P.ListenAddress2
+	if cid.Uint64() % 2 == 0 {
+		lstr = node.config.P2P.ListenAddress1
+	}
+	nodeinfo := node.nodeinfo
+	_, lAddr := help.ProtocolAndAddress(lstr)
+	lAddrIP, lAddrPort := p2p.SplitHostPort(lAddr)
+	nodeinfo.ListenAddr = fmt.Sprintf("%v:%v", lAddrIP, lAddrPort)
+	s.sw.SetNodeInfo(nodeinfo)
+	s.sw.SetNodeKey(&node.nodekey)
+	log.Info("commitee start","node info",nodeinfo.String())
 	l := p2p.NewDefaultListener(
-		node.config.P2P.ListenAddress,
+		lstr,
 		node.config.P2P.ExternalAddress,
 		node.config.P2P.UPNP,
 		log.New("p2p"))
 	s.sw.AddListener(l)
 
-	ni, _ := json.Marshal(node.nodeinfo)
-	fmt.Printf("node.nodeInfo %v\n", string(ni))
-
-	s.sw.SetNodeInfo(node.nodeinfo)
-	s.sw.SetNodeKey(&node.nodekey)
 	s.consensusState.SetPrivValidator(node.privValidator)
 	// Start the switch (the P2P server).
 	err := s.sw.Start()
@@ -275,7 +281,7 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 		},
 	}
 	// Split protocol, address, and port.
-	_, lAddr := help.ProtocolAndAddress(n.config.P2P.ListenAddress)
+	_, lAddr := help.ProtocolAndAddress(n.config.P2P.ListenAddress1)
 	lAddrIP, lAddrPort := p2p.SplitHostPort(lAddr)
 	nodeInfo.ListenAddr = fmt.Sprintf("%v:%v", lAddrIP, lAddrPort)
 	return nodeInfo
@@ -285,7 +291,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	switch action {
 	case Start:
 		if server, ok := n.services[id.Uint64()]; ok {
-			server.start(n)
+			server.start(id,n)
 			return nil
 		} else {
 			return errors.New("wrong conmmitt ID:" + id.String())
