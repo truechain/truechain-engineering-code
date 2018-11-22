@@ -32,7 +32,7 @@ import (
 
 // Tests that minerva works correctly in test mode
 func TestTestMode(t *testing.T) {
-	header := &types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(100), FastNumber: big.NewInt(2)}
+	header := &types.SnailHeader{Number: big.NewInt(1), Difficulty: big.NewInt(150), FruitDifficulty: big.NewInt(3), FastNumber: big.NewInt(2)}
 	minerva := NewTester()
 	results := make(chan *types.SnailBlock)
 
