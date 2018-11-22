@@ -1438,7 +1438,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 				if height > 0 {
 					for {
-						errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum, height)
+						errs := d.fastDown.Synchronise(p.GetID(), hash, td, fastdownloader.SyncMode(d.mode), fbNum, height)
 						//time.Sleep(1*time.Second)
 						if errs != nil {
 							log.Error("fast sync: ", "err>>>>>>>>>", errs)

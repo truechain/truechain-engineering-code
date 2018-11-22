@@ -17,6 +17,7 @@
 package etrue
 
 import (
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -301,8 +302,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
 					for {
 
-						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-						//time.Sleep(1*time.Second)
+						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
 							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 							return
