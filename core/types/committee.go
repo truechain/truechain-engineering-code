@@ -66,6 +66,10 @@ type CommitteeNode struct {
 	Coinbase  common.Address
 	Publickey []byte
 }
+func (c *CommitteeNode) String() string {
+	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}",c.IP,c.Port,c.Port2,
+	common.ToHex(c.Coinbase[:]),common.ToHex(c.Publickey))
+}
 
 type PbftSigns []*PbftSign
 

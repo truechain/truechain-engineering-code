@@ -1,6 +1,7 @@
 package tbft
 
 import (
+	"strings"
 	"sync"
 	"crypto/ecdsa"
 	"encoding/hex"
@@ -102,7 +103,9 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	update := false
-	for _, node := range nodes {
+	nodeString := make([]string,len(nodes))
+	for i, node := range nodes {
+		nodeString[i] = node.String()
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
 			log.Error("putnode:",err,node.IP,node.Port)
@@ -128,6 +131,7 @@ func (s *service) putNodes(nodes []*types.CommitteeNode) {
 			update = true
 		}	
 	}
+	log.Debug("PutNodes","Recv",strings.Join(nodeString,"\n"))
 	if update {
 		go func() { s.updateChan <- true }()
 	}
