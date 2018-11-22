@@ -302,6 +302,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
+	log.Info("pbft PutCommittee","info",committeeInfo.String())
 	// Make StateAgent
 	lastCommitHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
@@ -321,7 +322,6 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	return nil
 }
 func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
-	fmt.Println("enter PutNode")
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}

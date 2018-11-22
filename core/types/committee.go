@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strings"
+	"fmt"
 	"crypto/ecdsa"
 	"encoding/json"
 	"github.com/truechain/truechain-engineering-code/common"
@@ -29,6 +31,10 @@ type CommitteeMembers []*CommitteeMember
 type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
+}
+func (c *CommitteeMember) String() string {
+	return fmt.Sprintf("C:%s,P:%s",common.ToHex(c.Coinbase[:]),
+	common.ToHex(crypto.FromECDSAPub(c.Publickey)))	
 }
 
 func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
@@ -103,6 +109,20 @@ type CommitteeInfo struct {
 	Id      		*big.Int
 	StartHeight		*big.Int
 	Members []*CommitteeMember
+}
+func (c *CommitteeInfo) String() string{
+	if c.Members != nil {
+		memStrings := make([]string, len(c.Members))
+		for i, m := range c.Members {
+			if m == nil {
+				memStrings[i] = "nil-Member"
+			} else {
+				memStrings[i] = m.String()
+			}
+		}
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}",c.Id,c.StartHeight,strings.Join(memStrings,"\n  "))
+	}	
+	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}",c.Id,c.StartHeight)
 }
 
 type EncryptCommitteeNode []byte
