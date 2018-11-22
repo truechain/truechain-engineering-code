@@ -188,8 +188,8 @@ func TestPbftRunFor2(t *testing.T) {
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
-	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
-	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
+	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
+	p2p1.ListenAddress2 = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
 
 	con1 := new(config.ConsensusConfig)
@@ -204,8 +204,8 @@ func TestPbftRunFor2(t *testing.T) {
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
-	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
-	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
+	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
+	p2p2.ListenAddress2 = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
 
 	con2 := new(config.ConsensusConfig)
@@ -260,8 +260,8 @@ func TestPbftRunFor4(t *testing.T) {
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
-	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
-	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
+	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
+	p2p1.ListenAddress2 = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
 
 	con1 := new(config.ConsensusConfig)
@@ -276,8 +276,8 @@ func TestPbftRunFor4(t *testing.T) {
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
-	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
-	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
+	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
+	p2p2.ListenAddress2 = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
 
 	con2 := new(config.ConsensusConfig)
@@ -292,8 +292,8 @@ func TestPbftRunFor4(t *testing.T) {
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
-	p2p3.ListenAddress = "tcp://127.0.0.1:28895"
-	p2p3.ExternalAddress = "tcp://127.0.0.1:28896"
+	p2p3.ListenAddress1 = "tcp://127.0.0.1:28895"
+	p2p3.ListenAddress2 = "tcp://127.0.0.1:28896"
 	*config3.P2P = *p2p3
 
 	con3 := new(config.ConsensusConfig)
@@ -308,7 +308,7 @@ func TestPbftRunFor4(t *testing.T) {
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
-	p2p4.ListenAddress = "tcp://127.0.0.1:28897"
+	p2p4.ListenAddress1 = "tcp://127.0.0.1:28897"
 	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
 	*config4.P2P = *p2p4
 
@@ -381,8 +381,8 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
-	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
-	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
+	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
+	p2p1.ListenAddress2 = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
 
 	con1 := new(config.ConsensusConfig)
@@ -397,8 +397,8 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
-	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
-	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
+	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
+	p2p2.ListenAddress2 = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
 
 	con2 := new(config.ConsensusConfig)
@@ -413,8 +413,8 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
-	p2p3.ListenAddress = "tcp://127.0.0.1:28895"
-	p2p3.ExternalAddress = "tcp://127.0.0.1:28896"
+	p2p3.ListenAddress1 = "tcp://127.0.0.1:28895"
+	p2p3.ListenAddress2 = "tcp://127.0.0.1:28896"
 	*config3.P2P = *p2p3
 
 	con3 := new(config.ConsensusConfig)
@@ -429,8 +429,8 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
-	p2p4.ListenAddress = "tcp://127.0.0.1:28897"
-	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
+	p2p4.ListenAddress1 = "tcp://127.0.0.1:28897"
+	p2p4.ListenAddress2 = "tcp://127.0.0.1:28898"
 	*config4.P2P = *p2p4
 
 	con4 := new(config.ConsensusConfig)
@@ -530,8 +530,8 @@ func TestPbftRunFor5(t *testing.T) {
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
-	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
-	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
+	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
+	p2p1.ListenAddress2 = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
 
 	con1 := new(config.ConsensusConfig)
@@ -546,8 +546,8 @@ func TestPbftRunFor5(t *testing.T) {
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
-	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
-	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
+	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
+	p2p2.ListenAddress2 = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
 
 	con2 := new(config.ConsensusConfig)
@@ -562,8 +562,8 @@ func TestPbftRunFor5(t *testing.T) {
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
-	p2p3.ListenAddress = "tcp://127.0.0.1:28895"
-	p2p3.ExternalAddress = "tcp://127.0.0.1:28896"
+	p2p3.ListenAddress1 = "tcp://127.0.0.1:28895"
+	p2p3.ListenAddress2 = "tcp://127.0.0.1:28896"
 	*config3.P2P = *p2p3
 
 	con3 := new(config.ConsensusConfig)
@@ -578,8 +578,8 @@ func TestPbftRunFor5(t *testing.T) {
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
-	p2p4.ListenAddress = "tcp://127.0.0.1:28897"
-	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
+	p2p4.ListenAddress1 = "tcp://127.0.0.1:28897"
+	p2p4.ListenAddress2 = "tcp://127.0.0.1:28898"
 	*config4.P2P = *p2p4
 
 	con4 := new(config.ConsensusConfig)
@@ -594,8 +594,8 @@ func TestPbftRunFor5(t *testing.T) {
 	*config5 = *config.TestConfig()
 	p2p5 := new(config.P2PConfig)
 	*p2p5 = *config5.P2P
-	p2p5.ListenAddress = "tcp://127.0.0.1:28899"
-	p2p5.ExternalAddress = "tcp://127.0.0.1:28900"
+	p2p5.ListenAddress1 = "tcp://127.0.0.1:28899"
+	p2p5.ListenAddress2 = "tcp://127.0.0.1:28900"
 	*config5.P2P = *p2p5
 
 	con5 := new(config.ConsensusConfig)
@@ -678,8 +678,8 @@ func TestRunPbft1(t *testing.T) {
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
-	p2p1.ListenAddress = "tcp://127.0.0.1:28890"
-	p2p1.ExternalAddress = "tcp://127.0.0.1:28891"
+	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
+	p2p1.ListenAddress2 = "tcp://127.0.0.1:28891"
 	*config1.P2P = *p2p1
 
 	con1 := new(config.ConsensusConfig)
@@ -735,8 +735,8 @@ func TestRunPbft2(t *testing.T) {
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
-	p2p2.ListenAddress = "tcp://127.0.0.1:28893"
-	p2p2.ExternalAddress = "tcp://127.0.0.1:28894"
+	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
+	p2p2.ListenAddress2 = "tcp://127.0.0.1:28894"
 	*config2.P2P = *p2p2
 
 	con2 := new(config.ConsensusConfig)
@@ -793,8 +793,8 @@ func TestRunPbft3(t *testing.T) {
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
-	p2p3.ListenAddress = "tcp://127.0.0.1:28895"
-	p2p3.ExternalAddress = "tcp://127.0.0.1:28896"
+	p2p3.ListenAddress1 = "tcp://127.0.0.1:28895"
+	p2p3.ListenAddress2 = "tcp://127.0.0.1:28896"
 	*config3.P2P = *p2p3
 
 	con3 := new(config.ConsensusConfig)
@@ -851,8 +851,8 @@ func TestRunPbft4(t *testing.T) {
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
-	p2p4.ListenAddress = "tcp://127.0.0.1:28897"
-	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
+	p2p4.ListenAddress1 = "tcp://127.0.0.1:28897"
+	p2p4.ListenAddress2 = "tcp://127.0.0.1:28898"
 	*config4.P2P = *p2p4
 
 	con4 := new(config.ConsensusConfig)
