@@ -241,6 +241,9 @@ func (n *Node) OnStart() error {
 // OnStop stops the Node. It implements help.Service.
 func (n *Node) OnStop() {
 	n.BaseService.OnStop()
+	for _,v := range n.services {
+		v.stop()
+	}
 	// first stop the non-reactor services
 	// now stop the reactors
 	// TODO: gracefully disconnect from peers.
