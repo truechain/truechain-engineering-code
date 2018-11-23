@@ -326,7 +326,10 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
+	//defer d.Terminate()
+
 	err := d.synchronise(id, head, td, mode, origin, height)
+
 	defer log.Info("fastDownloader Synchronise exit", "origin", origin, "height", height)
 	switch err {
 	case nil:
@@ -444,17 +447,17 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}
 
 	// Ensure our origin point is below any fast sync pivot point
-	pivot := uint64(0)
-	if d.mode == FastSync {
-		if height <= uint64(fsMinFullBlocks) {
-			origin = 0
-		} else {
-			pivot = height - uint64(fsMinFullBlocks)
-			if pivot <= origin {
-				origin = pivot - 1
-			}
-		}
-	}
+	pivot := origin+height
+	//if d.mode == FastSync {
+	//	if height <= uint64(fsMinFullBlocks) {
+	//		origin = 0
+	//	} else {
+	//		pivot = height - uint64(fsMinFullBlocks)
+	//		if pivot <= origin {
+	//			origin = pivot - 1
+	//		}
+	//	}
+	//}
 
 
 	d.committed = 1
@@ -503,9 +506,11 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 			// it has processed the queue.
 			d.queue.Close()
 		}
+
 		if err = <-errc; err != nil {
 			break
 		}
+		log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++ exit ")
 	}
 
 	d.queue.Close()
@@ -843,7 +848,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 	defer p.GetLog().Debug("Fast Header download terminated")
 
 	// Create a timeout timer, and the associated header fetcher
-	skeleton := false           // Skeleton assembly phase or finishing up
+	//skeleton := false           // Skeleton assembly phase or finishing up
 	request := time.Now()       // time of the last skeleton fetch request
 	timeout := time.NewTimer(0) // timer to dump a non-responsive active peer
 	<-timeout.C                 // timeout channel should be initially empty
@@ -883,24 +888,24 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			timeout.Stop()
 
 			// If the skeleton's finished, pull any remaining head headers directly from the origin
-			if packet.Items() == 0 && skeleton {
-				skeleton = false
-				getHeaders(from, height)
-				continue
-			}
+			//if packet.Items() == 0 && skeleton {
+			//	skeleton = false
+			//	getHeaders(from, height)
+			//	continue
+			//}
 			// If no more headers are inbound, notify the content fetchers and return
 			if packet.Items() == 0 {
 				// Don't abort header fetches while the pivot is downloading
-				if atomic.LoadInt32(&d.committed) == 0 && pivot <= from {
-					p.GetLog().Debug("Fast No headers, waiting for pivot commit")
-					select {
-					case <-time.After(fsHeaderContCheck):
-						getHeaders(from, height)
-						continue
-					case <-d.cancelCh:
-						return errCancelHeaderFetch
-					}
-				}
+				//if atomic.LoadInt32(&d.committed) == 0 && pivot <= from {
+				//	p.GetLog().Debug("Fast No headers, waiting for pivot commit")
+				//	select {
+				//	case <-time.After(fsHeaderContCheck):
+				//		getHeaders(from, height)
+				//		continue
+				//	case <-d.cancelCh:
+				//		return errCancelHeaderFetch
+				//	}
+				//}
 				// Pivot done (or not in fast sync) and no more headers, terminate the process
 				p.GetLog().Debug("Fast No more fast headers available")
 				select {
@@ -911,9 +916,9 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				}
 			}
 			headers := packet.(*headerPack).headers
-			for _, head := range headers {
-				p.GetLog().Debug("d.headerProcCh <- headers headers", "count", len(headers), "number", head.Number)
-			}
+			//for _, head := range headers {
+			//	p.GetLog().Debug("d.headerProcCh <- headers headers", "count", len(headers), "number", head.Number)
+			//}
 
 			// If we received a skeleton batch, resolve internals concurrently
 			//if skeleton {
@@ -1366,9 +1371,9 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					}
 					// If we're importing pure headers, verify based on their recentness
 					frequency := fsHeaderCheckFrequency
-					if chunk[len(chunk)-1].Number.Uint64()+uint64(fsHeaderForceVerify) > pivot {
-						frequency = 1
-					}
+					//if chunk[len(chunk)-1].Number.Uint64()+uint64(fsHeaderForceVerify) > pivot {
+					//	frequency = 1
+					//}
 					if n, err := d.lightchain.InsertHeaderChain(chunk, frequency); err != nil {
 						// If some headers were inserted, add them too to the rollback list
 						if n > 0 {
@@ -1485,10 +1490,10 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	}()
 	// Figure out the ideal pivot block. Note, that this goalpost may move if the
 	// sync takes long enough for the chain head to move significantly.
-	pivot := uint64(0)
-	if height := latest.Number.Uint64(); height > uint64(fsMinFullBlocks) {
-		pivot = height - uint64(fsMinFullBlocks)
-	}
+	pivot := latest.Number.Uint64()+1
+	//if height := latest.Number.Uint64(); height > uint64(fsMinFullBlocks) {
+	//	pivot = height - uint64(fsMinFullBlocks)
+	//}cd
 	// To cater for moving pivot points, track the pivot block and subsequently
 	// accumulated download results separately.
 	var (
@@ -1518,13 +1523,13 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 			results = append(append([]*etrue.FetchResult{oldPivot}, oldTail...), results...)
 		}
 		// Split around the pivot block and process the two sides via fast/full sync
-		if atomic.LoadInt32(&d.committed) == 0 {
-			latest = results[len(results)-1].Fheader
-			if height := latest.Number.Uint64(); height > pivot+2*uint64(fsMinFullBlocks) {
-				log.Warn("Pivot became stale, moving", "old", pivot, "new", height-uint64(fsMinFullBlocks))
-				pivot = height - uint64(fsMinFullBlocks)
-			}
-		}
+		//if atomic.LoadInt32(&d.committed) == 0 {
+		//	latest = results[len(results)-1].Fheader
+		//	if height := latest.Number.Uint64(); height > pivot+2*uint64(fsMinFullBlocks) {
+		//		log.Warn("Pivot became stale, moving", "old", pivot, "new", height-uint64(fsMinFullBlocks))
+		//		pivot = height - uint64(fsMinFullBlocks)
+		//	}
+		//}
 		P, beforeP, afterP := splitAroundPivot(pivot, results)
 		if err := d.commitFastSyncData(beforeP, stateSync); err != nil {
 			return err
@@ -1554,6 +1559,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 				}
 				oldPivot = nil
 
+
 			case <-time.After(time.Second):
 				oldTail = afterP
 				continue
@@ -1565,6 +1571,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 		}
 	}
 }
+
 
 func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.FetchResult, before, after []*etrue.FetchResult) {
 	for _, result := range results {
