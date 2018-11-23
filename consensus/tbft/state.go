@@ -952,7 +952,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 
 	// Validate proposal block
 	ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
-	if err != nil {
+	if ksign == nil {
 		// ProposalBlock is invalid, prevote nil.
 		log.Error("enterPrevote: ProposalBlock is invalid", "err", err)
 		cs.signAddVote(ttypes.VoteTypePrevote, nil, ttypes.PartSetHeader{}, nil)
@@ -1073,14 +1073,17 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", blockID.Hash)
 		// Validate the block.
 		ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
-		if err != nil {
-			help.PanicSanity(fmt.Sprintf("enterPrecommit: +2/3 prevoted for an invalid block: %v", err))
+		if ksign != nil{
+			if err != nil {
+				cs.LockedRound = uint(round)
+				cs.LockedBlock = cs.ProposalBlock
+				cs.LockedBlockParts = cs.ProposalBlockParts
+			}
+			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
+			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
+		} else {
+			cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{}, nil)
 		}
-		cs.LockedRound = uint(round)
-		cs.LockedBlock = cs.ProposalBlock
-		cs.LockedBlockParts = cs.ProposalBlockParts
-		cs.eventBus.PublishEventLock(cs.RoundStateEvent())
-		cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
 		return
 	}
 
@@ -1236,11 +1239,9 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
 	if _, err := cs.state.ValidateBlock(block); err != nil {
-		help.PanicSanity(fmt.Sprintf("+2/3 committed an invalid block: %v", err))
+		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v", err))
 	}
 	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))
-	log.Info(fmt.Sprintf("%v", block))
-
 	// fail.Fail() // XXX
 
 	// Save to blockStore.

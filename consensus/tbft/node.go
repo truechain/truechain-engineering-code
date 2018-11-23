@@ -114,9 +114,11 @@ func (s *service) start(cid *big.Int,node *Node) error {
 	return nil
 }
 func (s *service) stop() error {
-	s.updateChan <- false
-	s.eventBus.Stop()
-	s.sw.Stop()
+	if s.sw.IsRunning() {
+		s.updateChan <- false
+		s.eventBus.Stop()
+		s.sw.Stop()	
+	}
 	return nil
 }
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {

@@ -44,7 +44,7 @@ type Vote struct {
 	ValidatorIndex   uint         `json:"validator_index"`
 	Height           uint64       `json:"height"`
 	Round            uint         `json:"round"`
-	Result			 uint		  `json:"round"`	
+	Result			 uint		  `json:"result"`	
 	Timestamp        time.Time    `json:"timestamp"`
 	Type             byte         `json:"type"`
 	BlockID          BlockID      `json:"block_id"` // zero if vote is nil.
