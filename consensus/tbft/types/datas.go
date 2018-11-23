@@ -227,12 +227,12 @@ func (blockID BlockID) Key() string {
 	if err != nil {
 		panic(err)
 	}
-	return string(blockID.Hash) + string(bz)
+	return common.ToHex(blockID.Hash) + common.ToHex(bz)
 }
 
 // String returns a human readable string representation of the BlockID
 func (blockID BlockID) String() string {
-	return fmt.Sprintf(`%v:%v`, blockID.Hash, blockID.PartsHeader)
+	return fmt.Sprintf(`%v:%v`, help.Fingerprint(blockID.Hash), blockID.PartsHeader)
 }
 
 //-------------------------------------------------------

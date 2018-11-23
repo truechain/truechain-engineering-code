@@ -419,7 +419,7 @@ func (voteSet *VoteSet) TwoThirdsMajority() (blockID BlockID, ok bool) {
 	return BlockID{}, false
 }
 
-func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign, error) {
+func (voteSet *VoteSet) MakePbftSigns(thash []byte) ([]*ttypes.PbftSign, error) {
 	if voteSet == nil {
 		return nil, errors.New("no voteset")
 	}
@@ -429,12 +429,16 @@ func (voteSet *VoteSet) MakePbftSigns() ([]*ttypes.PbftSign, error) {
 		return nil, errors.New("there was no pok")
 	}
 	blockid := voteSet.maj23
-	if _, ok := voteSet.votesByBlock[blockid.Key()]; !ok {
-		return nil, errors.New(fmt.Sprintf("none blockhash was vote,hash=%X", voteSet.maj23.Hash))
+	if !help.EqualHashes(thash, blockid.Hash) {
+		return nil,errors.New(fmt.Sprintf("hash:%s,blockid:%s",common.ToHex(thash),common.ToHex(blockid.Hash)))
+	}
+	voteByBlock,ok := voteSet.votesByBlock[blockid.Key()]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("none blockhash was vote,hash=%s", common.ToHex(voteSet.maj23.Hash)))
 	}
 	signs := make([]*ttypes.PbftSign, 0)
-	for i, vote := range voteSet.votes {
-		if res := voteSet.votesBitArray.GetIndex(uint(i)); res {
+	for i, vote := range voteByBlock.votes {
+		if res := voteByBlock.bitArray.GetIndex(uint(i)); res {
 			var hash common.Hash
 			copy(hash[:], blockid.Hash)
 			s := &ttypes.PbftSign{

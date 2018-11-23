@@ -14,6 +14,7 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	// fail "github.com/ebuchman/fail-test"
+	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/log"
 )
 
@@ -1155,7 +1156,7 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 	if cs.LockedBlock != nil {
 		lock := cs.LockedBlock.Hash()
 		if help.EqualHashes(lock[:], blockID.Hash) {
-			log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", blockID.Hash)
+			log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", common.ToHex(blockID.Hash))
 			cs.ProposalBlock = cs.LockedBlock
 			cs.ProposalBlockParts = cs.LockedBlockParts
 		}	
@@ -1165,7 +1166,8 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 		pro := cs.ProposalBlock.Hash()
 		if !help.EqualHashes(pro[:], blockID.Hash) {
 			if !cs.ProposalBlockParts.HasHeader(blockID.PartsHeader) {
-				log.Info("Commit is for a block we don't know about. Set ProposalBlock=nil", "proposal", cs.ProposalBlock.Hash(), "commit", blockID.Hash)
+				hash := cs.ProposalBlock.Hash()
+				log.Info("Commit is for a block we don't know about. Set ProposalBlock=nil", "proposal", common.ToHex(hash[:]), "commit", common.ToHex(blockID.Hash))
 				// We're getting the wrong block.
 				// Set up ProposalBlockParts and keep waiting.
 				cs.ProposalBlock = nil
@@ -1217,7 +1219,8 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	voteset := cs.Votes.Precommits(int(cs.CommitRound))
 	blockID, ok := voteset.TwoThirdsMajority()
 	block, blockParts := cs.ProposalBlock, cs.ProposalBlockParts
-	signs, ierr := voteset.MakePbftSigns()
+	hash := block.Hash()
+	signs, ierr := voteset.MakePbftSigns(hash[:])
 
 	if !ok {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, commit does not have two thirds majority"))
@@ -1228,16 +1231,14 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	if ierr != nil || signs == nil {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, make signs error=%s", ierr.Error()))
 	}
-
-	hash := block.Hash()
+	
 	if !help.EqualHashes(hash[:], blockID.Hash) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
 	if _, err := cs.state.ValidateBlock(block); err != nil {
 		help.PanicSanity(fmt.Sprintf("+2/3 committed an invalid block: %v", err))
 	}
-
-	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", block.Hash()))
+	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))
 	log.Info(fmt.Sprintf("%v", block))
 
 	// fail.Fail() // XXX
