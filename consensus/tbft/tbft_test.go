@@ -3,11 +3,14 @@ package tbft
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"bytes"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
+	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"path/filepath"
@@ -362,7 +365,6 @@ func TestPbftRunFor4(t *testing.T) {
 
 	<-start
 }
-
 func TestPbftRunFor4AndChange(t *testing.T) {
 	//log.OpenLogDebug(4)
 	IdCacheInit()
@@ -892,4 +894,103 @@ func TestRunPbft4(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 
 	<-start
+}
+
+
+func TestAddVote(t *testing.T) {
+	IdCacheInit()
+	const privCount int = 4
+	var privs [privCount]*ecdsa.PrivateKey
+	vals := make([]*ttypes.Validator, 0, 0)
+	vPrivValidator := make([]ttypes.PrivValidator,0,0)
+
+	var chainID_ string = "9999"
+	var height_  uint64 = 1
+	var round_   int = 0
+	var type_   byte = ttypes.VoteTypePrevote
+
+	for i:=0;i<privCount;i++ {
+		privs[i] = getPrivateKey(i)
+		pub := GetPub(privs[i])
+		vp := ttypes.NewPrivValidator(*privs[i])
+		vPrivValidator = append(vPrivValidator,vp)
+		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*pub), 1)
+		vals = append(vals, v)
+	}
+	vset := ttypes.NewValidatorSet(vals)
+	vVoteSet := ttypes.NewVoteSet(chainID_,height_,round_,type_,vset)
+	// make block 
+	agent := NewPbftAgent("Agent1")
+	cid := big.NewInt(1)
+	block,_ := agent.FetchFastBlock(cid)
+	hash := block.Hash()
+	fmt.Println(common.ToHex(hash[:]))
+	ps,_ := ttypes.MakePartSet(65535,block)
+	// make vote 
+	for i,v := range vPrivValidator {
+		var vote1 *ttypes.Vote
+		if i==3 {
+			vote1 = signAddVote(v,vset,vVoteSet,height_,chainID_,uint(round_),type_,nil,ttypes.PartSetHeader{},nil)
+		} else {			
+			vote1 = signAddVote(v,vset,vVoteSet,height_,chainID_,uint(round_),type_,hash[:],ps.Header(),nil)
+		}
+		if vote1 != nil {
+			vVoteSet.AddVote(vote1)
+		}
+	}
+	bsuc := vVoteSet.HasTwoThirdsMajority()
+	fmt.Println(bsuc)
+	maj,_ := vVoteSet.TwoThirdsMajority()
+	fmt.Println(maj.String())
+	signs, _ := vVoteSet.MakePbftSigns(hash[:])
+	fmt.Println(signs)
+
+}
+
+func signVote(privV ttypes.PrivValidator,vset *ttypes.ValidatorSet,height uint64,chainid_ string,
+	round uint,type_ byte,hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
+	addr := privV.GetAddress()
+	valIndex, _ := vset.GetByAddress(addr)
+	vote := &ttypes.Vote{
+		ValidatorAddress: addr,
+		ValidatorIndex:   uint(valIndex),
+		Height:           height,
+		Round:            round,
+		Timestamp:        time.Now().UTC(),
+		Type:             type_,
+		BlockID:          ttypes.BlockID{hash, header},
+	}
+	
+	err := privV.SignVote(chainid_, vote)
+	return vote, err
+}
+func signAddVote(privV ttypes.PrivValidator,vset *ttypes.ValidatorSet,voteset *ttypes.VoteSet,height uint64,chainid_ string,
+	round uint,type_ byte,hash []byte, header ttypes.PartSetHeader, keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
+
+	vote, err := signVote(privV, vset, height,chainid_,round,type_,hash,header)
+	if err == nil {
+		// if hash != nil && keepsign == nil {
+		// 	if prevote := voteset.Prevotes(int(round)); prevote != nil {
+		// 		keepsign = prevote.GetSignByAddress(privV.GetAddress())
+		// 	}
+		// }
+		if hash != nil && keepsign != nil && bytes.Equal(hash, keepsign.Hash[:]) {
+			vote.Result = keepsign.Result
+			vote.ResultSign = make([]byte, len(keepsign.Sign))
+			copy(vote.ResultSign, keepsign.Sign)
+		}
+		fmt.Println("Signed and pushed vote", "height", height, "round", round, "vote", vote, "err", err)
+		return vote
+	}
+	fmt.Println("Error signing vote", "height", height, "round", round, "vote", vote, "err", err)
+	return nil
+}
+func TestVote(t *testing.T) {
+	bid := makeBlockID(nil,ttypes.PartSetHeader{})
+	fmt.Println(bid.String())
+}
+func makeBlockID(hash []byte, header ttypes.PartSetHeader)  ttypes.BlockID {
+	blockid := ttypes.BlockID{hash, header}
+	fmt.Println(blockid.String())
+	return blockid
 }
