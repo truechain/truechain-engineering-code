@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ValidatorSet represent a set of *Validator at a given height.
@@ -281,7 +282,9 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 			continue // Not an error, but doesn't count
 		}
 		// Good precommit!
-		talliedVotingPower += val.VotingPower
+		if precommit.Result == ctypes.VoteAgree {
+			talliedVotingPower += val.VotingPower
+		}
 	}
 
 	if talliedVotingPower > valSet.TotalVotingPower()*2/3 {
@@ -351,11 +354,12 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 			return errors.New(fmt.Sprintf("Invalid commit -- invalid signature: %v", precommit))
 		}
 		// Good precommit!
-		oldVotingPower += ov.VotingPower
-
+		if precommit.Result == ctypes.VoteAgree {
+			oldVotingPower += ov.VotingPower
+		}
 		// check new school
 		_, cv := newSet.GetByIndex(uint(idx))
-		if cv.PubKey.Equals(ov.PubKey) {
+		if cv.PubKey.Equals(ov.PubKey) && (precommit.Result == ctypes.VoteAgree) {
 			// make sure this is properly set in the current block as well
 			newVotingPower += cv.VotingPower
 		}

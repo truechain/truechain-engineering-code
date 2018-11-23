@@ -1074,11 +1074,9 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		// Validate the block.
 		ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
 		if ksign != nil{
-			if err != nil {
-				cs.LockedRound = uint(round)
-				cs.LockedBlock = cs.ProposalBlock
-				cs.LockedBlockParts = cs.ProposalBlockParts
-			}
+			cs.LockedRound = uint(round)
+			cs.LockedBlock = cs.ProposalBlock
+			cs.LockedBlockParts = cs.ProposalBlockParts
 			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
 		} else {
@@ -1594,6 +1592,7 @@ func (cs *ConsensusState) signVote(type_ byte, hash []byte, header ttypes.PartSe
 		Round:            cs.Round,
 		Timestamp:        time.Now().UTC(),
 		Type:             type_,
+		Result:			  types.VoteAgree,
 		BlockID:          ttypes.BlockID{hash, header},
 	}
 	err := cs.privValidator.SignVote(cs.state.GetChainID(), vote)

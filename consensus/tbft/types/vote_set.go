@@ -64,6 +64,7 @@ type VoteSet struct {
 	votesBitArray *help.BitArray
 	votes         []*Vote                // Primary votes to share
 	sum           uint64                 // Sum of voting power for seen votes, discounting conflicts
+	vsum		  uint64				 // Sum of valid voting power for seen votes, discounting conflicts
 	maj23         *BlockID               // First 2/3 majority seen
 	votesByBlock  map[string]*blockVotes // string(blockHash|blockParts) -> blockVotes
 	peerMaj23s    map[P2PID]BlockID      // Maj23 for each peer
@@ -83,6 +84,7 @@ func NewVoteSet(chainID string, height uint64, round int, type_ byte, valSet *Va
 		votesBitArray: help.NewBitArray(valSet.Size()),
 		votes:         make([]*Vote, valSet.Size()),
 		sum:           0,
+		vsum:		   0,
 		maj23:         nil,
 		votesByBlock:  make(map[string]*blockVotes, valSet.Size()),
 		peerMaj23s:    make(map[P2PID]BlockID),
@@ -237,6 +239,9 @@ func (voteSet *VoteSet) addVerifiedVote(vote *Vote, blockKey string, votingPower
 		voteSet.votes[valIndex] = vote
 		voteSet.votesBitArray.SetIndex(valIndex, true)
 		voteSet.sum += votingPower
+		if vote.Result == ttypes.VoteAgree {
+			voteSet.vsum += votingPower
+		}
 	}
 
 	votesByBlock, ok := voteSet.votesByBlock[blockKey]
@@ -532,8 +537,8 @@ func (voteSet *VoteSet) BitArrayString() string {
 
 func (voteSet *VoteSet) bitArrayString() string {
 	bAString := voteSet.votesBitArray.String()
-	voted, total, fracVoted := voteSet.sumTotalFrac()
-	return fmt.Sprintf("%s %d/%d = %.2f", bAString, voted, total, fracVoted)
+	v,voted, total, fracVoted := voteSet.sumTotalFrac()
+	return fmt.Sprintf("%s %d,%d/%d = %.2f", bAString, v,voted, total, fracVoted)
 }
 
 // Returns a list of votes compressed to more readable strings.
@@ -561,16 +566,16 @@ func (voteSet *VoteSet) StringShort() string {
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	_, _, frac := voteSet.sumTotalFrac()
-	return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v) %v %v}`,
-		voteSet.height, voteSet.round, voteSet.type_, voteSet.maj23, frac, voteSet.votesBitArray, voteSet.peerMaj23s)
+	v,_, _, frac := voteSet.sumTotalFrac()
+	return fmt.Sprintf(`VoteSet{H:%v R:%v T:%v +2/3:%v(%v,%v) %v %v}`,
+		voteSet.height, voteSet.round, voteSet.type_, voteSet.maj23, v,frac, voteSet.votesBitArray, voteSet.peerMaj23s)
 }
 
 // return the power voted, the total, and the fraction
-func (voteSet *VoteSet) sumTotalFrac() (uint64, uint64, float64) {
-	voted, total := voteSet.sum, voteSet.valSet.TotalVotingPower()
+func (voteSet *VoteSet) sumTotalFrac() (uint64,uint64, uint64, float64) {
+	vvoted,voted, total := voteSet.vsum, voteSet.sum, voteSet.valSet.TotalVotingPower()
 	fracVoted := float64(voted) / float64(total)
-	return voted, total, fracVoted
+	return vvoted,voted, total, fracVoted
 }
 
 //--------------------------------------------------------------------------------
@@ -626,7 +631,13 @@ func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower uint64) {
 	if existing := vs.votes[valIndex]; existing == nil {
 		vs.bitArray.SetIndex(valIndex, true)
 		vs.votes[valIndex] = vote
-		vs.sum += votingPower
+		if vote.Type == VoteTypePrecommit{
+			if vote.Result == ttypes.VoteAgree {
+				vs.sum += votingPower
+			}
+		} else {
+			vs.sum += votingPower
+		}
 	}
 }
 
