@@ -114,6 +114,12 @@ func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
 
 func (sw *Switch) ReadPeerList() {
 	for {
+		select{
+		case <-sw.Quit():
+			return
+		default:
+			// do nothing
+		}
 		if sw.peers != nil {
 			var pis []string
 			for _, v := range sw.peers.list {

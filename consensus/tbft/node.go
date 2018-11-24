@@ -117,8 +117,8 @@ func (s *service) stop() error {
 	if s.sw.IsRunning() {
 		s.updateChan <- false
 		s.eventBus.Stop()
-		s.sw.Stop()	
 	}
+	s.sw.Stop()	
 	return nil
 }
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {
@@ -243,8 +243,10 @@ func (n *Node) OnStart() error {
 // OnStop stops the Node. It implements help.Service.
 func (n *Node) OnStop() {
 	n.BaseService.OnStop()
-	for _,v := range n.services {
+	for i,v := range n.services {
+		log.Info("begin stop tbft server ","id",i)
 		v.stop()
+		log.Info("end stop tbft server ","id",i)
 	}
 	// first stop the non-reactor services
 	// now stop the reactors
