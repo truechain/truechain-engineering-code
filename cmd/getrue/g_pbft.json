@@ -2,8 +2,8 @@
   "config": {
     "chainId": 6688,
     "minerva":{"durationLimit" : "0x258",
-    "minimumDifficulty":"0x1e8480",
-    "minimumFruitDifficulty":"0x7d0"
+    "minimumDifficulty":"0x10",
+    "minimumFruitDifficulty":"0x1"
     }
   },
   "alloc":{
