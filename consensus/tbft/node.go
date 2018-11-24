@@ -1,10 +1,10 @@
 package tbft
 
 import (
-	"crypto/ecdsa"
-	"encoding/hex"
 	"strings"
 	"sync"
+	"crypto/ecdsa"
+	"encoding/hex"
 	// "encoding/json"
 	"errors"
 	"fmt"
@@ -24,21 +24,22 @@ type service struct {
 	sw               *p2p.Switch
 	consensusState   *ConsensusState   // latest consensus state
 	consensusReactor *ConsensusReactor // for participating in the consensus
-	sa               *ttypes.StateAgentImpl
-	nodeTable        map[p2p.ID]*nodeInfo
-	lock             *sync.Mutex
-	updateChan       chan bool
-	eventBus         *ttypes.EventBus // pub/sub for services
+	sa 				 *ttypes.StateAgentImpl
+	nodeTable 		 map[p2p.ID]*nodeInfo
+	lock			 *sync.Mutex
+	updateChan		 chan bool
+	eventBus 		*ttypes.EventBus // pub/sub for services
 	// network
-	addrBook pex.AddrBook // known peers
+	addrBook      	pex.AddrBook         // known peers
+
 }
 
 type nodeInfo struct {
-	ID      p2p.ID
-	Adrress *p2p.NetAddress
-	IP      string
-	Port    uint
-	Enable  bool
+	ID 			p2p.ID 
+	Adrress		*p2p.NetAddress
+	IP 			string 
+	Port 		uint
+	Enable		bool
 }
 
 const (
@@ -47,29 +48,29 @@ const (
 	Switch
 )
 
-func NewNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state ttypes.StateAgent,
-	store *ttypes.BlockStore, ) *service {
-	return &service{
+func NewNodeService(p2pcfg *cfg.P2PConfig,cscfg *cfg.ConsensusConfig,state ttypes.StateAgent,
+	store *ttypes.BlockStore,) *service {
+	return &service {
 		sw:             p2p.NewSwitch(p2pcfg),
 		consensusState: NewConsensusState(cscfg, state, store),
-		nodeTable:      make(map[p2p.ID]*nodeInfo),
-		lock:           new(sync.Mutex),
-		updateChan:     make(chan bool),
-		eventBus:       ttypes.NewEventBus(),
+		nodeTable: 		make(map[p2p.ID]*nodeInfo),
+		lock:			new(sync.Mutex),
+		updateChan:		make(chan bool),
+		eventBus:		ttypes.NewEventBus(),
 		// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 		// Note we currently use the addrBook regardless at least for AddOurAddress
-		addrBook: pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
+		addrBook: 		pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
 	}
 }
 
-func (s *service) start(cid *big.Int, node *Node) error {
+func (s *service) start(cid *big.Int,node *Node) error {
 	err := s.eventBus.Start()
 	if err != nil {
 		return err
 	}
 	// Create & add listener
 	lstr := node.config.P2P.ListenAddress2
-	if cid.Uint64()%2 == 0 {
+	if cid.Uint64() % 2 == 0 {
 		lstr = node.config.P2P.ListenAddress1
 	}
 	nodeinfo := node.nodeinfo
@@ -83,7 +84,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 
 	s.sw.SetNodeInfo(nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
-	log.Info("commitee start", "node info", nodeinfo.String())
+	log.Info("commitee start","node info",nodeinfo.String())
 	l := p2p.NewDefaultListener(
 		lstr,
 		node.config.P2P.ExternalAddress,
@@ -98,14 +99,14 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	if err != nil {
 		return err
 	}
-	go func() {
+	go func(){
 		for {
 			select {
-			case update := <-s.updateChan:
+			case update := <- s.updateChan :
 				if update {
-					s.updateNodes()
+					s.updateNodes()	
 				} else {
-					return // exit
+					return 			// exit
 				}
 			}
 		}
@@ -116,54 +117,52 @@ func (s *service) stop() error {
 	if s.sw.IsRunning() {
 		s.updateChan <- false
 		s.eventBus.Stop()
-		s.sw.Stop()
 	}
+	s.sw.Stop()	
 	return nil
 }
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {
 	return s.sa
 }
-func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
-	if nodes == nil {
-		return
-	}
-
+func (s *service) putNodes(cid *big.Int,nodes []*types.CommitteeNode) {
+	if nodes == nil {	return 		}
+	
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	update := false
-	nodeString := make([]string, len(nodes))
+	nodeString := make([]string,len(nodes))
 	for i, node := range nodes {
 		nodeString[i] = node.String()
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
-			log.Error("putnode:", err, node.IP, node.Port)
+			log.Error("putnode:",err,node.IP,node.Port)
 			continue
 		}
 		// check node pk
 		address := crypto.PubkeyToAddress(*pub)
-		if ok := s.sa.GetValidator().HasAddress(address[:]); !ok {
-			log.Error("has not address:", address, node.IP, node.Port)
+		if ok:=s.sa.GetValidator().HasAddress(address[:]); !ok {
+			log.Error("has not address:",address,node.IP,node.Port)
 			continue
-		}
+		}	
 		port := node.Port2
-		if cid.Uint64()%2 == 0 {
+		if cid.Uint64() % 2 == 0 {
 			port = node.Port
 		}
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
-		if _, ok := s.nodeTable[id]; !ok {
+		if _,ok := s.nodeTable[id]; !ok {
 			s.nodeTable[id] = &nodeInfo{
-				ID:      id,
-				Adrress: addr,
-				IP:      node.IP,
-				Port:    port,
-				Enable:  false,
+				ID:			id,
+				Adrress:	addr,
+				IP:			node.IP,
+				Port:		port,
+				Enable:		false,
 			}
 			update = true
-		}
+		}	
 	}
-	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
+	log.Debug("PutNodes","id",cid,"msg",strings.Join(nodeString,"\n"))
 	if update {
 		go func() { s.updateChan <- true }()
 	}
@@ -171,16 +170,14 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	for _, v := range s.nodeTable {
+	for _,v := range s.nodeTable {
 		if !v.Enable {
 			s.connTo(v)
 		}
 	}
 }
 func (s *service) connTo(node *nodeInfo) {
-	if node.Enable {
-		return
-	}
+	if node.Enable { return }
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
 		log.Error("dail peer " + errDialErr.Error())
@@ -188,12 +185,10 @@ func (s *service) connTo(node *nodeInfo) {
 		node.Enable = true
 	}
 }
-
 // EventBus returns the Node's EventBus.
 func (s *service) EventBus() *ttypes.EventBus {
 	return s.eventBus
 }
-
 //------------------------------------------------------------------------------
 
 // Node is the highest level interface to a full truechain node.
@@ -203,7 +198,7 @@ type Node struct {
 	// configt
 	config *cfg.Config
 	Agent  types.PbftAgentProxy
-	priv   *ecdsa.PrivateKey // local node's validator key
+	priv *ecdsa.PrivateKey			// local node's validator key
 
 	// services
 	services map[uint64]*service
@@ -226,11 +221,11 @@ func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 	// services which will be publishing and/or subscribing for messages (events)
 	// consensusReactor will set it on consensusState and blockExecutor
 	node := &Node{
-		config:   config,
-		priv:     priv,
-		chainID:  chainID,
-		Agent:    agent,
-		services: make(map[uint64]*service),
+		config:        config,
+		priv: 		   priv,
+		chainID:       chainID,
+		Agent:         agent,
+		services:      make(map[uint64]*service),
 		nodekey: p2p.NodeKey{
 			PrivKey: tcrypto.PrivKeyTrue(*priv),
 		},
@@ -248,8 +243,10 @@ func (n *Node) OnStart() error {
 // OnStop stops the Node. It implements help.Service.
 func (n *Node) OnStop() {
 	n.BaseService.OnStop()
-	for _, v := range n.services {
+	for i,v := range n.services {
+		log.Info("begin stop tbft server ","id",i)
 		v.stop()
+		log.Info("end stop tbft server ","id",i)
 	}
 	// first stop the non-reactor services
 	// now stop the reactors
@@ -292,7 +289,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	switch action {
 	case Start:
 		if server, ok := n.services[id.Uint64()]; ok {
-			server.start(id, n)
+			server.start(id,n)
 			return nil
 		} else {
 			return errors.New("wrong conmmitt ID:" + id.String())
@@ -300,7 +297,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
 			server.stop()
-			delete(n.services, id.Uint64())
+			delete(n.services,id.Uint64())
 		}
 		return nil
 	case Switch:
@@ -318,16 +315,16 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
-	log.Info("pbft PutCommittee", "info", committeeInfo.String())
+	log.Info("pbft PutCommittee","info",committeeInfo.String())
 	// Make StateAgent
 	lastCommitHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
-	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), lastCommitHeight, cid)
+	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), lastCommitHeight,cid)
 	if state == nil {
 		return errors.New("make the nil state")
 	}
 	store := ttypes.NewBlockStore()
-	service := NewNodeService(n.config.P2P, n.config.Consensus, state, store)
+	service := NewNodeService(n.config.P2P,n.config.Consensus, state, store)
 	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
@@ -345,7 +342,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
 	}
-	server.putNodes(id, nodes)
+	server.putNodes(id,nodes)
 	return nil
 }
 func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
@@ -378,3 +375,4 @@ func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 	return nil
 }
+

@@ -68,10 +68,12 @@ func (conR *ConsensusReactor) OnStart() error {
 // OnStop implements BaseService by unsubscribing from events and stopping
 // state.
 func (conR *ConsensusReactor) OnStop() {
-	conR.unsubscribeFromBroadcastEvents()
-	conR.conS.Stop()
-	if !conR.FastSync() {
-		conR.conS.Wait()
+	if conR.IsRunning() {
+		conR.unsubscribeFromBroadcastEvents()
+		conR.conS.Stop()
+		if !conR.FastSync() {
+			conR.conS.Wait()
+		}	
 	}
 }
 
