@@ -141,6 +141,7 @@ func NewConsensusState(
 	cs.setProposal = cs.defaultSetProposal
 
 	cs.updateToState(state)
+	log.Info("NewConsensusState","Height",cs.Height)
 	// Don't call scheduleRound0 yet.
 	// We do that upon Start().
 	cs.reconstructLastCommit()
@@ -246,7 +247,8 @@ func (cs *ConsensusState) OnStart() error {
 			// make sure to stop the timeoutTicker
 		}
 	}
-
+	// the wal will not work
+	cs.updateToState(cs.state)
 	// now start the receiveRoutine
 	go cs.receiveRoutine(0)
 
@@ -576,10 +578,9 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *ConsensusState) handleMsg(mi msgInfo) {
-	log.Debug("mtxlock", "lock", 9)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-	defer log.Debug("mtxlock", "lock", -9)
+
 	var err error
 	msg, peerID := mi.Msg, mi.PeerID
 	switch msg := msg.(type) {
@@ -751,11 +752,11 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait bool) 
 		doing = false
 	} else {
 		if !cs.Validators.HasAddress(cs.privValidator.GetAddress()) {
-			estr = fmt.Sprint(estr, " This node is not a validator", "addr", cs.privValidator.GetAddress(), "vals", cs.Validators)
+			estr = fmt.Sprint(estr, " This node is not a validator", "addr", common.ToHex(cs.privValidator.GetAddress()), "vals", cs.Validators)
 			doing = false
 			log.Error(estr)
 		} else if !cs.isProposer() {
-			estr = fmt.Sprint(estr, "Not our turn to propose", "proposer", cs.Validators.GetProposer().Address, "privValidator", cs.privValidator)
+			estr = fmt.Sprint(estr, "Not our turn to propose ", "proposer", common.ToHex(cs.Validators.GetProposer().Address), "privValidator", cs.privValidator)
 			doing = false
 			log.Info(estr)
 		}
@@ -770,6 +771,13 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait bool) 
 		if err != nil || block == nil {
 			log.Info("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
 			doing = false
+		} else if block != nil {
+			if height != block.NumberU64() {
+				log.Info("State Wrong,height not match","cs.Height",height,"block.height",block.NumberU64())
+				cs.updateToState(cs.state)
+				cs.scheduleRound0(cs.GetRoundState())
+				return
+			}
 		}
 	}
 	if !doing {
