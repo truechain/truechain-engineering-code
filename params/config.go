@@ -41,8 +41,8 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(10000),
-			MinimumFruitDifficulty: big.NewInt(100),
+			MinimumDifficulty:      big.NewInt(100),
+			MinimumFruitDifficulty: big.NewInt(10),
 			DurationLimit:          big.NewInt(60),
 		}),
 	}
@@ -77,7 +77,7 @@ var (
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty,MinimumFruitDifficulty,DurationLimit}}
+	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
