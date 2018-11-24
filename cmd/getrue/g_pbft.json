@@ -37,7 +37,7 @@
   ]
 ,
   "coinbase"   : "0x0000000000000000000000000000000000000000",
-  "difficulty" : "0x200",
+  "difficulty" : "0x10",
   "extraData"  : "",
   "gasLimit"   : "0x5400000",
   "nonce"      : "0x0000000000000042",
