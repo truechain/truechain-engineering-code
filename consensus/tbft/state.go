@@ -1240,7 +1240,8 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
 	if _, err := cs.state.ValidateBlock(block); err != nil {
-		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v", err))
+		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v,back to the height:%v,round 0", err,cs.Height))
+		return cs.updateToState(cs.state)
 	}
 	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))
 	// fail.Fail() // XXX
