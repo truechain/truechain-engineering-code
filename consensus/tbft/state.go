@@ -1070,9 +1070,12 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		tmpPro := cs.ProposalBlock.Hash()
 		return help.EqualHashes(tmpPro[:], blockID.Hash)
 	}() {
-		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", blockID.Hash)
+		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", common.ToHex(blockID.Hash))
 		// Validate the block.
 		ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
+		if err != nil {
+			log.Info("ValidateBlock faild will vote VoteAgreeAgainst","hash",common.ToHex(blockID.Hash),"err",err)
+		}
 		if ksign != nil{
 			cs.LockedRound = uint(round)
 			cs.LockedBlock = cs.ProposalBlock
