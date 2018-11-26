@@ -48,7 +48,7 @@ func WriteTxLookupEntries(db DatabaseWriter, block *types.Block) {
 			Index:      uint64(i),
 		}
 		data, err := rlp.EncodeToBytes(entry)
-		log.Info("=========   size of TX",len(data),"number of fast",block.NumberU64())
+		//log.Info("=========   size of TX",len(data),"number of fast",block.NumberU64())
 
 		if err != nil {
 			log.Crit("Failed to encode transaction lookup entry", "err", err)

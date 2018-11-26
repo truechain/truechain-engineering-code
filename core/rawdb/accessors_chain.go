@@ -189,7 +189,7 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 	}
 	// Write the encoded header
 	data, err := rlp.EncodeToBytes(header)
-	log.Info("=========   size of fast hash",len(data),"number of fastblock",number)
+	//log.Info("=========   size of fast hash",len(data),"number of fastblock",number)
 	if err != nil {
 		log.Crit("Failed to RLP encode header", "err", err)
 	}
@@ -253,7 +253,7 @@ func WriteBody(db DatabaseWriter, hash common.Hash, number uint64, body *types.B
 	if err != nil {
 		log.Crit("Failed to RLP encode body", "err", err)
 	}
-	log.Info("=========   size of body",len(data),"number of fastblock",number)
+	//log.Info("=========   size of body",len(data),"number of fastblock",number)
 	WriteBodyRLP(db, hash, number, data)
 }
 
@@ -328,7 +328,7 @@ func WriteReceipts(db DatabaseWriter, hash common.Hash, number uint64, receipts 
 		log.Crit("Failed to encode block receipts", "err", err)
 	}
 	// Store the flattened receipt slice
-	log.Info("=========   size of receipts",len(bytes),"number of fast",number)
+	//log.Info("=========   size of receipts",len(bytes),"number of fast",number)
 
 	if err := db.Put(blockReceiptsKey(number, hash), bytes); err != nil {
 		log.Crit("Failed to store block receipts", "err", err)
@@ -408,7 +408,7 @@ func WriteBlockReward(db DatabaseWriter, block *types.BlockReward) {
 	key := blockRewardKey(block.SnailNumber.Uint64())
 	// Write the encoded BlockReward
 	data, err := rlp.EncodeToBytes(block)
-	log.Info("=========   size of BlockReward",len(data),"number of SnailNumber",block.SnailNumber)
+	//log.Info("=========   size of BlockReward",len(data),"number of SnailNumber",block.SnailNumber)
 	if err != nil {
 		log.Crit("Failed to RLP encode BlockReward", "err", err)
 	}
