@@ -82,9 +82,9 @@ func (f *Feed) Subscribe(channel interface{}) Subscription {
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if !f.typecheck(chantyp.Elem()) {
-		panic(feedTypeError{op: "Subscribe", got: chantyp, want: reflect.ChanOf(reflect.SendDir, f.etype)})
-	}
+	//if !f.typecheck(chantyp.Elem()) {
+	//	panic(feedTypeError{op: "Subscribe", got: chantyp, want: reflect.ChanOf(reflect.SendDir, f.etype)})
+	//}
 	// Add the select case to the inbox.
 	// The next Send will add it to f.sendCases.
 	cas := reflect.SelectCase{Dir: reflect.SelectSend, Chan: chanval}

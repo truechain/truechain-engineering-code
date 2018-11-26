@@ -1420,7 +1420,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 			height := fruitLen
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
-			currentNum := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+			currentNum := d.fastDown.GetBlockChain().GetBlockNumber()
 
 			if fbNumLast < fbNum || fbNumLast-fbNum != height-1 || fbNum < 1 {
 				return errFruits
@@ -1443,9 +1443,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 							return errs
 						}
 
-						currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+						currentNum = d.fastDown.GetBlockChain().GetBlockNumber()
 						if fbNumLast > currentNum {
-							log.Trace("fastDownloader while", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
+							log.Debug("fastDownloader while", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
 
 							fbNum = currentNum
 							height = fbNumLast - fbNum
@@ -1458,7 +1458,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			}
 
 		} else {
-
 			log.Debug("Snail--->>>", "blocks>>>>", blocks[0], "fruits>>", result.Fruits)
 		}
 

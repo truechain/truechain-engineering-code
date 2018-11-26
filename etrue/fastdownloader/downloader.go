@@ -199,6 +199,8 @@ type BlockChain interface {
 
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
 	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+
+    GetBlockNumber() uint64
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -235,7 +237,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		trackStateReq: make(chan *stateReq),
 	}
 
-	go dl.qosTuner()
+	//go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
 }
@@ -1614,6 +1616,7 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult, stateSync 
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
 		receipts[i] = result.Receipts
 	}
+	log.Debug("Inserting fast-sync  ","blocks" , len(blocks))
 	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain

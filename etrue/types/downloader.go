@@ -116,6 +116,11 @@ func (ps *PeerSet) SubscribeNewPeers(ch chan<- PeerConnection) event.Subscriptio
 	return ps.newPeerFeed.Subscribe(ch)
 }
 
+// SubscribeNewPeers subscribes to peer arrival events.
+func (ps *PeerSet) SubscribeNewPeersFast(ch chan<- interface{}) event.Subscription {
+	return ps.newPeerFeed.Subscribe(ch)
+}
+
 // SubscribePeerDrops subscribes to peer departure events.
 func (ps *PeerSet) SubscribePeerDrops(ch chan<- PeerConnection) event.Subscription {
 	return ps.peerDropFeed.Subscribe(ch)
