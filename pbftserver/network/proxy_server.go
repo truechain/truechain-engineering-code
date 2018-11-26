@@ -70,9 +70,9 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	server := &Server{ID: new(big.Int).Set(id), help: help}
 	node := NewNode(nodeID, verify, server, addrs, id)
 	server.Node = node
-	server.Node.NTLock.Lock()
+	server.Node.NTLock.RLock()
 	server.url = node.NodeTable[nodeID]
-	server.Node.NTLock.Unlock()
+	server.Node.NTLock.RUnlock()
 	server.server = &http.Server{
 		Addr: server.url,
 	}

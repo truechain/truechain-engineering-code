@@ -18,7 +18,7 @@ import (
 type Node struct {
 	NodeID             string
 	NodeTable          map[string]string // key=nodeID, value=url
-	NTLock             sync.Mutex
+	NTLock             sync.RWMutex
 	View               *View
 	States             map[int64]*consensus.State
 	CommittedMsgs      []*consensus.RequestMsg // kinda block.
@@ -124,8 +124,8 @@ func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.C
 }
 
 func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
-	node.NTLock.Lock()
-	defer node.NTLock.Unlock()
+	node.NTLock.RLock()
+	defer node.NTLock.RUnlock()
 	errorMap := make(map[string]error)
 	for nodeID, url := range node.NodeTable {
 		if nodeID == node.NodeID {
@@ -154,8 +154,8 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 }
 
 func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (err error) {
-	node.NTLock.Lock()
-	defer node.NTLock.Unlock()
+	node.NTLock.RLock()
+	defer node.NTLock.RUnlock()
 	for nodeID, url := range node.NodeTable {
 		if nodeID != node_id {
 			continue
@@ -177,7 +177,7 @@ func (node *Node) BroadcastOne(msg interface{}, path string, node_id string) (er
 
 func (node *Node) ClearStatus(height int64) {
 	dHeight := height - StateClear
-	if dHeight >=0 {
+	if dHeight >= 0 {
 		delete(node.States, dHeight)
 	}
 }
@@ -190,7 +190,7 @@ func (node *Node) PutStatus(height int64, state *consensus.State) {
 	node.ClearStatus(height)
 }
 
-func (node *Node) UpdateStatus(msg *consensus.RequestMsg){
+func (node *Node) UpdateStatus(msg *consensus.RequestMsg) {
 	node.lock.Lock()
 	defer node.lock.Unlock()
 
@@ -199,8 +199,6 @@ func (node *Node) UpdateStatus(msg *consensus.RequestMsg){
 
 	}
 }
-
-
 
 func (node *Node) GetStatus(height int64) *consensus.State {
 	node.lock.Lock()
@@ -334,9 +332,9 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 	node.PrePareLock.Lock()
 	defer node.PrePareLock.Unlock()
 	lock.PSLog("node GetPrepare", prepareMsg.Height)
-	node.NTLock.Lock()
+	node.NTLock.RLock()
 	f := float64(len(node.NodeTable)) / 3
-	node.NTLock.Unlock()
+	node.NTLock.RUnlock()
 	CurrentState := node.GetStatus(prepareMsg.Height)
 
 	if CurrentState == nil ||
@@ -437,9 +435,9 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 	node.CommitLock.Lock()
 	defer node.CommitLock.Unlock()
 	//lock.PSLog("node GetCommit in", fmt.Sprintf("%+v", commitMsg))
-	node.NTLock.Lock()
+	node.NTLock.RLock()
 	f := float64(len(node.NodeTable)) / 3
-	node.NTLock.Unlock()
+	node.NTLock.RUnlock()
 	state := node.GetStatus(commitMsg.Height)
 	if state == nil {
 		return nil
@@ -509,7 +507,7 @@ func (node *Node) createStateForNewConsensus(height int64) error {
 
 func (node *Node) dispatchMsg() {
 	for {
-		if node.Stop{
+		if node.Stop {
 			return
 		}
 		select {
