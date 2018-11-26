@@ -84,7 +84,7 @@ func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header
 	}
 
 	if chain.GetHeader(header.Hash(), number) != nil {
-		return consensus.ErrBlockOnChain
+		return nil
 	}
 
 	if chain.GetHeaderByNumber(number) != nil {

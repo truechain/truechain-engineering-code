@@ -209,8 +209,8 @@ type lru struct {
 // newlru create a new least-recently-used cache for either the verification caches
 // or the mining datasets.
 func newlru(what string, maxItems int, new func(epoch uint64) interface{}) *lru {
-	if maxItems <= 0 {
-		maxItems = 1
+	if maxItems <= 1 {
+		maxItems = 5
 	}
 	cache, _ := simplelru.NewLRU(maxItems, func(key, value interface{}) {
 		log.Trace("Evicted minerva "+what, "epoch", key)
@@ -342,6 +342,10 @@ func New(config Config) *Minerva {
 	return minerva
 }
 
+func (m *Minerva) NewTestData(block uint64) {
+	m.getDataset(block)
+}
+
 // dataset tries to retrieve a mining dataset for the specified block number
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
@@ -356,6 +360,12 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	//	future.generate(block, m)
 	//
 	//}
+
+	// Test byte possession
+	//da := fmt.Sprintln("dataset size:", unsafe.Sizeof(current.dataset))
+	//on := fmt.Sprintln("once size:", unsafe.Sizeof(current.once))
+	//dai := fmt.Sprintln("dateInit size:", unsafe.Sizeof(current.dateInit))
+	//ep := fmt.Sprintln("epoch size:", unsafe.Sizeof(current.epoch))
 	return current
 }
 
@@ -367,12 +377,12 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 			// blockNum <= UPDATABLOCKLENGTH
 			if blockNum <= UPDATABLOCKLENGTH {
-				m.truehashTableInit(d.dataset)
 				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+				m.truehashTableInit(d.dataset)
 			} else {
 				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
 				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+				log.Info("updateLookupTBL is start,:blockNum is:  ", "------", blockNum)
 				//d.Flag = 0
 				flag, ds := m.updateLookupTBL(bn, d.dataset)
 				if flag {

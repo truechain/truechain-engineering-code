@@ -22,6 +22,7 @@ type Server struct {
 	help       consensus.ConsensusHelp
 	server     *http.Server
 	ActionChan chan *consensus.ActionIn
+	Close      bool
 }
 
 func PrintNode(node *Node) {
@@ -69,9 +70,9 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	server := &Server{ID: new(big.Int).Set(id), help: help}
 	node := NewNode(nodeID, verify, server, addrs, id)
 	server.Node = node
-	server.Node.NTLock.Lock()
+	server.Node.NTLock.RLock()
 	server.url = node.NodeTable[nodeID]
-	server.Node.NTLock.Unlock()
+	server.Node.NTLock.RUnlock()
 	server.server = &http.Server{
 		Addr: server.url,
 	}
@@ -96,6 +97,7 @@ func (server *Server) startHttpServer() {
 func (server *Server) Stop() {
 	if server.server != nil {
 		server.server.Close()
+		server.Close = true
 	}
 	ac := &consensus.ActionIn{
 		AC:     consensus.ActionFinish,

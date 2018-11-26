@@ -20,13 +20,16 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 )
 
-const DATALENGTH = 2048
+const DATALENGTH = 2048 //2048 520
 const PMTSIZE = 4
 const TBLSIZE = 16
 const HEADSIZE = 32
 const DGSTSIZE = 32
-const UPDATABLOCKLENGTH = 3000 //12000
-const STARTUPDATENUM = 2600    //10240
+const UPDATABLOCKLENGTH = 12000 //12000  3000
+const STARTUPDATENUM = 10240    //10240  2600
+const OFF_SKIP_LEN = 32768      //32768  8230
+const OFF_CYCLE_LEN = 8192      //8192  2080
+const SKIP_CYCLE_LEN = 2048     //2048 520
 
 func genLookupTable(plookup []uint64, ptable []uint32) int {
 	lktWz := uint32(DATALENGTH / 64)

@@ -48,6 +48,7 @@ type PbftServerMgr struct {
 	blockLock  sync.Mutex
 	blockMax   uint64
 	blockSleep time.Duration
+	Close      bool
 }
 
 func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.PbftAgentProxy) *PbftServerMgr {
@@ -63,7 +64,9 @@ func NewPbftServerMgr(pk *ecdsa.PublicKey, priv *ecdsa.PrivateKey, agent types.P
 
 func (ss *PbftServerMgr) Finish() error {
 	// sleep 1s
+	ss.Close = true
 	for _, v := range ss.servers {
+		v.server.Node.Stop = true
 		v.server.Stop()
 	}
 	return nil
@@ -320,11 +323,12 @@ func (ss *PbftServerMgr) ReplyResult(msg *consensus.RequestMsg, signs []*types.P
 		return false
 	}
 	lock.PSLog("[Agent]", "BroadcastConsensus", "start")
-
+	log.Info("BroadcastConsensus", "height", msg.Height)
 	err := ss.Agent.BroadcastConsensus(block)
 	lock.PSLog("[Agent]", "BroadcastConsensus", err == nil, "end")
 	//ss.removeBlock(height)
 	if err != nil {
+		log.Error("BroadcastConsensus", "agent Error", err.Error())
 		return false
 	}
 	return true
@@ -365,6 +369,9 @@ func (ss *PbftServerMgr) SignMsg(h int64, res uint) *consensus.SignedVoteMsg {
 
 func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 	for {
+		if ss.Close {
+			return
+		}
 		select {
 		case ac := <-acChan:
 			if ac.AC == consensus.ActionFecth {
@@ -380,6 +387,9 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 					GetReq:
 						req, err := ss.GetRequest(cid)
 						if err == types.ErrSnailBlockTooSlow {
+							if ss.Close {
+								return
+							}
 							time.Sleep(BlockSleepMax * time.Second)
 							goto GetReq
 						}
@@ -574,9 +584,10 @@ func DelayStop(id uint64, ss *PbftServerMgr) {
 		lock.PSLog("http server stop", "id", id)
 		//server.server.Node.Stop = true
 		server.server.Stop()
+		server.server.Node.Stop = true
 		server.clear = true
 	}
-	ss.clear(big.NewInt(int64(id)))
+	ss.clear(common.Big0)
 }
 
 func (ss *PbftServerMgr) Notify(id *big.Int, action int) error {
