@@ -263,6 +263,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
+		log.Warn("synchronise peer nil>>>")
 		return
 	}
 	// Make sure the peer's TD is higher than our own

@@ -19,17 +19,17 @@ package snailchain
 import (
 	"math/big"
 
+	"fmt"
+
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"fmt"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	//"github.com/truechain/truechain-engineering-code/etrue"
-
 )
 
 // BlockGen creates blocks for testing.
@@ -219,6 +219,7 @@ func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, mak
 	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
 	return makeSnailBlockFruitInternal(chain, fastchain, makeBlockNum, 0, makeFruitSize, pubkey, coinbaseAddr, isBlock, diff)
 }
+
 //create block,fruit
 // chain: for snail chain
 // fastchian: for fast chain
@@ -247,7 +248,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 	}
 
 	if isBlock {
-		makeStartFastNum = int(new(big.Int).Add(snailFruitsLastFastNumber, big.NewInt(1)).Int64());
+		makeStartFastNum = int(new(big.Int).Add(snailFruitsLastFastNumber, big.NewInt(1)).Int64())
 	}
 	if isBlock {
 		if makeFruitSize < params.MinimumFruits || snailFruitsLastFastNumber.Int64() >= int64(makeStartFastNum) {
@@ -255,7 +256,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 		}
 	}
 
-	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
+	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) *types.SnailHeader {
 		//num := parent.Number()
 		var fruitDiff *big.Int
 		if isFruit {
@@ -275,7 +276,6 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			Coinbase:        coinbaseAddr,
 			Fruit:           isFruit,
 			FastNumber:      fastNumber,
-			Difficulty:      diff,
 			FruitDifficulty: fruitDiff,
 			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
 		}
@@ -367,27 +367,60 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 
 func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
 	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
-
 	var blocks types.SnailBlocks
+
 	//var snailFruitsLastFastNumber *big.Int
 	//blocks = make(types.SnailBlock,makeblockSize)
 
 	j := 1
 	//parent := chain.genesisBlock
 	for i := makeStarblockNumber; i < makeblockSize+makeStarblockNumber; i++ {
-
+		var blocks2 types.SnailBlocks
 		block, err := MakeSnailBlockFruit(chain, fastchain, i, params.MinimumFruits, pubkey, coinbaseAddr, true, diff)
 		if err != nil {
 			return nil, err
 		}
-		//var blocks types.SnailBlocks
+		//var blocks2 types.SnailBlocks
 
+		blocks2 = append(blocks2, block)
 		blocks = append(blocks, block)
-		if _, error := chain.InsertChain(blocks); error != nil {
+		if _, error := chain.InsertChain(blocks2); error != nil {
 			panic(error)
 		}
+
 		//parent = block
 		//blocks = append(blocks, block)
+
+		j++
+	}
+
+	return blocks, nil
+}
+
+func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
+	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
+
+	var blocks types.SnailBlocks
+
+	//var snailFruitsLastFastNumber *big.Int
+	//blocks = make(types.SnailBlock,makeblockSize)
+
+	j := 1
+	//parent := chain.genesisBlock
+	for i := makeStarblockNumber; i < makeblockSize+makeStarblockNumber; i++ {
+		var blocks2 types.SnailBlocks
+		block, err := MakeSnailBlockFruit(chain, fastchain, i, params.MinimumFruits, pubkey, coinbaseAddr, true, diff)
+		if err != nil {
+			return nil, err
+		}
+		//var blocks2 types.SnailBlocks
+
+		blocks2 = append(blocks2, block)
+		blocks = append(blocks, block)
+
+		//parent = block
+		//blocks = append(blocks, block)
+
 		j++
 	}
 
