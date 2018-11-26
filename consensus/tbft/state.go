@@ -130,7 +130,7 @@ func NewConsensusState(
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
 		timeoutTicker:    NewTimeoutTicker(),
 		done:             make(chan struct{}),
-		doWALCatchup:     true,
+		doWALCatchup:     false,
 		wal:              nilWAL{},
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
