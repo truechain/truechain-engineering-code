@@ -1,16 +1,16 @@
 package tbft
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"bytes"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
 	"math/big"
 	"path/filepath"
@@ -362,11 +362,10 @@ func TestPbftRunFor4(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
 
-
 	<-start
 }
 func TestPbftRunFor4AndChange(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(3)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -491,21 +490,26 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 
 	c2 := *c1
 	c2.Id = common.Big2
+	c2.StartHeight = big.NewInt(17)
 
 	n1.PutCommittee(&c2)
 	n1.PutNodes(common.Big2, cn)
+	n1.Notify(c1.Id, Stop)
 	n1.Notify(c2.Id, Start)
 
 	n2.PutCommittee(&c2)
 	n2.PutNodes(common.Big2, cn)
+	n2.Notify(c1.Id, Stop)
 	n2.Notify(c2.Id, Start)
 
 	n3.PutCommittee(&c2)
 	n3.PutNodes(common.Big2, cn)
+	n3.Notify(c1.Id, Stop)
 	n3.Notify(c2.Id, Start)
 
 	n4.PutCommittee(&c2)
 	n4.PutNodes(common.Big2, cn)
+	n4.Notify(c1.Id, Stop)
 	n4.Notify(c2.Id, Start)
 
 	<-start
@@ -896,43 +900,42 @@ func TestRunPbft4(t *testing.T) {
 	<-start
 }
 
-
 func TestAddVote(t *testing.T) {
 	IdCacheInit()
 	const privCount int = 4
 	var privs [privCount]*ecdsa.PrivateKey
 	vals := make([]*ttypes.Validator, 0, 0)
-	vPrivValidator := make([]ttypes.PrivValidator,0,0)
+	vPrivValidator := make([]ttypes.PrivValidator, 0, 0)
 
 	var chainID_ string = "9999"
-	var height_  uint64 = 1
-	var round_   int = 0
-	var type_   byte = ttypes.VoteTypePrevote
+	var height_ uint64 = 1
+	var round_ int = 0
+	var type_ byte = ttypes.VoteTypePrevote
 
-	for i:=0;i<privCount;i++ {
+	for i := 0; i < privCount; i++ {
 		privs[i] = getPrivateKey(i)
 		pub := GetPub(privs[i])
 		vp := ttypes.NewPrivValidator(*privs[i])
-		vPrivValidator = append(vPrivValidator,vp)
+		vPrivValidator = append(vPrivValidator, vp)
 		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*pub), 1)
 		vals = append(vals, v)
 	}
 	vset := ttypes.NewValidatorSet(vals)
-	vVoteSet := ttypes.NewVoteSet(chainID_,height_,round_,type_,vset)
-	// make block 
+	vVoteSet := ttypes.NewVoteSet(chainID_, height_, round_, type_, vset)
+	// make block
 	agent := NewPbftAgent("Agent1")
 	cid := big.NewInt(1)
-	block,_ := agent.FetchFastBlock(cid)
+	block, _ := agent.FetchFastBlock(cid)
 	hash := block.Hash()
 	fmt.Println(common.ToHex(hash[:]))
-	ps,_ := ttypes.MakePartSet(65535,block)
-	// make vote 
-	for i,v := range vPrivValidator {
+	ps, _ := ttypes.MakePartSet(65535, block)
+	// make vote
+	for i, v := range vPrivValidator {
 		var vote1 *ttypes.Vote
-		if i==3 {
-			vote1 = signAddVote(v,vset,vVoteSet,height_,chainID_,uint(round_),type_,nil,ttypes.PartSetHeader{},nil)
-		} else {			
-			vote1 = signAddVote(v,vset,vVoteSet,height_,chainID_,uint(round_),type_,hash[:],ps.Header(),nil)
+		if i == 3 {
+			vote1 = signAddVote(v, vset, vVoteSet, height_, chainID_, uint(round_), type_, nil, ttypes.PartSetHeader{}, nil)
+		} else {
+			vote1 = signAddVote(v, vset, vVoteSet, height_, chainID_, uint(round_), type_, hash[:], ps.Header(), nil)
 		}
 		if vote1 != nil {
 			vVoteSet.AddVote(vote1)
@@ -940,15 +943,15 @@ func TestAddVote(t *testing.T) {
 	}
 	bsuc := vVoteSet.HasTwoThirdsMajority()
 	fmt.Println(bsuc)
-	maj,_ := vVoteSet.TwoThirdsMajority()
+	maj, _ := vVoteSet.TwoThirdsMajority()
 	fmt.Println(maj.String())
 	signs, _ := vVoteSet.MakePbftSigns(hash[:])
 	fmt.Println(signs)
 
 }
 
-func signVote(privV ttypes.PrivValidator,vset *ttypes.ValidatorSet,height uint64,chainid_ string,
-	round uint,type_ byte,hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
+func signVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, height uint64, chainid_ string,
+	round uint, type_ byte, hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
 	addr := privV.GetAddress()
 	valIndex, _ := vset.GetByAddress(addr)
 	vote := &ttypes.Vote{
@@ -960,14 +963,14 @@ func signVote(privV ttypes.PrivValidator,vset *ttypes.ValidatorSet,height uint64
 		Type:             type_,
 		BlockID:          ttypes.BlockID{hash, header},
 	}
-	
+
 	err := privV.SignVote(chainid_, vote)
 	return vote, err
 }
-func signAddVote(privV ttypes.PrivValidator,vset *ttypes.ValidatorSet,voteset *ttypes.VoteSet,height uint64,chainid_ string,
-	round uint,type_ byte,hash []byte, header ttypes.PartSetHeader, keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
+func signAddVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, voteset *ttypes.VoteSet, height uint64, chainid_ string,
+	round uint, type_ byte, hash []byte, header ttypes.PartSetHeader, keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
 
-	vote, err := signVote(privV, vset, height,chainid_,round,type_,hash,header)
+	vote, err := signVote(privV, vset, height, chainid_, round, type_, hash, header)
 	if err == nil {
 		// if hash != nil && keepsign == nil {
 		// 	if prevote := voteset.Prevotes(int(round)); prevote != nil {
@@ -986,10 +989,10 @@ func signAddVote(privV ttypes.PrivValidator,vset *ttypes.ValidatorSet,voteset *t
 	return nil
 }
 func TestVote(t *testing.T) {
-	bid := makeBlockID(nil,ttypes.PartSetHeader{})
+	bid := makeBlockID(nil, ttypes.PartSetHeader{})
 	fmt.Println(bid.String())
 }
-func makeBlockID(hash []byte, header ttypes.PartSetHeader)  ttypes.BlockID {
+func makeBlockID(hash []byte, header ttypes.PartSetHeader) ttypes.BlockID {
 	blockid := ttypes.BlockID{hash, header}
 	fmt.Println(blockid.String())
 	return blockid
