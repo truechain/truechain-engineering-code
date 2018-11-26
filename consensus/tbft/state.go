@@ -91,10 +91,6 @@ type ConsensusState struct {
 	// and to notify external subscribers, eg. through a websocket
 	eventBus *ttypes.EventBus
 
-	// a Write-Ahead Log ensures we can recover from any kind of crash
-	// and helps us avoid signing conflicting votes
-	replayMode   bool // so we don't log signing errors during replay
-
 	// for tests where we want to limit the number of transitions the state makes
 	nSteps int
 
@@ -824,9 +820,7 @@ func (cs *ConsensusState) defaultDecideProposal(height uint64, round int, blk *t
 		log.Info("Signed proposal", "height", height, "round", round, "proposal", proposal)
 		log.Debug(fmt.Sprintf("Signed proposal block: %v", block))
 	} else {
-		if !cs.replayMode {
-			log.Error("enterPropose: Error signing proposal", "height", height, "round", round, "err", err)
-		}
+		log.Error("enterPropose: Error signing proposal", "height", height, "round", round, "err", err)
 	}
 }
 
@@ -1564,9 +1558,7 @@ func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.Par
 		log.Info("Signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)
 		return vote
 	}
-	//if !cs.replayMode {
 	log.Error("Error signing vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)
-	//}
 	return nil
 }
 
