@@ -58,7 +58,6 @@ const (
 
 var (
 	tpsMetrics =metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
-	//pbftConsensusMetrics =metrics.NewRegisteredTimer("etrue/pbftAgent/pbftConsensus", nil)
 	pbftConsensusCounter   = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 )
 
