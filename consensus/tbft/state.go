@@ -39,6 +39,7 @@ var (
 
 var (
 	msgQueueSize = 1000
+	taskTimeOut = 60
 )
 
 // msgs from the reactor which may update the state
@@ -86,6 +87,7 @@ type ConsensusState struct {
 	peerMsgQueue     chan msgInfo
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
+	timeoutTask 	 TimeoutTicker
 
 	// we use eventBus to trigger msg broadcasts in the reactor,
 	// and to notify external subscribers, eg. through a websocket
@@ -123,6 +125,7 @@ func NewConsensusState(
 		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
 		timeoutTicker:    NewTimeoutTicker(),
+		timeoutTask:	  NewTimeoutTicker(),
 		done:             make(chan struct{}),
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
@@ -216,6 +219,9 @@ func (cs *ConsensusState) OnStart() error {
 	if err := cs.timeoutTicker.Start(); err != nil {
 		return err
 	}
+	if err := cs.timeoutTask.Start(); err != nil {
+		return err
+	}
 
 	// now start the receiveRoutine
 	go cs.receiveRoutine(0)
@@ -235,6 +241,10 @@ func (cs *ConsensusState) startRoutines(maxSteps int) {
 		log.Error("Error starting timeout ticker", "err", err)
 		return
 	}
+	if err = cs.timeoutTask.Start(); err != nil {
+		log.Error("Error starting timeoutTask ticker", "err", err)
+		return
+	}
 	go cs.receiveRoutine(maxSteps)
 }
 
@@ -242,6 +252,7 @@ func (cs *ConsensusState) startRoutines(maxSteps int) {
 func (cs *ConsensusState) OnStop() {
 	cs.evsw.Stop()
 	cs.timeoutTicker.Stop()
+	cs.timeoutTask.Stop()
 }
 
 // Wait waits for the the main routine to return.
@@ -326,6 +337,8 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	//log.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
+	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, false})
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
@@ -335,6 +348,12 @@ func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64,
 
 func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 	cs.timeoutTicker.ScheduleTimeout(ti)
+}
+func (cs *ConsensusState) UpdateStateForSync() {
+	log.Info("begin UpdateStateForSync","height",cs.Height)
+	cs.updateToState(cs.state)
+	cs.scheduleRound0(cs.GetRoundState())
+	log.Info("end UpdateStateForSync","height",cs.Height)
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -598,7 +617,17 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 		panic(fmt.Sprintf("Invalid timeout step: %v", ti.Step))
 	}
 }
+func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundState) {
+	log.Debug("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
 
+	// timeouts must be for current height, round, step
+	if ti.Height != rs.Height {
+		cs.UpdateStateForSync()
+		return
+	}
+}
 //-----------------------------------------------------------------------------
 // State functions
 // Used internally by handleTimeout and handleMsg to make state transitions
@@ -1192,7 +1221,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	}
 	if _, err := cs.state.ValidateBlock(block); err != nil {
 		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v,back to the height:%v,round 0", err,cs.Height))
-		cs.updateToState(cs.state)
+		cs.UpdateStateForSync()
 		return
 	}
 	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))
