@@ -93,9 +93,7 @@ type ConsensusState struct {
 
 	// a Write-Ahead Log ensures we can recover from any kind of crash
 	// and helps us avoid signing conflicting votes
-	wal          WAL
 	replayMode   bool // so we don't log signing errors during replay
-	doWALCatchup bool // determines if we even try to do the catchup
 
 	// for tests where we want to limit the number of transitions the state makes
 	nSteps int
@@ -130,8 +128,6 @@ func NewConsensusState(
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
 		timeoutTicker:    NewTimeoutTicker(),
 		done:             make(chan struct{}),
-		doWALCatchup:     false,
-		wal:              nilWAL{},
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
 	}
@@ -216,19 +212,6 @@ func (cs *ConsensusState) OnStart() error {
 	if err := cs.evsw.Start(); err != nil {
 		return err
 	}
-
-	// we may set the WAL in testing before calling Start,
-	// so only OpenWAL if its still the nilWAL
-	if _, ok := cs.wal.(nilWAL); ok {
-		walFile := cs.config.WalFile()
-		wal, err := cs.OpenWAL(walFile)
-		if err != nil {
-			log.Error("Error loading ConsensusState wal", "err", err.Error())
-			return err
-		}
-		cs.wal = wal
-	}
-
 	// we need the timeoutRoutine for replay so
 	// we don't block on the tick chan.
 	// NOTE: we will get a build up of garbage go routines
@@ -238,17 +221,6 @@ func (cs *ConsensusState) OnStart() error {
 		return err
 	}
 
-	// we may have lost some votes if the process crashed
-	// reload from consensus log to catchup
-	if cs.doWALCatchup {
-		if err := cs.catchupReplay(cs.Height); err != nil {
-			log.Error("Error on catchup replay. Proceeding to start ConsensusState anyway", "err", err.Error())
-			// NOTE: if we ever do return an error here,
-			// make sure to stop the timeoutTicker
-		}
-	}
-	// the wal will not work
-	cs.updateToState(cs.state)
 	// now start the receiveRoutine
 	go cs.receiveRoutine(0)
 
@@ -281,20 +253,6 @@ func (cs *ConsensusState) OnStop() {
 // any event channels or this may deadlock
 func (cs *ConsensusState) Wait() {
 	<-cs.done
-}
-
-// OpenWAL opens a file to log all consensus messages and timeouts for deterministic accountability
-func (cs *ConsensusState) OpenWAL(walFile string) (WAL, error) {
-	wal, err := NewWAL(walFile)
-	if err != nil {
-		log.Error("Failed to open WAL for consensus state", "wal", walFile, "err", err)
-		return nil, err
-	}
-	//wal.SetLogger(log.With("wal", walFile))
-	if err := wal.Start(); err != nil {
-		return nil, err
-	}
-	return wal, nil
 }
 
 //------------------------------------------------------------
@@ -498,7 +456,6 @@ func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 
 func (cs *ConsensusState) newStep() {
 	rs := cs.RoundStateEvent()
-	cs.wal.Write(rs)
 	cs.nSteps++
 	// newStep is called by updateToState in NewConsensusState before the eventBus is set!
 	if cs.eventBus != nil {
@@ -520,11 +477,6 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 		// NOTE: the internalMsgQueue may have signed messages from our
 		// priv_val that haven't hit the WAL, but its ok because
 		// priv_val tracks LastSig
-
-		// close wal now that we're done writing to it
-		cs.wal.Stop()
-		cs.wal.Wait()
-
 		close(cs.done)
 	}
 
@@ -556,16 +508,13 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 
 		select {
 		case mi = <-cs.peerMsgQueue:
-			cs.wal.Write(mi)
 			// handles proposals, block parts, votes
 			// may generate internal events (votes, complete proposals, 2/3 majorities)
 			cs.handleMsg(mi)
 		case mi = <-cs.internalMsgQueue:
-			cs.wal.WriteSync(mi) // NOTE: fsync
 			// handles proposals, block parts, votes
 			cs.handleMsg(mi)
 		case ti := <-cs.timeoutTicker.Chan(): // tockChan:
-			cs.wal.Write(ti)
 			// if the timeout is relevant to the rs
 			// go to the next step
 			cs.handleTimeout(ti, rs)
@@ -1266,25 +1215,6 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
-
-	// fail.Fail() // XXX
-
-	// Write EndHeightMessage{} for this height, implying that the blockstore
-	// has saved the block.
-	//
-	// If we crash before writing this EndHeightMessage{}, we will recover by
-	// running ApplyBlock during the ABCI handshake when we restart.  If we
-	// didn't save the block to the blockstore before writing
-	// EndHeightMessage{}, we'd have to change WAL replay -- currently it
-	// complains about replaying for heights where an #ENDHEIGHT entry already
-	// exists.
-	//
-	// Either way, the ConsensusState should not be resumed until we
-	// successfully call ApplyBlock (ie. later here, or in Handshake after
-	// restart).
-	cs.wal.WriteSync(EndHeightMessage{height}) // NOTE: fsync
-
-	// fail.Fail() // XXX
 
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash wont reflect these txs until the next block.

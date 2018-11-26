@@ -9,6 +9,6 @@ var cdc = amino.NewCodec()
 
 func init() {
 	RegisterConsensusMessages(cdc)
-	RegisterWALMessages(cdc)
+	// RegisterWALMessages(cdc)
 	types.RegisterBlockAmino(cdc)
 }
