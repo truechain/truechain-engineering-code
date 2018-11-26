@@ -22,28 +22,31 @@ var interval = time.Millisecond * 0
 //get all account
 var account []string
 
+//time format
+var termTimeFormat = "01-02|15:04:05.000"
+
 // get par
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to]  [\"ip:port\"]\n", os.Args[0])
+		fmt.Printf(getTime(), "invalid args : %s [count] [frequency] [interval] [from] [to]  [\"ip:port\"]\n", os.Args[0])
 		return
 	}
 
 	count, err := strconv.Atoi(os.Args[1])
 	if err != nil {
-		fmt.Println("count err")
+		fmt.Println(getTime(), "count err")
 		return
 	}
 
 	frequency, err = strconv.Atoi(os.Args[2])
 	if err != nil {
-		fmt.Println("frequency err")
+		fmt.Println(getTime(), "frequency err")
 		return
 	}
 
 	intervalCount, err := strconv.Atoi(os.Args[3])
 	if err != nil {
-		fmt.Println("interval err")
+		fmt.Println(getTime(), "interval err")
 		return
 	} else {
 		interval = time.Millisecond * time.Duration(intervalCount)
@@ -51,12 +54,12 @@ func main() {
 
 	from, err = strconv.Atoi(os.Args[4])
 	if err != nil {
-		fmt.Println("from err default 0")
+		fmt.Println(getTime(), "from err default 0")
 	}
 
 	to, err = strconv.Atoi(os.Args[5])
 	if err != nil {
-		fmt.Println("from err default 1")
+		fmt.Println(getTime(), "from err default 1")
 	}
 
 	ip := "127.0.0.1:8888"
@@ -68,46 +71,51 @@ func main() {
 
 }
 
+//get time
+func getTime() string {
+	return time.Now().Format(termTimeFormat + ": ")
+}
+
 //send transaction init
 func send(count int, ip string) {
 	//dial etrue
 	client, err := rpc.Dial("http://" + ip)
 	if err != nil {
-		fmt.Println("Dail:", ip, err.Error())
+		fmt.Println(getTime(), "Dail:", ip, err.Error())
 		return
 	}
 
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
-		fmt.Println("etrue_accounts Error", err.Error())
+		fmt.Println(getTime(), "etrue_accounts Error", err.Error())
 		return
 	}
 	if len(account) == 0 {
-		fmt.Println("no account")
+		fmt.Println(getTime(), "no account")
 		return
 	}
-	fmt.Println("account:", account)
+	fmt.Println(getTime(), "account:", account)
 
 	// get balance
 	var result string = ""
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
-		fmt.Println("etrue_getBalance Error:", err)
+		fmt.Println(getTime(), "etrue_getBalance Error:", err)
 		return
 	} else {
 
 		bl, _ := new(big.Int).SetString(result, 10)
-		fmt.Println("etrue_getBalance Ok:", bl, result)
+		fmt.Println(getTime(), "etrue_getBalance Ok:", bl, result)
 	}
 
 	//unlock account
 	var reBool bool
 	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
-		fmt.Println("personal_unlockAccount Error:", err.Error())
+		fmt.Println(getTime(), "personal_unlockAccount Error:", err.Error())
 		return
 	} else {
-		fmt.Println("personal_unlockAccount Ok", reBool)
+		fmt.Println(getTime(), "personal_unlockAccount Ok", reBool)
 	}
 
 	// send
@@ -123,11 +131,11 @@ func send(count int, ip string) {
 		// get balance
 		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 		if err != nil {
-			fmt.Println("etrue_getBalance Error:", err)
+			fmt.Println(getTime(), "etrue_getBalance Error:", err)
 			return
 		} else {
 			bl, _ := new(big.Int).SetString(result, 10)
-			fmt.Println("etrue_getBalance Ok:", bl, result)
+			fmt.Println(getTime(), "etrue_getBalance Ok:", bl, result)
 		}
 	}
 	waitMain.Wait()
@@ -143,9 +151,9 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 		waitGroup.Add(1)
 		go sendTransaction(client, account, waitGroup)
 	}
-	fmt.Println("Send in go Complete", count)
+	fmt.Println(getTime(), "Send in go Complete", count)
 	waitGroup.Wait()
-	fmt.Println("Complete", Count)
+	fmt.Println(getTime(), "Complete", Count)
 }
 
 //send one transaction
