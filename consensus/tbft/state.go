@@ -1254,9 +1254,6 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		}
 		return
 	}
-	cs.state.UpdateBlockHeight(block.NumberU64())
-	// fail.Fail() // XXX
-
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 
