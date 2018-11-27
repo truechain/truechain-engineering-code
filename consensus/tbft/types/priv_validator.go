@@ -313,7 +313,6 @@ type StateAgent interface {
 	GetLastValidator() *ValidatorSet
 
 	GetLastBlockHeight() uint64
-	UpdateBlockHeight(h uint64)
 	GetChainID() string
 	MakeBlock() (*ctypes.Block, *PartSet,error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
@@ -389,16 +388,12 @@ func (state *StateAgentImpl) SetPrivValidator(priv *privValidator) {
 }
 func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
-
 	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
 		return nil, nil,err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
-	}
-	if block.NumberU64() > 0 {
-		state.LastHeight = block.NumberU64()-1
 	}
 	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
 	return block,parts,err2
@@ -434,11 +429,11 @@ func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
 }
 func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
+	lh := state.Agent.GetCurrentHeight()
+	state.LastHeight = lh.Uint64()
 	return state.LastHeight
 }
-func (state *StateAgentImpl) UpdateBlockHeight(h uint64) {
-	state.LastHeight = h
-}
+
 func (state *StateAgentImpl) GetAddress() help.Address {
 	return state.Priv.GetAddress()
 }
