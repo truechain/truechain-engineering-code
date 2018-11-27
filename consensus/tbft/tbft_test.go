@@ -73,6 +73,10 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	return types.NewBlock(header, nil, nil, nil), nil
 }
 
+func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
+	return getIDForCache(pap.Name)
+}
+
 func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     vote,

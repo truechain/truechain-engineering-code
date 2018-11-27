@@ -37,9 +37,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto/ecies"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (
@@ -57,8 +57,8 @@ const (
 )
 
 var (
-	tpsMetrics =metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
-	pbftConsensusCounter   = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
+	tpsMetrics           = metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
+	pbftConsensusCounter = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 )
 
 var (
@@ -384,8 +384,8 @@ func (self *PbftAgent) loop() {
 					log.Error("CommitteeSwitchover receivedMembers is nil ", "committeeId", committeeID)
 				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
-					Id:      committeeID,
-					Members: ch.CommitteeMembers,
+					Id:          committeeID,
+					Members:     ch.CommitteeMembers,
 					StartHeight: ch.BeginFastNumber, // todo @shuxun fix this default value
 				}
 				self.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
@@ -712,9 +712,14 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 	return fastBlock, err
 }
 
+//server get now height
+func (self *PbftAgent) GetCurrentHeight() *big.Int {
+	return self.fastChain.CurrentBlock().Number()
+}
+
 //validate space between latest fruit number of snailchain  and  lastest fastBlock number
 func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
-	if self.singleNode{
+	if self.singleNode {
 		return nil
 	}
 	snailBlock := self.snailChain.CurrentBlock()
@@ -723,7 +728,7 @@ func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
 		if space >= params.FastToFruitSpace.Int64() {
-			log.Warn("fetchFastBlock validateBlockSpace error","space",space)
+			log.Warn("fetchFastBlock validateBlockSpace error", "space", space)
 			return types.ErrSnailBlockTooSlow
 		}
 	}
@@ -906,7 +911,7 @@ func (self *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 		return err
 	}
 	//record consensus time  of committee
-	consensusTime :=time.Now().Unix() -fb.Header().Time.Int64()
+	consensusTime := time.Now().Unix() - fb.Header().Time.Int64()
 	pbftConsensusCounter.Clear()
 	pbftConsensusCounter.Inc(consensusTime)
 	log.Debug("out BroadcastSign.", "fastHeight", fb.Number())
