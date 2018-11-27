@@ -85,6 +85,7 @@ type PbftAgentProxy interface {
 	VerifyFastBlock(*Block) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
+	GetCurrentHeight() *big.Int 
 }
 
 type PbftServerProxy interface {
