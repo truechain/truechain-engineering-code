@@ -352,10 +352,13 @@ func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64,
 func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 	cs.timeoutTicker.ScheduleTimeout(ti)
 }
-func (cs *ConsensusState) UpdateStateForSync(rs *ttypes.RoundState) {
+func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	cs.updateToState(cs.state)
-	cs.scheduleRound0(rs)
+	sleepDuration := cs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
+	cs.scheduleTimeout(sleepDuration, cs.Height, 0, ttypes.RoundStepNewHeight)
+	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, false})
 	log.Info("end UpdateStateForSync","height",cs.Height)
 }
 
@@ -623,12 +626,13 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundState) {
-	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	// timeouts must be for current height, round, step
-	if ti.Height < rs.Height {
-		cs.UpdateStateForSync(&rs)
+	lh := cs.state.GetLastBlockHeight()
+	if ti.Height < (lh+1) {
+		cs.UpdateStateForSync()
 		return
 	}
 }
