@@ -714,7 +714,9 @@ func (self *PbftAgent) FetchFastBlock(committeeId *big.Int) (*types.Block, error
 
 //server get now height
 func (self *PbftAgent) GetCurrentHeight() *big.Int {
-	return self.fastChain.CurrentBlock().Number()
+	num := new(big.Int).Set(self.fastChain.CurrentBlock().Number())
+	log.Info("Server GetCurrentHeight", "height", num.Uint64())
+	return num
 }
 
 //validate space between latest fruit number of snailchain  and  lastest fastBlock number
