@@ -77,6 +77,8 @@ func (conR *ConsensusReactor) OnStop() {
 		// }	
 		conR.conS.Wait()
 		log.Info("End ConsensusReactor finish")
+	} else {
+		log.Info("ConsensusReactor already stopped")
 	}
 }
 
