@@ -331,18 +331,21 @@ type StateAgentImpl struct {
 	Validators *ValidatorSet
 	ChainID    string
 	LastHeight  uint64
-	EndHeight  uint64
-	CID 	   uint64
+	StartHeight uint64
+	EndHeight  	uint64
+	CID 	   	uint64
 }
 
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 	vals *ValidatorSet, height,cid uint64) *StateAgentImpl {
+	lh := agent.GetCurrentHeight()
 	return &StateAgentImpl{
 		Agent:      	agent,
 		ChainID:    	chainID,
 		Validators: 	vals,
-		LastHeight:     height,
+		StartHeight:    height,
 		EndHeight:		0,			// defualt 0,mean not work
+		LastHeight:		lh.Uint64(),
 		CID:			cid,
 	}
 }
@@ -394,6 +397,9 @@ func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
+	}
+	if state.StartHeight > block.NumberU64() {
+		return nil,nil,errors.New(fmt.Sprintf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight))
 	}
 	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
 	return block,parts,err2

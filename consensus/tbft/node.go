@@ -329,9 +329,9 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	}
 	log.Info("pbft PutCommittee", "info", committeeInfo.String())
 	// Make StateAgent
-	lastCommitHeight := committeeInfo.StartHeight.Uint64() - 1
+	startHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
-	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), lastCommitHeight, cid)
+	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), startHeight, cid)
 	if state == nil {
 		return errors.New("make the nil state")
 	}
