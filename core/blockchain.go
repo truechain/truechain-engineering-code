@@ -893,6 +893,24 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		if err := SetReceiptsData(bc.chainConfig, block, receipts); err != nil {
 			return i, fmt.Errorf("failed to set receipts data: %v", err)
 		}
+
+		if block.SnailNumber().Int64() != 0 {
+			//create BlockReward
+			br := &types.BlockReward{
+				FastHash:    block.Hash(),
+				FastNumber:  block.Number(),
+				SnailHash:   block.SnailHash(),
+				SnailNumber: block.SnailNumber(),
+			}
+			//insert BlockReward to db
+			rawdb.WriteBlockReward(batch, br)
+			rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())
+
+			bc.currentReward.Store(br)
+
+		}
+
+
 		// Write all the data out into the database
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
