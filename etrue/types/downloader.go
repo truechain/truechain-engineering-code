@@ -113,7 +113,7 @@ type PeerSet struct {
 
 // SubscribeNewPeers subscribes to peer arrival events.
 func (ps *PeerSet) SubscribeNewPeers(ch chan<- PeerConnection) event.Subscription {
-	return ps.newPeerFeed.Subscribe(ch)
+	return ps.newPeerFeed.SubscribeSync(ch)
 }
 
 // SubscribeNewPeers subscribes to peer arrival events.
