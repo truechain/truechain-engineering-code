@@ -627,10 +627,10 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundSta
 	defer cs.mtx.Unlock()
 
 	// timeouts must be for current height, round, step
-	if ti.Height != rs.Height {
+	// if ti.Height != rs.Height {
 		cs.UpdateStateForSync()
 		return
-	}
+	// }
 }
 //-----------------------------------------------------------------------------
 // State functions
