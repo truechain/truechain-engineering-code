@@ -69,11 +69,14 @@ func (conR *ConsensusReactor) OnStart() error {
 // state.
 func (conR *ConsensusReactor) OnStop() {
 	if conR.IsRunning() {
+		log.Info("Begin ConsensusReactor finish")
 		conR.unsubscribeFromBroadcastEvents()
 		conR.conS.Stop()
-		if !conR.FastSync() {
-			conR.conS.Wait()
-		}	
+		// if !conR.FastSync() {
+		// 	conR.conS.Wait()
+		// }	
+		conR.conS.Wait()
+		log.Info("End ConsensusReactor finish")
 	}
 }
 
