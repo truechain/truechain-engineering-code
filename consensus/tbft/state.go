@@ -124,8 +124,8 @@ func NewConsensusState(
 		blockStore:       store,
 		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
-		timeoutTicker:    NewTimeoutTicker(),
-		timeoutTask:	  NewTimeoutTicker(),
+		timeoutTicker:    NewTimeoutTicker("TimeoutTicker"),
+		timeoutTask:	  NewTimeoutTicker("TimeoutTask"),
 		done:             make(chan struct{}),
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
@@ -353,6 +353,14 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 }
 func (cs *ConsensusState) UpdateStateForSync(rs *ttypes.RoundState) {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
+	cs.timeoutTicker.Stop()
+	cs.timeoutTask.Stop()
+	if err := cs.timeoutTicker.Start(); err != nil {
+		return
+	}
+	if err := cs.timeoutTask.Start(); err != nil {
+		return
+	}
 	cs.updateToState(cs.state)
 	cs.scheduleRound0(rs)
 	log.Info("end UpdateStateForSync","height",cs.Height)
