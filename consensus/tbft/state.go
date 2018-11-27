@@ -351,10 +351,10 @@ func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64,
 func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 	cs.timeoutTicker.ScheduleTimeout(ti)
 }
-func (cs *ConsensusState) UpdateStateForSync() {
+func (cs *ConsensusState) UpdateStateForSync(rs *ttypes.RoundState) {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	cs.updateToState(cs.state)
-	cs.scheduleRound0(cs.GetRoundState())
+	cs.scheduleRound0(rs)
 	log.Info("end UpdateStateForSync","height",cs.Height)
 }
 
@@ -622,13 +622,12 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundState) {
-	log.Debug("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-
 	// timeouts must be for current height, round, step
 	// if ti.Height != rs.Height {
-		cs.UpdateStateForSync()
+		cs.UpdateStateForSync(&rs)
 		return
 	// }
 }
@@ -1225,7 +1224,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	}
 	if _, err := cs.state.ValidateBlock(block); err != nil {
 		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v,back to the height:%v,round 0", err,cs.Height))
-		cs.UpdateStateForSync()
+		// cs.UpdateStateForSync()
 		return
 	}
 	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))
