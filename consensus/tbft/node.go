@@ -297,9 +297,9 @@ func (n *Node) Notify(id *big.Int, action int) error {
 			if server.consensusState == nil {
 				panic(0)
 			}
-			log.Info("Begin start committee", "id", id.Uint64(), "start", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			server.start(id, n)
-			log.Info("End start committee", "id", id.Uint64(), "start", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
 		} else {
 			return errors.New("wrong conmmitt ID:" + id.String())

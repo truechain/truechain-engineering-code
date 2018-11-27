@@ -208,6 +208,7 @@ func (cs *ConsensusState) SetTimeoutTicker(timeoutTicker TimeoutTicker) {
 // OnStart implements help.Service.
 // It loads the latest state via the WAL, and starts the timeout and receive routines.
 func (cs *ConsensusState) OnStart() error {
+	log.Info("Begin ConsensusState start")
 	if err := cs.evsw.Start(); err != nil {
 		return err
 	}
@@ -222,14 +223,14 @@ func (cs *ConsensusState) OnStart() error {
 	if err := cs.timeoutTask.Start(); err != nil {
 		return err
 	}
-
+	cs.updateToState(cs.state)
 	// now start the receiveRoutine
 	go cs.receiveRoutine(0)
 
 	// schedule the first round!
 	// use GetRoundState so we don't race the receiveRoutine for access
 	cs.scheduleRound0(cs.GetRoundState())
-
+	log.Info("End ConsensusState start")
 	return nil
 }
 
