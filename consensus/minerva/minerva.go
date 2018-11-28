@@ -350,7 +350,7 @@ func (m *Minerva) NewTestData(block uint64) {
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
 	epoch := block / epochLength
-	log.Debug("epoch value: ", epoch, "------", "block number is: ", block)
+	//log.Info("epoch value: ", epoch, "------", "block number is: ", block)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 

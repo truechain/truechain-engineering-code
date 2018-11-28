@@ -22,6 +22,10 @@ var interval = time.Millisecond * 0
 //get all account
 var account []string
 
+var msg = make(chan bool)
+
+var num int = 0
+
 // get par
 func main() {
 	if len(os.Args) < 4 {
@@ -63,9 +67,22 @@ func main() {
 	if len(os.Args) == 7 {
 		ip = os.Args[6]
 	}
+	fmt.Println("==========================")
 
-	send(count, ip)
+	go send(count, ip)
 
+	for {
+		if !<-msg {
+			fmt.Println("======================send Transaction restart=========================")
+			num++
+			time.Sleep(time.Second * 10)
+			go send(count, ip)
+		} else {
+			fmt.Println("=======================send Transaction end=========================")
+			break
+		}
+	}
+	fmt.Println("send Transaction num is:", num)
 }
 
 //send transaction init
@@ -74,12 +91,14 @@ func send(count int, ip string) {
 	client, err := rpc.Dial("http://" + ip)
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
+		msg <- false
 		return
 	}
 
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
+		msg <- false
 		return
 	}
 	if len(account) == 0 {
@@ -93,6 +112,7 @@ func send(count int, ip string) {
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
+		msg <- false
 		return
 	} else {
 
@@ -109,7 +129,7 @@ func send(count int, ip string) {
 	} else {
 		fmt.Println("personal_unlockAccount Ok", reBool)
 	}
-
+	fmt.Println("===========================")
 	// send
 	waitMain := &sync.WaitGroup{}
 	for {
@@ -117,6 +137,7 @@ func send(count int, ip string) {
 		go sendTransactions(client, account, count, waitMain)
 		frequency -= 1
 		if frequency <= 0 {
+			msg <- true
 			break
 		}
 		time.Sleep(interval)
@@ -124,6 +145,7 @@ func send(count int, ip string) {
 		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 		if err != nil {
 			fmt.Println("etrue_getBalance Error:", err)
+			msg <- false
 			return
 		} else {
 			bl, _ := new(big.Int).SetString(result, 10)
@@ -131,6 +153,7 @@ func send(count int, ip string) {
 		}
 	}
 	waitMain.Wait()
+	msg <- true
 }
 
 //send count transaction
