@@ -51,33 +51,29 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 // OnStart implements BaseService by subscribing to events, which later will be
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
-	log.Info("ConsensusReactor ", "fastSync", conR.FastSync())
+	log.Info("Begin ConsensusReactor start ", "fastSync", conR.FastSync())
 
 	conR.subscribeToBroadcastEvents()
 
-	if !conR.FastSync() {
-		err := conR.conS.Start()
-		if err != nil {
-			return err
-		}
+	err := conR.conS.Start()
+	if err != nil {
+		return err
 	}
-
+	log.Info("End ConsensusReactor start")
 	return nil
 }
 
 // OnStop implements BaseService by unsubscribing from events and stopping
 // state.
 func (conR *ConsensusReactor) OnStop() {
-	if conR.IsRunning() {
-		log.Info("Begin ConsensusReactor finish")
-		conR.unsubscribeFromBroadcastEvents()
-		conR.conS.Stop()
-		// if !conR.FastSync() {
-		// 	conR.conS.Wait()
-		// }	
-		conR.conS.Wait()
-		log.Info("End ConsensusReactor finish")
-	}
+	log.Info("Begin ConsensusReactor finish")
+	conR.unsubscribeFromBroadcastEvents()
+	conR.conS.Stop()
+	// if !conR.FastSync() {
+	// 	conR.conS.Wait()
+	// }	
+	conR.conS.Wait()
+	log.Info("End ConsensusReactor finish")
 }
 
 // GetChannels implements Reactor

@@ -124,8 +124,8 @@ func NewConsensusState(
 		blockStore:       store,
 		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
-		timeoutTicker:    NewTimeoutTicker(),
-		timeoutTask:	  NewTimeoutTicker(),
+		timeoutTicker:    NewTimeoutTicker("TimeoutTicker"),
+		timeoutTask:	  NewTimeoutTicker("TimeoutTask"),
 		done:             make(chan struct{}),
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
@@ -208,6 +208,7 @@ func (cs *ConsensusState) SetTimeoutTicker(timeoutTicker TimeoutTicker) {
 // OnStart implements help.Service.
 // It loads the latest state via the WAL, and starts the timeout and receive routines.
 func (cs *ConsensusState) OnStart() error {
+	log.Info("Begin ConsensusState start")
 	if err := cs.evsw.Start(); err != nil {
 		return err
 	}
@@ -222,14 +223,14 @@ func (cs *ConsensusState) OnStart() error {
 	if err := cs.timeoutTask.Start(); err != nil {
 		return err
 	}
-
+	cs.updateToState(cs.state)
 	// now start the receiveRoutine
 	go cs.receiveRoutine(0)
 
 	// schedule the first round!
 	// use GetRoundState so we don't race the receiveRoutine for access
 	cs.scheduleRound0(cs.GetRoundState())
-
+	log.Info("End ConsensusState start")
 	return nil
 }
 
@@ -354,7 +355,10 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	cs.updateToState(cs.state)
-	cs.scheduleRound0(cs.GetRoundState())
+	sleepDuration := cs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
+	cs.scheduleTimeout(sleepDuration, cs.Height, 0, ttypes.RoundStepNewHeight)
+	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, false})
 	log.Info("end UpdateStateForSync","height",cs.Height)
 }
 
@@ -535,6 +539,8 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 			// if the timeout is relevant to the rs
 			// go to the next step
 			cs.handleTimeout(ti, rs)
+		case ti := <-cs.timeoutTask.Chan():
+			cs.handleTimeoutForTask(ti,rs)
 		case <-cs.Quit():
 			onExit(cs)
 			return
@@ -620,12 +626,12 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundState) {
-	log.Debug("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-
 	// timeouts must be for current height, round, step
-	if ti.Height != rs.Height {
+	lh := cs.state.GetLastBlockHeight()
+	if ti.Height < (lh+1) {
 		cs.UpdateStateForSync()
 		return
 	}
@@ -1223,7 +1229,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	}
 	if _, err := cs.state.ValidateBlock(block); err != nil {
 		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v,back to the height:%v,round 0", err,cs.Height))
-		cs.UpdateStateForSync()
+		cs.updateToState(cs.state)
 		return
 	}
 	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))

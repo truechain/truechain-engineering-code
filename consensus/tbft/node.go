@@ -297,9 +297,9 @@ func (n *Node) Notify(id *big.Int, action int) error {
 			if server.consensusState == nil {
 				panic(0)
 			}
-			log.Info("Begin start committee", "id", id.Uint64(), "start", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			server.start(id, n)
-			log.Info("End start committee", "id", id.Uint64(), "start", server.consensusState.Height, "stop", server.sa.EndHeight)
+			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
 		} else {
 			return errors.New("wrong conmmitt ID:" + id.String())
@@ -329,9 +329,9 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	}
 	log.Info("pbft PutCommittee", "info", committeeInfo.String())
 	// Make StateAgent
-	lastCommitHeight := committeeInfo.StartHeight.Uint64() - 1
+	startHeight := committeeInfo.StartHeight.Uint64()
 	cid := id.Uint64()
-	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), lastCommitHeight, cid)
+	state := ttypes.NewStateAgent(n.Agent, n.chainID, MakeValidators(committeeInfo), startHeight, cid)
 	if state == nil {
 		return errors.New("make the nil state")
 	}
