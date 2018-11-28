@@ -26,7 +26,7 @@ var sleep = time.Millisecond * 10000
 var account []string
 
 //time format
-var termTimeFormat = "01-02|15:04:05.000"
+var termTimeFormat = "[01-02|15:04:05.000]"
 
 //the pre count
 var preCount int64 = 0
@@ -93,7 +93,7 @@ func main() {
 
 //get time
 func getTime() string {
-	return time.Now().Format(termTimeFormat + ": ")
+	return time.Now().Format(termTimeFormat)
 }
 
 //send transaction init
