@@ -17,10 +17,10 @@ var Count int64 = 0
 var from, to, frequency = 0, 1, 1
 
 //Two transmission intervals
-var interval  = time.Millisecond * 0
+var interval = time.Millisecond * 0
 
 //Send transmission full sleep intervals
-var sleep  = time.Millisecond * 10000
+var sleep = time.Millisecond * 10000
 
 //get all account
 var account []string
@@ -32,12 +32,12 @@ var termTimeFormat = "01-02|15:04:05.000"
 var preCount int64 = 0
 
 //flag sleep
-var  bSleep  = false
+var bSleep = false
 
 // get par
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Printf( "invalid args : %s [count] [frequency] [interval] [sleep] [from] [to]  [\"ip:port\"]\n", os.Args[0])
+	if len(os.Args) < 7 {
+		fmt.Printf("invalid args : %s [count] [frequency] [interval] [sleep] [from] [to]  [\"ip:port\"]\n", os.Args[0])
 		return
 	}
 
@@ -78,7 +78,6 @@ func main() {
 	if err != nil {
 		fmt.Println(getTime(), "from err default 1")
 	}
-
 
 	ip := "127.0.0.1:8888"
 	if len(os.Args) == 8 {
@@ -139,7 +138,7 @@ func send(count int, ip string) {
 	// send
 	waitMain := &sync.WaitGroup{}
 	for {
-		if bSleep{
+		if bSleep {
 			bSleep = false
 			time.Sleep(sleep)
 		}
@@ -176,10 +175,10 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	fmt.Println(getTime(), "Send in go Complete", count)
 	waitGroup.Wait()
 	fmt.Println(getTime(), "Complete", Count)
-	if Count > preCount{
+	if Count > preCount {
 		preCount = Count
-	}else {
-		fmt.Println(getTime(),"tx full sleep",sleep.Minutes())
+	} else {
+		fmt.Println(getTime(), "tx full sleep", sleep.Minutes())
 		bSleep = true
 	}
 }
