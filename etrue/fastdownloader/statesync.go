@@ -105,7 +105,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 		}
 	}()
 	// Run the state sync.
-	//go s.run()
+	go s.run()
 	defer s.Cancel()
 
 	// Listen for peer departure events to cancel assigned tasks

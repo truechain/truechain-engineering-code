@@ -385,6 +385,9 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 							continue
 						}
 					GetReq:
+						if ss.Close {
+							return
+						}
 						req, err := ss.GetRequest(cid)
 						if err == types.ErrSnailBlockTooSlow {
 							if ss.Close {
@@ -411,6 +414,7 @@ func (ss *PbftServerMgr) work(cid *big.Int, acChan <-chan *consensus.ActionIn) {
 			}
 		}
 	}
+	log.Info("work", "stop", true)
 }
 
 func (ss *PbftServerMgr) SetCommitteeStop(committeeId *big.Int, stop uint64) error {

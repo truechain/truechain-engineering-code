@@ -21,7 +21,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/rlp"
-	"unsafe"
 )
 
 // ReadTxLookupEntry retrieves the positional metadata associated with a transaction
@@ -49,7 +48,7 @@ func WriteTxLookupEntries(db DatabaseWriter, block *types.Block) {
 			Index:      uint64(i),
 		}
 		data, err := rlp.EncodeToBytes(entry)
-		log.Debug("=========   size of TX",unsafe.Sizeof(data),"number of fast",block.NumberU64())
+		//log.Info("=========   size of TX",len(data),"number of fast",block.NumberU64())
 
 		if err != nil {
 			log.Crit("Failed to encode transaction lookup entry", "err", err)

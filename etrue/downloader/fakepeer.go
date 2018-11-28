@@ -161,6 +161,6 @@ func (p *FakePeer) RequestNodeData(hashes []common.Hash,isFastchain bool) error 
 			data = append(data, entry)
 		}
 	}
-	p.dl.DeliverNodeData(p.id, data)
+	//p.dl.DeliverNodeData(p.id, data)
 	return nil
 }

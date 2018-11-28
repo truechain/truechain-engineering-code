@@ -893,6 +893,24 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		if err := SetReceiptsData(bc.chainConfig, block, receipts); err != nil {
 			return i, fmt.Errorf("failed to set receipts data: %v", err)
 		}
+
+		if block.SnailNumber().Int64() != 0 {
+			//create BlockReward
+			br := &types.BlockReward{
+				FastHash:    block.Hash(),
+				FastNumber:  block.Number(),
+				SnailHash:   block.SnailHash(),
+				SnailNumber: block.SnailNumber(),
+			}
+			//insert BlockReward to db
+			rawdb.WriteBlockReward(batch, br)
+			rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())
+
+			bc.currentReward.Store(br)
+
+		}
+
+
 		// Write all the data out into the database
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
@@ -946,9 +964,9 @@ func (bc *BlockChain) WriteBlockWithoutState(block *types.Block, td *big.Int) (e
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
-		return err
-	}
+	//if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
+	//	return err
+	//}
 	rawdb.WriteBlock(bc.db, block)
 
 	return nil
@@ -1169,7 +1187,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	defer close(abort)
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
-	senderCacher.recoverFromFastBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
+	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
 
 	// Iterate over the blocks and insert when the verifier permits
 	for i, block := range chain {
@@ -1737,4 +1755,13 @@ func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockRewa
 	// Cache the found sign for next time and return
 	bc.signCache.Add(number, signs)
 	return signs
+}
+
+func (bc *BlockChain) GetBlockNumber() uint64  {
+
+	if bc.CurrentFastBlock().NumberU64() > bc.CurrentBlock().NumberU64() {
+		return bc.CurrentFastBlock().NumberU64()
+	}
+	return bc.CurrentBlock().NumberU64()
+	
 }
