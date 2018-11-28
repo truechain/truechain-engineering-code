@@ -31,6 +31,9 @@ var termTimeFormat = "01-02|15:04:05.000"
 //the pre count
 var preCount int64 = 0
 
+//the pre account
+var preAccount = ""
+
 //flag sleep
 var bSleep = false
 
@@ -157,6 +160,13 @@ func send(count int, ip string) {
 		} else {
 			bl, _ := new(big.Int).SetString(result, 10)
 			fmt.Println(getTime(), "etrue_getBalance Ok:", bl, result)
+
+			if preAccount == result {
+				bSleep = true
+				fmt.Println(getTime(), "Account not dec", sleep.Minutes())
+			} else {
+				preAccount = result
+			}
 		}
 	}
 	waitMain.Wait()
