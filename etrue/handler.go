@@ -147,14 +147,11 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
 
-	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
-	if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
-		log.Warn("Blockchain not empty, fast sync disabled")
-		mode = downloader.FullSync
-	}
+	//if mode == downloader.FastSync && snailchain.CurrentBlock().NumberU64() > 0 {
+	//	log.Warn("Blockchain not empty, fast sync disabled")
+	//	mode = downloader.FullSync
+	//}
+
 	if mode == downloader.FastSync {
 		manager.fastSync = uint32(1)
 	}
@@ -200,7 +197,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Construct the different synchronisation mechanisms
 	// TODO: support downloader func.
 
-	fmode := fastdownloader.SyncMode(int(mode))
+	fmode := fastdownloader.SyncMode(mode)
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
 

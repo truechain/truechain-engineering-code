@@ -17,6 +17,7 @@
 package etrue
 
 import (
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -273,20 +274,20 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
-		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
+		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.GetBlockNumber())
 		header, err := pm.fdownloader.FetchHeight(peer.id,0);
 		if err != nil || header == nil {
 			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
 		}
 
-		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
+		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.GetBlockNumber(), "PeerCurrentBlockNumber", header.Number.Uint64())
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
-		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
+		if header.Number.Uint64() > pm.blockchain.GetBlockNumber() {
 
 			for {
 
-				fbNum := pm.blockchain.CurrentBlock().NumberU64()
+				fbNum := pm.blockchain.GetBlockNumber()
 				height := header.Number.Uint64() - fbNum
 
 				if height > 0 {
@@ -301,14 +302,13 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
 					for {
 
-						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-						//time.Sleep(1*time.Second)
+						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
 							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 							return
 						}
 
-						fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
+						fbNumLast := pm.blockchain.GetBlockNumber()
 
 						if (fbNum + height) > fbNumLast {
 							log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", fbNumLast)

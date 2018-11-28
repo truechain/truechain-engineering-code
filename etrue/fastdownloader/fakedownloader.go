@@ -381,6 +381,15 @@ func (dl *DownloadTester) Rollback(hashes []common.Hash) {
 	}
 }
 
+func (dl *DownloadTester) GetBlockNumber() uint64  {
+
+	if dl.CurrentFastBlock().NumberU64() > dl.CurrentBlock().NumberU64() {
+		return dl.CurrentFastBlock().NumberU64()
+	}
+	return dl.CurrentBlock().NumberU64()
+
+}
+
 // newPeer registers a new block download source into the downloader.
 func (dl *DownloadTester) NewPeer(id string, version int, hashes []common.Hash, headers map[common.Hash]*types.Header, blocks map[common.Hash]*types.Block, receipts map[common.Hash]types.Receipts) error {
 	return dl.NewSlowPeer(id, version, hashes, headers, blocks, receipts, 0)

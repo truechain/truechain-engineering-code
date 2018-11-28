@@ -27,7 +27,6 @@ import (
 
 	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
@@ -109,7 +108,7 @@ type Downloader struct {
 	// Statistics
 	syncStatsChainOrigin uint64 // Origin block number where syncing started at
 	syncStatsChainHeight uint64 // Highest block number known when syncing started
-	syncStatsState       stateSyncStats
+	//syncStatsState       stateSyncStats
 	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
 
 	lightchain LightChain
@@ -133,9 +132,9 @@ type Downloader struct {
 	headerProcCh chan []*types.SnailHeader // [eth/62] Channel to feed the header processor new tasks
 
 	// for stateFetcher
-	stateSyncStart chan *stateSync
-	trackStateReq  chan *stateReq
-	stateCh        chan etrue.DataPack // [eth/63] Channel receiving inbound node state data
+	//stateSyncStart chan *stateSync
+	//trackStateReq  chan *stateReq
+	//stateCh        chan etrue.DataPack // [eth/63] Channel receiving inbound node state data
 
 	// Cancellation and termination
 	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
@@ -226,17 +225,16 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		//receiptWakeCh:  make(chan bool, 1),
 		headerProcCh:   make(chan []*types.SnailHeader, 1),
 		quitCh:         make(chan struct{}),
-		stateCh:        make(chan etrue.DataPack),
-		stateSyncStart: make(chan *stateSync),
-		syncStatsState: stateSyncStats{
-			processed: rawdb.ReadFastTrieProgress(stateDb),
-		},
-		trackStateReq: make(chan *stateReq),
+		//stateCh:        make(chan etrue.DataPack),
+		//stateSyncStart: make(chan *stateSync),
+		//syncStatsState: stateSyncStats{
+		//	processed: rawdb.ReadFastTrieProgress(stateDb),
+		//},
+		//trackStateReq: make(chan *stateReq),
 		fastDown:      fdown,
 	}
 
 	go dl.qosTuner()
-	go dl.stateFetcher()
 	return dl
 
 }
@@ -268,8 +266,8 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 		StartingBlock: d.syncStatsChainOrigin,
 		CurrentBlock:  current,
 		HighestBlock:  d.syncStatsChainHeight,
-		PulledStates:  d.syncStatsState.processed,
-		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
+		//PulledStates:  d.syncStatsState.processed,
+		//KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
 	}
 }
 
@@ -1422,7 +1420,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 			height := fruitLen
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
-			currentNum := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+			currentNum := d.fastDown.GetBlockChain().GetBlockNumber()
 
 			if fbNumLast < fbNum || fbNumLast-fbNum != height-1 || fbNum < 1 {
 				return errFruits
@@ -1438,16 +1436,16 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 				if height > 0 {
 					for {
-						errs := d.fastDown.Synchronise(p.GetID(), hash, td, -1, fbNum, height)
+						errs := d.fastDown.Synchronise(p.GetID(), hash, td, fastdownloader.SyncMode(d.mode), fbNum, height)
 						//time.Sleep(1*time.Second)
 						if errs != nil {
 							log.Error("fast sync: ", "err>>>>>>>>>", errs)
 							return errs
 						}
 
-						currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+						currentNum = d.fastDown.GetBlockChain().GetBlockNumber()
 						if fbNumLast > currentNum {
-							log.Trace("fastDownloader while", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
+							log.Debug("fastDownloader while", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
 
 							fbNum = currentNum
 							height = fbNumLast - fbNum
@@ -1460,7 +1458,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			}
 
 		} else {
-
 			log.Debug("Snail--->>>", "blocks>>>>", blocks[0], "fruits>>", result.Fruits)
 		}
 
@@ -1654,10 +1651,10 @@ func (d *Downloader) DeliverReceipts(id string, receipts [][]*types.Receipt) (er
 	return d.deliver(id, nil, &receiptPack{id, receipts}, receiptInMeter, receiptDropMeter)
 }
 
-// DeliverNodeData injects a new batch of node state data received from a remote node.
-func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
-	return d.deliver(id, d.stateCh, &statePack{id, data}, stateInMeter, stateDropMeter)
-}
+//// DeliverNodeData injects a new batch of node state data received from a remote node.
+//func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
+//	return d.deliver(id, d.stateCh, &statePack{id, data}, stateInMeter, stateDropMeter)
+//}
 
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
