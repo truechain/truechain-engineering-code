@@ -22,13 +22,13 @@ var interval = time.Millisecond * 0
 //get all account
 var account []string
 
-// The message state
-var msg = make(chan bool)
-
-// Restart the number
-var num int = 0
-
-const SLEEPTIME = 120
+//// The message state
+//var msg = make(chan bool)
+//
+//// Restart the number
+//var num int = 0
+//
+//const SLEEPTIME = 120
 
 // get par
 func main() {
@@ -71,22 +71,24 @@ func main() {
 	if len(os.Args) == 7 {
 		ip = os.Args[6]
 	}
-	fmt.Println("==========================")
+	//fmt.Println("==========================")
 
 	go send(count, ip)
 
-	for {
-		if !<-msg {
-			fmt.Println("======================send Transaction restart=========================")
-			num++
-			time.Sleep(time.Second * SLEEPTIME)
-			go send(count, ip)
-		} else {
-			fmt.Println("=======================send Transaction end=========================")
-			break
-		}
-	}
-	fmt.Println("send Transaction num is:", num)
+	//go send(count, ip)
+	//
+	//for {
+	//	if !<-msg {
+	//		fmt.Println("======================send Transaction restart=========================")
+	//		num++
+	//		time.Sleep(time.Second * SLEEPTIME)
+	//		go send(count, ip)
+	//	} else {
+	//		fmt.Println("=======================send Transaction end=========================")
+	//		break
+	//	}
+	//}
+	//fmt.Println("send Transaction num is:", num)
 }
 
 //send transaction init
@@ -95,14 +97,14 @@ func send(count int, ip string) {
 	client, err := rpc.Dial("http://" + ip)
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
-		msg <- false
+		//msg <- false
 		return
 	}
 
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
-		msg <- false
+		//msg <- false
 		return
 	}
 	if len(account) == 0 {
@@ -116,7 +118,7 @@ func send(count int, ip string) {
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
-		msg <- false
+		//msg <- false
 		return
 	} else {
 
@@ -141,7 +143,7 @@ func send(count int, ip string) {
 		go sendTransactions(client, account, count, waitMain)
 		frequency -= 1
 		if frequency <= 0 {
-			msg <- true
+			//msg <- true
 			break
 		}
 		time.Sleep(interval)
@@ -149,7 +151,7 @@ func send(count int, ip string) {
 		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 		if err != nil {
 			fmt.Println("etrue_getBalance Error:", err)
-			msg <- false
+			//msg <- false
 			return
 		} else {
 			bl, _ := new(big.Int).SetString(result, 10)
@@ -157,7 +159,7 @@ func send(count int, ip string) {
 		}
 	}
 	waitMain.Wait()
-	msg <- true
+	//msg <- true
 }
 
 //send count transaction
@@ -165,7 +167,6 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
 
-	//发送交易
 	for a := 0; a < count; a++ {
 		waitGroup.Add(1)
 		go sendTransaction(client, account, waitGroup)
