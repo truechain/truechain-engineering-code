@@ -26,7 +26,7 @@ var sleep = time.Millisecond * 10000
 var account []string
 
 //time format
-var termTimeFormat = "01-02|15:04:05.000"
+var termTimeFormat = "[01-02|15:04:05.000]"
 
 //the pre count
 var preCount int64 = 0
@@ -93,7 +93,7 @@ func main() {
 
 //get time
 func getTime() string {
-	return time.Now().Format(termTimeFormat + ": ")
+	return time.Now().Format(termTimeFormat)
 }
 
 //send transaction init
@@ -163,7 +163,7 @@ func send(count int, ip string) {
 
 			if preAccount == result {
 				bSleep = true
-				fmt.Println(getTime(), "Account not dec", sleep.Minutes())
+				fmt.Println(getTime(), "Account not dec sleep")
 			} else {
 				preAccount = result
 			}
@@ -188,7 +188,7 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	if Count > preCount {
 		preCount = Count
 	} else {
-		fmt.Println(getTime(), "tx full sleep", sleep.Minutes())
+		fmt.Println(getTime(), "tx full sleep")
 		bSleep = true
 	}
 }
