@@ -22,9 +22,13 @@ var interval = time.Millisecond * 0
 //get all account
 var account []string
 
+// The message state
 var msg = make(chan bool)
 
+// Restart the number
 var num int = 0
+
+const SLEEPTIME = 120
 
 // get par
 func main() {
@@ -75,7 +79,7 @@ func main() {
 		if !<-msg {
 			fmt.Println("======================send Transaction restart=========================")
 			num++
-			time.Sleep(time.Second * 10)
+			time.Sleep(time.Second * SLEEPTIME)
 			go send(count, ip)
 		} else {
 			fmt.Println("=======================send Transaction end=========================")
