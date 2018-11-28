@@ -13,7 +13,7 @@ GO ?= latest
 DEPS = $(shell pwd)/internal/jsre/deps
 
 getrue:
-	build/env.sh go run build/ci.go install cmd/getrue
+	build/env.sh go run build/ci.go install ./cmd/getrue
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/getrue\" to launch getrue."
 
