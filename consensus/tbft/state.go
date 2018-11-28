@@ -405,10 +405,10 @@ func (cs *ConsensusState) reconstructLastCommit() {
 // The round becomes 0 and cs.Step becomes ttypes.RoundStepNewHeight.
 func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 	LastBlockHeight := state.GetLastBlockHeight()
-	if int(cs.CommitRound) > -1 && 0 < cs.Height && cs.Height != LastBlockHeight {
-		help.PanicSanity(fmt.Sprintf("updateToState() expected state height of %v but found %v",
-			cs.Height, LastBlockHeight))
-	}
+	// if int(cs.CommitRound) > -1 && 0 < cs.Height && cs.Height != LastBlockHeight {
+	// 	help.PanicSanity(fmt.Sprintf("updateToState() expected state height of %v but found %v",
+	// 		cs.Height, LastBlockHeight))
+	// }
 	// if !cs.state.IsEmpty() && cs.state.LastBlockHeight+1 != cs.Height {
 	// 	// This might happen when someone else is mutating cs.state.
 	// 	// Someone forgot to pass in state.Copy() somewhere?!
