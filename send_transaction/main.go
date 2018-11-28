@@ -37,6 +37,9 @@ var preAccount = ""
 //flag sleep
 var bSleep = false
 
+//check Account
+var CheckAcc = false
+
 // get par
 func main() {
 	if len(os.Args) < 7 {
@@ -161,7 +164,7 @@ func send(count int, ip string) {
 			bl, _ := new(big.Int).SetString(result, 10)
 			fmt.Println(getTime(), "etrue_getBalance Ok:", bl, result)
 
-			if preAccount == result {
+			if preAccount == result  && CheckAcc{
 				bSleep = true
 				fmt.Println(getTime(), "Account not dec sleep")
 			} else {
