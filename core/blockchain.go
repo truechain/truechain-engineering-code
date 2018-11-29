@@ -309,6 +309,10 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
+
+	log.Info("signblock ","number",bc.GetBlockByNumber(368314))
+	log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
+
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
 	log.Info("Loaded most recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 	log.Info("Loaded most recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())

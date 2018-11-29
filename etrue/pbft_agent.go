@@ -481,7 +481,8 @@ func (self *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 		if err := self.sendSign(receiveBlock); err != nil {
 			return err
 		}
-		log.Info("handleConsensusBlock: blok already insert blockchain", "number", receiveBlockHeight)
+		log.Info("handleConsensusBlock: blok already insert blockchain",
+			"CurrentBlockNumber",self.fastChain.CurrentBlock().Number(),"receiveBlockNumber", receiveBlockHeight)
 		return nil
 	}
 	//self.fastChain.CurrentBlock()
@@ -838,9 +839,9 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	err := self.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
 		log.Error("verifyFastBlock verifyHeader error", "header", fb.Number(), "err", err)
-		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
-		if err != nil {
-			return nil, err
+		voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		if signError != nil {
+			return nil, signError
 		}
 		return voteSign, err
 	}
@@ -849,16 +850,16 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .")
-			voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgree)
-			if err != nil {
-				return nil, err
+			voteSign,signError := self.GenerateSignWithVote(fb, types.VoteAgree)
+			if signError != nil {
+				return nil, signError
 			}
 			return voteSign, err
 		}
 		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(), "err", err)
-		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
-		if err != nil {
-			return nil, err
+		voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		if signError != nil {
+			return nil, signError
 		}
 		return voteSign, err
 	}
@@ -866,9 +867,9 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	state, err := bc.State()
 	if err != nil {
 		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Number(), "err", err)
-		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
-		if err != nil {
-			return nil, err
+		voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		if signError != nil {
+			return nil, signError
 		}
 		return voteSign, err
 	}
@@ -880,24 +881,24 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 			return nil, err
 		}
 		log.Error("verifyFastBlock process error", "height:", fb.Number(), "err", err)
-		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
-		if err != nil {
-			return nil, err
+		voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		if signError != nil {
+			return nil, signError
 		}
 		return voteSign, err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
 		log.Error("verifyFastBlock validateState error", "Height:", fb.Number(), "err", err)
-		voteSign, err := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
-		if err != nil {
-			return nil, err
+		voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		if signError != nil {
+			return nil, signError
 		}
 		return voteSign, err
 	}
-	voteSign, _ := self.GenerateSignWithVote(fb, types.VoteAgree)
-	if err != nil {
-		return nil, err
+	voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgree)
+	if signError != nil {
+		return nil, signError
 	}
 	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	return voteSign, nil
