@@ -40,8 +40,6 @@ const (
 
 var (
 	errAlreadyFetching   = errors.New("already fetching blocks from peer")
-	errAlreadyRegistered = errors.New("peer is already registered")
-	errNotRegistered     = errors.New("peer is not registered")
 )
 
 
