@@ -39,7 +39,7 @@ var (
 
 var (
 	msgQueueSize = 1000
-	taskTimeOut = 60
+	taskTimeOut = 120
 )
 
 // msgs from the reactor which may update the state
@@ -630,13 +630,15 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundSta
 	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
+	// update local state
+	cs.UpdateStateForSync()
 	// timeouts must be for current height, round, step
-	lh := cs.state.GetLastBlockHeight()
-	if ti.Height < (lh+1) {
-		cs.UpdateStateForSync()
-		log.Info("Received task tock,update state and tock","ti.height",ti.Height,"cs.height",cs.Height)
-		return
-	}
+	// lh := cs.state.GetLastBlockHeight()
+	// if ti.Height < (lh+1) {
+	// 	cs.UpdateStateForSync()
+	// 	log.Info("Received task tock,update state and tock","ti.height",ti.Height,"cs.height",cs.Height)
+	// 	return
+	// } 
 	log.Info("Received task tock End")
 }
 //-----------------------------------------------------------------------------
