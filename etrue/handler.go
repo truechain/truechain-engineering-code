@@ -1049,6 +1049,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkFruit(fruit.Hash())
 			log.Trace("add fruit from p2p", "number", fruit.FastNumber(), "hash", fruit.Hash())
+			log.Info("add fruit from p2p", "peerid", p.id, "number", fruit.FastNumber(), "hash", fruit.Hash())
 		}
 
 		pm.SnailPool.AddRemoteFruits(fruits)
