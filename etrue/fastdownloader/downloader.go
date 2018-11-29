@@ -308,10 +308,10 @@ func (d *Downloader) UnregisterPeer(id string) error {
 	// Unregister the peer from the active peer set and revoke any fetch tasks
 	logger := log.New("peer", id)
 	logger.Trace("Unregistering sync peer")
-	//if err := d.peers.Unregister(id); err != nil {
-	//	logger.Error("Failed to unregister sync peer", "err", err)
-	//	return err
-	//}
+	if err := d.peers.Unregister(id); err != nil {
+		logger.Error("Failed to unregister sync peer", "err", err)
+		return err
+	}
 	d.queue.Revoke(id)
 
 	// If this peer was the master peer, abort sync immediately
