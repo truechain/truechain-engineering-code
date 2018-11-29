@@ -309,9 +309,9 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
-	for _,sign:= range bc.GetBlockByNumber(368315).Signs(){
-		log.Info("signblock ","sign",sign)
-	}
+	//for _,sign:= range bc.GetBlockByNumber(368315).Signs(){
+	//	log.Info("signblock ","sign",sign)
+	//}
 
 
 
