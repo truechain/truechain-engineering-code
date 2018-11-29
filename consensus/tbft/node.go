@@ -210,6 +210,7 @@ type Node struct {
 	nodekey  p2p.NodeKey
 	nodeinfo p2p.NodeInfo
 	chainID  string
+	lock     *sync.Mutex
 }
 
 // NewNode returns a new, ready to go, truechain Node.
@@ -230,6 +231,7 @@ func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
 		priv:     priv,
 		chainID:  chainID,
 		Agent:    agent,
+		lock:     new(sync.Mutex),
 		services: make(map[uint64]*service),
 		nodekey: p2p.NodeKey{
 			PrivKey: tcrypto.PrivKeyTrue(*priv),
@@ -247,7 +249,8 @@ func (n *Node) OnStart() error {
 
 // OnStop stops the Node. It implements help.Service.
 func (n *Node) OnStop() {
-	n.BaseService.OnStop()
+	n.lock.Lock()
+	defer n.lock.Lock()
 	for i, v := range n.services {
 		log.Info("begin stop tbft server ", "id", i)
 		v.stop()
@@ -291,6 +294,9 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 }
 
 func (n *Node) Notify(id *big.Int, action int) error {
+	n.lock.Lock()
+	defer n.lock.Lock()
+
 	switch action {
 	case Start:
 		if server, ok := n.services[id.Uint64()]; ok {
@@ -324,6 +330,8 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	if id == nil || len(members) <= 0 {
 		return errors.New("wrong params...")
 	}
+	n.lock.Lock()
+	defer n.lock.Lock()
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
@@ -350,6 +358,9 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
+	n.lock.Lock()
+	defer n.lock.Lock()
+
 	server, ok := n.services[id.Uint64()]
 	if !ok {
 		return errors.New("wrong ID:" + id.String())
@@ -378,6 +389,9 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 }
 func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 	log.Info("SetCommitteeStop", "id", committeeId, "stop", stop)
+	n.lock.Lock()
+	defer n.lock.Lock()
+
 	if server, ok := n.services[committeeId.Uint64()]; ok {
 		server.getStateAgent().SetEndHeight(stop)
 		return nil
