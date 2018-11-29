@@ -633,8 +633,10 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundSta
 	lh := cs.state.GetLastBlockHeight()
 	if ti.Height < (lh+1) {
 		cs.UpdateStateForSync()
+		log.Info("Received task tock,update state and tock","ti.height",ti.Height,"cs.height",cs.Height)
 		return
 	}
+	log.Info("Received task tock End")
 }
 //-----------------------------------------------------------------------------
 // State functions
