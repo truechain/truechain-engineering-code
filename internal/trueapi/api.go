@@ -932,7 +932,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"number":     (*hexutil.Big)(head.Number),
 		"hash":       b.Hash(),
 		"parentHash": head.ParentHash,
-		//"nonce":            head.Nonce,
 		//"mixHash":          head.MixDigest,
 		//"sha3Uncles":       head.UncleHash,
 		"logsBloom":   head.Bloom,
@@ -949,6 +948,28 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"transactionsRoot": head.TxHash,
 		"receiptsRoot":     head.ReceiptHash,
 	}
+
+
+	formatSign := func(sign *types.PbftSign) (map[string]interface{}, error) {
+
+		signmap := map[string]interface{}{
+			"sign":hexutil.Bytes(sign.Sign),
+			"result":sign.Result,
+		}
+
+		return signmap,nil
+	}
+
+	ss := b.Signs()
+	signs := make([]interface{}, len(ss))
+	var err error
+	for i, sign := range ss {
+		if signs[i], err = formatSign(sign); err != nil {
+			return nil, err
+		}
+	}
+
+	fields["signs"] = signs
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
