@@ -250,7 +250,7 @@ func (n *Node) OnStart() error {
 // OnStop stops the Node. It implements help.Service.
 func (n *Node) OnStop() {
 	n.lock.Lock()
-	defer n.lock.Lock()
+	defer n.lock.Unlock()
 	for i, v := range n.services {
 		log.Info("begin stop tbft server ", "id", i)
 		v.stop()
@@ -295,7 +295,7 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 
 func (n *Node) Notify(id *big.Int, action int) error {
 	n.lock.Lock()
-	defer n.lock.Lock()
+	defer n.lock.Unlock()
 
 	switch action {
 	case Start:
@@ -331,7 +331,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("wrong params...")
 	}
 	n.lock.Lock()
-	defer n.lock.Lock()
+	defer n.lock.Unlock()
 	if _, ok := n.services[id.Uint64()]; ok {
 		return errors.New("repeat ID:" + id.String())
 	}
@@ -359,7 +359,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		return errors.New("wrong params...")
 	}
 	n.lock.Lock()
-	defer n.lock.Lock()
+	defer n.lock.Unlock()
 
 	server, ok := n.services[id.Uint64()]
 	if !ok {
@@ -390,7 +390,7 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 	log.Info("SetCommitteeStop", "id", committeeId, "stop", stop)
 	n.lock.Lock()
-	defer n.lock.Lock()
+	defer n.lock.Unlock()
 
 	if server, ok := n.services[committeeId.Uint64()]; ok {
 		server.getStateAgent().SetEndHeight(stop)
