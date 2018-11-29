@@ -274,20 +274,19 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
-		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.GetBlockNumber())
+		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
 		header, err := pm.fdownloader.FetchHeight(peer.id,0);
 		if err != nil || header == nil {
 			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
 		}
 
-		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.GetBlockNumber(), "PeerCurrentBlockNumber", header.Number.Uint64())
+		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
-		if header.Number.Uint64() > pm.blockchain.GetBlockNumber() {
+		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 
 			for {
-
-				fbNum := pm.blockchain.GetBlockNumber()
+				fbNum := pm.blockchain.CurrentBlock().NumberU64()
 				height := header.Number.Uint64() - fbNum
 
 				if height > 0 {
@@ -308,7 +307,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 							return
 						}
 
-						fbNumLast := pm.blockchain.GetBlockNumber()
+						fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
 
 						if (fbNum + height) > fbNumLast {
 							log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", fbNumLast)

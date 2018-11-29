@@ -309,9 +309,8 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
-	//for _,sign:= range bc.GetBlockByNumber(368314).Signs(){
-	//	log.Info("signblock ","sign",sign)
-	//}
+
+
 
 	//log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
 
@@ -915,6 +914,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			bc.currentReward.Store(br)
 
 		}
+
 
 		// Write all the data out into the database
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
@@ -1762,11 +1762,11 @@ func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockRewa
 	return signs
 }
 
-func (bc *BlockChain) GetBlockNumber() uint64 {
+func (bc *BlockChain) GetBlockNumber() uint64  {
 
 	if bc.CurrentFastBlock().NumberU64() > bc.CurrentBlock().NumberU64() {
 		return bc.CurrentFastBlock().NumberU64()
 	}
 	return bc.CurrentBlock().NumberU64()
-
+	
 }
