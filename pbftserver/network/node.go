@@ -23,6 +23,7 @@ type Node struct {
 	States             map[int64]*consensus.State
 	CommittedMsgs      []*consensus.RequestMsg // kinda block.
 	CommitWaitQueue    *prque.Prque
+	CWLock             sync.Mutex
 	MsgBuffer          *MsgBuffer
 	MsgEntrance        chan interface{}
 	MsgDelivery        chan interface{}
@@ -57,6 +58,21 @@ const (
 	StateMax              = 1000        //max size for status
 	StateClear            = 500
 )
+
+func (node *Node) CommitWaitQueuePush(msg *consensus.VoteMsg) {
+	node.CWLock.Lock()
+	defer node.CWLock.Unlock()
+	if !node.CommitWaitQueue.Empty() {
+		item := node.CommitWaitQueue.PopItem()
+		if item != nil {
+			msgQue := item.(*consensus.VoteMsg)
+			if msgQue != nil && msg.Height != msgQue.Height {
+				node.CommitWaitQueue.Push(msgQue, -float32(msgQue.Height))
+			}
+		}
+	}
+	node.CommitWaitQueue.Push(msg, -float32(msg.Height))
+}
 
 func NewNode(nodeID string, verify consensus.ConsensusVerify, finish consensus.ConsensusFinish,
 	addrs []*types.CommitteeNode, id *big.Int) *Node {
@@ -364,7 +380,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		if res != nil && (res == types.ErrHeightNotYet || res == types.ErrSnailHeightNotYet) {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
-			node.CommitWaitQueue.Push(prepareMsg, float32(-prepareMsg.Height))
+			node.CommitWaitQueuePush(prepareMsg)
 		} else {
 			// var result uint = types.VoteAgreeAgainst
 			// if res == nil {
@@ -398,7 +414,14 @@ func (node *Node) processCommitWaitMessageQueue() {
 		}
 		var msgSend = make([]*consensus.VoteMsg, 0)
 		if !node.CommitWaitQueue.Empty() {
-			msg := node.CommitWaitQueue.PopItem().(*consensus.VoteMsg)
+			node.CWLock.Lock()
+			item := node.CommitWaitQueue.PopItem()
+			node.CWLock.Unlock()
+			if item == nil {
+				continue
+			}
+			msg := item.(*consensus.VoteMsg)
+
 			state := node.GetStatus(int64(msg.Height))
 			if state != nil {
 				if state.CurrentStage == consensus.Committed {
