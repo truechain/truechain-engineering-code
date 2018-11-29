@@ -138,7 +138,7 @@ func newOutboundPeerConn(
 ) (peerConn, error) {
 	conn, err := dial(addr, config)
 	if err != nil {
-		return peerConn{}, errors.New(fmt.Sprint(err,"Error creating peer"))
+		return peerConn{}, errors.New(fmt.Sprint(err,"dail Error creating peer"))
 	}
 
 	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)

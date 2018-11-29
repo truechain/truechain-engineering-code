@@ -302,6 +302,7 @@ func (sw *Switch) StopPeerForError(peer Peer, reason interface{}) {
 			// self-reported address for inbound persistent peers
 			addr = peer.NodeInfo().NetAddress()
 		}
+		log.Info("StopPeerForError for Reconnecting to peer", "addr", addr)
 		go sw.reconnectToPeer(addr)
 	}
 }
@@ -574,7 +575,6 @@ func (sw *Switch) addOutboundPeerWithConfig(
 	persistent bool,
 ) error {
 	log.Info("Dialing peer", "address", addr)
-	fmt.Printf("temp dial addr %v\n", addr.String())
 	peerConn, err := newOutboundPeerConn(
 		addr,
 		config,
