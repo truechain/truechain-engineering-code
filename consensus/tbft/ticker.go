@@ -70,7 +70,11 @@ func (t *timeoutTicker) Chan() <-chan timeoutInfo {
 // The timeoutRoutine is always available to read from tickChan, so this won't block.
 // The scheduling may fail if the timeoutRoutine has already scheduled a timeout for a later height/round/step.
 func (t *timeoutTicker) ScheduleTimeout(ti timeoutInfo) {
-	t.tickChan <- ti
+	select {
+	case t.tickChan <- ti:
+	default:
+		log.Debug("t.tickChan already close")
+	}	
 }
 
 //-------------------------------------------------------------
