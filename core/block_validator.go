@@ -75,7 +75,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	}
 
 	if validateSign {
-		if err := fv.bc.engine.VerifySigns(block.Number(), block.Signs()); err != nil {
+		if err := fv.bc.engine.VerifySigns(block.Number(), block.Hash(), block.Signs()); err != nil {
 			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())
 			return err
 		}
