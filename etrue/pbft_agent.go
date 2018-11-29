@@ -841,12 +841,12 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && self.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
-			log.Info("block already insert chain by fetch .")
+			log.Info("block already insert chain by fetch .","number",fb.Number())
 			voteSign,signError := self.GenerateSignWithVote(fb, types.VoteAgree)
 			if signError != nil {
 				return nil, signError
 			}
-			return voteSign, err
+			return voteSign, nil //if err equals ErrKnownBlock return nil
 		}
 		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(), "err", err)
 		voteSign, signError := self.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
