@@ -102,6 +102,7 @@ func getTime() string {
 //send transaction init
 func send(count int, ip string) {
 	//dial etrue
+start:
 	client, err := rpc.Dial("http://" + ip)
 	if err != nil {
 		fmt.Println(getTime(), "Dail:", ip, err.Error())
@@ -147,6 +148,8 @@ func send(count int, ip string) {
 		if bSleep {
 			bSleep = false
 			time.Sleep(sleep)
+			client.Close()
+			goto start
 		}
 		waitMain.Add(1)
 		go sendTransactions(client, account, count, waitMain)
@@ -164,7 +167,7 @@ func send(count int, ip string) {
 			bl, _ := new(big.Int).SetString(result, 10)
 			fmt.Println(getTime(), "etrue_getBalance Ok:", bl, result)
 
-			if preAccount == result  && CheckAcc{
+			if preAccount == result && CheckAcc {
 				bSleep = true
 				fmt.Println(getTime(), "Account not dec sleep")
 			} else {
