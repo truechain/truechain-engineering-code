@@ -176,7 +176,7 @@ func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
-		if !v.Enable {
+		if v != nil && !v.Enable {
 			s.connTo(v)
 		}
 	}
@@ -408,10 +408,7 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 		tt := tcrypto.PubKeyTrue(*m.Publickey)
 		address := tt.Address()
 		id := p2p.ID(hex.EncodeToString(address))
-		tab[id] = &nodeInfo{
-			ID:     id,
-			Enable: false,
-		}
+		tab[id] = nil
 		log.Info("CommitteeMembers", "index", i, "id", id)
 	}
 	return tab
