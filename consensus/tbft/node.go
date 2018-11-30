@@ -366,7 +366,6 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	return nil
 }
 func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
-	log.Info("PutNodes", "info", nodes[0].String())
 	if id == nil || len(nodes) <= 0 {
 		return errors.New("wrong params...")
 	}
