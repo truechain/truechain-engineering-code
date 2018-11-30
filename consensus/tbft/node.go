@@ -48,14 +48,14 @@ const (
 )
 
 func NewNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state ttypes.StateAgent,
-	store *ttypes.BlockStore, ) *service {
+	store *ttypes.BlockStore) *service {
 	return &service{
 		sw:             p2p.NewSwitch(p2pcfg),
 		consensusState: NewConsensusState(cscfg, state, store),
 		// nodeTable:      make(map[p2p.ID]*nodeInfo),
-		lock:           new(sync.Mutex),
-		updateChan:     make(chan bool,2),
-		eventBus:       ttypes.NewEventBus(),
+		lock:       new(sync.Mutex),
+		updateChan: make(chan bool, 2),
+		eventBus:   ttypes.NewEventBus(),
 		// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 		// Note we currently use the addrBook regardless at least for AddOurAddress
 		addrBook: pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
@@ -155,8 +155,8 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
-		if v, ok := s.nodeTable[id]; (ok && v==nil) {
-			log.Info("Enter NodeInfo","id",id,"addr",addr)
+		if v, ok := s.nodeTable[id]; ok && v == nil {
+			log.Info("Enter NodeInfo", "id", id, "addr", addr)
 			s.nodeTable[id] = &nodeInfo{
 				ID:      id,
 				Adrress: addr,
@@ -185,7 +185,7 @@ func (s *service) connTo(node *nodeInfo) {
 	if node.Enable {
 		return
 	}
-	log.Info("[put nodes]connTo","addr",node.Adrress)
+	log.Info("[put nodes]connTo", "addr", node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
 		log.Error("[connTo] dail peer " + errDialErr.Error())
@@ -350,7 +350,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	}
 	store := ttypes.NewBlockStore()
 	service := NewNodeService(n.config.P2P, n.config.Consensus, state, store)
-	nodeinfo := makeCommitteeMembers(id.Uint64(),service,committeeInfo)
+	nodeinfo := makeCommitteeMembers(id.Uint64(), service, committeeInfo)
 	if nodeinfo == nil {
 		service.stop()
 		return errors.New("make the nil CommitteeMembers")
@@ -398,9 +398,9 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	}
 	return ttypes.NewValidatorSet(vals)
 }
-func makeCommitteeMembers(cid uint64,ss *service,cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
+func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
 	members := cmm.Members
-	if ss == nil || len(members) <= 0{
+	if ss == nil || len(members) <= 0 {
 		return nil
 	}
 	tab := make(map[p2p.ID]*nodeInfo)
@@ -408,8 +408,11 @@ func makeCommitteeMembers(cid uint64,ss *service,cmm *types.CommitteeInfo) map[p
 		tt := tcrypto.PubKeyTrue(*m.Publickey)
 		address := tt.Address()
 		id := p2p.ID(hex.EncodeToString(address))
-		tab[id] = nil
-		log.Info("CommitteeMembers","index",i,"id",id)
+		tab[id] = &nodeInfo{
+			ID:     id,
+			Enable: false,
+		}
+		log.Info("CommitteeMembers", "index", i, "id", id)
 	}
 	return tab
 }
