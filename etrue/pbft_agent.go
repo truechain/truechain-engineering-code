@@ -723,6 +723,8 @@ func (self *PbftAgent) validateBlockSpace(header *types.Header) error {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
 		if space >= params.FastToFruitSpace.Int64() {
+			log.Info("validateBlockSpace method ","snailNumber",snailBlock.Number(),"lastFruitNum",lastFruitNum,
+			"currentFastNumber",header.Number)
 			log.Warn("fetchFastBlock validateBlockSpace error","space",space)
 			return types.ErrSnailBlockTooSlow
 		}
