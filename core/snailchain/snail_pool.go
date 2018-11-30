@@ -185,7 +185,7 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 		return core.ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
-
+	pool.journalFruit(fruit)
 	if append {
 		pool.fruitPending[fruit.FastHash()] = fruit
 		log.Debug("addFruit", "fb number", fruit.FastNumber())
@@ -254,6 +254,17 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	}
 
 	return nil
+}
+
+// journalFruit adds the specified fruit to the local disk journal
+func (pool *SnailPool) journalFruit(fruit *types.SnailBlock) {
+	// Only journal if it's enabled
+	if pool.journal == nil {
+		return
+	}
+	if err := pool.journal.insert(fruit); err != nil {
+		log.Warn("Failed to journal fruit", "err", err)
+	}
 }
 
 // loop is the fruit pool's main event loop, waiting for and reacting to
