@@ -30,16 +30,8 @@ import (
 )
 
 var (
-	// ErrInvalidSender is returned if the transaction contains an invalid signature.
-	ErrInvalidSign = errors.New("invalid sign")
-
-	ErrInvalidPointer = errors.New("invalid pointer block")
-
-	ErrExist = errors.New("already exist")
-
-	ErrNotExist = errors.New("not exist")
-
-	ErrInvalidHash = errors.New("invalid hash")
+	// ErrInvalidSignHash is returned if the fruit contains an invalid signatures hash.
+	ErrInvalidSignHash = errors.New("invalid sign")
 
 	ErrInvalidFast = errors.New("invalid fast hash")
 
@@ -166,7 +158,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
 		log.Info("valid fruit sign hash failed.")
-		return ErrInvalidSign
+		return ErrInvalidSignHash
 	}
 
 	// check freshness
@@ -187,7 +179,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	// validate the signatures of this fruit
-	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.Signs()); err != nil {
+	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.FastHash(), fruit.Signs()); err != nil {
 		log.Info("validate fruit VerifySigns failed.", "err", err)
 		return err
 	}

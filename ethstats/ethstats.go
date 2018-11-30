@@ -160,19 +160,22 @@ func (s *Service) loop() {
 		txpool = s.les.TxPool()
 		//snailBlockChain = s.les.SnailBlockChain()
 	}
-
+	//fastBlock
 	chainHeadCh := make(chan types.ChainFastHeadEvent, chainHeadChanSize)
 	headSub := blockchain.SubscribeChainHeadEvent(chainHeadCh)
 	defer headSub.Unsubscribe()
 
+	//tx
 	txEventCh := make(chan types.NewTxsEvent, txChanSize)
 	txSub := txpool.SubscribeNewTxsEvent(txEventCh)
 	defer txSub.Unsubscribe()
 
+	//snailBlock
 	chainsnailHeadCh := make(chan types.ChainSnailHeadEvent, chainSnailHeadChanSize)
 	snailheadSub := snailBlockChain.SubscribeChainHeadEvent(chainsnailHeadCh)
 	defer snailheadSub.Unsubscribe()
 
+	//fruit
 	chainFruitCh := make(chan types.NewMinedFruitEvent, chainSnailHeadChanSize)
 	fruitSub := snailBlockChain.SubscribeNewFruitEvent(chainFruitCh)
 	defer fruitSub.Unsubscribe()
@@ -198,11 +201,11 @@ func (s *Service) loop() {
 				}
 
 				// Notify of chain snailHead events, but drop if too frequent
-			case snailHead := <-chainsnailHeadCh:
+			/*case snailHead := <-chainsnailHeadCh:
 				select {
 				case snailHeadCh <- snailHead.Block:
 				default:
-				}
+				}*/
 			case fruit := <-chainFruitCh:
 				select {
 				case snailHeadCh <- fruit.Block:
