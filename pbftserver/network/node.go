@@ -376,16 +376,18 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 		}
 
 		sign, res := node.Verify.CheckMsg(CurrentState.MsgLogs.ReqMsg)
+		log.Info("CheckMsg", "sign", sign, "error", res)
 		//fmt.Println("---------------------------------------1,sign == nil", sign == nil, "res=nil", res == nil)
 		if res != nil && (res == types.ErrHeightNotYet || res == types.ErrSnailHeightNotYet) {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 			node.CommitWaitQueuePush(prepareMsg)
-		} else if sign != nil {
+		} else {
 			// var result uint = types.VoteAgreeAgainst
 			// if res == nil {
 			// 	result = types.VoteAgree
 			// }
+			log.Info("SignCheck", "result", sign == nil)
 			result := sign.Result
 			//fmt.Println("---------------------------------------,sign == nil", sign == nil, "res=nil", res == nil)
 			CurrentState.MySign = sign
