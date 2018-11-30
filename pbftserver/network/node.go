@@ -381,7 +381,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			lock.PSLog("CheckMsg Err ", types.ErrHeightNotYet.Error(), CurrentState.MsgLogs.ReqMsg.Height)
 			//node.CommitWaitMsg[commitMsg.Height] = prepareMsg
 			node.CommitWaitQueuePush(prepareMsg)
-		} else {
+		} else if sign != nil {
 			// var result uint = types.VoteAgreeAgainst
 			// if res == nil {
 			// 	result = types.VoteAgree
