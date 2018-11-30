@@ -807,6 +807,9 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
 	}
+	if voteSign == nil{
+		log.Warn("voteSign is nil ", "voteSign", voteSign)
+	}
 	return voteSign, err
 }
 
