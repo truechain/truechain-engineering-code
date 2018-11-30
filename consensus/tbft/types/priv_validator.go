@@ -323,6 +323,7 @@ type StateAgent interface {
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
 	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
+	PrivReset()
 }
 
 type StateAgentImpl struct {
@@ -380,6 +381,11 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	return nil, errors.New("not complete")
 }
 
+func (state *StateAgentImpl) PrivReset() {
+	if state.Priv != nil {
+		state.Priv.Reset()
+	}
+}
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
 }

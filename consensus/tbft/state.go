@@ -355,6 +355,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	cs.updateToState(cs.state)
+	cs.state.PrivReset()
 	sleepDuration := cs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, cs.Height, 0, ttypes.RoundStepNewHeight)
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
