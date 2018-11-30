@@ -503,7 +503,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 
 	count := 0
 	for _, sign := range signs {
-		if sign.FastHash != fastHash || sign.FastHeight != fastnumber {
+		if sign.FastHash != fastHash || sign.FastHeight.Cmp(fastnumber) != 0 {
 			log.Warn("VerifySigns signs hash error", "number", fastnumber, "hash", fastHash, "signHash", sign.FastHash, "signNumber", sign.FastHeight)
 			return consensus.ErrInvalidSign
 		}
