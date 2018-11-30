@@ -30,16 +30,8 @@ import (
 )
 
 var (
-	// ErrInvalidSender is returned if the transaction contains an invalid signature.
-	ErrInvalidSign = errors.New("invalid sign")
-
-	ErrInvalidPointer = errors.New("invalid pointer block")
-
-	ErrExist = errors.New("already exist")
-
-	ErrNotExist = errors.New("not exist")
-
-	ErrInvalidHash = errors.New("invalid hash")
+	// ErrInvalidSignHash is returned if the fruit contains an invalid signatures hash.
+	ErrInvalidSignHash = errors.New("invalid sign")
 
 	ErrInvalidFast = errors.New("invalid fast hash")
 
@@ -56,22 +48,21 @@ type BlockValidator struct {
 	config *params.ChainConfig // Chain configuration options
 	bc     *SnailBlockChain    // Canonical block chain
 
-	engine    consensus.Engine // Consensus engine used for validating
+	engine consensus.Engine // Consensus engine used for validating
 	//election  consensus.CommitteeElection
 	fastchain *core.BlockChain
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
-func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *SnailBlockChain,  engine consensus.Engine) *BlockValidator {
+func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *SnailBlockChain, engine consensus.Engine) *BlockValidator {
 	validator := &BlockValidator{
-		config: config,
-		engine: engine,
+		config:    config,
+		engine:    engine,
 		fastchain: fc,
-		bc:     sc,
+		bc:        sc,
 	}
 	return validator
 }
-
 
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
@@ -102,7 +93,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 
 	temp := uint64(0)
-	preBlock := v.bc.GetBlock(block.ParentHash(), block.NumberU64() - 1)
+	preBlock := v.bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if preBlock == nil {
 		log.Info("ValidateBody snail get parent block error", "block", block.Number(), "hash", block.Hash(), "parent", block.ParentHash())
 		return consensus.ErrUnknownAncestor
@@ -113,13 +104,13 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 	fruits := block.Fruits()
 	for _, fruit := range fruits {
-		if fruit.FastNumber().Uint64() - temp != 1 {
+		if fruit.FastNumber().Uint64()-temp != 1 {
 			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "first", fruits[0].FastNumber(), "count", len(fruits),
-				"fruit", fruit.FastNumber(),  "pre", temp)
+				"fruit", fruit.FastNumber(), "pre", temp)
 			return ErrInvalidFruits
 		}
 		if err := v.ValidateFruit(fruit, block, false); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(),  "err", err)
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "err", err)
 			return err
 		}
 
@@ -150,8 +141,6 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 	return nil
 }
 
-
-
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
 	//
@@ -169,7 +158,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
 		log.Info("valid fruit sign hash failed.")
-		return ErrInvalidSign
+		return ErrInvalidSignHash
 	}
 
 	// check freshness
@@ -190,7 +179,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	// validate the signatures of this fruit
-	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.Signs()); err != nil {
+	if err := v.engine.VerifySigns(fruit.FastNumber(), fruit.FastHash(), fruit.Signs()); err != nil {
 		log.Info("validate fruit VerifySigns failed.", "err", err)
 		return err
 	}

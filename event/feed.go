@@ -92,6 +92,31 @@ func (f *Feed) Subscribe(channel interface{}) Subscription {
 	return sub
 }
 
+
+
+// The channel should have ample buffer space to avoid blocking other subscribers.
+// Slow subscribers are not dropped.
+func (f *Feed) SubscribeSync(channel interface{}) Subscription {
+	f.once.Do(f.init)
+
+	chanval := reflect.ValueOf(channel)
+	chantyp := chanval.Type()
+	if chantyp.Kind() != reflect.Chan || chantyp.ChanDir()&reflect.SendDir == 0 {
+		panic(errBadChannel)
+	}
+	sub := &feedSub{feed: f, channel: chanval, err: make(chan error, 1)}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	//if !f.typecheck(chantyp.Elem()) {
+	//	panic(feedTypeError{op: "Subscribe", got: chantyp, want: reflect.ChanOf(reflect.SendDir, f.etype)})
+	//}
+	// Add the select case to the inbox.
+	// The next Send will add it to f.sendCases.
+	cas := reflect.SelectCase{Dir: reflect.SelectSend, Chan: chanval}
+	f.inbox = append(f.inbox, cas)
+	return sub
+}
 // note: callers must hold f.mu
 func (f *Feed) typecheck(typ reflect.Type) bool {
 	if f.etype == nil {

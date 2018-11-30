@@ -1328,4 +1328,5 @@ func (d *downloaderPeerNotify) registerPeer(p *peer) {
 func (d *downloaderPeerNotify) unregisterPeer(p *peer) {
 	pm := (*ProtocolManager)(d)
 	pm.downloader.UnregisterPeer(p.id)
+
 }

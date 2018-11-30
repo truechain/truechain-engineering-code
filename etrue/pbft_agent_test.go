@@ -3,7 +3,6 @@ package etrue
 import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/crypto"
@@ -191,7 +190,7 @@ func printNodeWork(t *testing.T,nodeWork *nodeInfoWork,str string){
 
 
 //////////////////////////////////////////////////////////////////////////////////
-func (self *PbftAgent) sendSubScribedEvent() {
+/*func (self *PbftAgent) sendSubScribedEvent() {
 	self.electionSub = self.election.SubscribeElectionEvent(self.electionCh)
 }
 
@@ -270,4 +269,4 @@ func (self *PbftAgent) sendElectionEvent() {
 			})
 		}
 	}()
-}
+}*/

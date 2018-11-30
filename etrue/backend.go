@@ -31,6 +31,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -72,10 +73,10 @@ type Truechain struct {
 	// Handlers
 	txPool *core.TxPool
 
-	snailPool *core.SnailPool
+	snailPool *chain.SnailPool
 
 	agent    *PbftAgent
-	election *core.Election
+	election *elect.Election
 
 	blockchain      *core.BlockChain
 	snailblockchain *chain.SnailBlockChain
@@ -126,15 +127,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	chainConfig, genesisHash, genesisErr, snailConfig, snailHash, snailErr := core.SetupGenesisBlock(chainDb, config.Genesis)
+	chainConfig, genesisHash, _, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}
-	if _, ok := snailErr.(*params.ConfigCompatError); snailErr != nil && !ok {
-		return nil, snailErr
-	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
-	log.Info("Initialised chain configuration", "config", snailConfig)
 
 	etrue := &Truechain{
 		config:         config,
@@ -184,11 +181,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
-	if compat, ok := snailErr.(*params.ConfigCompatError); ok {
-		log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-		etrue.snailblockchain.SetHead(compat.RewindTo)
-		rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
-	}
+	// TODO: rewind snail if case of incompatible config
+	// if compat, ok := snailErr.(*params.ConfigCompatError); ok {
+	// 	log.Warn("Rewinding chain to upgrade configuration", "err", compat)
+	// 	etrue.snailblockchain.SetHead(compat.RewindTo)
+	// 	rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
+	// }
+
 	// TODO: start bloom indexer
 	//etrue.bloomIndexer.Start(etrue.blockchain)
 
@@ -205,9 +204,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	etrue.snailPool = core.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
+	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = core.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = elect.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
@@ -453,7 +452,7 @@ func (s *Truechain) Config() *Config                   { return s.config }
 func (s *Truechain) SnailBlockChain() *chain.SnailBlockChain { return s.snailblockchain }
 func (s *Truechain) TxPool() *core.TxPool                    { return s.txPool }
 
-func (s *Truechain) SnailPool() *core.SnailPool { return s.snailPool }
+func (s *Truechain) SnailPool() *chain.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }

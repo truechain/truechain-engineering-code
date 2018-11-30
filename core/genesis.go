@@ -141,15 +141,15 @@ func (e *GenesisMismatchError) Error() string {
 // error is a *params.ConfigCompatError and the new, unwritten config is returned.
 //
 // The returned chain configuration is never nil.
-func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error, *params.ChainConfig, common.Hash, error) {
+func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
-		return params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig, params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig
+		return params.AllMinervaProtocolChanges, common.Hash{}, common.Hash{}, errGenesisNoConfig
 	}
 
 	fastConfig, fastHash, fastErr := setupFastGenesisBlock(db, genesis)
-	snailConfig, snailHash, snailErr := setupSnailGenesisBlock(db, genesis)
+	_, snailHash, _ := setupSnailGenesisBlock(db, genesis)
 
-	return fastConfig, fastHash, fastErr, snailConfig, snailHash, snailErr
+	return fastConfig, fastHash, snailHash, fastErr
 
 }
 
@@ -347,36 +347,12 @@ func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainC
 	if genesis != nil {
 		hash := genesis.ToSnailBlock(nil).Hash()
 		if hash != stored {
-			return genesis.Config, hash, &types.GenesisMismatchError{stored, hash}
+			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
 	}
 
 	// Get the existing chain configuration.
 	newcfg := genesis.configOrDefault(stored)
-	storedcfg := snaildb.ReadChainConfig(db, stored)
-	if storedcfg == nil {
-		log.Warn("Found genesis block without chain config")
-		snaildb.WriteChainConfig(db, stored, newcfg)
-		return newcfg, stored, nil
-	}
-	// Special case: don't change the existing config of a non-mainnet chain if no new
-	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
-	// if we just continued here.
-	if genesis == nil && stored != params.MainnetGenesisHash {
-		return storedcfg, stored, nil
-	}
-
-	// Check config compatibility and write the config. Compatibility errors
-	// are returned to the caller unless we're already at block zero.
-	height := snaildb.ReadHeaderNumber(db, snaildb.ReadHeadHeaderHash(db))
-	if height == nil {
-		return newcfg, stored, fmt.Errorf("missing block number for head header hash")
-	}
-	compatErr := storedcfg.CheckCompatible(newcfg, *height)
-	if compatErr != nil && *height != 0 && compatErr.RewindTo != 0 {
-		return newcfg, stored, compatErr
-	}
-	snaildb.WriteChainConfig(db, stored, newcfg)
 	return newcfg, stored, nil
 }
 
@@ -418,13 +394,14 @@ func (g *Genesis) CommitSnail(db ethdb.Database) (*types.SnailBlock, error) {
 	snaildb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	snaildb.WriteHeadBlockHash(db, block.Hash())
 	snaildb.WriteHeadHeaderHash(db, block.Hash())
+	// Write genesis election committeee
 	snaildb.WriteCommittee(db, block.NumberU64(), g.Committee)
 
-	config := g.Config
-	if config == nil {
-		config = params.AllMinervaProtocolChanges
-	}
-	snaildb.WriteChainConfig(db, block.Hash(), config)
+	// config := g.Config
+	// if config == nil {
+	// 	config = params.AllMinervaProtocolChanges
+	// }
+	// snaildb.WriteChainConfig(db, block.Hash(), config)
 	return block, nil
 }
 
@@ -480,7 +457,11 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 		return g.Config
 	case ghash == params.MainnetGenesisHash:
 		return params.MainnetChainConfig
+	case ghash == params.MainnetSnailGenesisHash:
+		return params.MainnetChainConfig
 	case ghash == params.TestnetGenesisSHash:
+		return params.TestnetChainConfig
+	case ghash == params.TestnetSnailGenesisHash:
 		return params.TestnetChainConfig
 	default:
 		return params.AllMinervaProtocolChanges

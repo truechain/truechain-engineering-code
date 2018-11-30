@@ -591,14 +591,14 @@ func (self *worker) commitNewWork() {
 
 	fruits := self.etrue.SnailPool().PendingFruits()
 
-	pendingFruits := self.copyPendingFruit(fruits,self.chain)
+	pendingFruits := self.CopyPendingFruit(fruits,self.chain)
 	//for create a new fruits for worker
 	//self.copyPendingFruit(fruits)
-	self.commitFastBlocksByWoker(pendingFruits, self.chain, self.fastchain, self.engine)
+	self.CommitFastBlocksByWoker(pendingFruits, self.chain, self.fastchain, self.engine)
 
 	// only miner fruit if not fruit set only miner the fruit
 	if !self.FruitOnly {
-		self.commitFruits(pendingFruits, self.chain, self.engine)
+		self.CommitFruits(pendingFruits, self.chain, self.engine)
 	}
 
 	if work.fruits != nil {
@@ -722,7 +722,7 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 
 // TODO: check fruits continue with last snail block
 // find all fruits and start to the last parent fruits number and end continue fruit list
-func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
+func (self *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
 	//var fruits []*types.SnailBlock
@@ -802,7 +802,7 @@ func (self *worker) commitFruits(fruits []*types.SnailBlock, bc *chain.SnailBloc
 
 //create a new list that maye add one fruit who just mined but not add in to pending list
 // make sure not need mined the same fruit
-func (self *worker) copyPendingFruit(fruits map[common.Hash]*types.SnailBlock,bc *chain.SnailBlockChain ) []*types.SnailBlock{
+func (self *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock,bc *chain.SnailBlockChain ) []*types.SnailBlock{
 
 
 	// get current block the biggest fruit fastnumber
@@ -886,7 +886,7 @@ func (self *worker) commitFastNumber(fastBlockHight, snailFruitsLastFastNumber *
 }
 
 // find a corect fast block to miner
-func (self *worker) commitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) error {
+func (self *worker) CommitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, fc *core.BlockChain, engine consensus.Engine) error {
 	//get current snailblock block and fruits
 
 	snailblockFruits := bc.CurrentBlock().Fruits()

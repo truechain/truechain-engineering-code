@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
-package core
+package election
 
 import (
 	"bytes"
@@ -30,6 +30,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/log"
@@ -112,7 +113,7 @@ type Election struct {
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
 
-	fastchain  *BlockChain
+	fastchain  *core.BlockChain
 	snailchain SnailBlockChain
 
 	engine consensus.Engine
@@ -145,12 +146,10 @@ type SnailBlockChain interface {
 }
 
 type Config interface {
-
 	GetNodeType() bool
 }
 
-
-func NewElction(fastBlockChain *BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
+func NewElction(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
 	election := &Election{
 		fastchain:        fastBlockChain,
@@ -184,7 +183,7 @@ func NewFakeElection() *Election {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
 
-	for i := 0; i < 4; i++ {
+	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
 		priKey, err := crypto.GenerateKey()
 		priKeys = append(priKeys,priKey)
 		if err != nil {
@@ -451,7 +450,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		}
 	}
 
-	log.Info("get committee", "electFirst", beginElectionNumber, "electLast", endElectionNumber, "lastFast", lastFastNumber)
+	log.Debug("get committee", "electFirst", beginElectionNumber, "electLast", endElectionNumber, "lastFast", lastFastNumber)
 
 	members := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 	return &committee{
@@ -533,27 +532,13 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 
 	e.mu.RLock()
 	currentCommittee := e.committee
-	nextCommittee := e.nextCommittee
 	e.mu.RUnlock()
 
 	info := make(map[string]interface{})
 
-	if currentCommittee.id.Cmp(id) == 0 {
-		members = currentCommittee.Members()
+	if currentCommittee.id.Cmp(id) < 0 {
+		return nil
 	}
-	if nextCommittee != nil {
-		if nextCommittee.id.Cmp(id) == 0 {
-			members = nextCommittee.Members()
-		}
-		if nextCommittee.id.Cmp(id) < 0 {
-			return nil
-		}
-	} else {
-		if currentCommittee.id.Cmp(id) < 0 {
-			return nil
-		}
-	}
-
 	if id.Cmp(common.Big0) <= 0 {
 		// Use genesis committee
 		info["id"] = 0
@@ -561,22 +546,46 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		info["endSnailNumber"] = 0
 		info["memberCount"] = len(e.genesisCommittee)
 		info["members"] = membersDisplay(e.genesisCommittee)
+		info["beginNumber"] = 1
+		if currentCommittee.id.Cmp(id) == 0 {
+			// Committee end fast number may not be available when current snail lower than commiteeId * period
+			if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
+				info["endNumber"] = currentCommittee.endFastNumber.Uint64()
+			}
+		} else {
+			end := new(big.Int).Sub(params.ElectionPeriodNumber, params.SnailConfirmInterval)
+			info["endNumber"] = e.getLastNumber(big.NewInt(1), end).Uint64()
+		}
 		return info
 	}
-
-
 	// Calclulate election members from previous election period
 	endElectionNumber := new(big.Int).Mul(id, params.ElectionPeriodNumber)
-	beginElectionNumber := new(big.Int).Sub(endElectionNumber, params.ElectionPeriodNumber)
+	endElectionNumber.Sub(endElectionNumber, params.SnailConfirmInterval)
+	beginElectionNumber := new(big.Int).Add(new(big.Int).Sub(endElectionNumber, params.ElectionPeriodNumber), common.Big1)
+	if beginElectionNumber.Cmp(common.Big0) <= 0 {
+		beginElectionNumber = new(big.Int).Set(common.Big1)
+	}
+
 	// members = e.electCommittee(beginElectionNumber, endElectionNumber)
 	members = e.getElectionMembers(beginElectionNumber, endElectionNumber)
-
 	if members != nil {
 		info["id"] = id.Uint64()
 		info["memberCount"] = len(members)
 		info["beginSnailNumber"] = beginElectionNumber.Uint64()
 		info["endSnailNumber"] = endElectionNumber.Uint64()
 		info["members"] = membersDisplay(members)
+		info["beginNumber"] = new(big.Int).Add(e.getLastNumber(beginElectionNumber, endElectionNumber), common.Big1).Uint64()
+		// Committee end fast number may be nil if current committee is working on
+		if currentCommittee.id.Cmp(id) == 0 {
+			// Committee end fast number may not be available when current snail lower than commiteeId * period
+			if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
+				info["endNumber"] = currentCommittee.endFastNumber.Uint64()
+			}
+		} else {
+			begin := new(big.Int).Add(beginElectionNumber, params.ElectionPeriodNumber)
+			end := new(big.Int).Add(endElectionNumber, params.ElectionPeriodNumber)
+			info["endNumber"] = new(big.Int).Sub(e.getLastNumber(begin, end), common.Big1).Uint64()
+		}
 		return info
 	}
 

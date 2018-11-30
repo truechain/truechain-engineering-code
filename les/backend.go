@@ -85,7 +85,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEthereum, error)
 	if err != nil {
 		return nil, err
 	}
-	chainConfig, genesisHash, genesisErr, _, _, _ := core.SetupGenesisBlock(chainDb, config.Genesis)
+	chainConfig, genesisHash, _, genesisErr := core.SetupGenesisBlock(chainDb, config.Genesis)
 	if _, isCompat := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !isCompat {
 		return nil, genesisErr
 	}

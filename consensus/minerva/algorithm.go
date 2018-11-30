@@ -50,9 +50,6 @@ const (
 //var trueInit int = 0;
 //var tableLookup [16 * 2048 * 32 * 4]uint64
 
-
-
-
 // hasher is a repetitive hasher allowing the same hash data structures to be
 // reused between hash runs instead of requiring new ones to be created.
 type hasher func(dest []byte, data []byte)
@@ -88,7 +85,6 @@ func swap(buffer []byte) {
 		binary.BigEndian.PutUint32(buffer[i:], binary.LittleEndian.Uint32(buffer[i:]))
 	}
 }
-
 
 // fnv is an algorithm inspired by the FNV hash, which in some cases is used as
 // a non-associative substitute for XOR. Note that we multiply the prime with
@@ -228,8 +224,4 @@ func truehashFull(dataset []uint64, hash []byte, nonce uint64) ([]byte, []byte) 
 	return truehash(dataset[:], hash[:], nonce)
 }
 
-
-
-
 const maxEpoch = 2048
-

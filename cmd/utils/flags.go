@@ -335,17 +335,17 @@ var (
 	SnailPoolJournalFlag = cli.StringFlag{
 		Name:  "fruitpool.journal",
 		Usage: "Disk journal for local fruit to survive node restarts",
-		Value: core.DefaultSnailPoolConfig.Journal,
+		Value: snailchain.DefaultSnailPoolConfig.Journal,
 	}
 	SnailPoolRejournalFlag = cli.DurationFlag{
 		Name:  "fruitpool.rejournal",
 		Usage: "Time interval to regenerate the local fruit journal",
-		Value: core.DefaultSnailPoolConfig.Rejournal,
+		Value: snailchain.DefaultSnailPoolConfig.Rejournal,
 	}
 	SnailPoolFruitCountFlag = cli.Uint64Flag{
 		Name:  "fruitpool.count",
 		Usage: "Maximum amount of fruits in fruitPending",
-		Value: core.DefaultSnailPoolConfig.FruitCount,
+		Value: snailchain.DefaultSnailPoolConfig.FruitCount,
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
@@ -1085,7 +1085,7 @@ func setEthash(ctx *cli.Context, cfg *etrue.Config) {
 	}
 }
 
-func setSnailPool(ctx *cli.Context, cfg *core.SnailPoolConfig) {
+func setSnailPool(ctx *cli.Context, cfg *snailchain.SnailPoolConfig) {
 	if ctx.GlobalIsSet(SnailPoolJournalFlag.Name) {
 		cfg.Journal = ctx.GlobalString(SnailPoolJournalFlag.Name)
 	}
@@ -1160,14 +1160,14 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
 	setSnailPool(ctx, &cfg.SnailPool)
-	/*switch {
+	switch {
 	case ctx.GlobalIsSet(SyncModeFlag.Name):
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	case ctx.GlobalBool(FastSyncFlag.Name):
 		cfg.SyncMode = downloader.FastSync
 	case ctx.GlobalBool(LightModeFlag.Name):
 		cfg.SyncMode = downloader.LightSync
-	}*/
+	}
 
 	if ctx.GlobalIsSet(LightServFlag.Name) {
 		cfg.LightServ = ctx.GlobalInt(LightServFlag.Name)
@@ -1432,12 +1432,9 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
 
-	config, _, err, _, _, snailErr := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+	config, _, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
 	if err != nil {
 		Fatalf("%v", err)
-	}
-	if snailErr != nil {
-		Fatalf("%v", snailErr)
 	}
 	var engine consensus.Engine
 	// if config.Clique != nil {

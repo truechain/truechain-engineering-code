@@ -69,9 +69,9 @@ func NewServer(nodeID string, id *big.Int, help consensus.ConsensusHelp,
 	server := &Server{ID: new(big.Int).Set(id), help: help}
 	node := NewNode(nodeID, verify, server, addrs, id)
 	server.Node = node
-	server.Node.NTLock.Lock()
+	server.Node.NTLock.RLock()
 	server.url = node.NodeTable[nodeID]
-	server.Node.NTLock.Unlock()
+	server.Node.NTLock.RUnlock()
 	server.server = &http.Server{
 		Addr: server.url,
 	}
@@ -97,12 +97,12 @@ func (server *Server) Stop() {
 	if server.server != nil {
 		server.server.Close()
 	}
-	ac := &consensus.ActionIn{
-		AC:     consensus.ActionFinish,
-		ID:     new(big.Int).Set(common.Big0),
-		Height: new(big.Int).Set(common.Big0),
-	}
-	server.ActionChan <- ac
+	//ac := &consensus.ActionIn{
+	//	AC:     consensus.ActionFinish,
+	//	ID:     new(big.Int).Set(common.Big0),
+	//	Height: new(big.Int).Set(common.Big0),
+	//}
+	//server.ActionChan <- ac
 }
 func (server *Server) setRoute() {
 	mux := http.NewServeMux()

@@ -23,6 +23,10 @@ var (
 	// that is unknown.
 	ErrUnknownAncestor = errors.New("unknown ancestor")
 
+	ErrBlockOnChain = errors.New("block already insert fastchain")
+
+	ErrForkFastBlock = errors.New("fork fastBlock")
+
 	// ErrPrunedAncestor is returned when validating a block requires an ancestor
 	// that is known, but the state of which is not available.
 	ErrPrunedAncestor = errors.New("pruned ancestor")

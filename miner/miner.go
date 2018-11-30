@@ -43,7 +43,7 @@ type Backend interface {
 	SnailBlockChain() *snailchain.SnailBlockChain
 	BlockChain() *core.BlockChain
 	TxPool() *core.TxPool
-	SnailPool() *core.SnailPool
+	SnailPool() *snailchain.SnailPool
 	ChainDb() ethdb.Database
 	//Election() *etrue.Election
 }

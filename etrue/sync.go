@@ -17,6 +17,7 @@
 package etrue
 
 import (
+	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -263,6 +264,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
+		log.Warn("synchronise peer nil>>>")
 		return
 	}
 	// Make sure the peer's TD is higher than our own
@@ -273,7 +275,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
-		header, err := pm.fdownloader.FetchHeight(peer.id);
+		header, err := pm.fdownloader.FetchHeight(peer.id,0);
 		if err != nil || header == nil {
 			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
@@ -284,7 +286,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 
 			for {
-
 				fbNum := pm.blockchain.CurrentBlock().NumberU64()
 				height := header.Number.Uint64() - fbNum
 
@@ -300,8 +301,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
 					for {
 
-						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-						//time.Sleep(1*time.Second)
+						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
 							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 							return
@@ -347,7 +347,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 	}
 
-	mode = downloader.FullSync
+	//mode = downloader.FullSync
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)

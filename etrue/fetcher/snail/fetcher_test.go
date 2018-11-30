@@ -18,51 +18,64 @@ package snailfetcher
 
 import (
 	"errors"
-	"math/big"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/common"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/election"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var (
-	testdb       = ethdb.NewMemDatabase()
-	testKey, _   = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-	testAddress  = crypto.PubkeyToAddress(testKey.PublicKey)
-	genesis      = snailchain.GenesisBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
-	unknownBlock = types.NewSnailBlock(&types.SnailHeader{}, nil, nil, nil)
+	canonicalSeed = 1
+	forkSeed      = 2
 )
+
+// makeBlockChain creates a deterministic chain of blocks rooted at parent.
+func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+	engine.SetElection(election.NewFakeElection())
+	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
+		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
+	})
+
+	return blocks
+}
 
 // makeChain creates a chain of n blocks starting at and including parent.
 // the returned hash chain is ordered head->parent. In addition, every 3rd block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
-func makeChain(n int, seed byte, parent *types.SnailBlock) ([]common.Hash, map[common.Hash]*types.SnailBlock) {
-	blocks, _ := snailchain.GenerateChain(params.TestChainConfig, parent, ethash.NewFaker(), testdb, n, func(i int, block *snailchain.BlockGen) {
-		block.SetCoinbase(common.Address{seed})
+func makeChain(n int) ([]*types.SnailBlock, *types.SnailBlock) {
+	var (
+		testdb  = ethdb.NewMemDatabase()
+		genesis = core.DefaultGenesisBlock()
+		engine  = minerva.NewFaker()
+		// genesis = new(core.Genesis).MustSnailCommit(testdb)
 
-		// If the block number is a multiple of 5, add a bonus uncle to the block
-		if i%5 == 0 {
-			block.AddUncle(&types.SnailHeader{ParentHash: block.PrevBlock(i - 1).Hash(), Number: big.NewInt(int64(i - 1))})
-		}
-	})
-	hashes := make([]common.Hash, n+1)
-	hashes[len(hashes)-1] = parent.Hash()
-	blockm := make(map[common.Hash]*types.SnailBlock, n+1)
-	blockm[parent.Hash()] = parent
-	for i, b := range blocks {
-		hashes[len(hashes)-i-2] = b.Hash()
-		blockm[b.Hash()] = b
-	}
-	return hashes, blockm
+	)
+
+	//blocks := make(types.SnailBlocks, 2)
+	cache := &core.CacheConfig{}
+	fastGenesis := genesis.MustFastCommit(testdb)
+	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	fastblocks := makeFast(fastGenesis, n*params.MinimumFruits, engine, testdb, canonicalSeed)
+	fastchain.InsertChain(fastblocks)
+
+	snailGenesis := genesis.MustSnailCommit(testdb)
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+
+	blocks1, _ := snailchain.MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
+
+	return blocks1, snailGenesis
 }
 
 // fetcherTester is a test simulator for mocking out local block chain.
@@ -77,7 +90,7 @@ type fetcherTester struct {
 }
 
 // newTester creates a new fetcher test mocker.
-func newTester() *fetcherTester {
+func newTester(genesis *types.SnailBlock) *fetcherTester {
 	tester := &fetcherTester{
 		hashes: []common.Hash{genesis.Hash()},
 		blocks: map[common.Hash]*types.SnailBlock{genesis.Hash(): genesis},
@@ -169,10 +182,10 @@ func TestImportDeduplication64(t *testing.T) { testImportDeduplication(t, 64) }
 
 func testImportDeduplication(t *testing.T, protocol int) {
 	// Create two blocks to import (one for duplication, the other for stalling)
-	hashes, blocks := makeChain(1, 0, genesis)
+	blocks, snailGenesis := makeChain(1)
 
 	// Create the tester and wrap the importer with a counter
-	tester := newTester()
+	tester := newTester(snailGenesis)
 
 	counter := uint32(0)
 	tester.fetcher.insertChain = func(blocks types.SnailBlocks) (int, error) {
@@ -180,12 +193,12 @@ func testImportDeduplication(t *testing.T, protocol int) {
 		return tester.insertChain(blocks)
 	}
 
-	tester.fetcher.Enqueue("valid", blocks[hashes[0]])
-	tester.fetcher.Enqueue("valid", blocks[hashes[0]])
-	tester.fetcher.Enqueue("valid", blocks[hashes[0]])
+	tester.fetcher.Enqueue("valid", blocks[0])
+	tester.fetcher.Enqueue("valid", blocks[0])
+	tester.fetcher.Enqueue("valid", blocks[0])
 
 	// Fill the missing block directly as if propagated, and check import uniqueness
-	tester.fetcher.Enqueue("valid", blocks[hashes[1]])
+	//tester.fetcher.Enqueue("valid", blocks[1])
 
 	if len(tester.blocks) != 2 {
 		t.Fatalf("import invocation count mismatch: have %v, want %v", counter, 2)
