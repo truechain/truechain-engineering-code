@@ -314,25 +314,25 @@ func (s *Truechain) APIs() []rpc.API {
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
 	// Append etrue	APIs and  Eth APIs
-	namespaces :=[]string{"etrue","eth"}
-	for _,name :=range namespaces{
-		apis = append(apis,[]rpc.API{
+	namespaces := []string{"etrue", "eth"}
+	for _, name := range namespaces {
+		apis = append(apis, []rpc.API{
 			{
 				Namespace: name,
 				Version:   "1.0",
 				Service:   NewPublicTruechainAPI(s),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   NewPublicMinerAPI(s),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
@@ -342,7 +342,7 @@ func (s *Truechain) APIs() []rpc.API {
 	}
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
-		 {
+		{
 			Namespace: "miner",
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
@@ -404,7 +404,7 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 func (s *Truechain) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
-	s.agent.committeeNode.Coinbase =etherbase
+	s.agent.committeeNode.Coinbase = etherbase
 	s.lock.Unlock()
 
 	s.miner.SetEtherbase(etherbase)
