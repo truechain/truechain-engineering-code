@@ -1019,7 +1019,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 	}
 	root, err := state.Commit(true)
-	log.Info("WriteBlockWithState info ", "stateRoot", root)
 	if err != nil {
 		return NonStatTy, err
 	}
