@@ -465,3 +465,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 
 	return snailChain, fastchain
 }
+
+
+func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
+	return MakeChain(snailBlockNumbers * params.MinimumFruits, snailBlockNumbers)
+}

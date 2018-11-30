@@ -520,7 +520,7 @@ func (bc *SnailBlockChain) HasBlockAndState(hash common.Hash, number uint64) boo
 	if block == nil {
 		return false
 	}
-	return true
+	return rawdb.ReadCanonicalHash(bc.db, number) == hash
 }
 
 // GetBlock retrieves a block from the database by hash and number,
@@ -585,6 +585,19 @@ func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []
 	}
 	return
 }
+
+func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*types.SnailBlock) {
+	currentNumber := bc.CurrentBlock().Number()
+	for i := fromNumber; i <= currentNumber.Uint64(); i++ {
+		block := bc.GetBlockByNumber(i)
+		if block == nil {
+			break
+		}
+		blocks = append(blocks, block)
+	}
+	return
+}
+
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.

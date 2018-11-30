@@ -143,10 +143,10 @@ func (journal *snailJournal) rotate(all []*types.SnailBlock) error {
 	}
 
 	for _, fruit := range all {
-			if err = rlp.Encode(replacement, fruit); err != nil {
-				replacement.Close()
-				return err
-			}
+		if err = rlp.Encode(replacement, fruit); err != nil {
+			replacement.Close()
+			return err
+		}
 	}
 	replacement.Close()
 
@@ -160,7 +160,6 @@ func (journal *snailJournal) rotate(all []*types.SnailBlock) error {
 	}
 	journal.writer = sink
 	log.Info("Regenerated local fruit journal", "fruits", len(all))
-
 	return nil
 }
 
