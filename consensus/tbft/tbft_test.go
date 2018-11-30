@@ -995,9 +995,120 @@ func signAddVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, voteset 
 func TestVote(t *testing.T) {
 	bid := makeBlockID(nil, ttypes.PartSetHeader{})
 	fmt.Println(bid.String())
+	aa := len(bid.Hash)
+	fmt.Println("aa:",aa)
 }
 func makeBlockID(hash []byte, header ttypes.PartSetHeader) ttypes.BlockID {
 	blockid := ttypes.BlockID{hash, header}
 	fmt.Println(blockid.String())
 	return blockid
+}
+
+func TestTock(t *testing.T) {
+	taskTimeOut := 3
+	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	ttock := NewTimeoutTicker("ttock")
+	ttock.Start()
+	
+	ttock.ScheduleTimeout(timeoutInfo{d, 1, uint(0), 0, false})
+	go TimeoutRoutine(&ttock)
+
+	time.Sleep(30 *time.Second)
+	ttock.Stop()
+}
+
+func TimeoutRoutine(tt *TimeoutTicker) {
+	var pos uint = 0
+	for {
+		if pos >= 30 {
+			return
+		}
+		select {
+		case <-(*tt).Chan(): // tockChan:
+			pos++
+			fmt.Println(time.Now(),pos)
+		}
+	}
+
+}
+func TestPrivKey(t *testing.T) {
+	priv1,_ := crypto.HexToECDSA("2ee9b9082e3eb19378d478f450e0e818e94cf7e3bf13ad5dd657ef2a35fbb0a8")
+	tPriv1 := tcrypto.PrivKeyTrue(*priv1)
+	addr1 := tPriv1.PubKey().Address()
+	id1 := hex.EncodeToString(addr1[:])
+	fmt.Println("id1",id1)
+
+	priv2,_ := crypto.HexToECDSA("1bc73ab677ed9c3518417339bb5716e32fbc56e888c98d2e63e190dd51ca7eda")
+	tPriv2 := tcrypto.PrivKeyTrue(*priv2)
+	addr2 := tPriv2.PubKey().Address()
+	id2 := hex.EncodeToString(addr2[:])
+	fmt.Println("id2",id2)
+
+	priv3,_ := crypto.HexToECDSA("d0c3b151031a8a90841dc18463d838cc8db29a10e7889b6991be0a3088702ca7")
+	tPriv3 := tcrypto.PrivKeyTrue(*priv3)
+	addr3 := tPriv3.PubKey().Address()
+	id3 := hex.EncodeToString(addr3[:])
+	fmt.Println("id3",id3)
+
+	priv4,_ := crypto.HexToECDSA("c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95")
+	tPriv4 := tcrypto.PrivKeyTrue(*priv4)
+	addr4 := tPriv4.PubKey().Address()
+	id4 := hex.EncodeToString(addr4[:])
+	fmt.Println("id4",id4)
+}
+func TestPutNodes(t *testing.T) {
+	log.OpenLogDebug(3)
+	IdCacheInit()
+	start := make(chan int)
+	pr1,_ := crypto.HexToECDSA("2ee9b9082e3eb19378d478f450e0e818e94cf7e3bf13ad5dd657ef2a35fbb0a8")
+	pr2,_ := crypto.HexToECDSA("1bc73ab677ed9c3518417339bb5716e32fbc56e888c98d2e63e190dd51ca7eda")
+	pr3,_ := crypto.HexToECDSA("d0c3b151031a8a90841dc18463d838cc8db29a10e7889b6991be0a3088702ca7")
+	pr4,_ := crypto.HexToECDSA("c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95")
+	agent1 := NewPbftAgent("Agent1")
+
+	config1 := new(config.Config)
+	*config1 = *config.TestConfig()
+	p2p1 := new(config.P2PConfig)
+	*p2p1 = *config1.P2P
+	p2p1.ListenAddress1 = "tcp://39.98.44.213:30310"
+	p2p1.ListenAddress2 = "tcp://39.98.44.213:30311"
+	*config1.P2P = *p2p1
+
+	con1 := new(config.ConsensusConfig)
+	*con1 = *config1.Consensus
+	con1.WalPath = filepath.Join("data", "cs.wal1", "wal")
+	*config1.Consensus = *con1
+
+	n1, _ := NewNode(config1, "1", pr1, agent1)
+	n1.Start()
+
+	c1 := new(types.CommitteeInfo)
+	c1.Id = big.NewInt(1)
+	m1 := new(types.CommitteeMember)
+	m1.Publickey = GetPub(pr1)
+	m1.Coinbase = common.Address{0}
+	m2 := new(types.CommitteeMember)
+	m2.Publickey = GetPub(pr2)
+	m2.Coinbase = common.Address{0}
+	m3 := new(types.CommitteeMember)
+	m3.Publickey = GetPub(pr3)
+	m3.Coinbase = common.Address{0}
+	m4 := new(types.CommitteeMember)
+	m4.Publickey = GetPub(pr4)
+	m4.Coinbase = common.Address{0}
+
+	c1.Members = append(c1.Members, m1, m2,m3,m4)
+	c1.StartHeight = common.Big1
+
+	cn := make([]*types.CommitteeNode, 0)
+	cn = append(cn, &types.CommitteeNode{IP: "39.98.44.213", Port: 30310,Port2: 30311, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "39.98.58.86", Port: 30310,Port2: 30311, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "39.98.56.108", Port: 30310,Port2: 30311, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "39.98.36.181", Port: 30310,Port2: 30311, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
+
+	n1.PutCommittee(c1)
+	n1.PutNodes(common.Big1, cn)
+	n1.Notify(c1.Id, Start)
+
+	<-start
 }

@@ -52,9 +52,9 @@ func NewNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state tty
 	return &service{
 		sw:             p2p.NewSwitch(p2pcfg),
 		consensusState: NewConsensusState(cscfg, state, store),
-		nodeTable:      make(map[p2p.ID]*nodeInfo),
+		// nodeTable:      make(map[p2p.ID]*nodeInfo),
 		lock:           new(sync.Mutex),
-		updateChan:     make(chan bool),
+		updateChan:     make(chan bool,2),
 		eventBus:       ttypes.NewEventBus(),
 		// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 		// Note we currently use the addrBook regardless at least for AddOurAddress
@@ -62,6 +62,9 @@ func NewNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state tty
 	}
 }
 
+func (s *service) setNodes(nodes map[p2p.ID]*nodeInfo) {
+	s.nodeTable = nodes
+}
 func (s *service) start(cid *big.Int, node *Node) error {
 	err := s.eventBus.Start()
 	if err != nil {
@@ -152,7 +155,8 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
-		if _, ok := s.nodeTable[id]; !ok {
+		if v, ok := s.nodeTable[id]; (ok && v==nil) {
+			log.Info("Enter NodeInfo","id",id,"addr",addr)
 			s.nodeTable[id] = &nodeInfo{
 				ID:      id,
 				Adrress: addr,
@@ -181,9 +185,10 @@ func (s *service) connTo(node *nodeInfo) {
 	if node.Enable {
 		return
 	}
+	log.Info("[put nodes]connTo","addr",node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
-		log.Error("dail peer " + errDialErr.Error())
+		log.Error("[connTo] dail peer " + errDialErr.Error())
 	} else {
 		node.Enable = true
 	}
@@ -345,6 +350,12 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	}
 	store := ttypes.NewBlockStore()
 	service := NewNodeService(n.config.P2P, n.config.Consensus, state, store)
+	nodeinfo := makeCommitteeMembers(id.Uint64(),service,committeeInfo)
+	if nodeinfo == nil {
+		service.stop()
+		return errors.New("make the nil CommitteeMembers")
+	}
+	service.setNodes(nodeinfo)
 	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
@@ -386,6 +397,21 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 		vals = append(vals, v)
 	}
 	return ttypes.NewValidatorSet(vals)
+}
+func makeCommitteeMembers(cid uint64,ss *service,cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
+	members := cmm.Members
+	if ss == nil || len(members) <= 0{
+		return nil
+	}
+	tab := make(map[p2p.ID]*nodeInfo)
+	for i, m := range members {
+		tt := tcrypto.PubKeyTrue(*m.Publickey)
+		address := tt.Address()
+		id := p2p.ID(hex.EncodeToString(address))
+		tab[id] = nil
+		log.Info("CommitteeMembers","index",i,"id",id)
+	}
+	return tab
 }
 func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 	log.Info("SetCommitteeStop", "id", committeeId, "stop", stop)
