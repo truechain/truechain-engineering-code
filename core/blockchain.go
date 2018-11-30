@@ -310,8 +310,6 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
 
-
-
 	//log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
 
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
@@ -915,7 +913,6 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 
 		}
 
-
 		// Write all the data out into the database
 		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
 		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
@@ -1018,8 +1015,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		bc.currentReward.Store(br)
 
 	}
-
 	root, err := state.Commit(true)
+	log.Info("WriteBlockWithState info ", "stateRoot", root)
 	if err != nil {
 		return NonStatTy, err
 	}
@@ -1216,6 +1213,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		switch {
 		case err == ErrKnownBlock:
+			log.Warn("insertchain method error ", "err", err, ",currentBlock", bc.CurrentBlock().NumberU64(),
+				"receiveBlock", block.NumberU64())
 			// Block and state both already known. However if the current block is below
 			// this number we did a rollback and we should reimport it nonetheless.
 			if bc.CurrentBlock().NumberU64() >= block.NumberU64() {
@@ -1235,6 +1234,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			continue
 
 		case err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(block.ParentHash()):
+			log.Warn("insertchain method error ", "err", err, ",currentBlock", bc.CurrentBlock().NumberU64(),
+				"receiveBlock", block.NumberU64())
 			bc.futureBlocks.Add(block.Hash(), block)
 			stats.queued++
 			continue
@@ -1251,6 +1252,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			//	}
 			//	continue
 			//}
+			log.Warn("insertchain method error ", "err", err, ",currentBlock", bc.CurrentBlock().NumberU64(),
+				"receiveBlock", block.NumberU64())
 			// Competitor chain beat canonical, gather all blocks from the common ancestor
 			var winner []*types.Block
 
@@ -1768,5 +1771,5 @@ func (bc *BlockChain) GetBlockNumber() uint64  {
 		return bc.CurrentFastBlock().NumberU64()
 	}
 	return bc.CurrentBlock().NumberU64()
-	
+
 }

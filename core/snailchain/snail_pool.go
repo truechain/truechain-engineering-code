@@ -20,6 +20,7 @@ import (
 	"math"
 	"sync"
 	"time"
+	"errors"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -33,6 +34,11 @@ import (
 const (
 	fruitChanSize     = 1024
 	chainHeadChanSize = 10
+)
+
+var (
+	// ErrNotExist is returned if the fast block not exist in fastchain.
+	ErrNotExist = errors.New("not exist")
 )
 
 var (
@@ -581,7 +587,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
-		return ErrInvalidSign
+		return ErrInvalidSignHash
 	}
 	// check freshness
 	/*

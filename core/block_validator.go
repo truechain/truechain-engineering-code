@@ -54,6 +54,8 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		return ErrKnownBlock
 	}
 	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
+		log.Error("ValidateBody method","number",block.NumberU64()-1,
+			"hash",block.ParentHash(), "stateRoot",block.Root())
 		if !fv.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
@@ -73,7 +75,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	}
 
 	if validateSign {
-		if err := fv.bc.engine.VerifySigns(block.Number(), block.Signs()); err != nil {
+		if err := fv.bc.engine.VerifySigns(block.Number(), block.Hash(), block.Signs()); err != nil {
 			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())
 			return err
 		}
