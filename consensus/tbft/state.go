@@ -39,7 +39,7 @@ var (
 
 var (
 	msgQueueSize = 1000
-	taskTimeOut = 60
+	taskTimeOut = 120
 )
 
 // msgs from the reactor which may update the state
@@ -630,13 +630,15 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundSta
 	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
+	// update local state
+	cs.UpdateStateForSync()
 	// timeouts must be for current height, round, step
-	lh := cs.state.GetLastBlockHeight()
-	if ti.Height < (lh+1) {
-		cs.UpdateStateForSync()
-		log.Info("Received task tock,update state and tock","ti.height",ti.Height,"cs.height",cs.Height)
-		return
-	}
+	// lh := cs.state.GetLastBlockHeight()
+	// if ti.Height < (lh+1) {
+	// 	cs.UpdateStateForSync()
+	// 	log.Info("Received task tock,update state and tock","ti.height",ti.Height,"cs.height",cs.Height)
+	// 	return
+	// } 
 	log.Info("Received task tock End")
 }
 //-----------------------------------------------------------------------------
@@ -1230,14 +1232,18 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	if !help.EqualHashes(hash[:], blockID.Hash) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
-	if _, err := cs.state.ValidateBlock(block); err != nil {
-		log.Error("finalizeCommit",fmt.Sprintf("+2/3 committed an invalid block,: %v,back to the height:%v,round 0", err,cs.Height))
-		cs.updateToState(cs.state)
-		return
-	}
 	log.Info(fmt.Sprint("Finalizing commit of block,height:", block.NumberU64(), "hash:", common.ToHex(hash[:])))
 	// fail.Fail() // XXX
 
+	// Execute and commit the block, update and save the state, and update the mempool.
+	// NOTE The block.AppHash wont reflect these txs until the next block.
+	var err error
+	block.SetSign(signs)
+	err = cs.state.ConsensusCommit(block)
+	if err != nil {
+		log.Error("Error on ApplyBlock. Did the application crash? Please restart getrue", "err", err)
+		return
+	}
 	// Save to blockStore.
 	if cs.blockStore.MaxBlockHeight() < block.NumberU64() {
 		// NOTE: the seenCommit is local justification to commit this block,
@@ -1249,20 +1255,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
-
-	// Execute and commit the block, update and save the state, and update the mempool.
-	// NOTE The block.AppHash wont reflect these txs until the next block.
-	var err error
-	block.SetSign(signs)
-	err = cs.state.ConsensusCommit(block)
-	if err != nil {
-		log.Error("Error on ApplyBlock. Did the application crash? Please restart getrue", "err", err)
-		err := help.Kill()
-		if err != nil {
-			log.Error("Failed to kill this process - please do so manually", "err", err)
-		}
-		return
-	}
+	
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 
