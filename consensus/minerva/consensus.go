@@ -490,7 +490,7 @@ func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uin
 //
 func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error {
 	// validate the signatures of this fruit
-	var ms map[common.Address]uint
+	ms := make(map[common.Address]uint)
 	members := m.election.GetCommittee(fastnumber)
 	if members == nil {
 		log.Warn("VerifySigns get committee failed.", "number", fastnumber)
