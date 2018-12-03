@@ -390,8 +390,9 @@ func (state *StateAgentImpl) SetEndHeight(h uint64) {
 func (state *StateAgentImpl) GetChainID() string {
 	return state.ChainID
 }
-func (state *StateAgentImpl) SetPrivValidator(priv *privValidator) {
-	state.Priv = priv
+func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
+	pp := (priv).(*privValidator)
+	state.Priv = pp
 }
 func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 	committeeID := new(big.Int).SetUint64(state.CID)

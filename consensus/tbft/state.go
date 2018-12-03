@@ -355,6 +355,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	cs.updateToState(cs.state)
+	log.Info("Reset privValidator","height",cs.Height)
 	cs.state.PrivReset()
 	sleepDuration := time.Duration(1) * time.Millisecond
 	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})

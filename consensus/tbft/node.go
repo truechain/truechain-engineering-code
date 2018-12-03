@@ -96,6 +96,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 
 	privValidator := ttypes.NewPrivValidator(*node.priv)
 	s.consensusState.SetPrivValidator(privValidator)
+	s.sa.SetPrivValidator(privValidator)
 	// Start the switch (the P2P server).
 	err = s.sw.Start()
 	if err != nil {
