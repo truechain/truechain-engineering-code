@@ -54,7 +54,7 @@ type timeoutInfo struct {
 	Height   uint64               `json:"height"`
 	Round    uint                 `json:"round"`
 	Step     ttypes.RoundStepType `json:"step"`
-	Wait     bool                 `json:"wait"`
+	Wait     uint                 `json:"wait"`
 }
 
 func (ti *timeoutInfo) String() string {
@@ -341,12 +341,12 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, false})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 0})
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
 func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64, round int, step ttypes.RoundStepType) {
-	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, uint(round), step, false})
+	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, uint(round), step, 0})
 }
 
 func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
@@ -356,10 +356,11 @@ func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	cs.updateToState(cs.state)
 	cs.state.PrivReset()
-	sleepDuration := cs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
-	cs.scheduleTimeout(sleepDuration, cs.Height, 0, ttypes.RoundStepNewHeight)
+	sleepDuration := time.Duration(1) * time.Millisecond
+	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
+
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, false})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
 	log.Info("end UpdateStateForSync","height",cs.Height)
 }
 
@@ -691,7 +692,7 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 
 	cs.eventBus.PublishEventNewRound(cs.RoundStateEvent())
 	// cs.metrics.Rounds.Set(float64(round))
-	cs.tryEnterProposal(height, round, false)
+	cs.tryEnterProposal(height, round, 0)
 }
 
 func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
@@ -726,7 +727,7 @@ func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)
 // Enter (CreateEmptyBlocks, CreateEmptyBlocksInterval > 0 ): after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
-func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait bool) {
+func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) {
 	if cs.Height != height || round < int(cs.Round) || (int(cs.Round) == round && ttypes.RoundStepPropose <= cs.Step) {
 		log.Debug(fmt.Sprintf("tryenterPropose(%v/%v): Invalid args. Current step: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
 		return
@@ -780,9 +781,9 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait bool) 
 
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
-	if empty && cs.config.CreateEmptyBlocks && round == 0 && !wait {
+	if empty && cs.config.CreateEmptyBlocks && round == 0 && wait==0 {
 		// if cs.config.CreateEmptyBlocksInterval > 0 {
-		cs.scheduleTimeoutWithWait(timeoutInfo{cs.config.EmptyBlocksInterval(), height, uint(round), ttypes.RoundStepNewRound, true})
+		cs.scheduleTimeoutWithWait(timeoutInfo{cs.config.EmptyBlocksInterval(), height, uint(round), ttypes.RoundStepNewRound, 1})
 		// }
 		go cs.proposalHeartbeat(height, round)
 	} else {

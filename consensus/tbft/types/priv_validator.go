@@ -382,9 +382,7 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 }
 
 func (state *StateAgentImpl) PrivReset() {
-	if state.Priv != nil {
-		state.Priv.Reset()
-	}
+	state.Priv.Reset()
 }
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
