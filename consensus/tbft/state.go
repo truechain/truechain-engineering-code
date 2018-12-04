@@ -354,15 +354,21 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 }
 func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
-	cs.updateToState(cs.state)
-	log.Info("Reset privValidator","height",cs.Height)
-	cs.state.PrivReset()
-	sleepDuration := time.Duration(1) * time.Millisecond
-	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
-
+	oldH := cs.Height
+	newH :=  cs.state.GetLastBlockHeight() + 1
+	if oldH == newH {
+		cs.enterNewRound(newH,int(cs.Round+1))
+		cs.newStep()
+	} else {
+		cs.updateToState(cs.state)
+		log.Info("Reset privValidator","height",cs.Height)
+		cs.state.PrivReset()
+		sleepDuration := time.Duration(1) * time.Millisecond
+		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})	
+	}
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
-	log.Info("end UpdateStateForSync","height",cs.Height)
+	log.Info("end UpdateStateForSync","newHeight",newH)
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -633,15 +639,8 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundSta
 	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
-	// update local state
-	cs.UpdateStateForSync()
 	// timeouts must be for current height, round, step
-	// lh := cs.state.GetLastBlockHeight()
-	// if ti.Height < (lh+1) {
-	// 	cs.UpdateStateForSync()
-	// 	log.Info("Received task tock,update state and tock","ti.height",ti.Height,"cs.height",cs.Height)
-	// 	return
-	// } 
+	cs.UpdateStateForSync()
 	log.Info("Received task tock End")
 }
 //-----------------------------------------------------------------------------
