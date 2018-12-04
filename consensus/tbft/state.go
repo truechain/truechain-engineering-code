@@ -341,7 +341,7 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 0})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 2})
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
