@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -185,11 +184,9 @@ func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup)
 
 	priKey, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //address
-	address := hex.EncodeToString(coinbase[:])
-
-	//fmt.Println("address:"+"0x"+address)
-
-	map_data["to"] = "0x" + address
+	//address := hex.EncodeToString(coinbase[:])
+	//fmt.Println(coinbase.Hex())
+	map_data["to"] = coinbase.Hex()
 
 	map_data["value"] = "0x2100"
 	var result string
