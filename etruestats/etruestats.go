@@ -511,15 +511,11 @@ type blockStats struct {
 	Hash       common.Hash    `json:"hash"`
 	ParentHash common.Hash    `json:"parentHash"`
 	Timestamp  *big.Int       `json:"timestamp"`
-	Miner      common.Address `json:"miner"`
 	GasUsed    uint64         `json:"gasUsed"`
 	GasLimit   uint64         `json:"gasLimit"`
-	Diff       string         `json:"difficulty"`
-	TotalDiff  string         `json:"totalDifficulty"`
 	Txs        []txStats      `json:"transactions"`
 	TxHash     common.Hash    `json:"transactionsRoot"`
 	Root       common.Hash    `json:"stateRoot"`
-	Uncles     uncleStats     `json:"uncles"`
 }
 
 // blockStats is the information to report about individual blocks.
