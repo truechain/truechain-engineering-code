@@ -25,6 +25,7 @@ import (
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -32,8 +33,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	elect "github.com/truechain/truechain-engineering-code/consensus/election"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -104,8 +105,8 @@ type Truechain struct {
 	networkID     uint64
 	netRPCService *trueapi.PublicNetAPI
 
-	pbftServer2 *pbftserver.PbftServerMgr
-	pbftServer  *tbft.Node
+	pbftServerOld *pbftserver.PbftServerMgr
+	pbftServer    *tbft.Node
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
@@ -498,13 +499,23 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-	s.startPbftServer()
-	if s.pbftServer == nil {
-		log.Error("start pbft server failed.")
-		return errors.New("start pbft server failed.")
+	if s.config.OldTbft {
+		s.startPbftServerOld()
+		if s.pbftServerOld == nil {
+			log.Error("start pbft server failed.")
+			return errors.New("start pbft server failed.")
+		}
+		s.agent.server = s.pbftServerOld
+		log.Info("", "server", s.agent.server)
+	} else {
+		s.startPbftServer()
+		if s.pbftServer == nil {
+			log.Error("start pbft server failed.")
+			return errors.New("start pbft server failed.")
+		}
+		s.agent.server = s.pbftServer
+		log.Info("", "server", s.agent.server)
 	}
-	s.agent.server = s.pbftServer
-	log.Info("", "server", s.agent.server)
 	s.agent.Start()
 
 	s.election.Start()
@@ -525,7 +536,11 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Truechain protocol.
 func (s *Truechain) Stop() error {
-	s.stopPbftServer()
+	if s.config.OldTbft {
+		s.stopPbftServerOld()
+	} else {
+		s.stopPbftServer()
+	}
 	s.bloomIndexer.Close()
 	s.blockchain.Stop()
 	s.snailblockchain.Stop()
@@ -542,7 +557,7 @@ func (s *Truechain) Stop() error {
 
 	return nil
 }
-func (s *Truechain) startPbftServer2() error {
+func (s *Truechain) startPbftServerOld() error {
 	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
 	if err != nil {
 		return err
@@ -553,7 +568,7 @@ func (s *Truechain) startPbftServer2() error {
 		Y:     new(big.Int).Set(priv.Y),
 	}
 	// var agent types.PbftAgentProxy
-	s.pbftServer2 = pbftserver.NewPbftServerMgr(pk, priv, s.agent)
+	s.pbftServerOld = pbftserver.NewPbftServerMgr(pk, priv, s.agent)
 	return nil
 }
 
@@ -562,7 +577,12 @@ func (s *Truechain) startPbftServer() error {
 	if err != nil {
 		return err
 	}
-	n1, err := tbft.NewNode(config.DefaultConfig(), "1", priv, s.agent)
+
+	cfg := config.DefaultConfig()
+	cfg.P2P.ListenAddress1 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.Port)
+	cfg.P2P.ListenAddress2 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.StandbyPort)
+
+	n1, err := tbft.NewNode(cfg, "1", priv, s.agent)
 	if err != nil {
 		return err
 	}
@@ -570,13 +590,13 @@ func (s *Truechain) startPbftServer() error {
 	return n1.Start()
 }
 
-func (s *Truechain) stopPbftServer2() error {
-	if s.pbftServer2 != nil {
-		s.pbftServer2.Finish()
+func (s *Truechain) stopPbftServer() error {
+	if s.pbftServerOld != nil {
+		s.pbftServerOld.Finish()
 	}
 	return nil
 }
-func (s *Truechain) stopPbftServer() error {
+func (s *Truechain) stopPbftServerOld() error {
 	if s.pbftServer != nil {
 		s.pbftServer.Stop()
 	}
