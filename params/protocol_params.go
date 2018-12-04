@@ -83,9 +83,9 @@ const (
 var (
 	DifficultyBoundDivisor = big.NewInt(2)       // The bound divisor of the difficulty, used in the update calculations.
 	GenesisDifficulty      = big.NewInt(6000000) // Difficulty of the Genesis block.
-	MinimumDifficulty      = big.NewInt(10)     // The minimum that the difficulty may ever be.
-	MinimumFruitDifficulty = big.NewInt(1)
-	DurationLimit          = big.NewInt(60) // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
+	MinimumDifficulty      = big.NewInt(2000000) // The minimum that the difficulty may ever be.
+	MinimumFruitDifficulty = big.NewInt(2000)
+	DurationLimit          = big.NewInt(600) // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 
 	DifficultyPeriod = big.NewInt(144) //
 
@@ -93,17 +93,17 @@ var (
 
 	FruitFreshness = big.NewInt(17) // fruit freshness
 
-	MinimumFruits int = 10
-	MaximumFruits int = 100
+	MinimumFruits int = 60
+	MaximumFruits int = 600
 )
 
 var (
 	SnailConfirmInterval = big.NewInt(12)
 
-	FastToFruitSpace = big.NewInt(200)
+	FastToFruitSpace = big.NewInt(1200)
 
 	ElectionPeriodNumber     = big.NewInt(180) // snail block period number
-	ElectionSwitchoverNumber = big.NewInt(1600)
+	ElectionSwitchoverNumber = big.NewInt(9600)
 
 	ElectionFruitsThreshold uint64 = 100 // fruit size threshold for committee election
 
