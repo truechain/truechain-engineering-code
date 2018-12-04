@@ -178,6 +178,10 @@ var (
 		Name:  "minefruit",
 		Usage: "only mine fruit",
 	}
+	OldTbftFlag = cli.BoolFlag{
+		Name:  "oldtbft",
+		Usage: "only mine fruit",
+	}
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
 		Usage: "enable election",
@@ -1157,6 +1161,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 
 	if ctx.GlobalBool(MineFruitFlag.Name) {
 		cfg.MineFruit = true
+	}
+	if ctx.GlobalBool(OldTbftFlag.Name){
+		cfg.OldTbft = true
 	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true

@@ -75,6 +75,7 @@ var (
 
 		utils.SingleNodeFlag,
 		utils.MineFruitFlag,
+		utils.OldTbftFlag,
 		utils.EnableElectionFlag,
 		utils.BFTPortFlag,
 		utils.BFTStandByPortFlag,
