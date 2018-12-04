@@ -48,6 +48,8 @@ const (
 	// history request.
 	historyUpdateRange = 50
 
+	snailHistoryUpdateRange = 50
+
 	// txChanSize is the size of channel listening to NewTxsEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096
@@ -90,8 +92,9 @@ type Service struct {
 	pass string // Password to authorize access to the monitoring page
 	host string // Remote address of the monitoring service
 
-	pongCh chan struct{} // Pong notifications are fed into this channel
-	histCh chan []uint64 // History request block numbers are fed into this channel
+	pongCh     chan struct{} // Pong notifications are fed into this channel
+	histCh     chan []uint64 // History request block numbers are fed into this channel
+	sailHistCh chan []uint64 // History request snailBlock numbers are fed into this channel
 }
 
 // New returns a monitoring service ready for stats reporting.
@@ -110,14 +113,15 @@ func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEthereum) (*Ser
 		engine = lesServ.Engine()
 	}
 	return &Service{
-		etrue:  ethServ,
-		les:    lesServ,
-		engine: engine,
-		node:   parts[1],
-		pass:   parts[3],
-		host:   parts[4],
-		pongCh: make(chan struct{}),
-		histCh: make(chan []uint64, 1),
+		etrue:      ethServ,
+		les:        lesServ,
+		engine:     engine,
+		node:       parts[1],
+		pass:       parts[3],
+		host:       parts[4],
+		pongCh:     make(chan struct{}),
+		histCh:     make(chan []uint64, 1),
+		sailHistCh: make(chan []uint64, 1),
 	}, nil
 }
 
@@ -287,6 +291,10 @@ func (s *Service) loop() {
 				if err = s.reportHistory(conn, list); err != nil {
 					log.Warn("Requested history report failed", "err", err)
 				}
+			case list := <-s.sailHistCh:
+				if err = s.reportSnailHistory(conn, list); err != nil {
+					log.Warn("Requested history report failed", "err", err)
+				}
 			case head := <-headCh:
 				if err = s.reportBlock(conn, head); err != nil {
 					log.Warn("Block stats report failed", "err", err)
@@ -347,17 +355,11 @@ func (s *Service) readLoop(conn *websocket.Conn) {
 			}
 		}
 		// If the message is a history request, forward to the event processor
-		if len(msg["emit"]) == 2 && command == "history" {
-			if handleHistCh(msg, s) == "continue" {
+		if len(msg["emit"]) == 2 && (command == "history" || command == "snailHistory") {
+			result := handleHistCh(msg, s, command)
+			if result == "continue" {
 				continue
-			} else if handleHistCh(msg, s) == "error" {
-				return
-			}
-		}
-		if len(msg["emit"]) == 2 && command == "snailHistory" {
-			if handleHistCh(msg, s) == "continue" {
-				continue
-			} else if handleHistCh(msg, s) == "error" {
+			} else if result == "error" {
 				return
 			}
 		}
@@ -366,12 +368,16 @@ func (s *Service) readLoop(conn *websocket.Conn) {
 	}
 }
 
-func handleHistCh(msg map[string][]interface{}, s *Service) string {
+func handleHistCh(msg map[string][]interface{}, s *Service, command string) string {
 	// Make sure the request is valid and doesn't crash us
 	request, ok := msg["emit"][1].(map[string]interface{})
 	if !ok {
 		log.Warn("Invalid stats history request", "msg", msg["emit"][1])
-		s.histCh <- nil
+		if command == "history" {
+			s.histCh <- nil
+		} else {
+			s.sailHistCh <- nil
+		}
 		return "continue" // Etruestats sometime sends invalid history requests, ignore those
 	}
 	list, ok := request["list"].([]interface{})
@@ -389,10 +395,18 @@ func handleHistCh(msg map[string][]interface{}, s *Service) string {
 		}
 		numbers[i] = uint64(n)
 	}
-	select {
-	case s.histCh <- numbers:
-		return "continue"
-	default:
+	if command == "history" {
+		select {
+		case s.histCh <- numbers:
+			return "continue"
+		default:
+		}
+	} else {
+		select {
+		case s.sailHistCh <- numbers:
+			return "continue"
+		default:
+		}
 	}
 	return ""
 }
@@ -754,6 +768,64 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 	}
 	report := map[string][]interface{}{
 		"emit": {"history", stats},
+	}
+	return websocket.JSON.Send(conn, report)
+}
+func (s *Service) reportSnailHistory(conn *websocket.Conn, list []uint64) error {
+	// Figure out the indexes that need reporting
+	indexes := make([]uint64, 0, historyUpdateRange)
+	if len(list) > 0 {
+		// Specific indexes requested, send them back in particular
+		indexes = append(indexes, list...)
+	} else {
+		// No indexes requested, send back the top ones
+		var head int64
+		if s.etrue != nil {
+			head = s.etrue.SnailBlockChain().CurrentHeader().Number.Int64()
+		} else {
+			//head = s.les.SnailBlockChain().CurrentHeader().Number.Int64()
+		}
+		start := head - historyUpdateRange + 1
+		if start < 0 {
+			start = 0
+		}
+		for i := uint64(start); i <= uint64(head); i++ {
+			indexes = append(indexes, i)
+		}
+	}
+	// Gather the batch of blocks to report
+	history := make([]*snailBlockStats, len(indexes))
+	for i, number := range indexes {
+		// Retrieve the next block if it's known to us
+		var snailBlock *types.SnailBlock
+		if s.etrue != nil {
+			snailBlock = s.etrue.SnailBlockChain().GetBlockByNumber(number)
+		} else {
+			/*if header := s.les.BlockChain().GetHeaderByNumber(number); header != nil {
+				snailBlock = types.NewBlockWithHeader(header)
+			}*/
+		}
+		// If we do have the block, add to the history and continue
+		if snailBlock != nil {
+			history[len(history)-1-i] = s.assembleSnaiBlockStats(snailBlock)
+			continue
+		}
+		// Ran out of blocks, cut the report short and send
+		history = history[len(history)-i:]
+		break
+	}
+	// Assemble the history report and send it to the server
+	if len(history) > 0 {
+		log.Trace("Sending historical snaiBlocks to etruestats", "first", history[0].Number, "last", history[len(history)-1].Number)
+	} else {
+		log.Trace("No history to send to stats server")
+	}
+	stats := map[string]interface{}{
+		"id":      s.node,
+		"history": history,
+	}
+	report := map[string][]interface{}{
+		"emit": {"snailHistory", stats},
 	}
 	return websocket.JSON.Send(conn, report)
 }
