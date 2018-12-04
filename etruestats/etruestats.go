@@ -348,37 +348,53 @@ func (s *Service) readLoop(conn *websocket.Conn) {
 		}
 		// If the message is a history request, forward to the event processor
 		if len(msg["emit"]) == 2 && command == "history" {
-			// Make sure the request is valid and doesn't crash us
-			request, ok := msg["emit"][1].(map[string]interface{})
-			if !ok {
-				log.Warn("Invalid stats history request", "msg", msg["emit"][1])
-				s.histCh <- nil
-				continue // Etruestats sometime sends invalid history requests, ignore those
-			}
-			list, ok := request["list"].([]interface{})
-			if !ok {
-				log.Warn("Invalid stats history block list", "list", request["list"])
+			if handleHistCh(msg, s) == "continue" {
+				continue
+			} else if handleHistCh(msg, s) == "error" {
 				return
 			}
-			// Convert the block number list to an integer list
-			numbers := make([]uint64, len(list))
-			for i, num := range list {
-				n, ok := num.(float64)
-				if !ok {
-					log.Warn("Invalid stats history block number", "number", num)
-					return
-				}
-				numbers[i] = uint64(n)
-			}
-			select {
-			case s.histCh <- numbers:
+		}
+		if len(msg["emit"]) == 2 && command == "snailHistory" {
+			if handleHistCh(msg, s) == "continue" {
 				continue
-			default:
+			} else if handleHistCh(msg, s) == "error" {
+				return
 			}
 		}
 		// Report anything else and continue
 		log.Info("Unknown stats message", "msg", msg)
 	}
+}
+
+func handleHistCh(msg map[string][]interface{}, s *Service) string {
+	// Make sure the request is valid and doesn't crash us
+	request, ok := msg["emit"][1].(map[string]interface{})
+	if !ok {
+		log.Warn("Invalid stats history request", "msg", msg["emit"][1])
+		s.histCh <- nil
+		return "continue" // Etruestats sometime sends invalid history requests, ignore those
+	}
+	list, ok := request["list"].([]interface{})
+	if !ok {
+		log.Warn("Invalid stats history block list", "list", request["list"])
+		return "error"
+	}
+	// Convert the block number list to an integer list
+	numbers := make([]uint64, len(list))
+	for i, num := range list {
+		n, ok := num.(float64)
+		if !ok {
+			log.Warn("Invalid stats history block number", "number", num)
+			return "error"
+		}
+		numbers[i] = uint64(n)
+	}
+	select {
+	case s.histCh <- numbers:
+		return "continue"
+	default:
+	}
+	return ""
 }
 
 // nodeInfo is the collection of metainformation about a node that is displayed
@@ -507,15 +523,15 @@ func (s *Service) reportLatency(conn *websocket.Conn) error {
 
 // blockStats is the information to report about individual blocks.
 type blockStats struct {
-	Number     *big.Int       `json:"number"`
-	Hash       common.Hash    `json:"hash"`
-	ParentHash common.Hash    `json:"parentHash"`
-	Timestamp  *big.Int       `json:"timestamp"`
-	GasUsed    uint64         `json:"gasUsed"`
-	GasLimit   uint64         `json:"gasLimit"`
-	Txs        []txStats      `json:"transactions"`
-	TxHash     common.Hash    `json:"transactionsRoot"`
-	Root       common.Hash    `json:"stateRoot"`
+	Number     *big.Int    `json:"number"`
+	Hash       common.Hash `json:"hash"`
+	ParentHash common.Hash `json:"parentHash"`
+	Timestamp  *big.Int    `json:"timestamp"`
+	GasUsed    uint64      `json:"gasUsed"`
+	GasLimit   uint64      `json:"gasLimit"`
+	Txs        []txStats   `json:"transactions"`
+	TxHash     common.Hash `json:"transactionsRoot"`
+	Root       common.Hash `json:"stateRoot"`
 }
 
 // blockStats is the information to report about individual blocks.
@@ -630,9 +646,9 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		Timestamp:  header.Time,
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
-		Txs:       txs,
-		TxHash:    header.TxHash,
-		Root:      header.Root,
+		Txs:        txs,
+		TxHash:     header.TxHash,
+		Root:       header.Root,
 	}
 }
 
@@ -669,12 +685,12 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 	author, _ := s.engine.AuthorSnail(header)
 
 	return &snailBlockStats{
-		Number:     header.Number,
-		Hash:       header.Hash(),
-		ParentHash: header.ParentHash,
-		Timestamp:  header.Time,
-		Miner:      author,
-		Diff:       header.Difficulty.String(),
+		Number:      header.Number,
+		Hash:        header.Hash(),
+		ParentHash:  header.ParentHash,
+		Timestamp:   header.Time,
+		Miner:       author,
+		Diff:        header.Difficulty.String(),
 		TotalDiff:   td.String(),
 		Uncles:      uncles,
 		FruitNumber: fruitNumber,
