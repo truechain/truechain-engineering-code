@@ -21,6 +21,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -30,7 +31,6 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
-	"github.com/truechain/truechain-engineering-code/core"
 )
 
 // So we can deterministically seed different blockchains
@@ -45,8 +45,8 @@ var (
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *SnailBlockChain, *core.BlockChain, error) {
 	var (
 		db      = ethdb.NewMemDatabase()
-		commonGenesis = new(core.Genesis)
-		genesis = commonGenesis.MustSnailCommit(db)
+		commonGenesis = core.DefaultGenesisBlock()
+		_ = commonGenesis.MustSnailCommit(db)
 		fastGenesis = commonGenesis.MustFastCommit(db)
 	)
 
@@ -65,19 +65,26 @@ func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *S
 		})
 		fastChain.InsertChain(fastBlocks)
 		// Full block-chain requested
-		blocks := makeBlockChain(fastChain, genesis, n, engine, db, canonicalSeed)
-		_, err := blockchain.InsertChain(blocks)
-		return db, blockchain, fastChain, err
+		//blocks := makeBlockChain(fastChain, genesis, n, engine, db, canonicalSeed)
+		//_, err := blockchain.InsertChain(blocks)
+		return db, blockchain, fastChain, nil
 	}
 	// Header-only chain requested
-	headers := makeHeaderChain(fastChain, genesis.Header(), n, engine, db, canonicalSeed)
-	_, err := blockchain.InsertHeaderChain(headers, 1)
-	return db, blockchain, fastChain, err
+	//headers := makeHeaderChain(fastChain, genesis.Header(), n, engine, db, canonicalSeed)
+	//_, err := blockchain.InsertHeaderChain(headers, 1)
+	return db, blockchain, fastChain, nil
 }
 
 func TestMakeChain(t *testing.T) {
 	chain, _ := MakeChain(180, 3)
+	blocks := chain.GetBlocksFromNumber(1)
+
+	for _, block := range blocks {
+		fmt.Printf("%d => %x\n", block.Number(), block.Hash())
+	}
+
 	header := chain.GetHeaderByNumber(1)
+
 	if header == nil {
 		fmt.Printf("1111111111111111\n")
 	} else {
@@ -199,16 +206,26 @@ func insertChain(done chan bool, blockchain *SnailBlockChain, chain types.SnailB
 }
 
 func TestLastBlock(t *testing.T) {
-	_, blockchain, fastChain, err := newCanonical(minerva.NewFaker(), 0, true)
+	_, blockchain, _, err := newCanonical(minerva.NewFaker(), 3, true)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	blocks := makeBlockChain(fastChain, blockchain.CurrentBlock(), 2, minerva.NewFaker(), blockchain.db, 0)
+	chain, _ := MakeSnailChain(3)
+	blocks := chain.GetBlocksFromNumber(1)
+
+	for _, block := range blocks {
+		fmt.Printf("%d => %x\n", block.Number(), block.Hash())
+	}
+
+
 	if _, err := blockchain.InsertChain(blocks); err != nil {
 		t.Fatalf("Failed to insert block: %v", err)
 	}
+
+	fmt.Printf("%d ==> %x\n", blockchain.CurrentBlock().Number(), rawdb.ReadHeadBlockHash(blockchain.db))
+
 	if blocks[len(blocks)-1].Hash() != rawdb.ReadHeadBlockHash(blockchain.db) {
 		t.Fatalf("Write/Get HeadBlockHash failed")
 	}

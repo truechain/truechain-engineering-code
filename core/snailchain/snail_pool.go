@@ -256,6 +256,17 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	return nil
 }
 
+// journalFruit adds the specified fruit to the local disk journal
+func (pool *SnailPool) journalFruit(fruit *types.SnailBlock) {
+	// Only journal if it's enabled
+	if pool.journal == nil {
+		return
+	}
+	if err := pool.journal.insert(fruit); err != nil {
+		log.Warn("Failed to journal fruit", "err", err)
+	}
+}
+
 // loop is the fruit pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and fruit
 // eviction events.
@@ -496,7 +507,7 @@ func (pool *SnailPool) Stop() {
 }
 
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
-func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
+func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
 
@@ -510,6 +521,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 		f := types.CopyFruit(fruit)
 		pool.newFruitCh <- f
+		if local {
+			pool.journalFruit(fruit)
+		}
 	}
 
 	return errs

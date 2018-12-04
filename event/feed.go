@@ -92,8 +92,6 @@ func (f *Feed) Subscribe(channel interface{}) Subscription {
 	return sub
 }
 
-
-
 // The channel should have ample buffer space to avoid blocking other subscribers.
 // Slow subscribers are not dropped.
 func (f *Feed) SubscribeSync(channel interface{}) Subscription {
@@ -117,6 +115,7 @@ func (f *Feed) SubscribeSync(channel interface{}) Subscription {
 	f.inbox = append(f.inbox, cas)
 	return sub
 }
+
 // note: callers must hold f.mu
 func (f *Feed) typecheck(typ reflect.Type) bool {
 	if f.etype == nil {

@@ -434,7 +434,7 @@ func (self *worker) wait() {
 					log.Info("🍒  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 					var newFruits []*types.SnailBlock
 					newFruits = append(newFruits, block)
-					self.etrue.SnailPool().AddRemoteFruits(newFruits)
+					self.etrue.SnailPool().AddRemoteFruits(newFruits,true)
 					// store the mined fruit to woker.minedfruit
 					self.minedFruit = types.CopyFruit(block)
 				}else{
@@ -443,7 +443,7 @@ func (self *worker) wait() {
 						log.Info("🍒  mined fruit", "number", block.FastNumber(), "diff", block.FruitDifficulty(), "hash", block.Hash(), "signs", len(block.Signs()))
 						var newFruits []*types.SnailBlock
 						newFruits = append(newFruits, block)
-						self.etrue.SnailPool().AddRemoteFruits(newFruits)
+						self.etrue.SnailPool().AddRemoteFruits(newFruits,true)
 						// store the mined fruit to woker.minedfruit
 						self.minedFruit = types.CopyFruit(block)
 					}

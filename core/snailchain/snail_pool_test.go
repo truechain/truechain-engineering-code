@@ -518,6 +518,6 @@ func benchmarkSnailPoolBatchInsert(b *testing.B, size int) {
 	// Benchmark importing the fruits into the queue
 	b.ResetTimer()
 	for _, batch := range batches {
-		pool.AddRemoteFruits(batch)
+		pool.AddRemoteFruits(batch, false)
 	}
 }

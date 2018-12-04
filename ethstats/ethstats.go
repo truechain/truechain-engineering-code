@@ -158,7 +158,6 @@ func (s *Service) loop() {
 	} else {
 		blockchain = s.les.BlockChain()
 		txpool = s.les.TxPool()
-		//snailBlockChain = s.les.SnailBlockChain()
 	}
 	//fastBlock
 	chainHeadCh := make(chan types.ChainFastHeadEvent, chainHeadChanSize)
@@ -176,9 +175,9 @@ func (s *Service) loop() {
 	defer snailheadSub.Unsubscribe()
 
 	//fruit
-	chainFruitCh := make(chan types.NewMinedFruitEvent, chainSnailHeadChanSize)
+	/*chainFruitCh := make(chan types.NewMinedFruitEvent, chainSnailHeadChanSize)
 	fruitSub := snailBlockChain.SubscribeNewFruitEvent(chainFruitCh)
-	defer fruitSub.Unsubscribe()
+	defer fruitSub.Unsubscribe()*/
 
 	// Start a goroutine that exhausts the subsciptions to avoid events piling up
 	var (
@@ -201,17 +200,11 @@ func (s *Service) loop() {
 				}
 
 				// Notify of chain snailHead events, but drop if too frequent
-			/*case snailHead := <-chainsnailHeadCh:
+			case snailHead := <-chainsnailHeadCh:
 				select {
 				case snailHeadCh <- snailHead.Block:
 				default:
-				}*/
-			case fruit := <-chainFruitCh:
-				select {
-				case snailHeadCh <- fruit.Block:
-				default:
 				}
-
 				// Notify of new transaction events, but drop if too frequent
 			case <-txEventCh:
 				if time.Duration(mclock.Now()-lastTx) < time.Second {
@@ -536,15 +529,13 @@ type snailBlockStats struct {
 	ParentHash common.Hash `json:"parentHash"`
 	Timestamp  *big.Int    `json:"timestamp"`
 
-	Miner     common.Address  `json:"miner"`
-	Diff      string          `json:"difficulty"`
-	TotalDiff string          `json:"totalDifficulty"`
-	Uncles    snailUncleStats `json:"uncles"`
-
+	Miner       common.Address  `json:"miner"`
+	Diff        string          `json:"difficulty"`
+	TotalDiff   string          `json:"totalDifficulty"`
+	Uncles      snailUncleStats `json:"uncles"`
+	FruitNumber *big.Int        `json:"fruits"`
 	//Specific properties of fruit
-	signs      types.PbftSigns
-	FastHash   common.Hash `json:"fastHash"`
-	FastNumber *big.Int    `json:"fastNumber"`
+	//signs types.PbftSigns
 }
 
 // txStats is the information to report about individual transactions.
@@ -593,7 +584,7 @@ func (s *Service) reportBlock(conn *websocket.Conn, block *types.Block) error {
 // reportBlock retrieves the current chain head and reports it to the stats server.
 func (s *Service) reportSnailBlock(conn *websocket.Conn, block *types.SnailBlock) error {
 	// Gather the block details from the header or block chain
-	details := s.assemblesnaiBlockStats(block)
+	details := s.assembleSnaiBlockStats(block)
 
 	// Assemble the block report and send it to the server
 	log.Trace("Sending new snailBlock to ethstats", "number", details.Number, "hash", details.Hash)
@@ -614,9 +605,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	// Gather the block infos from the local blockchain
 	var (
 		header *types.Header
-		td     *big.Int
 		txs    []txStats
-		uncles []*types.Header
 	)
 	if s.etrue != nil {
 		// Full nodes have all needed information available
@@ -624,13 +613,11 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 			block = s.etrue.BlockChain().CurrentBlock()
 		}
 		header = block.Header()
-		td = s.etrue.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 
 		txs = make([]txStats, len(block.Transactions()))
 		for i, tx := range block.Transactions() {
 			txs[i].Hash = tx.Hash()
 		}
-		uncles = block.Uncles()
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
@@ -638,37 +625,30 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		} else {
 			header = s.les.BlockChain().CurrentHeader()
 		}
-		td = s.les.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 		txs = []txStats{}
 	}
-	// Assemble and return the block stats
-	author, _ := s.engine.Author(header)
-
 	return &blockStats{
 		Number:     header.Number,
 		Hash:       header.Hash(),
 		ParentHash: header.ParentHash,
 		Timestamp:  header.Time,
-		Miner:      author,
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
-		//Diff:       header.Difficulty.String(),
-		TotalDiff: td.String(),
 		Txs:       txs,
 		TxHash:    header.TxHash,
 		Root:      header.Root,
-		Uncles:    uncles,
 	}
 }
 
 // assembleBlockStats retrieves any required metadata to report a single block
 // and assembles the block stats. If block is nil, the current head is processed.
-func (s *Service) assemblesnaiBlockStats(block *types.SnailBlock) *snailBlockStats {
+func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockStats {
 	// Gather the block infos from the local blockchain
 	var (
-		header *types.SnailHeader
-		td     *big.Int
-		uncles []*types.SnailHeader
+		header      *types.SnailHeader
+		td          *big.Int
+		uncles      []*types.SnailHeader
+		fruitNumber *big.Int
 	)
 	if s.etrue != nil {
 		// Full nodes have all needed information available
@@ -678,11 +658,13 @@ func (s *Service) assemblesnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		header = block.Header()
 		td = s.etrue.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
 		uncles = block.Uncles()
+		fruitNumber = big.NewInt(int64(len((block.Fruits()))))
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
 			header = block.Header()
 		} else {
+			log.Error("assembleSnaiBlockStats receive block nil ")
 			//header = s.les.SnailBlockChain().CurrentBlock()
 		}
 		//td = s.les.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
@@ -696,9 +678,10 @@ func (s *Service) assemblesnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		ParentHash: header.ParentHash,
 		Timestamp:  header.Time,
 		Miner:      author,
-		//Diff:       header.Difficulty.String(),
-		TotalDiff: td.String(),
-		Uncles:    uncles,
+		Diff:       header.Difficulty.String(),
+		TotalDiff:   td.String(),
+		Uncles:      uncles,
+		FruitNumber: fruitNumber,
 	}
 }
 

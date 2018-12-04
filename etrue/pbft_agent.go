@@ -815,6 +815,9 @@ func (self *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
 	}
+	if voteSign == nil{
+		log.Warn("voteSign is nil ", "voteSign", voteSign)
+	}
 	return voteSign, err
 }
 
@@ -879,7 +882,8 @@ func (self *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error)
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
-			log.Warn("verifyFastBlock :Snail height not yet")
+			log.Warn("verifyFastBlock :Snail height not yet", "currentFastNumber", fb.NumberU64(),
+				"rewardSnailBlock", fb.SnailNumber().Uint64())
 			return nil, err
 		}
 		log.Error("verifyFastBlock process error", "height:", fb.Number(), "err", err)
