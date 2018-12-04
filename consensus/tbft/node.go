@@ -387,7 +387,7 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 		return nil
 	}
 	vals := make([]*ttypes.Validator, 0, 0)
-	var power uint64 = 1
+	var power int64 = 1
 	for i, m := range members {
 		if i == 0 {
 			power = 1
