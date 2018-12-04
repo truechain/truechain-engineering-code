@@ -70,8 +70,8 @@ func main() {
 	}
 
 	ip := "127.0.0.1:8888"
-	if len(os.Args) == 7 {
-		ip = os.Args[6]
+	if len(os.Args) == 6 {
+		ip = os.Args[5]
 	}
 	fmt.Println("==========================")
 
