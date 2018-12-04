@@ -54,7 +54,7 @@ var tomlSettings = toml.Config{
 	},
 }
 
-type ethstatsConfig struct {
+type etruestatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
@@ -62,7 +62,7 @@ type gethConfig struct {
 	Etrue     etrue.Config
 	Shh       whisper.Config
 	Node      node.Config
-	Ethstats  ethstatsConfig
+	Ethstats  etruestatsConfig
 	Dashboard dashboard.Config
 }
 
@@ -114,8 +114,8 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}
 	utils.SetTruechainConfig(ctx, stack, &cfg.Etrue)
-	if ctx.GlobalIsSet(utils.EthStatsURLFlag.Name) {
-		cfg.Ethstats.URL = ctx.GlobalString(utils.EthStatsURLFlag.Name)
+	if ctx.GlobalIsSet(utils.EtrueStatsURLFlag.Name) {
+		cfg.Ethstats.URL = ctx.GlobalString(utils.EtrueStatsURLFlag.Name)
 	}
 
 	utils.SetShhConfig(ctx, stack, &cfg.Shh)

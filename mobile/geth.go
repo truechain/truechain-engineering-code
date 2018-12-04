@@ -28,7 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/ethclient"
-	"github.com/truechain/truechain-engineering-code/ethstats"
+	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
 	"github.com/truechain/truechain-engineering-code/les"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -147,7 +147,7 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 		}
 		// If we have the testnet, hard code the chain configs too
 		if config.EthereumGenesis == TestnetGenesis() {
-			genesis.Fast.Config = params.TestnetChainConfig
+			genesis.Config = params.TestnetChainConfig
 			if config.EthereumNetworkID == 1 {
 				config.EthereumNetworkID = 3
 			}
@@ -171,7 +171,7 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 				var lesServ *les.LightEthereum
 				ctx.Service(&lesServ)
 
-				return ethstats.New(config.EthereumNetStats, nil, lesServ)
+				return etruestats.New(config.EthereumNetStats, nil, lesServ)
 			}); err != nil {
 				return nil, fmt.Errorf("netstats init: %v", err)
 			}
