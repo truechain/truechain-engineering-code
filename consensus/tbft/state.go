@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	cfg "github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"

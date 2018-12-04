@@ -9,7 +9,7 @@ import (
 
 	crypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	"github.com/truechain/truechain-engineering-code/params"
 	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
@@ -41,7 +41,7 @@ type Peer interface {
 type peerConn struct {
 	outbound     bool
 	persistent   bool
-	config       *config.P2PConfig
+	config       *params.P2PConfig
 	conn         net.Conn // source connection
 	ip           net.IP
 	originalAddr *NetAddress // nil for inbound connections
@@ -132,7 +132,7 @@ func newPeer(
 
 func newOutboundPeerConn(
 	addr *NetAddress,
-	config *config.P2PConfig,
+	config *params.P2PConfig,
 	persistent bool,
 	ourNodePrivKey crypto.PrivKey,
 ) (peerConn, error) {
@@ -162,7 +162,7 @@ func newOutboundPeerConn(
 
 func newInboundPeerConn(
 	conn net.Conn,
-	config *config.P2PConfig,
+	config *params.P2PConfig,
 	ourNodePrivKey crypto.PrivKey,
 ) (peerConn, error) {
 
@@ -173,7 +173,7 @@ func newInboundPeerConn(
 
 func newPeerConn(
 	rawConn net.Conn,
-	cfg *config.P2PConfig,
+	cfg *params.P2PConfig,
 	outbound, persistent bool,
 	ourNodePrivKey crypto.PrivKey,
 	originalAddr *NetAddress,
@@ -397,7 +397,7 @@ func (p *peer) String() string {
 //------------------------------------------------------------------
 // helper funcs
 
-func dial(addr *NetAddress, cfg *config.P2PConfig) (net.Conn, error) {
+func dial(addr *NetAddress, cfg *params.P2PConfig) (net.Conn, error) {
 	if cfg.TestDialFail {
 		return nil, fmt.Errorf("dial err (peerConfig.DialFail == true)")
 	}

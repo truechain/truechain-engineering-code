@@ -1,4 +1,4 @@
-package config
+package params
 
 import (
 	"os"
@@ -32,7 +32,7 @@ var (
 )
 
 // Config defines the top level configuration for a truechain node
-type Config struct {
+type TbftConfig struct {
 	// Top level options use an anonymous struct
 	BaseConfig `mapstructure:",squash"`
 	// Options for services
@@ -41,8 +41,8 @@ type Config struct {
 }
 
 // DefaultConfig returns a default configuration for a truechain node
-func DefaultConfig() *Config {
-	return &Config{
+func DefaultConfig() *TbftConfig {
+	return &TbftConfig{
 		BaseConfig: DefaultBaseConfig(),
 		P2P:        DefaultP2PConfig(),
 		Consensus:  DefaultConsensusConfig(),
@@ -50,8 +50,8 @@ func DefaultConfig() *Config {
 }
 
 // TestConfig returns a configuration that can be used for testing
-func TestConfig() *Config {
-	return &Config{
+func TestConfig() *TbftConfig {
+	return &TbftConfig{
 		BaseConfig: TestBaseConfig(),
 		P2P:        TestP2PConfig(),
 		Consensus:  TestConsensusConfig(),
@@ -59,7 +59,7 @@ func TestConfig() *Config {
 }
 
 // SetRoot sets the RootDir for all Config structs
-func (cfg *Config) SetRoot(root string) *Config {
+func (cfg *TbftConfig) SetRoot(root string) *TbftConfig {
 	cfg.P2P.RootDir = root
 	cfg.Consensus.RootDir = root
 	return cfg

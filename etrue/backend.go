@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"runtime"
 	"sync"

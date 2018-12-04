@@ -3,10 +3,10 @@ package p2p
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
 	"github.com/truechain/truechain-engineering-code/log"
+	config "github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"net"
 	"sync"
@@ -114,7 +114,7 @@ func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
 
 func (sw *Switch) ReadPeerList() {
 	for {
-		select{
+		select {
 		case <-sw.Quit():
 			return
 		default:

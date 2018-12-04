@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	config "github.com/truechain/truechain-engineering-code/params"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -191,7 +191,7 @@ func TestPbftRunFor2(t *testing.T) {
 	agent1 := NewPbftAgent("Agent1")
 	agent2 := NewPbftAgent("Agent2")
 
-	config1 := new(config.Config)
+	config1 := new(config.TbftConfig)
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
@@ -207,7 +207,7 @@ func TestPbftRunFor2(t *testing.T) {
 	n1, _ := NewNode(config1, "1", pr1, agent1)
 	n1.Start()
 
-	config2 := new(config.Config)
+	config2 := new(config.TbftConfig)
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
@@ -263,7 +263,7 @@ func TestPbftRunFor4(t *testing.T) {
 	agent3 := NewPbftAgent("Agent3")
 	agent4 := NewPbftAgent("Agent4")
 
-	config1 := new(config.Config)
+	config1 := new(config.TbftConfig)
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
@@ -279,7 +279,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n1, _ := NewNode(config1, "1", pr1, agent1)
 	n1.Start()
 
-	config2 := new(config.Config)
+	config2 := new(config.TbftConfig)
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
@@ -295,7 +295,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n2, _ := NewNode(config2, "1", pr2, agent2)
 	n2.Start()
 
-	config3 := new(config.Config)
+	config3 := new(config.TbftConfig)
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
@@ -311,7 +311,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n3, _ := NewNode(config3, "1", pr3, agent3)
 	n3.Start()
 
-	config4 := new(config.Config)
+	config4 := new(config.TbftConfig)
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
@@ -382,7 +382,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	agent3 := NewPbftAgent("Agent3")
 	agent4 := NewPbftAgent("Agent4")
 
-	config1 := new(config.Config)
+	config1 := new(config.TbftConfig)
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
@@ -398,7 +398,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n1, _ := NewNode(config1, "1", pr1, agent1)
 	n1.Start()
 
-	config2 := new(config.Config)
+	config2 := new(config.TbftConfig)
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
@@ -414,7 +414,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n2, _ := NewNode(config2, "1", pr2, agent2)
 	n2.Start()
 
-	config3 := new(config.Config)
+	config3 := new(config.TbftConfig)
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
@@ -430,7 +430,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	n3, _ := NewNode(config3, "1", pr3, agent3)
 	n3.Start()
 
-	config4 := new(config.Config)
+	config4 := new(config.TbftConfig)
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
@@ -536,7 +536,7 @@ func TestPbftRunFor5(t *testing.T) {
 	agent4 := NewPbftAgent("Agent4")
 	agent5 := NewPbftAgent("Agent5")
 
-	config1 := new(config.Config)
+	config1 := new(config.TbftConfig)
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
@@ -552,7 +552,7 @@ func TestPbftRunFor5(t *testing.T) {
 	n1, _ := NewNode(config1, "1", pr1, agent1)
 	n1.Start()
 
-	config2 := new(config.Config)
+	config2 := new(config.TbftConfig)
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
@@ -568,7 +568,7 @@ func TestPbftRunFor5(t *testing.T) {
 	n2, _ := NewNode(config2, "1", pr2, agent2)
 	n2.Start()
 
-	config3 := new(config.Config)
+	config3 := new(config.TbftConfig)
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
@@ -584,7 +584,7 @@ func TestPbftRunFor5(t *testing.T) {
 	n3, _ := NewNode(config3, "1", pr3, agent3)
 	n3.Start()
 
-	config4 := new(config.Config)
+	config4 := new(config.TbftConfig)
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
@@ -600,7 +600,7 @@ func TestPbftRunFor5(t *testing.T) {
 	n4, _ := NewNode(config4, "1", pr4, agent4)
 	n4.Start()
 
-	config5 := new(config.Config)
+	config5 := new(config.TbftConfig)
 	*config5 = *config.TestConfig()
 	p2p5 := new(config.P2PConfig)
 	*p2p5 = *config5.P2P
@@ -684,7 +684,7 @@ func TestRunPbft1(t *testing.T) {
 
 	agent1 := NewPbftAgent("Agent1")
 
-	config1 := new(config.Config)
+	config1 := new(config.TbftConfig)
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
@@ -741,7 +741,7 @@ func TestRunPbft2(t *testing.T) {
 
 	agent2 := NewPbftAgent("Agent2")
 
-	config2 := new(config.Config)
+	config2 := new(config.TbftConfig)
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
@@ -799,7 +799,7 @@ func TestRunPbft3(t *testing.T) {
 
 	agent3 := NewPbftAgent("Agent3")
 
-	config3 := new(config.Config)
+	config3 := new(config.TbftConfig)
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
@@ -857,7 +857,7 @@ func TestRunPbft4(t *testing.T) {
 
 	agent4 := NewPbftAgent("Agent4")
 
-	config4 := new(config.Config)
+	config4 := new(config.TbftConfig)
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
@@ -1010,7 +1010,7 @@ func TestTock(t *testing.T) {
 	ttock := NewTimeoutTicker("ttock")
 	ttock.Start()
 	
-	ttock.ScheduleTimeout(timeoutInfo{d, 1, uint(0), 0, false})
+	ttock.ScheduleTimeout(timeoutInfo{d, 1, uint(0), 0, 1})
 	go TimeoutRoutine(&ttock)
 
 	time.Sleep(30 *time.Second)
@@ -1066,7 +1066,7 @@ func TestPutNodes(t *testing.T) {
 	pr4,_ := crypto.HexToECDSA("c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95")
 	agent1 := NewPbftAgent("Agent1")
 
-	config1 := new(config.Config)
+	config1 := new(config.TbftConfig)
 	*config1 = *config.TestConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P

@@ -8,7 +8,7 @@ import (
 	// "encoding/json"
 	"errors"
 	"fmt"
-	cfg "github.com/truechain/truechain-engineering-code/consensus/tbft/config"
+	cfg "github.com/truechain/truechain-engineering-code/params"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
@@ -207,7 +207,7 @@ func (s *service) EventBus() *ttypes.EventBus {
 type Node struct {
 	help.BaseService
 	// configt
-	config *cfg.Config
+	config *cfg.TbftConfig
 	Agent  types.PbftAgentProxy
 	priv   *ecdsa.PrivateKey // local node's validator key
 
@@ -220,7 +220,7 @@ type Node struct {
 }
 
 // NewNode returns a new, ready to go, truechain Node.
-func NewNode(config *cfg.Config, chainID string, priv *ecdsa.PrivateKey,
+func NewNode(config *cfg.TbftConfig, chainID string, priv *ecdsa.PrivateKey,
 	agent types.PbftAgentProxy) (*Node, error) {
 
 	// Optionally, start the pex reactor
