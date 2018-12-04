@@ -355,7 +355,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync","height",cs.Height)
 	oldH := cs.Height
-	newH :=  cs.state.GetLastBlockHeight()
+	newH :=  cs.state.GetLastBlockHeight() + 1
 	if oldH == newH {
 		cs.enterNewRound(newH,int(cs.Round+1))
 	} else {
