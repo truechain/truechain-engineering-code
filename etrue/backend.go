@@ -25,6 +25,7 @@ import (
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -576,7 +577,12 @@ func (s *Truechain) startPbftServer() error {
 	if err != nil {
 		return err
 	}
-	n1, err := tbft.NewNode(config.DefaultConfig(), "1", priv, s.agent)
+
+	cfg := config.DefaultConfig()
+	cfg.P2P.ListenAddress1 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.Port)
+	cfg.P2P.ListenAddress2 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.StandbyPort)
+
+	n1, err := tbft.NewNode(cfg, "1", priv, s.agent)
 	if err != nil {
 		return err
 	}
