@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 // Volatile state for each Validator
@@ -60,7 +61,7 @@ func (v *Validator) String() string {
 		return "nil-Validator"
 	}
 	return fmt.Sprintf("Validator{%v %v VP:%v A:%v}",
-		v.Address,
+		common.ToHex(v.Address),
 		v.PubKey,
 		v.VotingPower,
 		v.Accum)
