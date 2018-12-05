@@ -590,13 +590,13 @@ func (s *Truechain) startPbftServer() error {
 	return n1.Start()
 }
 
-func (s *Truechain) stopPbftServer() error {
+func (s *Truechain) stopPbftServerOld() error {
 	if s.pbftServerOld != nil {
 		s.pbftServerOld.Finish()
 	}
 	return nil
 }
-func (s *Truechain) stopPbftServerOld() error {
+func (s *Truechain) stopPbftServer() error {
 	if s.pbftServer != nil {
 		s.pbftServer.Stop()
 	}
