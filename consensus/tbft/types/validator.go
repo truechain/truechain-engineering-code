@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/common"
 )
 
 // Volatile state for each Validator
@@ -13,11 +14,11 @@ import (
 type Validator struct {
 	Address     help.Address       	`json:"address"`
 	PubKey      crypto.PubKey 		`json:"pub_key"`
-	VotingPower uint64         		`json:"voting_power"`
-	Accum 		uint64 				`json:"accum"`
+	VotingPower int64         		`json:"voting_power"`
+	Accum 		int64 				`json:"accum"`
 }
 
-func NewValidator(pubKey crypto.PubKey, votingPower uint64) *Validator {
+func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
 	return &Validator{
 		Address:     pubKey.Address(),
 		PubKey:      pubKey,
@@ -60,7 +61,7 @@ func (v *Validator) String() string {
 		return "nil-Validator"
 	}
 	return fmt.Sprintf("Validator{%v %v VP:%v A:%v}",
-		v.Address,
+		common.ToHex(v.Address),
 		v.PubKey,
 		v.VotingPower,
 		v.Accum)
@@ -72,7 +73,7 @@ func (v *Validator) Hash() []byte {
 	tmp := help.RlpHash(struct {
 		Address     help.Address
 		PubKey      crypto.PubKey
-		VotingPower uint64
+		VotingPower int64
 	}{
 		v.Address,
 		v.PubKey,
