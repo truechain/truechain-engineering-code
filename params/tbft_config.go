@@ -242,13 +242,13 @@ type ConsensusConfig struct {
 func DefaultConsensusConfig() *ConsensusConfig {
 	return &ConsensusConfig{
 		WalPath:                     filepath.Join(defaultDataDir, "cs.wal", "wal"),
-		TimeoutPropose:              3000,
+		TimeoutPropose:              10000,
 		TimeoutProposeDelta:         500,
-		TimeoutPrevote:              1000,
+		TimeoutPrevote:              3000,
 		TimeoutPrevoteDelta:         500,
-		TimeoutPrecommit:            1000,
+		TimeoutPrecommit:            3000,
 		TimeoutPrecommitDelta:       500,
-		TimeoutCommit:               1000,
+		TimeoutCommit:               3000,
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
 		CreateEmptyBlocksInterval:   5,

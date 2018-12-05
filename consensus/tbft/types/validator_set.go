@@ -27,7 +27,7 @@ type ValidatorSet struct {
 	Proposer   *Validator   `json:"proposer"`
 
 	// cached (unexported)
-	totalVotingPower uint64
+	totalVotingPower int64
 }
 
 func NewValidatorSet(vals []*Validator) *ValidatorSet {
@@ -54,7 +54,7 @@ func (valSet *ValidatorSet) IncrementAccum(times uint) {
 	validatorsHeap := help.NewHeap()
 	for _, val := range valSet.Validators {
 		// check for overflow both multiplication and sum
-		val.Accum = uint64(safeAddClip(int64(val.Accum), safeMulClip(int64(val.VotingPower), int64(times))))
+		val.Accum = safeAddClip(val.Accum, safeMulClip(val.VotingPower, int64(times)))
 		validatorsHeap.PushComparable(val, accumComparable{val})
 	}
 
@@ -62,9 +62,9 @@ func (valSet *ValidatorSet) IncrementAccum(times uint) {
 	for i := 0; i < int(times); i++ {
 		mostest := validatorsHeap.Peek().(*Validator)
 		// mind underflow
-		Accum := int64(mostest.Accum)
+		Accum := mostest.Accum
 		power := int64(valSet.TotalVotingPower())
-		mostest.Accum = uint64(safeSubClip(Accum, power))
+		mostest.Accum = safeSubClip(Accum, power)
 
 		if i == int(times)-1 {
 			valSet.Proposer = mostest
@@ -126,11 +126,11 @@ func (valSet *ValidatorSet) Size() uint {
 }
 
 // TotalVotingPower returns the sum of the voting powers of all validators.
-func (valSet *ValidatorSet) TotalVotingPower() uint64 {
+func (valSet *ValidatorSet) TotalVotingPower() int64 {
 	if valSet.totalVotingPower == 0 {
 		for _, val := range valSet.Validators {
 			// mind overflow
-			valSet.totalVotingPower = uint64(safeAddClip(int64(valSet.totalVotingPower), int64(val.VotingPower)))
+			valSet.totalVotingPower = safeAddClip(valSet.totalVotingPower, val.VotingPower)
 		}
 	}
 	return valSet.totalVotingPower
@@ -255,7 +255,7 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 		return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, commit.Height())
 	}
 
-	talliedVotingPower := uint64(0)
+	talliedVotingPower := int64(0)
 	round := commit.Round()
 
 	for idx, precommit := range commit.Precommits {
@@ -317,8 +317,8 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 		return errors.New(fmt.Sprintf("Invalid commit -- wrong height: %v vs %v", height, commit.Height()))
 	}
 
-	oldVotingPower := uint64(0)
-	newVotingPower := uint64(0)
+	oldVotingPower := int64(0)
+	newVotingPower := int64(0)
 	seen := map[uint]bool{}
 	round := commit.Round()
 

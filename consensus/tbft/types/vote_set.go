@@ -63,8 +63,8 @@ type VoteSet struct {
 	mtx           sync.Mutex
 	votesBitArray *help.BitArray
 	votes         []*Vote                // Primary votes to share
-	sum           uint64                 // Sum of voting power for seen votes, discounting conflicts
-	vsum		  uint64				 // Sum of valid voting power for seen votes, discounting conflicts
+	sum           int64                 // Sum of voting power for seen votes, discounting conflicts
+	vsum		  int64				 // Sum of valid voting power for seen votes, discounting conflicts
 	maj23         *BlockID               // First 2/3 majority seen
 	votesByBlock  map[string]*blockVotes // string(blockHash|blockParts) -> blockVotes
 	peerMaj23s    map[P2PID]BlockID      // Maj23 for each peer
@@ -218,7 +218,7 @@ func (voteSet *VoteSet) getVote(valIndex uint, blockKey string) (vote *Vote, ok 
 
 // Assumes signature is valid.
 // If conflicting vote exists, returns it.
-func (voteSet *VoteSet) addVerifiedVote(vote *Vote, blockKey string, votingPower uint64) (added bool, conflicting *Vote) {
+func (voteSet *VoteSet) addVerifiedVote(vote *Vote, blockKey string, votingPower int64) (added bool, conflicting *Vote) {
 	valIndex := vote.ValidatorIndex
 
 	// Already exists in voteSet.votes?
@@ -572,7 +572,7 @@ func (voteSet *VoteSet) StringShort() string {
 }
 
 // return the power voted, the total, and the fraction
-func (voteSet *VoteSet) sumTotalFrac() (uint64,uint64, uint64, float64) {
+func (voteSet *VoteSet) sumTotalFrac() (int64,int64, int64, float64) {
 	vvoted,voted, total := voteSet.vsum, voteSet.sum, voteSet.valSet.TotalVotingPower()
 	fracVoted := float64(voted) / float64(total)
 	return vvoted,voted, total, fracVoted
@@ -614,7 +614,7 @@ type blockVotes struct {
 	peerMaj23 bool           // peer claims to have maj23
 	bitArray  *help.BitArray // valIndex -> hasVote?
 	votes     []*Vote        // valIndex -> *Vote
-	sum       uint64         // vote sum
+	sum       int64         // vote sum
 }
 
 func newBlockVotes(peerMaj23 bool, numValidators uint) *blockVotes {
@@ -626,7 +626,7 @@ func newBlockVotes(peerMaj23 bool, numValidators uint) *blockVotes {
 	}
 }
 
-func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower uint64) {
+func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower int64) {
 	valIndex := vote.ValidatorIndex
 	if existing := vs.votes[valIndex]; existing == nil {
 		vs.bitArray.SetIndex(valIndex, true)
