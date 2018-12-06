@@ -76,7 +76,7 @@ $ getrue init path/to/genesis.json
 To start a getrue instance for single node, use genesis as above, and run it with these flags:
 
 ```
-$ getrue --nodiscover --singlenode --mine --etherbase 0x8a45d70f096d3581866ed27a5017a4eeec0db2a1 --bftkeyhex "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc" --bftip "192.168.68.43" --bftport 10080
+$ getrue --nodiscover --singlenode --mine --election --etherbase 0x8a45d70f096d3581866ed27a5017a4eeec0db2a1 --bftkeyhex "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc" --bftip "192.168.68.43" console
 ```
 
 Which will start sending transactions periodly to this node and mining fruits and blocks.
