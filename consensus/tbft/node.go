@@ -8,7 +8,6 @@ import (
 	// "encoding/json"
 	"errors"
 	"fmt"
-	cfg "github.com/truechain/truechain-engineering-code/params"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
@@ -17,6 +16,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/log"
+	cfg "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 )
 
@@ -426,6 +426,37 @@ func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 		return errors.New("wrong conmmitt ID:" + committeeId.String())
 	}
 }
+
+func getCommittee(n *Node, cid uint64) (info *service) {
+	if server, ok := n.services[cid]; ok {
+		return server
+	}
+	return nil
+}
+
+func getNodeStatus(s *Node, parent bool) map[string]interface{} {
+	return nil
+}
+
 func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
+	result := make(map[string]interface{})
+	s := getCommittee(n, committeeID.Uint64())
+	if s != nil {
+		committee := make(map[string]interface{})
+		committee["id"] = committeeID.Uint64()
+		committee["nodes"] = s.nodeTable
+		result["committee_now"] = committee
+
+		result["nodeStatus"] = getNodeStatus(n, false)
+		result["nodeParent"] = getNodeStatus(n, true)
+	}
+
+	s1 := getCommittee(n, committeeID.Uint64()+1)
+	if s1 != nil {
+		committee := make(map[string]interface{})
+		committee["id"] = committeeID.Uint64() + 1
+		committee["nodes"] = s1.nodeTable
+		result["committee_next"] = committee
+	}
 	return nil
 }
