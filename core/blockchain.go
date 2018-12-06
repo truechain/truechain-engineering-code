@@ -309,7 +309,6 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
 
-
 	//log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
 
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
@@ -632,6 +631,16 @@ func (bc *BlockChain) HasState(hash common.Hash) bool {
 	return err == nil
 }
 
+// VerifyHasState checks if state trie is fully present in the database or not.
+// or CurrentFastBlock number  > the number of fb
+func (bc *BlockChain) VerifyHasState(fb *types.Block) bool {
+	_, err := bc.stateCache.OpenTrie(fb.Root())
+	if err != nil && bc.CurrentBlock().NumberU64() > fb.NumberU64() {
+		return true
+	}
+	return err == nil
+}
+
 // HasBlockAndState checks if a block and associated state trie is fully present
 // in the database or not, caching it if present.
 func (bc *BlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
@@ -640,7 +649,8 @@ func (bc *BlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
 	if block == nil {
 		return false
 	}
-	return bc.HasState(block.Root())
+	//return bc.HasState(block.Root())
+	return bc.VerifyHasState(block)
 }
 
 // GetBlock retrieves a block from the database by hash and number,
@@ -786,7 +796,7 @@ func (bc *BlockChain) procFutureBlocks() {
 type WriteStatus byte
 
 const (
-	NonStatTy WriteStatus = iota
+	NonStatTy   WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )
@@ -1764,7 +1774,7 @@ func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockRewa
 	return signs
 }
 
-func (bc *BlockChain) GetBlockNumber() uint64  {
+func (bc *BlockChain) GetBlockNumber() uint64 {
 
 	if bc.CurrentFastBlock().NumberU64() > bc.CurrentBlock().NumberU64() {
 		return bc.CurrentFastBlock().NumberU64()
