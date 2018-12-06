@@ -1,15 +1,19 @@
 ## TrueChain Engineering Code
 
-prototype for TrueChain fruit chain consensus
+TrueChain is a truly fast, permissionless, secure and scalable public blockchain platform which is supported by hybrid consensus technology called Minerva and a global developer community. 
+ 
+TrueChain uses hybrid consensus combining PBFT and fPoW to solve the biggest problem confronting public blockchain: the contradiction between decentralization and efficiency. 
 
-Refer to:
-https://eprint.iacr.org/2016/916.pdf
+TrueChain uses PBFT as fast-chain to process transactions, and leave the oversight and election of PBFT to the hands of PoW nodes. Besides, TrueChain integrates fruitchain technology into the traditional PoW protocol to become fPoW, 
+ to make the chain even more decentralized and fair. 
+ 
+ TrueChain also creates a hybrid consensus incentive model and a stable gas fee mechanism to lower the cost for the developers and operators of DApps, and provide better infrastructure for decentralized eco-system. 
 
 
 ## Building the source
 
 
-Building getrue requires both a Go (version 1.7 or later) and a C compiler.
+Building getrue requires both a Go (version 1.9 or later) and a C compiler.
 You can install them using your favourite package manager.
 Once the dependencies are installed, run
 
@@ -26,19 +30,20 @@ The execuable command getrue will be found in the `cmd` directory.
 ### Defining the private genesis state
 
 First, you'll need to create the genesis state of your networks, which all nodes need to be aware of
-and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`):
+and agree upon. We provide a single node JSON file at cmd/getrue/genesis_single.json:
 
 ```json
 {
   "config": {
     "chainId": 10,
-    "homesteadBlock": 0,
-    "eip155Block": 0,
-    "eip158Block": 0
+    "minerva":{"durationLimit" : "0x3c",
+      "minimumDifficulty":"0x7d0",
+      "minimumFruitDifficulty":"0x32"
+      }
   },
   "alloc":{
-    "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a" : { "balance" : 90000000000000000000000},
-    "0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9" : { "balance" : 10000000000000000000000}
+    "0x7c357530174275dd30e46319b89f71186256e4f7" : { "balance" : 90000000000000000000000},
+    "0x4cf807958b9f6d9fd9331397d7a89a079ef43288" : { "balance" : 90000000000000000000000}
   },
   "committee":[
     {
@@ -50,7 +55,7 @@ and agree upon. This consists of a small JSON file (e.g. call it `genesis.json`)
   "coinbase"   : "0x0000000000000000000000000000000000000000",
   "difficulty" : "0x100",
   "extraData"  : "",
-  "gasLimit"   : "0x2fefd8",
+  "gasLimit"   : "0x1500000",
   "nonce"      : "0x0000000000000042",
   "mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
   "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -71,7 +76,7 @@ $ getrue init path/to/genesis.json
 To start a getrue instance for single node, use genesis as above, and run it with these flags:
 
 ```
-$ getrue --nodiscover --singlenode --bft --mine --etherbase 0x8a45d70f096d3581866ed27a5017a4eeec0db2a1 --bftkeyhex "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc" --bftip "192.168.68.43" --bftport 10080
+$ getrue --nodiscover --singlenode --mine --election --etherbase 0x8a45d70f096d3581866ed27a5017a4eeec0db2a1 --bftkeyhex "c1581e25937d9ab91421a3e1a2667c85b0397c75a195e643109938e987acecfc" --bftip "192.168.68.43" console
 ```
 
 Which will start sending transactions periodly to this node and mining fruits and blocks.
