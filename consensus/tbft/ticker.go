@@ -2,7 +2,7 @@ package tbft
 
 import (
 	"time"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -74,7 +74,7 @@ func (t *timeoutTicker) ScheduleTimeout(ti timeoutInfo) {
 	case t.tickChan <- ti:
 	default:
 		log.Debug("t.tickChan already close")
-	}	
+	}
 }
 
 //-------------------------------------------------------------

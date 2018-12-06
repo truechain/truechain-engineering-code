@@ -14,8 +14,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/pex"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	cfg "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 )

@@ -22,8 +22,8 @@ import (
 	"os"
 
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // errNoActiveSnailJournal is returned if a fruit is attempted to be inserted

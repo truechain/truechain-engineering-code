@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 // Tests whether the truehash lookup works for both light as well as the full

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"crypto/ecdsa"
 	"encoding/json"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"time"
 )
@@ -34,7 +34,7 @@ type CommitteeMember struct {
 }
 func (c *CommitteeMember) String() string {
 	return fmt.Sprintf("C:%s,P:%s",common.ToHex(c.Coinbase[:]),
-	common.ToHex(crypto.FromECDSAPub(c.Publickey)))	
+	common.ToHex(crypto.FromECDSAPub(c.Publickey)))
 }
 
 func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
@@ -85,7 +85,7 @@ type PbftAgentProxy interface {
 	VerifyFastBlock(*Block) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
-	GetCurrentHeight() *big.Int 
+	GetCurrentHeight() *big.Int
 }
 
 type PbftServerProxy interface {
@@ -126,7 +126,7 @@ func (c *CommitteeInfo) String() string{
 			}
 		}
 		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}",c.Id,c.StartHeight,strings.Join(memStrings,"\n  "))
-	}	
+	}
 	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}",c.Id,c.StartHeight)
 }
 

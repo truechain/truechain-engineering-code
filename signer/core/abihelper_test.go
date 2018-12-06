@@ -26,7 +26,7 @@ import (
 	"reflect"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func verify(t *testing.T, jsondata, calldata string, exp []interface{}) {

@@ -3,7 +3,7 @@ package p2p
 import (
 	"net"
 	"sync"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // IPeerSet has a (immutable) subset of the methods of PeerSet.

@@ -17,7 +17,7 @@
 package types
 
 import (
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
 

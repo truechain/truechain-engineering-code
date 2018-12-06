@@ -26,12 +26,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/hashicorp/golang-lru"
 )
@@ -93,7 +93,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 	}
 
 	//TODO have get hc.hash 20180805
-	
+
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
 	if hc.genesisHeader == nil {
 		return nil, ErrNoGenesis
@@ -105,7 +105,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 			hc.currentHeader.Store(chead)
 		}
 	}
-	
+
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
 
 	return hc, nil
@@ -433,7 +433,7 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 // header is retrieved from the HeaderChain's internal cache.
 func (hc *HeaderChain) CurrentHeader() *types.SnailHeader {
 	//return nil
-	//TODO shoud add 
+	//TODO shoud add
 	return hc.currentHeader.Load().(*types.SnailHeader)
 }
 
@@ -492,13 +492,13 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 func (hc *HeaderChain) SetGenesis(head *types.SnailHeader) {
 	hc.genesisHeader = head
 }
- 
+
 // Config retrieves the header chain's chain configuration.
 func (hc *HeaderChain) Config() *params.ChainConfig { return hc.config }
 
 // Engine retrieves the header chain's consensus engine.
 func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
- 
+
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.
 func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.SnailBlock {

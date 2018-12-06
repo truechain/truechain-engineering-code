@@ -14,8 +14,8 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	// fail "github.com/ebuchman/fail-test"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 //-----------------------------------------------------------------------------
@@ -364,7 +364,7 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		log.Info("Reset privValidator","height",cs.Height)
 		cs.state.PrivReset()
 		sleepDuration := time.Duration(1) * time.Millisecond
-		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})	
+		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
 	}
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
@@ -1158,8 +1158,8 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 			log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", common.ToHex(blockID.Hash))
 			cs.ProposalBlock = cs.LockedBlock
 			cs.ProposalBlockParts = cs.LockedBlockParts
-		}	
-	} 
+		}
+	}
 	// If we don't have the block being committed, set up to get it.
 	if cs.ProposalBlock != nil {
 		pro := cs.ProposalBlock.Hash()
@@ -1230,7 +1230,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	if ierr != nil || signs == nil {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, make signs error=%s", ierr.Error()))
 	}
-	
+
 	if !help.EqualHashes(hash[:], blockID.Hash) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
@@ -1257,7 +1257,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
-	
+
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 

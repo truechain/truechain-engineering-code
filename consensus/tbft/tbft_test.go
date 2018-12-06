@@ -5,13 +5,13 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	config "github.com/truechain/truechain-engineering-code/params"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"path/filepath"
 	"strconv"
@@ -1009,7 +1009,7 @@ func TestTock(t *testing.T) {
 	var d time.Duration = time.Duration(taskTimeOut) * time.Second
 	ttock := NewTimeoutTicker("ttock")
 	ttock.Start()
-	
+
 	ttock.ScheduleTimeout(timeoutInfo{d, 1, uint(0), 0, 1})
 	go TimeoutRoutine(&ttock)
 
