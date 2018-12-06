@@ -94,7 +94,7 @@ type Service struct {
 
 	pongCh     chan struct{} // Pong notifications are fed into this channel
 	histCh     chan []uint64 // History request block numbers are fed into this channel
-	sailHistCh chan []uint64 // History request snailBlock numbers are fed into this channel
+	snailHistCh chan []uint64 // History request snailBlock numbers are fed into this channel
 }
 
 // New returns a monitoring service ready for stats reporting.
@@ -121,7 +121,7 @@ func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEthereum) (*Ser
 		host:       parts[4],
 		pongCh:     make(chan struct{}),
 		histCh:     make(chan []uint64, 1),
-		sailHistCh: make(chan []uint64, 1),
+		snailHistCh: make(chan []uint64, 1),
 	}, nil
 }
 
@@ -276,22 +276,25 @@ func (s *Service) loop() {
 		}
 		// Keep sending status updates until the connection breaks
 		fullReport := time.NewTicker(15 * time.Second)
-
+		snailBlockReport := time.NewTicker(10 * time.Minute)
 		for err == nil {
 			select {
 			case <-quitCh:
 				conn.Close()
 				return
-
 			case <-fullReport.C:
 				if err = s.report(conn); err != nil {
 					log.Warn("Full stats report failed", "err", err)
+				}
+			case <-snailBlockReport.C:
+				if err = s.reportSnailBlock(conn, nil); err != nil {
+					log.Warn("snailBlockReport stats report failed", "err", err)
 				}
 			case list := <-s.histCh:
 				if err = s.reportHistory(conn, list); err != nil {
 					log.Warn("Requested history report failed", "err", err)
 				}
-			case list := <-s.sailHistCh:
+			case list := <-s.snailHistCh:
 				if err = s.reportSnailHistory(conn, list); err != nil {
 					log.Warn("Requested history report failed", "err", err)
 				}
@@ -376,7 +379,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 		if command == "history" {
 			s.histCh <- nil
 		} else {
-			s.sailHistCh <- nil
+			s.snailHistCh <- nil
 		}
 		return "continue" // Etruestats sometime sends invalid history requests, ignore those
 	}
@@ -403,7 +406,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 		}
 	} else {
 		select {
-		case s.sailHistCh <- numbers:
+		case s.snailHistCh <- numbers:
 			return "continue"
 		default:
 		}
@@ -484,9 +487,6 @@ func (s *Service) report(conn *websocket.Conn) error {
 		return err
 	}
 	if err := s.reportBlock(conn, nil); err != nil {
-		return err
-	}
-	if err := s.reportSnailBlock(conn, nil); err != nil {
 		return err
 	}
 	if err := s.reportPending(conn); err != nil {
