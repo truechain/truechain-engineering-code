@@ -357,8 +357,8 @@ func (cs *ConsensusState) UpdateStateForSync() {
 	oldH := cs.Height
 	newH :=  cs.state.GetLastBlockHeight() + 1
 	if oldH == newH {
-		cs.enterNewRound(newH,int(cs.Round+1))
-		cs.newStep()
+		// cs.enterNewRound(newH,int(cs.Round+1))
+		// cs.newStep()
 	} else {
 		cs.updateToState(cs.state)
 		log.Info("Reset privValidator","height",cs.Height)
