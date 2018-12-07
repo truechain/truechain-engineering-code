@@ -50,12 +50,7 @@ var (
 		utils.DashboardAddrFlag,
 		utils.DashboardPortFlag,
 		utils.DashboardRefreshFlag,
-		utils.EthashCacheDirFlag,
-		utils.EthashCachesInMemoryFlag,
-		utils.EthashCachesOnDiskFlag,
-		utils.EthashDatasetDirFlag,
-		utils.EthashDatasetsInMemoryFlag,
-		utils.EthashDatasetsOnDiskFlag,
+
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
@@ -66,6 +61,7 @@ var (
 		utils.TxPoolAccountQueueFlag,
 		utils.TxPoolGlobalQueueFlag,
 		utils.TxPoolLifetimeFlag,
+
 		utils.SnailPoolJournalFlag,
 		utils.SnailPoolRejournalFlag,
 		utils.SnailPoolFruitCountFlag,
@@ -74,14 +70,15 @@ var (
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
-		utils.MineFruitFlag,
-		utils.OldTbftFlag,
+
 		utils.EnableElectionFlag,
+
 		utils.BFTPortFlag,
-		utils.BFTStandByPortFlag,
+		utils.BFTStandbyPortFlag,
 		utils.BFTIPFlag,
 		utils.BftKeyFileFlag,
 		utils.BftKeyHexFlag,
+		utils.OldTbftFlag,
 
 		utils.GCModeFlag,
 		utils.LightServFlag,
@@ -97,7 +94,9 @@ var (
 		utils.EtherbaseFlag,
 		utils.CoinbaseFlag,
 		utils.GasPriceFlag,
+
 		utils.MinerThreadsFlag,
+		utils.MineFruitFlag,
 		utils.MiningEnabledFlag,
 		utils.TargetGasLimitFlag,
 		utils.NATFlag,
