@@ -47,10 +47,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/les"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -205,7 +205,7 @@ var (
 	}
 	OldTbftFlag = cli.BoolFlag{
 		Name:  "oldtbft",
-		Usage: "only mine fruit",
+		Usage: "run tbft use http",
 	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
@@ -1117,7 +1117,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(MineFruitFlag.Name) {
 		cfg.MineFruit = true
 	}
-	if ctx.GlobalBool(OldTbftFlag.Name){
+	if ctx.GlobalBool(OldTbftFlag.Name) {
 		cfg.OldTbft = true
 	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
