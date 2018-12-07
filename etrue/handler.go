@@ -56,6 +56,8 @@ const (
 	signChanSize  = 512
 	nodeChanSize  = 256
 	fruitChanSize = 256
+	// minimim number of peers to broadcast new blocks to
+	minBroadcastPeers = 4
 )
 
 var (
@@ -1124,6 +1126,13 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 			return
 		}
 		// Send the block to a subset of our peers
+		transferLen := int(math.Sqrt(float64(len(peers))))
+		if transferLen < minBroadcastPeers {
+			transferLen = minBroadcastPeers
+		}
+		if transferLen > len(peers) {
+			transferLen = len(peers)
+		}
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
