@@ -518,8 +518,8 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	return &genesis
 }
 
-// DefaultRinkebyGenesisBlock returns the Rinkeby network genesis block.
-func DefaultRinkebyGenesisBlock() *Genesis {
+// DefaultDevGenesisBlock returns the Rinkeby network genesis block.
+func DefaultDevGenesisBlock() *Genesis {
 	genesis := Genesis{
 		Config:     params.AllMinervaProtocolChanges,
 		Timestamp:  1492009146,
