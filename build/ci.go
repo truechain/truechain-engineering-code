@@ -97,10 +97,6 @@ var (
 			Name:        "swarm",
 			Description: "Ethereum Swarm daemon and tools",
 		},
-		{
-			Name:        "wnode",
-			Description: "Ethereum Whisper diagnostic tool",
-		},
 	}
 
 	// Distros for which packages are created.

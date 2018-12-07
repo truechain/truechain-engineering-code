@@ -65,8 +65,6 @@ var (
 		utils.SnailPoolJournalFlag,
 		utils.SnailPoolRejournalFlag,
 		utils.SnailPoolFruitCountFlag,
-		utils.FastSyncFlag,
-		utils.LightModeFlag,
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
@@ -137,12 +135,6 @@ var (
 		utils.IPCPathFlag,
 	}
 
-	whisperFlags = []cli.Flag{
-		utils.WhisperEnabledFlag,
-		utils.WhisperMaxMessageSizeFlag,
-		utils.WhisperMinPOWFlag,
-	}
-
 	metricsFlags = []cli.Flag{
 		utils.MetricsEnableInfluxDBFlag,
 		utils.MetricsInfluxDBEndpointFlag,
@@ -192,7 +184,6 @@ func init() {
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
-	app.Flags = append(app.Flags, whisperFlags...)
 	app.Flags = append(app.Flags, metricsFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
@@ -313,7 +304,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Truechain node is running
-		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
 		var truechain *etrue.Truechain
