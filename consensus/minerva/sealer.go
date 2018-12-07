@@ -360,6 +360,7 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 	return true, ds
 }
 
+//UpdateTBL Update dataset information
 func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookup_tbl []uint64) []uint64 {
 
 	lktWz := uint32(DATALENGTH / 64)
