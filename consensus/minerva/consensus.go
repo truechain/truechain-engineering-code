@@ -18,6 +18,7 @@ package minerva
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -487,31 +488,52 @@ func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uin
 
 // VerifySigns check the sings included in fast block or fruit
 //
-func (m *Minerva) VerifySigns(fastnumber *big.Int, signs []*types.PbftSign) error {
+func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error {
 	// validate the signatures of this fruit
+	ms := make(map[common.Address]uint)
 	members := m.election.GetCommittee(fastnumber)
 	if members == nil {
 		log.Warn("VerifySigns get committee failed.", "number", fastnumber)
 		return consensus.ErrInvalidSign
 	}
+	for _, member := range members {
+		addr := crypto.PubkeyToAddress(*member.Publickey)
+		ms[addr] = 0
+	}
+
 	count := 0
 	for _, sign := range signs {
+		if sign.FastHash != fastHash || sign.FastHeight.Cmp(fastnumber) != 0 {
+			log.Warn("VerifySigns signs hash error", "number", fastnumber, "hash", fastHash, "signHash", sign.FastHash, "signNumber", sign.FastHeight)
+			return consensus.ErrInvalidSign
+		}
 		if sign.Result == types.VoteAgree {
 			count++
 		}
 	}
-	// pbft signs check bug will fix next release
 	if count <= len(members)*2/3 {
 		log.Warn("VerifySigns number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
 
-	_, errs := m.election.VerifySigns(signs)
-	for _, err := range errs {
+	signMembers, errs := m.election.VerifySigns(signs)
+	for i, err := range errs {
 		if err != nil {
 			log.Warn("VerifySigns error", "err", err)
 			return err
 		}
+		addr := crypto.PubkeyToAddress(*signMembers[i].Publickey)
+		if _, ok := ms[addr]; !ok {
+			// is not a committee member
+			log.Warn("VerifySigns member error", "signs", len(signs), "member", hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
+			return consensus.ErrInvalidSign
+		}
+		if ms[addr] == 1 {
+			// the committee member's sign is already exist
+			log.Warn("VerifySigns member already exist", "signs", len(signs), "member", hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
+			return consensus.ErrInvalidSign
+		}
+		ms[addr] = 1
 	}
 
 	return nil
@@ -860,7 +882,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		signs := fruit.Body().Signs
 
 		committeeMembers, errs := election.VerifySigns(signs)
-
 		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}

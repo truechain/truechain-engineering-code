@@ -21,8 +21,11 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft"
+	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -30,8 +33,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	elect "github.com/truechain/truechain-engineering-code/consensus/election"
+	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -102,7 +105,8 @@ type Truechain struct {
 	networkID     uint64
 	netRPCService *trueapi.PublicNetAPI
 
-	pbftServer *pbftserver.PbftServerMgr
+	pbftServerOld *pbftserver.PbftServerMgr
+	pbftServer    *tbft.Node
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
@@ -314,25 +318,25 @@ func (s *Truechain) APIs() []rpc.API {
 	apis = append(apis, s.engine.APIs(s.BlockChain())...)
 
 	// Append etrue	APIs and  Eth APIs
-	namespaces :=[]string{"etrue","eth"}
-	for _,name :=range namespaces{
-		apis = append(apis,[]rpc.API{
+	namespaces := []string{"etrue", "eth"}
+	for _, name := range namespaces {
+		apis = append(apis, []rpc.API{
 			{
 				Namespace: name,
 				Version:   "1.0",
 				Service:   NewPublicTruechainAPI(s),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   NewPublicMinerAPI(s),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   filters.NewPublicFilterAPI(s.APIBackend, false),
@@ -342,7 +346,7 @@ func (s *Truechain) APIs() []rpc.API {
 	}
 	// Append all the local APIs and return
 	return append(apis, []rpc.API{
-		 {
+		{
 			Namespace: "miner",
 			Version:   "1.0",
 			Service:   NewPrivateMinerAPI(s),
@@ -404,7 +408,7 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 func (s *Truechain) SetEtherbase(etherbase common.Address) {
 	s.lock.Lock()
 	s.etherbase = etherbase
-	s.agent.committeeNode.Coinbase =etherbase
+	s.agent.committeeNode.Coinbase = etherbase
 	s.lock.Unlock()
 
 	s.miner.SetEtherbase(etherbase)
@@ -495,13 +499,23 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-	s.startPbftServer()
-	if s.pbftServer == nil {
-		log.Error("start pbft server failed.")
-		return errors.New("start pbft server failed.")
+	if s.config.OldTbft {
+		s.startPbftServerOld()
+		if s.pbftServerOld == nil {
+			log.Error("start pbft server failed.")
+			return errors.New("start pbft server failed.")
+		}
+		s.agent.server = s.pbftServerOld
+		log.Info("", "server", s.agent.server)
+	} else {
+		s.startPbftServer()
+		if s.pbftServer == nil {
+			log.Error("start pbft server failed.")
+			return errors.New("start pbft server failed.")
+		}
+		s.agent.server = s.pbftServer
+		log.Info("", "server", s.agent.server)
 	}
-	s.agent.server = s.pbftServer
-	log.Info("", "server", s.agent.server)
 	s.agent.Start()
 
 	s.election.Start()
@@ -522,7 +536,11 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Truechain protocol.
 func (s *Truechain) Stop() error {
-	s.stopPbftServer()
+	if s.config.OldTbft {
+		s.stopPbftServerOld()
+	} else {
+		s.stopPbftServer()
+	}
 	s.bloomIndexer.Close()
 	s.blockchain.Stop()
 	s.snailblockchain.Stop()
@@ -539,7 +557,7 @@ func (s *Truechain) Stop() error {
 
 	return nil
 }
-func (s *Truechain) startPbftServer() error {
+func (s *Truechain) startPbftServerOld() error {
 	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
 	if err != nil {
 		return err
@@ -550,12 +568,37 @@ func (s *Truechain) startPbftServer() error {
 		Y:     new(big.Int).Set(priv.Y),
 	}
 	// var agent types.PbftAgentProxy
-	s.pbftServer = pbftserver.NewPbftServerMgr(pk, priv, s.agent)
+	s.pbftServerOld = pbftserver.NewPbftServerMgr(pk, priv, s.agent)
+	return nil
+}
+
+func (s *Truechain) startPbftServer() error {
+	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
+	if err != nil {
+		return err
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.P2P.ListenAddress1 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.Port)
+	cfg.P2P.ListenAddress2 = "tcp://0.0.0.0:" + strconv.Itoa(s.config.StandbyPort)
+
+	n1, err := tbft.NewNode(cfg, "1", priv, s.agent)
+	if err != nil {
+		return err
+	}
+	s.pbftServer = n1
+	return n1.Start()
+}
+
+func (s *Truechain) stopPbftServerOld() error {
+	if s.pbftServerOld != nil {
+		s.pbftServerOld.Finish()
+	}
 	return nil
 }
 func (s *Truechain) stopPbftServer() error {
 	if s.pbftServer != nil {
-		s.pbftServer.Finish()
+		s.pbftServer.Stop()
 	}
 	return nil
 }

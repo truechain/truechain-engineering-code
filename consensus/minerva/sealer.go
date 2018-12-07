@@ -99,7 +99,6 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 // ConSeal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
 func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
-	log.Debug(" +++++++++get in Conseal ", "fb number", block.FastNumber(), "threads", m.threads)
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()

@@ -47,10 +47,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/ethstats"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/les"
 	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
@@ -170,32 +170,30 @@ var (
 		Name:  "light",
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}
+	//single node setting
 	SingleNodeFlag = cli.BoolFlag{
 		Name:  "singlenode",
-		Usage: "sing node model",
+		Usage: "sing node model start",
 	}
-	MineFruitFlag = cli.BoolFlag{
-		Name:  "minefruit",
-		Usage: "only mine fruit",
-	}
+
+	//election setting
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
 		Usage: "enable election",
 	}
-	BFTPortFlag = cli.Uint64Flag{
-		Name:  "bftport",
-		Usage: "committee node port ",
-		//Value: 10080,
-	}
-	BFTStandByPortFlag = cli.Uint64Flag{
-		Name:  "bftport2",
-		Usage: "committee node standBy port ",
-		//Value: 10090,
-	}
+
+	//bpft setting
 	BFTIPFlag = cli.StringFlag{
 		Name:  "bftip",
 		Usage: "committee node ip",
-		//Value: "127.0.0.1",
+	}
+	BFTPortFlag = cli.Uint64Flag{
+		Name:  "bftport",
+		Usage: "committee node port ",
+	}
+	BFTStandbyPortFlag = cli.Uint64Flag{
+		Name:  "bftport2",
+		Usage: "committee node standby port ",
 	}
 	BftKeyFileFlag = cli.StringFlag{
 		Name:  "bftkey",
@@ -204,6 +202,10 @@ var (
 	BftKeyHexFlag = cli.StringFlag{
 		Name:  "bftkeyhex",
 		Usage: "committee generate privatekey as hex (for testing)",
+	}
+	OldTbftFlag = cli.BoolFlag{
+		Name:  "oldtbft",
+		Usage: "run tbft use http",
 	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
@@ -250,36 +252,6 @@ var (
 		Name:  "dashboard.refresh",
 		Usage: "Dashboard metrics collection refresh rate",
 		Value: dashboard.DefaultConfig.Refresh,
-	}
-	// Ethash settings
-	EthashCacheDirFlag = DirectoryFlag{
-		Name:  "ethash.cachedir",
-		Usage: "Directory to store the ethash verification caches (default = inside the datadir)",
-	}
-	EthashCachesInMemoryFlag = cli.IntFlag{
-		Name:  "ethash.cachesinmem",
-		Usage: "Number of recent ethash caches to keep in memory (16MB each)",
-		Value: etrue.DefaultConfig.Ethash.CachesInMem,
-	}
-	EthashCachesOnDiskFlag = cli.IntFlag{
-		Name:  "ethash.cachesondisk",
-		Usage: "Number of recent ethash caches to keep on disk (16MB each)",
-		Value: etrue.DefaultConfig.Ethash.CachesOnDisk,
-	}
-	EthashDatasetDirFlag = DirectoryFlag{
-		Name:  "ethash.dagdir",
-		Usage: "Directory to store the ethash mining DAGs (default = inside home folder)",
-		Value: DirectoryString{etrue.DefaultConfig.Ethash.DatasetDir},
-	}
-	EthashDatasetsInMemoryFlag = cli.IntFlag{
-		Name:  "ethash.dagsinmem",
-		Usage: "Number of recent ethash mining DAGs to keep in memory (1+GB each)",
-		Value: etrue.DefaultConfig.Ethash.DatasetsInMem,
-	}
-	EthashDatasetsOnDiskFlag = cli.IntFlag{
-		Name:  "ethash.dagsondisk",
-		Usage: "Number of recent ethash mining DAGs to keep on disk (1+GB each)",
-		Value: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
 	}
 	// Transaction pool settings
 	TxPoolNoLocalsFlag = cli.BoolFlag{
@@ -331,7 +303,7 @@ var (
 		Usage: "Maximum amount of time non-executable transaction are queued",
 		Value: etrue.DefaultConfig.TxPool.Lifetime,
 	}
-	//snail pool settings
+	//fruit pool settings
 	SnailPoolJournalFlag = cli.StringFlag{
 		Name:  "fruitpool.journal",
 		Usage: "Disk journal for local fruit to survive node restarts",
@@ -372,6 +344,10 @@ var (
 	MiningEnabledFlag = cli.BoolFlag{
 		Name:  "mine",
 		Usage: "Enable mining",
+	}
+	MineFruitFlag = cli.BoolFlag{
+		Name:  "minefruit",
+		Usage: "only mine fruit",
 	}
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
@@ -419,9 +395,9 @@ var (
 		Usage: "Record information useful for VM and contract debugging",
 	}
 	// Logging and debug settings
-	EthStatsURLFlag = cli.StringFlag{
-		Name:  "ethstats",
-		Usage: "Reporting URL of a ethstats service (nodename:secret@host:port)",
+	EtrueStatsURLFlag = cli.StringFlag{
+		Name:  "etruestats",
+		Usage: "Reporting URL of a etruestats service (nodename:secret@host:port)",
 	}
 	FakePoWFlag = cli.BoolFlag{
 		Name:  "fakepow",
@@ -1041,24 +1017,7 @@ func setTxPool(ctx *cli.Context, cfg *core.TxPoolConfig) {
 }
 
 func setEthash(ctx *cli.Context, cfg *etrue.Config) {
-	if ctx.GlobalIsSet(EthashCacheDirFlag.Name) {
-		cfg.Ethash.CacheDir = ctx.GlobalString(EthashCacheDirFlag.Name)
-	}
-	if ctx.GlobalIsSet(EthashDatasetDirFlag.Name) {
-		cfg.Ethash.DatasetDir = ctx.GlobalString(EthashDatasetDirFlag.Name)
-	}
-	if ctx.GlobalIsSet(EthashCachesInMemoryFlag.Name) {
-		cfg.Ethash.CachesInMem = ctx.GlobalInt(EthashCachesInMemoryFlag.Name)
-	}
-	if ctx.GlobalIsSet(EthashCachesOnDiskFlag.Name) {
-		cfg.Ethash.CachesOnDisk = ctx.GlobalInt(EthashCachesOnDiskFlag.Name)
-	}
-	if ctx.GlobalIsSet(EthashDatasetsInMemoryFlag.Name) {
-		cfg.Ethash.DatasetsInMem = ctx.GlobalInt(EthashDatasetsInMemoryFlag.Name)
-	}
-	if ctx.GlobalIsSet(EthashDatasetsOnDiskFlag.Name) {
-		cfg.Ethash.DatasetsOnDisk = ctx.GlobalInt(EthashDatasetsOnDiskFlag.Name)
-	}
+
 }
 
 func setSnailPool(ctx *cli.Context, cfg *snailchain.SnailPoolConfig) {
@@ -1158,6 +1117,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(MineFruitFlag.Name) {
 		cfg.MineFruit = true
 	}
+	if ctx.GlobalBool(OldTbftFlag.Name) {
+		cfg.OldTbft = true
+	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
 	}
@@ -1167,8 +1129,8 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(BFTPortFlag.Name) {
 		cfg.Port = int(ctx.GlobalUint64(BFTPortFlag.Name))
 	}
-	if ctx.GlobalIsSet(BFTStandByPortFlag.Name) {
-		cfg.StandbyPort = int(ctx.GlobalUint64(BFTStandByPortFlag.Name))
+	if ctx.GlobalIsSet(BFTStandbyPortFlag.Name) {
+		cfg.StandbyPort = int(ctx.GlobalUint64(BFTStandbyPortFlag.Name))
 	}
 
 	//set PrivateKey by config,file or hex
@@ -1192,10 +1154,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 			Fatalf("election set true,Option %q  must be exist.", BFTPortFlag.Name)
 		}
 		if cfg.StandbyPort == 0 {
-			Fatalf("election set true,Option %q  must be exist.", BFTStandByPortFlag.Name)
+			Fatalf("election set true,Option %q  must be exist.", BFTStandbyPortFlag.Name)
 		}
 		if cfg.Port == cfg.StandbyPort {
-			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name, BFTStandByPortFlag.Name)
+			Fatalf("election set true,Option %q and %q must be different.", BFTPortFlag.Name, BFTStandbyPortFlag.Name)
 		}
 	}
 	log.Info("Committee Node info:", "publickey", hex.EncodeToString(crypto.FromECDSAPub(&cfg.PrivateKey.PublicKey)),
@@ -1333,7 +1295,7 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 		var lesServ *les.LightEthereum
 		ctx.Service(&lesServ)
 
-		return ethstats.New(url, ethServ, lesServ)
+		return etruestats.New(url, ethServ, lesServ)
 	}); err != nil {
 		Fatalf("Failed to register the Truechain Stats service: %v", err)
 	}

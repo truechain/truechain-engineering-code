@@ -20,6 +20,7 @@ import (
 	"math"
 	"sync"
 	"time"
+	"errors"
 
 	"github.com/truechain/truechain-engineering-code/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
@@ -33,6 +34,11 @@ import (
 const (
 	fruitChanSize     = 1024
 	chainHeadChanSize = 10
+)
+
+var (
+	// ErrNotExist is returned if the fast block not exist in fastchain.
+	ErrNotExist = errors.New("not exist")
 )
 
 var (
@@ -248,6 +254,17 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	}
 
 	return nil
+}
+
+// journalFruit adds the specified fruit to the local disk journal
+func (pool *SnailPool) journalFruit(fruit *types.SnailBlock) {
+	// Only journal if it's enabled
+	if pool.journal == nil {
+		return
+	}
+	if err := pool.journal.insert(fruit); err != nil {
+		log.Warn("Failed to journal fruit", "err", err)
+	}
 }
 
 // loop is the fruit pool's main event loop, waiting for and reacting to
@@ -490,7 +507,7 @@ func (pool *SnailPool) Stop() {
 }
 
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
-func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
+func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
 
@@ -504,6 +521,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 		f := types.CopyFruit(fruit)
 		pool.newFruitCh <- f
+		if local {
+			pool.journalFruit(fruit)
+		}
 	}
 
 	return errs
@@ -581,7 +601,7 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
-		return ErrInvalidSign
+		return ErrInvalidSignHash
 	}
 	// check freshness
 	/*

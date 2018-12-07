@@ -1038,11 +1038,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				return errResp(ErrDecode, "fruit %d is nil", i)
 			}
 			p.MarkFruit(fruit.Hash())
-			log.Trace("add fruit from p2p", "number", fruit.FastNumber(), "hash", fruit.Hash())
-			log.Info("add fruit from p2p", "peerid", p.id, "number", fruit.FastNumber(), "hash", fruit.Hash())
+			log.Debug("add fruit from p2p", "peerid", p.id, "number", fruit.FastNumber(), "hash", fruit.Hash())
 		}
 
-		pm.SnailPool.AddRemoteFruits(fruits)
+		pm.SnailPool.AddRemoteFruits(fruits, false)
 
 	case msg.Code == SnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them

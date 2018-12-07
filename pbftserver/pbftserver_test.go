@@ -45,7 +45,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	header.Number = getID()
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	if rand.Intn(100) > 90 {
+	if rand.Intn(100) > 0 {
 		return types.NewBlock(header, nil, nil, nil), nil
 	} else {
 		ID = new(big.Int).Add(ID, big.NewInt(-1))

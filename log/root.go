@@ -1,7 +1,9 @@
 package log
 
 import (
+	"fmt"
 	"os"
+	"time"
 )
 
 var (
@@ -29,33 +31,61 @@ func Root() Logger {
 // etc.) to keep the call depth the same for all paths to logger.write so
 // runtime.Caller(2) always refers to the call site in client code.
 
+var testingLVL = -1
+
+func OpenLogDebug(lvl int) {
+	testingLVL = lvl
+}
+
+func CloseLogDebug() {
+	testingLVL = -1
+}
+
 // Trace is a convenient alias for Root().Trace
 func Trace(msg string, ctx ...interface{}) {
+	if testingLVL >= 5 {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
+	}
 	root.write(msg, LvlTrace, ctx, skipLevel)
 }
 
 // Debug is a convenient alias for Root().Debug
 func Debug(msg string, ctx ...interface{}) {
+	if testingLVL >= 4 {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
+	}
 	root.write(msg, LvlDebug, ctx, skipLevel)
 }
 
 // Info is a convenient alias for Root().Info
 func Info(msg string, ctx ...interface{}) {
+	if testingLVL >= 3 {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
+	}
 	root.write(msg, LvlInfo, ctx, skipLevel)
 }
 
 // Warn is a convenient alias for Root().Warn
 func Warn(msg string, ctx ...interface{}) {
+	if testingLVL >= 2 {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
+	}
 	root.write(msg, LvlWarn, ctx, skipLevel)
 }
 
 // Error is a convenient alias for Root().Error
 func Error(msg string, ctx ...interface{}) {
+	if testingLVL >= 1 {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
+	}
 	root.write(msg, LvlError, ctx, skipLevel)
 }
 
 // Crit is a convenient alias for Root().Crit
 func Crit(msg string, ctx ...interface{}) {
+	if testingLVL >= 0 {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), ": ", msg, ctx)
+	}
 	root.write(msg, LvlCrit, ctx, skipLevel)
 	os.Exit(1)
 }

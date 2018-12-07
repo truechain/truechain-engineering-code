@@ -49,7 +49,7 @@ type flagGroup struct {
 // AppHelpFlagGroups is the application flags, grouped by functionality.
 var AppHelpFlagGroups = []flagGroup{
 	{
-		Name: "ETHEREUM",
+		Name: "TRUECHAIN",
 		Flags: []cli.Flag{
 			configFileFlag,
 			utils.DataDirFlag,
@@ -60,7 +60,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.RinkebyFlag,
 			utils.SyncModeFlag,
 			utils.GCModeFlag,
-			utils.EthStatsURLFlag,
+			utils.EtrueStatsURLFlag,
 			utils.IdentityFlag,
 			utils.LightServFlag,
 			utils.LightPeersFlag,
@@ -73,17 +73,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.DeveloperPeriodFlag,
 		},
 	},
-	{
-		Name: "ETHASH",
-		Flags: []cli.Flag{
-			utils.EthashCacheDirFlag,
-			utils.EthashCachesInMemoryFlag,
-			utils.EthashCachesOnDiskFlag,
-			utils.EthashDatasetDirFlag,
-			utils.EthashDatasetsInMemoryFlag,
-			utils.EthashDatasetsOnDiskFlag,
-		},
-	},
 	//{
 	//	Name: "DASHBOARD",
 	//	Flags: []cli.Flag{
@@ -94,6 +83,27 @@ var AppHelpFlagGroups = []flagGroup{
 	//		utils.DashboardAssetsFlag,
 	//	},
 	//},
+	{Name: "SINGLE NODE MODEL START",
+		Flags: []cli.Flag{
+			utils.SingleNodeFlag,
+		},
+	},
+	{Name: "ELECTION",
+		Flags: []cli.Flag{
+			utils.EnableElectionFlag,
+		},
+	},
+	{Name: "BPFT COMMITTEE",
+		Flags: []cli.Flag{
+			utils.BFTIPFlag,
+			utils.BFTPortFlag,
+			utils.BFTStandbyPortFlag,
+			utils.BftKeyFileFlag,
+			utils.BftKeyHexFlag,
+			utils.BftKeyFileFlag,
+		},
+	},
+
 	{
 		Name: "TRANSACTION POOL",
 		Flags: []cli.Flag{
