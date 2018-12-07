@@ -218,10 +218,6 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
-		Name:  "WHISPER (EXPERIMENTAL)",
-		Flags: whisperFlags,
-	},
-	{
 		Name: "MISC",
 	},
 }
