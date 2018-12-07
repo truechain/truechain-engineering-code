@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	//"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"bytes"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 type RoundVoteSet struct {
@@ -190,6 +191,17 @@ func (hvs *HeightVoteSet) SetPeerMaj23(round int, type_ byte, peerID string, blo
 	return voteSet.SetPeerMaj23(P2PID(peerID), blockID)
 }
 
+func (hvs *HeightVoteSet) GetSignsFromVote(round int,hash []byte,addr help.Address) *KeepBlockSign{
+	for r:=round;r>=0;r-- {
+		if prevote := hvs.Prevotes(r); prevote != nil {
+			keepsign := prevote.GetSignByAddress(addr)
+			if bytes.Equal(hash, keepsign.Hash[:]){
+				return keepsign
+			}
+		}
+	}
+	return nil
+}
 //---------------------------------------------------------
 // string and json
 

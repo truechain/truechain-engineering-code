@@ -1577,9 +1577,10 @@ func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.Par
 	vote, err := cs.signVote(type_, hash, header)
 	if err == nil {
 		if hash != nil && keepsign == nil {
-			if prevote := cs.Votes.Prevotes(int(cs.Round)); prevote != nil {
-				keepsign = prevote.GetSignByAddress(cs.privValidator.GetAddress())
-			}
+			keepsign = cs.Votes.GetSignsFromVote(int(cs.Round),hash,cs.privValidator.GetAddress())
+			// if prevote := cs.Votes.Prevotes(int(cs.Round)); prevote != nil {
+			// 	keepsign = prevote.GetSignByAddress(cs.privValidator.GetAddress())
+			// }
 		}
 		if hash != nil && keepsign != nil && bytes.Equal(hash, keepsign.Hash[:]) {
 			vote.Result = keepsign.Result

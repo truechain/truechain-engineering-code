@@ -24,7 +24,7 @@ var (
 		Action:   utils.MigrateFlags(localConsole),
 		Name:     "console",
 		Usage:    "Start an interactive JavaScript environment",
-		Flags:    append(append(append(nodeFlags, rpcFlags...), consoleFlags...), whisperFlags...),
+		Flags:    append(append(append(nodeFlags, rpcFlags...), consoleFlags...)),
 		Category: "CONSOLE COMMANDS",
 		Description: `
 The Getrue console is an interactive shell for the JavaScript runtime environment

@@ -61,7 +61,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p/nat"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 	"github.com/truechain/truechain-engineering-code/params"
-	whisper "github.com/truechain/truechain-engineering-code/whisper/whisperv6"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -499,16 +498,6 @@ var (
 		Usage: "Comma separated enode URLs for P2P discovery bootstrap (set v4+v5 instead for light servers)",
 		Value: "",
 	}
-	BootnodesV4Flag = cli.StringFlag{
-		Name:  "bootnodesv4",
-		Usage: "Comma separated enode URLs for P2P v4 discovery bootstrap (light server, full nodes)",
-		Value: "",
-	}
-	BootnodesV5Flag = cli.StringFlag{
-		Name:  "bootnodesv5",
-		Usage: "Comma separated enode URLs for P2P v5 discovery bootstrap (light server, light nodes)",
-		Value: "",
-	}
 	NodeKeyFileFlag = cli.StringFlag{
 		Name:  "nodekey",
 		Usage: "P2P node key file",
@@ -552,20 +541,6 @@ var (
 		Name:  "gpopercentile",
 		Usage: "Suggested gas price is the given percentile of a set of recent transaction gas prices",
 		Value: etrue.DefaultConfig.GPO.Percentile,
-	}
-	WhisperEnabledFlag = cli.BoolFlag{
-		Name:  "shh",
-		Usage: "Enable Whisper",
-	}
-	WhisperMaxMessageSizeFlag = cli.IntFlag{
-		Name:  "shh.maxmessagesize",
-		Usage: "Max message size accepted",
-		Value: int(whisper.DefaultMaxMessageSize),
-	}
-	WhisperMinPOWFlag = cli.Float64Flag{
-		Name:  "shh.pow",
-		Usage: "Minimum POW accepted",
-		Value: whisper.DefaultMinimumPoW,
 	}
 
 	// Metrics flags
@@ -687,12 +662,8 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 	urls := params.MainnetBootnodes
 	switch {
-	case ctx.GlobalIsSet(BootnodesFlag.Name) || ctx.GlobalIsSet(BootnodesV4Flag.Name):
-		if ctx.GlobalIsSet(BootnodesV4Flag.Name) {
-			urls = strings.Split(ctx.GlobalString(BootnodesV4Flag.Name), ",")
-		} else {
-			urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
-		}
+	case ctx.GlobalIsSet(BootnodesFlag.Name):
+		urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
 	case ctx.GlobalBool(TestnetFlag.Name):
 		urls = params.TestnetBootnodes
 	case ctx.GlobalBool(RinkebyFlag.Name):
@@ -1071,15 +1042,7 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 	}
 }
 
-// SetShhConfig applies shh-related command line flags to the config.
-func SetShhConfig(ctx *cli.Context, stack *node.Node, cfg *whisper.Config) {
-	if ctx.GlobalIsSet(WhisperMaxMessageSizeFlag.Name) {
-		cfg.MaxMessageSize = uint32(ctx.GlobalUint(WhisperMaxMessageSizeFlag.Name))
-	}
-	if ctx.GlobalIsSet(WhisperMinPOWFlag.Name) {
-		cfg.MinimumAcceptedPOW = ctx.GlobalFloat64(WhisperMinPOWFlag.Name)
-	}
-}
+
 
 // SetTruechainConfig applies etrue-related command line flags to the config.
 func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
@@ -1267,15 +1230,6 @@ func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit st
 	stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		return dashboard.New(cfg, commit)
 	})
-}
-
-// RegisterShhService configures Whisper and adds it to the given node.
-func RegisterShhService(stack *node.Node, cfg *whisper.Config) {
-	if err := stack.Register(func(n *node.ServiceContext) (node.Service, error) {
-		return whisper.New(cfg), nil
-	}); err != nil {
-		Fatalf("Failed to register the Whisper service: %v", err)
-	}
 }
 
 // RegisterEthStatsService configures the Truechain Stats daemon and adds it to
