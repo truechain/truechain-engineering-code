@@ -28,6 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/rlp"
 	"gopkg.in/fatih/set.v0"
+	"github.com/truechain/truechain-engineering-code/log"
 )
 
 var (
@@ -313,6 +314,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
+	log.Info("SendTransactions","txs.Len()",txs.Len())
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 

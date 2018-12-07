@@ -989,6 +989,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkTransaction(tx.Hash())
 		}
+		log.Info("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
@@ -1238,6 +1239,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 			txset[peer] = append(txset[peer], tx)
 		}
 		log.Trace("Broadcast transaction", "hash", tx.Hash(), "recipients", len(peers))
+		log.Info("BroadcastTxs", "hash", tx.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
@@ -1321,6 +1323,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
+			log.Info("txBroadcastLoop","len(Txs)", len(event.Txs))
 			pm.BroadcastTxs(event.Txs)
 
 			// Err() channel will be closed when unsubscribing.
