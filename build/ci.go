@@ -1,5 +1,3 @@
-
-
 // +build none
 
 /*
@@ -138,10 +136,10 @@ func main() {
 		doDebianSource(os.Args[2:])
 	case "nsis":
 		doWindowsInstaller(os.Args[2:])
-	case "aar":
-		doAndroidArchive(os.Args[2:])
-	case "xcode":
-		doXCodeFramework(os.Args[2:])
+	//case "aar":
+	//	doAndroidArchive(os.Args[2:])
+	//case "xcode":
+	//	doXCodeFramework(os.Args[2:])
 	case "xgo":
 		doXgo(os.Args[2:])
 	case "purge":
