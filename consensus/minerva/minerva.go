@@ -240,13 +240,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		}
 		lru.cache.Add(epoch, item)
 	}
-	// Update the 'future item' if epoch is larger than previously seen.
-	//if epoch < maxEpoch-1 && lru.future < epoch+1 {
-	//	log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
-	//	future = lru.new(epoch + 1)
-	//	lru.future = epoch + 1
-	//	lru.futureItem = future
-	//}
+
 	return item, future
 }
 

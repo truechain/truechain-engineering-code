@@ -234,8 +234,7 @@ search:
 			}
 			// Compute the PoW value of this nonce
 			digest, result := truehashFull(dataset.dataset, hash, nonce)
-			//fmt.Println("----------------------------------------------")
-			//fmt.Println("digest ----: ",new(big.Int).SetBytes(digest))
+
 			headResult := result[:16]
 			if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
@@ -255,8 +254,7 @@ search:
 					}
 					break search
 				}
-				//fmt.Println("headResult ----: ",new(big.Int).SetBytes(headResult))
-				//fmt.Println("target ----: ",target)
+
 			} else {
 				lastResult := result[16:]
 				if header.FastNumber.Uint64() != 0 {
@@ -277,11 +275,8 @@ search:
 						}
 					}
 				}
-				//fmt.Println("lastResult ----: ",new(big.Int).SetBytes(lastResult))
-				//fmt.Println("fruitTarget ----: ",fruitTarget)
 			}
 			nonce++
-			//fmt.Println("nonce ----: ",nonce-seed)
 		}
 	}
 	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
@@ -301,7 +296,6 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 		//fmt.Printf("%d,", k+1)
 	}
 	genLookupTable(tableLookup[:], table[:])
-	//trueInit = 1
 }
 
 func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, []uint64) {
@@ -312,7 +306,7 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 	var skip [OFF_SKIP_LEN]int
 
 	cur_block_num := blockNum
-	//res := cur_block_num % UPDATABLOCKLENGTH
+
 	res := cur_block_num % UPDATABLOCKLENGTH
 	sblockchain := m.sbc
 	//current block number is invaild
@@ -327,7 +321,7 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 		return false, nil
 	}
 	var st_block_num uint64 = uint64(cur_block_num - res)
-	//for i := 0; i < 8192; i++ {
+
 	for i := 0; i < OFF_CYCLE_LEN; i++ {
 
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + 1)
@@ -342,7 +336,6 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 		offset[i*4+3] = (int(val[3]) & offset_cnst) - 16
 	}
 
-	//for i := 0; i < 2048; i++ {
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN) + 1)
 		if header == nil {
