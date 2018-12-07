@@ -2612,11 +2612,6 @@ var properties = function () {
             name: 'version.ethereum',
             getter: 'etrue_protocolVersion',
             inputFormatter: utils.toDecimal
-        }),
-        new Property({
-            name: 'version.whisper',
-            getter: 'shh_version',
-            inputFormatter: utils.toDecimal
         })
     ];
 };
