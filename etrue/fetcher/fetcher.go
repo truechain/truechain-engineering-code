@@ -823,7 +823,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		find := false
 		for _, sign := range verifySigns {
 
-			if len(f.blockConsensus[number]) > 0 {
+			if len(f.blockConsensus[number]) == 0 {
 				// Schedule the sign for future importing
 				if _, ok := f.queuedSign[sign.Hash()]; !ok {
 					op := &injectSingleSign{
@@ -854,7 +854,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			if ok, signHashs := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
 				propSignInMeter.Mark(1)
 				f.enterQueue = true
-				f.blockConsensus[number] = signHashs
+				f.blockConsensus[number] = append(f.blockConsensus[number], signHashs...)
 				log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash)
 			}
 		}
