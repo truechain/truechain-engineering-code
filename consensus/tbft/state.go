@@ -39,7 +39,7 @@ var (
 
 var (
 	msgQueueSize = 1000
-	taskTimeOut = 120
+	taskTimeOut = 60
 )
 
 // msgs from the reactor which may update the state
