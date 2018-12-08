@@ -39,7 +39,6 @@ var (
 
 var (
 	msgQueueSize = 1000
-	taskTimeOut = 60
 )
 
 // msgs from the reactor which may update the state
@@ -88,7 +87,7 @@ type ConsensusState struct {
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
 	timeoutTask 	 TimeoutTicker
-
+	taskTimeOut 	 time.Duration
 	// we use eventBus to trigger msg broadcasts in the reactor,
 	// and to notify external subscribers, eg. through a websocket
 	eventBus *ttypes.EventBus
@@ -134,6 +133,7 @@ func NewConsensusState(
 	cs.decideProposal = cs.defaultDecideProposal
 	cs.doPrevote = cs.defaultDoPrevote
 	cs.setProposal = cs.defaultSetProposal
+	cs.taskTimeOut = config.Propose(0)
 
 	cs.updateToState(state)
 	log.Info("NewConsensusState","Height",cs.Height)
@@ -340,7 +340,7 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	//log.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
-	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	var d time.Duration = time.Duration(cs.taskTimeOut) * time.Second
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 2})
 }
 
@@ -366,7 +366,7 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		sleepDuration := time.Duration(1) * time.Millisecond
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
 	}
-	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	var d time.Duration = time.Duration(cs.taskTimeOut) * time.Second
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
 	log.Info("end UpdateStateForSync","newHeight",newH)
 }
