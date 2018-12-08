@@ -340,7 +340,7 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	//log.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
-	var d time.Duration = time.Duration(cs.taskTimeOut) * time.Second
+	var d time.Duration = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 2})
 }
 
@@ -366,7 +366,7 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		sleepDuration := time.Duration(1) * time.Millisecond
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
 	}
-	var d time.Duration = time.Duration(cs.taskTimeOut) * time.Second
+	var d time.Duration = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
 	log.Info("end UpdateStateForSync","newHeight",newH)
 }
