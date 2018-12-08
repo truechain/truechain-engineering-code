@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
 	"os"
@@ -11,11 +11,11 @@ import (
 	"time"
 )
 
-//send complete
-var Count int64 = 0
+//Count send complete
+var Count int64
 
 //Transaction from to account id
-var from, to, frequency = 0, 1, 1
+var from, frequency = 0, 1
 
 //Two transmission intervals
 var interval = time.Millisecond * 0
@@ -27,8 +27,9 @@ var account []string
 var msg = make(chan bool)
 
 // Restart the number
-var num int = 0
+var num int
 
+// SLEEPTIME The interval between reconnections
 const SLEEPTIME = 120
 
 // get par
@@ -54,9 +55,9 @@ func main() {
 	if err != nil {
 		fmt.Println("interval err")
 		return
-	} else {
-		interval = time.Millisecond * time.Duration(intervalCount)
 	}
+
+	interval = time.Millisecond * time.Duration(intervalCount)
 
 	from, err = strconv.Atoi(os.Args[4])
 	if err != nil {
@@ -114,17 +115,17 @@ func send(count int, ip string) {
 	fmt.Println("account:", account)
 
 	// get balance
-	var result string = ""
+	var result string
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
 		msg <- false
 		return
-	} else {
-
-		bl, _ := new(big.Int).SetString(result, 10)
-		fmt.Println("etrue_getBalance Ok:", bl, result)
 	}
+
+	bl, _ := new(big.Int).SetString(result, 10)
+
+	fmt.Println("etrue_getBalance Ok:", bl, result)
 
 	//unlock account
 	var reBool bool
@@ -132,16 +133,17 @@ func send(count int, ip string) {
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
 		return
-	} else {
-		fmt.Println("personal_unlockAccount Ok", reBool)
 	}
+
+	fmt.Println("personal_unlockAccount Ok", reBool)
+
 	fmt.Println("===========================")
 	// send
 	waitMain := &sync.WaitGroup{}
 	for {
 		waitMain.Add(1)
 		go sendTransactions(client, account, count, waitMain)
-		frequency -= 1
+		frequency--
 		if frequency <= 0 {
 			msg <- true
 			break
@@ -153,10 +155,11 @@ func send(count int, ip string) {
 			fmt.Println("etrue_getBalance Error:", err)
 			msg <- false
 			return
-		} else {
-			bl, _ := new(big.Int).SetString(result, 10)
-			fmt.Println("etrue_getBalance Ok:", bl, result)
 		}
+
+		bl, _ := new(big.Int).SetString(result, 10)
+		fmt.Println("etrue_getBalance Ok:", bl, result)
+
 	}
 	waitMain.Wait()
 	msg <- true
@@ -179,19 +182,19 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 //send one transaction
 func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
 	defer wait.Done()
-	map_data := make(map[string]interface{})
-	map_data["from"] = account[from]
+	mapData := make(map[string]interface{})
+	mapData["from"] = account[from]
 
 	priKey, _ := crypto.GenerateKey()
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //address
 	//address := hex.EncodeToString(coinbase[:])
 	//fmt.Println(coinbase.Hex())
-	map_data["to"] = coinbase.Hex()
+	mapData["to"] = coinbase.Hex()
 
-	map_data["value"] = "0x2100"
+	mapData["value"] = "0x2100"
 	var result string
-	client.Call(&result, "etrue_sendTransaction", map_data)
+	client.Call(&result, "etrue_sendTransaction", mapData)
 	if result != "" {
-		Count += 1
+		Count++
 	}
 }

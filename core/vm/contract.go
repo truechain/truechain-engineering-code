@@ -19,7 +19,7 @@ package vm
 import (
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // ContractRef is a reference to the contract's backing object

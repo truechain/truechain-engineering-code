@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 
-	tcrypyo "github.com/truechain/truechain-engineering-code/crypto"
+	tcrypyo "github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"golang.org/x/crypto/hkdf"

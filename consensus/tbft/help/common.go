@@ -10,9 +10,9 @@ import (
 	"os"
 	"io"
 	"syscall"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type HexBytes []byte
@@ -163,7 +163,7 @@ MAIN_LOOP:
 				val >>= 6
 			}
 		}
-	}	
+	}
 return string(chars)
 }
 func EqualHashes(hash1,hash2 []byte) bool {

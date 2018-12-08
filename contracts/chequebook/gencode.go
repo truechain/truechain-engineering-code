@@ -14,7 +14,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
 	"github.com/truechain/truechain-engineering-code/contracts/chequebook/contract"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (

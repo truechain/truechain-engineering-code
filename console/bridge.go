@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/truechain/truechain-engineering-code/accounts/usbwallet"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"github.com/robertkrimen/otto"
 )

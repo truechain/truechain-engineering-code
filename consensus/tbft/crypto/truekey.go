@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
-	tcrypyo "github.com/truechain/truechain-engineering-code/crypto"
+	tcrypyo "github.com/ethereum/go-ethereum/crypto"
 	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )

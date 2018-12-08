@@ -8,7 +8,7 @@ import (
 	"errors"
 
 	crypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"

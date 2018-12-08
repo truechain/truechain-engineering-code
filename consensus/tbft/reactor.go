@@ -7,7 +7,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"reflect"
 	"sync"
 	"time"
@@ -72,7 +72,7 @@ func (conR *ConsensusReactor) OnStop() {
 	conR.conS.Stop()
 	if running {
 		conR.conS.Wait()
-	}	
+	}
 	log.Info("End ConsensusReactor finish")
 }
 

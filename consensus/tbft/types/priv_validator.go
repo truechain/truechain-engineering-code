@@ -8,8 +8,8 @@ import (
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/rlp"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sync"
 	"time"
@@ -427,9 +427,9 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign,
 	if sign != nil {
 		return &KeepBlockSign{
 			Result:			sign.Result,
-			Sign:			sign.Sign,	
-			Hash:			sign.FastHash,	
-		} ,err	
+			Sign:			sign.Sign,
+			Hash:			sign.FastHash,
+		} ,err
 	}
 	return nil, err
 }

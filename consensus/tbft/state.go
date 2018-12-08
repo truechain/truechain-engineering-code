@@ -14,8 +14,8 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	// fail "github.com/ebuchman/fail-test"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 //-----------------------------------------------------------------------------
@@ -39,7 +39,6 @@ var (
 
 var (
 	msgQueueSize = 1000
-	taskTimeOut = 120
 )
 
 // msgs from the reactor which may update the state
@@ -88,7 +87,7 @@ type ConsensusState struct {
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
 	timeoutTask 	 TimeoutTicker
-
+	taskTimeOut 	 time.Duration
 	// we use eventBus to trigger msg broadcasts in the reactor,
 	// and to notify external subscribers, eg. through a websocket
 	eventBus *ttypes.EventBus
@@ -134,6 +133,7 @@ func NewConsensusState(
 	cs.decideProposal = cs.defaultDecideProposal
 	cs.doPrevote = cs.defaultDoPrevote
 	cs.setProposal = cs.defaultSetProposal
+	cs.taskTimeOut = config.Propose(0)
 
 	cs.updateToState(state)
 	log.Info("NewConsensusState","Height",cs.Height)
@@ -340,7 +340,7 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	//log.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
-	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	var d time.Duration = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 2})
 }
 
@@ -364,9 +364,9 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		log.Info("Reset privValidator","height",cs.Height)
 		cs.state.PrivReset()
 		sleepDuration := time.Duration(1) * time.Millisecond
-		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})	
+		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
 	}
-	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	var d time.Duration = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
 	log.Info("end UpdateStateForSync","newHeight",newH)
 }
@@ -764,7 +764,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 			if height != block.NumberU64() {
 				log.Info("State Wrong,height not match","cs.Height",height,"block.height",block.NumberU64())
 				cs.updateToState(cs.state)
-				cs.scheduleRound0(cs.GetRoundState())
+				cs.scheduleRound0(&cs.RoundState)
 				return
 			}
 		}
@@ -1158,8 +1158,8 @@ func (cs *ConsensusState) enterCommit(height uint64, commitRound int) {
 			log.Info("Commit is for locked block. Set ProposalBlock=LockedBlock", "blockHash", common.ToHex(blockID.Hash))
 			cs.ProposalBlock = cs.LockedBlock
 			cs.ProposalBlockParts = cs.LockedBlockParts
-		}	
-	} 
+		}
+	}
 	// If we don't have the block being committed, set up to get it.
 	if cs.ProposalBlock != nil {
 		pro := cs.ProposalBlock.Hash()
@@ -1230,7 +1230,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	if ierr != nil || signs == nil {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, make signs error=%s", ierr.Error()))
 	}
-	
+
 	if !help.EqualHashes(hash[:], blockID.Hash) {
 		help.PanicSanity(fmt.Sprintf("Cannot finalizeCommit, ProposalBlock does not hash to commit hash"))
 	}
@@ -1257,7 +1257,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
-	
+
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 

@@ -1,3 +1,18 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package abi
 
@@ -7,11 +22,20 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+var (
+	maxUint256 = big.NewInt(0).Add(
+		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil),
+		big.NewInt(-1))
+	maxInt256 = big.NewInt(0).Add(
+		big.NewInt(0).Exp(big.NewInt(2), big.NewInt(255), nil),
+		big.NewInt(-1))
 )
 
 // reads the integer based on its kind
-func readInteger(kind reflect.Kind, b []byte) interface{} {
+func readInteger(typ byte, kind reflect.Kind, b []byte) interface{} {
 	switch kind {
 	case reflect.Uint8:
 		return b[len(b)-1]
@@ -30,7 +54,20 @@ func readInteger(kind reflect.Kind, b []byte) interface{} {
 	case reflect.Int64:
 		return int64(binary.BigEndian.Uint64(b[len(b)-8:]))
 	default:
-		return new(big.Int).SetBytes(b)
+		// the only case lefts for integer is int256/uint256.
+		// big.SetBytes can't tell if a number is negative, positive on itself.
+		// On EVM, if the returned number > max int256, it is negative.
+		ret := new(big.Int).SetBytes(b)
+		if typ == UintTy {
+			return ret
+		}
+
+		if ret.Cmp(maxInt256) > 0 {
+			ret.Add(maxUint256, big.NewInt(0).Neg(ret))
+			ret.Add(ret, big.NewInt(1))
+			ret.Neg(ret)
+		}
+		return ret
 	}
 }
 
@@ -164,7 +201,7 @@ func toGoType(index int, t Type, output []byte) (interface{}, error) {
 	case StringTy: // variable arrays are written at the end of the return bytes
 		return string(output[begin : begin+end]), nil
 	case IntTy, UintTy:
-		return readInteger(t.Kind, returnOutput), nil
+		return readInteger(t.T, t.Kind, returnOutput), nil
 	case BoolTy:
 		return readBool(returnOutput)
 	case AddressTy:

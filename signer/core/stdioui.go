@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
