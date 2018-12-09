@@ -274,6 +274,11 @@ func (s *Service) loop() {
 			conn.Close()
 			continue
 		}
+		if err = s.reportSnailBlock(conn,nil); err != nil {
+			log.Warn("Initial snailBlock stats report failed", "err", err)
+			conn.Close()
+			continue
+		}
 		// Keep sending status updates until the connection breaks
 		fullReport := time.NewTicker(15 * time.Second)
 		snailBlockReport := time.NewTicker(10 * time.Minute)
