@@ -891,7 +891,12 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // NOTE: keep it side-effect free for clarity.
 func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, error) {
 	// remove commit in block
-	return cs.state.MakeBlock()
+	block,err := cs.state.MakeBlock()
+	if block != nil && err != nil {
+		parts,err2 := cs.state.MakePartSet(ttypes.BlockPartSizeBytes, block)
+		return block,parts,err2
+	}
+	return block,nil,err
 }
 
 // Enter: `timeoutPropose` after entering Propose.
@@ -1596,6 +1601,12 @@ func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.Par
 }
 
 //---------------------------------------------------------
+func (cs *ConsensusState) switchHandle(block *types.Block,s *ttypes.SwitchValidator) {
+
+}
+func (cs *ConsensusState) swithResult() {
+
+}
 
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {
 	if h1 < h2 {
