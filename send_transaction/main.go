@@ -96,8 +96,12 @@ func main() {
 func send(count int, ip string) {
 	//dial etrue
 	client, err := rpc.Dial("http://" + ip)
+
+	defer client.Close()
+
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
+		client.Close()
 		msg <- false
 		return
 	}
@@ -105,11 +109,13 @@ func send(count int, ip string) {
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
+		client.Close()
 		msg <- false
 		return
 	}
 	if len(account) == 0 {
 		fmt.Println("no account")
+		client.Close()
 		return
 	}
 	fmt.Println("account:", account)
@@ -119,6 +125,7 @@ func send(count int, ip string) {
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
+		client.Close()
 		msg <- false
 		return
 	}
@@ -132,6 +139,7 @@ func send(count int, ip string) {
 	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
+		client.Close()
 		return
 	}
 
@@ -153,6 +161,7 @@ func send(count int, ip string) {
 		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 		if err != nil {
 			fmt.Println("etrue_getBalance Error:", err)
+			client.Close()
 			msg <- false
 			return
 		}
