@@ -101,7 +101,6 @@ func send(count int, ip string) {
 
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
-		client.Close()
 		msg <- false
 		return
 	}
@@ -109,13 +108,11 @@ func send(count int, ip string) {
 	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
-		client.Close()
 		msg <- false
 		return
 	}
 	if len(account) == 0 {
 		fmt.Println("no account")
-		client.Close()
 		return
 	}
 	fmt.Println("account:", account)
@@ -125,7 +122,6 @@ func send(count int, ip string) {
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
-		client.Close()
 		msg <- false
 		return
 	}
@@ -139,7 +135,7 @@ func send(count int, ip string) {
 	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
-		client.Close()
+		msg <- false
 		return
 	}
 
@@ -153,7 +149,6 @@ func send(count int, ip string) {
 		go sendTransactions(client, account, count, waitMain)
 		frequency--
 		if frequency <= 0 {
-			msg <- true
 			break
 		}
 		time.Sleep(interval)
@@ -161,7 +156,6 @@ func send(count int, ip string) {
 		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 		if err != nil {
 			fmt.Println("etrue_getBalance Error:", err)
-			client.Close()
 			msg <- false
 			return
 		}
