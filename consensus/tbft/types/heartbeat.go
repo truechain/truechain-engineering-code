@@ -9,6 +9,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // Heartbeat is a simple vote-like structure so validators can
@@ -70,6 +71,7 @@ const (
 	StateUnused = 0
 	StateSwitching = 1
 	StateUsed = 2
+	StateRemoved = 3
 )
 
 type Health struct {
@@ -80,11 +82,16 @@ type Health struct {
 	State 		int
 	Val			*Validator
 }
+func (h *Health) String() string {
+	return fmt.Sprintf("id:%s,ip:%s,port:%d,tick:%d,state:%d,addr:%s",h.ID,h.IP,h.Port,h.Tick,h.State,
+			common.ToHex(h.Val.Address))
+}
 
 type SwitchValidator struct {
 	Remove 		*Health
 	Add 		*Health
 	Resion 		string
+	from		int
 } 
 
 type HealthMgr struct {
@@ -138,6 +145,8 @@ func (h *HealthMgr) healthGoroutine() {
 		select {
 		case <- h.healthTick.C:
 			h.work()
+		case s:=<- h.SwitchChan:
+			h.switchResult(s)
 		case <- h.Quit():
 			log.Info("healthMgr is quit")
 			return 
@@ -147,7 +156,9 @@ func (h *HealthMgr) healthGoroutine() {
 func (h *HealthMgr) work() {
 	
 	for _,v:=range h.Work {
-		atomic.AddInt32(&v.Tick,1)
+		if v.State == StateUsed {
+			atomic.AddInt32(&v.Tick,1)
+		}
 		h.checkSwitchValidator(v)	
 	} 
 }
@@ -160,8 +171,27 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 			Remove:			v,
 			Add:			back,
 			Resion:			"Switch",
+			from:			0,
 		})
 		v.State = StateSwitching
+	}
+}
+func (h *HealthMgr) switchResult(res *SwitchValidator) {
+	if res.from == 1 {
+		ss := "Switch Validator failed"
+		if res.Resion == "" {
+			ss = "Switch Validator Success"
+			if v,ok := h.Work[res.Remove.ID];ok {
+				v.State = StateRemoved
+			}
+			for _,v := range h.Back {
+				if v.ID == res.Add.ID {
+					v.State = StateUsed
+					break
+				}
+			}
+		} 
+		log.Info(ss,"resion",res.Resion,"remove",res.Remove.String(),"add",res.Add.String())
 	}
 }
 func (h *HealthMgr) pickUnuseValidator() *Health {
