@@ -3,19 +3,20 @@ package tbft
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"sync"
 	// "encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/pex"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	cfg "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 )
@@ -428,17 +429,22 @@ func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
 }
 
 func getCommittee(n *Node, cid uint64) (info *service) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	if server, ok := n.services[cid]; ok {
 		return server
 	}
 	return nil
 }
 
-func getNodeStatus(s *Node, parent bool) map[string]interface{} {
-	return nil
+func getNodeStatus(s *service) map[string]interface{} {
+	result := make(map[string]interface{})
+	result [strconv.Itoa(int(s.consensusState.Height))] = s.consensusState.GetRoundState().ValidRound
+	return result
 }
 
 func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
+	log.Info("GetCommitteeStatus", "committeeID", committeeID.Uint64())
 	result := make(map[string]interface{})
 	s := getCommittee(n, committeeID.Uint64())
 	if s != nil {
@@ -446,9 +452,9 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 		committee["id"] = committeeID.Uint64()
 		committee["nodes"] = s.nodeTable
 		result["committee_now"] = committee
-
-		result["nodeStatus"] = getNodeStatus(n, false)
-		result["nodeParent"] = getNodeStatus(n, true)
+		result["nodeStatus"] = getNodeStatus(s)
+	} else {
+		log.Info("GetCommitteeStatus", "error", "server not have")
 	}
 
 	s1 := getCommittee(n, committeeID.Uint64()+1)
