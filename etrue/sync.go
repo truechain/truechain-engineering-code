@@ -55,6 +55,7 @@ type fruitsync struct {
 func (pm *ProtocolManager) syncTransactions(p *peer) {
 	var txs types.Transactions
 	pending, _ := pm.txpool.Pending()
+	log.Debug("syncTransactions","len(pending)", len(pending))
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
@@ -112,6 +113,7 @@ func (pm *ProtocolManager) txsyncLoop() {
 		}
 		// Send the pack in the background.
 		s.p.Log().Trace("Sending batch of transactions", "count", len(pack.txs), "bytes", size)
+		log.Debug("Sending batch of transactions", "count", len(pack.txs), "bytes", size)
 		sending = true
 		go func() { done <- pack.p.SendTransactions(pack.txs) }()
 	}

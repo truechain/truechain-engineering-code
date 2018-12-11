@@ -96,6 +96,9 @@ func main() {
 func send(count int, ip string) {
 	//dial etrue
 	client, err := rpc.Dial("http://" + ip)
+
+	defer client.Close()
+
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
 		msg <- false
@@ -132,6 +135,7 @@ func send(count int, ip string) {
 	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
+		msg <- false
 		return
 	}
 
@@ -145,7 +149,6 @@ func send(count int, ip string) {
 		go sendTransactions(client, account, count, waitMain)
 		frequency--
 		if frequency <= 0 {
-			msg <- true
 			break
 		}
 		time.Sleep(interval)
