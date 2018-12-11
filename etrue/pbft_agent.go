@@ -135,7 +135,6 @@ type AgentWork struct {
 	createdAt time.Time
 }
 
-// NodeInfoEvent is posted when nodeInfo send
 func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election, coinbase common.Address) *PbftAgent {
 	self := &PbftAgent{
 		config:               config,
@@ -164,6 +163,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 	return self
 }
 
+//initialize node info
 func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 	self.initNodeWork()
 	self.singleNode = config.NodeType
@@ -190,6 +190,7 @@ func (self *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 		",pubKey", hex.EncodeToString(self.committeeNode.Publickey))
 }
 
+//initialize nodeInfoWorks
 func (self *PbftAgent) initNodeWork() {
 	nodeWork1 := &nodeInfoWork{
 		cacheSign:     make(map[string]types.Sign),
@@ -236,6 +237,7 @@ type nodeInfoWork struct {
 	isCurrent         bool
 }
 
+//update the nodeInfoWorks element isCurrent,and return nodeInfoWork that the isCurrent equals true
 func (self *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 	if self.nodeInfoWorks[0].isCurrent {
 		self.nodeInfoWorks[0].isCurrent = false
@@ -255,7 +257,7 @@ func (self *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
 		return self.nodeInfoWorks[1]
 	}
 }
-
+//stop send committeeNode
 func (self *PbftAgent) stopSend() {
 	nodeWork := self.getCurrentNodeWork()
 	self.debugNodeInfoWork(nodeWork, "stopSend...")
@@ -285,11 +287,12 @@ func (self *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 	}
 }
 
+//start send committeeNode
 func (self *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
 	nodeWork := self.updateCurrentNodeWork()
 	//load nodeWork
 	nodeWork.loadNodeWork(receivedCommitteeInfo, isCommitteeMember)
-	if nodeWork.isCommitteeMember {
+	if nodeWork.isCommitteeMember {//if node is current CommitteeMember
 		log.Info("node in pbft committee", "committeeId", receivedCommitteeInfo.Id)
 		nodeWork.ticker = time.NewTicker(sendNodeTime)
 		go func() {
