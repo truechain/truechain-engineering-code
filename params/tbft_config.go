@@ -251,7 +251,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		TimeoutCommit:               500,
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
-		CreateEmptyBlocksInterval:   5,
+		CreateEmptyBlocksInterval:   1500,
 		PeerGossipSleepDuration:     100,
 		PeerQueryMaj23SleepDuration: 2000,
 	}
@@ -280,7 +280,7 @@ func (cfg *ConsensusConfig) WaitForTxs() bool {
 
 // EmptyBlocks returns the amount of time to wait before proposing an empty block or starting the propose timer if there are no txs available
 func (cfg *ConsensusConfig) EmptyBlocksInterval() time.Duration {
-	return time.Duration(cfg.CreateEmptyBlocksInterval) * time.Second
+	return time.Duration(cfg.CreateEmptyBlocksInterval) * time.Millisecond
 }
 
 // Propose returns the amount of time to wait for a proposal
