@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"fmt"
-	"io"
 	"github.com/agl/ed25519"
 	"github.com/agl/ed25519/extra25519"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	amino "go-amino"
+	"io"
 )
 
 //-------------------------------------

@@ -1,9 +1,9 @@
 package cryptoAmino
 
 import (
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto/ed25519"
+	amino "go-amino"
 )
 
 var cdc = amino.NewCodec()

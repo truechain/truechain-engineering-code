@@ -1,8 +1,8 @@
 package tbft
 
 import (
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	amino "go-amino"
 )
 
 var cdc = amino.NewCodec()

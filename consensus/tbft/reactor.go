@@ -3,11 +3,11 @@ package tbft
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/ethereum/go-ethereum/log"
+	"go-amino"
 	"reflect"
 	"sync"
 	"time"

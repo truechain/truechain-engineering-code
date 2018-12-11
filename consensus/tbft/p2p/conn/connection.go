@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"crypto/elliptic"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
-	"github.com/ethereum/go-ethereum/log"
+	amino "go-amino"
 )
 
 const (
