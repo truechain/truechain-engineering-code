@@ -439,7 +439,7 @@ func getCommittee(n *Node, cid uint64) (info *service) {
 
 func getNodeStatus(s *service) map[string]interface{} {
 	result := make(map[string]interface{})
-	result [strconv.Itoa(int(s.consensusState.Height))] = s.consensusState.GetRoundState().ValidRound
+	result[strconv.Itoa(int(s.consensusState.Height))] = s.consensusState.GetRoundState().Votes
 	return result
 }
 
@@ -451,6 +451,7 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 		committee := make(map[string]interface{})
 		committee["id"] = committeeID.Uint64()
 		committee["nodes"] = s.nodeTable
+		committee["nodes_cnt"] = len(s.nodeTable)
 		result["committee_now"] = committee
 		result["nodeStatus"] = getNodeStatus(s)
 	} else {
@@ -464,5 +465,5 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 		committee["nodes"] = s1.nodeTable
 		result["committee_next"] = committee
 	}
-	return nil
+	return result
 }
