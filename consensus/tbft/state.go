@@ -106,6 +106,8 @@ type ConsensusState struct {
 	// synchronous pubsub between consensus state and reactor.
 	// state only emits EventNewRoundStep, EventVote and EventProposalHeartbeat
 	evsw ttypes.EventSwitch
+	svs 		[]*ttypes.SwitchValidator
+	hm			*ttypes.HealthMgr
 }
 
 // CSOption sets an optional parameter on the ConsensusState.
@@ -128,6 +130,7 @@ func NewConsensusState(
 		done:             make(chan struct{}),
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
+		svs:			  make([]*ttypes.SwitchValidator,0,0),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -159,6 +162,9 @@ func (cs *ConsensusState) SetLogger(l log.Logger) {
 // SetEventBus sets event bus.
 func (cs *ConsensusState) SetEventBus(b *ttypes.EventBus) {
 	cs.eventBus = b
+}
+func (cs *ConsensusState) SetHealthMgr(h *ttypes.HealthMgr) {
+	cs.hm = h
 }
 
 // String returns a string.
@@ -209,6 +215,9 @@ func (cs *ConsensusState) SetTimeoutTicker(timeoutTicker TimeoutTicker) {
 // It loads the latest state via the WAL, and starts the timeout and receive routines.
 func (cs *ConsensusState) OnStart() error {
 	log.Info("Begin ConsensusState start")
+	if cs.hm == nil {
+		return errors.New("healthMgr not init")
+	}
 	if err := cs.evsw.Start(); err != nil {
 		return err
 	}
@@ -891,7 +900,11 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // NOTE: keep it side-effect free for clarity.
 func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, error) {
 	// remove commit in block
-	block,err := cs.state.MakeBlock()
+	var v *ttypes.SwitchValidator 
+	if len(cs.svs) > 0 {
+		v = cs.svs[0]
+	}
+	block,err := cs.state.MakeBlock(v)
 	if block != nil && err != nil {
 		parts,err2 := cs.state.MakePartSet(ttypes.BlockPartSizeBytes, block)
 		return block,parts,err2
@@ -1604,8 +1617,29 @@ func (cs *ConsensusState) signAddVote(type_ byte, hash []byte, header ttypes.Par
 func (cs *ConsensusState) switchHandle(block *types.Block,s *ttypes.SwitchValidator) {
 
 }
-func (cs *ConsensusState) swithResult() {
-
+func (cs *ConsensusState) swithResult(block *types.Block) {
+	var rPk,aPk []byte 
+	var sv *ttypes.SwitchValidator
+	for _,v := range cs.svs {
+		if bytes.Equal(rPk,v.Remove.Val.PubKey.Bytes()) && bytes.Equal(aPk,v.Add.Val.PubKey.Bytes()) {
+			sv = v 
+			break
+		}
+	}
+	if sv == nil {
+		
+	}
+	// remove validator from validatorSet
+	cs.Validators.Add(sv.Add.Val)
+	cs.Validators.Remove(sv.Remove.Val.Address)
+	// notify to healthMgr 
+	sv.From = 1
+	go func(){
+		select {
+		case cs.hm.SwitchChan <- sv:
+		default:
+		}	
+	}()
 }
 
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {

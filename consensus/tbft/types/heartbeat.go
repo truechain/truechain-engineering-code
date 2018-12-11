@@ -91,7 +91,7 @@ type SwitchValidator struct {
 	Remove 		*Health
 	Add 		*Health
 	Resion 		string
-	from		int
+	From		int
 } 
 
 type HealthMgr struct {
@@ -171,13 +171,14 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 			Remove:			v,
 			Add:			back,
 			Resion:			"Switch",
-			from:			0,
+			From:			0,
 		})
 		v.State = StateSwitching
 	}
 }
+
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
-	if res.from == 1 {
+	if res.From == 1 {
 		ss := "Switch Validator failed"
 		if res.Resion == "" {
 			ss = "Switch Validator Success"
@@ -194,6 +195,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 		log.Info(ss,"resion",res.Resion,"remove",res.Remove.String(),"add",res.Add.String())
 	}
 }
+
 func (h *HealthMgr) pickUnuseValidator() *Health {
 	sum := len(h.Back)
 	for i:=0;i<sum;i++ {
@@ -212,7 +214,20 @@ func (h *HealthMgr) Update(id p2p.ID) {
 		atomic.AddInt32(&v.Tick,-val)
 	}
 }
+func (h *HealthMgr) GetHealthFormWork(address []byte) *Health {
+	for _,v := range h.Work {
+		if bytes.Equal(address,v.Val.Address) {
+			return v
+		}
+	}
+	return nil
+}
+func (h *HealthMgr) CheckSwitch() bool {
+	
+	return false
+}
 
+//-------------------------------------------------
 // Implements sort for sorting Healths by address.
 
 // Sort Healths by address
