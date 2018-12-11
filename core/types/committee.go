@@ -157,3 +157,18 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
+
+const (
+	SwitchAppend = 0xEE
+	SwitchRemove = 0xAA
+)
+
+type SwitchEnter struct {
+	Pk  		[]byte
+	Flag 		int
+}
+
+type SwitchInfo struct {
+	CID 	int64
+	Vals 	[]*SwitchEnter
+}
