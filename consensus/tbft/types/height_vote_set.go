@@ -195,7 +195,7 @@ func (hvs *HeightVoteSet) GetSignsFromVote(round int,hash []byte,addr help.Addre
 	for r:=round;r>=0;r-- {
 		if prevote := hvs.Prevotes(r); prevote != nil {
 			keepsign := prevote.GetSignByAddress(addr)
-			if bytes.Equal(hash, keepsign.Hash[:]){
+			if keepsign != nil && bytes.Equal(hash, keepsign.Hash[:]){
 				return keepsign
 			}
 		}

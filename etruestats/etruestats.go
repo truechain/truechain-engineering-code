@@ -92,8 +92,8 @@ type Service struct {
 	pass string // Password to authorize access to the monitoring page
 	host string // Remote address of the monitoring service
 
-	pongCh     chan struct{} // Pong notifications are fed into this channel
-	histCh     chan []uint64 // History request block numbers are fed into this channel
+	pongCh      chan struct{} // Pong notifications are fed into this channel
+	histCh      chan []uint64 // History request block numbers are fed into this channel
 	snailHistCh chan []uint64 // History request snailBlock numbers are fed into this channel
 }
 
@@ -113,14 +113,14 @@ func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEthereum) (*Ser
 		engine = lesServ.Engine()
 	}
 	return &Service{
-		etrue:      ethServ,
-		les:        lesServ,
-		engine:     engine,
-		node:       parts[1],
-		pass:       parts[3],
-		host:       parts[4],
-		pongCh:     make(chan struct{}),
-		histCh:     make(chan []uint64, 1),
+		etrue:       ethServ,
+		les:         lesServ,
+		engine:      engine,
+		node:        parts[1],
+		pass:        parts[3],
+		host:        parts[4],
+		pongCh:      make(chan struct{}),
+		histCh:      make(chan []uint64, 1),
 		snailHistCh: make(chan []uint64, 1),
 	}, nil
 }
@@ -274,6 +274,11 @@ func (s *Service) loop() {
 			conn.Close()
 			continue
 		}
+		if err = s.reportSnailBlock(conn, nil); err != nil {
+			log.Warn("Initial snailBlock stats report failed", "err", err)
+			conn.Close()
+			continue
+		}
 		// Keep sending status updates until the connection breaks
 		fullReport := time.NewTicker(15 * time.Second)
 		snailBlockReport := time.NewTicker(10 * time.Minute)
@@ -419,6 +424,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 type nodeInfo struct {
 	Name     string `json:"name"`
 	Node     string `json:"node"`
+	IP       string `json:"ip"`
 	Port     int    `json:"port"`
 	Network  string `json:"net"`
 	Protocol string `json:"protocol"`
@@ -449,11 +455,13 @@ func (s *Service) login(conn *websocket.Conn) error {
 		network = fmt.Sprintf("%d", infos.Protocols["les"].(*les.NodeInfo).Network)
 		protocol = fmt.Sprintf("les/%d", les.ClientProtocolVersions[0])
 	}
+	//fmt.Println("infos.IP= ",infos.IP)
 	auth := &authMsg{
 		ID: s.node,
 		Info: nodeInfo{
 			Name:     s.node,
 			Node:     infos.Name,
+			IP:       infos.IP,
 			Port:     infos.Ports.Listener,
 			Network:  network,
 			Protocol: protocol,
