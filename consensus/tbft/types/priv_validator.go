@@ -394,21 +394,22 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	pp := (priv).(*privValidator)
 	state.Priv = pp
 }
-func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
+
+func (state *StateAgentImpl) MakeBlock() (*ctypes.Block,error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
 	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
-		return nil, nil,err
+		return nil, err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
-		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
+		return nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
 	}
 	if state.StartHeight > block.NumberU64() {
-		return nil,nil,errors.New(fmt.Sprintf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight))
+		return nil,errors.New(fmt.Sprintf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight))
 	}
-	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
-	return block,parts,err2
+	return block,err
 }
+
 func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
