@@ -314,7 +314,8 @@ type StateAgent interface {
 
 	GetLastBlockHeight() uint64
 	GetChainID() string
-	MakeBlock() (*ctypes.Block, *PartSet,error)
+	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
+	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
@@ -395,7 +396,11 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	state.Priv = pp
 }
 
-func (state *StateAgentImpl) MakeBlock() (*ctypes.Block,error) {
+func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
+	return MakePartSet(partSize,block)
+}
+
+func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block,error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
 	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil {
