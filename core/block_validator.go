@@ -55,7 +55,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	}
 	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		log.Error("ValidateBody method","number",block.NumberU64()-1,
-			"hash",block.ParentHash(), "stateRoot",block.Root())
+			"hash",block.ParentHash())
 		if !fv.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
