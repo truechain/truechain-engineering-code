@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -68,6 +69,7 @@ func (heartbeat *Heartbeat) String() string {
 
 const (
 	HealthOut = 60*10
+	MixValidator = 4
 	StateUnused = 0
 	StateSwitching = 1
 	StateUsed = 2
@@ -153,8 +155,7 @@ func (h *HealthMgr) healthGoroutine() {
 		}
 	}
 }
-func (h *HealthMgr) work() {
-	
+func (h *HealthMgr) work() {	
 	for _,v:=range h.Work {
 		if v.State == StateUsed {
 			atomic.AddInt32(&v.Tick,1)
@@ -165,7 +166,8 @@ func (h *HealthMgr) work() {
 
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	val := atomic.LoadInt32(&v.Tick)
-	if val > HealthOut && v.State == StateUsed {
+	cnt := h.getUsedValidCount()
+	if cnt > MixValidator && val > HealthOut && v.State == StateUsed {
 		back := h.pickUnuseValidator()
 		go h.Switch(&SwitchValidator {
 			Remove:			v,
@@ -175,6 +177,20 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 		})
 		v.State = StateSwitching
 	}
+}
+func (h *HealthMgr) getUsedValidCount() int {
+	cnt := 0
+	for _,v := range h.Work {
+		if v.State == StateUsed {
+			cnt++
+		}
+	}
+	for _,v := range h.Back {
+		if v.State == StateUnused {
+			cnt++
+		}
+	}
+	return cnt
 }
 
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
@@ -214,6 +230,7 @@ func (h *HealthMgr) Update(id p2p.ID) {
 		atomic.AddInt32(&v.Tick,-val)
 	}
 }
+
 func (h *HealthMgr) GetHealthFormWork(address []byte) *Health {
 	for _,v := range h.Work {
 		if bytes.Equal(address,v.Val.Address) {
@@ -222,7 +239,31 @@ func (h *HealthMgr) GetHealthFormWork(address []byte) *Health {
 	}
 	return nil
 }
-func (h *HealthMgr) CheckSwitch() bool {
+
+func (h *HealthMgr) getHealth(pk []byte,part int) *Health {
+	if part == 1 {	// back 
+		for _,v:=range h.Back {
+			if bytes.Equal(pk,v.Val.PubKey.Bytes()) {
+				return v
+			}
+		}
+	} else if part == 2 {	// remove 
+		for _,v := range h.Remove {
+			if bytes.Equal(pk,v.Val.PubKey.Bytes()) {
+				return v
+			}
+		}
+	} else {		// work
+		for _,v := range h.Work {
+			if bytes.Equal(pk,v.Val.PubKey.Bytes()) {
+				return v
+			}
+		}
+	}
+	return nil
+}
+
+func (h *HealthMgr) CheckSwitch(remove,add *ctypes.SwitchEnter) bool {
 	
 	return false
 }
