@@ -18,20 +18,19 @@ package snailchain
 
 import (
 	"fmt"
-	"math/big"
-	"time"
-
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"testing"
+	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"io/ioutil"
+	"math/big"
 	"os"
+	"testing"
+	"time"
 )
 
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
@@ -53,8 +52,7 @@ func init() {
 	engine = ethash.NewFaker()
 	genesis = core.DefaultGenesisBlock()
 
-	cache := &core.CacheConfig{
-	}
+	cache := &core.CacheConfig{}
 
 	fastGenesis := genesis.MustFastCommit(peerDb)
 	fastchain, _ = core.NewBlockChain(peerDb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
@@ -118,7 +116,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 		}
 	}
 
-	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
+	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) *types.SnailHeader {
 		parent := chain.CurrentBlock()
 		//num := parent.Number()
 		var fruitDiff *big.Int
@@ -209,19 +207,16 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 		)
 		return block, nil
 
-	} else {
-		fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
-		if err != nil {
-			return nil, err
-		}
-		return fruit, nil
 	}
-
-	return nil, nil
+	fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
+	if err != nil {
+		return nil, err
+	}
+	return fruit, nil
 
 }
 
-func setupSnailPool() (*SnailPool) {
+func setupSnailPool() *SnailPool {
 
 	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
 	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
