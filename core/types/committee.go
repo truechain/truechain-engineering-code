@@ -19,6 +19,13 @@ const (
 	CommitteeStop              // stop pbft consensus
 	CommitteeSwitchover        //switch pbft committee
 	CommitteeOver              // notify current pbft committee end block
+
+
+	StateUnusedFlag = 0xa0
+	StateSwitchingFlag = 0xa1
+	StateUsedFlag = 0xa2
+	StateRemovedFlag = 0xa3
+	StateAddFlag = 0xa4
 )
 
 const (
@@ -29,11 +36,12 @@ const (
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
-	Coinbase  common.Address
-	Publickey *ecdsa.PublicKey
+	Coinbase  	common.Address
+	Publickey 	*ecdsa.PublicKey
+	Flag 		int32
 }
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("C:%s,P:%s",common.ToHex(c.Coinbase[:]),
+	return fmt.Sprintf("F:%d,C:%s,P:%s",c.Flag,common.ToHex(c.Coinbase[:]),
 	common.ToHex(crypto.FromECDSAPub(c.Publickey)))
 }
 
@@ -41,6 +49,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
+		Flag	int32		   `json:"flag,omitempty"`
 	}
 	var dec committee
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -48,6 +57,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 	}
 
 	g.Coinbase = dec.Address
+	g.Flag = dec.Flag
 
 	var err error
 	if dec.PubKey != nil {
@@ -81,7 +91,7 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int) (*Block, error)
+	FetchFastBlock(committeeId *big.Int,infos *SwitchInfos) (*Block, error)
 	VerifyFastBlock(*Block) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
@@ -90,6 +100,7 @@ type PbftAgentProxy interface {
 
 type PbftServerProxy interface {
 	PutCommittee(committeeInfo *CommitteeInfo) error
+	UpdateCommittee(info *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
 	SetCommitteeStop(committeeId *big.Int, stop uint64) error
@@ -113,7 +124,8 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 type CommitteeInfo struct {
 	Id      		*big.Int
 	StartHeight		*big.Int
-	Members []*CommitteeMember
+	Members 		[]*CommitteeMember
+	BackMembers		[]*CommitteeMember
 }
 func (c *CommitteeInfo) String() string{
 	if c.Members != nil {
@@ -165,18 +177,18 @@ const (
 
 type SwitchEnter struct {
 	Pk  		[]byte
-	Flag 		int
+	Flag 		int32
 }
 func (s *SwitchEnter) String() string {
 	return fmt.Sprintf("p:%s,s:%d",common.ToHex(s.Pk),s.Flag)
 }
 
-type SwitchInfo struct {
-	CID 	int64
+type SwitchInfos struct {
+	CID 	uint64
 	Vals 	[]*SwitchEnter
 }
 
-func (s *SwitchInfo) String() string {
+func (s *SwitchInfos) String() string {
 	memStrings := make([]string, len(s.Vals))
 	for i, m := range s.Vals {
 		if m == nil {
@@ -185,5 +197,5 @@ func (s *SwitchInfo) String() string {
 			memStrings[i] = m.String()
 		}
 	}
-	return fmt.Sprintf("SwitchInfo{CID:%d,Vals:{%s}}",s.CID,strings.Join(memStrings,"\n  "))
+	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}",s.CID,strings.Join(memStrings,"\n  "))
 }

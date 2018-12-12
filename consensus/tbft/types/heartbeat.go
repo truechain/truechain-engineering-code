@@ -71,10 +71,6 @@ func (heartbeat *Heartbeat) String() string {
 const (
 	HealthOut = 60*10
 	MixValidator = 4
-	StateUnused = 0
-	StateSwitching = 1
-	StateUsed = 2
-	StateRemoved = 3
 )
 
 type Health struct {
@@ -98,6 +94,7 @@ func (h *Health) SimpleString() string {
 type SwitchValidator struct {
 	Remove 		*Health
 	Add 		*Health
+	Infos 		*ctypes.SwitchInfos
 	Resion 		string
 	From		int
 } 
@@ -109,14 +106,16 @@ type HealthMgr struct {
 	Back			[]*Health
 	SwitchChan		chan *SwitchValidator	
 	healthTick 		*time.Ticker
+	cid 			uint64
 }
 
-func NewHealthMgr() *HealthMgr {
+func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
 		Work:			make(map[p2p.ID]*Health,0),
 		Back:			make([]*Health,0,0),
 		SwitchChan:		make(chan*SwitchValidator),
 		Sum:			0,
+		cid:			cid,
 		healthTick:		nil,
 	}
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
@@ -148,6 +147,9 @@ func (h *HealthMgr) OnStop() {
 	h.Stop()
 }
 func (h *HealthMgr) Switch(s *SwitchValidator) {
+	if s == nil {
+		return
+	}
 	select {
 	case h.SwitchChan <- s:
 	default:
@@ -169,13 +171,13 @@ func (h *HealthMgr) healthGoroutine() {
 }
 func (h *HealthMgr) work() {	
 	for _,v:=range h.Work {
-		if v.State == StateUsed {
+		if v.State == ctypes.StateUsedFlag {
 			atomic.AddInt32(&v.Tick,1)
 		}
 		h.checkSwitchValidator(v)	
 	} 
 	for _,v := range h.Back {
-		if v.State == StateUsed {
+		if v.State == ctypes.StateUsedFlag {
 			atomic.AddInt32(&v.State,1)
 		}
 		h.checkSwitchValidator(v)
@@ -185,27 +187,62 @@ func (h *HealthMgr) work() {
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	val := atomic.LoadInt32(&v.Tick)
 	cnt := h.getUsedValidCount()
-	if cnt > MixValidator && val > HealthOut && v.State == StateUsed {
+	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag {
 		back := h.pickUnuseValidator()
-		go h.Switch(&SwitchValidator {
-			Remove:			v,
-			Add:			back,
-			Resion:			"Switch",
-			From:			0,
+		go h.Switch(h.makeSwitchValidators(v,back,"Switch",0))
+		atomic.StoreInt32(&v.State,int32(ctypes.StateSwitchingFlag))
+	}
+}
+
+func (h *HealthMgr) makeSwitchValidators(remove,add *Health,resion string,from int) *SwitchValidator {
+	vals := make([]*ctypes.SwitchEnter,0,0)
+	if add != nil {
+		vals = append(vals,&ctypes.SwitchEnter{
+			Pk:				add.Val.PubKey.Bytes(),
+			Flag:			ctypes.StateAddFlag,
 		})
-		atomic.StoreInt32(&v.State,int32(StateSwitching))
+	}
+	vals = append(vals,&ctypes.SwitchEnter{
+		Pk:				remove.Val.PubKey.Bytes(),
+		Flag:			ctypes.StateRemovedFlag,
+	})
+	for _,v := range h.Work {
+		if !bytes.Equal(remove.Val.PubKey.Bytes(),v.Val.PubKey.Bytes()) && v.State == ctypes.StateUsedFlag{
+			vals = append(vals,&ctypes.SwitchEnter{
+				Pk:				v.Val.PubKey.Bytes(),
+				Flag:			atomic.LoadInt32(&v.State),
+			})
+		}
+	}
+	for _,v := range h.Back {
+		if !bytes.Equal(remove.Val.PubKey.Bytes(),v.Val.PubKey.Bytes()) && v.State == ctypes.StateUsedFlag{
+			vals = append(vals,&ctypes.SwitchEnter{
+				Pk:				v.Val.PubKey.Bytes(),
+				Flag:			atomic.LoadInt32(&v.State),
+			})
+		}
+	}
+	// will need check vals with validatorSet 
+	infos := &ctypes.SwitchInfos{
+		CID:			h.cid,
+		Vals:			vals,
+	}
+	return &SwitchValidator{
+		Infos:			infos,
+		Resion:			resion,
+		From:			from,
 	}
 }
 
 func (h *HealthMgr) getUsedValidCount() int {
 	cnt := 0
 	for _,v := range h.Work {
-		if v.State == StateUsed {
+		if v.State == ctypes.StateUsedFlag {
 			cnt++
 		}
 	}
 	for _,v := range h.Back {
-		if v.State == StateUnused {
+		if v.State == ctypes.StateUnusedFlag {
 			cnt++
 		}
 	}
@@ -214,20 +251,29 @@ func (h *HealthMgr) getUsedValidCount() int {
 
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	if res.From == 1 {
-		ss := "Switch Validator failed"
-		if res.Resion == "" {
-			ss = "Switch Validator Success"
-			if v,ok := h.Work[res.Remove.ID];ok {
-				atomic.StoreInt32(&v.State,int32(StateRemoved))
-			}
-			for _,v := range h.Back {
-				if v.ID == res.Add.ID {
-					atomic.StoreInt32(&v.State,int32(StateUsed))
-					break
+		ss := "failed"
+		if res.Resion == "" {	
+			if len(res.Infos.Vals) > 2 {
+				enter1,enter2 := res.Infos.Vals[0],res.Infos.Vals[1]
+				var add,remove *Health
+				if enter1.Flag == ctypes.StateAddFlag {
+					add = h.getHealth(enter1.Pk)
+					if enter2.Flag == ctypes.StateRemovedFlag {
+						remove = h.getHealth(enter2.Pk)
+					}
+				} else if enter1.Flag == ctypes.StateRemovedFlag {
+					remove = h.getHealth(enter1.Pk)
+				}				
+				if remove != nil {
+					atomic.StoreInt32(&remove.State,int32(ctypes.StateRemovedFlag))
+					ss = "Success"
+				}
+				if add != nil {
+					atomic.StoreInt32(&add.State,int32(ctypes.StateUsedFlag))
 				}
 			}
 		} 
-		log.Info(ss,"resion",res.Resion,"remove",res.Remove.String(),"add",res.Add.String())
+		log.Info("switch","result:",ss,"infos",res.Infos)
 	}
 }
 
@@ -235,7 +281,7 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 	sum := len(h.Back)
 	for i:=0;i<sum;i++ {
 		v := h.Back[i]
-		if s := atomic.CompareAndSwapInt32(&v.State,int32(StateUnused),int32(StateSwitching)); s {
+		if s := atomic.CompareAndSwapInt32(&v.State,int32(ctypes.StateUnusedFlag),int32(ctypes.StateSwitchingFlag)); s {
 			return v
 		}
 	}
@@ -299,7 +345,7 @@ func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
 	}
 
 	rTick := atomic.LoadInt32(&r.Tick)
-	if r.State >= StateUsed && rTick >= HealthOut {
+	if r.State >= ctypes.StateUsedFlag && rTick >= HealthOut {
 		rRes = true
 	}
 	res := r.SimpleString()
@@ -308,7 +354,7 @@ func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
 	aRes := false
 	
 	if a != nil {
-		if a.State != StateRemoved {
+		if a.State != ctypes.StateRemovedFlag {
 			aRes = true
 		}
 		res += a.SimpleString()
