@@ -134,6 +134,7 @@ type Header struct {
 	Root        common.Hash `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash common.Hash `json:"receiptsRoot"     gencodec:"required"`
+	CommitteeHash common.Hash `json:"committeeRoot"     gencodec:"required"`
 	Proposer    common.Address 	`json:"maker"            gencodec:"required"`
 	Bloom       Bloom       `json:"logsBloom"        gencodec:"required"`
 	SnailHash   common.Hash `json:"snailHash"        gencodec:"required"`
@@ -181,6 +182,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 type Body struct {
 	Transactions []*Transaction
 	Signs        []*PbftSign
+	Infos 	 	 *SwitchInfos
 }
 
 // BlockReward
@@ -198,8 +200,8 @@ type Block struct {
 
 	uncles []*Header // reserved for compile
 
-	signs PbftSigns
-
+	signs 	PbftSigns
+	infos 	*SwitchInfos
 	// caches
 	hash atomic.Value
 	size atomic.Value
@@ -221,7 +223,7 @@ type Block struct {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign) *Block {
+func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign,infos *SwitchInfos) *Block {
 	b := &Block{header: CopyHeader(header)}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -251,6 +253,11 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.signs = make(PbftSigns, len(signs))
 		copy(b.signs, signs)
 	}
+	if infos != nil {
+		b.infos.CID = infos.CID
+		b.infos.Vals = make([]*SwitchEnter,0,len(infos.Vals))
+		copy(b.infos.Vals,infos.Vals)
+	}
 
 	return b
 }
@@ -266,6 +273,12 @@ func (b *Body) GetLeaderSign() *PbftSign {
 		return b.Signs[0]
 	}
 	return nil
+}
+func (b *Body) GetSwitchInfo() *SwitchInfos {
+	return b.Infos
+}
+func (b *Body) SetSwitchInfo(infos *SwitchInfos) {
+	b.Infos = infos
 }
 
 // NewBlockWithHeader creates a fast block with the given header data. The
@@ -301,6 +314,7 @@ type extblock struct {
 	Header *Header
 	Txs    []*Transaction
 	Signs  []*PbftSign
+	Infos  *SwitchInfos
 }
 
 // DecodeRLP decodes the Ethereum
@@ -310,7 +324,7 @@ func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	if err := s.Decode(&eb); err != nil {
 		return err
 	}
-	b.header, b.transactions, b.signs = eb.Header, eb.Txs, eb.Signs
+	b.header, b.transactions, b.signs ,b.infos = eb.Header, eb.Txs, eb.Signs, eb.Infos
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
@@ -321,6 +335,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 		Header: b.header,
 		Txs:    b.transactions,
 		Signs:  b.signs,
+		Infos:	b.infos,
 	})
 }
 
@@ -355,9 +370,11 @@ func (b *Block) UncleHash() common.Hash   { return common.Hash{} }
 func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *Block) Signs() []*PbftSign       { return b.signs }
 func (b *Block) Header() *Header          { return CopyHeader(b.header) }
+func (b *Block) CommitteeHash() common.Hash { return b.header.CommitteeHash }
+func (b *Block) SwitchInfos() *SwitchInfos { return b.infos }
 
 // Body returns the non-header content of the block.
-func (b *Block) Body() *Body { return &Body{b.transactions, b.signs} }
+func (b *Block) Body() *Body { return &Body{b.transactions, b.signs,b.infos} }
 
 func (b *Block) AppendSign(sign *PbftSign) {
 	signP := CopyPbftSign(sign)
@@ -393,6 +410,12 @@ func (b *Block) GetLeaderSign() *PbftSign {
 	return nil
 }
 
+func (b *Block) SetSwitchInfo(info *SwitchInfos) {
+	b.infos.CID = info.CID
+	b.infos.Vals = make([]*SwitchEnter,0,len(info.Vals))
+	b.infos.Vals = append(b.infos.Vals,info.Vals...)
+}
+
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
 func (b *Block) Size() common.StorageSize {
@@ -417,7 +440,7 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction contents.
-func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles []*Header) *Block {
+func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles []*Header,infos *SwitchInfos) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),
@@ -426,6 +449,11 @@ func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles 
 	}
 	copy(block.transactions, transactions)
 	copy(block.signs, signs)
+	if infos != nil {
+		block.infos.CID = infos.CID
+		block.infos.Vals = make([]*SwitchEnter,0,len(infos.Vals))
+		copy(block.infos.Vals,infos.Vals)
+	}
 
 	for i := range uncles {
 		block.uncles[i] = CopyHeader(uncles[i])
