@@ -6,7 +6,7 @@ import (
 	"fmt"
 	tcrypyo "github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	amino "go-amino"
+	amino "github.com/tendermint/go-amino"
 )
 
 //-------------------------------------

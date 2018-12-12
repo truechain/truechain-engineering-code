@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
-	amino "go-amino"
+	amino "github.com/tendermint/go-amino"
 )
 
 const (

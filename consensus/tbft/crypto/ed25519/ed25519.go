@@ -8,7 +8,7 @@ import (
 	"github.com/agl/ed25519/extra25519"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	amino "go-amino"
+	amino "github.com/tendermint/go-amino"
 	"io"
 )
 

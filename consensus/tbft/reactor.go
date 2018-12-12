@@ -7,7 +7,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"go-amino"
+	"github.com/tendermint/go-amino"
 	"reflect"
 	"sync"
 	"time"
@@ -977,7 +977,7 @@ func (ps *PeerState) getVoteBitArray(height uint64, round int, typeB byte) *help
 			}
 		}
 		if ps.PRS.CatchupCommitRound == round {
-			switch type_ {
+			switch typeB {
 			case ttypes.VoteTypePrevote:
 				return nil
 			case ttypes.VoteTypePrecommit:
@@ -996,7 +996,7 @@ func (ps *PeerState) getVoteBitArray(height uint64, round int, typeB byte) *help
 	}
 	if ps.PRS.Height == height+1 {
 		if int(ps.PRS.LastCommitRound) == round {
-			switch type_ {
+			switch typeB {
 			case ttypes.VoteTypePrevote:
 				return nil
 			case ttypes.VoteTypePrecommit:
