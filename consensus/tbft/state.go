@@ -1649,6 +1649,9 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		}
 	}()
 }
+func (cs *ConsensusState) switchVerify() bool {
+	return false
+}
 
 // CompareHRS is compare msg'and peerSet's height round Step
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {

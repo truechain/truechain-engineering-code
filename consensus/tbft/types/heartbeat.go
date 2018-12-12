@@ -5,6 +5,7 @@ import (
 	"time"
 	"bytes"
 	"sort"
+	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
@@ -81,12 +82,17 @@ type Health struct {
 	IP      	string
 	Port    	uint
 	Tick		int32
-	State 		int
+	State 		int32
 	Val			*Validator
 }
 func (h *Health) String() string {
 	return fmt.Sprintf("id:%s,ip:%s,port:%d,tick:%d,state:%d,addr:%s",h.ID,h.IP,h.Port,h.Tick,h.State,
 			common.ToHex(h.Val.Address))
+}
+func (h *Health) SimpleString() string {
+	s := atomic.LoadInt32(&h.State)
+	t := atomic.LoadInt32(&h.Tick)
+	return fmt.Sprintf("state:%d,tick:%d",s,t)
 }
 
 type SwitchValidator struct {
@@ -101,7 +107,6 @@ type HealthMgr struct {
 	Sum				int64
 	Work	 		map[p2p.ID]*Health
 	Back			[]*Health
-	Remove			[]*Health
 	SwitchChan		chan *SwitchValidator	
 	healthTick 		*time.Ticker
 }
@@ -110,7 +115,6 @@ func NewHealthMgr() *HealthMgr {
 	h := &HealthMgr{
 		Work:			make(map[p2p.ID]*Health,0),
 		Back:			make([]*Health,0,0),
-		Remove:			make([]*Health,0,0),
 		SwitchChan:		make(chan*SwitchValidator),
 		Sum:			0,
 		healthTick:		nil,
@@ -122,6 +126,14 @@ func (h *HealthMgr) SetBackValidators(hh []*Health) {
 	h.Back = hh
 	sort.Sort(HealthsByAddress(h.Back))
 }
+func (h *HealthMgr) UpdataHealthInfo(id p2p.ID,ip string, port uint, pk []byte) {
+	enter := h.getHealth(pk)
+	if enter != nil && enter.ID != "" {
+		enter.ID,enter.IP,enter.Port = id,ip,port
+		log.Info("UpdataHealthInfo","info",enter)
+	}
+}
+
 func (h *HealthMgr) OnStart() error {
 	if h.healthTick == nil {
 		h.healthTick = time.NewTicker(1*time.Second)
@@ -162,6 +174,12 @@ func (h *HealthMgr) work() {
 		}
 		h.checkSwitchValidator(v)	
 	} 
+	for _,v := range h.Back {
+		if v.State == StateUsed {
+			atomic.AddInt32(&v.State,1)
+		}
+		h.checkSwitchValidator(v)
+	}
 }
 
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
@@ -175,9 +193,10 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 			Resion:			"Switch",
 			From:			0,
 		})
-		v.State = StateSwitching
+		atomic.StoreInt32(&v.State,int32(StateSwitching))
 	}
 }
+
 func (h *HealthMgr) getUsedValidCount() int {
 	cnt := 0
 	for _,v := range h.Work {
@@ -199,11 +218,11 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 		if res.Resion == "" {
 			ss = "Switch Validator Success"
 			if v,ok := h.Work[res.Remove.ID];ok {
-				v.State = StateRemoved
+				atomic.StoreInt32(&v.State,int32(StateRemoved))
 			}
 			for _,v := range h.Back {
 				if v.ID == res.Add.ID {
-					v.State = StateUsed
+					atomic.StoreInt32(&v.State,int32(StateUsed))
 					break
 				}
 			}
@@ -216,8 +235,7 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 	sum := len(h.Back)
 	for i:=0;i<sum;i++ {
 		v := h.Back[i]
-		if v.State == StateUnused {
-			v.State = StateSwitching
+		if s := atomic.CompareAndSwapInt32(&v.State,int32(StateUnused),int32(StateSwitching)); s {
 			return v
 		}
 	}
@@ -225,9 +243,17 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 }
 
 func (h *HealthMgr) Update(id p2p.ID) {
-	if v,ok := h.Work[id];ok{
+	if v,ok := h.Work[id];ok {
 		val := atomic.LoadInt32(&v.Tick)
 		atomic.AddInt32(&v.Tick,-val)
+		return 
+	}
+	for _,v := range h.Back {
+		if v.ID == id {
+			val := atomic.LoadInt32(&v.Tick)
+			atomic.AddInt32(&v.Tick,-val)
+			return 	
+		}
 	}
 }
 
@@ -240,15 +266,9 @@ func (h *HealthMgr) GetHealthFormWork(address []byte) *Health {
 	return nil
 }
 
-func (h *HealthMgr) getHealth(pk []byte,part int) *Health {
+func (h *HealthMgr) getHealthFromPart(pk []byte,part int) *Health {
 	if part == 1 {	// back 
 		for _,v:=range h.Back {
-			if bytes.Equal(pk,v.Val.PubKey.Bytes()) {
-				return v
-			}
-		}
-	} else if part == 2 {	// remove 
-		for _,v := range h.Remove {
 			if bytes.Equal(pk,v.Val.PubKey.Bytes()) {
 				return v
 			}
@@ -262,10 +282,43 @@ func (h *HealthMgr) getHealth(pk []byte,part int) *Health {
 	}
 	return nil
 }
+func (h *HealthMgr) getHealth(pk []byte) *Health {
+	enter := h.getHealthFromPart(pk,0)
+	if enter == nil {
+		enter = h.getHealthFromPart(pk,1)
+	}
+	return enter
+}
 
-func (h *HealthMgr) CheckSwitch(remove,add *ctypes.SwitchEnter) bool {
+func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
+	r := h.getHealth(remove.Pk)	
+	rRes := false 
+
+	if r == nil {
+		return errors.New("not found the remove:"+remove.String())
+	}
+
+	rTick := atomic.LoadInt32(&r.Tick)
+	if r.State >= StateUsed && rTick >= HealthOut {
+		rRes = true
+	}
+	res := r.SimpleString()
+
+	a := h.getHealth(add.Pk)
+	aRes := false
 	
-	return false
+	if a != nil {
+		if a.State != StateRemoved {
+			aRes = true
+		}
+		res += a.SimpleString()
+	} else {
+		aRes = true
+	}
+	if rRes && aRes {
+		return nil
+	}
+	return errors.New("Wrang state:"+res+"Remove:"+remove.String()+",add:"+add.String())
 }
 
 //-------------------------------------------------
