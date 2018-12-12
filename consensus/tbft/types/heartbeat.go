@@ -126,6 +126,14 @@ func (h *HealthMgr) SetBackValidators(hh []*Health) {
 	h.Back = hh
 	sort.Sort(HealthsByAddress(h.Back))
 }
+func (h *HealthMgr) UpdataHealthInfo(id p2p.ID,ip string, port uint, pk []byte) {
+	enter := h.getHealth(pk)
+	if enter != nil && enter.ID != "" {
+		enter.ID,enter.IP,enter.Port = id,ip,port
+		log.Info("UpdataHealthInfo","info",enter)
+	}
+}
+
 func (h *HealthMgr) OnStart() error {
 	if h.healthTick == nil {
 		h.healthTick = time.NewTicker(1*time.Second)
@@ -258,7 +266,7 @@ func (h *HealthMgr) GetHealthFormWork(address []byte) *Health {
 	return nil
 }
 
-func (h *HealthMgr) getHealth(pk []byte,part int) *Health {
+func (h *HealthMgr) getHealthFromPart(pk []byte,part int) *Health {
 	if part == 1 {	// back 
 		for _,v:=range h.Back {
 			if bytes.Equal(pk,v.Val.PubKey.Bytes()) {
@@ -274,12 +282,16 @@ func (h *HealthMgr) getHealth(pk []byte,part int) *Health {
 	}
 	return nil
 }
+func (h *HealthMgr) getHealth(pk []byte) *Health {
+	enter := h.getHealthFromPart(pk,0)
+	if enter == nil {
+		enter = h.getHealthFromPart(pk,1)
+	}
+	return enter
+}
 
 func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
-	r := h.getHealth(remove.Pk,0)	
-	if r == nil {
-		r = h.getHealth(remove.Pk,1)
-	}
+	r := h.getHealth(remove.Pk)	
 	rRes := false 
 
 	if r == nil {
@@ -292,10 +304,7 @@ func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
 	}
 	res := r.SimpleString()
 
-	a := h.getHealth(add.Pk,0)
-	if a == nil {
-		a = h.getHealth(add.Pk,1)
-	}
+	a := h.getHealth(add.Pk)
 	aRes := false
 	
 	if a != nil {
