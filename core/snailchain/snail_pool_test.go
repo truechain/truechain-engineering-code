@@ -18,6 +18,12 @@ package snailchain
 
 import (
 	"fmt"
+	"io/ioutil"
+	"math/big"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -26,11 +32,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"io/ioutil"
-	"math/big"
-	"os"
-	"testing"
-	"time"
 )
 
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
