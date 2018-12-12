@@ -1,4 +1,4 @@
-// Copyright 2018 The Truechain Authors
+// Copyright 2018 The TrueChain Authors
 // This file is part of the truechain-engineering-code library.
 //
 // The truechain-engineering-code library is free software: you can redistribute it and/or modify
