@@ -37,17 +37,17 @@ func getID() *big.Int {
 	return ID
 }
 
-var IdCache = make(map[string]*big.Int)
+var IDCache = make(map[string]*big.Int)
 
-func IdCacheInit() {
+func IDCacheInit() {
 	lock = new(sync.Mutex)
 	lock2 = new(sync.Mutex)
 
-	IdCache["Agent1"] = big.NewInt(1)
-	IdCache["Agent2"] = big.NewInt(1)
-	IdCache["Agent3"] = big.NewInt(1)
-	IdCache["Agent4"] = big.NewInt(1)
-	IdCache["Agent5"] = big.NewInt(1)
+	IDCache["Agent1"] = big.NewInt(1)
+	IDCache["Agent2"] = big.NewInt(1)
+	IDCache["Agent3"] = big.NewInt(1)
+	IDCache["Agent4"] = big.NewInt(1)
+	IDCache["Agent5"] = big.NewInt(1)
 }
 
 var lock, lock2 *sync.Mutex
@@ -55,16 +55,16 @@ var lock, lock2 *sync.Mutex
 func getIDForCache(agent string) *big.Int {
 	lock.Lock()
 	defer lock.Unlock()
-	return IdCache[agent]
+	return IDCache[agent]
 }
 
-func IdAdd(agent string) {
+func IDAdd(agent string) {
 	lock2.Lock()
 	defer lock2.Unlock()
-	IdCache[agent] = new(big.Int).Add(IdCache[agent], big.NewInt(1))
+	IDCache[agent] = new(big.Int).Add(IDCache[agent], big.NewInt(1))
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	header.Time = big.NewInt(time.Now().Unix())
@@ -94,7 +94,7 @@ func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (
 	if e != nil || num == 1 {
 		num = 0
 	} else {
-		num -= 1
+		num--
 	}
 	pr1 := getPrivateKey(num)
 	voteSign.Sign, err = crypto.Sign(signHash, pr1)
@@ -114,7 +114,7 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSi
 }
 
 func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
-	IdAdd(pap.Name)
+	IDAdd(pap.Name)
 	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
 }
 
@@ -126,7 +126,7 @@ func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.B
 var BcCount = 0
 
 func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {
-	IdAdd(pap.Name)
+	IDAdd(pap.Name)
 	println("[AGENT]", pap.Name, "--------", "BroadcastConsensus", "Number:", block.Header().Number.Uint64())
 	return nil
 }
@@ -165,7 +165,7 @@ func GetPub(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 
 func TestPbftRunForOne(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr := getPrivateKey(0)
 	agent1 := NewPbftAgent("Agent1")
@@ -183,7 +183,7 @@ func TestPbftRunForOne(t *testing.T) {
 }
 func TestPbftRunFor2(t *testing.T) {
 	//log.OpenLogDebug(3)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -251,7 +251,7 @@ func TestPbftRunFor2(t *testing.T) {
 }
 func TestPbftRunFor4(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -370,7 +370,7 @@ func TestPbftRunFor4(t *testing.T) {
 }
 func TestPbftRunFor4AndChange(t *testing.T) {
 	//log.OpenLogDebug(3)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -521,7 +521,7 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 
 func TestPbftRunFor5(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -675,7 +675,7 @@ func TestPbftRunFor5(t *testing.T) {
 
 func TestRunPbft1(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -732,7 +732,7 @@ func TestRunPbft1(t *testing.T) {
 
 func TestRunPbft2(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -790,7 +790,7 @@ func TestRunPbft2(t *testing.T) {
 
 func TestRunPbft3(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -848,7 +848,7 @@ func TestRunPbft3(t *testing.T) {
 
 func TestRunPbft4(t *testing.T) {
 	//log.OpenLogDebug(4)
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
 	pr2 := getPrivateKey(1)
@@ -905,16 +905,16 @@ func TestRunPbft4(t *testing.T) {
 }
 
 func TestAddVote(t *testing.T) {
-	IdCacheInit()
+	IDCacheInit()
 	const privCount int = 4
 	var privs [privCount]*ecdsa.PrivateKey
 	vals := make([]*ttypes.Validator, 0, 0)
 	vPrivValidator := make([]ttypes.PrivValidator, 0, 0)
 
-	var chainID_ string = "9999"
-	var height_ uint64 = 1
-	var round_ int = 0
-	var type_ byte = ttypes.VoteTypePrevote
+	var chainID = "9999"
+	var height uint64 = 1
+	var round = 0
+	var typeB = ttypes.VoteTypePrevote
 
 	for i := 0; i < privCount; i++ {
 		privs[i] = getPrivateKey(i)
@@ -925,7 +925,7 @@ func TestAddVote(t *testing.T) {
 		vals = append(vals, v)
 	}
 	vset := ttypes.NewValidatorSet(vals)
-	vVoteSet := ttypes.NewVoteSet(chainID_, height_, round_, type_, vset)
+	vVoteSet := ttypes.NewVoteSet(chainID, height, round, typeB, vset)
 	// make block
 	agent := NewPbftAgent("Agent1")
 	cid := big.NewInt(1)
@@ -937,9 +937,9 @@ func TestAddVote(t *testing.T) {
 	for i, v := range vPrivValidator {
 		var vote1 *ttypes.Vote
 		if i == 3 {
-			vote1 = signAddVote(v, vset, vVoteSet, height_, chainID_, uint(round_), type_, nil, ttypes.PartSetHeader{}, nil)
+			vote1 = signAddVote(v, vset, vVoteSet, height, chainID, uint(round), typeB, nil, ttypes.PartSetHeader{}, nil)
 		} else {
-			vote1 = signAddVote(v, vset, vVoteSet, height_, chainID_, uint(round_), type_, hash[:], ps.Header(), nil)
+			vote1 = signAddVote(v, vset, vVoteSet, height, chainID, uint(round), typeB, hash[:], ps.Header(), nil)
 		}
 		if vote1 != nil {
 			vVoteSet.AddVote(vote1)
@@ -954,8 +954,8 @@ func TestAddVote(t *testing.T) {
 
 }
 
-func signVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, height uint64, chainid_ string,
-	round uint, type_ byte, hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
+func signVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, height uint64, chainid string,
+	round uint, typeB byte, hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
 	addr := privV.GetAddress()
 	valIndex, _ := vset.GetByAddress(addr)
 	vote := &ttypes.Vote{
@@ -964,17 +964,17 @@ func signVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, height uint
 		Height:           height,
 		Round:            round,
 		Timestamp:        time.Now().UTC(),
-		Type:             type_,
+		Type:             typeB,
 		BlockID:          ttypes.BlockID{hash, header},
 	}
 
-	err := privV.SignVote(chainid_, vote)
+	err := privV.SignVote(chainid, vote)
 	return vote, err
 }
-func signAddVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, voteset *ttypes.VoteSet, height uint64, chainid_ string,
-	round uint, type_ byte, hash []byte, header ttypes.PartSetHeader, keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
+func signAddVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, voteset *ttypes.VoteSet, height uint64, chainid string,
+	round uint, typeB byte, hash []byte, header ttypes.PartSetHeader, keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
 
-	vote, err := signVote(privV, vset, height, chainid_, round, type_, hash, header)
+	vote, err := signVote(privV, vset, height, chainid, round, typeB, hash, header)
 	if err == nil {
 		// if hash != nil && keepsign == nil {
 		// 	if prevote := voteset.Prevotes(int(round)); prevote != nil {
@@ -1006,7 +1006,7 @@ func makeBlockID(hash []byte, header ttypes.PartSetHeader) ttypes.BlockID {
 
 func TestTock(t *testing.T) {
 	taskTimeOut := 3
-	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	var d = time.Duration(taskTimeOut) * time.Second
 	ttock := NewTimeoutTicker("ttock")
 	ttock.Start()
 
@@ -1018,7 +1018,7 @@ func TestTock(t *testing.T) {
 }
 
 func TimeoutRoutine(tt *TimeoutTicker) {
-	var pos uint = 0
+	var pos uint
 	for {
 		if pos >= 30 {
 			return
@@ -1065,7 +1065,7 @@ func TestPrivKey(t *testing.T) {
 	fmt.Println("id4", id4)
 }
 func TestPutNodes(t *testing.T) {
-	IdCacheInit()
+	IDCacheInit()
 	start := make(chan int)
 	pr1, _ := crypto.HexToECDSA("2ee9b9082e3eb19378d478f450e0e818e94cf7e3bf13ad5dd657ef2a35fbb0a8")
 	pr2, _ := crypto.HexToECDSA("1bc73ab677ed9c3518417339bb5716e32fbc56e888c98d2e63e190dd51ca7eda")

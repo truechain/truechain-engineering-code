@@ -43,12 +43,15 @@ type nodeInfo struct {
 }
 
 const (
+	//Start is status for notify
 	Start int = iota
+	//Stop is status for notify
 	Stop
+	//Switch is status for notify
 	Switch
 )
 
-func NewNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state ttypes.StateAgent,
+func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state ttypes.StateAgent,
 	store *ttypes.BlockStore) *service {
 	return &service{
 		sw:             p2p.NewSwitch(p2pcfg),
@@ -300,6 +303,7 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 	return nodeInfo
 }
 
+//Notify is agent change server order
 func (n *Node) Notify(id *big.Int, action int) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -314,9 +318,9 @@ func (n *Node) Notify(id *big.Int, action int) error {
 			server.start(id, n)
 			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
-		} else {
-			return errors.New("wrong conmmitt ID:" + id.String())
 		}
+		return errors.New("wrong conmmitt ID:" + id.String())
+
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
 			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
@@ -331,11 +335,13 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	}
 	return nil
 }
+
+//PutCommittee is agent put all committee to server
 func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	id := committeeInfo.Id
 	members := committeeInfo.Members
 	if id == nil || len(members) <= 0 {
-		return errors.New("wrong params...")
+		return errors.New("wrong params")
 	}
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -351,7 +357,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("make the nil state")
 	}
 	store := ttypes.NewBlockStore()
-	service := NewNodeService(n.config.P2P, n.config.Consensus, state, store)
+	service := newNodeService(n.config.P2P, n.config.Consensus, state, store)
 	nodeinfo := makeCommitteeMembers(id.Uint64(), service, committeeInfo)
 	if nodeinfo == nil {
 		service.stop()
@@ -367,9 +373,11 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	n.services[id.Uint64()] = service
 	return nil
 }
+
+//PutNodes is agent put peer's ip port
 func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	if id == nil || len(nodes) <= 0 {
-		return errors.New("wrong params...")
+		return errors.New("wrong params")
 	}
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -381,6 +389,8 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	server.putNodes(id, nodes)
 	return nil
 }
+
+//MakeValidators is make CommitteeInfo to ValidatorSet
 func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	id := cmm.Id
 	members := cmm.Members
@@ -415,17 +425,18 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 	}
 	return tab
 }
-func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
-	log.Info("SetCommitteeStop", "id", committeeId, "stop", stop)
+
+//SetCommitteeStop is stop committeeID server
+func (n *Node) SetCommitteeStop(committeeID *big.Int, stop uint64) error {
+	log.Info("SetCommitteeStop", "id", committeeID, "stop", stop)
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	if server, ok := n.services[committeeId.Uint64()]; ok {
+	if server, ok := n.services[committeeID.Uint64()]; ok {
 		server.getStateAgent().SetEndHeight(stop)
 		return nil
-	} else {
-		return errors.New("wrong conmmitt ID:" + committeeId.String())
 	}
+	return errors.New("wrong conmmitt ID:" + committeeID.String())
 }
 
 func getCommittee(n *Node, cid uint64) (info *service) {
@@ -443,6 +454,7 @@ func getNodeStatus(s *service) map[string]interface{} {
 	return result
 }
 
+//GetCommitteeStatus is show committee info in api
 func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 	log.Info("GetCommitteeStatus", "committeeID", committeeID.Uint64())
 	result := make(map[string]interface{})
