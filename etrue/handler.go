@@ -989,7 +989,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkTransaction(tx.Hash())
 		}
-		log.Info("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
+		//log.Debug("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
