@@ -316,7 +316,7 @@ func (agent *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, is
 }
 
 func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
-	log.Debug("into handlePbftNode...", "commiteeId", cryNodeInfo.CommitteeId)
+	log.Debug("into handlePbftNode...", "commiteeId", cryNodeInfo.CommitteeID)
 	/*signStr := hex.EncodeToString(cryNodeInfo.Sign)
 	if len(signStr) > subSignStr {
 		signStr = signStr[:subSignStr]
@@ -417,7 +417,7 @@ func (agent *PbftAgent) loop() {
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeId)
+				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
 					agent.handlePbftNode(cryNodeInfo, nodeWork)
@@ -557,11 +557,11 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
 
-	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeId) == 0 &&
+	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.election.IsCommitteeMember(members1, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0]
 	}
-	if committeeID2 != nil && committeeID2.Cmp(encryptNode.CommitteeId) == 0 &&
+	if committeeID2 != nil && committeeID2.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.election.IsCommitteeMember(members2, pubKeyByte) {
 		return true, agent.nodeInfoWorks[1]
 	}
@@ -588,7 +588,7 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 		err         error
 		cryNodeInfo = &types.EncryptNodeMessage{
 			CreatedAt:   time.Now(),
-			CommitteeId: committeeInfo.Id,
+			CommitteeID: committeeInfo.Id,
 		}
 	)
 	PrintNode("send", committeeNode)
@@ -629,7 +629,7 @@ func (agent *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
 	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
 	if committeeNode != nil {
-		agent.server.PutNodes(cryNodeInfo.CommitteeId, []*types.CommitteeNode{committeeNode})
+		agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode})
 	}
 }
 
