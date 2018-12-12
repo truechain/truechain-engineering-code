@@ -5,22 +5,23 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sync"
 	"time"
 )
 
 const (
-	stepNone           uint8 = 0 // Used to distinguish the initial state
-	stepPropose        uint8 = 1
-	stepPrevote        uint8 = 2
-	stepPrecommit      uint8 = 3
-	BlockPartSizeBytes uint  = 65536 // 64kB,
+	stepNone      uint8 = 0 // Used to distinguish the initial state
+	stepPropose   uint8 = 1
+	stepPrevote   uint8 = 2
+	stepPrecommit uint8 = 3
+	//BlockPartSizeBytes is part's size
+	BlockPartSizeBytes uint = 65536 // 64kB,
 )
 
 func voteToStep(vote *Vote) uint8 {
@@ -56,12 +57,15 @@ type privValidator struct {
 
 	mtx sync.Mutex
 }
+
+//KeepBlockSign is block's sign
 type KeepBlockSign struct {
-	Result 			uint
-	Sign 			[]byte
-	Hash			common.Hash
+	Result uint
+	Sign   []byte
+	Hash   common.Hash
 }
 
+//NewPrivValidator return new private Validator
 func NewPrivValidator(priv ecdsa.PrivateKey) PrivValidator {
 	return &privValidator{
 		PrivKey:  tcrypto.PrivKeyTrue(priv),
@@ -102,7 +106,7 @@ func (Validator *privValidator) SignVote(chainID string, vote *Vote) error {
 	Validator.mtx.Lock()
 	defer Validator.mtx.Unlock()
 	if err := Validator.signVote(chainID, vote); err != nil {
-		return errors.New(fmt.Sprintf("Error signing vote: %v", err))
+		return fmt.Errorf("Error signing vote: %v", err)
 	}
 	return nil
 }
@@ -290,6 +294,7 @@ func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (ti
 //----------------------------------------
 // Misc.
 
+//PrivValidatorsByAddress is private validators for address
 type PrivValidatorsByAddress []PrivValidator
 
 func (pvs PrivValidatorsByAddress) Len() int {
@@ -307,6 +312,7 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 }
 
 //----------------------------------------
+
 // StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet
@@ -315,7 +321,7 @@ type StateAgent interface {
 	GetLastBlockHeight() uint64
 	GetChainID() string
 	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
-	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error)
+	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
@@ -327,32 +333,35 @@ type StateAgent interface {
 	PrivReset()
 }
 
+//StateAgentImpl agent state struct
 type StateAgentImpl struct {
-	Priv       *privValidator
-	Agent      ctypes.PbftAgentProxy
-	Validators *ValidatorSet
-	ChainID    string
+	Priv        *privValidator
+	Agent       ctypes.PbftAgentProxy
+	Validators  *ValidatorSet
+	ChainID     string
 	LastHeight  uint64
 	StartHeight uint64
-	EndHeight  	uint64
-	CID 	   	uint64
+	EndHeight   uint64
+	CID         uint64
 }
 
+//NewStateAgent return new agent state
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
-	vals *ValidatorSet, height,cid uint64) *StateAgentImpl {
+	vals *ValidatorSet, height, cid uint64) *StateAgentImpl {
 	lh := agent.GetCurrentHeight()
 	return &StateAgentImpl{
-		Agent:      	agent,
-		ChainID:    	chainID,
-		Validators: 	vals,
-		StartHeight:    height,
-		EndHeight:		0,			// defualt 0,mean not work
-		LastHeight:		lh.Uint64(),
-		CID:			cid,
+		Agent:       agent,
+		ChainID:     chainID,
+		Validators:  vals,
+		StartHeight: height,
+		EndHeight:   0, // defualt 0,mean not work
+		LastHeight:  lh.Uint64(),
+		CID:         cid,
 	}
 }
 
-func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
+//MakePartSet  block to partset
+func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
 	bzs, err := rlp.EncodeToBytes(block)
@@ -361,10 +370,12 @@ func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
 	}
 	bz, err := cdc.MarshalBinary(bzs)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return NewPartSetFromData(bz, partSize),nil
+	return NewPartSetFromData(bz, partSize), nil
 }
+
+//MakeBlockFromPartSet partSet to block
 func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	if reader.IsComplete() {
 		maxsize := int64(MaxBlockBytes)
@@ -382,39 +393,49 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	return nil, errors.New("not complete")
 }
 
+//PrivReset reset PrivValidator
 func (state *StateAgentImpl) PrivReset() {
 	state.Priv.Reset()
 }
+
+//SetEndHeight set now committee fast block height for end
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
 }
+
+//GetChainID is get state'chainID
 func (state *StateAgentImpl) GetChainID() string {
 	return state.ChainID
 }
+
+//SetPrivValidator set state a new PrivValidator
 func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	pp := (priv).(*privValidator)
 	state.Priv = pp
 }
 
-func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
-	return MakePartSet(partSize,block)
+//MakePartSet make block to part for partSiae
+func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
+	return MakePartSet(partSize, block)
 }
 
-func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block,error) {
+//MakeBlock from agent FetchFastBlock
+func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
 	block, err := state.Agent.FetchFastBlock(committeeID,v.Infos)
 	if err != nil {
 		return nil, err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
-		return nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
+		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
 	}
 	if state.StartHeight > block.NumberU64() {
-		return nil,errors.New(fmt.Sprintf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight))
+		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.StartHeight)
 	}
-	return block,err
+	return block, err
 }
 
+//ConsensusCommit is BroadcastConsensus block to agent
 func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
@@ -425,47 +446,66 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	}
 	return nil
 }
+
+//ValidateBlock get a verify block if nil return new
 func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
 	if block == nil {
-		return nil,errors.New("block not have")
+		return nil, errors.New("block not have")
 	}
 	sign, err := state.Agent.VerifyFastBlock(block)
 	if sign != nil {
 		return &KeepBlockSign{
-			Result:			sign.Result,
-			Sign:			sign.Sign,
-			Hash:			sign.FastHash,
-		} ,err
+			Result: sign.Result,
+			Sign:   sign.Sign,
+			Hash:   sign.FastHash,
+		}, err
 	}
 	return nil, err
 }
+
+//GetValidator is get state's Validators
 func (state *StateAgentImpl) GetValidator() *ValidatorSet {
 	return state.Validators
 }
+
+//GetLastValidator is get state's Validators
 func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
 }
+
+//GetLastBlockHeight is get fast block height for agent
 func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
 	lh := state.Agent.GetCurrentHeight()
 	state.LastHeight = lh.Uint64()
 	return state.LastHeight
 }
 
+//GetAddress get priv_validator's address
 func (state *StateAgentImpl) GetAddress() help.Address {
 	return state.Priv.GetAddress()
 }
+
+//GetPubKey get priv_validator's public key
 func (state *StateAgentImpl) GetPubKey() tcrypto.PubKey {
 	return state.Priv.GetPubKey()
 }
+
+//SignVote sign of vote
 func (state *StateAgentImpl) SignVote(chainID string, vote *Vote) error {
 	return state.Priv.SignVote(chainID, vote)
 }
+
+//SignProposal sign of proposal msg
 func (state *StateAgentImpl) SignProposal(chainID string, proposal *Proposal) error {
 	return state.Priv.signProposal(chainID, proposal)
 }
+
+//SignHeartbeat sign of HeartBeat
 func (state *StateAgentImpl) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
 	return state.Priv.SignHeartbeat(chainID, heartbeat)
 }
+
+//Broadcast is agent Broadcast block
 func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {
 	// 	state.Agent.BroadcastFastBlock(fb)

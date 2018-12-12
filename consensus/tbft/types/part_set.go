@@ -10,10 +10,13 @@ import (
 )
 
 var (
+	//ErrPartSetUnexpectedIndex is Error part set unexpected index
 	ErrPartSetUnexpectedIndex = errors.New("Error part set unexpected index")
-	ErrPartSetInvalidProof    = errors.New("Error part set invalid proof")
+	//ErrPartSetInvalidProof is Error part set invalid proof
+	ErrPartSetInvalidProof = errors.New("Error part set invalid proof")
 )
 
+//Part struct
 type Part struct {
 	Index uint          `json:"index"`
 	Bytes help.HexBytes `json:"bytes"`
@@ -21,6 +24,7 @@ type Part struct {
 	hash []byte
 }
 
+//Hash is part's hash
 func (part *Part) Hash() []byte {
 	if part.hash != nil {
 		return part.hash
@@ -38,6 +42,7 @@ func (part *Part) String() string {
 	return part.StringIndented("")
 }
 
+//StringIndented indent's string
 func (part *Part) StringIndented(indent string) string {
 	return fmt.Sprintf(`Part{#%v
 %s  Bytes: %X...
@@ -53,6 +58,7 @@ func (part *Part) StringIndented(indent string) string {
 
 //-------------------------------------
 
+//PartSetHeader struct
 type PartSetHeader struct {
 	Total uint          `json:"total"`
 	Hash  help.HexBytes `json:"hash"`
@@ -62,16 +68,19 @@ func (psh PartSetHeader) String() string {
 	return fmt.Sprintf("%v:%X", psh.Total, help.Fingerprint(psh.Hash))
 }
 
+//IsZero is have part
 func (psh PartSetHeader) IsZero() bool {
 	return psh.Total == 0
 }
 
+//Equals compare other partSet header's hash
 func (psh PartSetHeader) Equals(other PartSetHeader) bool {
 	return psh.Total == other.Total && bytes.Equal(psh.Hash, other.Hash)
 }
 
 //-------------------------------------
 
+//PartSet struct
 type PartSet struct {
 	total uint
 	hash  []byte
@@ -82,7 +91,7 @@ type PartSet struct {
 	count         uint
 }
 
-// Returns an immutable, full PartSet from the data bytes.
+// NewPartSetFromData Returns an immutable, full PartSet from the data bytes.
 // The data bytes are split into "partSize" chunks, and merkle tree computed.
 func NewPartSetFromData(data []byte, partSize uint) *PartSet {
 	// divide data into 4kb parts.
@@ -115,7 +124,7 @@ func NewPartSetFromData(data []byte, partSize uint) *PartSet {
 	}
 }
 
-// Returns an empty PartSet ready to be populated.
+// NewPartSetFromHeader Returns an empty PartSet ready to be populated.
 func NewPartSetFromHeader(header PartSetHeader) *PartSet {
 	return &PartSet{
 		total:         header.Total,
@@ -126,6 +135,7 @@ func NewPartSetFromHeader(header PartSetHeader) *PartSet {
 	}
 }
 
+//Header get partSet's header
 func (ps *PartSet) Header() PartSetHeader {
 	if ps == nil {
 		return PartSetHeader{}
@@ -136,6 +146,7 @@ func (ps *PartSet) Header() PartSetHeader {
 	}
 }
 
+//HasHeader Compare header
 func (ps *PartSet) HasHeader(header PartSetHeader) bool {
 	if ps == nil {
 		return false
@@ -143,6 +154,7 @@ func (ps *PartSet) HasHeader(header PartSetHeader) bool {
 	return ps.Header().Equals(header)
 }
 
+//BitArray return BitArray's Copy
 func (ps *PartSet) BitArray() *help.BitArray {
 	//log.Debug("bitArray", "start", "ok", "ps", ps)
 	ps.mtx.Lock()
@@ -152,6 +164,7 @@ func (ps *PartSet) BitArray() *help.BitArray {
 	return ps.partsBitArray.Copy()
 }
 
+//Hash return ps'hash
 func (ps *PartSet) Hash() []byte {
 	if ps == nil {
 		return nil
@@ -159,6 +172,7 @@ func (ps *PartSet) Hash() []byte {
 	return ps.hash
 }
 
+//HashesTo Compare two hashes
 func (ps *PartSet) HashesTo(hash []byte) bool {
 	if ps == nil {
 		return false
@@ -166,6 +180,7 @@ func (ps *PartSet) HashesTo(hash []byte) bool {
 	return bytes.Equal(ps.hash, hash)
 }
 
+//Count Count of parts
 func (ps *PartSet) Count() uint {
 	if ps == nil {
 		return 0
@@ -173,6 +188,7 @@ func (ps *PartSet) Count() uint {
 	return ps.count
 }
 
+//Total sum of parts
 func (ps *PartSet) Total() uint {
 	if ps == nil {
 		return 0
@@ -180,6 +196,7 @@ func (ps *PartSet) Total() uint {
 	return ps.total
 }
 
+//AddPart add a part to parts array
 func (ps *PartSet) AddPart(part *Part) (bool, error) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
@@ -206,16 +223,19 @@ func (ps *PartSet) AddPart(part *Part) (bool, error) {
 	return true, nil
 }
 
+//GetPart get a part for index
 func (ps *PartSet) GetPart(index uint) *Part {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 	return ps.parts[index]
 }
 
+//IsComplete if get all part
 func (ps *PartSet) IsComplete() bool {
 	return ps.count == ps.total
 }
 
+//GetReader get a new reader if not complete
 func (ps *PartSet) GetReader() io.Reader {
 	if !ps.IsComplete() {
 		help.PanicSanity("Cannot GetReader() on incomplete PartSet")
@@ -223,12 +243,14 @@ func (ps *PartSet) GetReader() io.Reader {
 	return NewPartSetReader(ps.parts)
 }
 
+//PartSetReader struct
 type PartSetReader struct {
 	i      int
 	parts  []*Part
 	reader *bytes.Reader
 }
 
+//NewPartSetReader return new reader
 func NewPartSetReader(parts []*Part) *PartSetReader {
 	return &PartSetReader{
 		i:      0,
@@ -237,6 +259,7 @@ func NewPartSetReader(parts []*Part) *PartSetReader {
 	}
 }
 
+//Read  read a partSet bytes
 func (psr *PartSetReader) Read(p []byte) (n int, err error) {
 	readerLen := psr.reader.Len()
 	if readerLen >= len(p) {
@@ -258,6 +281,7 @@ func (psr *PartSetReader) Read(p []byte) (n int, err error) {
 	return psr.Read(p)
 }
 
+//StringShort print partSet count and total
 func (ps *PartSet) StringShort() string {
 	if ps == nil {
 		return "nil-PartSet"
@@ -267,6 +291,7 @@ func (ps *PartSet) StringShort() string {
 	return fmt.Sprintf("(%v of %v)", ps.Count(), ps.Total())
 }
 
+//MarshalJSON is marshal partsBitArray to json
 func (ps *PartSet) MarshalJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte("{}"), nil

@@ -2,7 +2,6 @@ package types
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -30,6 +29,7 @@ type ValidatorSet struct {
 	totalVotingPower int64
 }
 
+//NewValidatorSet is make a Validator to ValidatorSet
 func NewValidatorSet(vals []*Validator) *ValidatorSet {
 	validators := make([]*Validator, len(vals))
 	for i, val := range vals {
@@ -246,7 +246,7 @@ func (valSet *ValidatorSet) Iterate(fn func(index int, val *Validator) bool) {
 	}
 }
 
-// Verify that +2/3 of the set had signed the given signBytes
+//VerifyCommit  Verify that +2/3 of the set had signed the given signBytes
 func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height uint64, commit *Commit) error {
 	if valSet.Size() != uint(len(commit.Precommits)) {
 		return fmt.Errorf("Invalid commit -- wrong set size: %v vs %v", valSet.Size(), len(commit.Precommits))
@@ -311,10 +311,10 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 	blockID BlockID, height uint64, commit *Commit) error {
 
 	if newSet.Size() != uint(len(commit.Precommits)) {
-		return errors.New(fmt.Sprintf("Invalid commit -- wrong set size: %v vs %v", newSet.Size(), len(commit.Precommits)))
+		return fmt.Errorf("Invalid commit -- wrong set size: %v vs %v", newSet.Size(), len(commit.Precommits))
 	}
 	if height != commit.Height() {
-		return errors.New(fmt.Sprintf("Invalid commit -- wrong height: %v vs %v", height, commit.Height()))
+		return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, commit.Height())
 	}
 
 	oldVotingPower := int64(0)
@@ -329,13 +329,13 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 		}
 		if precommit.Height != height {
 			// return certerr.ErrHeightMismatch(height, precommit.Height)
-			return errors.New(fmt.Sprintf("Blocks don't match - %d vs %d", round, precommit.Round))
+			return fmt.Errorf("Blocks don't match - %d vs %d", round, precommit.Round)
 		}
 		if int(precommit.Round) != round {
-			return errors.New(fmt.Sprintf("Invalid commit -- wrong round: %v vs %v", round, precommit.Round))
+			return fmt.Errorf("Invalid commit -- wrong round: %v vs %v", round, precommit.Round)
 		}
 		if precommit.Type != VoteTypePrecommit {
-			return errors.New(fmt.Sprintf("Invalid commit -- not precommit @ index %v", idx))
+			return fmt.Errorf("Invalid commit -- not precommit @ index %v", idx)
 		}
 		if !blockID.Equals(precommit.BlockID) {
 			continue // Not an error, but doesn't count
@@ -351,7 +351,7 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 		// Validate signature old school
 		precommitSignBytes := precommit.SignBytes(chainID)
 		if !ov.PubKey.VerifyBytes(precommitSignBytes, precommit.Signature) {
-			return errors.New(fmt.Sprintf("Invalid commit -- invalid signature: %v", precommit))
+			return fmt.Errorf("Invalid commit -- invalid signature: %v", precommit)
 		}
 		// Good precommit!
 		if precommit.Result == ctypes.VoteAgree {
@@ -366,11 +366,11 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 	}
 
 	if oldVotingPower <= valSet.TotalVotingPower()*2/3 {
-		return errors.New(fmt.Sprintf("Invalid commit -- insufficient old voting power: got %v, needed %v",
-			oldVotingPower, (valSet.TotalVotingPower()*2/3 + 1)))
+		return fmt.Errorf("Invalid commit -- insufficient old voting power: got %v, needed %v",
+			oldVotingPower, (valSet.TotalVotingPower()*2/3 + 1))
 	} else if newVotingPower <= newSet.TotalVotingPower()*2/3 {
-		return errors.New(fmt.Sprintf("Invalid commit -- insufficient cur voting power: got %v, needed %v",
-			newVotingPower, (newSet.TotalVotingPower()*2/3 + 1)))
+		return fmt.Errorf("Invalid commit -- insufficient cur voting power: got %v, needed %v",
+			newVotingPower, (newSet.TotalVotingPower()*2/3 + 1))
 	}
 	return nil
 }
@@ -379,7 +379,7 @@ func (valSet *ValidatorSet) String() string {
 	return valSet.StringIndented("")
 }
 
-// String
+// StringIndented is VoteSet Indented format String
 func (valSet *ValidatorSet) StringIndented(indent string) string {
 	if valSet == nil {
 		return "nil-ValidatorSet"
@@ -404,7 +404,7 @@ func (valSet *ValidatorSet) StringIndented(indent string) string {
 //-------------------------------------
 // Implements sort for sorting validators by address.
 
-// Sort validators by address
+//ValidatorsByAddress is Sort validators by address
 type ValidatorsByAddress []*Validator
 
 func (vs ValidatorsByAddress) Len() int {
