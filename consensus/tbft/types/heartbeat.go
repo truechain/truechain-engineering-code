@@ -166,6 +166,12 @@ func (h *HealthMgr) work() {
 		}
 		h.checkSwitchValidator(v)	
 	} 
+	for _,v := range h.Back {
+		if v.State == StateUsed {
+			atomic.AddInt32(&v.State,1)
+		}
+		h.checkSwitchValidator(v)
+	}
 }
 
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
@@ -179,7 +185,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 			Resion:			"Switch",
 			From:			0,
 		})
-		v.State = StateSwitching
+		atomic.StoreInt32(&v.State,int32(StateSwitching))
 	}
 }
 
@@ -229,9 +235,17 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 }
 
 func (h *HealthMgr) Update(id p2p.ID) {
-	if v,ok := h.Work[id];ok{
+	if v,ok := h.Work[id];ok {
 		val := atomic.LoadInt32(&v.Tick)
 		atomic.AddInt32(&v.Tick,-val)
+		return 
+	}
+	for _,v := range h.Back {
+		if v.ID == id {
+			val := atomic.LoadInt32(&v.Tick)
+			atomic.AddInt32(&v.Tick,-val)
+			return 	
+		}
 	}
 }
 
