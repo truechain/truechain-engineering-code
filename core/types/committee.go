@@ -167,8 +167,23 @@ type SwitchEnter struct {
 	Pk  		[]byte
 	Flag 		int
 }
+func (s *SwitchEnter) String() string {
+	return fmt.Sprintf("p:%s,s:%d",common.ToHex(s.Pk),s.Flag)
+}
 
 type SwitchInfo struct {
 	CID 	int64
 	Vals 	[]*SwitchEnter
+}
+
+func (s *SwitchInfo) String() string {
+	memStrings := make([]string, len(s.Vals))
+	for i, m := range s.Vals {
+		if m == nil {
+			memStrings[i] = "nil-Member"
+		} else {
+			memStrings[i] = m.String()
+		}
+	}
+	return fmt.Sprintf("SwitchInfo{CID:%d,Vals:{%s}}",s.CID,strings.Join(memStrings,"\n  "))
 }
