@@ -389,6 +389,10 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	server.putNodes(id, nodes)
 	return nil
 }
+// update the committee info from agent when the members was changed 
+func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
+	return nil
+}
 
 //MakeValidators is make CommitteeInfo to ValidatorSet
 func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {

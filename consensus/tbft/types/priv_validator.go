@@ -402,7 +402,7 @@ func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*P
 
 func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block,error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
-	block, err := state.Agent.FetchFastBlock(committeeID)
+	block, err := state.Agent.FetchFastBlock(committeeID,v.Infos)
 	if err != nil {
 		return nil, err
 	}
