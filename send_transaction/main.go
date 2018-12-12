@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
 	"os"
@@ -33,7 +35,7 @@ const SLEEPTIME = 120
 // get par
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to]  [\"ip:port\"]\n", os.Args[0])
+		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [\"ip:port\"]\n", os.Args[0])
 		return
 	}
 
@@ -62,7 +64,8 @@ func main() {
 		fmt.Println("from err default 0")
 	}
 
-	to, err = strconv.Atoi(os.Args[5])
+	//to, err = strconv.Atoi(os.Args[5])
+
 	if err != nil {
 		fmt.Println("from err default 1")
 	}
@@ -179,7 +182,15 @@ func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup)
 	defer wait.Done()
 	map_data := make(map[string]interface{})
 	map_data["from"] = account[from]
-	map_data["to"] = account[to]
+
+	priKey, _ := crypto.GenerateKey()
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //address
+	address := hex.EncodeToString(coinbase[:])
+
+	//fmt.Println("address:"+"0x"+address)
+
+	map_data["to"] = "0x" + address
+
 	map_data["value"] = "0x2100"
 	var result string
 	client.Call(&result, "etrue_sendTransaction", map_data)

@@ -605,9 +605,7 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 	// Gather the block infos from the local blockchain
 	var (
 		header *types.Header
-		td     *big.Int
 		txs    []txStats
-		uncles []*types.Header
 	)
 	if s.etrue != nil {
 		// Full nodes have all needed information available
@@ -615,13 +613,11 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 			block = s.etrue.BlockChain().CurrentBlock()
 		}
 		header = block.Header()
-		td = s.etrue.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 
 		txs = make([]txStats, len(block.Transactions()))
 		for i, tx := range block.Transactions() {
 			txs[i].Hash = tx.Hash()
 		}
-		uncles = block.Uncles()
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
 		if block != nil {
@@ -629,26 +625,18 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 		} else {
 			header = s.les.BlockChain().CurrentHeader()
 		}
-		td = s.les.BlockChain().GetTd(header.Hash(), header.Number.Uint64())
 		txs = []txStats{}
 	}
-	// Assemble and return the block stats
-	author, _ := s.engine.Author(header)
-
 	return &blockStats{
 		Number:     header.Number,
 		Hash:       header.Hash(),
 		ParentHash: header.ParentHash,
 		Timestamp:  header.Time,
-		Miner:      author,
 		GasUsed:    header.GasUsed,
 		GasLimit:   header.GasLimit,
-		//Diff:       header.Difficulty.String(),
-		TotalDiff: td.String(),
 		Txs:       txs,
 		TxHash:    header.TxHash,
 		Root:      header.Root,
-		Uncles:    uncles,
 	}
 }
 

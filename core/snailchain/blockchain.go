@@ -598,7 +598,6 @@ func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*typ
 	return
 }
 
-
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
 
@@ -654,7 +653,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 type WriteStatus byte
 
 const (
-	NonStatTy WriteStatus = iota
+	NonStatTy   WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )

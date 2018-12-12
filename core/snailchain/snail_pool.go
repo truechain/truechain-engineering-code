@@ -185,7 +185,7 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 		return core.ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
-	pool.journalFruit(fruit)
+
 	if append {
 		pool.fruitPending[fruit.FastHash()] = fruit
 		log.Debug("addFruit", "fb number", fruit.FastNumber())
@@ -507,7 +507,7 @@ func (pool *SnailPool) Stop() {
 }
 
 // AddRemoteFruits enqueues a batch of fruits into the pool if they are valid.
-func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
+func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
 
@@ -521,6 +521,9 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock) []error {
 
 		f := types.CopyFruit(fruit)
 		pool.newFruitCh <- f
+		if local {
+			pool.journalFruit(fruit)
+		}
 	}
 
 	return errs

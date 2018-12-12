@@ -511,7 +511,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 			count++
 		}
 	}
-	if count <= len(members) * 2 / 3 {
+	if count <= len(members)*2/3 {
 		log.Warn("VerifySigns number error", "signs", len(signs), "agree", count, "members", len(members))
 		return consensus.ErrInvalidSign
 	}
@@ -525,12 +525,12 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 		addr := crypto.PubkeyToAddress(*signMembers[i].Publickey)
 		if _, ok := ms[addr]; !ok {
 			// is not a committee member
-			log.Warn("VerifySigns member error", "signs", len(signs), "member",  hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
+			log.Warn("VerifySigns member error", "signs", len(signs), "member", hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
 			return consensus.ErrInvalidSign
 		}
 		if ms[addr] == 1 {
 			// the committee member's sign is already exist
-			log.Warn("VerifySigns member already exist", "signs", len(signs), "member",  hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
+			log.Warn("VerifySigns member already exist", "signs", len(signs), "member", hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
 			return consensus.ErrInvalidSign
 		}
 		ms[addr] = 1
@@ -788,6 +788,7 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
+	snap := state.Snapshot()
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -804,10 +805,12 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		err := accumulateRewardsFast(m.election, state, header, sBlock)
 		if err != nil {
 			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+			state.RevertToSnapshot(snap)
 			return nil, err
 		}
 	}
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
+		state.RevertToSnapshot(snap)
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
