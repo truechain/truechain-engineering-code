@@ -10,14 +10,22 @@ import (
 )
 
 var (
-	ErrVoteUnexpectedStep            = errors.New("Unexpected step")
-	ErrVoteInvalidValidatorIndex     = errors.New("Invalid validator index")
-	ErrVoteInvalidValidatorAddress   = errors.New("Invalid validator address")
-	ErrVoteInvalidSignature          = errors.New("Invalid signature")
-	ErrVoteInvalidBlockHash          = errors.New("Invalid block hash")
+	//ErrVoteUnexpectedStep is Error Unexpected step
+	ErrVoteUnexpectedStep = errors.New("Unexpected step")
+	//ErrVoteInvalidValidatorIndex is Error Invalid validator index
+	ErrVoteInvalidValidatorIndex = errors.New("Invalid validator index")
+	// ErrVoteInvalidValidatorAddress is Error Invalid validator address
+	ErrVoteInvalidValidatorAddress = errors.New("Invalid validator address")
+	//ErrVoteInvalidSignature is Error Invalid signature
+	ErrVoteInvalidSignature = errors.New("Invalid signature")
+	//ErrVoteInvalidBlockHash is Error Invalid block hash
+	ErrVoteInvalidBlockHash = errors.New("Invalid block hash")
+	//ErrVoteNonDeterministicSignature is Error Non-deterministic signature
 	ErrVoteNonDeterministicSignature = errors.New("Non-deterministic signature")
-	ErrVoteConflictingVotes          = errors.New("Conflicting votes from validator")
-	ErrVoteNil                       = errors.New("Nil vote")
+	//ErrVoteConflictingVotes  is Error Conflicting votes from validator
+	ErrVoteConflictingVotes = errors.New("Conflicting votes from validator")
+	//ErrVoteNil is Error Nil vote
+	ErrVoteNil = errors.New("Nil vote")
 )
 
 // Types of votes
@@ -27,8 +35,9 @@ const (
 	VoteTypePrecommit = byte(0x02)
 )
 
-func IsVoteTypeValid(type_ byte) bool {
-	switch type_ {
+//IsVoteTypeValid return typeB is  vote
+func IsVoteTypeValid(typeB byte) bool {
+	switch typeB {
 	case VoteTypePrevote:
 		return true
 	case VoteTypePrecommit:
@@ -38,13 +47,13 @@ func IsVoteTypeValid(type_ byte) bool {
 	}
 }
 
-// Represents a prevote, precommit, or commit vote from validators for consensus.
+//Vote Represents a prevote, precommit, or commit vote from validators for consensus.
 type Vote struct {
 	ValidatorAddress help.Address `json:"validator_address"`
 	ValidatorIndex   uint         `json:"validator_index"`
 	Height           uint64       `json:"height"`
 	Round            uint         `json:"round"`
-	Result			 uint		  `json:"result"`	
+	Result           uint         `json:"result"`
 	Timestamp        time.Time    `json:"timestamp"`
 	Type             byte         `json:"type"`
 	BlockID          BlockID      `json:"block_id"` // zero if vote is nil.
@@ -52,15 +61,17 @@ type Vote struct {
 	ResultSign       []byte       `json:"reuslt_signature"`
 }
 
+//SignBytes is sign CanonicalVote and return rlpHash
 func (vote *Vote) SignBytes(chainID string) []byte {
 	bz, err := cdc.MarshalJSON(CanonicalVote(chainID, vote))
 	if err != nil {
 		panic(err)
 	}
-	signBytes := help.RlpHash([]interface{}{bz,})
+	signBytes := help.RlpHash([]interface{}{bz})
 	return signBytes[:]
 }
 
+// Copy return a vote Copy
 func (vote *Vote) Copy() *Vote {
 	voteCopy := *vote
 	return &voteCopy
@@ -82,13 +93,14 @@ func (vote *Vote) String() string {
 
 	return fmt.Sprintf("Vote{%v:%X %v/%02d/%d/%v(%v) H:%X S1:%X S2:%X @ %s}",
 		vote.ValidatorIndex, help.Fingerprint(vote.ValidatorAddress),
-		vote.Height, vote.Round, vote.Result,vote.Type, typeString,
+		vote.Height, vote.Round, vote.Result, vote.Type, typeString,
 		help.Fingerprint(vote.BlockID.Hash),
 		help.Fingerprint(vote.Signature),
 		help.Fingerprint(vote.ResultSign),
 		CanonicalTime(vote.Timestamp))
 }
 
+//Verify is Verify Signature and ValidatorAddress
 func (vote *Vote) Verify(chainID string, pubKey crypto.PubKey) error {
 	if !bytes.Equal(pubKey.Address(), vote.ValidatorAddress) {
 		return ErrVoteInvalidValidatorAddress

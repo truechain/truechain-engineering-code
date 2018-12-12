@@ -78,7 +78,7 @@ type RoundState struct {
 	LastCommit         *VoteSet       `json:"last_commit"`  // Last precommits at Height-1
 }
 
-// Compressed version of the RoundState for use in RPC
+//RoundStateSimple  Compressed version of the RoundState for use in RPC
 type RoundStateSimple struct {
 	HeightRoundStep   string          `json:"height/round/step"`
 	StartTime         time.Time       `json:"start_time"`
@@ -88,14 +88,14 @@ type RoundStateSimple struct {
 	Votes             json.RawMessage `json:"height_vote_set"`
 }
 
-// Compress the RoundState to RoundStateSimple
+// RoundStateSimple Compress the RoundState to RoundStateSimple
 func (rs *RoundState) RoundStateSimple() RoundStateSimple {
 	votesJSON, err := rs.Votes.MarshalJSON()
 	if err != nil {
 		panic(err)
 	}
 
-	tmpPro:=rs.ProposalBlock.Hash()
+	tmpPro := rs.ProposalBlock.Hash()
 	tmpLock := rs.LockedBlock.Hash()
 	tmpValid := rs.ValidBlock.Hash()
 	return RoundStateSimple{
