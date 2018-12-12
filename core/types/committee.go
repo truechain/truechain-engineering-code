@@ -1,29 +1,35 @@
 package types
 
 import (
-	"strings"
-	"fmt"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
+	"strings"
 	"time"
 )
 
 const (
-	CommitteeStart      = iota // start pbft consensus
-	CommitteeStop              // stop pbft consensus
-	CommitteeSwitchover        //switch pbft committee
-	CommitteeOver              // notify current pbft committee end block
+	// CommitteeStart start pbft consensus
+	CommitteeStart = iota
+	// CommitteeStop stop pbft consensus
+	CommitteeStop
+	//CommitteeSwitchover switch pbft committee
+	CommitteeSwitchover
+	// CommitteeOver notify current pbft committee end block
+	CommitteeOver
 )
 
 const (
-	VoteAgreeAgainst = iota //vote against
-	VoteAgree               //vote  agree
+	//VoteAgreeAgainst vote sign with against
+	VoteAgreeAgainst = iota
+	//VoteAgree vote sign with agree
+	VoteAgree
 )
 
 type CommitteeMembers []*CommitteeMember
@@ -32,9 +38,10 @@ type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
 }
+
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("C:%s,P:%s",common.ToHex(c.Coinbase[:]),
-	common.ToHex(crypto.FromECDSAPub(c.Publickey)))
+	return fmt.Sprintf("C:%s,P:%s", common.ToHex(c.Coinbase[:]),
+		common.ToHex(crypto.FromECDSAPub(c.Publickey)))
 }
 
 func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
@@ -66,9 +73,10 @@ type CommitteeNode struct {
 	Coinbase  common.Address
 	Publickey []byte
 }
+
 func (c *CommitteeNode) String() string {
-	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}",c.IP,c.Port,c.Port2,
-	common.ToHex(c.Coinbase[:]),common.ToHex(c.Publickey))
+	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}", c.IP, c.Port, c.Port2,
+		common.ToHex(c.Coinbase[:]), common.ToHex(c.Publickey))
 }
 
 type PbftSigns []*PbftSign
@@ -111,11 +119,12 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 }
 
 type CommitteeInfo struct {
-	Id      		*big.Int
-	StartHeight		*big.Int
-	Members []*CommitteeMember
+	Id          *big.Int
+	StartHeight *big.Int
+	Members     []*CommitteeMember
 }
-func (c *CommitteeInfo) String() string{
+
+func (c *CommitteeInfo) String() string {
 	if c.Members != nil {
 		memStrings := make([]string, len(c.Members))
 		for i, m := range c.Members {
@@ -125,9 +134,9 @@ func (c *CommitteeInfo) String() string{
 				memStrings[i] = m.String()
 			}
 		}
-		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}",c.Id,c.StartHeight,strings.Join(memStrings,"\n  "))
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}", c.Id, c.StartHeight, strings.Join(memStrings, "\n  "))
 	}
-	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}",c.Id,c.StartHeight)
+	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
 }
 
 type EncryptCommitteeNode []byte
