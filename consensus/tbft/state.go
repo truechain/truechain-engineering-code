@@ -963,7 +963,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	// If a block is locked, prevote that.
 	if cs.LockedBlock != nil {
 		log.Info("enterPrevote: Block was locked")
-		ksign, err := cs.state.ValidateBlock(cs.LockedBlock)
+		ksign, err := cs.validateBlock(cs.LockedBlock)
 		tmp := cs.LockedBlock.Hash()
 		if ksign == nil {
 			// ProposalBlock is invalid, prevote nil.
@@ -1092,7 +1092,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		log.Info("enterPrecommit: +2/3 prevoted locked block. Relocking")
 		cs.LockedRound = uint(round)
 		cs.eventBus.PublishEventRelock(cs.RoundStateEvent())
-		ksign, err := cs.state.ValidateBlock(cs.LockedBlock)
+		ksign, err := cs.validateBlock(cs.LockedBlock)
 		if err != nil {
 			log.Info("ValidateBlock faild will vote VoteAgreeAgainst","hash",common.ToHex(blockID.Hash),"err",err)
 		}
@@ -1644,10 +1644,20 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 }
 func (cs *ConsensusState) swithResult(block *types.Block) {
 	sw := block.SwitchInfos()
-	if sw == nil {	return  }
-	sv := cs.getSwitchValidator(sw)
-	if sv == nil || len(sv.Infos.Vals) < 2 	{ return }
-	aEnter,rEnter := sv.Infos.Vals[0],sv.Infos.Vals[1]	
+	if sw == nil ||  len(sw.Vals) < 2 {	return  }
+	aEnter,rEnter := sw.Vals[0],sw.Vals[1]	
+	sv := cs.pickSwitchValidator(sw)
+	if sv == nil {
+		sv = &ttypes.SwitchValidator{
+			Infos:			sw,
+			Resion:			"",
+			From:			1,
+		}
+	} else {
+		sv.From = 1
+		sv.Resion = ""
+	}
+	
 	var add,remove *ttypes.Health
 	if aEnter.Flag == types.StateAddFlag {
 		add = cs.hm.GetHealth(aEnter.Pk)
@@ -1664,7 +1674,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	}
 	cs.Validators.Remove(remove.Val.Address)
 	// notify to healthMgr
-	sv.From = 1
+	
 	go func() {
 		select {
 		case cs.hm.Chan() <- sv:
@@ -1700,8 +1710,18 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	res := cs.switchVerify(block)
 	return cs.state.ValidateBlock(block,res)
 }
-func (cs *ConsensusState) getSwitchValidator(info *types.SwitchInfos) *ttypes.SwitchValidator {
-	
+func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.SwitchValidator {
+	if info == nil || len(info.Vals) < 2 { return nil }
+	aEnter,rEnter := info.Vals[0],info.Vals[1]
+	for i,v := range cs.svs {
+		if len(v.Infos.Vals) > 2 {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk,v.Infos.Vals[0].Pk)) && (
+				rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk,v.Infos.Vals[1].Pk)) {
+					cs.svs = append(cs.svs[:i],cs.svs[i+1:]...)
+					return v
+				}
+		}
+	}
 	return nil
 }
 // CompareHRS is compare msg'and peerSet's height round Step
