@@ -64,13 +64,13 @@ func IDAdd(agent string) {
 	IDCache[agent] = new(big.Int).Add(IDCache[agent], big.NewInt(1))
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int) (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	//time.Sleep(time.Second * 5)
-	return types.NewBlock(header, nil, nil, nil), nil
+	return types.NewBlock(header, nil, nil, nil, nil), nil
 }
 
 func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
@@ -929,7 +929,7 @@ func TestAddVote(t *testing.T) {
 	// make block
 	agent := NewPbftAgent("Agent1")
 	cid := big.NewInt(1)
-	block, _ := agent.FetchFastBlock(cid)
+	block, _ := agent.FetchFastBlock(cid, nil)
 	hash := block.Hash()
 	fmt.Println(common.ToHex(hash[:]))
 	ps, _ := ttypes.MakePartSet(65535, block)
@@ -1046,13 +1046,13 @@ func TestPrivKey(t *testing.T) {
 	id1 := hex.EncodeToString(addr1[:])
 	fmt.Println("id1", id1)
 
-	priv2, _ := crypto.HexToECDSA("70e7a8e57012a04a8b7dbecda7de6af7e2134a2be237cf6049d9bd846362dccc")
+	priv2, _ := crypto.HexToECDSA("d0c3b151031a8a90841dc18463d838cc8db29a10e7889b6991be0a3088702ca7")
 	tPriv2 := tcrypto.PrivKeyTrue(*priv2)
 	addr2 := tPriv2.PubKey().Address()
 	id2 := hex.EncodeToString(addr2[:])
 	fmt.Println("id2", id2)
 
-	priv3, _ := crypto.HexToECDSA("014e09b2406ad03c0539f5f0a0af075b8e70098486f45d3aa1601e00a8d54a93")
+	priv3, _ := crypto.HexToECDSA("c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95")
 	tPriv3 := tcrypto.PrivKeyTrue(*priv3)
 	addr3 := tPriv3.PubKey().Address()
 	id3 := hex.EncodeToString(addr3[:])

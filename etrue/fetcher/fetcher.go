@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"sync"
@@ -692,7 +692,7 @@ func (f *Fetcher) loop() {
 
 							if f.getBlock(hash) == nil {
 								// mecMark
-								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], nil)
+								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], nil, nil)
 								block.ReceivedAt = task.time
 
 								blocks = append(blocks, block)
@@ -957,7 +957,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*types.PbftSign, signHashs []common.Hash) {
 	go func() {
 		height := block.Number()
-		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil)
+		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil, nil)
 		find := f.insert(peer, inBlock, signHashs)
 		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
 

@@ -815,7 +815,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
-	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
+	return types.NewBlock(header, txs, receipts, nil, nil), nil //TODO remove signs
 }
 func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.SnailHeader,
 	uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error) {
