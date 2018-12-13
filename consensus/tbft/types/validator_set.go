@@ -176,6 +176,7 @@ func (valSet *ValidatorSet) Hash() []byte {
 // Add adds val to the validator set and returns true. It returns false if val
 // is already in the set.
 func (valSet *ValidatorSet) Add(val *Validator) (added bool) {
+	if val == nil {	return false }
 	val = val.Copy()
 	idx := sort.Search(len(valSet.Validators), func(i int) bool {
 		return bytes.Compare(val.Address, valSet.Validators[i].Address) <= 0

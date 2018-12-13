@@ -1628,20 +1628,26 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 
 }
 func (cs *ConsensusState) swithResult(block *types.Block) {
-	var rPk, aPk []byte
-	var sv *ttypes.SwitchValidator
-	for _, v := range cs.svs {
-		if bytes.Equal(rPk, v.Remove.Val.PubKey.Bytes()) && bytes.Equal(aPk, v.Add.Val.PubKey.Bytes()) {
-			sv = v
-			break
+	sw := block.SwitchInfos()
+	if sw == nil {	return  }
+	sv := cs.getSwitchValidator(sw)
+	if sv == nil || len(sv.Infos.Vals) < 2 	{ return }
+	aEnter,rEnter := sv.Infos.Vals[0],sv.Infos.Vals[1]	
+	var add,remove *ttypes.Health
+	if aEnter.Flag == types.StateAddFlag {
+		add = cs.hm.GetHealth(aEnter.Pk)
+		if rEnter.Flag == types.StateRemovedFlag {
+			remove = cs.hm.GetHealth(rEnter.Pk)
 		}
+	} else if aEnter.Flag == types.StateRemovedFlag {
+		remove = cs.hm.GetHealth(aEnter.Pk) 
 	}
-	if sv == nil {
-
-	}
+	if remove == nil { return }
 	// remove validator from validatorSet
-	cs.Validators.Add(sv.Add.Val)
-	cs.Validators.Remove(sv.Remove.Val.Address)
+	if add != nil {
+		cs.Validators.Add(add.Val)
+	}
+	cs.Validators.Remove(remove.Val.Address)
 	// notify to healthMgr
 	sv.From = 1
 	go func() {
@@ -1674,10 +1680,14 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	}
 	return false
 }
-func (cs *ConsensusState) validateBlock(block *ctypes.Block) (*ttypes.KeepBlockSign, error) {
+func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSign, error) {
 	if block == nil { return nil,errors.New("block is nil")}
 	res := cs.switchVerify(block)
 	return cs.state.ValidateBlock(block,res)
+}
+func (cs *ConsensusState) getSwitchValidator(info *types.SwitchInfos) *ttypes.SwitchValidator {
+	
+	return nil
 }
 // CompareHRS is compare msg'and peerSet's height round Step
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {

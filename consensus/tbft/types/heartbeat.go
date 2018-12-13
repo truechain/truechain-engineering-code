@@ -126,7 +126,7 @@ func (h *HealthMgr) SetBackValidators(hh []*Health) {
 	sort.Sort(HealthsByAddress(h.Back))
 }
 func (h *HealthMgr) UpdataHealthInfo(id p2p.ID,ip string, port uint, pk []byte) {
-	enter := h.getHealth(pk)
+	enter := h.GetHealth(pk)
 	if enter != nil && enter.ID != "" {
 		enter.ID,enter.IP,enter.Port = id,ip,port
 		log.Info("UpdataHealthInfo","info",enter)
@@ -259,12 +259,12 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 				enter1,enter2 := res.Infos.Vals[0],res.Infos.Vals[1]
 				var add,remove *Health
 				if enter1.Flag == ctypes.StateAddFlag {
-					add = h.getHealth(enter1.Pk)
+					add = h.GetHealth(enter1.Pk)
 					if enter2.Flag == ctypes.StateRemovedFlag {
-						remove = h.getHealth(enter2.Pk)
+						remove = h.GetHealth(enter2.Pk)
 					}
 				} else if enter1.Flag == ctypes.StateRemovedFlag {
-					remove = h.getHealth(enter1.Pk)
+					remove = h.GetHealth(enter1.Pk)
 				}				
 				if remove != nil {
 					atomic.StoreInt32(&remove.State,int32(ctypes.StateRemovedFlag))
@@ -330,7 +330,7 @@ func (h *HealthMgr) getHealthFromPart(pk []byte,part int) *Health {
 	}
 	return nil
 }
-func (h *HealthMgr) getHealth(pk []byte) *Health {
+func (h *HealthMgr) GetHealth(pk []byte) *Health {
 	enter := h.getHealthFromPart(pk,0)
 	if enter == nil {
 		enter = h.getHealthFromPart(pk,1)
@@ -339,7 +339,7 @@ func (h *HealthMgr) getHealth(pk []byte) *Health {
 }
 
 func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
-	r := h.getHealth(remove.Pk)	
+	r := h.GetHealth(remove.Pk)	
 	rRes := false 
 
 	if r == nil {
@@ -352,7 +352,7 @@ func (h *HealthMgr) VerifySwitch(remove,add *ctypes.SwitchEnter) error {
 	}
 	res := r.SimpleString()
 
-	a := h.getHealth(add.Pk)
+	a := h.GetHealth(add.Pk)
 	aRes := false
 	
 	if a != nil {
