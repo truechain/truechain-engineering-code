@@ -1,16 +1,16 @@
 package types
 
 import (
-	"strings"
-	"fmt"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
+	"strings"
 	"time"
 )
 
@@ -20,12 +20,11 @@ const (
 	CommitteeSwitchover        //switch pbft committee
 	CommitteeOver              // notify current pbft committee end block
 
-
-	StateUnusedFlag = 0xa0
+	StateUnusedFlag    = 0xa0
 	StateSwitchingFlag = 0xa1
-	StateUsedFlag = 0xa2
-	StateRemovedFlag = 0xa3
-	StateAddFlag = 0xa4
+	StateUsedFlag      = 0xa2
+	StateRemovedFlag   = 0xa3
+	StateAddFlag       = 0xa4
 )
 
 const (
@@ -36,20 +35,21 @@ const (
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
-	Coinbase  	common.Address
-	Publickey 	*ecdsa.PublicKey
-	Flag 		int32
+	Coinbase  common.Address
+	Publickey *ecdsa.PublicKey
+	Flag      int32
 }
+
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("F:%d,C:%s,P:%s",c.Flag,common.ToHex(c.Coinbase[:]),
-	common.ToHex(crypto.FromECDSAPub(c.Publickey)))
+	return fmt.Sprintf("F:%d,C:%s,P:%s", c.Flag, common.ToHex(c.Coinbase[:]),
+		common.ToHex(crypto.FromECDSAPub(c.Publickey)))
 }
 
 func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
-		Flag	int32		   `json:"flag,omitempty"`
+		Flag    int32          `json:"flag,omitempty"`
 	}
 	var dec committee
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -76,9 +76,10 @@ type CommitteeNode struct {
 	Coinbase  common.Address
 	Publickey []byte
 }
+
 func (c *CommitteeNode) String() string {
-	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}",c.IP,c.Port,c.Port2,
-	common.ToHex(c.Coinbase[:]),common.ToHex(c.Publickey))
+	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}", c.IP, c.Port, c.Port2,
+		common.ToHex(c.Coinbase[:]), common.ToHex(c.Publickey))
 }
 
 type PbftSigns []*PbftSign
@@ -91,8 +92,8 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int,infos *SwitchInfos) (*Block, error)
-	VerifyFastBlock(*Block,bool) (*PbftSign, error)
+	FetchFastBlock(committeeId *big.Int, infos *SwitchInfos) (*Block, error)
+	VerifyFastBlock(*Block, bool) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
@@ -122,12 +123,13 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 }
 
 type CommitteeInfo struct {
-	Id      		*big.Int
-	StartHeight		*big.Int
-	Members 		[]*CommitteeMember
-	BackMembers		[]*CommitteeMember
+	Id          *big.Int
+	StartHeight *big.Int
+	Members     []*CommitteeMember
+	BackMembers []*CommitteeMember
 }
-func (c *CommitteeInfo) String() string{
+
+func (c *CommitteeInfo) String() string {
 	if c.Members != nil {
 		memStrings := make([]string, len(c.Members))
 		for i, m := range c.Members {
@@ -137,9 +139,9 @@ func (c *CommitteeInfo) String() string{
 				memStrings[i] = m.String()
 			}
 		}
-		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}",c.Id,c.StartHeight,strings.Join(memStrings,"\n  "))
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}", c.Id, c.StartHeight, strings.Join(memStrings, "\n  "))
 	}
-	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}",c.Id,c.StartHeight)
+	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
 }
 
 type EncryptCommitteeNode []byte
@@ -176,16 +178,21 @@ const (
 )
 
 type SwitchEnter struct {
-	Pk  		[]byte
-	Flag 		int32
+	Pk   []byte
+	Flag int32
 }
+
+func (infos *SwitchInfos) Hash() common.Hash {
+	return rlpHash(infos)
+}
+
 func (s *SwitchEnter) String() string {
-	return fmt.Sprintf("p:%s,s:%d",common.ToHex(s.Pk),s.Flag)
+	return fmt.Sprintf("p:%s,s:%d", common.ToHex(s.Pk), s.Flag)
 }
 
 type SwitchInfos struct {
-	CID 	uint64
-	Vals 	[]*SwitchEnter
+	CID  uint64
+	Vals []*SwitchEnter
 }
 
 func (s *SwitchInfos) String() string {
@@ -197,5 +204,5 @@ func (s *SwitchInfos) String() string {
 			memStrings[i] = m.String()
 		}
 	}
-	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}",s.CID,strings.Join(memStrings,"\n  "))
+	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}", s.CID, strings.Join(memStrings, "\n  "))
 }
