@@ -649,7 +649,7 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 }
 
 //FetchFastBlock  generate fastBlock as leader
-func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int) (*types.Block, error) {
+func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int,infos *types.SwitchInfos) (*types.Block, error) { //todo shuxun
 	log.Debug("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
@@ -844,7 +844,7 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
-func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error) {
+func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftSign, error) {
 	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	bc := agent.fastChain
 	// get current head
@@ -1156,7 +1156,7 @@ func (agent *PbftAgent) singleloop() {
 			cnt   = 0
 		)
 		for {
-			block, err = agent.FetchFastBlock(nil)
+			block, err = agent.FetchFastBlock(nil,nil)//todo shuxun
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
 				time.Sleep(time.Second)
@@ -1170,7 +1170,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		_, err = agent.VerifyFastBlock(block)
+		_, err = agent.VerifyFastBlock(block,false)//todo shuxun
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
 		}
