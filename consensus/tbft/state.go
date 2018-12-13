@@ -963,8 +963,15 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	// If a block is locked, prevote that.
 	if cs.LockedBlock != nil {
 		log.Info("enterPrevote: Block was locked")
+		ksign, err := cs.state.ValidateBlock(cs.LockedBlock)
 		tmp := cs.LockedBlock.Hash()
-		cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.LockedBlockParts.Header(), nil)
+		if ksign == nil {
+			// ProposalBlock is invalid, prevote nil.
+			log.Error("enterPrevote: LockedBlock is invalid", "err", err)
+			cs.signAddVote(ttypes.VoteTypePrevote, nil, ttypes.PartSetHeader{}, nil)
+			return
+		}
+		cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.LockedBlockParts.Header(), ksign)
 		return
 	}
 
@@ -1085,7 +1092,15 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		log.Info("enterPrecommit: +2/3 prevoted locked block. Relocking")
 		cs.LockedRound = uint(round)
 		cs.eventBus.PublishEventRelock(cs.RoundStateEvent())
-		cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, nil)
+		ksign, err := cs.state.ValidateBlock(cs.LockedBlock)
+		if err != nil {
+			log.Info("ValidateBlock faild will vote VoteAgreeAgainst","hash",common.ToHex(blockID.Hash),"err",err)
+		}
+		if ksign == nil {
+			cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{}, nil)
+		} else {
+			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
+		}	
 		return
 	}
 

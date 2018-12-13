@@ -15,10 +15,15 @@ import (
 )
 
 const (
-	CommitteeStart      = iota // start pbft consensus
-	CommitteeStop              // stop pbft consensus
-	CommitteeSwitchover        //switch pbft committee
-	CommitteeOver              // notify current pbft committee end block
+	
+	// CommitteeStart start pbft consensus
+	CommitteeStart = iota
+	// CommitteeStop stop pbft consensus
+	CommitteeStop
+	//CommitteeSwitchover switch pbft committee
+	CommitteeSwitchover
+	// CommitteeOver notify current pbft committee end block
+	CommitteeOver
 
 	StateUnusedFlag    = 0xa0
 	StateSwitchingFlag = 0xa1
@@ -28,10 +33,13 @@ const (
 )
 
 const (
-	VoteAgreeAgainst = iota //vote against
-	VoteAgree               //vote  agree
+	//VoteAgreeAgainst vote sign with against
+	VoteAgreeAgainst = iota
+	//VoteAgree vote sign with agree
+	VoteAgree
 )
 
+//CommitteeMembers committee members
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
@@ -45,7 +53,7 @@ func (c *CommitteeMember) String() string {
 		common.ToHex(crypto.FromECDSAPub(c.Publickey)))
 }
 
-func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
+func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
@@ -56,12 +64,12 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	g.Coinbase = dec.Address
-	g.Flag = dec.Flag
+	c.Coinbase = dec.Address
+	c.Flag = dec.Flag
 
 	var err error
 	if dec.PubKey != nil {
-		g.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
+		c.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
 		if err != nil {
 			return err
 		}
@@ -69,6 +77,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+//CommitteeNode contains  main info of committee node
 type CommitteeNode struct {
 	IP        string
 	Port      uint
@@ -87,7 +96,7 @@ type PbftSigns []*PbftSign
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
-	Result     uint        // 0--agree,1--against
+	Result     uint        // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
 }
 
@@ -114,6 +123,7 @@ func (h *PbftSign) Hash() common.Hash {
 	return rlpHash(h)
 }
 
+//HashWithNoSign returns the hash which PbftSign without sign
 func (h *PbftSign) HashWithNoSign() common.Hash {
 	return rlpHash([]interface{}{
 		h.FastHeight,
@@ -144,12 +154,15 @@ func (c *CommitteeInfo) String() string {
 	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
 }
 
+//EncryptCommitteeNode represent a committee member encrypt info
+// which encrypt committeeNode with member Publickey
 type EncryptCommitteeNode []byte
 type Sign []byte
 
+//EncryptNodeMessage  all information of the committee
 type EncryptNodeMessage struct {
 	CreatedAt   time.Time
-	CommitteeId *big.Int
+	CommitteeID *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
 }
@@ -157,7 +170,7 @@ type EncryptNodeMessage struct {
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	return RlpHash([]interface{}{
 		c.Nodes,
-		c.CommitteeId,
+		c.CommitteeID,
 	})
 }
 
