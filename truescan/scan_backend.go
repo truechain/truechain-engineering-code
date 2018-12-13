@@ -46,10 +46,10 @@ type TrueScan struct {
 // New function return a TrueScan message processing client
 func New(sub Subscriber, config *Config) *TrueScan {
 	ts := &TrueScan{
-		sub:     sub,
-		running: false,
-		// addTxCh:          make(chan types.AddTxEvent, addTxChanSize),
-		// removeTxCh:       make(chan types.RemoveTxEvent, removeTxChanSize),
+		sub:              sub,
+		running:          false,
+		addTxCh:          make(chan types.AddTxEvent, addTxChanSize),
+		removeTxCh:       make(chan types.RemoveTxEvent, removeTxChanSize),
 		fastBlockCh:      make(chan types.FastBlockEvent, fastBlockChanSize),
 		snailChainHeadCh: make(chan types.ChainSnailEvent, snailChainSize),
 		snailChainSideCh: make(chan types.ChainSnailSideEvent, snailChainSize),
@@ -72,11 +72,11 @@ func (ts *TrueScan) Start() {
 	ts.redisClient.Start()
 
 	// broadcast transactions
-	// ts.addTxSub = ts.sub.SubscribeAddTxEvent(ts.addTxCh)
-	// go ts.txHandleLoop()
+	ts.addTxSub = ts.sub.SubscribeAddTxEvent(ts.addTxCh)
+	go ts.txHandleLoop()
 
-	// ts.removeTxSub = ts.sub.SubscribeRemoveTxEvent(ts.removeTxCh)
-	// go ts.removeTxHandleLoop()
+	ts.removeTxSub = ts.sub.SubscribeRemoveTxEvent(ts.removeTxCh)
+	go ts.removeTxHandleLoop()
 
 	// Subscribe events from blockchain
 	ts.fastBlockSub = ts.sub.SubscribeFastBlock(ts.fastBlockCh)
@@ -398,8 +398,8 @@ func (ts *TrueScan) Stop() {
 	if !ts.running {
 		return
 	}
-	// ts.addTxSub.Unsubscribe()
-	// ts.removeTxSub.Unsubscribe()
+	ts.addTxSub.Unsubscribe()
+	ts.removeTxSub.Unsubscribe()
 	ts.fastBlockSub.Unsubscribe()
 	ts.snailChainHeadSub.Unsubscribe()
 	ts.snailChainSideSub.Unsubscribe()
