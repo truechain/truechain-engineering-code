@@ -21,17 +21,17 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"testing"
+	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"io/ioutil"
 	"os"
+	"testing"
 )
 
 // testSnailPoolConfig is a fruit pool configuration without stateful disk
@@ -53,8 +53,7 @@ func init() {
 	engine = ethash.NewFaker()
 	genesis = core.DefaultGenesisBlock()
 
-	cache := &core.CacheConfig{
-	}
+	cache := &core.CacheConfig{}
 
 	fastGenesis := genesis.MustFastCommit(peerDb)
 	fastchain, _ = core.NewBlockChain(peerDb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
@@ -65,7 +64,7 @@ func init() {
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis = genesis.MustSnailCommit(peerDb)
-	snailblockchain, _ = NewSnailBlockChain(peerDb, nil, params.TestChainConfig, engine, vm.Config{})
+	snailblockchain, _ = NewSnailBlockChain(peerDb, params.TestChainConfig, engine, vm.Config{})
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
@@ -118,7 +117,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 		}
 	}
 
-	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) (*types.SnailHeader) {
+	makeHead := func(chain *SnailBlockChain, pubkey []byte, coinbaseAddr common.Address, fastNumber *big.Int, isFruit bool) *types.SnailHeader {
 		parent := chain.CurrentBlock()
 		//num := parent.Number()
 		var fruitDiff *big.Int
@@ -221,7 +220,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 
 }
 
-func setupSnailPool() (*SnailPool) {
+func setupSnailPool() *SnailPool {
 
 	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
 	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)

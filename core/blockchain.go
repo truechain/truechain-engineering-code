@@ -26,23 +26,23 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/common/prque"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
-	"github.com/ethereum/go-ethereum/common/prque"
 )
 
 var (
@@ -70,9 +70,10 @@ const (
 // CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
 type CacheConfig struct {
+	Deleted        bool          // Whether to delete body and receipt
 	Disabled       bool          // Whether to disable trie write caching (archive node)
 	TrieCleanLimit int           // Memory allowance (MB) to use for caching trie nodes in memory
-	TrieNodeLimit int           // Memory limit (MB) at which to start flushing dirty trie nodes to disk
+	TrieNodeLimit  int           // Memory limit (MB) at which to start flushing dirty trie nodes to disk
 	TrieTimeLimit  time.Duration // Time limit after which to flush the current in-memory trie to disk
 }
 
@@ -150,14 +151,14 @@ type BlockChain struct {
 	currentFastBlock atomic.Value // Current head of the fast-sync chain (may be above the block chain!)
 	currentReward    atomic.Value // Current head of the currentReward
 
-	stateCache   state.Database // State database to reuse between imports (contains state cache)
-	bodyCache    *lru.Cache     // Cache for the most recent block bodies
-	signCache    *lru.Cache     // Cache for the most recent block bodies
-	bodyRLPCache *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
+	stateCache    state.Database // State database to reuse between imports (contains state cache)
+	bodyCache     *lru.Cache     // Cache for the most recent block bodies
+	signCache     *lru.Cache     // Cache for the most recent block bodies
+	bodyRLPCache  *lru.Cache     // Cache for the most recent block bodies in RLP encoded format
 	receiptsCache *lru.Cache     // Cache for the most recent receipts per block
-	blockCache   *lru.Cache     // Cache for the most recent entire blocks
-	futureBlocks *lru.Cache     // future blocks are blocks added for later processing
-	rewardCache  *lru.Cache
+	blockCache    *lru.Cache     // Cache for the most recent entire blocks
+	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
+	rewardCache   *lru.Cache
 
 	quit    chan struct{} // blockchain quit channel
 	running int32         // running must be called atomically
@@ -170,7 +171,7 @@ type BlockChain struct {
 	validator Validator // block and state validator interface
 	vmConfig  vm.Config
 
-	badBlocks      *lru.Cache              // Bad block cache
+	badBlocks *lru.Cache // Bad block cache
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -182,8 +183,9 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
+			Deleted:        false,
 			TrieCleanLimit: 256,
-			TrieNodeLimit: 256,
+			TrieNodeLimit:  256,
 			TrieTimeLimit:  5 * time.Minute,
 		}
 	}
@@ -197,22 +199,22 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 	rewardCache, _ := lru.New(bodyCacheLimit)
 
 	bc := &BlockChain{
-		chainConfig:  chainConfig,
-		cacheConfig:  cacheConfig,
-		db:           db,
-		triegc:       prque.New(nil),
-		stateCache:   state.NewDatabase(db),
-		quit:         make(chan struct{}),
-		bodyCache:    bodyCache,
-		signCache:    signCache,
-		bodyRLPCache: bodyRLPCache,
-		receiptsCache:  receiptsCache,
-		blockCache:   blockCache,
-		futureBlocks: futureBlocks,
-		rewardCache:  rewardCache,
-		engine:       engine,
-		vmConfig:     vmConfig,
-		badBlocks:    badBlocks,
+		chainConfig:   chainConfig,
+		cacheConfig:   cacheConfig,
+		db:            db,
+		triegc:        prque.New(nil),
+		stateCache:    state.NewDatabase(db),
+		quit:          make(chan struct{}),
+		bodyCache:     bodyCache,
+		signCache:     signCache,
+		bodyRLPCache:  bodyRLPCache,
+		receiptsCache: receiptsCache,
+		blockCache:    blockCache,
+		futureBlocks:  futureBlocks,
+		rewardCache:   rewardCache,
+		engine:        engine,
+		vmConfig:      vmConfig,
+		badBlocks:     badBlocks,
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -253,6 +255,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 func (bc *BlockChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&bc.procInterrupt) == 1
 }
+
 // GetVMConfig returns the block chain VM config.
 func (bc *BlockChain) GetVMConfig() *vm.Config {
 	return &bc.vmConfig
@@ -395,7 +398,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	if currentFastBlock := bc.CurrentFastBlock(); currentFastBlock == nil {
 		bc.currentFastBlock.Store(bc.genesisBlock)
 	}
-	
+
 	// Restore the last known currentReward
 	currentReward := bc.GetLastRow()
 	if currentReward != nil {
@@ -678,8 +681,6 @@ func (bc *BlockChain) HasFastBlock(hash common.Hash, number uint64) bool {
 	return rawdb.HasReceipts(bc.db, hash, number)
 }
 
-
-
 // VerifyHasState checks if state trie is fully present in the database or not.
 // or CurrentFastBlock number  > the number of fb
 func (bc *BlockChain) VerifyHasState(fb *types.Block) bool {
@@ -849,7 +850,7 @@ func (bc *BlockChain) procFutureBlocks() {
 type WriteStatus byte
 
 const (
-	NonStatTy   WriteStatus = iota
+	NonStatTy WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )
@@ -1138,7 +1139,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	batch := bc.db.NewBatch()
 	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
 
-
 	if block.ParentHash() != currentBlock.Hash() {
 		if err := bc.reorg(currentBlock, block); err != nil {
 			return NonStatTy, err
@@ -1173,7 +1173,6 @@ func (bc *BlockChain) addFutureBlock(block *types.Block) error {
 	return nil
 }
 
-
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
@@ -1191,15 +1190,15 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 			// Chain broke ancestry, log a message (programming error) and skip insertion
 			log.Error("Non contiguous block insert", "number", chain[i].Number(), "hash", chain[i].Hash(),
 				"parent", chain[i].ParentHash(), "prevnumber", chain[i-1].Number(), "prevhash", chain[i-1].Hash())
-				
-							return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
+
+			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
 				chain[i-1].Hash().Bytes()[:4], i, chain[i].NumberU64(), chain[i].Hash().Bytes()[:4], chain[i].ParentHash().Bytes()[:4])
 		}
 	}
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
-	n, events, logs, err := bc.insertChain(chain,true)
+	n, events, logs, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
 
@@ -1222,7 +1221,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 	}
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	senderCacher.recoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number()), chain)
-
 
 	// A queued approach to delivering events. This is generally
 	// faster than direct delivery and requires much less mutex

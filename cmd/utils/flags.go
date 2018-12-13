@@ -30,21 +30,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
-	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/fdlimit"
+	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/consensus"
 
 	//"github.com/truechain/truechain-engineering-code/consensus/clique"
 	"bytes"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue"
@@ -52,7 +53,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/etruestats"
 	"github.com/truechain/truechain-engineering-code/les"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/metrics/influxdb"
 	"github.com/truechain/truechain-engineering-code/node"
@@ -221,6 +221,10 @@ var (
 		Name:  "gcmode",
 		Usage: `Blockchain garbage collection mode ("full", "archive")`,
 		Value: "full",
+	}
+	StateGCFlag = cli.BoolFlag{
+		Name:  "stategc",
+		Usage: "Delete block body and receipt",
 	}
 	LightServFlag = cli.IntFlag{
 		Name:  "lightserv",
@@ -664,7 +668,7 @@ func setNodeUserIdent(ctx *cli.Context, cfg *node.Config) {
 // setBootstrapNodes creates a list of bootstrap nodes from the command line
 // flags, reverting to pre-configured ones if none have been specified.
 func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
-	urls := params.MainnetBootnodes//DevnetBootnodes
+	urls := params.MainnetBootnodes //DevnetBootnodes
 	switch {
 	case ctx.GlobalIsSet(BootnodesFlag.Name):
 		urls = strings.Split(ctx.GlobalString(BootnodesFlag.Name), ",")
@@ -1046,8 +1050,6 @@ func checkExclusive(ctx *cli.Context, args ...interface{}) {
 	}
 }
 
-
-
 // SetTruechainConfig applies etrue-related command line flags to the config.
 func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	// Avoid conflicting network flags
@@ -1061,7 +1063,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	setTxPool(ctx, &cfg.TxPool)
 	setEthash(ctx, cfg)
 	setSnailPool(ctx, &cfg.SnailPool)
-	if ctx.GlobalIsSet(SyncModeFlag.Name){
+	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	}
 
@@ -1133,6 +1135,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
 	cfg.NoPruning = ctx.GlobalString(GCModeFlag.Name) == "archive"
+
+	if ctx.GlobalIsSet(StateGCFlag.Name) {
+		cfg.DeletedState = true
+	}
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cfg.TrieCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
@@ -1344,11 +1350,6 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
 		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
-	scache := &snailchain.CacheConfig{
-		Disabled:      ctx.GlobalString(GCModeFlag.Name) == "archive",
-		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
-	}
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
@@ -1356,7 +1357,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 
 	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
-	schain, err = snailchain.NewSnailBlockChain(chainDb, scache, config, engine, vmcfg)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, vmcfg)
 
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)

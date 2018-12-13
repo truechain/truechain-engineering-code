@@ -88,9 +88,10 @@ type Config struct {
 	// SnailGenesis *snailchain.Genesis
 
 	// Protocol options
-	NetworkId uint64 // Network ID to use for selecting peers to connect to
-	SyncMode  downloader.SyncMode
-	NoPruning bool
+	NetworkId    uint64 // Network ID to use for selecting peers to connect to
+	SyncMode     downloader.SyncMode
+	NoPruning    bool
+	DeletedState bool
 
 	// Light client options
 	LightServ  int `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests

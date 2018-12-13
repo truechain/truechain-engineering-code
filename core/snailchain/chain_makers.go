@@ -126,7 +126,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 	genblock := func(i int, parent *types.SnailBlock) *types.SnailBlock {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewSnailBlockChain(db, nil, config, engine, vm.Config{})
+		blockchain, _ := NewSnailBlockChain(db, config, engine, vm.Config{})
 		blockchain.SetValidator(NewBlockValidator(config, fastChain, blockchain, engine))
 		defer blockchain.Stop()
 		blocks := make(types.SnailBlocks, 2)
@@ -430,8 +430,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 		fruitnumbers int
 	)
 	cache := &core.CacheConfig{
-	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -450,7 +450,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{})
 	snailChain.SetValidator(NewBlockValidator(nil, fastchain, snailChain, engine))
 
 	if fastBlockNumbers > snailBlockNumbers*params.MinimumFruits {
@@ -466,7 +466,6 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	return snailChain, fastchain
 }
 
-
 func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
-	return MakeChain(snailBlockNumbers * params.MinimumFruits, snailBlockNumbers)
+	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers)
 }
