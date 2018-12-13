@@ -568,6 +568,8 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 			cs.handleTimeout(ti, rs)
 		case ti := <-cs.timeoutTask.Chan():
 			cs.handleTimeoutForTask(ti, rs)
+		case ms := <-cs.hm.Chan():
+			cs.switchHandle(ms)
 		case <-cs.Quit():
 			onExit(cs)
 			return
@@ -974,7 +976,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	}
 
 	// Validate proposal block
-	ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
+	ksign, err := cs.validateBlock(cs.ProposalBlock)
 	if ksign == nil {
 		// ProposalBlock is invalid, prevote nil.
 		log.Error("enterPrevote: ProposalBlock is invalid", "err", err)
@@ -1095,7 +1097,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	}() {
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", common.ToHex(blockID.Hash))
 		// Validate the block.
-		ksign, err := cs.state.ValidateBlock(cs.ProposalBlock)
+		ksign, err := cs.validateBlock(cs.ProposalBlock)
 		if err != nil {
 			log.Info("ValidateBlock faild will vote VoteAgreeAgainst", "hash", common.ToHex(blockID.Hash), "err", err)
 		}
@@ -1622,7 +1624,7 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 }
 
 //---------------------------------------------------------
-func (cs *ConsensusState) switchHandle(block *types.Block, s *ttypes.SwitchValidator) {
+func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 
 }
 func (cs *ConsensusState) swithResult(block *types.Block) {
@@ -1644,15 +1646,39 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	sv.From = 1
 	go func() {
 		select {
-		case cs.hm.SwitchChan <- sv:
+		case cs.hm.Chan() <- sv:
 		default:
 		}
 	}()
 }
-func (cs *ConsensusState) switchVerify() bool {
+func (cs *ConsensusState) switchVerify(block *types.Block) bool {
+	sw := block.SwitchInfos()
+	if sw != nil {
+		if len(sw.Vals) > 2 {
+			add,remove := sw.Vals[0],sw.Vals[1]
+			if (add.Flag == types.StateAddFlag && remove.Flag == types.StateRemovedFlag) || 
+				(add.Flag == types.StateRemovedFlag && remove.Flag == types.StateUsedFlag) {
+					if add.Flag == types.StateRemovedFlag {
+						remove = add
+						add = nil
+					}
+					err := cs.hm.VerifySwitch(remove,add)
+					if err == nil {
+						return true
+					}
+					log.Info("switchVerify","result",err)
+			} else {
+				log.Info("switchVerify","Type Error,add",add,"remove",remove)
+			}
+		}
+	}
 	return false
 }
-
+func (cs *ConsensusState) validateBlock(block *ctypes.Block) (*ttypes.KeepBlockSign, error) {
+	if block == nil { return nil,errors.New("block is nil")}
+	res := cs.switchVerify(block)
+	return cs.state.ValidateBlock(block,res)
+}
 // CompareHRS is compare msg'and peerSet's height round Step
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {
 	if h1 < h2 {

@@ -322,7 +322,7 @@ type StateAgent interface {
 	GetChainID() string
 	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
 	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error)
-	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
+	ValidateBlock(block *ctypes.Block,result bool) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
 	GetAddress() help.Address
@@ -448,7 +448,7 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 }
 
 //ValidateBlock get a verify block if nil return new
-func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
+func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block,result bool) (*KeepBlockSign, error) {
 	if block == nil {
 		return nil, errors.New("block not have")
 	}

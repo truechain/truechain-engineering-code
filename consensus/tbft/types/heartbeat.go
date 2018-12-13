@@ -104,7 +104,7 @@ type HealthMgr struct {
 	Sum				int64
 	Work	 		map[p2p.ID]*Health
 	Back			[]*Health
-	SwitchChan		chan *SwitchValidator	
+	switchChan		chan *SwitchValidator	
 	healthTick 		*time.Ticker
 	cid 			uint64
 }
@@ -113,7 +113,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
 		Work:			make(map[p2p.ID]*Health,0),
 		Back:			make([]*Health,0,0),
-		SwitchChan:		make(chan*SwitchValidator),
+		switchChan:		make(chan*SwitchValidator),
 		Sum:			0,
 		cid:			cid,
 		healthTick:		nil,
@@ -132,7 +132,9 @@ func (h *HealthMgr) UpdataHealthInfo(id p2p.ID,ip string, port uint, pk []byte) 
 		log.Info("UpdataHealthInfo","info",enter)
 	}
 }
-
+func (h *HealthMgr) Chan() chan *SwitchValidator {
+	return h.switchChan
+}
 func (h *HealthMgr) OnStart() error {
 	if h.healthTick == nil {
 		h.healthTick = time.NewTicker(1*time.Second)
@@ -151,9 +153,9 @@ func (h *HealthMgr) Switch(s *SwitchValidator) {
 		return
 	}
 	select {
-	case h.SwitchChan <- s:
+	case h.switchChan <- s:
 	default:
-		log.Info("h.SwitchChan already close")
+		log.Info("h.switchChan already close")
 	}
 }
 func (h *HealthMgr) healthGoroutine() {
@@ -161,7 +163,7 @@ func (h *HealthMgr) healthGoroutine() {
 		select {
 		case <- h.healthTick.C:
 			h.work()
-		case s:=<- h.SwitchChan:
+		case s:=<- h.switchChan:
 			h.switchResult(s)
 		case <- h.Quit():
 			log.Info("healthMgr is quit")
