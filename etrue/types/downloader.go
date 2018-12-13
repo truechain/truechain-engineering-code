@@ -19,6 +19,7 @@ var (
 	qosTuningPeers       = 5                // Number of peers to tune based on (best peers)
 	errNotRegistered     = errors.New("peer is not registered")
 	errAlreadyRegistered = errors.New("peer is already registered")
+	ErrCancelStateFetch        = errors.New("fast state data download canceled (requested)")
 )
 
 // LightPeer encapsulates the methods required to synchronise with a remote light peer.

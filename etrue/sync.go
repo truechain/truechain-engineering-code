@@ -266,7 +266,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
-		log.Warn("synchronise peer nil>>>")
+		log.Debug("synchronise peer nil>>>")
 		return
 	}
 	// Make sure the peer's TD is higher than our own
@@ -274,7 +274,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
-	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
 		header, err := pm.fdownloader.FetchHeight(peer.id,0);
@@ -283,8 +282,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 			return
 		}
 
-		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
-		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
 		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 
 			for {
@@ -293,14 +290,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 				if height > 0 {
 
-					//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-					//time.Sleep(1*time.Second)
-
 					if height > maxheight {
 						height = maxheight
 					}
-
-					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
 					for {
 
 						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
@@ -347,7 +339,18 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		if pm.snailchain.GetTdByHash(pm.snailchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return
 		}
+		if header, err := pm.fdownloader.FetchHeight(peer.id,0);err == nil{
+
+			stateSync := pm.fdownloader.SyncState(header.Root)
+
+			defer stateSync.Cancel()
+			go func() {
+				stateSync.Wait()
+			}()
+		}
 	}
+
+
 
 	//mode = downloader.FullSync
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block

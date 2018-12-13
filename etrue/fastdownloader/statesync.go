@@ -60,12 +60,12 @@ type stateSyncStats struct {
 }
 
 // syncState starts downloading state with the given root hash.
-func (d *Downloader) syncState(root common.Hash) *stateSync {
+func (d *Downloader) SyncState(root common.Hash) *stateSync {
 	s := newStateSync(d, root)
 	select {
 	case d.stateSyncStart <- s:
 	case <-d.quitCh:
-		s.err = errCancelStateFetch
+		s.err = etrue.ErrCancelStateFetch
 		close(s.done)
 	}
 	return s
@@ -300,10 +300,10 @@ func (s *stateSync) loop() (err error) {
 			// New peer arrived, try to assign it download tasks
 
 		case <-s.cancel:
-			return errCancelStateFetch
+			return etrue.ErrCancelStateFetch
 
 		case <-s.d.cancelCh:
-			return errCancelStateFetch
+			return etrue.ErrCancelStateFetch
 
 		case req := <-s.deliver:
 			// Response, disconnect or timeout triggered, drop the peer if stalling
