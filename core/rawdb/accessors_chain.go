@@ -19,12 +19,11 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
-	"math/big"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -92,7 +91,6 @@ func WriteHeadBlockHash(db DatabaseWriter, hash common.Hash) {
 	}
 }
 
-
 // ReadHeadBlockHash retrieves the hash of the current canonical head block.
 func ReadHeadRewardNumber(db DatabaseReader) uint64 {
 	data, _ := db.Get(headRewardKey)
@@ -109,7 +107,6 @@ func WriteHeadRewardNumber(db DatabaseWriter, number uint64) {
 	}
 }
 
-
 // ReadHeadFastBlockHash retrieves the hash of the current fast-sync head block.
 func ReadHeadFastBlockHash(db DatabaseReader) common.Hash {
 	data, _ := db.Get(headFastBlockKey)
@@ -123,6 +120,24 @@ func ReadHeadFastBlockHash(db DatabaseReader) common.Hash {
 func WriteHeadFastBlockHash(db DatabaseWriter, hash common.Hash) {
 	if err := db.Put(headFastBlockKey, hash.Bytes()); err != nil {
 		log.Crit("Failed to store last fast block's hash", "err", err)
+	}
+}
+
+// ReadFastTrieProgress retrieves the number of body and receipt state synced to allow
+// reporting correct numbers across restarts.
+func ReadStateGcBR(db DatabaseReader) uint64 {
+	data, _ := db.Get(fastTrieProgressKey)
+	if len(data) == 0 {
+		return 0
+	}
+	return new(big.Int).SetBytes(data).Uint64()
+}
+
+// WriteStateGcBR stores the state sync body and receipt counter to support
+// retrieving it across restarts.
+func WriteStateGcBR(db DatabaseWriter, count uint64) {
+	if err := db.Put(stateGcBodyReceiptKey, new(big.Int).SetUint64(count).Bytes()); err != nil {
+		log.Crit("Failed to store fast sync trie progress", "err", err)
 	}
 }
 
@@ -149,8 +164,6 @@ func ReadHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawVa
 	data, _ := db.Get(headerKey(number, hash))
 	return data
 }
-
-
 
 // HasHeader verifies the existence of a block header corresponding to the hash.
 func HasHeader(db DatabaseReader, hash common.Hash, number uint64) bool {
@@ -198,9 +211,6 @@ func WriteHeader(db DatabaseWriter, header *types.Header) {
 		log.Crit("Failed to store header", "err", err)
 	}
 }
-
-
-
 
 // DeleteHeader removes all block header data associated with a hash.
 func DeleteHeader(db DatabaseDeleter, hash common.Hash, number uint64) {
@@ -305,7 +315,6 @@ func HasReceipts(db DatabaseReader, hash common.Hash, number uint64) bool {
 	return true
 }
 
-
 // ReadReceipts retrieves all the transaction receipts belonging to a block.
 func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) types.Receipts {
 	// Retrieve the flattened receipt slice
@@ -378,7 +387,6 @@ func WriteBlock(db DatabaseWriter, block *types.Block) {
 	WriteHeader(db, block.Header())
 }
 
-
 // DeleteBlock removes all block data associated with a hash.
 func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 	DeleteReceipts(db, hash, number)
@@ -387,13 +395,11 @@ func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
 	DeleteTd(db, hash, number)
 }
 
-
 // ReadHeaderRLP retrieves a block header in its raw RLP database encoding.
-func ReadBlockRewardRLP(db DatabaseReader,number uint64) rlp.RawValue {
+func ReadBlockRewardRLP(db DatabaseReader, number uint64) rlp.RawValue {
 	data, _ := db.Get(blockRewardKey(number))
 	return data
 }
-
 
 func ReadBlockReward(db DatabaseReader, number uint64) *types.BlockReward {
 
@@ -403,17 +409,14 @@ func ReadBlockReward(db DatabaseReader, number uint64) *types.BlockReward {
 	}
 	header := new(types.BlockReward)
 	if err := rlp.Decode(bytes.NewReader(data), header); err != nil {
-		log.Error("Invalid block BlockReward RLP",  "err", err)
+		log.Error("Invalid block BlockReward RLP", "err", err)
 		return nil
 	}
 	return header
 }
 
-
-
 // WriteReward serializes a blockReward into the database.
 func WriteBlockReward(db DatabaseWriter, block *types.BlockReward) {
-
 
 	key := blockRewardKey(block.SnailNumber.Uint64())
 	// Write the encoded BlockReward
@@ -434,8 +437,6 @@ func DeleteBlockReward(db DatabaseDeleter, hash common.Hash, number uint64) {
 		log.Crit("Failed to delete block BlockReward", "err", err)
 	}
 }
-
-
 
 // FindCommonAncestor returns the last common ancestor of two block headers
 func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {

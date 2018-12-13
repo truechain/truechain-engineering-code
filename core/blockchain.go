@@ -65,6 +65,9 @@ const (
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	BlockChainVersion = 3
+	blockDeleteHeight = 500000
+	blockDeleteLimite = 10000
+	blockDeleteOnce   = 200
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
@@ -1153,6 +1156,17 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
+	if bc.cacheConfig.Deleted {
+		if block.NumberU64() < blockDeleteHeight+blockDeleteLimite {
+			rawdb.WriteStateGcBR(bc.db, 0)
+		} else {
+			number := rawdb.ReadStateGcBR(bc.db)
+			if block.NumberU64() > number+blockDeleteHeight+blockDeleteLimite {
+				go bc.stateGcBodyAndReceipt(block.NumberU64(), number)
+			}
+		}
+	}
+
 	// Set new head.
 	if status == CanonStatTy {
 		bc.insert(block)
@@ -1858,5 +1872,8 @@ func (bc *BlockChain) GetBlockNumber() uint64 {
 		return bc.CurrentFastBlock().NumberU64()
 	}
 	return bc.CurrentBlock().NumberU64()
+
+}
+func (bc *BlockChain) stateGcBodyAndReceipt(current, gcNumber uint64) {
 
 }
