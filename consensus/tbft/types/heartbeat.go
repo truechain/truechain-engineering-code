@@ -92,8 +92,6 @@ func (h *Health) SimpleString() string {
 }
 
 type SwitchValidator struct {
-	Remove 		*Health
-	Add 		*Health
 	Infos 		*ctypes.SwitchInfos
 	Resion 		string
 	From		int
