@@ -452,7 +452,7 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block,result bool) (*Ke
 	if block == nil {
 		return nil, errors.New("block not have")
 	}
-	sign, err := state.Agent.VerifyFastBlock(block)
+	sign, err := state.Agent.VerifyFastBlock(block,result)
 	if sign != nil {
 		return &KeepBlockSign{
 			Result: sign.Result,
