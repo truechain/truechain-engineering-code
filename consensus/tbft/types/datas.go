@@ -14,6 +14,7 @@ import (
 )
 
 var (
+	//PeerStateKey is reactor key
 	PeerStateKey = "ConsensusReactor.peerState"
 )
 
@@ -241,40 +242,49 @@ const (
 	MaxBlockBytes      = 1048510 // lMB
 )
 
+//BlockMeta struct
 type BlockMeta struct {
 	Block      *ctypes.Block
 	BlockID    *BlockID
 	BlockPacks *PartSet
 	SeenCommit *Commit
 }
+
+//BlockStore struct
 type BlockStore struct {
 	blocks map[uint64]*BlockMeta
 }
 
-// warning all function not thread_safe
+// NewBlockStore warning all function not thread_safe
 func NewBlockStore() *BlockStore {
 	return &BlockStore{
 		blocks: make(map[uint64]*BlockMeta),
 	}
 }
+
+//LoadBlockMeta load BlockMeta with height
 func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
 	if v, ok := b.blocks[height]; ok {
 		return v
 	}
 	return nil
 }
+
+//LoadBlockPart load block part with height and index
 func (b *BlockStore) LoadBlockPart(height uint64, index uint) *Part {
 	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
 	return nil
 }
+
+//MaxBlockHeight get max fast block height
 func (b *BlockStore) MaxBlockHeight() uint64 {
 	// ss.blockLock.Lock()
 	// defer ss.blockLock.Unlock()
-	var cur uint64 = 0
+	var cur uint64
 	//var fb *ctypes.Block = nil
-	for k, _ := range b.blocks {
+	for k := range b.blocks {
 		if cur == 0 {
 			cur = k
 		}
@@ -284,9 +294,11 @@ func (b *BlockStore) MaxBlockHeight() uint64 {
 	}
 	return cur
 }
+
+//MinBlockHeight get min fast block height
 func (b *BlockStore) MinBlockHeight() uint64 {
-	var cur uint64 = 0
-	for k, _ := range b.blocks {
+	var cur uint64
+	for k := range b.blocks {
 		if cur == 0 {
 			cur = k
 		}
@@ -296,12 +308,16 @@ func (b *BlockStore) MinBlockHeight() uint64 {
 	}
 	return cur
 }
+
+//LoadBlockCommit is load blocks commit vote
 func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
 	if v, ok := b.blocks[height]; ok {
 		return v.SeenCommit
 	}
 	return nil
 }
+
+//SaveBlock save block to blockStore
 func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit) {
 	if len(b.blocks) >= MaxLimitBlockStore {
 		k := b.MinBlockHeight()

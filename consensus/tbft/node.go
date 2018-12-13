@@ -31,7 +31,8 @@ type service struct {
 	updateChan       chan bool
 	eventBus         *ttypes.EventBus // pub/sub for services
 	// network
-	addrBook pex.AddrBook // known peers
+	addrBook  pex.AddrBook // known peers
+	healthMgr *ttypes.HealthMgr
 }
 
 type nodeInfo struct {
@@ -52,7 +53,7 @@ const (
 )
 
 func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state ttypes.StateAgent,
-	store *ttypes.BlockStore) *service {
+	store *ttypes.BlockStore, cid uint64) *service {
 	return &service{
 		sw:             p2p.NewSwitch(p2pcfg),
 		consensusState: NewConsensusState(cscfg, state, store),
@@ -62,7 +63,8 @@ func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state tty
 		eventBus:   ttypes.NewEventBus(),
 		// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 		// Note we currently use the addrBook regardless at least for AddOurAddress
-		addrBook: pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
+		addrBook:  pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
+		healthMgr: ttypes.NewHealthMgr(cid),
 	}
 }
 
@@ -171,6 +173,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 			}
 			update = true
 		}
+		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
 	if update {
@@ -357,7 +360,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		return errors.New("make the nil state")
 	}
 	store := ttypes.NewBlockStore()
-	service := newNodeService(n.config.P2P, n.config.Consensus, state, store)
+	service := newNodeService(n.config.P2P, n.config.Consensus, state, store, cid)
 	nodeinfo := makeCommitteeMembers(id.Uint64(), service, committeeInfo)
 	if nodeinfo == nil {
 		service.stop()
@@ -387,11 +390,24 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 		return errors.New("wrong ID:" + id.String())
 	}
 	server.putNodes(id, nodes)
+
 	return nil
 }
-// update the committee info from agent when the members was changed 
+
+// UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
-	return nil
+	if service, ok := n.services[info.Id.Uint64()]; ok {
+		service.consensusState.Validators = MakeValidators(info)
+		nodeinfo := makeCommitteeMembers(info.Id.Uint64(), service, info)
+		if nodeinfo == nil {
+			service.stop()
+			return errors.New("make the nil CommitteeMembers")
+		}
+		service.setNodes(nodeinfo)
+		n.services[info.Id.Uint64()] = service
+		return nil
+	}
+	return errors.New("service not found")
 }
 
 //MakeValidators is make CommitteeInfo to ValidatorSet

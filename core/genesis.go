@@ -25,11 +25,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 
-	"github.com/truechain/truechain-engineering-code/core/state"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
 
 	"errors"
 
@@ -275,7 +275,7 @@ func (g *Genesis) ToFastBlock(db ethdb.Database) *types.Block {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	return types.NewBlock(head, nil, nil, nil)
+	return types.NewBlock(head, nil, nil, nil, nil)
 }
 
 // MustCommit writes the genesis block and state to db, panicking on error.

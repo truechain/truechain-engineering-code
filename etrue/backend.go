@@ -29,9 +29,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	elect "github.com/truechain/truechain-engineering-code/consensus/election"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -41,20 +44,17 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/miner"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/pbftserver"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
@@ -500,12 +500,13 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		s.lesServer.Start(srvr)
 	}
 	if s.config.OldTbft {
+		return fmt.Errorf("oldpbft Temporarily incompatible")
 		s.startPbftServerOld()
 		if s.pbftServerOld == nil {
 			log.Error("start pbft server failed.")
 			return errors.New("start pbft server failed.")
 		}
-		s.agent.server = s.pbftServerOld
+		//s.agent.server = s.pbftServerOld
 		log.Info("", "server", s.agent.server)
 	} else {
 		s.startPbftServer()

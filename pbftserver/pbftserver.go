@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"github.com/truechain/truechain-engineering-code/pbftserver/network"
-	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"sync"
 	"time"
@@ -210,7 +210,7 @@ func (ss *PbftServerMgr) GetRequest(id *big.Int) (*consensus.RequestMsg, error) 
 		return nil, errors.New("server stop")
 	}
 
-	fb, err := ss.Agent.FetchFastBlock(id)
+	fb, err := ss.Agent.FetchFastBlock(id, nil)
 
 	if err != nil {
 		lock.PSLog("[pbft server]", " FetchFastBlock Error", err.Error())
@@ -305,7 +305,7 @@ func (ss *PbftServerMgr) CheckMsg(msg *consensus.RequestMsg) (*types.PbftSign, e
 		return nil, errors.New("block not have")
 	}
 	lock.PSLog("AGENT", "VerifyFastBlock", "start")
-	sign, err := ss.Agent.VerifyFastBlock(block)
+	sign, err := ss.Agent.VerifyFastBlock(block, true)
 	lock.PSLog("AGENT", "VerifyFastBlock", sign == nil, err == nil, "end")
 	/*if err != nil {
 		lock.PSLog("AGENT", "VerifyFastBlock err", err.Error())

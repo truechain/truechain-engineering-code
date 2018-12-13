@@ -104,7 +104,7 @@ func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (
 	return voteSign, err
 }
 
-func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block) (*types.PbftSign, error) {
+func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block, sign bool) (*types.PbftSign, error) {
 	//if rand.Intn(100) > 30 {
 	//	return types.ErrHeightNotYet
 	//}
@@ -1065,6 +1065,16 @@ func TestPrivKey(t *testing.T) {
 	fmt.Println("id4", id4)
 }
 func TestPutNodes(t *testing.T) {
+	a := make(map[int]string)
+
+	a[1] = "a"
+	a[2] = "b"
+
+	for k := range a {
+		fmt.Println(k)
+	}
+	return
+
 	IDCacheInit()
 	start := make(chan int)
 	pr1, _ := crypto.HexToECDSA("2ee9b9082e3eb19378d478f450e0e818e94cf7e3bf13ad5dd657ef2a35fbb0a8")

@@ -32,11 +32,11 @@ import (
 	"unsafe"
 
 	"github.com/edsrzf/mmap-go"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -542,7 +542,7 @@ func newFakeElection() *fakeElection {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag} //todo helei
 		members = append(members, m)
 	}
 	return &fakeElection{privates: priKeys, members: members}
