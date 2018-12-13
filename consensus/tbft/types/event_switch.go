@@ -1,30 +1,28 @@
-/*
-Pub-Sub in go with event caching
-*/
 package types
 
 import (
-	"sync"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"sync"
 )
 
-// Generic event data can be typed and registered with go-amino
+//EventData Generic event data can be typed and registered with go-amino
 // via concrete implementation of this interface
 type EventData interface {
 	//AssertIsEventData()
 }
 
-// reactors and other modules should export
+// Eventable reactors and other modules should export
 // this interface to become eventable
 type Eventable interface {
 	SetEventSwitch(evsw EventSwitch)
 }
 
-// an event switch or cache implements fireable
+//Fireable an event switch or cache implements fireable
 type Fireable interface {
 	FireEvent(event string, data EventData)
 }
 
+//EventSwitch interface
 type EventSwitch interface {
 	help.Service
 	Fireable
@@ -42,6 +40,7 @@ type eventSwitch struct {
 	listeners  map[string]*eventListener
 }
 
+//NewEventSwitch new
 func NewEventSwitch() EventSwitch {
 	evsw := &eventSwitch{
 		eventCells: make(map[string]*eventCell),
@@ -175,6 +174,7 @@ func (cell *eventCell) FireEvent(data EventData) {
 
 //-----------------------------------------------------------------------------
 
+//EventCallback call back event
 type EventCallback func(data EventData)
 
 type eventListener struct {
