@@ -395,7 +395,7 @@ func (agent *PbftAgent) loop() {
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:          committeeID,
 					Members:     ch.CommitteeMembers,
-					StartHeight: ch.BeginFastNumber, // todo @shuxun fix this default value
+					StartHeight: ch.BeginFastNumber,
 				}
 				agent.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 
@@ -649,7 +649,7 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 }
 
 //FetchFastBlock  generate fastBlock as leader
-func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int,infos *types.SwitchInfos) (*types.Block, error) { //todo shuxun
+func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
 	log.Debug("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
@@ -672,10 +672,11 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int,infos *types.SwitchI
 	}
 	num := parent.Number()
 	header := &types.Header{
-		ParentHash: parent.Hash(),
-		Number:     num.Add(num, common.Big1),
-		GasLimit:   core.FastCalcGasLimit(parent),
-		Time:       big.NewInt(tstamp),
+		ParentHash:    parent.Hash(),
+		CommitteeHash: infos.Hash(),
+		Number:        num.Add(num, common.Big1),
+		GasLimit:      core.FastCalcGasLimit(parent),
+		Time:          big.NewInt(tstamp),
 	}
 	//assign Proposer
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
@@ -689,24 +690,32 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int,infos *types.SwitchI
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return fastBlock, err
 	}
-	// Create the current work task and check any fork transitions needed
-	err := agent.makeCurrent(parent, header)
-	work := agent.current
 
-	pending, err := agent.eth.TxPool().Pending()
-	if err != nil {
-		log.Error("Failed to fetch pending transactions", "err", err)
-		return fastBlock, err
-	}
-	txs := types.NewTransactionsByPriceAndNonce(agent.current.signer, pending)
-	work.commitTransactions(agent.mux, txs, agent.fastChain, feeAmount)
-	//calculate snailBlock reward
-	agent.rewardSnailBlock(header)
-	// padding Header.Root, TxHash, ReceiptHash.
-	// Create the new block to seal with the consensus engine
-	if fastBlock, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
-		log.Error("Failed to finalize block for sealing", "err", err)
-		return fastBlock, err
+	//if infos not nil ,indicate committee members  has changed,
+	// generate block without execute transaction
+	if infos != nil {
+		header.Root = parent.Root()
+		fastBlock = types.NewBlock(header, nil, nil, nil, infos)
+	} else {
+		// Create the current work task and check any fork transitions needed
+		err := agent.makeCurrent(parent, header)
+		work := agent.current
+
+		pending, err := agent.eth.TxPool().Pending()
+		if err != nil {
+			log.Error("Failed to fetch pending transactions", "err", err)
+			return fastBlock, err
+		}
+		txs := types.NewTransactionsByPriceAndNonce(agent.current.signer, pending)
+		work.commitTransactions(agent.mux, txs, agent.fastChain, feeAmount)
+		//calculate snailBlock reward
+		agent.rewardSnailBlock(header)
+		// padding Header.Root, TxHash, ReceiptHash.
+		// Create the new block to seal with the consensus engine
+		if fastBlock, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
+			log.Error("Failed to finalize block for sealing", "err", err)
+			return fastBlock, err
+		}
 	}
 	log.Debug("generateFastBlock", "Height:", fastBlock.Number())
 
@@ -812,14 +821,18 @@ func GetTps(currentBlock *types.Block) float32 {
 }
 
 //GenerateSignWithVote  generate sign from committeeMember in fastBlock
-func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
+func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint, result bool) (*types.PbftSign, error) {
+	if !result {
+		vote = types.VoteAgreeAgainst
+	}
 	voteSign := &types.PbftSign{
 		Result:     vote,
 		FastHeight: fb.Header().Number,
 		FastHash:   fb.Hash(),
 	}
 	if vote == types.VoteAgreeAgainst {
-		log.Warn("vote AgreeAgainst", "number", fb.Number(), "hash", fb.Hash())
+		log.Warn("vote AgreeAgainst", "number",
+			fb.Number(), "hash", fb.Hash(), "vote", vote, "result", result)
 	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
@@ -835,7 +848,7 @@ func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint) (*types
 
 //GenerateSign  generate sign with default agree from committeeMember in fastBlock
 func (agent *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
-	return agent.GenerateSignWithVote(fb, types.VoteAgree)
+	return agent.GenerateSignWithVote(fb, types.VoteAgree, true)
 }
 
 //BroadcastFastBlock broadcast blockAndSign
@@ -844,7 +857,7 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 }
 
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
-func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftSign, error) {
+func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.PbftSign, error) {
 	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	bc := agent.fastChain
 	// get current head
@@ -857,7 +870,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftS
 	err := agent.engine.VerifyHeader(bc, fb.Header(), true)
 	if err != nil {
 		log.Error("verifyFastBlock verifyHeader error", "header", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		if signError != nil {
 			return nil, signError
 		}
@@ -868,14 +881,14 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftS
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && agent.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .", "number", fb.Number())
-			voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree)
+			voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree, result)
 			if signError != nil {
 				return nil, signError
 			}
 			return voteSign, nil //if err equals ErrKnownBlock return nil
 		}
 		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		if signError != nil {
 			return nil, signError
 		}
@@ -885,7 +898,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftS
 	state, err := bc.State()
 	if err != nil {
 		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		if signError != nil {
 			return nil, signError
 		}
@@ -900,7 +913,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftS
 			return nil, err
 		}
 		log.Error("verifyFastBlock process error", "height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		if signError != nil {
 			return nil, signError
 		}
@@ -909,13 +922,13 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block,sign bool) (*types.PbftS
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
 		log.Error("verifyFastBlock validateState error", "Height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		if signError != nil {
 			return nil, signError
 		}
 		return voteSign, err
 	}
-	voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree)
+	voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree, result)
 	if signError != nil {
 		return nil, signError
 	}
@@ -1156,7 +1169,7 @@ func (agent *PbftAgent) singleloop() {
 			cnt   = 0
 		)
 		for {
-			block, err = agent.FetchFastBlock(nil,nil)//todo shuxun
+			block, err = agent.FetchFastBlock(nil, nil)
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
 				time.Sleep(time.Second)
@@ -1170,7 +1183,7 @@ func (agent *PbftAgent) singleloop() {
 				break
 			}
 		}
-		_, err = agent.VerifyFastBlock(block,false)//todo shuxun
+		_, err = agent.VerifyFastBlock(block, true)
 		if err != nil {
 			log.Error("VerifyFastBlock error", "err", err)
 		}
