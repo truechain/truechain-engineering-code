@@ -39,6 +39,7 @@ type ConsensusReactor struct {
 	mtx      sync.RWMutex
 	fastSync bool
 	eventBus *ttypes.EventBus
+	hm   *ttypes.HealthMgr
 }
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
@@ -56,7 +57,9 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 // broadcasted to other peers and starting state if we're not in fast sync.
 func (conR *ConsensusReactor) OnStart() error {
 	log.Info("Begin ConsensusReactor start ", "fastSync", conR.FastSync())
-
+	if conR.hm == nil {
+		return errors.New("uninit hm...")
+	}
 	conR.subscribeToBroadcastEvents()
 
 	err := conR.conS.Start()
@@ -144,7 +147,10 @@ func (conR *ConsensusReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 	// TODO
 	//peer.Get(PeerStateKey).(*PeerState).Disconnect()
 }
-
+//SetHealthMgr sets peer  healthMgr
+func (conR *ConsensusReactor) SetHealthMgr(h *ttypes.HealthMgr) {
+	conR.hm = h
+}
 // Receive implements Reactor
 // NOTE: We process these messages even when we're fast_syncing.
 // Messages affect either a peer state or the consensus state.
@@ -152,6 +158,7 @@ func (conR *ConsensusReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 // proposals, block parts, and votes are ordered by the receiveRoutine
 // NOTE: blocks on consensus state for proposals, block parts, and votes
 func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+	conR.hm.Update(src.ID())
 	if !conR.IsRunning() {
 		log.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
 		return

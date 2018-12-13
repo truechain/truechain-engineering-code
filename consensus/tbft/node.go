@@ -371,6 +371,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
 	service.sw.SetAddrBook(service.addrBook)
+	service.consensusReactor.SetHealthMgr(service.healthMgr)
 	service.consensusReactor.SetEventBus(service.eventBus)
 
 	n.services[id.Uint64()] = service
