@@ -22,8 +22,9 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -32,7 +33,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -86,7 +86,6 @@ type Miner struct {
 	canStart    int32 // can start indicates whether we can start the mining operation
 	shouldStart int32 // should start indicates whether we should start after sync
 	commitFlag  int32
-
 }
 
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
@@ -196,8 +195,8 @@ func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&self.canStart) == 0 || atomic.LoadInt32(&self.commitFlag) == 0{
-		log.Info("start to miner","canstart",self.canStart,"commitflag",self.commitFlag)
+	if atomic.LoadInt32(&self.canStart) == 0 || atomic.LoadInt32(&self.commitFlag) == 0 {
+		log.Info("start to miner", "canstart", self.canStart, "commitflag", self.commitFlag)
 		return
 	}
 	atomic.StoreInt32(&self.mining, 1)
@@ -238,7 +237,7 @@ func (self *Miner) HashRate() (tot int64) {
 	// aspects of the worker/locking up agents so we can get an accurate
 	// hashrate?
 	for agent := range self.worker.agents {
-		if _, ok := agent.(*CpuAgent); !ok {
+		if _, ok := agent.(*CPUAgent); !ok {
 			tot += agent.GetHashRate()
 		}
 	}
@@ -281,7 +280,7 @@ func (self *Miner) SetEtherbase(addr common.Address) {
 
 func (self *Miner) SetElection(toElect bool, pubkey []byte) {
 
-	if len(pubkey)<= 0{
+	if len(pubkey) <= 0 {
 		log.Info("Set election failed, pubkey is nil")
 		return
 	}

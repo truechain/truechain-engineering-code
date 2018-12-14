@@ -20,12 +20,13 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 )
 
-type CpuAgent struct {
+// CPUAgent is for agent to mine
+type CPUAgent struct {
 	mu sync.Mutex
 
 	workCh        chan *Work
@@ -39,8 +40,8 @@ type CpuAgent struct {
 	isMining int32 // isMining indicates whether the agent is currently mining
 }
 
-func NewCpuAgent(chain consensus.SnailChainReader, engine consensus.Engine) *CpuAgent {
-	miner := &CpuAgent{
+func NewCpuAgent(chain consensus.SnailChainReader, engine consensus.Engine) *CPUAgent {
+	miner := &CPUAgent{
 		chain:  chain,
 		engine: engine,
 		stop:   make(chan struct{}, 1),
@@ -49,10 +50,10 @@ func NewCpuAgent(chain consensus.SnailChainReader, engine consensus.Engine) *Cpu
 	return miner
 }
 
-func (self *CpuAgent) Work() chan<- *Work            { return self.workCh }
-func (self *CpuAgent) SetReturnCh(ch chan<- *Result) { self.returnCh = ch }
+func (self *CPUAgent) Work() chan<- *Work            { return self.workCh }
+func (self *CPUAgent) SetReturnCh(ch chan<- *Result) { self.returnCh = ch }
 
-func (self *CpuAgent) Stop() {
+func (self *CPUAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
 		return // agent already stopped
 	}
@@ -68,14 +69,14 @@ done:
 	}
 }
 
-func (self *CpuAgent) Start() {
+func (self *CPUAgent) Start() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
 		return // agent already started
 	}
 	go self.update()
 }
 
-func (self *CpuAgent) update() {
+func (self *CPUAgent) update() {
 out:
 	for {
 		select {
@@ -99,20 +100,20 @@ out:
 	}
 }
 
-func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
+func (self *CPUAgent) mine(work *Work, stop <-chan struct{}) {
 	log.Info("start to mine", "block", work.Block.Number(), "fruits", len(work.Block.Fruits()),
 		" fast", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty())
 	// the mine with consensus
 	/*
-	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
-		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
-		self.returnCh <- &Result{work, result}
-	} else {
-		if err != nil {
-			log.Warn("Block sealing failed", "err", err)
+		if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
+			log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
+			self.returnCh <- &Result{work, result}
+		} else {
+			if err != nil {
+				log.Warn("Block sealing failed", "err", err)
+			}
+			self.returnCh <- nil
 		}
-		self.returnCh <- nil
-	}
 	*/
 
 	// the new flow for fruit and block 20180624
@@ -121,7 +122,7 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	go self.engine.ConSeal(self.chain, work.Block, abort, send)
 
 	var result *types.SnailBlock
-	mineloop:
+mineloop:
 	for {
 		select {
 		case <-stop:
@@ -139,10 +140,9 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 		}
 	}
 
-
 }
 
-func (self *CpuAgent) GetHashRate() int64 {
+func (self *CPUAgent) GetHashRate() int64 {
 
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		return int64(pow.Hashrate())
