@@ -37,7 +37,6 @@ import (
 )
 
 // Backend wraps all methods required for mining.
-
 type Backend interface {
 	AccountManager() *accounts.Manager
 	SnailBlockChain() *snailchain.SnailBlockChain
@@ -48,13 +47,12 @@ type Backend interface {
 	//Election() *etrue.Election
 }
 
-//Election module implementation committee interface
+//CommitteeElection interface is Election module implementation committee interface
 type CommitteeElection interface {
 	//VerifySigns verify the fast chain committee signatures in batches
 	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
 
 	//Get a list of committee members
-	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
 	GetCommittee(fastNumber *big.Int) []*types.CommitteeMember
 
 	SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.Subscription
@@ -88,6 +86,7 @@ type Miner struct {
 	commitFlag  int32
 }
 
+// New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
 	election CommitteeElection, mineFruit bool, singleNode bool) *Miner {
 	miner := &Miner{
@@ -117,37 +116,37 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 	return miner
 }
 
-func (self *Miner) loop() {
+func (miner *Miner) loop() {
 
-	defer self.electionSub.Unsubscribe()
+	defer miner.electionSub.Unsubscribe()
 	for {
 		select {
-		case ch := <-self.electionCh:
+		case ch := <-miner.electionCh:
 			switch ch.Option {
 			case types.CommitteeStart:
 				// alread to start mining need stop
 
-				if self.election.IsCommitteeMember(ch.CommitteeMembers, self.publickey) {
+				if miner.election.IsCommitteeMember(ch.CommitteeMembers, miner.publickey) {
 					// i am committee
-					if self.Mining() {
-						atomic.StoreInt32(&self.commitFlag, 0)
-						self.Stop()
+					if miner.Mining() {
+						atomic.StoreInt32(&miner.commitFlag, 0)
+						miner.Stop()
 					}
-					atomic.StoreInt32(&self.commitFlag, 0)
+					atomic.StoreInt32(&miner.commitFlag, 0)
 				} else {
 					log.Debug("not in commiteer munber so start to miner")
-					atomic.StoreInt32(&self.commitFlag, 1)
-					self.Start(self.coinbase)
+					atomic.StoreInt32(&miner.commitFlag, 1)
+					miner.Start(miner.coinbase)
 
 				}
-				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
+				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 			case types.CommitteeStop:
 
-				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", self.canStart, "shoutstart", self.shouldStart, "mining", self.mining)
-				atomic.StoreInt32(&self.commitFlag, 1)
-				self.Start(self.coinbase)
+				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+				atomic.StoreInt32(&miner.commitFlag, 1)
+				miner.Start(miner.coinbase)
 			}
-		case <-self.electionSub.Err():
+		case <-miner.electionSub.Err():
 			return
 
 		}
@@ -159,28 +158,28 @@ func (self *Miner) loop() {
 // It's entered once and as soon as `Done` or `Failed` has been broadcasted the events are unregistered and
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
-func (self *Miner) update() {
+func (miner *Miner) update() {
 	//defer self.electionSub.Unsubscribe()
-	events := self.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, types.ElectionEvent{})
+	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, types.ElectionEvent{})
 out:
 	for ev := range events.Chan() {
 		switch ev.Data.(type) {
 		case downloader.StartEvent:
 			log.Info("-----------------get download info startEvent")
-			atomic.StoreInt32(&self.canStart, 0)
-			if self.Mining() {
-				self.Stop()
-				atomic.StoreInt32(&self.shouldStart, 1)
+			atomic.StoreInt32(&miner.canStart, 0)
+			if miner.Mining() {
+				miner.Stop()
+				atomic.StoreInt32(&miner.shouldStart, 1)
 				log.Info("Mining aborted due to sync")
 			}
 		case downloader.DoneEvent, downloader.FailedEvent:
 			log.Info("-----------------get download info DoneEvent,FailedEvent")
-			shouldStart := atomic.LoadInt32(&self.shouldStart) == 1
+			shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
-			atomic.StoreInt32(&self.canStart, 1)
-			atomic.StoreInt32(&self.shouldStart, 0)
+			atomic.StoreInt32(&miner.canStart, 1)
+			atomic.StoreInt32(&miner.shouldStart, 0)
 			if shouldStart {
-				self.Start(self.coinbase)
+				miner.Start(miner.coinbase)
 			}
 			// unsubscribe. we're only interested in this event once
 			events.Unsubscribe()
@@ -190,53 +189,59 @@ out:
 	}
 }
 
-func (self *Miner) Start(coinbase common.Address) {
+//Start miner
+func (miner *Miner) Start(coinbase common.Address) {
 	log.Debug("start miner --miner start function")
-	atomic.StoreInt32(&self.shouldStart, 1)
-	self.SetEtherbase(coinbase)
+	atomic.StoreInt32(&miner.shouldStart, 1)
+	miner.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&self.canStart) == 0 || atomic.LoadInt32(&self.commitFlag) == 0 {
-		log.Info("start to miner", "canstart", self.canStart, "commitflag", self.commitFlag)
+	if atomic.LoadInt32(&miner.canStart) == 0 || atomic.LoadInt32(&miner.commitFlag) == 0 {
+		log.Info("start to miner", "canstart", miner.canStart, "commitflag", miner.commitFlag)
 		return
 	}
-	atomic.StoreInt32(&self.mining, 1)
+	atomic.StoreInt32(&miner.mining, 1)
 
-	self.worker.start()
-	self.worker.commitNewWork()
+	miner.worker.start()
+	miner.worker.commitNewWork()
 }
 
-func (self *Miner) Stop() {
+//Stop stop miner
+func (miner *Miner) Stop() {
 	log.Debug(" miner   ---stop miner funtion")
-	self.worker.stop()
-	atomic.StoreInt32(&self.mining, 0)
-	atomic.StoreInt32(&self.shouldStart, 0)
+	miner.worker.stop()
+	atomic.StoreInt32(&miner.mining, 0)
+	atomic.StoreInt32(&miner.shouldStart, 0)
 
 }
 
-func (self *Miner) Register(agent Agent) {
-	if self.Mining() {
+//Register is for register Agent to start or stop Agent
+func (miner *Miner) Register(agent Agent) {
+	if seminerlf.Mining() {
 		agent.Start()
 	}
-	self.worker.register(agent)
+	miner.worker.register(agent)
 }
 
-func (self *Miner) Unregister(agent Agent) {
-	self.worker.unregister(agent)
+//Unregister is Unregister the Agent
+func (miner *Miner) Unregister(agent Agent) {
+	miner.worker.unregister(agent)
 }
 
-func (self *Miner) Mining() bool {
-	return atomic.LoadInt32(&self.mining) > 0
+//Mining start mining set flage
+func (miner *Miner) Mining() bool {
+	return atomic.LoadInt32(&miner.mining) > 0
 }
 
-func (self *Miner) HashRate() (tot int64) {
-	if pow, ok := self.engine.(consensus.PoW); ok {
+// HashRate can calc the Mine cpu hash rate
+func (miner *Miner) HashRate() (tot int64) {
+	if pow, ok := miner.engine.(consensus.PoW); ok {
 		tot += int64(pow.Hashrate())
 
 	}
 	// do we care this might race? is it worth we're rewriting some
 	// aspects of the worker/locking up agents so we can get an accurate
 	// hashrate?
-	for agent := range self.worker.agents {
+	for agent := range miner.worker.agents {
 		if _, ok := agent.(*CPUAgent); !ok {
 			tot += agent.GetHashRate()
 		}
@@ -244,55 +249,64 @@ func (self *Miner) HashRate() (tot int64) {
 	return tot
 }
 
-func (self *Miner) SetExtra(extra []byte) error {
+//SetExtra set Extra data
+func (miner *Miner) SetExtra(extra []byte) error {
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("Extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
 	}
-	self.worker.setExtra(extra)
+	miner.worker.setExtra(extra)
 	return nil
 }
 
 // Pending returns the currently pending block and associated state.
-func (self *Miner) Pending() (*types.Block, *state.StateDB) {
-	return self.worker.pending()
+func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
+	return miner.worker.pending()
 }
 
-func (self *Miner) PendingSnail() (*types.SnailBlock, *state.StateDB) {
-	return self.worker.pendingSnail()
+// PendingSnail returns the currently pending Snailblock and associated state.
+func (miner *Miner) PendingSnail() (*types.SnailBlock, *state.StateDB) {
+	return miner.worker.pendingSnail()
 }
 
 // PendingBlock returns the currently pending block.
-//
 // Note, to access both the pending block and the pending state
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
-func (self *Miner) PendingBlock() *types.Block {
-	return self.worker.pendingBlock()
-}
-func (self *Miner) PendingSnailBlock() *types.SnailBlock {
-	return self.worker.pendingSnailBlock()
+func (miner *Miner) PendingBlock() *types.Block {
+	return miner.worker.pendingBlock()
 }
 
-func (self *Miner) SetEtherbase(addr common.Address) {
-	self.coinbase = addr
-	self.worker.setEtherbase(addr)
+// PendingSnailBlock returns the currently pending block.
+// Note, to access both the pending block and the pending state
+// simultaneously, please use Pending(), as the pending state can
+// change between multiple method calls
+func (miner *Miner) PendingSnailBlock() *types.SnailBlock {
+	return miner.worker.pendingSnailBlock()
 }
 
-func (self *Miner) SetElection(toElect bool, pubkey []byte) {
+// SetEtherbase  for reward
+func (miner *Miner) SetEtherbase(addr common.Address) {
+	miner.coinbase = addr
+	miner.worker.setEtherbase(addr)
+}
+
+// SetElection Election is after mine the miner can be committee number
+func (miner *Miner) SetElection(toElect bool, pubkey []byte) {
 
 	if len(pubkey) <= 0 {
 		log.Info("Set election failed, pubkey is nil")
 		return
 	}
-	self.toElect = toElect
-	self.publickey = make([]byte, len(pubkey))
+	miner.toElect = toElect
+	miner.publickey = make([]byte, len(pubkey))
 
-	copy(self.publickey, pubkey)
-	self.worker.setElection(toElect, pubkey)
+	copy(miner.publickey, pubkey)
+	miner.worker.setElection(toElect, pubkey)
 	log.Info("Set election success")
 }
 
-func (self *Miner) SetFruitOnly(FruitOnly bool) {
-	self.FruitOnly = FruitOnly
-	self.worker.SetFruitOnly(FruitOnly)
+// SetFruitOnly allow the mine only mined fruit
+func (miner *Miner) SetFruitOnly(FruitOnly bool) {
+	miner.FruitOnly = FruitOnly
+	miner.worker.SetFruitOnly(FruitOnly)
 }
