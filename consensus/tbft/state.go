@@ -367,7 +367,7 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
 	}
 	var d time.Duration = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepNewHeight, 2})
 	log.Info("end UpdateStateForSync","newHeight",newH)
 }
 
@@ -636,7 +636,7 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundState) {
-	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step,"cs.height",cs.Height)
+	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	// timeouts must be for current height, round, step
@@ -1086,10 +1086,12 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		if err != nil {
 			log.Info("ValidateBlock faild will vote VoteAgreeAgainst","hash",common.ToHex(blockID.Hash),"err",err)
 		}
-		if ksign != nil{
-			cs.LockedRound = uint(round)
-			cs.LockedBlock = cs.ProposalBlock
-			cs.LockedBlockParts = cs.ProposalBlockParts
+		if ksign != nil {
+			if ksign.Result == types.VoteAgree {
+				cs.LockedRound = uint(round)
+				cs.LockedBlock = cs.ProposalBlock
+				cs.LockedBlockParts = cs.ProposalBlockParts
+			}			
 			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
 		} else {
