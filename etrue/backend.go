@@ -122,6 +122,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run etrue.Truechain in light sync mode, use les.LightEthereum")
 	}
+	if config.SyncMode == downloader.SnapShotSync {
+		return nil, errors.New("can't run etrue.Truechain in SnapShotSync sync mode, use les.LightEthereum")
+	}
+
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}

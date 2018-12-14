@@ -25,14 +25,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -72,23 +72,23 @@ var (
 )
 
 var (
-	errBusy                    = errors.New("fast busy")
-	errUnknownPeer             = errors.New("fast peer is unknown or unhealthy")
-	errBadPeer                 = errors.New("fast action from bad peer ignored")
-	errStallingPeer            = errors.New("fast peer is stalling")
-	errNoPeers                 = errors.New("fast no peers to keep download active")
-	errTimeout                 = errors.New("fast timeout")
-	errEmptyHeaderSet          = errors.New("fast empty header set by peer")
-	errPeersUnavailable        = errors.New("fast no peers available or all tried for download")
-	errInvalidAncestor         = errors.New("fast retrieved ancestor is invalid")
-	errInvalidChain            = errors.New("fast retrieved hash chain is invalid")
-	errInvalidBlock            = errors.New("fast retrieved block is invalid")
-	errInvalidBody             = errors.New("fast retrieved block body is invalid")
-	errInvalidReceipt          = errors.New("fast retrieved receipt is invalid")
-	errCancelBlockFetch        = errors.New("fast block download canceled (requested)")
-	errCancelHeaderFetch       = errors.New("fast block header download canceled (requested)")
-	errCancelBodyFetch         = errors.New("fast block body download canceled (requested)")
-	errCancelReceiptFetch      = errors.New("fast receipt download canceled (requested)")
+	errBusy               = errors.New("fast busy")
+	errUnknownPeer        = errors.New("fast peer is unknown or unhealthy")
+	errBadPeer            = errors.New("fast action from bad peer ignored")
+	errStallingPeer       = errors.New("fast peer is stalling")
+	errNoPeers            = errors.New("fast no peers to keep download active")
+	errTimeout            = errors.New("fast timeout")
+	errEmptyHeaderSet     = errors.New("fast empty header set by peer")
+	errPeersUnavailable   = errors.New("fast no peers available or all tried for download")
+	errInvalidAncestor    = errors.New("fast retrieved ancestor is invalid")
+	errInvalidChain       = errors.New("fast retrieved hash chain is invalid")
+	errInvalidBlock       = errors.New("fast retrieved block is invalid")
+	errInvalidBody        = errors.New("fast retrieved block body is invalid")
+	errInvalidReceipt     = errors.New("fast retrieved receipt is invalid")
+	errCancelBlockFetch   = errors.New("fast block download canceled (requested)")
+	errCancelHeaderFetch  = errors.New("fast block header download canceled (requested)")
+	errCancelBodyFetch    = errors.New("fast block body download canceled (requested)")
+	errCancelReceiptFetch = errors.New("fast receipt download canceled (requested)")
 
 	errCancelHeaderProcessing  = errors.New("fast header processing canceled (requested)")
 	errCancelContentProcessing = errors.New("fast content processing canceled (requested)")
@@ -101,8 +101,8 @@ type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
-	genesis uint64   // Genesis block number to limit sync to (e.g. light client CHT)
-	queue   *queue   // Scheduler for selecting the hashes to download
+	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
+	queue   *queue         // Scheduler for selecting the hashes to download
 	peers   *etrue.PeerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
 
@@ -204,7 +204,7 @@ type BlockChain interface {
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
 	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
 
-    GetBlockNumber() uint64
+	GetBlockNumber() uint64
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -268,6 +268,8 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 	case FastSync:
 		current = d.blockchain.CurrentFastBlock().NumberU64()
 	case LightSync:
+		current = d.lightchain.CurrentHeader().Number.Uint64()
+	case SnapShotSync:
 		current = d.lightchain.CurrentHeader().Number.Uint64()
 	}
 	return ethereum.SyncProgress{
@@ -411,7 +413,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 
 	defer d.Cancel() // No matter what, we can't leave the cancel channel open
 
-	d.mode=mode
+	d.mode = mode
 	// Retrieve the origin peer and initiate the downloading process
 	p := d.peers.Peer(id)
 	if p == nil {
@@ -447,13 +449,13 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	latest := &types.Header{}
 	if d.mode == FastSync {
-		if latest , err =d.fetchHeight(p.GetID(),origin+height) ; err != nil {
+		if latest, err = d.fetchHeight(p.GetID(), origin+height); err != nil {
 			return err
 		}
 	}
 
 	// Ensure our origin point is below any fast sync pivot point
-	pivot := origin+height
+	pivot := origin + height
 	//if d.mode == FastSync {
 	//	if height <= uint64(fsMinFullBlocks) {
 	//		origin = 0
@@ -464,7 +466,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	//		}
 	//	}
 	//}
-
 
 	d.committed = 1
 	if d.mode == FastSync && pivot != 0 {
@@ -501,7 +502,11 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	d.cancelWg.Add(len(fetchers))
 	for _, fn := range fetchers {
 		fn := fn
-		go func() { defer d.cancelWg.Done(); log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++") ; errc <- fn() }()
+		go func() {
+			defer d.cancelWg.Done()
+			log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++")
+			errc <- fn()
+		}()
 	}
 	// Wait for the first error, then terminate the others.
 	var err error
@@ -526,22 +531,19 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 
 // fetchHeight retrieves the head header of the remote peer to aid in estimating
 // the total time a pending synchronisation would take.
-func (d *Downloader) FetchHeight(id string,number uint64) (*types.Header, error) {
+func (d *Downloader) FetchHeight(id string, number uint64) (*types.Header, error) {
 
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
 		return nil, errBusy
 	}
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
-	return d.fetchHeight(id,number)
+	return d.fetchHeight(id, number)
 }
-
-
 
 // fetchHeight retrieves the head header of the remote peer to aid in estimating
 // the total time a pending synchronisation would take.
-func (d *Downloader) fetchHeight(id string,number uint64) (*types.Header, error) {
-
+func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error) {
 
 	p := d.peers.Peer(id)
 	if p == nil {
@@ -549,12 +551,11 @@ func (d *Downloader) fetchHeight(id string,number uint64) (*types.Header, error)
 	}
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
-	if number !=0 {
+	if number != 0 {
 		go p.GetPeer().RequestHeadersByNumber(number, 1, 1, false, true)
-	}else {
+	} else {
 		go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
 	}
-
 
 	timeout := time.After(time.Duration(10 * time.Second))
 	for {
@@ -582,9 +583,6 @@ func (d *Downloader) fetchHeight(id string,number uint64) (*types.Header, error)
 		}
 	}
 }
-
-
-
 
 // cancel aborts all of the operations and resets the queue. However, cancel does
 // not wait for the running download goroutines to finish. This method should be
@@ -677,7 +675,6 @@ func calculateRequestSpan(remoteHeight, localHeight uint64) (int64, int, int, ui
 	max := from + (count-1)*span
 	return int64(from), count, span - 1, uint64(max)
 }
-
 
 // fetchHeaders keeps retrieving headers concurrently from the number
 // requested, until no more are returned, potentially throttling on the way. To
@@ -774,25 +771,25 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			//	headers = filled[proced:]
 			//	from += uint64(proced)
 			if n := len(headers); n > 0 {
-					// Retrieve the current head we're at
-					head := uint64(0)
-					if d.mode == LightSync {
-						head = d.lightchain.CurrentHeader().Number.Uint64()
-					} else {
-						head = d.blockchain.CurrentFastBlock().NumberU64()
-						if full := d.blockchain.CurrentBlock().NumberU64(); head < full {
-							head = full
-						}
-					}
-					// If the head is way older than this batch, delay the last few headers
-					if head+uint64(reorgProtThreshold) < headers[n-1].Number.Uint64() {
-						delay := reorgProtHeaderDelay
-						if delay > n {
-							delay = n
-						}
-						headers = headers[:n-delay]
+				// Retrieve the current head we're at
+				head := uint64(0)
+				if d.mode == LightSync || d.mode == SnapShotSync {
+					head = d.lightchain.CurrentHeader().Number.Uint64()
+				} else {
+					head = d.blockchain.CurrentFastBlock().NumberU64()
+					if full := d.blockchain.CurrentBlock().NumberU64(); head < full {
+						head = full
 					}
 				}
+				// If the head is way older than this batch, delay the last few headers
+				if head+uint64(reorgProtThreshold) < headers[n-1].Number.Uint64() {
+					delay := reorgProtHeaderDelay
+					if delay > n {
+						delay = n
+					}
+					headers = headers[:n-delay]
+				}
+			}
 			//}
 
 			// Insert all the new headers and fetch the next batch
@@ -845,7 +842,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 		}
 	}
 }
-
 
 // fetchBodies iteratively downloads the scheduled block bodies, taking any
 // available peers, reserving a chunk of blocks for each, waiting for delivery
@@ -1097,13 +1093,13 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				hashes[i] = header.Hash()
 			}
 			lastHeader, lastFastBlock, lastBlock := d.lightchain.CurrentHeader().Number, common.Big0, common.Big0
-			if d.mode != LightSync {
+			if d.mode != LightSync && d.mode != SnapShotSync {
 				lastFastBlock = d.blockchain.CurrentFastBlock().Number()
 				lastBlock = d.blockchain.CurrentBlock().Number()
 			}
 			d.lightchain.Rollback(hashes)
 			curFastBlock, curBlock := common.Big0, common.Big0
-			if d.mode != LightSync {
+			if d.mode != LightSync && d.mode != SnapShotSync {
 				curFastBlock = d.blockchain.CurrentFastBlock().Number()
 				curBlock = d.blockchain.CurrentBlock().Number()
 			}
@@ -1145,7 +1141,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				// L: Sync begins, and finds common ancestor at 11
 				// L: Request new headers up from 11 (R's TD was higher, it must have something)
 				// R: Nothing to give
-				if d.mode != LightSync {
+				if d.mode != LightSync && d.mode != SnapShotSync {
 					//head := d.blockchain.CurrentBlock()
 					//&& td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0
 					if !gotHeaders {
@@ -1187,7 +1183,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				chunk := headers[:limit]
 
 				// In case of header only syncing, validate the chunk immediately
-				if d.mode == FastSync || d.mode == LightSync {
+				if d.mode == FastSync || d.mode == LightSync || d.mode == SnapShotSync {
 					// Collect the yet unknown headers to mark them as uncertain
 					unknown := make([]*types.Header, 0, len(headers))
 					for _, header := range chunk {
@@ -1309,7 +1305,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	// To cater for moving pivot points, track the pivot block and subsequently
 	// accumulated download results separately.
 	var (
-		oldPivot *etrue.FetchResult   // Locked in pivot block, might change eventually
+		oldPivot *etrue.FetchResult // Locked in pivot block, might change eventually
 	)
 	for {
 		// Wait for the next batch of downloaded data to be available, and if the pivot
@@ -1330,7 +1326,6 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 
 	}
 }
-
 
 func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.FetchResult, before, after []*etrue.FetchResult) {
 	for _, result := range results {
@@ -1369,7 +1364,7 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
 		receipts[i] = result.Receipts
 	}
-	log.Debug("Inserting fast-sync  ","blocks" , len(blocks))
+	log.Debug("Inserting fast-sync  ", "blocks", len(blocks))
 	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain

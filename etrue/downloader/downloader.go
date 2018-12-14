@@ -25,14 +25,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -101,8 +101,8 @@ type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
-	genesis uint64   // Genesis block number to limit sync to (e.g. light client CHT)
-	queue   *queue   // Scheduler for selecting the hashes to download
+	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
+	queue   *queue         // Scheduler for selecting the hashes to download
 	peers   *etrue.PeerSet // Set of active peers from which download can proceed
 	stateDB ethdb.Database
 
@@ -113,7 +113,7 @@ type Downloader struct {
 	syncStatsChainOrigin uint64 // Origin block number where syncing started at
 	syncStatsChainHeight uint64 // Highest block number known when syncing started
 	//syncStatsState       stateSyncStats
-	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
+	syncStatsLock sync.RWMutex // Lock protecting the sync stats fields
 
 	lightchain LightChain
 	blockchain BlockChain
@@ -227,15 +227,15 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		//receiptCh:      make(chan etrue.DataPack, 1),
 		bodyWakeCh: make(chan bool, 1),
 		//receiptWakeCh:  make(chan bool, 1),
-		headerProcCh:   make(chan []*types.SnailHeader, 1),
-		quitCh:         make(chan struct{}),
+		headerProcCh: make(chan []*types.SnailHeader, 1),
+		quitCh:       make(chan struct{}),
 		//stateCh:        make(chan etrue.DataPack),
 		//stateSyncStart: make(chan *stateSync),
 		//syncStatsState: stateSyncStats{
 		//	processed: rawdb.ReadFastTrieProgress(stateDb),
 		//},
 		//trackStateReq: make(chan *stateReq),
-		fastDown:      fdown,
+		fastDown: fdown,
 	}
 
 	go dl.qosTuner()
@@ -495,7 +495,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 		func() error { return d.processHeaders(origin+1, pivot, td) },
 	}
 
-
 	//p PeerConnection, hash common.Hash, td *big.Int mode SyncMode,origin uint64, height uint64
 	fetchers = append(fetchers, func() error { return d.processFullSyncContent(p, hash, td) })
 
@@ -609,7 +608,7 @@ func (d *Downloader) fetchHeight(p etrue.PeerConnection) (*types.SnailHeader, er
 			}
 			head := headers[0]
 			if head == nil || head.Number == nil {
-				p.GetLog().Debug("Remote head header is nil","head",head)
+				p.GetLog().Debug("Remote head header is nil", "head", head)
 				return nil, errBadPeer
 			}
 			p.GetLog().Debug("Remote head header identified", "number", head.Number, "hash", head.Hash())
@@ -705,7 +704,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 
 		// If we're doing a light sync, ensure the floor doesn't go below the CHT, as
 		// all headers before that point will be missing.
-		if d.mode == LightSync {
+		if d.mode == LightSync || d.mode == SnapShotSync {
 			// If we dont know the current CHT position, find it
 			if d.genesis == 0 {
 				header := d.lightchain.CurrentHeader()
@@ -726,7 +725,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 	from, count, skip, max := calculateRequestSpan(remoteHeight, localHeight)
 
 	p.GetLog().Trace("Span searching for common ancestor", "count", count, "from", from, "skip", skip)
-	go p.GetPeer().RequestHeadersByNumber(uint64(from), count, skip, false,false)
+	go p.GetPeer().RequestHeadersByNumber(uint64(from), count, skip, false, false)
 
 	// Wait for the remote response to the head fetch
 	number, hash := uint64(0), common.Hash{}
@@ -976,12 +975,13 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 				if n := len(headers); n > 0 {
 					// Retrieve the current head we're at
 					head := uint64(0)
-					if d.mode == LightSync {
+					if d.mode == LightSync || d.mode == SnapShotSync {
 						head = d.lightchain.CurrentHeader().Number.Uint64()
 					} else {
 						head = d.blockchain.CurrentFastBlock().NumberU64()
 						if full := d.blockchain.CurrentBlock().NumberU64(); head < full {
-							head = full						}
+							head = full
+						}
 					}
 					// If the head is way older than this batch, delay the last few headers
 					if head+uint64(reorgProtThreshold) < headers[n-1].Number.Uint64() {
@@ -1332,13 +1332,13 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				hashes[i] = header.Hash()
 			}
 			lastHeader, lastFastBlock, lastBlock := d.lightchain.CurrentHeader().Number, common.Big0, common.Big0
-			if d.mode != LightSync {
+			if d.mode != LightSync && d.mode != SnapShotSync {
 				lastFastBlock = d.blockchain.CurrentFastBlock().Number()
 				lastBlock = d.blockchain.CurrentBlock().Number()
 			}
 			d.lightchain.Rollback(hashes)
 			curFastBlock, curBlock := common.Big0, common.Big0
-			if d.mode != LightSync {
+			if d.mode != LightSync && d.mode != SnapShotSync {
 				curFastBlock = d.blockchain.CurrentFastBlock().Number()
 				curBlock = d.blockchain.CurrentBlock().Number()
 			}
@@ -1448,7 +1448,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				//}
 				// Unless we're doing light chains, schedule the headers for associated content retrieval
 				//if d.mode == FullSync || d.mode == FastSync {
-					// If we've reached the allowed number of pending headers, stall a bit
+				// If we've reached the allowed number of pending headers, stall a bit
 				for d.queue.PendingBlocks() >= maxQueuedHeaders || d.queue.PendingReceipts() >= maxQueuedHeaders {
 					select {
 					case <-d.cancelCh:
