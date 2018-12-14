@@ -76,18 +76,12 @@ type Work struct {
 	family    *set.Set       // family set (used for checking uncle invalidity)
 	uncles    *set.Set       // uncle set
 	tcount    int            // tx count in cycle
-	gasPool   *core.GasPool  // available gas used to pack transactions
 
 	Block *types.SnailBlock // the new block
 
-	FruitSet []*types.SnailBlock //the for fruitset
-
-	header   *types.SnailHeader
-	txs      []*types.Transaction
-	receipts []*types.Receipt
-	fruits   []*types.SnailBlock // for the fresh
-	signs    []*types.PbftSign
-	body     *types.SnailBody
+	header *types.SnailHeader
+	fruits []*types.SnailBlock // for the fresh
+	signs  []*types.PbftSign
 
 	createdAt time.Time
 }
@@ -135,17 +129,16 @@ type worker struct {
 	coinbase  common.Address
 	extra     []byte
 	toElect   bool   // for elect
-	FruitOnly bool   // only miner fruit
+	fruitOnly bool   // only miner fruit
 	publickey []byte // for publickey
 
 	currentMu sync.Mutex
 	current   *Work
 
-	snapshotMu        sync.RWMutex
-	snapshotBlock     *types.SnailBlock
-	minedFruit        *types.SnailBlock   //for addFruits delay to create a new list
-	copyPendingFruits []*types.SnailBlock //for addFruits delay to create a new list
-	snapshotState     *state.StateDB
+	snapshotMu    sync.RWMutex
+	snapshotBlock *types.SnailBlock
+	minedFruit    *types.SnailBlock //for addFruits delay to create a new list
+	snapshotState *state.StateDB
 
 	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.SnailBlock
@@ -156,7 +149,7 @@ type worker struct {
 	mining            int32
 	atWork            int32
 	atCommintNewWoker bool
-	FastBlockNumber   *big.Int
+	fastBlockNumber   *big.Int
 }
 
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, etrue Backend, mux *event.TypeMux) *worker {
@@ -181,7 +174,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		coinbase:        coinbase,
 		agents:          make(map[Agent]struct{}),
 		unconfirmed:     newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
-		FastBlockNumber: big.NewInt(0),
+		fastBlockNumber: big.NewInt(0),
 	}
 	// Subscribe events for blockchain
 	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
@@ -218,7 +211,7 @@ func (w *worker) SetFruitOnly(FruitOnly bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.FruitOnly = FruitOnly
+	w.fruitOnly = FruitOnly
 }
 
 func (w *worker) setExtra(extra []byte) {
@@ -357,7 +350,7 @@ func (w *worker) update() {
 		//TODO　fruit event
 		case <-w.fruitCh:
 			// if only fruit only not need care about fruit event
-			if !w.atCommintNewWoker && !w.FruitOnly {
+			if !w.atCommintNewWoker && !w.fruitOnly {
 				// after get the fruit event should star mining if have not mining
 				log.Debug("star commit new work  fruitCh")
 
@@ -582,7 +575,7 @@ func (w *worker) commitNewWork() {
 	w.CommitFastBlocksByWoker(pendingFruits, w.chain, w.fastchain, w.engine)
 
 	// only miner fruit if not fruit set only miner the fruit
-	if !w.FruitOnly {
+	if !w.fruitOnly {
 		w.CommitFruits(pendingFruits, w.chain, w.engine)
 	}
 
@@ -658,7 +651,7 @@ func (w *worker) commitNewWork() {
 
 	// We only care about logging if we're actually mining.
 	if atomic.LoadInt32(&w.mining) == 1 {
-		log.Info("____Commit new mining work", "number", work.Block.Number(), "txs", len(work.txs), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
+		log.Info("____Commit new mining work", "number", work.Block.Number(), "uncles", len(uncles), "fruits", len(work.Block.Fruits()), " fastblock", work.Block.FastNumber(), "diff", work.Block.BlockDifficulty(), "fdiff", work.Block.FruitDifficulty(), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		w.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
 
@@ -866,9 +859,9 @@ func (w *worker) CommitFastBlocksByWoker(fruits []*types.SnailBlock, bc *chain.S
 
 	fastNumber := w.commitFastNumber(fastBlockHight, snailFruitsLastFastNumber, fruits)
 	if fastNumber != nil {
-		w.FastBlockNumber = fastNumber
-		log.Debug("-------find the one", "fb number", w.FastBlockNumber)
-		fbMined := fc.GetBlockByNumber(w.FastBlockNumber.Uint64())
+		w.fastBlockNumber = fastNumber
+		log.Debug("-------find the one", "fb number", w.fastBlockNumber)
+		fbMined := fc.GetBlockByNumber(w.fastBlockNumber.Uint64())
 		w.current.header.FastNumber = fbMined.Number()
 		w.current.header.FastHash = fbMined.Hash()
 		signs := fbMined.Signs()
