@@ -649,11 +649,7 @@ func (vs *blockVotes) addVerifiedVote(vote *Vote, votingPower int64) {
 	if existing := vs.votes[valIndex]; existing == nil {
 		vs.bitArray.SetIndex(valIndex, true)
 		vs.votes[valIndex] = vote
-		if vote.Type == VoteTypePrecommit {
-			if vote.Result == ttypes.VoteAgree {
-				vs.sum += votingPower
-			}
-		} else {
+		if vote.Result == ttypes.VoteAgree {
 			vs.sum += votingPower
 		}
 	}
