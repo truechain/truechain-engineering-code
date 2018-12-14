@@ -67,12 +67,13 @@ const (
 	BlockChainVersion = 3
 	blockDeleteHeight = 500000
 	blockDeleteLimite = 10000
-	blockDeleteOnce   = 200
+	blockDeleteOnce   = 1000
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
 type CacheConfig struct {
+	HeightGcState  *big.Int      // height  mark delete body and receipt
 	Deleted        bool          // Whether to delete body and receipt
 	Disabled       bool          // Whether to disable trie write caching (archive node)
 	TrieCleanLimit int           // Memory allowance (MB) to use for caching trie nodes in memory
@@ -186,6 +187,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
+			HeightGcState:  common.Big0,
 			Deleted:        false,
 			TrieCleanLimit: 256,
 			TrieNodeLimit:  256,
@@ -1162,7 +1164,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		} else {
 			number := rawdb.ReadStateGcBR(bc.db)
 			if block.NumberU64() > number+blockDeleteHeight+blockDeleteLimite {
-				go bc.stateGcBodyAndReceipt(block.NumberU64(), number)
+				rawdb.WriteStateGcBR(bc.db, blockDeleteOnce)
+				go bc.stateGcBodyAndReceipt(number)
 			}
 		}
 	}
@@ -1874,6 +1877,11 @@ func (bc *BlockChain) GetBlockNumber() uint64 {
 	return bc.CurrentBlock().NumberU64()
 
 }
-func (bc *BlockChain) stateGcBodyAndReceipt(current, gcNumber uint64) {
-
+func (bc *BlockChain) stateGcBodyAndReceipt(gcNumber uint64) {
+	for i := uint64(0); i < blockDeleteOnce; i++ {
+		block := bc.GetBlockByNumber(gcNumber + i)
+		rawdb.DeleteBody(bc.db, block.Hash(), block.NumberU64())
+		rawdb.DeleteReceipts(bc.db, block.Hash(), block.NumberU64())
+		rawdb.WriteStateGcBR(bc.db, gcNumber+i)
+	}
 }

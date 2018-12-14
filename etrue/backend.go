@@ -163,7 +163,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	var (
 		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-		cacheConfig = &core.CacheConfig{Deleted: config.DeletedState, Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		cacheConfig = &core.CacheConfig{HeightGcState: common.Big0, Deleted: config.DeletedState, Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 
 	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, vmConfig)
