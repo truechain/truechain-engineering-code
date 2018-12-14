@@ -216,7 +216,7 @@ func (miner *Miner) Stop() {
 
 //Register is for register Agent to start or stop Agent
 func (miner *Miner) Register(agent Agent) {
-	if seminerlf.Mining() {
+	if miner.Mining() {
 		agent.Start()
 	}
 	miner.worker.register(agent)
