@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -384,8 +383,10 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		sleepDuration := time.Duration(1) * time.Millisecond
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
 	}
+
 	var d = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), cs.Step, 2})
+
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepNewHeight, 2})
 	log.Info("end UpdateStateForSync", "newHeight", newH)
 }
 
@@ -656,7 +657,7 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundState) {
-	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step, "cs.height", cs.Height)
+	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	// timeouts must be for current height, round, step
@@ -738,6 +739,7 @@ func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
 			ValidatorIndex:   uint(valIndex),
 		}
 		cs.privValidator.SignHeartbeat(chainID, heartbeat)
+		
 		ehb := &ttypes.EventDataProposalHeartbeat{heartbeat}
 		cs.eventBus.PublishEventProposalHeartbeat(*ehb)
 		cs.evsw.FireEvent(ttypes.EventProposalHeartbeat, heartbeat)
@@ -1118,9 +1120,11 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 			log.Info("ValidateBlock faild will vote VoteAgreeAgainst", "hash", common.ToHex(blockID.Hash), "err", err)
 		}
 		if ksign != nil {
+			if ksign.Result == types.VoteAgree {
 			cs.LockedRound = uint(round)
 			cs.LockedBlock = cs.ProposalBlock
 			cs.LockedBlockParts = cs.ProposalBlockParts
+			}			
 			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
 		} else {
@@ -1434,7 +1438,7 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 			if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
 				log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 				return err
-			}
+				}
 			log.Error("Found conflicting vote.", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 			return err
 		}
@@ -1444,6 +1448,7 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 		return ErrAddingVote
 
 	}
+
 	return nil
 }
 
@@ -1583,6 +1588,8 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 					cs.enterNewRound(cs.Height, 0)
 				}
 			}
+		} else if precommits.HasAll() {
+			cs.enterNewRound(height, int(cs.Round+1))
 		} else if cs.Round <= vote.Round && precommits.HasTwoThirdsAny() {
 			cs.enterNewRound(height, int(vote.Round))
 			cs.enterPrecommit(height, int(vote.Round))
@@ -1595,6 +1602,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 	return
 }
 
+
 func (cs *ConsensusState) signVote(typeB byte, hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
 	addr := cs.privValidator.GetAddress()
 	valIndex, _ := cs.Validators.GetByAddress(addr)
@@ -1604,6 +1612,7 @@ func (cs *ConsensusState) signVote(typeB byte, hash []byte, header ttypes.PartSe
 		Height:           cs.Height,
 		Round:            cs.Round,
 		Timestamp:        time.Now().UTC(),
+
 		Type:             typeB,
 		Result:           types.VoteAgree,
 		BlockID:          ttypes.BlockID{hash, header},
@@ -1613,11 +1622,13 @@ func (cs *ConsensusState) signVote(typeB byte, hash []byte, header ttypes.PartSe
 }
 
 // sign the vote and publish on internalMsgQueue
+
 func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.PartSetHeader, keepsign *ttypes.KeepBlockSign) *ttypes.Vote {
 	// if we don't have a key or we're not in the validator set, do nothing
 	if cs.privValidator == nil || !cs.Validators.HasAddress(cs.privValidator.GetAddress()) {
 		return nil
 	}
+
 	vote, err := cs.signVote(typeB, hash, header)
 	if err == nil {
 		if hash != nil && keepsign == nil {

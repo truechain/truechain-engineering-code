@@ -478,8 +478,7 @@ func (s *Truechain) Protocols() []p2p.Protocol {
 // Start implements node.Service, starting all internal goroutines needed by the
 // Truechain protocol implementation.
 func (s *Truechain) Start(srvr *p2p.Server) error {
-	//start fruit journal
-	s.snailPool.Start()
+
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
 
@@ -520,16 +519,15 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	s.agent.Start()
 
 	s.election.Start()
-	//go s.agent.SendBlock()
+
+	//start fruit journal
+	s.snailPool.Start()
 
 	// Start the networking layer and the light server if requested
 	s.protocolManager.Start2(maxPeers)
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-
-	//sender := NewSender(s.snailPool, s.chainConfig, s.agent, s.blockchain)
-	//sender.Start()
 
 	return nil
 }
