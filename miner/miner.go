@@ -103,7 +103,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		commitFlag: 1,
 	}
 
-	miner.Register(NewCpuAgent(truechain.SnailBlockChain(), engine))
+	miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 
 	go miner.SetFruitOnly(mineFruit)
