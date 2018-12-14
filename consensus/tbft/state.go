@@ -1556,6 +1556,8 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 					cs.enterNewRound(cs.Height, 0)
 				}
 			}
+		} else if precommits.HasAll() {
+			cs.enterNewRound(height, int(cs.Round+1))
 		} else if cs.Round <= vote.Round && precommits.HasTwoThirdsAny() {
 			cs.enterNewRound(height, int(vote.Round))
 			cs.enterPrecommit(height, int(vote.Round))
