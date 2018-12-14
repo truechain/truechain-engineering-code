@@ -25,9 +25,9 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
@@ -298,10 +298,10 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 	genLookupTable(tableLookup[:], table[:])
 }
 
-func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, []uint64) {
+func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, []uint64) {
 	log.Info("updateupTBL start ，", "blockNum is:	", blockNum)
-	const offset_cnst = 0x1f
-	const skip_cnst = 0x3
+	const offsetCnst = 0x1f
+	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
 
@@ -330,10 +330,10 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 			return false, nil
 		}
 		val := header.Hash().Bytes()
-		offset[i*4] = (int(val[0]) & offset_cnst) - 16
-		offset[i*4+1] = (int(val[1]) & offset_cnst) - 16
-		offset[i*4+2] = (int(val[2]) & offset_cnst) - 16
-		offset[i*4+3] = (int(val[3]) & offset_cnst) - 16
+		offset[i*4] = (int(val[0]) & offsetCnst) - 16
+		offset[i*4+1] = (int(val[1]) & offsetCnst) - 16
+		offset[i*4+2] = (int(val[2]) & offsetCnst) - 16
+		offset[i*4+3] = (int(val[3]) & offsetCnst) - 16
 	}
 
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
@@ -344,17 +344,17 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, 
 		}
 		val := header.Hash().Bytes()
 		for k := 0; k < 16; k++ {
-			skip[i*16+k] = (int(val[k]) & skip_cnst) + 1
+			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
 		}
 	}
 
-	ds := m.UpdateTBL(offset, skip, plookup_tbl)
+	ds := m.UpdateTBL(offset, skip, plookupTbl)
 
 	return true, ds
 }
 
 //UpdateTBL Update dataset information
-func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookup_tbl []uint64) []uint64 {
+func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []uint64) []uint64 {
 
 	lktWz := uint32(DATALENGTH / 64)
 	lktSz := uint32(DATALENGTH) * lktWz
@@ -373,11 +373,11 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 				if y >= 0 && y < SKIP_CYCLE_LEN {
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
-					plookup_tbl[plkt+vI] |= 1 << vR
+					plookupTbl[plkt+vI] |= 1 << vR
 				}
 			}
 			plkt += lktWz
 		}
 	}
-	return plookup_tbl
+	return plookupTbl
 }
