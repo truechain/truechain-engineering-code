@@ -25,11 +25,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 
-	"github.com/truechain/truechain-engineering-code/core/state"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
 
 	"errors"
 
@@ -520,16 +520,27 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 
 // DefaultDevGenesisBlock returns the Rinkeby network genesis block.
 func DefaultDevGenesisBlock() *Genesis {
-	genesis := Genesis{
-		Config:     params.AllMinervaProtocolChanges,
-		Timestamp:  1492009146,
-		ExtraData:  hexutil.MustDecode("0x52657370656374206d7920617574686f7269746168207e452e436172746d616e42eb768f2244c8811c63729a21a3569731535f067ffc57839b00206d1ad20c69a1981b489f772031b279182d99e65703f0076e4812653aab85fca0f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"),
-		GasLimit:   4700000,
-		Difficulty: big.NewInt(1),
-		Alloc:      types.DecodePrealloc(rinkebyAllocData),
-	}
+	return DefaultGenesisBlock()
+	/*i, _ := new(big.Int).SetString("90000000000000000000000", 10)
+	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"))
 
-	return &genesis
+	return &Genesis{
+		Config:     params.DevnetChainConfig,
+		Nonce:      0,
+		ExtraData:  nil,
+		GasLimit:   88080384,
+		Difficulty: big.NewInt(20000),
+		//Alloc:      decodePrealloc(mainnetAllocData),
+		Alloc: map[common.Address]types.GenesisAccount{
+			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
+			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
+			common.HexToAddress("0xbe7e39fa0645f6eaf501ad02318a7fda5c4df6c6"): {Balance: i},
+			common.HexToAddress("0xB824adf0Bad5E49bB214922F4499bD2cf08ef519"): {Balance: i},
+		},
+		Committee: []*types.CommitteeMember{
+			&types.CommitteeMember{Coinbase: common.HexToAddress("0x76ea2f3a002431fede1141b660dbb75c26ba6d97"), Publickey: key1},
+		},
+	}*/
 }
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
