@@ -2,13 +2,14 @@ package types
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	"math"
 	"sort"
 	"strings"
-
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ValidatorSet represent a set of *Validator at a given height.
@@ -176,7 +177,9 @@ func (valSet *ValidatorSet) Hash() []byte {
 // Add adds val to the validator set and returns true. It returns false if val
 // is already in the set.
 func (valSet *ValidatorSet) Add(val *Validator) (added bool) {
-	if val == nil {	return false }
+	if val == nil {
+		return false
+	}
 	val = val.Copy()
 	idx := sort.Search(len(valSet.Validators), func(i int) bool {
 		return bytes.Compare(val.Address, valSet.Validators[i].Address) <= 0
@@ -235,6 +238,13 @@ func (valSet *ValidatorSet) Remove(address []byte) (val *Validator, removed bool
 	valSet.Proposer = nil
 	valSet.totalVotingPower = 0
 	return removedVal, true
+}
+
+// RemoveForPK deletes the validator with address. It returns the validator removed
+// and true. If returns nil and false if validator is not present in the set.
+func (valSet *ValidatorSet) RemoveForPK(pk ecdsa.PublicKey) (val *Validator, removed bool) {
+	pkt:=crypto.PubKeyTrue(pk)
+	return valSet.Remove(pkt.Address())
 }
 
 // Iterate will run the given function over the set.

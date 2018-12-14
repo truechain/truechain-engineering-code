@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -1094,13 +1095,13 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		cs.eventBus.PublishEventRelock(cs.RoundStateEvent())
 		ksign, err := cs.validateBlock(cs.LockedBlock)
 		if err != nil {
-			log.Info("ValidateBlock faild will vote VoteAgreeAgainst","hash",common.ToHex(blockID.Hash),"err",err)
+			log.Info("ValidateBlock faild will vote VoteAgreeAgainst", "hash", common.ToHex(blockID.Hash), "err", err)
 		}
 		if ksign == nil {
 			cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{}, nil)
 		} else {
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
-		}	
+		}
 		return
 	}
 
@@ -1659,37 +1660,41 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 }
 func (cs *ConsensusState) swithResult(block *types.Block) {
 	sw := block.SwitchInfos()
-	if sw == nil ||  len(sw.Vals) < 2 {	return  }
-	aEnter,rEnter := sw.Vals[0],sw.Vals[1]	
+	if sw == nil || len(sw.Vals) < 2 {
+		return
+	}
+	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 	sv := cs.pickSwitchValidator(sw)
 	if sv == nil {
 		sv = &ttypes.SwitchValidator{
-			Infos:			sw,
-			Resion:			"",
-			From:			1,
+			Infos:  sw,
+			Resion: "",
+			From:   1,
 		}
 	} else {
 		sv.From = 1
 		sv.Resion = ""
 	}
-	
-	var add,remove *ttypes.Health
+
+	var add, remove *ttypes.Health
 	if aEnter.Flag == types.StateAddFlag {
 		add = cs.hm.GetHealth(aEnter.Pk)
 		if rEnter.Flag == types.StateRemovedFlag {
 			remove = cs.hm.GetHealth(rEnter.Pk)
 		}
 	} else if aEnter.Flag == types.StateRemovedFlag {
-		remove = cs.hm.GetHealth(aEnter.Pk) 
+		remove = cs.hm.GetHealth(aEnter.Pk)
 	}
-	if remove == nil { return }
+	if remove == nil {
+		return
+	}
 	// remove validator from validatorSet
 	if add != nil {
 		cs.Validators.Add(add.Val)
 	}
 	cs.Validators.Remove(remove.Val.Address)
 	// notify to healthMgr
-	
+
 	go func() {
 		select {
 		case cs.hm.Chan() <- sv:
@@ -1701,44 +1706,49 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	sw := block.SwitchInfos()
 	if sw != nil {
 		if len(sw.Vals) > 2 {
-			add,remove := sw.Vals[0],sw.Vals[1]
-			if (add.Flag == types.StateAddFlag && remove.Flag == types.StateRemovedFlag) || 
+			add, remove := sw.Vals[0], sw.Vals[1]
+			if (add.Flag == types.StateAddFlag && remove.Flag == types.StateRemovedFlag) ||
 				(add.Flag == types.StateRemovedFlag && remove.Flag == types.StateUsedFlag) {
-					if add.Flag == types.StateRemovedFlag {
-						remove = add
-						add = nil
-					}
-					err := cs.hm.VerifySwitch(remove,add)
-					if err == nil {
-						return true
-					}
-					log.Info("switchVerify","result",err)
+				if add.Flag == types.StateRemovedFlag {
+					remove = add
+					add = nil
+				}
+				err := cs.hm.VerifySwitch(remove, add)
+				if err == nil {
+					return true
+				}
+				log.Info("switchVerify", "result", err)
 			} else {
-				log.Info("switchVerify","Type Error,add",add,"remove",remove)
+				log.Info("switchVerify", "Type Error,add", add, "remove", remove)
 			}
 		}
 	}
 	return false
 }
 func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSign, error) {
-	if block == nil { return nil,errors.New("block is nil")}
+	if block == nil {
+		return nil, errors.New("block is nil")
+	}
 	res := cs.switchVerify(block)
-	return cs.state.ValidateBlock(block,res)
+	return cs.state.ValidateBlock(block, res)
 }
 func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.SwitchValidator {
-	if info == nil || len(info.Vals) < 2 { return nil }
-	aEnter,rEnter := info.Vals[0],info.Vals[1]
-	for i,v := range cs.svs {
+	if info == nil || len(info.Vals) < 2 {
+		return nil
+	}
+	aEnter, rEnter := info.Vals[0], info.Vals[1]
+	for i, v := range cs.svs {
 		if len(v.Infos.Vals) > 2 {
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk,v.Infos.Vals[0].Pk)) && (
-				rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk,v.Infos.Vals[1].Pk)) {
-					cs.svs = append(cs.svs[:i],cs.svs[i+1:]...)
-					return v
-				}
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (
+				rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+				cs.svs = append(cs.svs[:i], cs.svs[i+1:]...)
+				return v
+			}
 		}
 	}
 	return nil
 }
+
 // CompareHRS is compare msg'and peerSet's height round Step
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {
 	if h1 < h2 {
@@ -1757,4 +1767,22 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 		return 1
 	}
 	return 0
+}
+
+//UpdateValidatorSet committee change
+func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) {
+	//var mmRemove, mmNow []*types.CommitteeMember
+	allMember := append(info.Members, info.BackMembers...)
+	for _, v := range allMember {
+		if v.Flag == types.StateUsedFlag {
+			//mmNow = append(mmNow, v)
+			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
+			cs.GetRoundState().Validators.Add(vTemp)
+		}
+		if v.Flag == types.StateRemovedFlag {
+			//mmRemove =append(mmRemove,v)
+			cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
+		}
+	}
+
 }

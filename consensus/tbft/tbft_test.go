@@ -1040,7 +1040,7 @@ func TestPrivKey(t *testing.T) {
 	//d0c3b151031a8a90841dc18463d838cc8db29a10e7889b6991be0a3088702ca7
 	//c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95
 
-	priv1, _ := crypto.HexToECDSA("f05acdc37795769c2afc87c9dac7b22d45c2ae36038d0b70644eebd3aa03e31b")
+	priv1, _ := crypto.HexToECDSA("9177485bfecacf47d2f9f63a0c29cc0eae299c955283ce1fbb2060fee041c040")
 	tPriv1 := tcrypto.PrivKeyTrue(*priv1)
 	addr1 := tPriv1.PubKey().Address()
 	id1 := hex.EncodeToString(addr1[:])

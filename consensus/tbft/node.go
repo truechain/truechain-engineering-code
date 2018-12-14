@@ -125,6 +125,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 func (s *service) stop() error {
 	if s.sw.IsRunning() {
 		s.updateChan <- false
+		s.healthMgr.OnStop()
 		s.eventBus.Stop()
 	}
 	s.sw.Stop()
@@ -361,6 +362,8 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	}
 	store := ttypes.NewBlockStore()
 	service := newNodeService(n.config.P2P, n.config.Consensus, state, store, cid)
+	service.healthMgr.OnStart()
+	service.consensusState.SetHealthMgr(service.healthMgr)
 	nodeinfo := makeCommitteeMembers(id.Uint64(), service, committeeInfo)
 	if nodeinfo == nil {
 		service.stop()
@@ -398,14 +401,8 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 // UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	if service, ok := n.services[info.Id.Uint64()]; ok {
-		service.consensusState.Validators = MakeValidators(info)
-		nodeinfo := makeCommitteeMembers(info.Id.Uint64(), service, info)
-		if nodeinfo == nil {
-			service.stop()
-			return errors.New("make the nil CommitteeMembers")
-		}
-		service.setNodes(nodeinfo)
-		n.services[info.Id.Uint64()] = service
+		service.consensusState.UpdateValidatorSet(info)
+		service.healthMgr.UpdateFromCommittee(info.Members,info.BackMembers)
 		return nil
 	}
 	return errors.New("service not found")
