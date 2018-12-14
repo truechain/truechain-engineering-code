@@ -274,18 +274,27 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
+	log.Debug("peer Head ","pHead",pHead,"pTd",pTd,"td",td)
 	if pTd.Cmp(td) <= 0 {
-		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
+
 		header, err := pm.fdownloader.FetchHeight(peer.id,0);
 		if err != nil || header == nil {
 			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
 		}
 
-		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
+		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
+		log.Debug("aaaaaaa====","atomic.LoadUint32(&pm.fastSync)",atomic.LoadUint32(&pm.fastSync))
+		if atomic.LoadUint32(&pm.fastSync) == 1 {
+			currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+
+		}
+		log.Debug("Fast FetchHeight start ", "header", header.Number.Uint64() ,"currentBlockNumber",currentNumber)
+
+		if header.Number.Uint64() > currentNumber {
 
 			for {
-				fbNum := pm.blockchain.CurrentBlock().NumberU64()
+				fbNum := currentNumber
 				height := header.Number.Uint64() - fbNum
 
 				if height > 0 {
@@ -317,6 +326,11 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 			}
 
 		}
+
+		//if atomic.LoadUint32(&pm.fastSync) == 1 {
+		//	log.Info("Fast sync complete, auto disabling")
+		//	atomic.StoreUint32(&pm.fastSync, 0)
+		//}
 		return
 	}
 	// Otherwise try to sync with the downloader
@@ -359,10 +373,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
-	if atomic.LoadUint32(&pm.fastSync) == 1 {
-		log.Info("Fast sync complete, auto disabling")
-		atomic.StoreUint32(&pm.fastSync, 0)
-	}
+
 	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
 	atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 	//atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
