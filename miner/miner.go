@@ -44,7 +44,6 @@ type Backend interface {
 	TxPool() *core.TxPool
 	SnailPool() *snailchain.SnailPool
 	ChainDb() ethdb.Database
-	//Election() *etrue.Election
 }
 
 //CommitteeElection interface is Election module implementation committee interface
@@ -68,7 +67,7 @@ type Miner struct {
 
 	toElect    bool   // for elect
 	publickey  []byte // for publickey
-	FruitOnly  bool   // only for miner fruit
+	fruitOnly  bool   // only for miner fruit
 	singleNode bool   // for single node mode
 
 	coinbase  common.Address
@@ -94,7 +93,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		mux:        mux,
 		engine:     engine,
 		election:   election,
-		FruitOnly:  mineFruit, // set fruit only
+		fruitOnly:  mineFruit, // set fruit only
 		singleNode: singleNode,
 		electionCh: make(chan types.ElectionEvent, txChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
@@ -307,6 +306,6 @@ func (miner *Miner) SetElection(toElect bool, pubkey []byte) {
 
 // SetFruitOnly allow the mine only mined fruit
 func (miner *Miner) SetFruitOnly(FruitOnly bool) {
-	miner.FruitOnly = FruitOnly
+	miner.fruitOnly = FruitOnly
 	miner.worker.SetFruitOnly(FruitOnly)
 }
