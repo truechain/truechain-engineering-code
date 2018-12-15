@@ -517,6 +517,19 @@ OUTER_LOOP:
 func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 	prs *ttypes.PeerRoundState, ps *PeerState, peer p2p.Peer) {
 
+	if !prs.Proposal {
+		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
+		if blockMeta == nil {
+			log.Error("Failed to load block meta","Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
+			return
+		}
+		msg := &ProposalMessage{Proposal: blockMeta.Proposal}
+		log.Debug("Sending proposal", "height", prs.Height, "round", prs.Round)
+		if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
+			ps.SetHasProposal(blockMeta.Proposal)
+		}
+	}
+
 	if index, ok := prs.ProposalBlockParts.Not().PickRandom(); ok {
 		// Ensure that the peer's PartSetHeader is correct
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)

@@ -225,6 +225,7 @@ type ConsensusConfig struct {
 	TimeoutPrecommit      int `mapstructure:"timeout_precommit"`
 	TimeoutPrecommitDelta int `mapstructure:"timeout_precommit_delta"`
 	TimeoutCommit         int `mapstructure:"timeout_commit"`
+	TimeoutCatchup	  int `mapstructure:"timeout_consensus"`
 
 	// Make progress as soon as we have all the precommits (as if TimeoutCommit = 0)
 	SkipTimeoutCommit bool `mapstructure:"skip_timeout_commit"`
@@ -248,7 +249,8 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		TimeoutPrevoteDelta:         500,
 		TimeoutPrecommit:            3000,
 		TimeoutPrecommitDelta:       500,
-		TimeoutCommit:               500,
+		TimeoutCommit:               1000,
+		TimeoutCatchup:			 	 1000, 	
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
 		CreateEmptyBlocksInterval:   5000,
@@ -267,9 +269,11 @@ func TestConsensusConfig() *ConsensusConfig {
 	cfg.TimeoutPrecommit = 10
 	cfg.TimeoutPrecommitDelta = 1
 	cfg.TimeoutCommit = 10
+	cfg.TimeoutCatchup = 500
 	cfg.SkipTimeoutCommit = true
 	cfg.PeerGossipSleepDuration = 5
 	cfg.PeerQueryMaj23SleepDuration = 250
+	
 	return cfg
 }
 
@@ -302,7 +306,10 @@ func (cfg *ConsensusConfig) Precommit(round int) time.Duration {
 func (cfg *ConsensusConfig) Commit(t time.Time) time.Time {
 	return t.Add(time.Duration(cfg.TimeoutCommit) * time.Millisecond)
 }
-
+// CatchupTime catch up same consensus for peer
+func (cfg *ConsensusConfig) CatchupTime(t time.Time) time.Time {
+	return t.Add(time.Duration(cfg.TimeoutCatchup) * time.Millisecond)
+}
 // PeerGossipSleep returns the amount of time to sleep if there is nothing to send from the ConsensusReactor
 func (cfg *ConsensusConfig) PeerGossipSleep() time.Duration {
 	return time.Duration(cfg.PeerGossipSleepDuration) * time.Millisecond

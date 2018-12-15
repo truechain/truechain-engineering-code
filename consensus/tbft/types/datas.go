@@ -246,6 +246,7 @@ type BlockMeta struct {
 	BlockID    *BlockID
 	BlockPacks *PartSet
 	SeenCommit *Commit
+	Proposal   *Proposal
 }
 type BlockStore struct {
 	blocks map[uint64]*BlockMeta
@@ -302,7 +303,9 @@ func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
 	}
 	return nil
 }
-func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit) {
+
+//SaveBlock save block to blockStore
+func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit,proposal *Proposal) {
 	if len(b.blocks) >= MaxLimitBlockStore {
 		k := b.MinBlockHeight()
 		if k <= 0 {
@@ -316,6 +319,7 @@ func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCom
 			BlockPacks: blockParts,
 			SeenCommit: seenCommit,
 			BlockID:    &seenCommit.BlockID,
+			Proposal:	proposal,
 		}
 	}
 }
