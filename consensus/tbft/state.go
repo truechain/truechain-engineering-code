@@ -435,7 +435,7 @@ func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 		//  cs.StartTime = state.LastBlockTime.Add(timeoutCommit)
 		cs.StartTime = cs.config.Commit(time.Now())
 	} else {
-		if cs.Proposal != nil && cs.StartTime.After(cs.config.CatchupTime(time.Unix(cs.Proposal.Timestamp,0))) { 
+		if cs.Proposal != nil && cs.StartTime.After(cs.config.CatchupTime(time.Unix(cs.Proposal.Timestamp.Unix(),0))) {
 			cs.StartTime = time.Now()
 		} else {
 			cs.StartTime = cs.config.Commit(cs.CommitTime)
