@@ -359,13 +359,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 			return
 		}
 		if header, err := pm.fdownloader.FetchHeight(peer.id,0);err == nil{
-			stateSync := pm.fdownloader.SyncState(header.Root)
-			defer stateSync.Cancel()
-			go func() {
-				stateSync.Wait()
-				atomic.StoreUint32(&pm.syncLock, 0)
-				pm.syncWg.Broadcast()
-			}()
+			pm.downloader.SetHeader(header)
 		}
 	}
 
@@ -379,20 +373,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 
-
-
-
-	if atomic.LoadUint32(&pm.syncLock) == 1{
-		pm.syncWg.Wait()
-	}
-
-
-
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
-		if err := pm.blockchain.FastSyncCommitHead(pm.blockchain.CurrentFastBlock().Hash()); err != nil {
-			log.Debug("FastSyncCommitHead >>>> ","err",err)
-			return
-		}
+
 	}
 
 	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done

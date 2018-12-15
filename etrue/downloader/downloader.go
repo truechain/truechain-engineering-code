@@ -20,6 +20,7 @@ package downloader
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -108,6 +109,8 @@ type Downloader struct {
 	syncStatsChainOrigin uint64 // Origin block number where syncing started at
 	syncStatsChainHeight uint64 // Highest block number known when syncing started
 	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
+	syncStatsState       stateSyncStats
+
 
 	lightchain LightChain
 	blockchain BlockChain
@@ -127,6 +130,11 @@ type Downloader struct {
 	bodyWakeCh chan bool // [eth/62] Channel to signal the block body fetcher of new tasks
 	headerProcCh chan []*types.SnailHeader // [eth/62] Channel to feed the header processor new tasks
 
+	// for stateFetcher
+	stateSyncStart chan *stateSync
+	trackStateReq  chan *stateReq
+	stateCh        chan etrue.DataPack // [eth/63] Channel receiving inbound node state data
+
 	// Cancellation and termination
 	cancelPeer string         // Identifier of the peer currently being used as the master (cancel on drop)
 	cancelCh   chan struct{}  // Channel to cancel mid-flight syncs
@@ -142,6 +150,7 @@ type Downloader struct {
 	chainInsertHook func([]*etrue.FetchResult) // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
 	fastDown *fastdownloader.Downloader
+	remoteHeader *types.Header
 }
 
 // LightChain encapsulates functions required to synchronise a light chain.
@@ -214,11 +223,23 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		headerProcCh:   make(chan []*types.SnailHeader, 1),
 		quitCh:         make(chan struct{}),
 		fastDown:      fdown,
+		stateCh:        make(chan etrue.DataPack),
+		stateSyncStart: make(chan *stateSync),
+		syncStatsState: stateSyncStats{
+			processed: rawdb.ReadFastTrieProgress(stateDb),
+		},
+		trackStateReq: make(chan *stateReq),
+
 	}
 
 	go dl.qosTuner()
+	go dl.stateFetcher()
 	return dl
 
+}
+
+func (d *Downloader) SetHeader(remote *types.Header)  {
+	d.remoteHeader= remote
 }
 
 // Progress retrieves the synchronisation boundaries, specifically the origin
@@ -233,14 +254,14 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 	d.syncStatsLock.RLock()
 	defer d.syncStatsLock.RUnlock()
 
-	current := uint64(0)
-	current = d.blockchain.CurrentBlock().NumberU64()
+	current := d.blockchain.CurrentBlock().NumberU64()
 
 	return ethereum.SyncProgress{
 		StartingBlock: d.syncStatsChainOrigin,
 		CurrentBlock:  current,
 		HighestBlock:  d.syncStatsChainHeight,
-
+		PulledStates:  d.syncStatsState.processed,
+		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
 	}
 }
 
@@ -440,6 +461,9 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	pivot := uint64(0)
 
 	d.committed = 1
+	if d.mode == FastSync && pivot != 0 {
+		d.committed = 0
+	}
 
 	// Initiate the sync using a concurrent header and content retrieval algorithm
 	d.queue.Prepare(origin+1, d.mode)
@@ -1342,10 +1366,43 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 
 // processFullSyncContent takes fetch results from the queue and imports them into the chain.
 func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.Hash, td *big.Int,remoteHeader *types.SnailHeader) error {
+
+	var (
+		oldPivot *types.Block   // Locked in pivot block, might change eventually
+		stateSync *stateSync
+	)
+
+
+	if d.mode == FastSync {
+		stateSync = d.SyncState(d.remoteHeader.Root)
+		defer stateSync.Cancel()
+		go func() {
+			if err := stateSync.Wait(); err != nil && err != etrue.ErrCancelStateFetch {
+				d.queue.Close() // wake up Results
+			}
+		}()
+	}
+
+
 	for {
-		results := d.queue.Results(true)
-		if len(results) == 0 {
+
+		results := d.queue.Results(d.mode == FullSync || oldPivot == nil)
+
+		if d.mode == FullSync && len(results) == 0 {
 			return nil
+		}
+
+		if  d.mode == FastSync && len(results) == 0  {
+			// If pivot sync is done, stop
+			if oldPivot == nil {
+				return stateSync.Cancel()
+			}
+			// If sync failed, stop
+			select {
+			case <-d.cancelCh:
+				return stateSync.Cancel()
+			default:
+			}
 		}
 		if d.chainInsertHook != nil {
 			d.chainInsertHook(results)
@@ -1353,6 +1410,50 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 		if err := d.importBlockResults(results, p, hash, td,remoteHeader); err != nil {
 			return err
 		}
+
+
+		if d.mode == FastSync && remoteHeader.Number.Uint64() == results[len(results)-1].Sheader.Number.Uint64(){
+
+			fblock := d.fastDown.GetBlockChain().CurrentFastBlock()
+			log.Debug("fblock sync ","fblock",fblock)
+			if fblock != nil {
+				// If new pivot block found, cancel old state retrieval and restart
+				if oldPivot != fblock {
+					stateSync.Cancel()
+					stateSync = d.SyncState(fblock.Root())
+					defer stateSync.Cancel()
+					go func() {
+						if err := stateSync.Wait(); err != nil && err != etrue.ErrCancelStateFetch {
+							d.queue.Close() // wake up Results
+						}
+					}()
+					oldPivot = fblock
+				}
+				// Wait for completion, occasionally checking for pivot staleness
+				select {
+				case <-stateSync.done:
+					if stateSync.err != nil {
+						return stateSync.err
+					}
+					if err := d.fastDown.GetBlockChain().FastSyncCommitHead(fblock.Hash()); err != nil {
+						log.Debug("FastSyncCommitHead >>>> ","err",err)
+						return err
+					}
+					atomic.StoreInt32(&d.committed, 1)
+					oldPivot = nil
+
+				case <-time.After(time.Second):
+					continue
+				}
+
+
+
+		}
+
+
+		}
+
+
 	}
 }
 
@@ -1471,6 +1572,12 @@ func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock, signs
 func (d *Downloader) DeliverReceipts(id string, receipts [][]*types.Receipt) (err error) {
 	return d.deliver(id, nil, &receiptPack{id, receipts}, receiptInMeter, receiptDropMeter)
 }
+
+// DeliverNodeData injects a new batch of node state data received from a remote node.
+func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
+	return d.deliver(id, d.stateCh, &statePack{id, data}, stateInMeter, stateDropMeter)
+}
+
 
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {

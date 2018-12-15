@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package fastdownloader
+package downloader
 
 import (
 	"fmt"
@@ -66,7 +66,7 @@ func (d *Downloader) SyncState(root common.Hash) *stateSync {
 	case d.stateSyncStart <- s:
 	case <-d.quitCh:
 		s.err = etrue.ErrCancelStateFetch
-		//close(s.done)
+		close(s.done)
 	}
 	return s
 }
@@ -82,8 +82,8 @@ func (d *Downloader) stateFetcher() {
 			}
 		case <-d.stateCh:
 			// Ignore state responses while no sync is running.
-		//case <-d.quitCh:
-		//	return
+		case <-d.quitCh:
+			return
 		}
 	}
 }
@@ -256,7 +256,7 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 // finish.
 func (s *stateSync) run() {
 	s.err = s.loop()
-	//close(s.done)
+	close(s.done)
 }
 
 // Wait blocks until the sync is done or canceled.
