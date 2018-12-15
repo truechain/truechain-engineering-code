@@ -21,7 +21,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"math/big"
 	"sync"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -119,14 +119,14 @@ type Election struct {
 	engine consensus.Engine
 }
 
-// LightChain encapsulates functions required to synchronise a light chain.
+// SnailLightChain encapsulates functions required to synchronise a light chain.
 type SnailLightChain interface {
 
 	// CurrentHeader retrieves the head header from the local chain.
 	CurrentHeader() *types.SnailHeader
 }
 
-// BlockChain encapsulates functions required to sync a (full or fast) blockchain.
+// SnailBlockChain encapsulates functions required to sync a (full or fast) blockchain.
 type SnailBlockChain interface {
 	SnailLightChain
 
@@ -148,7 +148,8 @@ type Config interface {
 	GetNodeType() bool
 }
 
-func NewElction(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
+// NewElection create election processor and load genesis committee
+func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain, config Config) *Election {
 	// init
 	election := &Election{
 		fastchain:         fastBlockChain,
@@ -178,6 +179,7 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain
 	return election
 }
 
+// NewFakeElection create fake mode election only for testing
 func NewFakeElection() *Election {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
@@ -257,6 +259,7 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 	return nil
 }
 
+// IsCommitteeMember reports whether the provided public key is in committee
 func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
 	if len(members) == 0 {
 		log.Error("IsCommitteeMember method len(members)= 0")
@@ -270,6 +273,7 @@ func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey
 	return false
 }
 
+// VerifyPublicKey get the committee member by public key
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)
 	if members == nil {
@@ -283,6 +287,7 @@ func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*typ
 	return member, nil
 }
 
+// VerifySign lookup the pbft sign and return the committee member who signs it
 func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, error) {
 	pubkey, err := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 	if err != nil {
@@ -293,7 +298,7 @@ func (e *Election) VerifySign(sign *types.PbftSign) (*types.CommitteeMember, err
 	return member, err
 }
 
-//VerifySigns verify signatures of bft committee in batches
+// VerifySigns verify signatures of bft committee in batches
 func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMember, []error) {
 	members := make([]*types.CommitteeMember, len(signs))
 	errs := make([]error, len(signs))
@@ -310,33 +315,6 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 			members[i] = member
 		}
 	}
-	/*for i, sign := range signs {
-		hash := sign.HashWithNoSign()
-		pubkey, err := crypto.SigToPub(hash.Bytes(), sign.Sign)
-
-		if err != nil {
-			errs[i] = err
-			continue
-		}
-		address := crypto.PubkeyToAddress(*pubkey)
-
-		committee := e.GetCommittee(sign.FastHeight)
-		if committee == nil {
-			errs[i] = ErrCommittee
-			continue
-		}
-		for _, member := range committee {
-			committeeAddress := crypto.PubkeyToAddress(*member.Publickey)
-			if address != committeeAddress {
-				continue
-			}
-			members[i] = member
-			break
-		}
-		if members[i] == nil {
-			errs[i] = ErrInvalidMember
-		}
-	}*/
 
 	return members, errs
 }
@@ -526,6 +504,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	return committee.Members()
 }
 
+// GetComitteeById return committee info sepecified by Committee ID
 func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 	var members []*types.CommitteeMember
 
@@ -604,7 +583,7 @@ func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
-	var fruitsCount map[common.Address]uint64 = make(map[common.Address]uint64)
+	var fruitsCount  = make(map[common.Address]uint64)
 	var members []*candidateMember
 
 	var seed []byte
@@ -706,7 +685,7 @@ func (e *Election) getLastNumber(beginSnail, endSnail *big.Int) *big.Int {
 
 // elect is a lottery function that select committee members from candidates miners
 func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
-	var addrs map[common.Address]uint = make(map[common.Address]uint)
+	var addrs = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
 
 	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
@@ -775,6 +754,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	return committee
 }
 
+// Start load current committ and starts election processing
 func (e *Election) Start() error {
 	// get current committee info
 	fastHeadNumber := e.fastchain.CurrentBlock().Number()
@@ -821,7 +801,7 @@ func (e *Election) Start() error {
 	// send event to the subscripber
 	go func(e *Election) {
 
-		PrintCommittee(e.committee)
+		printCommittee(e.committee)
 		e.electionFeed.Send(types.ElectionEvent{
 			Option:           types.CommitteeSwitchover,
 			CommitteeID:      e.committee.id,
@@ -836,7 +816,7 @@ func (e *Election) Start() error {
 		})
 
 		if e.startSwitchover {
-			PrintCommittee(e.nextCommittee)
+			printCommittee(e.nextCommittee)
 			e.electionFeed.Send(types.ElectionEvent{
 				Option:           types.CommitteeOver,
 				CommitteeID:      e.committee.id,
@@ -877,7 +857,6 @@ func (e *Election) loop() {
 						snailStartNumber = new(big.Int).Set(common.Big1)
 					} else {
 						snailStartNumber = new(big.Int).Add(new(big.Int).Sub(snailEndNumber, params.ElectionPeriodNumber), common.Big1)
-						//snailStartNumber = new(big.Int).Sub(snailEndNumber, params.ElectionPeriodNumber)
 					}
 
 					lastFastNumber := e.getLastNumber(snailStartNumber, snailEndNumber)
@@ -893,7 +872,6 @@ func (e *Election) loop() {
 					})
 
 					// elect next committee
-
 					members := e.getElectionMembers(snailStartNumber, snailEndNumber)
 
 					log.Info("Election BFT committee election start..", "snail", se.Block.Number(), "endfast", e.committee.endFastNumber, "members", len(members))
@@ -919,7 +897,7 @@ func (e *Election) loop() {
 					e.mu.Unlock()
 
 					log.Info("Election switchover new committee", "id", e.nextCommittee.id, "startNumber", e.nextCommittee.beginFastNumber)
-					PrintCommittee(e.nextCommittee)
+					printCommittee(e.nextCommittee)
 
 					e.electionFeed.Send(types.ElectionEvent{
 						Option:           types.CommitteeSwitchover,
@@ -934,7 +912,6 @@ func (e *Election) loop() {
 			if ev.Block != nil {
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
-						//go func(e *Election) {
 						log.Info("Election stop committee..", "id", e.committee.id)
 						e.electionFeed.Send(types.ElectionEvent{
 							Option:           types.CommitteeStop,
@@ -959,7 +936,6 @@ func (e *Election) loop() {
 							CommitteeMembers: e.committee.Members(),
 							BeginFastNumber:  e.committee.beginFastNumber,
 						})
-						//}(e)
 					}
 				}
 			}
@@ -967,15 +943,17 @@ func (e *Election) loop() {
 	}
 }
 
+// SubscribeElectionEvent adds a channel to feed on committee change event
 func (e *Election) SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.Subscription {
 	return e.scope.Track(e.electionFeed.Subscribe(ch))
 }
 
+// SetEngine set election backend consesus
 func (e *Election) SetEngine(engine consensus.Engine) {
 	e.engine = engine
 }
 
-func PrintCommittee(c *committee) {
+func printCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
 	for _, member := range c.members {
 		key := crypto.FromECDSAPub(member.Publickey)

@@ -142,7 +142,7 @@ func TestGenesisCommittee(t *testing.T) {
 	nums := []int64{1, 2, 3, 168, 179, 180}
 	snail, fast := makeChain(180)
 	t.Logf("create snail chain %v", snail.CurrentBlock().Number())
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 
 	// Get Genesis Committee
 	for _, n := range nums {
@@ -155,7 +155,7 @@ func TestGenesisCommittee(t *testing.T) {
 
 func TestGetCommittee(t *testing.T) {
 	snail, fast := makeChain(540)
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
 	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
 
@@ -178,7 +178,7 @@ func TestGetCommittee(t *testing.T) {
 
 func TestCommitteeMembers(t *testing.T) {
 	snail, fast := makeChain(180)
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 	members := election.electCommittee(big.NewInt(1), big.NewInt(144))
 	if len(members) == 0 {
 		t.Errorf("Committee election get none member")
@@ -190,7 +190,7 @@ func TestCommitteeMembers(t *testing.T) {
 
 func TestCommittee2Members(t *testing.T) {
 	snail, fast := makeChain(360)
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 
 	end := new(big.Int).Mul(big.NewInt(2), params.ElectionPeriodNumber)
 	end.Sub(end, params.SnailConfirmInterval)
