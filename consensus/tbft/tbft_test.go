@@ -1129,3 +1129,59 @@ func TestPutNodes(t *testing.T) {
 
 	<-start
 }
+
+type Per struct {
+	Pa int
+}
+
+func TestBlockPartMessage_String(t *testing.T) {
+	a := make(chan int)
+	tMap := make(map[int]*Per)
+
+	tMap[1] = &Per{100}
+	tMap[2] = &Per{200}
+	var i int = 0
+	go func() {
+		for {
+			i++
+			tMap[1].Pa = i
+		}
+	}()
+	var j int = 0
+	go func() {
+		for {
+			j++
+			tMap[1].Pa = i
+		}
+	}()
+
+	go func() {
+		for {
+			//go func() {
+			for k, v := range tMap {
+				fmt.Println(k, v)
+			}
+			//}()
+		}
+	}()
+	go func() {
+		for {
+			//go func() {
+			for k, v := range tMap {
+				fmt.Println(k, v)
+			}
+			//}()
+		}
+	}()
+
+	go func() {
+		for {
+			//go func() {
+			for k, v := range tMap {
+				fmt.Println(k, v)
+			}
+			//}()
+		}
+	}()
+	<-a
+}

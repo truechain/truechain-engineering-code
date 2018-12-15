@@ -1,11 +1,10 @@
 package p2p
 
 import (
-	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
-	"github.com/ethereum/go-ethereum/log"
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"net"
@@ -211,7 +210,7 @@ func (sw *Switch) OnStart() error {
 	for _, reactor := range sw.reactors {
 		err := reactor.Start()
 		if err != nil {
-			return errors.New(fmt.Sprintf("err:%v failed to start %v", err, reactor))
+			return fmt.Errorf("err:%v failed to start %v", err, reactor)
 		}
 	}
 	// Start listeners
