@@ -1221,14 +1221,19 @@ func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 			return les.New(ctx, cfg)
 		})
 	} else {
-		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			fullNode, err := etrue.New(ctx, cfg)
-			if fullNode != nil && cfg.LightServ > 0 {
-				ls, _ := les.NewLesServer(fullNode, cfg)
-				fullNode.AddLesServer(ls)
-			}
-			return fullNode, err
-		})
+		if cfg.SyncMode == downloader.SnapShotSync {
+
+		} else {
+			err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+				fullNode, err := etrue.New(ctx, cfg)
+				if fullNode != nil && cfg.LightServ > 0 {
+					ls, _ := les.NewLesServer(fullNode, cfg)
+					fullNode.AddLesServer(ls)
+				}
+				return fullNode, err
+			})
+		}
+
 	}
 	if err != nil {
 		Fatalf("Failed to register the Truechain service: %v", err)
