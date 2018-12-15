@@ -12,6 +12,8 @@ import (
 	"errors"
 
 	"golang.org/x/crypto/pbkdf2"
+
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const maxInt = int(^uint(0) >> 1)
