@@ -233,6 +233,8 @@ func Key(password, salt []byte, N, r, p, keyLen int) ([]byte, error) {
 	}
 
 	xy := make([]uint32, 64*r)
+	log.Info("scryt key","N:",N,"r",r)
+	log.Info("scryt key","32*N*r:",32*N*r)
 	v := make([]uint32, 32*N*r)
 	b := pbkdf2.Key(password, salt, 1, p*128*r, sha256.New)
 
