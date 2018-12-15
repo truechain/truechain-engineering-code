@@ -987,8 +987,9 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
-	if f.getPendingBlock(hash) != nil {
-		return f.getPendingBlock(hash).block
+	inject := f.getPendingBlock(hash)
+	if inject != nil {
+		return inject.block
 	}
 	return nil
 }
