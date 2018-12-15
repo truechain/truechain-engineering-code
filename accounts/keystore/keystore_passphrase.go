@@ -41,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gpmgo/gopm/modules/log"
 	"github.com/pborman/uuid"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
@@ -327,6 +328,8 @@ func getKDFKey(cryptoJSON CryptoJSON, auth string) ([]byte, error) {
 		n := ensureInt(cryptoJSON.KDFParams["n"])
 		r := ensureInt(cryptoJSON.KDFParams["r"])
 		p := ensureInt(cryptoJSON.KDFParams["p"])
+		log.Info("scryt key", "n:", n, "r", r)
+		log.Info("scryt key", "32*n*r:", 32*n*r)
 		return scrypt.Key(authArray, salt, n, r, p, dkLen)
 
 	} else if cryptoJSON.KDF == "pbkdf2" {
