@@ -1034,13 +1034,10 @@ var lastWrite uint64
 // WriteBlockWithoutState writes only the block and its metadata to the database,
 // but does not write any state. This is used to construct competing side forks
 // up to the point where they exceed the canonical total difficulty.
-func (bc *BlockChain) WriteBlockWithoutState(block *types.Block, td *big.Int) (err error) {
+func (bc *BlockChain) WriteBlockWithoutState(block *types.Block) (err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	//if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
-	//	return err
-	//}
 	rawdb.WriteBlock(bc.db, block)
 
 	return nil
@@ -1354,7 +1351,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		switch status {
 		case CanonStatTy:
 			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(),
-				"uncles", len(block.Uncles()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
+				"sings", len(block.Signs()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"elapsed", common.PrettyDuration(time.Since(start)),
 				"root", block.Root())
 
@@ -1404,7 +1401,6 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 // switch over to the new chain if the TD exceeded the current chain.
 func (bc *BlockChain) insertSidechain(it *insertIterator) (int, []interface{}, []*types.Log, error) {
 	var (
-		externTd *big.Int
 		current  = bc.CurrentBlock().NumberU64()
 	)
 	// The first sidechain block error is already verified to be ErrPrunedAncestor.
@@ -1434,7 +1430,7 @@ func (bc *BlockChain) insertSidechain(it *insertIterator) (int, []interface{}, [
 
 		if !bc.HasBlock(block.Hash(), block.NumberU64()) {
 			start := time.Now()
-			if err := bc.WriteBlockWithoutState(block, externTd); err != nil {
+			if err := bc.WriteBlockWithoutState(block); err != nil {
 				return it.index, nil, nil, err
 			}
 			log.Debug("Inserted sidechain block", "number", block.Number(), "hash", block.Hash(),

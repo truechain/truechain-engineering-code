@@ -66,7 +66,7 @@ func (d *Downloader) SyncState(root common.Hash) *stateSync {
 	case d.stateSyncStart <- s:
 	case <-d.quitCh:
 		s.err = etrue.ErrCancelStateFetch
-		close(s.done)
+		//close(s.done)
 	}
 	return s
 }
@@ -82,8 +82,8 @@ func (d *Downloader) stateFetcher() {
 			}
 		case <-d.stateCh:
 			// Ignore state responses while no sync is running.
-		case <-d.quitCh:
-			return
+		//case <-d.quitCh:
+		//	return
 		}
 	}
 }
@@ -134,6 +134,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 
 		// Send the next finished request to the current sync:
 		case deliverReqCh <- deliverReq:
+			log.Debug("deliverReqCh ==== ","deliverReq",deliverReq.items[0])
 			// Shift out the first request, but also set the emptied slot to nil for GC
 			copy(finished, finished[1:])
 			finished[len(finished)-1] = nil
@@ -255,7 +256,7 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 // finish.
 func (s *stateSync) run() {
 	s.err = s.loop()
-	close(s.done)
+	//close(s.done)
 }
 
 // Wait blocks until the sync is done or canceled.

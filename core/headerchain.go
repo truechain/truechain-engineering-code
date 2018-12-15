@@ -110,14 +110,14 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 
 // GetBlockNumber retrieves the block number belonging to the given hash
 // from the cache or database
-func (fhc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
-	if cached, ok := fhc.numberCache.Get(hash); ok {
+func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
+	if cached, ok := hc.numberCache.Get(hash); ok {
 		number := cached.(uint64)
 		return &number
 	}
-	number := rawdb.ReadHeaderNumber(fhc.chainDb, hash)
+	number := rawdb.ReadHeaderNumber(hc.chainDb, hash)
 	if number != nil {
-		fhc.numberCache.Add(hash, *number)
+		hc.numberCache.Add(hash, *number)
 	}
 	return number
 }
@@ -201,6 +201,8 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	status = CanonStatTy
 
+
+	log.Debug("headerCache","hash",hash,"number",number)
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 

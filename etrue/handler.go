@@ -124,12 +124,18 @@ type ProtocolManager struct {
 	// and processing
 	wg         sync.WaitGroup
 	agentProxy AgentNetworkProxy
+
+	syncLock uint32
+	syncWg *sync.Cond
+	lock *sync.Mutex
+
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, snailchain *snailchain.SnailBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
+	lock := new(sync.Mutex)
 	manager := &ProtocolManager{
 		networkID:   networkID,
 		eventMux:    mux,
@@ -145,6 +151,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		fruitsyncCh: make(chan *fruitsync),
 		quitSync:    make(chan struct{}),
 		agentProxy:  agent,
+		syncWg:      sync.NewCond(lock),
+		lock:		 lock,
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later

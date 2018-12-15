@@ -264,6 +264,9 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
+
 	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
 		log.Debug("synchronise peer nil>>>")
@@ -348,18 +351,20 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		mode = downloader.FastSync
 	}
 
+
+	atomic.StoreUint32(&pm.syncLock, 1)
 	if mode == downloader.FastSync {
 		// Make sure the peer's total difficulty we are synchronizing is higher.
 		if pm.snailchain.GetTdByHash(pm.snailchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return
 		}
 		if header, err := pm.fdownloader.FetchHeight(peer.id,0);err == nil{
-
 			stateSync := pm.fdownloader.SyncState(header.Root)
-
 			defer stateSync.Cancel()
 			go func() {
 				stateSync.Wait()
+				atomic.StoreUint32(&pm.syncLock, 0)
+				pm.syncWg.Broadcast()
 			}()
 		}
 	}
@@ -373,6 +378,22 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
+
+
+
+
+	if atomic.LoadUint32(&pm.syncLock) == 1{
+		pm.syncWg.Wait()
+	}
+
+
+
+	if atomic.LoadUint32(&pm.fastSync) == 1 {
+		if err := pm.blockchain.FastSyncCommitHead(pm.blockchain.CurrentFastBlock().Hash()); err != nil {
+			log.Debug("FastSyncCommitHead >>>> ","err",err)
+			return
+		}
+	}
 
 	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
 	atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
