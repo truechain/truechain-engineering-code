@@ -181,6 +181,18 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		go func() { s.updateChan <- true }()
 	}
 }
+
+//pkToP2pID pk to p2p id
+func pkToP2pID(pk *ecdsa.PublicKey) p2p.ID {
+	publickey := crypto.FromECDSAPub(pk)
+	pub, err := crypto.UnmarshalPubkey(publickey)
+	if err != nil {
+		return ""
+	}
+	address := crypto.PubkeyToAddress(*pub)
+	return p2p.ID(hex.EncodeToString(address[:]))
+}
+
 func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -362,6 +374,21 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	}
 	store := ttypes.NewBlockStore()
 	service := newNodeService(n.config.P2P, n.config.Consensus, state, store, cid)
+
+	for _, v := range committeeInfo.Members {
+		id := pkToP2pID(v.Publickey)
+		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
+		health := ttypes.NewHealth(id, types.StateUsedFlag, val)
+		service.healthMgr.PutWorkHealth(health)
+	}
+
+	for _, v := range committeeInfo.BackMembers {
+		id := pkToP2pID(v.Publickey)
+		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
+		health := ttypes.NewHealth(id, types.StateUnusedFlag, val)
+		service.healthMgr.PutBackHealth(health)
+	}
+
 	service.healthMgr.OnStart()
 	service.consensusState.SetHealthMgr(service.healthMgr)
 	nodeinfo := makeCommitteeMembers(id.Uint64(), service, committeeInfo)
@@ -402,7 +429,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		service.consensusState.UpdateValidatorSet(info)
-		service.healthMgr.UpdateFromCommittee(info.Members,info.BackMembers)
+		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil
 	}
 	return errors.New("service not found")
