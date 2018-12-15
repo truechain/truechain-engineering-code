@@ -73,7 +73,7 @@ const (
 	//HealthOut peer time out
 	HealthOut = 60 * 10
 	//MixValidator min committee count
-	MixValidator = 4
+	MixValidator = 3
 )
 
 //Health struct
@@ -87,12 +87,10 @@ type Health struct {
 }
 
 //NewHealth new
-func NewHealth(id p2p.ID, ip string, port uint, val *Validator) *Health {
+func NewHealth(id p2p.ID, state int32, val *Validator) *Health {
 	return &Health{
 		ID:    id,
-		IP:    ip,
-		Port:  port,
-		State: ctypes.StateUsedFlag,
+		State: state,
 		Val:   val,
 		Tick:  0,
 	}
@@ -181,6 +179,16 @@ func (h *HealthMgr) OnStop() {
 	h.Stop()
 }
 
+//PutWorkHealth add a *health to work
+func (h *HealthMgr) PutWorkHealth(he *Health) {
+	h.Work[he.ID] = he
+}
+
+//PutBackHealth add a *health to back
+func (h *HealthMgr) PutBackHealth(he *Health) {
+	h.Back = append(h.Back, he)
+}
+
 //Switch send switch
 func (h *HealthMgr) Switch(s *SwitchValidator) {
 	if s == nil {
@@ -222,6 +230,7 @@ func (h *HealthMgr) work() {
 
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	val := atomic.LoadInt32(&v.Tick)
+	fmt.Println(v.ID, val, v.State, ctypes.StateUsedFlag, v.State == ctypes.StateUsedFlag)
 	cnt := h.getUsedValidCount()
 	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag {
 		back := h.pickUnuseValidator()
