@@ -1309,6 +1309,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
 
+	cs.swithResult(block)
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 
