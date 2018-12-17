@@ -214,7 +214,7 @@ var (
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
 		Name:  "syncmode",
-		Usage: `Blockchain sync mode ("fast", "full", or "light")`,
+		Usage: `Blockchain sync mode ("fast", "full", "light",or "snapshot")`,
 		Value: &defaultSyncMode,
 	}
 	GCModeFlag = cli.StringFlag{
@@ -1221,18 +1221,18 @@ func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 			return les.New(ctx, cfg)
 		})
 	} else {
-		if cfg.SyncMode == downloader.SnapShotSync {
+		//if cfg.SyncMode == downloader.SnapShotSync {
 
-		} else {
-			err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-				fullNode, err := etrue.New(ctx, cfg)
-				if fullNode != nil && cfg.LightServ > 0 {
-					ls, _ := les.NewLesServer(fullNode, cfg)
-					fullNode.AddLesServer(ls)
-				}
-				return fullNode, err
-			})
-		}
+		//} else {
+		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
+			fullNode, err := etrue.New(ctx, cfg)
+			if fullNode != nil && cfg.LightServ > 0 {
+				ls, _ := les.NewLesServer(fullNode, cfg)
+				fullNode.AddLesServer(ls)
+			}
+			return fullNode, err
+		})
+		//}
 
 	}
 	if err != nil {

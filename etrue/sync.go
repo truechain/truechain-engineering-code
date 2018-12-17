@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"math/big"
 )
@@ -38,7 +38,7 @@ const (
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize    = 100 * 1024
 	fruitsyncPackSize = 100 * 1024
-	maxheight		  = 600
+	maxheight         = 600
 )
 
 type txsync struct {
@@ -55,7 +55,7 @@ type fruitsync struct {
 func (pm *ProtocolManager) syncTransactions(p *peer) {
 	var txs types.Transactions
 	pending, _ := pm.txpool.Pending()
-	log.Debug("syncTransactions","len(pending)", len(pending))
+	log.Debug("syncTransactions", "len(pending)", len(pending))
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
@@ -249,9 +249,11 @@ func (pm *ProtocolManager) syncer() {
 			if pm.peers.Len() < minDesiredPeerCount {
 				break
 			}
+
 			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-forceSync.C:
+
 			// Force a sync even if not enough peers are present
 			go pm.synchronise(pm.peers.BestPeer())
 
@@ -277,22 +279,22 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
-	log.Debug("peer Head ","pHead",pHead,"pTd",pTd,"td",td)
+	log.Debug("peer Head ", "pHead", pHead, "pTd", pTd, "td", td)
 	if pTd.Cmp(td) <= 0 {
 
-		header, err := pm.fdownloader.FetchHeight(peer.id,0);
+		header, err := pm.fdownloader.FetchHeight(peer.id, 0)
 		if err != nil || header == nil {
 			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
 		}
 
 		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
-		log.Debug("aaaaaaa====","atomic.LoadUint32(&pm.fastSync)",atomic.LoadUint32(&pm.fastSync))
+		log.Debug("aaaaaaa====", "atomic.LoadUint32(&pm.fastSync)", atomic.LoadUint32(&pm.fastSync), "currentNumber", currentNumber)
 		if atomic.LoadUint32(&pm.fastSync) == 1 {
 			currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
 
 		}
-		log.Debug("Fast FetchHeight start ", "header", header.Number.Uint64() ,"currentBlockNumber",currentNumber)
+		log.Debug("Fast FetchHeight start ", "header", header.Number.Uint64(), "currentBlockNumber", currentNumber)
 
 		if header.Number.Uint64() > currentNumber {
 
@@ -351,19 +353,16 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		mode = downloader.FastSync
 	}
 
-
 	atomic.StoreUint32(&pm.syncLock, 1)
 	if mode == downloader.FastSync {
 		// Make sure the peer's total difficulty we are synchronizing is higher.
 		if pm.snailchain.GetTdByHash(pm.snailchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return
 		}
-		if header, err := pm.fdownloader.FetchHeight(peer.id,0);err == nil{
+		if header, err := pm.fdownloader.FetchHeight(peer.id, 0); err == nil {
 			pm.downloader.SetHeader(header)
 		}
 	}
-
-
 
 	//mode = downloader.FullSync
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
@@ -371,7 +370,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
 		return
 	}
-
 
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 
