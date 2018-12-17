@@ -120,12 +120,13 @@ type SwitchValidator struct {
 //HealthMgr struct
 type HealthMgr struct {
 	help.BaseService
-	Sum        int64
-	Work       map[p2p.ID]*Health
-	Back       []*Health
-	switchChan chan *SwitchValidator
-	healthTick *time.Ticker
-	cid        uint64
+	Sum        		int64
+	Work       		map[p2p.ID]*Health
+	Back       		[]*Health
+	switchChanTo 	chan *SwitchValidator
+	switchChanFrom 	chan *SwitchValidator
+	healthTick 		*time.Ticker
+	cid        		uint64
 }
 
 //NewHealthMgr func
@@ -133,7 +134,8 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
 		Work:       make(map[p2p.ID]*Health, 0),
 		Back:       make([]*Health, 0, 0),
-		switchChan: make(chan *SwitchValidator),
+		switchChanTo: 	make(chan *SwitchValidator),
+		switchChanFrom:	make(chan *SwitchValidator),
 		Sum:        0,
 		cid:        cid,
 		healthTick: nil,
@@ -157,9 +159,13 @@ func (h *HealthMgr) UpdataHealthInfo(id p2p.ID, ip string, port uint, pk []byte)
 	}
 }
 
-//Chan get switchChan
-func (h *HealthMgr) Chan() chan *SwitchValidator {
-	return h.switchChan
+//ChanFrom get switchChanTo for recv from state
+func (h *HealthMgr) ChanFrom() chan *SwitchValidator {
+	return h.switchChanFrom
+}
+//ChanTo get switchChanTo for send to state 
+func (h *HealthMgr) ChanTo() chan *SwitchValidator {
+	return h.switchChanTo
 }
 
 //OnStart mgr start
@@ -195,9 +201,9 @@ func (h *HealthMgr) Switch(s *SwitchValidator) {
 		return
 	}
 	select {
-	case h.switchChan <- s:
+	case h.ChanTo() <- s:
 	default:
-		log.Info("h.switchChan already close")
+		log.Info("h.switchChanTo already close")
 	}
 }
 func (h *HealthMgr) healthGoroutine() {
@@ -205,7 +211,7 @@ func (h *HealthMgr) healthGoroutine() {
 		select {
 		case <-h.healthTick.C:
 			h.work()
-		case s := <-h.switchChan:
+		case s := <-h.ChanFrom():
 			h.switchResult(s)
 		case <-h.Quit():
 			log.Info("healthMgr is quit")

@@ -571,7 +571,7 @@ func (cs *ConsensusState) receiveRoutine(maxSteps int) {
 			cs.handleTimeout(ti, rs)
 		case ti := <-cs.timeoutTask.Chan():
 			cs.handleTimeoutForTask(ti, rs)
-		case ms := <-cs.hm.Chan():
+		case ms := <-cs.hm.ChanTo():
 			cs.switchHandle(ms)
 		case <-cs.Quit():
 			onExit(cs)
@@ -1709,7 +1709,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 
 	go func() {
 		select {
-		case cs.hm.Chan() <- sv:
+		case cs.hm.ChanFrom() <- sv:
 		default:
 		}
 	}()
