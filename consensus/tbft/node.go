@@ -377,6 +377,10 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 
 	for _, v := range committeeInfo.Members {
 		id := pkToP2pID(v.Publickey)
+		//exclude self
+		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+			continue
+		}
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
 		health := ttypes.NewHealth(id, types.StateUsedFlag, val)
 		service.healthMgr.PutWorkHealth(health)

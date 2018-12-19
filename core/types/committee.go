@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	
+
 	// CommitteeStart start pbft consensus
 	CommitteeStart = iota
 	// CommitteeStop stop pbft consensus
@@ -192,7 +192,7 @@ const (
 
 type SwitchEnter struct {
 	Pk   []byte
-	Flag int32
+	Flag uint32
 }
 
 func (infos *SwitchInfos) Hash() common.Hash {

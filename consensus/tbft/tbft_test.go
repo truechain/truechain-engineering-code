@@ -61,12 +61,14 @@ func getIDForCache(agent string) *big.Int {
 func IDAdd(agent string) {
 	lock2.Lock()
 	defer lock2.Unlock()
-	IDCache[agent] = new(big.Int).Add(IDCache[agent], big.NewInt(1))
+	tmp := new(big.Int).Set(IDCache[agent])
+	IDCache[agent] = new(big.Int).Add(tmp, big.NewInt(1))
 }
 
 func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
+	fmt.Println(pap.Name, header.Number)
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	//time.Sleep(time.Second * 5)
@@ -74,7 +76,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.
 }
 
 func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
-	return getIDForCache(pap.Name)
+	return new(big.Int).Sub(getIDForCache(pap.Name), common.Big1)
 }
 
 func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
@@ -372,7 +374,7 @@ func TestPbftRunFor4(t *testing.T) {
 }
 
 func TestPbftRunForHealth(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -405,8 +407,8 @@ func TestPbftRunForHealth(t *testing.T) {
 	*config2 = *config.TestConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
-	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
-	p2p2.ListenAddress2 = "tcp://127.0.0.1:28894"
+	p2p2.ListenAddress1 = "tcp://127.0.0.1:28892"
+	p2p2.ListenAddress2 = "tcp://127.0.0.1:28893"
 	*config2.P2P = *p2p2
 
 	con2 := new(config.ConsensusConfig)
@@ -421,8 +423,8 @@ func TestPbftRunForHealth(t *testing.T) {
 	*config3 = *config.TestConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
-	p2p3.ListenAddress1 = "tcp://127.0.0.1:28895"
-	p2p3.ListenAddress2 = "tcp://127.0.0.1:28896"
+	p2p3.ListenAddress1 = "tcp://127.0.0.1:28894"
+	p2p3.ListenAddress2 = "tcp://127.0.0.1:28895"
 	*config3.P2P = *p2p3
 
 	con3 := new(config.ConsensusConfig)
@@ -437,8 +439,8 @@ func TestPbftRunForHealth(t *testing.T) {
 	*config4 = *config.TestConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
-	p2p4.ListenAddress1 = "tcp://127.0.0.1:28897"
-	p2p4.ExternalAddress = "tcp://127.0.0.1:28898"
+	p2p4.ListenAddress1 = "tcp://127.0.0.1:28896"
+	p2p4.ExternalAddress = "tcp://127.0.0.1:28897"
 	*config4.P2P = *p2p4
 
 	con4 := new(config.ConsensusConfig)
@@ -468,9 +470,9 @@ func TestPbftRunForHealth(t *testing.T) {
 
 	cn := make([]*types.CommitteeNode, 0)
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Port2: 28891, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Port2: 28894, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28895, Port2: 28896, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Port2: 28899, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28892, Port2: 28893, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28894, Port2: 28895, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28896, Port2: 28897, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
 
 	n1.PutCommittee(c1)
 	n1.PutNodes(common.Big1, cn)
@@ -488,9 +490,9 @@ func TestPbftRunForHealth(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
 
-	time.Sleep(time.Second * 20)
-
-	n4.Notify(c1.Id,Stop)
+	//time.Sleep(time.Second * 20)
+	//
+	//n4.Notify(c1.Id,Stop)
 
 	<-start
 }

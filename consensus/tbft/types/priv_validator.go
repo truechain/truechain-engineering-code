@@ -322,7 +322,7 @@ type StateAgent interface {
 	GetChainID() string
 	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
 	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error)
-	ValidateBlock(block *ctypes.Block,result bool) (*KeepBlockSign, error)
+	ValidateBlock(block *ctypes.Block, result bool) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
 	GetAddress() help.Address
@@ -422,7 +422,11 @@ func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*P
 //MakeBlock from agent FetchFastBlock
 func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
-	block, err := state.Agent.FetchFastBlock(committeeID,v.Infos)
+	var info *ctypes.SwitchInfos
+	if v != nil {
+		info = v.Infos
+	}
+	block, err := state.Agent.FetchFastBlock(committeeID, info)
 	if err != nil {
 		return nil, err
 	}
@@ -448,11 +452,11 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 }
 
 //ValidateBlock get a verify block if nil return new
-func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block,result bool) (*KeepBlockSign, error) {
+func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*KeepBlockSign, error) {
 	if block == nil {
 		return nil, errors.New("block not have")
 	}
-	sign, err := state.Agent.VerifyFastBlock(block,result)
+	sign, err := state.Agent.VerifyFastBlock(block, result)
 	if sign != nil {
 		return &KeepBlockSign{
 			Result: sign.Result,

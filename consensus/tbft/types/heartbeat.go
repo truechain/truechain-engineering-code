@@ -71,9 +71,9 @@ func (heartbeat *Heartbeat) String() string {
 
 const (
 	//HealthOut peer time out
-	HealthOut = 60 * 10
+	HealthOut = 60 //* 10
 	//MixValidator min committee count
-	MixValidator = 3
+	MixValidator = 2
 )
 
 //Health struct
@@ -120,25 +120,25 @@ type SwitchValidator struct {
 //HealthMgr struct
 type HealthMgr struct {
 	help.BaseService
-	Sum        		int64
-	Work       		map[p2p.ID]*Health
-	Back       		[]*Health
-	switchChanTo 	chan *SwitchValidator
-	switchChanFrom 	chan *SwitchValidator
-	healthTick 		*time.Ticker
-	cid        		uint64
+	Sum            int64
+	Work           map[p2p.ID]*Health
+	Back           []*Health
+	switchChanTo   chan *SwitchValidator
+	switchChanFrom chan *SwitchValidator
+	healthTick     *time.Ticker
+	cid            uint64
 }
 
 //NewHealthMgr func
 func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
-		Work:       make(map[p2p.ID]*Health, 0),
-		Back:       make([]*Health, 0, 0),
-		switchChanTo: 	make(chan *SwitchValidator),
-		switchChanFrom:	make(chan *SwitchValidator),
-		Sum:        0,
-		cid:        cid,
-		healthTick: nil,
+		Work:           make(map[p2p.ID]*Health, 0),
+		Back:           make([]*Health, 0, 0),
+		switchChanTo:   make(chan *SwitchValidator),
+		switchChanFrom: make(chan *SwitchValidator),
+		Sum:            0,
+		cid:            cid,
+		healthTick:     nil,
 	}
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
 	return h
@@ -163,7 +163,8 @@ func (h *HealthMgr) UpdataHealthInfo(id p2p.ID, ip string, port uint, pk []byte)
 func (h *HealthMgr) ChanFrom() chan *SwitchValidator {
 	return h.switchChanFrom
 }
-//ChanTo get switchChanTo for send to state 
+
+//ChanTo get switchChanTo for send to state
 func (h *HealthMgr) ChanTo() chan *SwitchValidator {
 	return h.switchChanTo
 }
@@ -261,7 +262,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		if !bytes.Equal(remove.Val.PubKey.Bytes(), v.Val.PubKey.Bytes()) && v.State == ctypes.StateUsedFlag {
 			vals = append(vals, &ctypes.SwitchEnter{
 				Pk:   v.Val.PubKey.Bytes(),
-				Flag: atomic.LoadInt32(&v.State),
+				Flag: uint32(atomic.LoadInt32(&v.State)),
 			})
 		}
 	}
@@ -269,7 +270,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		if !bytes.Equal(remove.Val.PubKey.Bytes(), v.Val.PubKey.Bytes()) && v.State == ctypes.StateUsedFlag {
 			vals = append(vals, &ctypes.SwitchEnter{
 				Pk:   v.Val.PubKey.Bytes(),
-				Flag: atomic.LoadInt32(&v.State),
+				Flag: uint32(atomic.LoadInt32(&v.State)),
 			})
 		}
 	}

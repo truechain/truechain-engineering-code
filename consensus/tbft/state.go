@@ -658,7 +658,7 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundState) {
-	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round,"cs.height",cs.Height)
+	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "cs.height", cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	// timeouts must be for current height, round, step
@@ -740,7 +740,7 @@ func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
 			ValidatorIndex:   uint(valIndex),
 		}
 		cs.privValidator.SignHeartbeat(chainID, heartbeat)
-		
+
 		ehb := &ttypes.EventDataProposalHeartbeat{heartbeat}
 		cs.eventBus.PublishEventProposalHeartbeat(*ehb)
 		cs.evsw.FireEvent(ttypes.EventProposalHeartbeat, heartbeat)
@@ -921,7 +921,7 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 		v = cs.svs[0]
 	}
 	block, err := cs.state.MakeBlock(v)
-	if block != nil && err != nil {
+	if block != nil && err == nil {
 		parts, err2 := cs.state.MakePartSet(ttypes.BlockPartSizeBytes, block)
 		return block, parts, err2
 	}
@@ -1122,10 +1122,10 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		}
 		if ksign != nil {
 			if ksign.Result == types.VoteAgree {
-			cs.LockedRound = uint(round)
-			cs.LockedBlock = cs.ProposalBlock
-			cs.LockedBlockParts = cs.ProposalBlockParts
-			}			
+				cs.LockedRound = uint(round)
+				cs.LockedBlock = cs.ProposalBlock
+				cs.LockedBlockParts = cs.ProposalBlockParts
+			}
 			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
 		} else {
@@ -1440,7 +1440,7 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 			if bytes.Equal(vote.ValidatorAddress, cs.privValidator.GetAddress()) {
 				log.Error("Found conflicting vote from ourselves. Did you unsafe_reset a validator?", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 				return err
-				}
+			}
 			log.Error("Found conflicting vote.", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 			return err
 		}
@@ -1604,7 +1604,6 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 	return
 }
 
-
 func (cs *ConsensusState) signVote(typeB byte, hash []byte, header ttypes.PartSetHeader) (*ttypes.Vote, error) {
 	addr := cs.privValidator.GetAddress()
 	valIndex, _ := cs.Validators.GetByAddress(addr)
@@ -1615,9 +1614,9 @@ func (cs *ConsensusState) signVote(typeB byte, hash []byte, header ttypes.PartSe
 		Round:            cs.Round,
 		Timestamp:        time.Now().UTC(),
 
-		Type:             typeB,
-		Result:           types.VoteAgree,
-		BlockID:          ttypes.BlockID{hash, header},
+		Type:    typeB,
+		Result:  types.VoteAgree,
+		BlockID: ttypes.BlockID{hash, header},
 	}
 	err := cs.privValidator.SignVote(cs.state.GetChainID(), vote)
 	return vote, err
@@ -1655,19 +1654,18 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 //---------------------------------------------------------
 func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 	if s != nil && s.From == 0 && len(s.Infos.Vals) > 2 {
-		aEnter,rEnter := s.Infos.Vals[0],s.Infos.Vals[1]
+		aEnter, rEnter := s.Infos.Vals[0], s.Infos.Vals[1]
 		exist := false
-		for _,v := range cs.svs {
+		for _, v := range cs.svs {
 			if len(v.Infos.Vals) > 2 {
-				if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk,v.Infos.Vals[0].Pk)) && (
-					rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk,v.Infos.Vals[1].Pk)) {
-						exist = true
-						break
-					}
+				if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+					exist = true
+					break
+				}
 			}
 		}
 		if !exist {
-			cs.svs = append(cs.svs,s)
+			cs.svs = append(cs.svs, s)
 		}
 	}
 }
@@ -1752,8 +1750,7 @@ func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.S
 	aEnter, rEnter := info.Vals[0], info.Vals[1]
 	for i, v := range cs.svs {
 		if len(v.Infos.Vals) > 2 {
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (
-				rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
 				cs.svs = append(cs.svs[:i], cs.svs[i+1:]...)
 				return v
 			}
