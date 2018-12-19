@@ -701,14 +701,13 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
-
 	return &snailBlockStats{
 		Number:      header.Number,
 		Hash:        header.Hash(),
 		ParentHash:  header.ParentHash,
 		Timestamp:   header.Time,
 		Miner:       author,
-		Diff:        header.Difficulty.String(),
+		Diff:        block.Difficulty().String(),
 		TotalDiff:   td.String(),
 		Uncles:      uncles,
 		FruitNumber: fruitNumber,
