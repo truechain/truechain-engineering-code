@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -38,11 +40,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snail"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -126,9 +126,8 @@ type ProtocolManager struct {
 	agentProxy AgentNetworkProxy
 
 	syncLock uint32
-	syncWg *sync.Cond
-	lock *sync.Mutex
-
+	syncWg   *sync.Cond
+	lock     *sync.Mutex
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
@@ -152,7 +151,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		agentProxy:  agent,
 		syncWg:      sync.NewCond(lock),
-		lock:		 lock,
+		lock:        lock,
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
@@ -408,13 +407,14 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		fastHead    = pm.blockchain.CurrentHeader()
 		fastHash    = fastHead.Hash()
 
-		genesis = pm.snailchain.Genesis()
-		head    = pm.snailchain.CurrentHeader()
-		hash    = head.Hash()
-		number  = head.Number.Uint64()
-		td      = pm.snailchain.GetTd(hash, number)
+		genesis    = pm.snailchain.Genesis()
+		head       = pm.snailchain.CurrentHeader()
+		hash       = head.Hash()
+		number     = head.Number.Uint64()
+		td         = pm.snailchain.GetTd(hash, number)
+		fastHeight = pm.blockchain.CurrentBlock().Number()
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastGenesis.Hash()); err != nil {
+	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastGenesis.Hash(), fastHeight); err != nil {
 		p.Log().Debug("Truechain handshake failed", "err", err)
 		return err
 	}
@@ -974,6 +974,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Assuming the block is importable by the peer, but possibly not yet done so,
 		// calculate the head hash and TD that the peer truly must have.
 
+		// Update the peers height if better than the previous
+		height := request.Block.Number()
+		if fastHeight := p.FastHeight(); height.Cmp(fastHeight) > 0 || fastHeight == nil {
+			p.SetFastHeight(height)
+		}
+
 		// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
 		// a singe block (as the true TD is below the propagated block), however this
 		// scenario should easily be covered by the fetcher.
@@ -1000,7 +1006,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkTransaction(tx.Hash())
 		}
-		log.Info("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
+		log.Info("receive TxMsg", "from peer's id", p.id, "len(txs)", len(txs))
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
@@ -1333,7 +1339,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
-			log.Debug("txBroadcastLoop","len(Txs)", len(event.Txs))
+			log.Debug("txBroadcastLoop", "len(Txs)", len(event.Txs))
 			pm.BroadcastTxs(event.Txs)
 
 			// Err() channel will be closed when unsubscribing.

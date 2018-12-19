@@ -24,11 +24,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
 	"gopkg.in/fatih/set.v0"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -107,10 +107,11 @@ type peer struct {
 
 	version int // Protocol version negotiated
 
-	head     common.Hash
-	fastHead common.Hash
-	td       *big.Int
-	lock     sync.RWMutex
+	head       common.Hash
+	fastHead   common.Hash
+	td         *big.Int
+	fastHeight *big.Int
+	lock       sync.RWMutex
 
 	knownTxs         *set.Set                       // Set of transaction hashes known to be known by this peer
 	knownSign        *set.Set                       // Set of sign  known to be known by this peer
@@ -248,6 +249,22 @@ func (p *peer) SetHead(hash common.Hash, td *big.Int) {
 	p.td.Set(td)
 }
 
+// FastHeight retrieves a copy of the current fast height of the peer.
+func (p *peer) FastHeight() (fastHeight *big.Int) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	return new(big.Int).Set(p.fastHeight)
+}
+
+// SetFastHeight updates the fast height of the peer.
+func (p *peer) SetFastHeight(fastHeight *big.Int) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	p.fastHeight.Set(fastHeight)
+}
+
 // MarkFastBlock marks a block as known for the peer, ensuring that the block will
 // never be propagated to this particular peer.
 func (p *peer) MarkFastBlock(hash common.Hash) {
@@ -314,7 +331,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
-	log.Debug("SendTransactions","txs.Len()",txs.Len(),"peer id:",p.id)
+	log.Debug("SendTransactions", "txs.Len()", txs.Len(), "peer id:", p.id)
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
@@ -580,7 +597,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 
 // Handshake executes the etrue protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
-func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastGenesis common.Hash) error {
+func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastGenesis common.Hash, fastHeight *big.Int) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 	var status statusData // safe to read after two values have been received from errc
@@ -594,6 +611,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 			GenesisBlock:     genesis,
 			CurrentFastBlock: fastHead,
 			GenesisFastBlock: fastGenesis,
+			FastHeight:       fastHeight,
 		})
 	}()
 	go func() {
@@ -611,7 +629,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 			return p2p.DiscReadTimeout
 		}
 	}
-	p.td, p.head = status.TD, status.CurrentBlock
+	p.td, p.head, p.fastHeight = status.TD, status.CurrentBlock, status.FastHeight
 	return nil
 }
 
