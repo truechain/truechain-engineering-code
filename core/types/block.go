@@ -228,7 +228,7 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		header: CopyHeader(header),
 		infos:	&SwitchInfos{},
 	}
-	b.header.CommitteeHash = rlpHash(b.infos)
+	
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
@@ -254,7 +254,7 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.infos.Vals = make([]*SwitchEnter, 0, len(infos.Vals))
 		copy(b.infos.Vals, infos.Vals)
 	}
-
+	b.header.CommitteeHash = rlpHash(b.infos)
 	return b
 }
 
