@@ -32,12 +32,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/les"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"golang.org/x/net/websocket"
@@ -57,12 +57,8 @@ const (
 	// chainFastHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 4096
 
-	chainFastHeadChanSize = 4096
-
-	fruitChanSize = 4096
-
 	// chainSnailHeadChanSize is the size of channel listening to ChainSnailHeadEvent.
-	chainSnailHeadChanSize = 10
+	chainSnailHeadChanSize = 128
 )
 
 type txPool interface {
@@ -705,14 +701,13 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 	}
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
-
 	return &snailBlockStats{
 		Number:      header.Number,
 		Hash:        header.Hash(),
 		ParentHash:  header.ParentHash,
 		Timestamp:   header.Time,
 		Miner:       author,
-		Diff:        header.Difficulty.String(),
+		Diff:        block.Difficulty().String(),
 		TotalDiff:   td.String(),
 		Uncles:      uncles,
 		FruitNumber: fruitNumber,

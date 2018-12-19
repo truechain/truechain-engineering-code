@@ -149,10 +149,10 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceLimit: 1,
 	PriceBump:  10,
 
-	AccountSlots: 16 * 20,
-	GlobalSlots:  4096 * 20,
-	AccountQueue: 64 * 20,
-	GlobalQueue:  1024 * 20,
+	AccountSlots: 16 * 5,
+	GlobalSlots:  4096 * 5,
+	AccountQueue: 64 * 5,
+	GlobalQueue:  1024 * 5,
 
 	Lifetime: 3 * time.Hour,
 }

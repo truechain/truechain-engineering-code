@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	cfg "github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	cfg "github.com/truechain/truechain-engineering-code/params"
 	// fail "github.com/ebuchman/fail-test"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -91,8 +91,8 @@ type ConsensusState struct {
 	peerMsgQueue     chan msgInfo
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
-	timeoutTask      TimeoutTicker
-	taskTimeOut      time.Duration
+	timeoutTask 	 TimeoutTicker
+	taskTimeOut 	 time.Duration
 	// we use eventBus to trigger msg broadcasts in the reactor,
 	// and to notify external subscribers, eg. through a websocket
 	eventBus *ttypes.EventBus
@@ -131,7 +131,7 @@ func NewConsensusState(
 		peerMsgQueue:     make(chan msgInfo, msgQueueSize),
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
 		timeoutTicker:    NewTimeoutTicker("TimeoutTicker"),
-		timeoutTask:      NewTimeoutTicker("TimeoutTask"),
+		timeoutTask:	  NewTimeoutTicker("TimeoutTask"),
 		done:             make(chan struct{}),
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
@@ -373,13 +373,10 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 func (cs *ConsensusState) UpdateStateForSync() {
 	log.Info("begin UpdateStateForSync", "height", cs.Height)
 	oldH := cs.Height
-	newH := cs.state.GetLastBlockHeight() + 1
-	if oldH == newH {
-		// cs.enterNewRound(newH,int(cs.Round+1))
-		// cs.newStep()
-	} else {
+	newH :=  cs.state.GetLastBlockHeight() + 1
+	if oldH != newH {
 		cs.updateToState(cs.state)
-		log.Info("Reset privValidator", "height", cs.Height)
+		log.Info("Reset privValidator","height",cs.Height)
 		cs.state.PrivReset()
 		sleepDuration := time.Duration(1) * time.Millisecond
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
@@ -434,29 +431,6 @@ func (cs *ConsensusState) reconstructLastCommit() {
 // The round becomes 0 and cs.Step becomes ttypes.RoundStepNewHeight.
 func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 	LastBlockHeight := state.GetLastBlockHeight()
-	// if int(cs.CommitRound) > -1 && 0 < cs.Height && cs.Height != LastBlockHeight {
-	// 	help.PanicSanity(fmt.Sprintf("updateToState() expected state height of %v but found %v",
-	// 		cs.Height, LastBlockHeight))
-	// }
-	// if !cs.state.IsEmpty() && cs.state.LastBlockHeight+1 != cs.Height {
-	// 	// This might happen when someone else is mutating cs.state.
-	// 	// Someone forgot to pass in state.Copy() somewhere?!
-	// 	help.PanicSanity(fmt.Sprintf("Inconsistent cs.state.LastBlockHeight+1 %v vs cs.Height %v",
-	// 		cs.state.LastBlockHeight+1, cs.Height))
-	// }
-
-	// If state isn't further out than cs.state, just ignore.
-	// This happens when SwitchToConsensus() is called in the reactor.
-	// We don't want to reset e.g. the Votes, but we still want to
-	// signal the new round step, because other services (eg. mempool)
-	// depend on having an up-to-date peer state!
-
-	// if !cs.state.IsEmpty() && (state.LastBlockHeight <= cs.state.LastBlockHeight) {
-	// 	log.Info("Ignoring updateToState()", "newHeight", state.LastBlockHeight+1, "oldHeight", cs.state.LastBlockHeight+1)
-	// 	cs.newStep()
-	// 	return
-	// }
-
 	// Reset fields based on state.
 	validators := state.GetValidator()
 	lastPrecommits := (*ttypes.VoteSet)(nil)
@@ -473,7 +447,7 @@ func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 	// RoundState fields
 	cs.updateHeight(height)
 	cs.updateRoundStep(0, ttypes.RoundStepNewHeight)
-	if cs.CommitTime.IsZero() {
+	if cs.CommitTime.IsZero() || cs.Proposal == nil {
 		// "Now" makes it easier to sync up dev nodes.
 		// We add timeoutCommit to allow transactions
 		// to be gathered for the first block.
@@ -481,7 +455,11 @@ func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 		//  cs.StartTime = state.LastBlockTime.Add(timeoutCommit)
 		cs.StartTime = cs.config.Commit(time.Now())
 	} else {
-		cs.StartTime = cs.config.Commit(cs.CommitTime)
+		if cs.Proposal != nil && cs.StartTime.After(cs.config.CatchupTime(time.Unix(cs.Proposal.Timestamp.Unix(),0))) {
+			cs.StartTime = time.Now()
+		} else {
+			cs.StartTime = cs.config.Commit(cs.CommitTime)
+		}
 	}
 
 	cs.Validators = validators
@@ -665,7 +643,6 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundSt
 	cs.UpdateStateForSync()
 	log.Info("Received task tock End")
 }
-
 //-----------------------------------------------------------------------------
 // State functions
 // Used internally by handleTimeout and handleMsg to make state transitions
@@ -1303,7 +1280,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(int(cs.CommitRound))
 		seenCommit := precommits.MakeCommit()
-		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
+		cs.blockStore.SaveBlock(block, blockParts, seenCommit,cs.Proposal)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
