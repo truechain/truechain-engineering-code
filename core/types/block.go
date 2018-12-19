@@ -224,8 +224,11 @@ type Block struct {
 // are ignored and set to values derived from the given txs
 // and receipts.
 func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign, infos *SwitchInfos) *Block {
-	b := &Block{header: CopyHeader(header)}
-
+	b := &Block{
+		header: CopyHeader(header),
+		infos:	&SwitchInfos{},
+	}
+	b.header.CommitteeHash = rlpHash(b.infos)
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
 		b.header.TxHash = EmptyRootHash
@@ -405,6 +408,7 @@ func (b *Block) SetSwitchInfo(info *SwitchInfos) {
 	b.infos.CID = info.CID
 	b.infos.Vals = make([]*SwitchEnter, 0, len(info.Vals))
 	b.infos.Vals = append(b.infos.Vals, info.Vals...)
+	b.header.CommitteeHash = rlpHash(b.infos)
 }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
@@ -420,7 +424,7 @@ func (b *Block) Size() common.StorageSize {
 }
 
 // WithSeal returns a new block with the data from b but the header replaced with
-// the sealed one.
+// the sealed one. fastchain not use
 func (b *Block) WithSeal(header *Header) *Block {
 	cpy := *header
 
@@ -437,7 +441,9 @@ func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles 
 		transactions: make([]*Transaction, len(transactions)),
 		signs:        make([]*PbftSign, len(signs)),
 		uncles:       make([]*Header, len(uncles)),
+		infos:		  &SwitchInfos{},
 	}
+	
 	copy(block.transactions, transactions)
 	copy(block.signs, signs)
 	if infos != nil {
@@ -445,6 +451,7 @@ func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles 
 		block.infos.Vals = make([]*SwitchEnter, 0, len(infos.Vals))
 		copy(block.infos.Vals, infos.Vals)
 	}
+	b.header.CommitteeHash = rlpHash(b.infos)
 
 	for i := range uncles {
 		block.uncles[i] = CopyHeader(uncles[i])
