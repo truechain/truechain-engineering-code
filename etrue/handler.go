@@ -773,7 +773,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0
 		if len(signs) > 0 {
-			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHash, "len(transactions)", len(transactions))
+			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHeight, "len(transactions)", len(transactions))
 		}
 		if filter {
 			transactions, signs = pm.fetcherFast.FilterBodies(p.id, transactions, signs, time.Now())
