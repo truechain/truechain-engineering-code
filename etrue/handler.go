@@ -970,23 +970,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		p.MarkFastBlock(request.Block.Hash())
 		pm.fetcherFast.Enqueue(p.id, request.Block)
 
-		// TODO: downloader sync func
 		// Assuming the block is importable by the peer, but possibly not yet done so,
-		// calculate the head hash and TD that the peer truly must have.
-
+		// calculate the head height that the peer truly must have.
+		height := new(big.Int).Sub(request.Block.Number(), common.Big1)
 		// Update the peers height if better than the previous
-		height := request.Block.Number()
-		if fastHeight := p.FastHeight(); height.Cmp(fastHeight) > 0 || fastHeight == nil {
+		if fastHeight := p.FastHeight(); height.Cmp(fastHeight) > 0 {
 			p.SetFastHeight(height)
-		}
 
-		// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-		// a singe block (as the true TD is below the propagated block), however this
-		// scenario should easily be covered by the fetcher.
-
-		currentBlock := pm.blockchain.CurrentBlock()
-		if request.Block.NumberU64()-currentBlock.NumberU64() > maxKnownFastBlocks {
-			go pm.synchronise(p)
+			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+			// a singe block (as the true TD is below the propagated block), however this
+			// scenario should easily be covered by the fetcher.
+			currentBlock := pm.blockchain.CurrentBlock()
+			if currentBlock.Number().Cmp(new(big.Int).Sub(height, common.Big256)) < 0 {
+				go pm.synchronise(p)
+			}
 		}
 
 	case msg.Code == TxMsg:
