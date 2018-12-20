@@ -240,13 +240,6 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.header.Bloom = CreateBloom(receipts)
 	}
 
-	if len(receipts) == 0 {
-		b.header.ReceiptHash = EmptyRootHash
-	} else {
-		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
-		b.header.Bloom = CreateBloom(receipts)
-	}
-
 	if len(signs) != 0 {
 		b.signs = make(PbftSigns, len(signs))
 		copy(b.signs, signs)
