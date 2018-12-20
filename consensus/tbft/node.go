@@ -432,7 +432,13 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 // UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	if service, ok := n.services[info.Id.Uint64()]; ok {
+		//update validator
 		service.consensusState.UpdateValidatorSet(info)
+		//update nodes
+		nodes :=makeCommitteeMembersForUpdateCommittee(info)
+		service.setNodes(nodes)
+		service.updateNodes()
+		//update health
 		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil
 	}
@@ -474,6 +480,27 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 	}
 	return tab
 }
+
+
+func makeCommitteeMembersForUpdateCommittee(cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
+	members := cmm.Members
+	if cmm.BackMembers != nil {
+		members = append(members, cmm.BackMembers...)
+	}
+	tab := make(map[p2p.ID]*nodeInfo)
+	for i, m := range members {
+		if m.Flag == types.StateUsedFlag {
+			tt := tcrypto.PubKeyTrue(*m.Publickey)
+			address := tt.Address()
+			id := p2p.ID(hex.EncodeToString(address))
+			tab[id] = nil
+			log.Info("CommitteeMembers", "index", i, "id", id)
+		}
+	}
+	return tab
+}
+
+
 
 //SetCommitteeStop is stop committeeID server
 func (n *Node) SetCommitteeStop(committeeID *big.Int, stop uint64) error {

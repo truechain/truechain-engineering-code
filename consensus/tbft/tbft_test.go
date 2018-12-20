@@ -144,7 +144,9 @@ func InitComm() {
 }
 
 func getPrivateKey(id int) *ecdsa.PrivateKey {
-	InitComm()
+	if len(comm) == 0 {
+		InitComm()
+	}
 	key, err := hex.DecodeString(string(comm[id]))
 	if err != nil {
 		fmt.Println(err)
@@ -388,7 +390,7 @@ func TestPbftRunForHealth(t *testing.T) {
 	agent4 := NewPbftAgent("Agent4")
 
 	config1 := new(config.TbftConfig)
-	*config1 = *config.TestConfig()
+	*config1 = *config.DefaultConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
 	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
@@ -404,7 +406,7 @@ func TestPbftRunForHealth(t *testing.T) {
 	n1.Start()
 
 	config2 := new(config.TbftConfig)
-	*config2 = *config.TestConfig()
+	*config2 = *config.DefaultConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
 	p2p2.ListenAddress1 = "tcp://127.0.0.1:28892"
@@ -420,7 +422,7 @@ func TestPbftRunForHealth(t *testing.T) {
 	n2.Start()
 
 	config3 := new(config.TbftConfig)
-	*config3 = *config.TestConfig()
+	*config3 = *config.DefaultConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
 	p2p3.ListenAddress1 = "tcp://127.0.0.1:28894"
@@ -436,7 +438,7 @@ func TestPbftRunForHealth(t *testing.T) {
 	n3.Start()
 
 	config4 := new(config.TbftConfig)
-	*config4 = *config.TestConfig()
+	*config4 = *config.DefaultConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
 	p2p4.ListenAddress1 = "tcp://127.0.0.1:28896"
@@ -455,16 +457,20 @@ func TestPbftRunForHealth(t *testing.T) {
 	c1.Id = big.NewInt(1)
 	m1 := new(types.CommitteeMember)
 	m1.Publickey = GetPub(pr1)
+	m1.Flag = types.StateUsedFlag
 	m1.Coinbase = common.Address{0}
 	m2 := new(types.CommitteeMember)
 	m2.Publickey = GetPub(pr2)
 	m2.Coinbase = common.Address{0}
+	m2.Flag = types.StateUsedFlag
 	m3 := new(types.CommitteeMember)
 	m3.Publickey = GetPub(pr3)
 	m3.Coinbase = common.Address{0}
+	m3.Flag = types.StateUsedFlag
 	m4 := new(types.CommitteeMember)
 	m4.Publickey = GetPub(pr4)
 	m4.Coinbase = common.Address{0}
+	m4.Flag = types.StateUsedFlag
 	c1.Members = append(c1.Members, m1, m2, m3, m4)
 	c1.StartHeight = common.Big0
 
@@ -490,9 +496,16 @@ func TestPbftRunForHealth(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
 
-	//time.Sleep(time.Second * 20)
-	//
-	//n4.Notify(c1.Id,Stop)
+	time.Sleep(time.Second * 20)
+
+	n4.Notify(c1.Id, Stop)
+	c1.Members[3].Flag = types.StateUnusedFlag
+	time.Sleep(70 * time.Second)
+
+	n1.UpdateCommittee(c1)
+	n2.UpdateCommittee(c1)
+	n3.UpdateCommittee(c1)
+	n4.UpdateCommittee(c1)
 
 	<-start
 }

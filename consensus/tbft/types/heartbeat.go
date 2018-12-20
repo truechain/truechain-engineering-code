@@ -224,14 +224,14 @@ func (h *HealthMgr) work() {
 	for _, v := range h.Work {
 		if v.State == ctypes.StateUsedFlag {
 			atomic.AddInt32(&v.Tick, 1)
+			h.checkSwitchValidator(v)
 		}
-		h.checkSwitchValidator(v)
 	}
 	for _, v := range h.Back {
 		if v.State == ctypes.StateUsedFlag {
 			atomic.AddInt32(&v.State, 1)
+			h.checkSwitchValidator(v)
 		}
-		h.checkSwitchValidator(v)
 	}
 }
 
