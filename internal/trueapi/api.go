@@ -26,23 +26,23 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
@@ -949,15 +949,14 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"receiptsRoot":     head.ReceiptHash,
 	}
 
-
 	formatSign := func(sign *types.PbftSign) (map[string]interface{}, error) {
 
 		signmap := map[string]interface{}{
-			"sign":hexutil.Bytes(sign.Sign),
-			"result":sign.Result,
+			"sign":   hexutil.Bytes(sign.Sign),
+			"result": sign.Result,
 		}
 
-		return signmap,nil
+		return signmap, nil
 	}
 
 	ss := b.Signs()
@@ -1020,6 +1019,7 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"number":          (*hexutil.Big)(head.Number),
 		"hash":            b.Hash(),
 		"parentHash":      head.ParentHash,
+		"fruitHash":       head.FruitsHash,
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
 		"sha3Uncles":      head.UncleHash,
@@ -1027,6 +1027,8 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
+		"pointerNumber":   head.PointerNumber,
+		"fastNumber":      head.FastNumber,
 		"size":            hexutil.Uint64(b.Size()),
 		"timestamp":       (*hexutil.Big)(head.Time),
 	}
@@ -1091,7 +1093,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 			}
 			pbftSigns[i] = signInfo
 		}
-		fields["signs"] = pbftSigns;
+		fields["signs"] = pbftSigns
 	} else {
 		fields["signs"] = len(signs)
 	}
