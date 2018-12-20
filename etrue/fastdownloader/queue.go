@@ -764,7 +764,15 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 		// TODO:
 		//if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
 		if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
-			return errInvalidBody
+			return errInvalidChain
+		}
+
+		for _ , sign := range signs[index]{
+			log.Debug("DeliverBodies>>>>","sign.FastHeight",sign.FastHeight,"header",header.Number,"sign.FastHash()",sign.FastHash,"header.Hash()",header.Hash())
+			if sign.FastHeight.Cmp(header.Number ) != 0 ||  sign.FastHash != header.Hash() {
+				log.Error("errInvalidBody>>>>>>>")
+				return errInvalidChain
+			}
 		}
 
 		result.Transactions = txLists[index]

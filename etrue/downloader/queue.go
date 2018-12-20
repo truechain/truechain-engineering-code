@@ -755,13 +755,11 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		// TODO:
-		//if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
-		//if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
-		//	return errInvalidBody
-		//}
+
+		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
+			return errInvalidChain
+		}
 		result.Fruits = fruitsLists[index]
-		//result.Uncles = uncleLists[index]
 		return nil
 	}
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)
