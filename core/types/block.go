@@ -257,22 +257,24 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 	b.header.CommitteeHash = rlpHash(b.infos)
 	return b
 }
-
+// SetLeaderSign keep the sign on the head for proposal
 func (b *Body) SetLeaderSign(sign *PbftSign) {
 	signP := *sign
 	b.Signs = []*PbftSign{}
 	b.Signs = append(b.Signs, &signP)
 }
-
+// GetLeaderSign get the sign for proposal
 func (b *Body) GetLeaderSign() *PbftSign {
 	if len(b.Signs) > 0 {
 		return b.Signs[0]
 	}
 	return nil
 }
+// GetSwitchInfo get info for shift committee
 func (b *Body) GetSwitchInfo() *SwitchInfos {
 	return b.Infos
 }
+// SetSwitchInfo set info for shift committee
 func (b *Body) SetSwitchInfo(infos *SwitchInfos) {
 	b.Infos = infos
 }
