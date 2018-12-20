@@ -433,9 +433,12 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
-		service.consensusState.UpdateValidatorSet(info)
+		stop := service.consensusState.UpdateValidatorSet(info)
+		if stop {
+			service.stop()
+		}
 		//update nodes
-		nodes :=makeCommitteeMembersForUpdateCommittee(info)
+		nodes := makeCommitteeMembersForUpdateCommittee(info)
 		service.setNodes(nodes)
 		service.updateNodes()
 		//update health
@@ -481,7 +484,6 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 	return tab
 }
 
-
 func makeCommitteeMembersForUpdateCommittee(cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
 	members := cmm.Members
 	if cmm.BackMembers != nil {
@@ -499,8 +501,6 @@ func makeCommitteeMembersForUpdateCommittee(cmm *types.CommitteeInfo) map[p2p.ID
 	}
 	return tab
 }
-
-
 
 //SetCommitteeStop is stop committeeID server
 func (n *Node) SetCommitteeStop(committeeID *big.Int, stop uint64) error {

@@ -1758,7 +1758,7 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 }
 
 //UpdateValidatorSet committee change
-func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) {
+func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfStop bool) {
 	//var mmRemove, mmNow []*types.CommitteeMember
 	allMember := append(info.Members, info.BackMembers...)
 	for _, v := range allMember {
@@ -1769,11 +1769,11 @@ func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) {
 		}
 		if v.Flag == types.StateUnusedFlag {
 			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
-				cs.OnStop()
+				selfStop = true
 			}
 			//mmRemove =append(mmRemove,v)
 			cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
 		}
 	}
-
+	return
 }

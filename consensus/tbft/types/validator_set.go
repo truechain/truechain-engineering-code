@@ -243,7 +243,7 @@ func (valSet *ValidatorSet) Remove(address []byte) (val *Validator, removed bool
 // RemoveForPK deletes the validator with address. It returns the validator removed
 // and true. If returns nil and false if validator is not present in the set.
 func (valSet *ValidatorSet) RemoveForPK(pk ecdsa.PublicKey) (val *Validator, removed bool) {
-	pkt:=crypto.PubKeyTrue(pk)
+	pkt := crypto.PubKeyTrue(pk)
 	return valSet.Remove(pkt.Address())
 }
 
