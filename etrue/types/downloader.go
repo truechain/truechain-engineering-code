@@ -17,6 +17,9 @@ var (
 	rttMinEstimate       = 2 * time.Second  // Minimum round-trip time to target for download requests
 	rttMaxEstimate       = 20 * time.Second // Maximum round-trip time to target for download requests
 	qosTuningPeers       = 5                // Number of peers to tune based on (best peers)
+	FsMinFullBlocks        = 16              // Number of blocks to retrieve fully even in fast sync
+
+
 	errNotRegistered     = errors.New("peer is not registered")
 	errAlreadyRegistered = errors.New("peer is already registered")
 	ErrCancelStateFetch        = errors.New("fast state data download canceled (requested)")

@@ -685,7 +685,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			headers []*types.Header
 		)
 
-		fheader := pm.blockchain.CurrentBlock().Header()
+		fheader := pm.blockchain.GetBlockByNumber(pm.snailchain.CurrentBlock().Fruits()[len(pm.snailchain.CurrentBlock().Fruits())-1].FastNumber().Uint64()).Header()
 		headers = append(headers, fheader)
 		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
 

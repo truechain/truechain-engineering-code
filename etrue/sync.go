@@ -309,7 +309,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					}
 					for {
 
-						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
+						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height,false)
 						if err != nil {
 							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 							return

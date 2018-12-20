@@ -67,7 +67,7 @@ var (
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderForceVerify    = 24              // Number of headers to verify before and after the pivot to accept it
 	fsHeaderContCheck      = 3 * time.Second // Time interval to check for header continuations during state download
-	fsMinFullBlocks        = 64              // Number of blocks to retrieve fully even in fast sync
+
 )
 
 var (
@@ -234,6 +234,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 func (d *Downloader) GetBlockChain() BlockChain {
 	return d.blockchain
 }
+
 
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
@@ -431,12 +432,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	d.syncStatsChainHeight = height
 	d.syncStatsLock.Unlock()
 
-	latest := &types.Header{}
-	if d.mode == FastSync {
-		if latest, err = d.fetchHeight(p.GetID(), origin+height); err != nil {
-			return err
-		}
-	}
 
 	// Ensure our origin point is below any fast sync pivot point
 	pivot := origin + height
@@ -473,7 +468,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	}
 
 	if d.mode == FastSync {
-		fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
+		fetchers = append(fetchers, d.processFastSyncContent )
 	} else if d.mode == FullSync {
 		fetchers = append(fetchers, d.processFullSyncContent)
 	}
@@ -1286,7 +1281,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 
 // processFastSyncContent takes fetch results from the queue and writes them to the
 // database. It also controls the synchronisation of state nodes of the pivot block.
-func (d *Downloader) processFastSyncContent(latest *types.Header) error {
+func (d *Downloader) processFastSyncContent() error {
+
+
 
 	// To cater for moving pivot points, track the pivot block and subsequently
 	// accumulated download results separately.
@@ -1295,7 +1292,6 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 		// block became stale, move the goalpost
 		results := d.queue.Results(true) // Block if we're not monitoring pivot staleness
 		if len(results) == 0 {
-
 			return nil
 		}
 		if d.chainInsertHook != nil {
@@ -1307,14 +1303,18 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 			return err
 		}
 
+
+
 	}
 }
+
 
 func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.FetchResult, before, after []*etrue.FetchResult) {
 	for _, result := range results {
 		num := result.Fheader.Number.Uint64()
 		switch {
-		case num < pivot:
+
+		case num < pivot || pivot ==0:
 			before = append(before, result)
 		case num == pivot:
 			p = result
@@ -1324,6 +1324,8 @@ func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.Fetc
 	}
 	return p, before, after
 }
+
+
 
 func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 	// Check for any early termination requests
