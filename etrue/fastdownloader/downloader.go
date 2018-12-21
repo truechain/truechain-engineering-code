@@ -1367,11 +1367,6 @@ func (d *Downloader) processFastSyncContent() error {
 			return err
 		}
 
-
-
-
-
-
 	}
 }
 
