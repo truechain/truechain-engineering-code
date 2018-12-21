@@ -26,11 +26,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/ethereum/go-ethereum/common/prque"
 )
 
 var (
@@ -314,8 +314,10 @@ func (q *queue) Schedule(headers []*types.SnailHeader, from uint64) []*types.Sna
 			continue
 		}
 		// Queue the header for content retrieval
+		//if q.mode != SnapShotSync {
 		q.blockTaskPool[hash] = header
 		q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
+		//}
 
 		if q.mode == FastSync {
 			q.receiptTaskPool[hash] = header
@@ -333,7 +335,6 @@ func (q *queue) Schedule(headers []*types.SnailHeader, from uint64) []*types.Sna
 func (q *queue) Results(block bool) []*etrue.FetchResult {
 	q.lock.Lock()
 	defer q.lock.Unlock()
-
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
 	log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail ", "nproc", nproc)
@@ -391,6 +392,7 @@ func (q *queue) countProcessableItems() int {
 			return i
 		}
 	}
+
 	return len(q.resultCache)
 }
 

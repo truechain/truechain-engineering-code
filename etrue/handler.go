@@ -28,6 +28,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -38,11 +40,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher"
 	"github.com/truechain/truechain-engineering-code/etrue/fetcher/snail"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -76,6 +76,7 @@ type ProtocolManager struct {
 	networkID uint64
 
 	fastSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	snapSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
 	acceptFruits uint32
 	//acceptSnailBlocks uint32
@@ -126,9 +127,8 @@ type ProtocolManager struct {
 	agentProxy AgentNetworkProxy
 
 	syncLock uint32
-	syncWg *sync.Cond
-	lock *sync.Mutex
-
+	syncWg   *sync.Cond
+	lock     *sync.Mutex
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
@@ -152,7 +152,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		quitSync:    make(chan struct{}),
 		agentProxy:  agent,
 		syncWg:      sync.NewCond(lock),
-		lock:		 lock,
+		lock:        lock,
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
@@ -164,6 +164,10 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	if mode == downloader.FastSync {
 		manager.fastSync = uint32(1)
+	}
+
+	if mode == downloader.SnapShotSync {
+		manager.snapSync = uint32(1)
 	}
 
 	// Initiate a sub-protocol for every implemented version we can handle
@@ -206,7 +210,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	// Construct the different synchronisation mechanisms
 	// TODO: support downloader func.
-
+	log.Info("---==--- mode ?", "mode is   :", mode)
 	fmode := fastdownloader.SyncMode(mode)
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
@@ -579,7 +583,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
-		log.Debug("SnailBlockHeadersMsg>>", "headers:", len(headers))
+		if len(headers) != 0 {
+			log.Debug("SnailBlockHeadersMsg>>", "headers:", len(headers), "headerNumber", headers[0].Number)
+		}
 		err := pm.downloader.DeliverHeaders(p.id, headers)
 		if err != nil {
 			log.Debug("Failed to deliver headers", "err", err)
@@ -1000,7 +1006,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkTransaction(tx.Hash())
 		}
-		log.Info("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
+		log.Info("receive TxMsg", "from peer's id", p.id, "len(txs)", len(txs))
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
@@ -1333,7 +1339,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
-			log.Debug("txBroadcastLoop","len(Txs)", len(event.Txs))
+			log.Debug("txBroadcastLoop", "len(Txs)", len(event.Txs))
 			pm.BroadcastTxs(event.Txs)
 
 			// Err() channel will be closed when unsubscribing.

@@ -26,11 +26,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/ethereum/go-ethereum/common/prque"
 )
 
 var (
@@ -315,13 +315,17 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 			continue
 		}
 		// Queue the header for content retrieval
-		q.blockTaskPool[hash] = header
-		q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
+		if q.mode != SnapShotSync {
+			q.blockTaskPool[hash] = header
+			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
+		}
 
 		if q.mode == FastSync {
 			q.receiptTaskPool[hash] = header
 			q.receiptTaskQueue.Push(header, -int64(header.Number.Uint64()))
 		}
+
+		//log.Info("---queue", "block test len", len(q.blockTaskPool), "recipt test len", len(q.receiptTaskPool))
 		inserts = append(inserts, header)
 		q.headerHead = hash
 		from++
@@ -504,7 +508,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		}
 		if q.resultCache[index] == nil {
 			components := 1
-			if q.mode == FastSync {
+			if q.mode == FastSync || q.mode == SnapShotSync {
 				components = 2
 			}
 			q.resultCache[index] = &etrue.FetchResult{
@@ -656,8 +660,7 @@ func (q *queue) expire(timeout time.Duration, pendPool map[string]*etrue.FetchRe
 			}
 			// Add the peer to the expiry report along the the number of failed requests
 			expiries[id] = len(request.Fheaders)
-			
-			
+
 			// Remove the expired requests from the pending pool
 			delete(pendPool, id)
 		}

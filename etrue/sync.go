@@ -338,6 +338,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		//}
 		return
 	}
+	//log.Info("----- mode is ","mode",downloader.SyncMode())
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
@@ -351,10 +352,15 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// however it's safe to reenable fast sync.
 		atomic.StoreUint32(&pm.fastSync, 1)
 		mode = downloader.FastSync
+
+	}
+
+	if atomic.LoadUint32(&pm.snapSync) == 1 {
+		mode = downloader.SnapShotSync
 	}
 
 	atomic.StoreUint32(&pm.syncLock, 1)
-	if mode == downloader.FastSync {
+	if mode == downloader.FastSync || mode == downloader.SnapShotSync {
 		// Make sure the peer's total difficulty we are synchronizing is higher.
 		if pm.snailchain.GetTdByHash(pm.snailchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return

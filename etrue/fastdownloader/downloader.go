@@ -206,6 +206,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		lightchain = chain
 	}
 
+	log.Info("fast down load mode is ", "mode is ", mode)
 	dl := &Downloader{
 		mode:          mode,
 		stateDB:       stateDb,
@@ -318,7 +319,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	//defer d.Terminate()
-
+	log.Info("-=-=--=-=-===========------- statr to Synchronise  fast  fast")
 	err := d.synchronise(id, head, td, mode, origin, height)
 
 	defer log.Info("fastDownloader Synchronise exit", "origin", origin, "height", height)
@@ -432,7 +433,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	d.syncStatsLock.Unlock()
 
 	latest := &types.Header{}
-	if d.mode == FastSync {
+	if d.mode == FastSync || d.mode == SnapShotSync {
 		if latest, err = d.fetchHeight(p.GetID(), origin+height); err != nil {
 			return err
 		}
@@ -452,7 +453,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	//}
 
 	d.committed = 1
-	if d.mode == FastSync && pivot != 0 {
+	if (d.mode == FastSync || d.mode == SnapShotSync) && pivot != 0 {
 		d.committed = 0
 	}
 	// Initiate the sync using a concurrent header and content retrieval algorithm
@@ -463,16 +464,25 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	height_i := int(height)
 
+	if d.mode == SnapShotSync {
+		log.Info("----------------------------------SnapShotSync ")
+	} else {
+		log.Info("----------------------------------other sync", "sync mode", d.mode)
+	}
+
 	fetchers := []func() error{func() error { return d.fetchHeaders(p, origin+1, height_i, pivot) }}
 	if d.mode == SnapShotSync {
+		log.Info("SnapShotSync ------------ not need receiptes, bodies")
 		fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
+		//fetchers = append(fetchers, func() error { return d.fetchBodies(origin + 1) })
+		//fetchers = append(fetchers, func() error { return d.fetchReceipts(origin + 1) })
 	} else {
 		fetchers = append(fetchers, func() error { return d.fetchBodies(origin + 1) })
 		fetchers = append(fetchers, func() error { return d.fetchReceipts(origin + 1) })
 		fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
 	}
 
-	if d.mode == FastSync {
+	if d.mode == FastSync || d.mode == SnapShotSync {
 		fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 	} else if d.mode == FullSync {
 		fetchers = append(fetchers, d.processFullSyncContent)
@@ -1070,6 +1080,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 	// Keep a count of uncertain headers to roll back
 	defer log.Debug("Fast processHeaders download terminated")
 
+	log.Info("processHead fast chain    processHeaders  ")
 	rollback := []*types.Header{}
 	defer func() {
 		if len(rollback) > 0 {
@@ -1169,7 +1180,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				chunk := headers[:limit]
 
 				// In case of header only syncing, validate the chunk immediately
-				if d.mode == FastSync || d.mode == LightSync {
+				if d.mode != FullSync {
 					// Collect the yet unknown headers to mark them as uncertain
 					unknown := make([]*types.Header, 0, len(headers))
 					for _, header := range chunk {
@@ -1182,6 +1193,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					//if chunk[len(chunk)-1].Number.Uint64()+uint64(fsHeaderForceVerify) > pivot {
 					//	frequency = 1
 					//}
+					log.Info("insertchain 0")
 					if n, err := d.lightchain.InsertHeaderChain(chunk, frequency); err != nil {
 						// If some headers were inserted, add them too to the rollback list
 						if n > 0 {
@@ -1190,6 +1202,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						log.Debug("Fast Invalid header encountered", "number", chunk[n].Number, "hash", chunk[n].Hash(), "err", err)
 						return errInvalidChain
 					}
+					log.Info("insertchain 1")
 					// All verifications passed, store newly found uncertain headers
 					rollback = append(rollback, unknown...)
 					if len(rollback) > fsHeaderSafetyNet {
@@ -1197,7 +1210,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					}
 				}
 				// Unless we're doing light chains, schedule the headers for associated content retrieval
-				if d.mode == FullSync || d.mode == FastSync {
+				if d.mode == FullSync || d.mode == FastSync || d.mode == SnapShotSync {
 					// If we've reached the allowed number of pending headers, stall a bit
 					for d.queue.PendingBlocks() >= maxQueuedHeaders || d.queue.PendingReceipts() >= maxQueuedHeaders {
 						select {
@@ -1216,7 +1229,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				headers = headers[limit:]
 				origin += uint64(limit)
 			}
-
+			log.Info("insertchain 2")
 			// Update the highest block number we know if a higher one is found.
 			d.syncStatsLock.Lock()
 			if d.syncStatsChainHeight < origin {
@@ -1231,6 +1244,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 				default:
 				}
 			}
+			log.Info("insertchain 3")
 		}
 	}
 }
@@ -1293,6 +1307,7 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	for {
 		// Wait for the next batch of downloaded data to be available, and if the pivot
 		// block became stale, move the goalpost
+		log.Info("fast processFastSyncContent")
 		results := d.queue.Results(true) // Block if we're not monitoring pivot staleness
 		if len(results) == 0 {
 
