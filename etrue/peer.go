@@ -607,11 +607,11 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 			ProtocolVersion:  uint32(p.version),
 			NetworkId:        network,
 			TD:               td,
+			FastHeight:       fastHeight,
 			CurrentBlock:     head,
 			GenesisBlock:     genesis,
 			CurrentFastBlock: fastHead,
 			GenesisFastBlock: fastGenesis,
-			FastHeight:       fastHeight,
 		})
 	}()
 	go func() {
