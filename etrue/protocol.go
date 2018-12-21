@@ -22,9 +22,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Constants to match up protocol versions and messages
@@ -79,7 +79,7 @@ const (
 type errCode int
 
 const (
-	ErrMsgTooLarge              = iota
+	ErrMsgTooLarge = iota
 	ErrDecode
 	ErrInvalidMsgCode
 	ErrProtocolVersionMismatch
@@ -156,6 +156,7 @@ type statusData struct {
 	ProtocolVersion  uint32
 	NetworkId        uint64
 	TD               *big.Int
+	FastHeight       *big.Int
 	CurrentBlock     common.Hash
 	GenesisBlock     common.Hash
 	CurrentFastBlock common.Hash

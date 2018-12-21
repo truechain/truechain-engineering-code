@@ -1114,7 +1114,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			chosen := header.Number.Uint64()
 
 			// If we exceeded out time allowance, flush an entire trie to disk
-			if bc.gcproc > bc.cacheConfig.TrieTimeLimit {
+			if bc.gcproc > bc.cacheConfig.TrieTimeLimit || header.Number.Int64() == blockDeleteHeight {
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
 				if chosen < lastWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
@@ -1156,14 +1156,11 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 
 	if bc.cacheConfig.Deleted {
-		if block.NumberU64() < blockDeleteHeight+blockDeleteLimite {
-			rawdb.WriteStateGcBR(bc.db, 0)
-		} else {
-			number := rawdb.ReadStateGcBR(bc.db)
-			if block.NumberU64() > number+blockDeleteHeight+blockDeleteLimite {
-				rawdb.WriteStateGcBR(bc.db, blockDeleteOnce)
-				go bc.stateGcBodyAndReceipt(number)
-			}
+		number := rawdb.ReadStateGcBR(bc.db)
+		level := number / blockDeleteHeight
+		if block.NumberU64() > number+blockDeleteHeight*(level+1)+blockDeleteLimite {
+			rawdb.WriteStateGcBR(bc.db, blockDeleteOnce)
+			go bc.stateGcBodyAndReceipt(number)
 		}
 	}
 
@@ -1401,7 +1398,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 // switch over to the new chain if the TD exceeded the current chain.
 func (bc *BlockChain) insertSidechain(it *insertIterator) (int, []interface{}, []*types.Log, error) {
 	var (
-		current  = bc.CurrentBlock().NumberU64()
+		current = bc.CurrentBlock().NumberU64()
 	)
 	// The first sidechain block error is already verified to be ErrPrunedAncestor.
 	// Since we don't import them here, we expect ErrUnknownAncestor for the remaining
@@ -1873,11 +1870,16 @@ func (bc *BlockChain) GetBlockNumber() uint64 {
 	return bc.CurrentBlock().NumberU64()
 
 }
+
 func (bc *BlockChain) stateGcBodyAndReceipt(gcNumber uint64) {
 	for i := uint64(0); i < blockDeleteOnce; i++ {
 		block := bc.GetBlockByNumber(gcNumber + i)
-		rawdb.DeleteBody(bc.db, block.Hash(), block.NumberU64())
-		rawdb.DeleteReceipts(bc.db, block.Hash(), block.NumberU64())
+		if bc.HasBlock(block.Hash(), block.NumberU64()) {
+			rawdb.DeleteBody(bc.db, block.Hash(), block.NumberU64())
+		}
+		if rawdb.HasReceipts(bc.db, block.Hash(), block.NumberU64()) {
+			rawdb.DeleteReceipts(bc.db, block.Hash(), block.NumberU64())
+		}
 		rawdb.WriteStateGcBR(bc.db, gcNumber+i)
 	}
 }

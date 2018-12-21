@@ -71,6 +71,17 @@ func (d *Downloader) SyncState(root common.Hash) *stateSync {
 	return s
 }
 
+func (d *Downloader) SyncStateFd(root common.Hash) etrue.StateSyncInter  {
+	s := newStateSync(d, root)
+	select {
+	case d.stateSyncStart <- s:
+	case <-d.quitCh:
+		s.err = etrue.ErrCancelStateFetch
+		close(s.done)
+	}
+	return s
+}
+
 // stateFetcher manages the active state sync and accepts requests
 // on its behalf.
 func (d *Downloader) stateFetcher() {
@@ -132,7 +143,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 		case <-s.done:
 			return nil
 
-		// Send the next finished request to the current sync:
+			// Send the next finished request to the current sync:
 		case deliverReqCh <- deliverReq:
 			log.Debug("deliverReqCh ==== ","deliverReq",deliverReq.items[0])
 			// Shift out the first request, but also set the emptied slot to nil for GC
@@ -140,7 +151,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			finished[len(finished)-1] = nil
 			finished = finished[:len(finished)-1]
 
-		// Handle incoming state packs:
+			// Handle incoming state packs:
 		case pack := <-d.stateCh:
 			// Discard any data not requested (or previously timed out)
 			req := active[pack.PeerId()]
@@ -169,7 +180,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			finished = append(finished, req)
 			delete(active, p.GetID())
 
-		// Handle timed-out requests:
+			// Handle timed-out requests:
 		case req := <-timeout:
 			// If the peer is already requesting something else, ignore the stale timeout.
 			// This can happen when the timeout and the delivery happens simultaneously,
@@ -181,7 +192,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			finished = append(finished, req)
 			delete(active, req.peer.GetID())
 
-		// Track outgoing state requests:
+			// Track outgoing state requests:
 		case req := <-d.trackStateReq:
 			// If an active request already exists for this peer, we have a problem. In
 			// theory the trie node schedule must never assign two requests to the same
@@ -257,6 +268,10 @@ func newStateSync(d *Downloader, root common.Hash) *stateSync {
 func (s *stateSync) run() {
 	s.err = s.loop()
 	close(s.done)
+}
+
+func NewStateSync()  {
+	
 }
 
 // Wait blocks until the sync is done or canceled.
@@ -485,4 +500,12 @@ func (s *stateSync) updateStats(written, duplicate, unexpected int, duration tim
 	if written > 0 {
 		rawdb.WriteFastTrieProgress(s.d.stateDB, s.d.syncStatsState.processed)
 	}
+}
+
+func (s *stateSync) Done() <- chan struct{} {
+	return s.done
+}
+
+func  (s *stateSync) Err() error  {
+	return s.err
 }

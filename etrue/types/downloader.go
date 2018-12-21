@@ -17,6 +17,9 @@ var (
 	rttMinEstimate       = 2 * time.Second  // Minimum round-trip time to target for download requests
 	rttMaxEstimate       = 20 * time.Second // Maximum round-trip time to target for download requests
 	qosTuningPeers       = 5                // Number of peers to tune based on (best peers)
+	FsMinFullBlocks        = uint64(16)              // Number of blocks to retrieve fully even in fast sync
+
+
 	errNotRegistered     = errors.New("peer is not registered")
 	errAlreadyRegistered = errors.New("peer is already registered")
 	ErrCancelStateFetch        = errors.New("fast state data download canceled (requested)")
@@ -385,3 +388,14 @@ type FetchResult struct {
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type PeerDropFn func(id string)
+
+
+
+type StateSyncInter interface {
+	Wait() error
+	Cancel() error
+	Done() <- chan struct{}
+	Err() error
+}
+
+
