@@ -183,7 +183,6 @@ type Fetcher struct {
 	queuedSign     map[common.Hash]*injectSingleSign // Set of already sign blocks (to dedupe imports)
 	signMultiHash  map[uint64][]common.Hash          //solve same height more sign question
 	blockConsensus map[uint64][]common.Hash          // Per peer sign counts to prevent many times insert block
-	enterQueue     bool
 
 	// Callbacks
 	getBlock           blockRetrievalFn   // Retrieves a block from the local chain
@@ -237,7 +236,6 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		sendBlockHash:      make(map[uint64][]common.Hash),
 		signMultiHash:      make(map[uint64][]common.Hash),
 		blockConsensus:     make(map[uint64][]common.Hash),
-		enterQueue:         true,
 		agentFetcher:       agentFetcher,
 		broadcastSigns:     broadcastSigns,
 		blockMutex:         new(sync.Mutex),
@@ -293,7 +291,7 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 	}
 }
 
-// EnqueueSigns tries to fill gaps the the fetcher's future import queueSign.
+// EnqueueSign tries to fill gaps the the fetcher's future import queueSign.
 func (f *Fetcher) EnqueueSign(peer string, signs []*types.PbftSign) error {
 	op := &injectSign{
 		origin: peer,
@@ -381,7 +379,7 @@ func (f *Fetcher) loop() {
 		finished := false
 		index := -1
 		// Import any queued blocks that could potentially fit
-		for !f.queue.Empty() && f.enterQueue {
+		for !f.queue.Empty() {
 
 			height := f.chainHeight()
 			opMulti := f.queue.PopItem().(*injectMulti)
@@ -517,12 +515,10 @@ func (f *Fetcher) loop() {
 		case op := <-f.inject:
 			// A direct block insertion was requested, try and fill any pending gaps
 			propBroadcastInMeter.Mark(1)
-			f.enterQueue = false
 			f.enqueue(op.origin, op.block)
 
 		case op := <-f.injectSign:
 			// A direct block insertion was requested, try and fill any pending gaps
-			f.enterQueue = false
 			f.enqueueSign(op.origin, op.signs)
 
 		case blockSign := <-f.doneBlockSign:
@@ -711,7 +707,6 @@ func (f *Fetcher) loop() {
 								// mecMark
 								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], nil, nil)
 								block.ReceivedAt = task.time
-								block.AppendSign(announce.sign)
 
 								blocks = append(blocks, block)
 							} else {
@@ -840,7 +835,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			} else {
 				// Run the import on a new thread
 				log.Debug("Discarded sign, pending insert", "peer", peer, "number", number, "dos count", f.queuesSign[peer], "hash", hash)
-				f.enterQueue = true
 			}
 		}
 
@@ -853,7 +847,6 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 		if verifyCommitteesReachedTwoThirds(committeeNumber, int32(len(f.signMultiHash[number]))) {
 			if ok, signHashs := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
 				propSignInMeter.Mark(1)
-				f.enterQueue = true
 				f.blockConsensus[number] = append(f.blockConsensus[number], signHashs...)
 				log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash)
 			}
@@ -910,7 +903,6 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			opMulti.blocks = append(opMulti.blocks, opOld.block)
 		}
 
-		f.enterQueue = true
 		f.queue.Push(opMulti, -float32(block.NumberU64()))
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
@@ -1011,8 +1003,9 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
-	if f.getPendingBlock(hash) != nil {
-		return f.getPendingBlock(hash).block
+	inject := f.getPendingBlock(hash)
+	if inject != nil {
+		return inject.block
 	}
 	return nil
 }
@@ -1022,9 +1015,9 @@ func (f *Fetcher) getPendingBlock(hash common.Hash) *inject {
 	defer f.blockMutex.Unlock()
 	if _, ok := f.queued[hash]; !ok {
 		return nil
-	} else {
-		return f.queued[hash]
 	}
+
+	return f.queued[hash]
 }
 
 func (f *Fetcher) setPendingBlock(hash common.Hash, op *inject) {
@@ -1164,7 +1157,7 @@ func verifyCommitteesReachedTwoThirds(committeeNumber int32, number int32) bool 
 	value := int32(committeeNumber*2/3) + 1
 	if number >= value {
 		return true
-	} else {
-		return false
 	}
+
+	return false
 }
