@@ -1347,7 +1347,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		blockWriteTimer.Update(t3.Sub(t2))
 		switch status {
 		case CanonStatTy:
-			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(),
+			log.Debug("Inserted new fast block", "number", block.Number(), "hash", block.Hash(),
 				"sings", len(block.Signs()), "txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"elapsed", common.PrettyDuration(time.Since(start)),
 				"root", block.Root())

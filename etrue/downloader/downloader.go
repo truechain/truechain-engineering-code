@@ -242,10 +242,6 @@ func (d *Downloader) SetHeader(remote *types.Header)  {
 	d.remoteHeader= remote
 }
 
-func (d *Downloader) GetSnailSyncMode() SyncMode {
-	return d.mode
-}
-
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
 // or header sync is currently at; and the latest known block which the sync targets.
@@ -465,7 +461,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	pivot := uint64(0)
 
 	d.committed = 1
-	if (d.mode == FastSync || d.mode == SnapShotSync) && pivot != 0 {
+	if d.mode == FastSync && pivot != 0 {
 		d.committed = 0
 	}
 
@@ -685,7 +681,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 
 	}
 	from, count, skip, max := calculateRequestSpan(remoteHeight, localHeight)
-	log.Info("---------------------------- 11")
+
 	p.GetLog().Trace("Span searching for common ancestor", "count", count, "from", from, "skip", skip)
 	go p.GetPeer().RequestHeadersByNumber(uint64(from), count, skip, false,false)
 
@@ -768,7 +764,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 
 		ttl := d.requestTTL()
 		timeout := time.After(ttl)
-		log.Info("---------------------------- 22")
+
 		go p.GetPeer().RequestHeadersByNumber(check, 1, 0, false, false)
 
 		// Wait until a reply arrives to this request
@@ -871,7 +867,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, pivot uin
 			return errCancelHeaderFetch
 
 		case packet := <-d.headerCh:
-			log.Info("---------------------------- 33")
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Received skeleton from incorrect peer", "peer", packet.PeerId())
@@ -1022,9 +1017,6 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.SnailHead
 		capacity = func(p etrue.PeerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
 		setIdle  = func(p etrue.PeerConnection, accepted int) { p.SetHeadersIdle(accepted) }
 	)
-
-	log.Info("-----------5555")
-
 	err := d.fetchParts(errCancelHeaderFetch, d.headerCh, deliver, d.queue.headerContCh, expire,
 		d.queue.PendingHeaders, d.queue.InFlightHeaders, throttle, reserve,
 		nil, fetch, d.queue.CancelHeaders, capacity, d.peers.HeaderIdlePeers, setIdle, "headers")
@@ -1380,14 +1372,8 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 		stateSync *stateSync
 	)
 
-<<<<<<< HEAD
-	log.Info("d mode    snail processFullSyncContent ", "dmode", d.mode)
-
-	if d.mode == FastSync || d.mode == SnapShotSync {
-=======
 
 	if d.mode == FastSync {
->>>>>>> c379e5aa05e4fe7d4639e058677f295887789430
 		stateSync = d.SyncState(d.remoteHeader.Root)
 		defer stateSync.Cancel()
 		go func() {
@@ -1399,18 +1385,14 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 
 	for {
-		log.Info("1")
+
 		results := d.queue.Results(d.mode == FullSync || oldPivot == nil)
 
 		if d.mode == FullSync && len(results) == 0 {
 			return nil
 		}
-<<<<<<< HEAD
-		if (d.mode == FastSync || d.mode == SnapShotSync) && len(results) == 0 {
-=======
 
 		if  d.mode == FastSync && len(results) == 0  {
->>>>>>> c379e5aa05e4fe7d4639e058677f295887789430
 			// If pivot sync is done, stop
 			if oldPivot == nil {
 				return stateSync.Cancel()
@@ -1427,53 +1409,6 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 		}
 		if err := d.importBlockResults(results, p, hash, td,remoteHeader); err != nil {
 			return err
-		}
-
-<<<<<<< HEAD
-		log.Info("snail process --------------- end importBlock Result")
-		if (d.mode == FastSync || d.mode == SnapShotSync) && remoteHeader.Number.Uint64() == results[len(results)-1].Sheader.Number.Uint64() {
-=======
-
-		if d.mode == FastSync && remoteHeader.Number.Uint64() == results[len(results)-1].Sheader.Number.Uint64(){
->>>>>>> c379e5aa05e4fe7d4639e058677f295887789430
-
-			fblock := d.fastDown.GetBlockChain().CurrentFastBlock()
-			log.Debug("fblock sync ","fblock",fblock)
-			if fblock != nil {
-				// If new pivot block found, cancel old state retrieval and restart
-				if oldPivot != fblock {
-					stateSync.Cancel()
-					stateSync = d.SyncState(fblock.Root())
-					defer stateSync.Cancel()
-					go func() {
-						if err := stateSync.Wait(); err != nil && err != etrue.ErrCancelStateFetch {
-							d.queue.Close() // wake up Results
-						}
-					}()
-					oldPivot = fblock
-				}
-				// Wait for completion, occasionally checking for pivot staleness
-				select {
-				case <-stateSync.done:
-					if stateSync.err != nil {
-						return stateSync.err
-					}
-					if err := d.fastDown.GetBlockChain().FastSyncCommitHead(fblock.Hash()); err != nil {
-						log.Debug("FastSyncCommitHead >>>> ","err",err)
-						return err
-					}
-					atomic.StoreInt32(&d.committed, 1)
-					oldPivot = nil
-
-				case <-time.After(time.Second):
-					continue
-				}
-
-
-
-			}
-
-
 		}
 
 
@@ -1518,9 +1453,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			height := fruitLen
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
 			currentNum := d.fastDown.GetBlockChain().GetBlockNumber()
-			if d.mode == SnapShotSync {
-				currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
-			}
 
 			if fbNumLast < fbNum || fbNumLast-fbNum != height-1 || fbNum < 1 {
 				return errFruits
@@ -1537,7 +1469,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				if height > 0 {
 					for {
 						mode := d.mode
-						log.Info("----------------------------------------d mode", "dmode", d.mode)
 						//if remoteHeader.Number.Uint64() == result.Sheader.Number.Uint64(){
 						//	mode = FullSync
 						//}
@@ -1550,14 +1481,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 							return errs
 						}
 
-						if d.mode == SnapShotSync {
-
-							currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
-						} else {
-							currentNum = d.fastDown.GetBlockChain().GetBlockNumber()
-						}
-						log.Info("--------fast current NUM", "num", currentNum)
-
+						currentNum = d.fastDown.GetBlockChain().GetBlockNumber()
 						if fbNumLast > currentNum {
 							log.Debug("fastDownloader while", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
 

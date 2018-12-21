@@ -77,6 +77,7 @@ type ProtocolManager struct {
 
 	fastSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	snapSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+
 	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
 	acceptFruits uint32
 	//acceptSnailBlocks uint32
