@@ -288,7 +288,7 @@ func (cs *ConsensusState) Wait() {
 // If the queue is full, the function may block.
 // TODO: should these return anything or let callers just use events?
 
-// AddVote inputs a vote.
+// AddVote inputs a vote. not used
 func (cs *ConsensusState) AddVote(vote *ttypes.Vote, peerID string) (added bool, err error) {
 	if peerID == "" {
 		cs.internalMsgQueue <- msgInfo{&VoteMessage{vote}, ""}
@@ -298,7 +298,7 @@ func (cs *ConsensusState) AddVote(vote *ttypes.Vote, peerID string) (added bool,
 	return false, nil
 }
 
-// SetProposal inputs a proposal.
+// SetProposal inputs a proposal. not used
 func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) error {
 
 	if peerID == "" {
@@ -311,7 +311,7 @@ func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) 
 	return nil
 }
 
-// AddProposalBlockPart inputs a part of the proposal block.
+// AddProposalBlockPart inputs a part of the proposal block. not used
 func (cs *ConsensusState) AddProposalBlockPart(height uint64, round uint, part *ttypes.Part, peerID string) error {
 
 	if peerID == "" {
@@ -324,7 +324,7 @@ func (cs *ConsensusState) AddProposalBlockPart(height uint64, round uint, part *
 	return nil
 }
 
-// SetProposalAndBlock inputs the proposal and all block parts.
+// SetProposalAndBlock inputs the proposal and all block parts. not used
 func (cs *ConsensusState) SetProposalAndBlock(proposal *ttypes.Proposal, block *types.Block, parts *ttypes.PartSet, peerID string) error {
 	if err := cs.SetProposal(proposal, peerID); err != nil {
 		return err
@@ -1767,7 +1767,7 @@ func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfSto
 			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
 			cs.GetRoundState().Validators.Add(vTemp)
 		}
-		if v.Flag == types.StateUnusedFlag {
+		if v.Flag == types.StateRemovedFlag {
 			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
 				selfStop = true
 			}

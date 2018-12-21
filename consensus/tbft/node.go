@@ -177,7 +177,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
-	if update {
+	if update && s.consensusState.Validators.HasAddress(s.consensusState.state.GetAddress()) {
 		go func() { s.updateChan <- true }()
 	}
 }
@@ -197,7 +197,8 @@ func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
-		if v != nil && !v.Enable {
+		address, err := hex.DecodeString(string(v.ID))
+		if v != nil && !v.Enable && err == nil && s.consensusState.Validators.HasAddress(address){
 			s.connTo(v)
 		}
 	}
@@ -438,9 +439,9 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 			service.stop()
 		}
 		//update nodes
-		nodes := makeCommitteeMembersForUpdateCommittee(info)
-		service.setNodes(nodes)
-		service.updateNodes()
+		//nodes := makeCommitteeMembersForUpdateCommittee(info)
+		//service.setNodes(nodes)
+		go func() { service.updateChan <- true }()
 		//update health
 		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil

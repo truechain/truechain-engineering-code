@@ -371,6 +371,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
 
+
 	<-start
 }
 

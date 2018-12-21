@@ -191,7 +191,8 @@ func TestPbftRunForHealth(t *testing.T) {
 	time.Sleep(time.Second * 20)
 
 	n4.Notify(c1.Id, Stop)
-	c1.Members[3].Flag = types.StateUnusedFlag
+	c1.Members[3].Flag = types.StateRemovedFlag
+
 	time.Sleep(70 * time.Second)
 
 	n4.PutCommittee(c1)
