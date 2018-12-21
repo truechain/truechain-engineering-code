@@ -96,6 +96,11 @@ var (
 	errPeerNil                 = errors.New("peer is nil")
 )
 
+type SDownloader interface {
+	SyncState(root common.Hash) *etrue.StateSync
+}
+
+
 type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
@@ -147,7 +152,12 @@ type Downloader struct {
 	bodyFetchHook    func([]*types.Header)      // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.Header)      // Method to call upon starting a receipt fetch
 	chainInsertHook  func([]*etrue.FetchResult) // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
+
+	remoteHeader *types.Header
+	StateSync *etrue.StateSync
+	sDownloader SDownloader
 }
+
 
 // LightChain encapsulates functions required to synchronise a light chain.
 type LightChain interface {
@@ -235,6 +245,17 @@ func (d *Downloader) GetBlockChain() BlockChain {
 	return d.blockchain
 }
 
+func (d *Downloader) SetHeader(remote *types.Header) {
+	d.remoteHeader = remote
+}
+
+func (d *Downloader) SetSync(StateSync *etrue.StateSync)  {
+	d.StateSync=StateSync
+}
+
+func (d *Downloader) SetSD(Sdownloader SDownloader)  {
+	d.sDownloader=Sdownloader
+}
 
 // Progress retrieves the synchronisation boundaries, specifically the origin
 // block where synchronisation started at (may have failed/suspended); the block
@@ -1283,7 +1304,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 // database. It also controls the synchronisation of state nodes of the pivot block.
 func (d *Downloader) processFastSyncContent() error {
 
-
+	pivot := d.remoteHeader.Number.Uint64()
 
 	// To cater for moving pivot points, track the pivot block and subsequently
 	// accumulated download results separately.
@@ -1298,10 +1319,52 @@ func (d *Downloader) processFastSyncContent() error {
 			d.chainInsertHook(results)
 		}
 		// Split around the pivot block and process the two sides via fast/full sync
+		P, beforeP, afterP := splitAroundPivot(pivot,results)
 
-		if err := d.commitFastSyncData(results); err != nil {
+
+		if err := d.commitFastSyncData(beforeP); err != nil {
 			return err
 		}
+
+
+		if P != nil {
+			// If new pivot block found, cancel old state retrieval and restart
+
+			d.StateSync.Cancel()
+
+			stateSync := d.sDownloader.SyncState(P.Fheader.Root)
+			defer stateSync.Cancel()
+			go func() {
+				if err := stateSync.Wait(); err != nil && err != etrue.ErrCancelStateFetch {
+					d.queue.Close() // wake up Results
+				}
+			}()
+			// Wait for completion, occasionally checking for pivot staleness
+			select {
+
+			case <-stateSync.Done:
+				if stateSync.Err != nil {
+					return stateSync.Err
+				}
+				if err := d.blockchain.FastSyncCommitHead(P.Fheader.Hash()); err != nil {
+					log.Debug("FastSyncCommitHead >>>> ", "err", err)
+					return err
+				}
+				atomic.StoreInt32(&d.committed, 1)
+
+			case <-time.After(time.Second):
+				continue
+			}
+
+		}
+
+		// Fast sync done, pivot commit done, full import
+		if err := d.importBlockResults(afterP); err != nil {
+			return err
+		}
+
+
+
 
 
 
