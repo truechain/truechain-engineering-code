@@ -395,7 +395,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.Committ
 		log.Crit("Failed to RLP encode block committee", "err", err)
 	}
 
-	key := headerCommitteeKey(number)
+	key := committeeKey(number)
 	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store block committee", "err", err)
 	}
@@ -403,9 +403,8 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.Committ
 }
 
 // ReadCommittee read committee
-//
 func ReadCommittee(db DatabaseReader, number uint64) []*types.CommitteeMember {
-	key := headerCommitteeKey(number)
+	key := committeeKey(number)
 	data, _ := db.Get(key)
 	if len(data) == 0 {
 		return nil
@@ -429,7 +428,16 @@ func ReadCommittee(db DatabaseReader, number uint64) []*types.CommitteeMember {
 	return committee
 }
 
-// ReadCommittee read the Genesis committee
+// ReadGenesisCommittee read the Genesis committee
 func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
 	return ReadCommittee(db, 0)
+}
+
+// ReadCommitteeState returns the all committee members states flag sepecified with fastblock height
+func ReadCommitteeState(db DatabaseReader, number uint64, height uint64) []int32 {
+	return nil
+}
+
+// WriteCommitteeState store the all committee members sepecified with fastblock height
+func WriteCommitteeState(db DatabaseReader, number uint64, height uint64, infos []int32) {
 }

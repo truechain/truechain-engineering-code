@@ -21,14 +21,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	// "github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	// "github.com/truechain/truechain-engineering-code/etrue"
-	// "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/params"
 )

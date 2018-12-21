@@ -45,7 +45,9 @@ var (
 	headerTDSuffix        = []byte("st") // headerPrefix + num (uint64 big endian) + hash + headerTDSuffix -> td
 	headerHashSuffix      = []byte("sn") // headerPrefix + num (uint64 big endian) + headerHashSuffix -> hash
 	headerNumberPrefix    = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
-	headerCommitteeSuffix = []byte("sC") // num (uint64 big endian) + headerCommitteeSuffix -> committee
+
+	committeePrefix = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
+	committeeStateSuffix = []byte("s") // committeePrefix + num (uint64 big endian) + height + committeeStateSuffix -> committee
 
 	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("sr") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
@@ -124,7 +126,12 @@ func configKey(hash common.Hash) []byte {
 	return append(configPrefix, hash.Bytes()...)
 }
 
-// headerCommitteeKey = num (uint64 big endian) + headerCommitteeSuffix
-func headerCommitteeKey(number uint64) []byte {
-	return append(encodeBlockNumber(number), headerCommitteeSuffix...)
+// committeeKey = num (uint64 big endian) + committeePrefix
+func committeeKey(number uint64) []byte {
+	return append(committeePrefix, encodeBlockNumber(number)...)
+}
+
+// committeeStateKey = num (uint64 big endian) + committeePrefix
+func committeeStateKey(number uint64, height uint64) []byte {
+	return append(committeeKey(number), encodeBlockNumber(height)...)
 }

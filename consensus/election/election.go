@@ -452,19 +452,13 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 }
 
 // GetCommittee gets committee members propose this fast block
-func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
+func (e *Election) electedCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	if e.electionMode == ElectModeFake {
 		return e.committee.members
 	}
 
 	fastHeadNumber := e.fastchain.CurrentHeader().Number
 	snailHeadNumber := e.snailchain.CurrentHeader().Number
-	/*
-		newestFast := new(big.Int).Add(fastHeadNumber, params.ElectionSwitchoverNumber)
-		if fastNumber.Cmp(newestFast) > 0 {
-			log.Info("get committee failed", "fastnumber", fastNumber, "currentNumber", fastHeadNumber)
-			return nil
-		}*/
 	e.mu.RLock()
 	currentCommittee := e.committee
 	nextCommittee := e.nextCommittee
@@ -472,11 +466,6 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 
 	if nextCommittee != nil {
 		//log.Debug("next committee info..", "id", nextCommittee.id, "firstNumber", nextCommittee.beginFastNumber)
-		/*
-			if new(big.Int).Add(nextCommittee.beginFastNumber, params.ElectionSwitchoverNumber).Cmp(fastNumber) < 0 {
-				log.Info("get committee failed", "fastnumber", fastNumber, "nextFirstNumber", nextCommittee.beginFastNumber)
-				return nil
-			}*/
 		if fastNumber.Cmp(nextCommittee.beginFastNumber) >= 0 {
 			log.Debug("get committee nextCommittee", "fastNumber", fastNumber, "nextfast", nextCommittee.beginFastNumber)
 			return nextCommittee.Members()
@@ -511,6 +500,17 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	}
 
 	return committee.Members()
+}
+
+// GetCommittee gets committee members propose this fast block
+func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
+	var members []*types.CommitteeMember
+	for _, m := range e.electedCommittee(fastNumber) {
+		if m.Flag == types.StateUsedFlag {
+			members = append(members, m)
+		}
+	}
+	return members
 }
 
 // GetComitteeById return committee info sepecified by Committee ID
