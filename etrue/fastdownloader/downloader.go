@@ -96,8 +96,10 @@ var (
 	errPeerNil                 = errors.New("peer is nil")
 )
 
+
+
 type SDownloader interface {
-	SyncState(root common.Hash) *etrue.StateSync
+	SyncStateFd(root common.Hash) etrue.StateSyncInter
 }
 
 
@@ -154,7 +156,7 @@ type Downloader struct {
 	chainInsertHook  func([]*etrue.FetchResult) // Method to call upon inserting a chain of blocks (possibly in multiple invocations)
 
 	remoteHeader *types.Header
-	StateSync *etrue.StateSync
+	StateSync 	etrue.StateSyncInter
 	sDownloader SDownloader
 }
 
@@ -249,7 +251,7 @@ func (d *Downloader) SetHeader(remote *types.Header) {
 	d.remoteHeader = remote
 }
 
-func (d *Downloader) SetSync(StateSync *etrue.StateSync)  {
+func (d *Downloader) SetSync(StateSync etrue.StateSyncInter)  {
 	d.StateSync=StateSync
 }
 
@@ -1332,19 +1334,21 @@ func (d *Downloader) processFastSyncContent() error {
 
 			d.StateSync.Cancel()
 
-			stateSync := d.sDownloader.SyncState(P.Fheader.Root)
+			stateSync := d.sDownloader.SyncStateFd(P.Fheader.Root)
 			defer stateSync.Cancel()
 			go func() {
 				if err := stateSync.Wait(); err != nil && err != etrue.ErrCancelStateFetch {
 					d.queue.Close() // wake up Results
 				}
 			}()
+
+
 			// Wait for completion, occasionally checking for pivot staleness
 			select {
 
-			case <-stateSync.Done:
-				if stateSync.Err != nil {
-					return stateSync.Err
+			case <-stateSync.Done():
+				if stateSync.Err() != nil {
+					return stateSync.Err()
 				}
 				if err := d.blockchain.FastSyncCommitHead(P.Fheader.Hash()); err != nil {
 					log.Debug("FastSyncCommitHead >>>> ", "err", err)

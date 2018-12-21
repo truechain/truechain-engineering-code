@@ -388,3 +388,14 @@ type FetchResult struct {
 
 // peerDropFn is a callback type for dropping a peer detected as malicious.
 type PeerDropFn func(id string)
+
+
+
+type StateSyncInter interface {
+	Wait() error
+	Cancel() error
+	Done() <- chan struct{}
+	Err() error
+}
+
+
