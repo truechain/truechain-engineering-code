@@ -341,12 +341,12 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
 	var d time.Duration = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 2})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 0})
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
 func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64, round int, step ttypes.RoundStepType) {
-	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, uint(round), step, 0})
+	cs.timeoutTicker.ScheduleTimeout(timeoutInfo{duration, height, uint(round), step, 1})
 }
 
 func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
@@ -361,10 +361,10 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		log.Info("Reset privValidator","height",cs.Height)
 		cs.state.PrivReset()
 		sleepDuration := time.Duration(1) * time.Millisecond
-		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 2})
+		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 1})
 	}
 	var d time.Duration = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepNewHeight, 2})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepNewHeight, 0})
 	log.Info("end UpdateStateForSync","newHeight",newH)
 }
 
@@ -759,10 +759,10 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
-	if empty && cs.config.CreateEmptyBlocks && round == 0 && wait==0 {
-		// if cs.config.CreateEmptyBlocksInterval > 0 {
-		cs.scheduleTimeoutWithWait(timeoutInfo{cs.config.EmptyBlocksInterval(), height, uint(round), ttypes.RoundStepNewRound, 1})
-		// }
+	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) {
+		dd := cs.config.EmptyBlocksIntervalForPer(int(wait))
+		wait ++
+		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})	
 		go cs.proposalHeartbeat(height, round)
 	} else {
 		cs.enterPropose(height, round, block, blockParts)

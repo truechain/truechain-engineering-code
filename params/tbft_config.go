@@ -286,6 +286,24 @@ func (cfg *ConsensusConfig) WaitForTxs() bool {
 func (cfg *ConsensusConfig) EmptyBlocksInterval() time.Duration {
 	return time.Duration(cfg.CreateEmptyBlocksInterval) * time.Millisecond
 }
+func (cfg *ConsensusConfig) WaitForEmptyBlocks(times int) bool {
+	if times < 1 {
+		return false
+	}
+	sum := cfg.CreateEmptyBlocksInterval / 1000
+	if cfg.CreateEmptyBlocksInterval % 1000 > 0 {
+		sum++
+	}
+	wait := sum >= times
+	return wait
+}
+func (cfg *ConsensusConfig) EmptyBlocksIntervalForPer(times int) time.Duration {
+	sum := cfg.CreateEmptyBlocksInterval / 1000
+	if sum < times {
+		return time.Duration(cfg.CreateEmptyBlocksInterval - (times * 1000)) * time.Millisecond
+	}
+	return time.Duration(1000) * time.Millisecond
+}
 
 // Propose returns the amount of time to wait for a proposal
 func (cfg *ConsensusConfig) Propose(round int) time.Duration {
