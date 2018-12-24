@@ -849,7 +849,6 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // included uncles. The coinbase of each uncle block is also rewarded.
 func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
-
 	if e != nil {
 		return e
 	}
@@ -873,13 +872,10 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 
 	//committee's award
 	committeeCoinFruit := new(big.Int).Div(committeeCoin, blockFruitsLen)
-
 	//all fail committee coinBase
 	failAddr := make(map[common.Address]bool)
-
 	for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
-
 		committeeMembers, errs := election.VerifySigns(signs)
 		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
@@ -892,7 +888,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 				continue
 			}
 			cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
-
 			if signs[i].Result == types.VoteAgree {
 				if _, ok := failAddr[cmPubAddr]; !ok {
 					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
@@ -901,7 +896,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 				failAddr[cmPubAddr] = false
 			}
 		}
-
 		if len(fruitOkAddr) == 0 {
 			log.Error("fruitOkAddr", "Error", consensus.ErrInvalidSignsLength.Error())
 			return nil
@@ -914,7 +908,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 			LogPrint("committee", v, committeeCoinFruitMember)
 		}
 	}
-
 	return nil
 }
 
