@@ -477,8 +477,8 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 }
 
 type inWatch struct {
-	begin 	Time
-	end		Time
+	begin 	time.Time
+	end		time.Time
 	expect  float64
 	str 	string
 }

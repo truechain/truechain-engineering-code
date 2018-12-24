@@ -353,7 +353,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 	cs.timeoutTicker.ScheduleTimeout(ti)
 }
 func (cs *ConsensusState) updateStateForSync() {
-	log.Info("begin updateStateForSync","height",cs.Height)
+	log.Debug("begin updateStateForSync","height",cs.Height)
 	oldH := cs.Height
 	newH :=  cs.state.GetLastBlockHeight() + 1
 	if oldH != newH {
@@ -365,7 +365,7 @@ func (cs *ConsensusState) updateStateForSync() {
 	}
 	var d time.Duration = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
-	log.Info("end updateStateForSync","newHeight",newH)
+	log.Debug("end updateStateForSync","newHeight",newH)
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -614,12 +614,12 @@ func (cs *ConsensusState) handleTimeout(ti timeoutInfo, rs ttypes.RoundState) {
 	}
 }
 func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundState) {
-	log.Info("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round,"cs.height",cs.Height)
+	log.Debug("Received task tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round,"cs.height",cs.Height)
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	// timeouts must be for current height, round, step
 	cs.updateStateForSync()
-	log.Info("Received task tock End")
+	log.Debug("Received task tock End")
 }
 //-----------------------------------------------------------------------------
 // State functions
