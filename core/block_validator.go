@@ -18,10 +18,10 @@ package core
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -54,8 +54,8 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		return ErrKnownBlock
 	}
 	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
-		log.Error("ValidateBody method","number",block.NumberU64()-1,
-			"hash",block.ParentHash())
+		log.Error("ValidateBody method", "number", block.NumberU64()-1,
+			"hash", block.ParentHash())
 		if !fv.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
@@ -108,6 +108,8 @@ func (fv *BlockValidator) ValidateState(block, parent *types.Block, statedb *sta
 	// an error if they don't match.
 	if root := statedb.IntermediateRoot(true); header.Root != root {
 		return fmt.Errorf("invalid merkle root (remote: %x local: %x)", header.Root, root)
+	} else {
+		log.Warn("state combine correct")
 	}
 	return nil
 }

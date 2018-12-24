@@ -26,6 +26,8 @@ var (
 	// by a transaction is higher than what's left in the block.
 	ErrGasLimitReached = errors.New("gas limit reached")
 
+	ErrTransactionExecution = errors.New("stateDB or receipt is nil")
+
 	// ErrBlacklistedHash is returned if a block to import is on the blacklist.
 	ErrBlacklistedHash = errors.New("blacklisted hash")
 
