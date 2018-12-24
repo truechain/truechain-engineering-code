@@ -341,7 +341,7 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
 	var d time.Duration = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 0})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), ttypes.RoundStepBlockSync, 0})
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
@@ -352,8 +352,8 @@ func (cs *ConsensusState) scheduleTimeout(duration time.Duration, height uint64,
 func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 	cs.timeoutTicker.ScheduleTimeout(ti)
 }
-func (cs *ConsensusState) UpdateStateForSync() {
-	log.Info("begin UpdateStateForSync","height",cs.Height)
+func (cs *ConsensusState) updateStateForSync() {
+	log.Info("begin updateStateForSync","height",cs.Height)
 	oldH := cs.Height
 	newH :=  cs.state.GetLastBlockHeight() + 1
 	if oldH != newH {
@@ -364,8 +364,8 @@ func (cs *ConsensusState) UpdateStateForSync() {
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 1})
 	}
 	var d time.Duration = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepNewHeight, 0})
-	log.Info("end UpdateStateForSync","newHeight",newH)
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
+	log.Info("end updateStateForSync","newHeight",newH)
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -618,7 +618,7 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo,rs ttypes.RoundSta
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	// timeouts must be for current height, round, step
-	cs.UpdateStateForSync()
+	cs.updateStateForSync()
 	log.Info("Received task tock End")
 }
 //-----------------------------------------------------------------------------
