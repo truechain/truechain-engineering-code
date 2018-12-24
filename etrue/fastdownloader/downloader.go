@@ -1239,7 +1239,7 @@ func (d *Downloader) processFastSyncContent() error {
 				if stateSync.Err() != nil {
 					return stateSync.Err()
 				}
-				if err := d.blockchain.FastSyncCommitHead(P.Fheader.Hash()); err != nil {
+				if err := d.commitPivotBlock(P); err != nil {
 					log.Debug("FastSyncCommitHead >>>> ", "err", err)
 					return err
 				}
@@ -1248,7 +1248,6 @@ func (d *Downloader) processFastSyncContent() error {
 			case <-time.After(time.Second):
 				continue
 			}
-
 		}
 
 		// Fast sync done, pivot commit done, full import
@@ -1274,6 +1273,21 @@ func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.Fetc
 		}
 	}
 	return p, before, after
+}
+
+
+
+func (d *Downloader) commitPivotBlock(result *etrue.FetchResult) error {
+	block := types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs,nil)
+	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
+	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
+		return err
+	}
+	if err := d.blockchain.FastSyncCommitHead(block.Hash()); err != nil {
+		return err
+	}
+	atomic.StoreInt32(&d.committed, 1)
+	return nil
 }
 
 
@@ -1308,18 +1322,6 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 	return nil
 }
 
-func (d *Downloader) commitPivotBlock(result *etrue.FetchResult) error {
-	block := types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
-	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
-	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
-		return err
-	}
-	if err := d.blockchain.FastSyncCommitHead(block.Hash()); err != nil {
-		return err
-	}
-	atomic.StoreInt32(&d.committed, 1)
-	return nil
-}
 
 // DeliverHeaders injects a new batch of block headers received from a remote
 // node into the download schedule.

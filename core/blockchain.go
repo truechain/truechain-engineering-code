@@ -424,7 +424,13 @@ func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
 	// Make sure that both the block as well at its state trie exists
 	block := bc.GetBlockByHash(hash)
 	if block == nil {
-		return fmt.Errorf("non existent block [%x…]", hash[:4])
+		for _,key :=range bc.hc.headerCache.Keys(){
+
+			log.Debug("FastSyncCommitHead=====err==","key",key)
+
+		}
+
+		return fmt.Errorf("non existent block [%x…]", hash[:])
 	}
 	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB(), 0); err != nil {
 		return err

@@ -202,7 +202,7 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 	status = CanonStatTy
 
 
-	log.Debug("headerCache","hash",hash,"number",number)
+	log.Debug("headerCache","hash",hash.String(),"number",number)
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 

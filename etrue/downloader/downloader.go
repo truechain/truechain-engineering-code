@@ -1375,6 +1375,7 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	if d.mode == FastSync {
 		stateSync = d.SyncState(d.remoteHeader.Root)
+		d.fastDown.SetSync(stateSync)
 		defer stateSync.Cancel()
 		go func() {
 			if err := stateSync.Wait(); err != nil && err != etrue.ErrCancelStateFetch {
