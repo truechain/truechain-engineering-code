@@ -453,6 +453,9 @@ func (w *worker) wait() {
 					continue
 				}
 
+				// set flag
+				w.atCommintNewWoker = false
+
 				// Broadcast the block and announce chain insertion event
 				w.mux.Post(types.NewMinedBlockEvent{Block: block})
 				var (
@@ -468,7 +471,6 @@ func (w *worker) wait() {
 				// Insert the block into the set of pending ones to wait for confirmations
 				w.unconfirmed.Insert(block.NumberU64(), block.Hash())
 
-				w.atCommintNewWoker = false
 			}
 		}
 	}
