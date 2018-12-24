@@ -1328,7 +1328,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 
 
 				// If we've reached the allowed number of pending headers, stall a bit
-				for d.queue.PendingBlocks() >= maxQueuedHeaders || d.queue.PendingReceipts() >= maxQueuedHeaders {
+				for d.queue.PendingBlocks() >= maxQueuedHeaders  {
 					select {
 					case <-d.cancelCh:
 						return errCancelHeaderProcessing
