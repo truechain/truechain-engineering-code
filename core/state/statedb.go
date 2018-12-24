@@ -24,10 +24,10 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -356,6 +356,22 @@ func (self *StateDB) deleteStateObject(stateObject *stateObject) {
 	stateObject.deleted = true
 	addr := stateObject.Address()
 	self.setError(self.trie.TryDelete(addr[:]))
+}
+
+func (self *StateDB) GetDirtyAccounts() map[common.Address]int {
+	return self.journal.dirties
+}
+
+func (self *StateDB) CopyDirtyAccounts(oldState *StateDB) {
+	self.lock.Lock()
+	defer self.lock.Unlock()
+	self.trie = self.db.CopyTrie(oldState.trie)
+	self.stateObjects = oldState.stateObjects
+	self.stateObjectsDirty = oldState.stateObjectsDirty
+}
+
+func (self *StateDB) GetTxIndex() int {
+	return self.txIndex
 }
 
 // Retrieve a state object given by the address. Returns nil if not found.
