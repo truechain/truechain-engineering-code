@@ -22,10 +22,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -433,11 +433,34 @@ func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
 	return ReadCommittee(db, 0)
 }
 
-// ReadCommitteeState returns the all committee members states flag sepecified with fastblock height
-func ReadCommitteeState(db DatabaseReader, number uint64, height uint64) []int32 {
-	return nil
+// ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height
+func ReadCommitteeStates(db DatabaseReader, committee uint64) []uint64 {
+	data, _ := db.Get(committeeStateKey(committee))
+	var changes []uint64
+	if err := rlp.Decode(bytes.NewReader(data), changes); err != nil {
+		log.Error("Invalid committee states RLP", "hash", committee, "err", err)
+		return nil
+	}
+	return changes
 }
 
-// WriteCommitteeState store the all committee members sepecified with fastblock height
-func WriteCommitteeState(db DatabaseReader, number uint64, height uint64, infos []int32) {
+// HasCommitteeStates indicates whether committee changes stored
+func HasCommitteeStates(db DatabaseReader, committee uint64) bool {
+	if has, err := db.Has(committeeStateKey(committee)); !has || err != nil {
+		return false
+	}
+	return true
+}
+
+// WriteCommitteeStates store the all committee members sepecified with fastblock height
+func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []uint64) {
+	data, err := rlp.EncodeToBytes(changes)
+	if err != nil {
+		log.Crit("Failed to RLP encode committee change numbers", "err", err)
+	}
+
+	key := committeeStateKey(committee)
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store committee change numbers", "err", err)
+	}
 }

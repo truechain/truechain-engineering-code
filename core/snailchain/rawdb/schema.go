@@ -47,7 +47,7 @@ var (
 	headerNumberPrefix    = []byte("sH") // headerNumberPrefix + hash -> num (uint64 big endian)
 
 	committeePrefix = []byte("c") // committeePrefix + num (uint64 big endian) -> committee
-	committeeStateSuffix = []byte("s") // committeePrefix + num (uint64 big endian) + height + committeeStateSuffix -> committee
+	committeeStateSuffix = []byte("s") // committeePrefix + num (uint64 big endian) + committeeStateSuffix -> committeeStates
 
 	blockBodyPrefix     = []byte("sb") // blockBodyPrefix + num (uint64 big endian) + hash -> block body
 	blockReceiptsPrefix = []byte("sr") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
@@ -131,7 +131,7 @@ func committeeKey(number uint64) []byte {
 	return append(committeePrefix, encodeBlockNumber(number)...)
 }
 
-// committeeStateKey = num (uint64 big endian) + committeePrefix
-func committeeStateKey(number uint64, height uint64) []byte {
-	return append(committeeKey(number), encodeBlockNumber(height)...)
+// committeeStateKey = num (uint64 big endian) + committeePrefix + suffix
+func committeeStateKey(number uint64) []byte {
+	return append(committeeKey(number), committeeStateSuffix...)
 }
