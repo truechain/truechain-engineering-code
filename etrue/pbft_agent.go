@@ -891,7 +891,8 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error
 		}
 		return voteSign, err
 	}
-	receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
+	//receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig)  //update
+	receipts, _, usedGas, err := bc.Processor().Process2(fb, state, agent.vmConfig) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {

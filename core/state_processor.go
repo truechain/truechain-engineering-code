@@ -17,13 +17,15 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 )
 
@@ -53,6 +55,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // Process returns the receipts and logs accumulated during the process and
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
+
 func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
 		receipts  types.Receipts
@@ -62,8 +65,10 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 		allLogs   []*types.Log
 		gp        = new(GasPool).AddGas(block.GasLimit())
 	)
+	log.Warn("", "tx.length", block.Transactions().Len())
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
+
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, tx, usedGas, feeAmount, cfg)
 		if err != nil {
@@ -79,6 +84,172 @@ func (fp *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cf
 	}
 
 	return receipts, allLogs, *usedGas, nil
+}
+
+type TxResult struct {
+	statedb *state.StateDB
+	fee     *big.Int
+	Receipt *types.Receipt
+}
+
+func NewTxResult() *TxResult {
+	txResult := &TxResult{}
+	return txResult
+}
+
+func validateTxResult(txResults []*TxResult, gp *GasPool) error {
+	var usedGas uint64
+	for _, txResult := range txResults {
+		if txResult.statedb == nil && txResult.Receipt == nil {
+			return ErrTransactionExecution
+		}
+	}
+	for _, txResult := range txResults {
+		if txResult.Receipt != nil {
+			usedGas += txResult.Receipt.GasUsed
+		}
+	}
+	log.Info("validateTxResult print", "usedGas", usedGas, "gp", uint64(*gp))
+	if uint64(*gp) < usedGas {
+		log.Error("all transactions gasUsed reached block gasLimit")
+		return ErrGasLimitReached
+	}
+
+	return nil
+}
+
+func (txResult *TxResult) processTxResult(usedGas *uint64, receipts types.Receipts, feeAmount *big.Int) {
+	receipt := txResult.Receipt
+	*usedGas += receipt.GasUsed
+	receipt.CumulativeGasUsed = *usedGas
+
+	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipts = append(receipts, txResult.Receipt)
+
+	feeAmount.Add(feeAmount, txResult.fee)
+
+}
+
+func (txResult *TxResult) judgeCommonAccount(processedAccounts map[common.Address]int) bool {
+	dirties := txResult.statedb.GetDirtyAccounts()
+	for address, _ := range dirties {
+		if _, ok := processedAccounts[address]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func CopyCfg(cfg *vm.Config) *vm.Config {
+	cpy := *cfg
+	return &cpy
+}
+
+func (fp *StateProcessor) Process2(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	var (
+		receipts          types.Receipts
+		usedGas           = new(uint64)
+		feeAmount         = big.NewInt(0)
+		header            = block.Header()
+		allLogs           []*types.Log
+		allErrors         []error
+		gp                = new(GasPool).AddGas(block.GasLimit())
+		txResults         []*TxResult
+		processedAccounts = make(map[common.Address]int)
+	)
+	log.Warn("", "tx.length", block.Transactions().Len())
+	// Iterate over and process the individual transactions
+	for i, tx := range block.Transactions() {
+		config := CopyCfg(&cfg)
+		txResult := NewTxResult()
+		state := statedb.Copy()
+		state.Prepare(tx.Hash(), block.Hash(), i)
+		go ApplyTransaction2(fp.config, fp.bc, state, header, tx, config, txResult, allLogs, allErrors)
+		txResults = append(txResults, txResult)
+	}
+	if len(allErrors) != 0 {
+		log.Error("allErrors error ", "err", allErrors[0], "len(allErrors)", len(allErrors))
+		return nil, nil, 0, allErrors[0]
+	}
+	err := validateTxResult(txResults, gp)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	initialStateDB := statedb.Copy()
+	for i, txResult := range txResults {
+		flag := txResult.judgeCommonAccount(processedAccounts)
+		if flag {
+			log.Warn("go into combine state", "times", i)
+			receipt, _, err := ApplyTransaction(fp.config, fp.bc, gp, statedb, header, block.Transactions()[txResult.statedb.GetTxIndex()], usedGas, feeAmount, cfg)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			receipts = append(receipts, receipt)
+		} else { //Can be combined
+			log.Warn("go into combine state", "times", i)
+			initialStateDB.CopyDirtyAccounts(txResult.statedb)
+			initialStateDB.Finalise(true)
+			txResult.processTxResult(usedGas, receipts, feeAmount)
+		}
+		for account, times := range txResult.statedb.GetDirtyAccounts() {
+			processedAccounts[account] = times
+		}
+	}
+	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+	_, err = fp.engine.Finalize(fp.bc, header, statedb, block.Transactions(), receipts, feeAmount)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return receipts, allLogs, *usedGas, nil
+}
+
+func ApplyTransaction2(config *params.ChainConfig, bc ChainContext,
+	statedb *state.StateDB, header *types.Header, tx *types.Transaction, cfg *vm.Config,
+	txResult *TxResult, allLogs []*types.Log, allErrors []error) {
+	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
+	if err != nil {
+		log.Error("ApplyTransaction2 ApplyMessage2 tx error", "index", statedb.GetTxIndex(), "error", err)
+		allErrors = append(allErrors, err)
+		return
+	}
+	// Create a new context to be used in the EVM environment
+	context := NewEVMContext(msg, header, bc)
+	// Create a new environment which holds all relevant information
+	// about the transaction and calling mechanisms.
+	vmenv := vm.NewEVM(context, statedb, config, *cfg)
+	// Apply the transaction to the current state (included in the env)
+	//_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	_, gas, failed, err := ApplyMessage2(vmenv, msg)
+	if err != nil {
+		log.Error("ApplyTransaction2 ApplyMessage2 tx error", "index", statedb.GetTxIndex(), "error", err)
+		allErrors = append(allErrors, err)
+		return
+	}
+	// Update the state with pending changes
+	var root []byte
+
+	statedb.Finalise(true)
+	//txResult.DirtyAccounts = statedb.GetDirtyAccount()
+	//*usedGas += gas
+	fee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	//feeAmount.Add(fee, feeAmount)
+	txResult.fee = fee
+	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
+	// based on the eip phase, we're passing wether the root touch-delete accounts.
+	receipt := types.NewReceipt(root, failed, 0)
+	receipt.TxHash = tx.Hash()
+	receipt.GasUsed = gas
+	// if the transaction created a contract, store the creation address in the receipt.
+	if msg.To() == nil {
+		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
+	}
+	// Set the receipt logs and create a bloom for filtering
+	receipt.Logs = statedb.GetLogs(tx.Hash())
+	//receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	//receipts = append(receipts, receipt)
+	allLogs = append(allLogs, receipt.Logs...)
+	txResult.Receipt = receipt
+	txResult.statedb = statedb
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database
@@ -122,6 +293,5 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-
 	return receipt, gas, err
 }

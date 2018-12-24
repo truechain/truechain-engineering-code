@@ -16,7 +16,6 @@
 
 package core
 
-
 import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -29,7 +28,7 @@ import (
 //
 type Validator interface {
 	// ValidateBody validates the given block's content.
-	ValidateBody(block *types.Block,validateSign bool) error
+	ValidateBody(block *types.Block, validateSign bool) error
 
 	// ValidateState validates the given statedb and optionally the receipts and
 	// gas used.
@@ -44,9 +43,8 @@ type Validator interface {
 // failed.
 type Processor interface {
 	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
+	Process2(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
 }
-
-
 
 // SnailValidator is an interface which defines the standard for block validation. It
 // is only responsible for validating block contents, as the header validation is
@@ -62,5 +60,3 @@ type SnailValidator interface {
 	// ValidateFruit validates the given fruit's content
 	ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error
 }
-
-
