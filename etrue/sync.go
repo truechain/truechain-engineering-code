@@ -282,7 +282,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
-	log.Debug("peer Head ", "pHead", pHead, "pTd", pTd, "td", td)
+	log.Debug("peer Head ", "pHead", pHead, "pTd", pTd, "td", td,"fastHead",peer.fastHead,"fastHeight",fastHeight)
 	if pTd.Cmp(td) <= 0 {
 
 		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
@@ -356,9 +356,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 	}
 
-	//if atomic.LoadUint32(&pm.snapSync) == 1 {
-	//	mode = downloader.SnapShotSync
-	//}
 
 	if mode == downloader.FastSync || mode == downloader.SnapShotSync {
 		var pivotHeader *types.Header
@@ -370,7 +367,10 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 		var err error
 		pivotNumber := fastHeight - dtype.FsMinFullBlocks
-		if pivotHeader, err = pm.fdownloader.FetchHeight(peer.id, pivotNumber); err == nil {
+		if pivotHeader, err = pm.fdownloader.FetchHeight(peer.id, pivotNumber); err != nil {
+			log.Info("pivotHeader>>>","err",err)
+			return
+		}else {
 			pm.downloader.SetHeader(pivotHeader)
 			pm.fdownloader.SetHeader(pivotHeader)
 		}

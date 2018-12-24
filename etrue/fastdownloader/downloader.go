@@ -230,7 +230,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		blockchain:    chain,
 		lightchain:    lightchain,
 		dropPeer:      dropPeer,
-
+		cancelCh: 		make(chan struct{}),
 		headerCh:      make(chan etrue.DataPack, 1),
 		bodyCh:        make(chan etrue.DataPack, 1),
 		receiptCh:     make(chan etrue.DataPack, 1),
@@ -549,7 +549,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 	p.GetLog().Debug("Retrieving remote chain height")
 	// Request the advertised remote head block and wait for the response
 	if number != 0 {
-		go p.GetPeer().RequestHeadersByNumber(number, 1, 1, false, true)
+		go p.GetPeer().RequestHeadersByNumber(number, 1, 0, false, true)
 	} else {
 		go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
 	}
@@ -621,57 +621,6 @@ func (d *Downloader) Terminate() {
 	d.Cancel()
 }
 
-// calculateRequestSpan calculates what headers to request from a peer when trying to determine the
-// common ancestor.
-// It returns parameters to be used for peer.RequestHeadersByNumber:
-//  from - starting block number
-//  count - number of headers to request
-//  skip - number of headers to skip
-// and also returns 'max', the last block which is expected to be returned by the remote peers,
-// given the (from,count,skip)
-func calculateRequestSpan(remoteHeight, localHeight uint64) (int64, int, int, uint64) {
-	var (
-		from     int
-		count    int
-		MaxCount = MaxHeaderFetch / 16
-	)
-	// requestHead is the highest block that we will ask for. If requestHead is not offset,
-	// the highest block that we will get is 16 blocks back from head, which means we
-	// will fetch 14 or 15 blocks unnecessarily in the case the height difference
-	// between us and the peer is 1-2 blocks, which is most common
-	requestHead := int(remoteHeight) - 1
-	if requestHead < 0 {
-		requestHead = 0
-	}
-	// requestBottom is the lowest block we want included in the query
-	// Ideally, we want to include just below own head
-	requestBottom := int(localHeight - 1)
-	if requestBottom < 0 {
-		requestBottom = 0
-	}
-	totalSpan := requestHead - requestBottom
-	span := 1 + totalSpan/MaxCount
-	if span < 2 {
-		span = 2
-	}
-	if span > 16 {
-		span = 16
-	}
-
-	count = 1 + totalSpan/span
-	if count > MaxCount {
-		count = MaxCount
-	}
-	if count < 2 {
-		count = 2
-	}
-	from = requestHead - (count-1)*span
-	if from < 0 {
-		from = 0
-	}
-	max := from + (count-1)*span
-	return int64(from), count, span - 1, uint64(max)
-}
 
 // fetchHeaders keeps retrieving headers concurrently from the number
 // requested, until no more are returned, potentially throttling on the way. To
@@ -1416,7 +1365,7 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 	if cancel == nil {
 		return errNoSyncActive
 	}
-	//log.Debug("deliver <- packet ","packet",packet)
+	log.Debug("deliver <- packet ","packet",packet)
 	select {
 	case destCh <- packet:
 		return nil

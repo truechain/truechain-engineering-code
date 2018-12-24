@@ -1526,10 +1526,6 @@ func (d *Downloader) DeliverBodies(id string, fruit [][]*types.SnailBlock, signs
 	return d.deliver(id, d.bodyCh, &bodyPack{id, fruit, signs, uncles}, bodyInMeter, bodyDropMeter)
 }
 
-// DeliverReceipts injects a new batch of receipts received from a remote node.
-func (d *Downloader) DeliverReceipts(id string, receipts [][]*types.Receipt) (err error) {
-	return d.deliver(id, nil, &receiptPack{id, receipts}, receiptInMeter, receiptDropMeter)
-}
 
 // DeliverNodeData injects a new batch of node state data received from a remote node.
 func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
