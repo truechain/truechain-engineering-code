@@ -436,16 +436,18 @@ OUTER_LOOP:
 		if rs.ProposalBlockParts != nil && rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartsHeader) {
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
 				part := rs.ProposalBlockParts.GetPart(index)
-				msg := &BlockPartMessage{
-					Height: rs.Height,      // This tells peer that this part applies to us.
-					Round:  uint(rs.Round), // This tells peer that this part applies to us.
-					Part:   part,
+				if part != nil {
+					msg := &BlockPartMessage{
+						Height: rs.Height,      // This tells peer that this part applies to us.
+						Round:  uint(rs.Round), // This tells peer that this part applies to us.
+						Part:   part,
+					}
+					log.Debug("Sending block part", "height", prs.Height, "round", prs.Round)
+					if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
+						ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
+					}
+					continue OUTER_LOOP
 				}
-				log.Debug("Sending block part", "height", prs.Height, "round", prs.Round)
-				if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
-					ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
-				}
-				continue OUTER_LOOP
 			}
 		}
 
