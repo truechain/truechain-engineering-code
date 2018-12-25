@@ -130,7 +130,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 // transition, such as amount of used gas, the receipt roots and the state root
 // itself. ValidateState returns a database batch if the validation was a success
 // otherwise nil and an error is returned.
-
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 
@@ -144,6 +143,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 	return nil
 }
 
+//ValidateFruit is to verify if the fruit is legal
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
 	//
