@@ -670,7 +670,7 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 
 	cs.eventBus.PublishEventNewRound(cs.RoundStateEvent())
 	// cs.metrics.Rounds.Set(float64(round))
-	cs.tryEnterProposal(height, round, 0)
+	cs.tryEnterProposal(height, round, 1)
 }
 
 func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
