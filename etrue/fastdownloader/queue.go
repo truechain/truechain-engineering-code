@@ -288,7 +288,7 @@ func (q *queue) RetrieveHeaders() ([]*types.Header, int) {
 
 // Schedule adds a set of headers for the download queue for scheduling, returning
 // the new headers encountered.
-func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
+func (q *queue) Schedule(headers []*types.Header, from uint64, pivot uint64) ([]*types.Header) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -314,22 +314,25 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 			log.Warn("Header already scheduled for receipt fetch", "number", header.Number, "hash", hash)
 			continue
 		}
-		// Queue the header for content retrieval
-		if q.mode != SnapShotSync {
+
+		log.Debug("Schedule","header",header.Number.Uint64(),"pivot",pivot)
+		if header.Number.Uint64() >= pivot {
 			q.blockTaskPool[hash] = header
 			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
+
+			if q.mode == FastSync || q.mode == SnapShotSync{
+				q.receiptTaskPool[hash] = header
+				q.receiptTaskQueue.Push(header, -int64(header.Number.Uint64()))
+			}
 		}
 
-		if q.mode == FastSync {
-			q.receiptTaskPool[hash] = header
-			q.receiptTaskQueue.Push(header, -int64(header.Number.Uint64()))
-		}
 
 		//log.Info("---queue", "block test len", len(q.blockTaskPool), "recipt test len", len(q.receiptTaskPool))
 		inserts = append(inserts, header)
 		q.headerHead = hash
 		from++
 	}
+
 	return inserts
 }
 
@@ -341,16 +344,13 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
-	log.Debug("countProcessableItems  >>>>>>>>>>>>>>>  ", ":", nproc, "q.closed", q.closed)
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
 		}
 		q.active.Wait()
-		//fmt.Println("q.active.Wait()")
 		nproc = q.countProcessableItems()
 	}
-	log.Debug("countProcessableItems  >>>>>>>>>>>>>>>  exit ", ":", nproc, "q.closed", q.closed)
 	// Since we have a batch limit, don't pull more into "dangling" memory
 	if nproc > maxResultsProcess {
 		nproc = maxResultsProcess
@@ -879,7 +879,6 @@ func (q *queue) Prepare(offset uint64, mode SyncMode) {
 	defer q.lock.Unlock()
 
 	// Prepare the queue for sync results
-	// 为同步结果准备队列
 	if q.resultOffset < offset {
 		q.resultOffset = offset
 	}

@@ -293,7 +293,7 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 	defer q.lock.Unlock()
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
-	log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail ", "nproc", nproc)
+	//log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail ", "nproc", nproc)
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
@@ -301,7 +301,7 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		q.active.Wait()
 		nproc = q.countProcessableItems()
 	}
-	log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail exit ", "nproc", nproc)
+	//log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail exit ", "nproc", nproc)
 	// Since we have a batch limit, don't pull more into "dangling" memory
 	if nproc > maxResultsProcess {
 		nproc = maxResultsProcess

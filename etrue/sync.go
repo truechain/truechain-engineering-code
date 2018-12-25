@@ -386,8 +386,15 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		if atomic.LoadUint32(&pm.fastSync) == 1 {
 
 			if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+				currentNumber := uint64(0)
+				if mode == downloader.FullSync {
+					currentNumber = pm.blockchain.CurrentBlock().NumberU64()
+				}else if mode == downloader.FastSync {
+					currentNumber = pm.blockchain.CurrentFastBlock().NumberU64()
+				}else if mode == downloader.SnapShotSync{
+					currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+				}
 
-				currentNumber := pm.blockchain.CurrentFastBlock().NumberU64()
 				if fastHeight > currentNumber {
 
 					for {
@@ -407,12 +414,18 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 									return
 								}
 
-								fbNumLast := pm.blockchain.CurrentFastBlock().NumberU64()
+								if mode == downloader.FullSync {
+									currentNumber = pm.blockchain.CurrentBlock().NumberU64()
+								}else if mode == downloader.FastSync {
+									currentNumber = pm.blockchain.CurrentFastBlock().NumberU64()
+								}else if mode == downloader.SnapShotSync{
+									currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+								}
 
-								if (fbNum + height) > fbNumLast {
-									log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", fbNumLast)
-									height = (fbNum + height) - fbNumLast
-									fbNum = fbNumLast
+								if (fbNum + height) > currentNumber {
+									log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", currentNumber)
+									height = (fbNum + height) - currentNumber
+									fbNum = currentNumber
 									continue
 								}
 								break

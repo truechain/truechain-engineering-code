@@ -65,7 +65,6 @@ var (
 
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderContCheck      = 3 * time.Second // Time interval to check for header continuations during state download
-	fsMinFullBlocks        = 10              // Number of blocks to retrieve fully even in fast sync
 )
 
 var (
@@ -1368,12 +1367,11 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.Hash, td *big.Int,remoteHeader *types.SnailHeader) error {
 
 	var (
-		oldPivot *types.Block   // Locked in pivot block, might change eventually
 		stateSync *stateSync
 	)
 
 
-	if d.mode == FastSync {
+	if d.mode == FastSync || d.mode == SnapShotSync {
 		stateSync = d.SyncState(d.remoteHeader.Root)
 		d.fastDown.SetSync(stateSync)
 		defer stateSync.Cancel()
@@ -1387,27 +1385,7 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	for {
 
-		results := d.queue.Results(d.mode == FullSync || oldPivot == nil)
-
-		if d.mode == FullSync && len(results) == 0 {
-			return nil
-		}
-
-		if  d.mode == FastSync && len(results) == 0  {
-			// If pivot sync is done, stop
-			if oldPivot == nil {
-				return stateSync.Cancel()
-			}
-			// If sync failed, stop
-			select {
-			case <-d.cancelCh:
-				return stateSync.Cancel()
-			default:
-			}
-		}
-		if d.chainInsertHook != nil {
-			d.chainInsertHook(results)
-		}
+		results := d.queue.Results(true)
 		if err := d.importBlockResults(results, p, hash, td,remoteHeader); err != nil {
 			return err
 		}
@@ -1453,7 +1431,15 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNum := result.Fruits[0].FastNumber().Uint64()
 			height := fruitLen
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
-			currentNum := d.fastDown.GetBlockChain().GetBlockNumber()
+			currentNum := uint64(0)
+
+			if d.mode == FastSync {
+				currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+			}else if d.mode == FastSync {
+				currentNum = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
+			}else if d.mode == SnapShotSync{
+				currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
+			}
 
 			if fbNumLast < fbNum || fbNumLast-fbNum != height-1 || fbNum < 1 {
 				return errFruits
@@ -1469,20 +1455,21 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 				if height > 0 {
 					for {
-						mode := d.mode
-						//if remoteHeader.Number.Uint64() == result.Sheader.Number.Uint64(){
-						//	mode = FullSync
-						//}
 
-
-
-						errs := d.fastDown.Synchronise(p.GetID(), hash, td, fastdownloader.SyncMode(mode), fbNum, height)
+						errs := d.fastDown.Synchronise(p.GetID(), hash, td, fastdownloader.SyncMode(d.mode), fbNum, height)
 						if errs != nil {
 							log.Error("fast sync: ", "err>>>>>>>>>", errs)
 							return errs
 						}
 
-						currentNum = d.fastDown.GetBlockChain().GetBlockNumber()
+						if d.mode == FastSync {
+							currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
+						}else if d.mode == FastSync {
+							currentNum = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
+						}else if d.mode == SnapShotSync{
+							currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
+						}
+
 						if fbNumLast > currentNum {
 							log.Debug("fastDownloader while", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
 

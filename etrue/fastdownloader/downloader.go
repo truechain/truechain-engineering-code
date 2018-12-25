@@ -40,19 +40,16 @@ var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
 	MaxBlockFetch   = 128 // Amount of blocks to be fetched per retrieval request
 	MaxHeaderFetch  = 192 // Amount of block headers to be fetched per retrieval request
-	MaxSkeletonSize = 128 // Number of header fetches to need for a skeleton assembly
 	MaxBodyFetch    = 128 // Amount of block bodies to be fetched per retrieval request
 	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
 	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
 
 	MaxForkAncestry  = 3 * params.EpochDuration // Maximum chain reorganisation
-	rttMinEstimate   = 2 * time.Second          // Minimum round-trip time to target for download requests
 	rttMaxEstimate   = 20 * time.Second         // Maximum round-trip time to target for download requests
 	rttMinConfidence = 0.1                      // Worse confidence factor in our estimated RTT value
 	ttlScaling       = 3                        // Constant scaling factor for RTT -> TTL conversion
 	ttlLimit         = time.Minute              // Maximum TTL allowance to prevent reaching crazy timeouts
 
-	qosTuningPeers   = 5    // Number of peers to tune based on (best peers)
 	qosConfidenceCap = 10   // Number of peers above which not to modify RTT confidence
 	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value
 
@@ -65,8 +62,7 @@ var (
 
 	fsHeaderCheckFrequency = 100             // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048            // Number of headers to discard in case a chain violation is detected
-	fsHeaderForceVerify    = 24              // Number of headers to verify before and after the pivot to accept it
-	fsHeaderContCheck      = 3 * time.Second // Time interval to check for header continuations during state download
+
 
 )
 
@@ -88,7 +84,6 @@ var (
 	errCancelHeaderFetch  = errors.New("fast block header download canceled (requested)")
 	errCancelBodyFetch    = errors.New("fast block body download canceled (requested)")
 	errCancelReceiptFetch = errors.New("fast receipt download canceled (requested)")
-
 	errCancelHeaderProcessing  = errors.New("fast header processing canceled (requested)")
 	errCancelContentProcessing = errors.New("fast content processing canceled (requested)")
 	errNoSyncActive            = errors.New("fast no sync active")
@@ -230,7 +225,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		blockchain:    chain,
 		lightchain:    lightchain,
 		dropPeer:      dropPeer,
-		cancelCh: 		make(chan struct{}),
+		cancelCh: 	   make(chan struct{}),
 		headerCh:      make(chan etrue.DataPack, 1),
 		bodyCh:        make(chan etrue.DataPack, 1),
 		receiptCh:     make(chan etrue.DataPack, 1),
@@ -343,7 +338,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
 	//defer d.Terminate()
-	log.Info("-=-=--=-=-===========------- statr to Synchronise  fast  fast")
+	log.Info("-=-=--=-=-===========------- statr to Synchronise ","mode",mode)
 	err := d.synchronise(id, head, td, mode, origin, height)
 
 	defer log.Info("fastDownloader Synchronise exit", "origin", origin, "height", height)
@@ -473,17 +468,12 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	height_i := int(height)
 
 	fetchers := []func() error{func() error { return d.fetchHeaders(p, origin+1, height_i, pivot) }}
+	fetchers = append(fetchers, func() error { return d.fetchBodies(origin + 1) })
+	fetchers = append(fetchers, func() error { return d.fetchReceipts(origin + 1) })
+	fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
 
-	if d.mode == SnapShotSync {
-		log.Info("SnapShotSync ------------ not need receiptes, bodies")
-		fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
-	} else {
-		fetchers = append(fetchers, func() error { return d.fetchBodies(origin + 1) })
-		fetchers = append(fetchers, func() error { return d.fetchReceipts(origin + 1) })
-		fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
-	}
 
-	if d.mode == FastSync {
+	if d.mode == FastSync || d.mode == SnapShotSync{
 		fetchers = append(fetchers, d.processFastSyncContent)
 	} else if d.mode == FullSync {
 		fetchers = append(fetchers, d.processFullSyncContent)
@@ -1020,6 +1010,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 
 	// Wait for batches of headers to process
 	gotHeaders := false
+	pivotRemote := d.remoteHeader.Number.Uint64()
 
 	for {
 		select {
@@ -1103,8 +1094,11 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						rollback = append(rollback[:0], rollback[len(rollback)-fsHeaderSafetyNet:]...)
 					}
 				}
+
+
+
 				// Unless we're doing light chains, schedule the headers for associated content retrieval
-				if d.mode == FullSync || d.mode == FastSync {
+				if d.mode == FullSync || d.mode == FastSync || d.mode == SnapShotSync {
 					// If we've reached the allowed number of pending headers, stall a bit
 					for d.queue.PendingBlocks() >= maxQueuedHeaders || d.queue.PendingReceipts() >= maxQueuedHeaders {
 						select {
@@ -1114,7 +1108,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						}
 					}
 					// Otherwise insert the headers for content retrieval
-					inserts := d.queue.Schedule(chunk, origin)
+					inserts := d.queue.Schedule(chunk, origin, pivotRemote)
 					if len(inserts) != len(chunk) {
 						log.Debug("Fast Stale headers")
 						return errBadPeer
@@ -1140,6 +1134,9 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 		}
 	}
 }
+
+
+
 
 // processFullSyncContent takes fetch results from the queue and imports them into the chain.
 func (d *Downloader) processFullSyncContent() error {
@@ -1203,6 +1200,7 @@ func (d *Downloader) processFastSyncContent() error {
 		// block became stale, move the goalpost
 		log.Info("fast processFastSyncContent")
 		results := d.queue.Results(true) // Block if we're not monitoring pivot staleness
+		log.Info("fast processFastSyncContent","results",len(results))
 		if len(results) == 0 {
 			return nil
 		}
@@ -1261,6 +1259,7 @@ func (d *Downloader) processFastSyncContent() error {
 
 func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.FetchResult, before, after []*etrue.FetchResult) {
 	for _, result := range results {
+		log.Debug("splitAroundPivot","header",result.Fheader.Number.Uint64(),"pivot",pivot)
 		num := result.Fheader.Number.Uint64()
 		switch {
 
