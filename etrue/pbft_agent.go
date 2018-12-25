@@ -654,26 +654,25 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int) (*types.Block, erro
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	var (
-		fastBlock *types.Block
-		feeAmount = big.NewInt(0)
+		parent       = agent.fastChain.CurrentBlock()
+		parentNumber = parent.Number()
+		fastBlock    *types.Block
+		feeAmount    = big.NewInt(0)
+		tstamp       = time.Now().Unix()
 	)
-	tstart := time.Now()
-	parent := agent.fastChain.CurrentBlock()
 	//validate newBlock number exceed endNumber
 	if endNumber := agent.endFastNumber[committeeID]; endNumber != nil && endNumber.Cmp(parent.Number()) != 1 {
 		log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)
 		return fastBlock, core.ErrExceedNumber
 	}
-
 	log.Info("FetchFastBlock ", "parent:", parent.Number(), "hash", parent.Hash())
-	tstamp := tstart.Unix()
+
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
-	num := parent.Number()
 	header := &types.Header{
 		ParentHash: parent.Hash(),
-		Number:     num.Add(num, common.Big1),
+		Number:     parentNumber.Add(parentNumber, common.Big1),
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
 	}
@@ -684,20 +683,20 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int) (*types.Block, erro
 	if err := agent.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
 		return nil, err
 	}
-	//validate height and hash
+	//getParent by height and hash
 	if err := agent.engine.Prepare(agent.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
 		return fastBlock, err
 	}
 	// Create the current work task and check any fork transitions needed
 	err := agent.makeCurrent(parent, header)
-	work := agent.current
-
-	pending, err := agent.eth.TxPool().Pending()
 	if err != nil {
-		log.Error("Failed to fetch pending transactions", "err", err)
+		log.Error("makeCurrent error", "err", err)
 		return fastBlock, err
 	}
+	work := agent.current
+
+	pending, _ := agent.eth.TxPool().Pending()
 	txs := types.NewTransactionsByPriceAndNonce(agent.current.signer, pending)
 	work.commitTransactions(agent.mux, txs, agent.fastChain, feeAmount)
 	//calculate snailBlock reward
