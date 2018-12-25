@@ -779,7 +779,6 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
-	snap := state.Snapshot()
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -796,13 +795,10 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		err := accumulateRewardsFast(m.election, state, header, sBlock)
 		if err != nil {
 			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
-			state.RevertToSnapshot(snap)
 			return nil, err
 		}
 	}
-
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
-		state.RevertToSnapshot(snap)
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
