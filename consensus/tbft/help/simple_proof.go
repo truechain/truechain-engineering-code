@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"crypto/sha256"
 )
 
 // SimpleProof represents a simple Merkle proof.
@@ -19,12 +18,6 @@ type SimpleProof struct {
 	Index    int      `json:"index"`     // Index of item to prove.
 	LeafHash []byte   `json:"leaf_hash"` // Hash of item value.
 	Aunts    [][]byte `json:"aunts"`     // Hashes from leaf's sibling to a root's child.
-}
-
-// Sum returns the SHA256 of the bz.
-func sum(bz []byte) []byte {
-	h := sha256.Sum256(bz)
-	return h[:]
 }
 
 // SimpleProofsFromByteSlices computes inclusion proof for given items.
