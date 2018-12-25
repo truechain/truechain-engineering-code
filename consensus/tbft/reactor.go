@@ -521,7 +521,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 
 	if !prs.Proposal {
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
-		if blockMeta == nil {
+		if blockMeta == nil || blockMeta.Proposal == nil {
 			log.Error("Failed to load block meta","Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
 			return
 		}
