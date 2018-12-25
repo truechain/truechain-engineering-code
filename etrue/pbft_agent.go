@@ -751,8 +751,10 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 
 //generate rewardSnailHegiht
 func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
-	var rewardSnailHegiht *big.Int
-	blockReward := agent.fastChain.CurrentReward()
+	var (
+		rewardSnailHegiht *big.Int
+		blockReward       = agent.fastChain.CurrentReward()
+	)
 	if blockReward == nil {
 		rewardSnailHegiht = new(big.Int).Set(common.Big1)
 	} else {
@@ -776,11 +778,12 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 func GetTps(currentBlock *types.Block) float32 {
 	/*r.Seed(time.Now().Unix())
 	txNum := uint64(r.Intn(1000))*/
-	var instantTps float32
-	nowTime := uint64(time.Now().UnixNano() / 1000000)
+	var (
+		instantTps float32
+		nowTime    = uint64(time.Now().UnixNano() / 1000000)
+		txNum      = uint64(len(currentBlock.Transactions()))
+	)
 	timeSlice = append(timeSlice, nowTime)
-
-	txNum := uint64(len(currentBlock.Transactions()))
 	txSum += txNum
 	txSlice = append(txSlice, txSum)
 	if len(txSlice) > 1 && len(timeSlice) > 1 {
@@ -845,10 +848,11 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
 func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error) {
 	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
-	bc := agent.fastChain
 	// get current head
-	var parent *types.Block
-	parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
+	var (
+		bc     = agent.fastChain
+		parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)
+	)
 	if parent == nil { //if cannot find parent return ErrUnSyncParentBlock
 		log.Warn("VerifyFastBlock ErrHeightNotYet error", "header", fb.Number())
 		return nil, types.ErrHeightNotYet
