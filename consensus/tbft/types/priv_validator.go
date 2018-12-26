@@ -10,6 +10,7 @@ import (
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"sync"
 	"time"
@@ -44,7 +45,6 @@ type PrivValidator interface {
 
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
-	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
 }
 
 type privValidator struct {
@@ -199,17 +199,6 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 	proposal.Signature = sig
 	return nil
 }
-func (Validator *privValidator) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
-	Validator.mtx.Lock()
-	defer Validator.mtx.Unlock()
-	signBytes := heartbeat.SignBytes(chainID)
-	sig, err := Validator.PrivKey.Sign(signBytes)
-	if err != nil {
-		return err
-	}
-	heartbeat.Signature = sig
-	return nil
-}
 
 // returns error if HRS regression or no LastSignBytes. returns true if HRS is unchanged
 func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (bool, error) {
@@ -329,7 +318,6 @@ type StateAgent interface {
 	GetPubKey() tcrypto.PubKey
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
-	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
 	PrivReset()
 }
 
@@ -426,9 +414,10 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	if v != nil {
 		info = v.Infos
 	}
-	block, err := state.Agent.FetchFastBlock(committeeID, info)
-	if err != nil {
-		return nil, err
+	watch := newInWatch(3,"FetchFastBlock")
+	block, err := state.Agent.FetchFastBlock(committeeI,info)
+	if err != nil || block == nil {
+		return nil, nil,err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
@@ -436,7 +425,10 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	if state.StartHeight > block.NumberU64() {
 		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.StartHeight)
 	}
-	return block, err
+	watch.EndWatch()
+	watch.Finish(block.NumberU64())
+	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
+	return block,parts,err2
 }
 
 //ConsensusCommit is BroadcastConsensus block to agent
@@ -444,7 +436,10 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
+	watch := newInWatch(3,"BroadcastConsensus")
 	err := state.Agent.BroadcastConsensus(block)
+	watch.EndWatch()
+	watch.Finish(block.NumberU64())
 	if err != nil {
 		return err
 	}
@@ -456,7 +451,10 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	if block == nil {
 		return nil, errors.New("block not have")
 	}
+	watch := newInWatch(3,"VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)
+	watch.EndWatch()
+	watch.Finish(block.NumberU64())
 	if sign != nil {
 		return &KeepBlockSign{
 			Result: sign.Result,
@@ -514,4 +512,27 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {
 	// 	state.Agent.BroadcastFastBlock(fb)
 	// }
+}
+
+type inWatch struct {
+	begin 	time.Time
+	end		time.Time
+	expect  float64
+	str 	string
+}
+func newInWatch(e float64,s string) *inWatch {
+	return &inWatch{
+		begin:			time.Now(),
+		end:			time.Now(),
+		expect:			e,
+		str:			s,
+	}
+}
+func (in *inWatch) EndWatch() {
+	in.end = time.Now()
+}
+func (in *inWatch) Finish(comment interface{}) {
+	if d:= in.end.Sub(in.begin); d.Seconds() > in.expect {
+		log.Warn(in.str,"not expecting time",d.Seconds(),"comment",comment)
+	}
 }

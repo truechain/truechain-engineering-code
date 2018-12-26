@@ -422,7 +422,7 @@ func (f *Fetcher) loop() {
 					} else {
 						f.markBroadcastBlock(number, peer, block)
 						if len(f.blockConsensus[number]) > 0 {
-							signHashs := f.signMultiHash[number]
+							signHashs := f.blockConsensus[number]
 							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {

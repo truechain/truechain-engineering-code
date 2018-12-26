@@ -18,8 +18,9 @@ var (
 
 //Part struct
 type Part struct {
-	Index uint          `json:"index"`
-	Bytes help.HexBytes `json:"bytes"`
+	Index uint          		`json:"index"`
+	Bytes help.HexBytes 		`json:"bytes"`
+	Proof help.SimpleProof 		`json:"proof"`
 
 	hash []byte
 }
@@ -97,8 +98,7 @@ func NewPartSetFromData(data []byte, partSize uint) *PartSet {
 	// divide data into 4kb parts.
 	total := (len(data) + int(partSize) - 1) / int(partSize)
 	parts := make([]*Part, total)
-	// commented tmp by iceming
-	// parts_ := make([]merkle.Hasher, total)
+	partsBytes := make([][]byte, total)
 	partsBitArray := help.NewBitArray(uint(total))
 	for i := 0; i < total; i++ {
 		part := &Part{
@@ -106,18 +106,17 @@ func NewPartSetFromData(data []byte, partSize uint) *PartSet {
 			Bytes: data[i*int(partSize) : help.MinInt(len(data), (i+1)*int(partSize))],
 		}
 		parts[i] = part
-		// parts_[i] = part
+		partsBytes[i] = part.Bytes
 		partsBitArray.SetIndex(uint(i), true)
 	}
-	// commented tmp by iceming
 	// Compute merkle proofs
-	// root, proofs := merkle.SimpleProofsFromHashers(parts_)
-	// for i := 0; i < total; i++ {
-	// 	parts[i].Proof = *proofs[i]
-	// }
+	root, proofs := help.SimpleProofsFromByteSlices(partsBytes)
+	for i := 0; i < total; i++ {
+		parts[i].Proof = *proofs[i]
+	}
 	return &PartSet{
 		total:         uint(total),
-		hash:          nil, //root,
+		hash:          root,
 		parts:         parts,
 		partsBitArray: partsBitArray,
 		count:         uint(total),
@@ -210,12 +209,10 @@ func (ps *PartSet) AddPart(part *Part) (bool, error) {
 	if ps.parts[part.Index] != nil {
 		return false, nil
 	}
-	// commented tmp by iceming
 	// Check hash proof
-	// if !part.Proof.Verify(part.Index, ps.total, part.Hash(), ps.Hash()) {
-	// 	return false, ErrPartSetInvalidProof
-	// }
-
+	if part.Proof.Verify(ps.Hash(), part.Hash()) != nil {
+		return false, ErrPartSetInvalidProof
+	}
 	// Add part
 	ps.parts[part.Index] = part
 	ps.partsBitArray.SetIndex(uint(part.Index), true)

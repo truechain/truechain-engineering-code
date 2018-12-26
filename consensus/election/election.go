@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/ethdb"
 	"math/big"
 	"sync"
 
@@ -44,7 +45,6 @@ const (
 	committeeCacheLimit = 256
 )
 
-// ElectMode defines election for test or not
 type ElectMode uint
 
 const (
@@ -60,6 +60,8 @@ var (
 )
 
 var (
+	// ErrInvalidSender is returned if the transaction contains an invalid signature.
+	//ErrInvalidSign   = errors.New("invalid sign")
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
 )
@@ -350,7 +352,6 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 			members[i] = member
 		}
 	}
-
 	return members, errs
 }
 
@@ -648,7 +649,7 @@ func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
-	var fruitsCount  = make(map[common.Address]uint64)
+	var fruitsCount map[common.Address]uint64 = make(map[common.Address]uint64)
 	var members []*candidateMember
 
 	var seed []byte

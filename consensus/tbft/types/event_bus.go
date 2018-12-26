@@ -96,7 +96,7 @@ func (b *EventBus) Subscribe(key string, out chan<- interface{}) event.Subscript
 
 //PublishEventVote send event data common EventVote
 func (b *EventBus) PublishEventVote(event EventDataVote) error {
-	if v, ok := b.subs[EventVote]; ok {
+	if v,ok := b.subs[EventVote];ok {
 		v.Send(event)
 		return nil
 	}

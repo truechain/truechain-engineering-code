@@ -19,7 +19,6 @@ const (
 	EventTx                = "Tx"
 	EventUnlock            = "Unlock"
 	EventVote              = "Vote"
-	EventProposalHeartbeat = "ProposalHeartbeat"
 	EventMsgNotFound       = "MessageUnsubscribe"
 )
 

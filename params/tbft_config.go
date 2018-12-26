@@ -244,7 +244,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 	return &ConsensusConfig{
 		WalPath:                     filepath.Join(defaultDataDir, "cs.wal", "wal"),
 		TimeoutPropose:              10000,
-		TimeoutProposeDelta:         500,
+		TimeoutProposeDelta:         10000,
 		TimeoutPrevote:              3000,
 		TimeoutPrevoteDelta:         500,
 		TimeoutPrecommit:            3000,
@@ -282,9 +282,29 @@ func (cfg *ConsensusConfig) WaitForTxs() bool {
 	return !cfg.CreateEmptyBlocks || cfg.CreateEmptyBlocksInterval > 0
 }
 
-// EmptyBlocks returns the amount of time to wait before proposing an empty block or starting the propose timer if there are no txs available
+// EmptyBlocksInterval returns the amount of time to wait before proposing an empty block or starting the propose timer if there are no txs available
 func (cfg *ConsensusConfig) EmptyBlocksInterval() time.Duration {
 	return time.Duration(cfg.CreateEmptyBlocksInterval) * time.Millisecond
+}
+// WaitForEmptyBlocks rerutns true if the consensus should wait for transactions before entering the propose step
+func (cfg *ConsensusConfig) WaitForEmptyBlocks(times int) bool {
+	if times < 1 {
+		return false
+	}
+	sum := cfg.CreateEmptyBlocksInterval / 1000
+	if cfg.CreateEmptyBlocksInterval % 1000 > 0 {
+		sum++
+	}
+	wait := sum >= times
+	return wait
+}
+// EmptyBlocksIntervalForPer rerutns time Duration that how long it wait for per times
+func (cfg *ConsensusConfig) EmptyBlocksIntervalForPer(times int) time.Duration {
+	sum := cfg.CreateEmptyBlocksInterval / 1000
+	if sum < times {
+		return time.Duration(cfg.CreateEmptyBlocksInterval - (times * 1000)) * time.Millisecond
+	}
+	return time.Duration(1000) * time.Millisecond
 }
 
 // Propose returns the amount of time to wait for a proposal

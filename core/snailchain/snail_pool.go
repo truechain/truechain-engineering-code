@@ -366,10 +366,6 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 			delete(pool.fruitPending, fruit.FastHash())
 			allDiscardCounter.Inc(1)
 			delete(pool.allFruits, fruit.FastHash())
-			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
-				pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-				delete(pool.allFastBlocks, fruit.FastHash())
-			}*/
 		}
 	}
 }

@@ -717,6 +717,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	digest, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
+		log.Error("VerifySnailSeal error  ", "epoch is:", header.Number.Uint64()/epochLength, "header.MixDigest is:", header.MixDigest[:], "digest is:", digest)
 		return errInvalidMixDigest
 	}
 
@@ -779,7 +780,6 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
-	snap := state.Snapshot()
 	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -793,16 +793,24 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		err := accumulateRewardsFast(m.election, state, header, sBlock)
+		err := accumulateRewardsFast(m.election, state, sBlock)
 		if err != nil {
 			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
-			state.RevertToSnapshot(snap)
 			return nil, err
 		}
 	}
 
+	/*
+		//test performance
+		sheader := m.sbc.GetHeaderByNumber(1)
+		sBlock := m.sbc.GetBlock(sheader.Hash(), sheader.Number.Uint64())
+		err := accumulateRewardsFast(m.election, state, sBlock)
+		if err != nil {
+			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
+			return nil, err
+		}*/
+
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
-		state.RevertToSnapshot(snap)
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
@@ -847,44 +855,47 @@ func LogPrint(info string, addr common.Address, amount *big.Int) {
 // AccumulateRewardsFast credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, header *types.Header, sBlock *types.SnailBlock) error {
+func accumulateRewardsFast(election consensus.CommitteeElection, state *state.StateDB, sBlock *types.SnailBlock) error {
 	committeeCoin, minerCoin, minerFruitCoin, e := getBlockReward(sBlock.Header().Number)
-
 	if e != nil {
 		return e
 	}
+	var (
+		blockFruits    = sBlock.Body().Fruits
+		blockFruitsLen = big.NewInt(int64(len(blockFruits)))
+	)
+	if blockFruitsLen.Uint64() == 0 {
+		return consensus.ErrInvalidBlock
+	}
+	var (
+		//fruit award amount
+		minerFruitCoinOne = new(big.Int).Div(minerFruitCoin, blockFruitsLen)
+		//committee's award amount
+		committeeCoinFruit = new(big.Int).Div(committeeCoin, blockFruitsLen)
+		//all fail committee coinBase
+		failAddr = make(map[common.Address]bool)
+	)
 
 	//miner's award
 	state.AddBalance(sBlock.Coinbase(), minerCoin)
 	LogPrint("miner's award", sBlock.Coinbase(), minerCoin)
-
-	//miner fruit award
-	blockFruits := sBlock.Body().Fruits
-	blockFruitsLen := big.NewInt(int64(len(blockFruits)))
-	if len(blockFruits) > 0 {
-		minerFruitCoinOne := new(big.Int).Div(minerFruitCoin, blockFruitsLen)
-		for _, v := range sBlock.Body().Fruits {
-			state.AddBalance(v.Coinbase(), minerFruitCoinOne)
-			LogPrint("minerFruit", v.Coinbase(), minerFruitCoinOne)
-		}
-	} else {
-		return consensus.ErrInvalidBlock
-	}
-
-	//committee's award
-	committeeCoinFruit := new(big.Int).Div(committeeCoin, blockFruitsLen)
-
-	//all fail committee coinBase
-	failAddr := make(map[common.Address]bool)
-
+	//fruit award
 	for _, fruit := range blockFruits {
+		state.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+		LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
+		//committee reward
+		err := rewardFruitCommitteeMember(state, election, fruit, committeeCoinFruit, failAddr)
+		if err != nil {
+			return err
+		}
+	}
+	//committee's award
+	/*for _, fruit := range blockFruits {
 		signs := fruit.Body().Signs
-
 		committeeMembers, errs := election.VerifySigns(signs)
 		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}
-
 		//Effective and not evil
 		var fruitOkAddr []common.Address
 		for i, cm := range committeeMembers {
@@ -892,7 +903,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 				continue
 			}
 			cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
-
 			if signs[i].Result == types.VoteAgree {
 				if _, ok := failAddr[cmPubAddr]; !ok {
 					fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
@@ -901,20 +911,52 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 				failAddr[cmPubAddr] = false
 			}
 		}
-
 		if len(fruitOkAddr) == 0 {
-			log.Error("fruitOkAddr", "Error", consensus.ErrInvalidSignsLength.Error())
-			return nil
+			log.Error("fruitOkAddr", "Error", consensus.ErrValidSignsZero.Error())
+			return consensus.ErrValidSignsZero
 		}
-
 		// Equal by fruit
 		committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 		for _, v := range fruitOkAddr {
 			state.AddBalance(v, committeeCoinFruitMember)
 			LogPrint("committee", v, committeeCoinFruitMember)
 		}
-	}
+	}*/
+	return nil
+}
 
+func rewardFruitCommitteeMember(state *state.StateDB, election consensus.CommitteeElection,
+	fruit *types.SnailBlock, committeeCoinFruit *big.Int, failAddr map[common.Address]bool) error {
+	signs := fruit.Body().Signs
+	committeeMembers, errs := election.VerifySigns(signs)
+	if len(committeeMembers) != len(errs) {
+		return consensus.ErrInvalidSignsLength
+	}
+	//Effective and not evil
+	var fruitOkAddr []common.Address
+	for i, cm := range committeeMembers {
+		if errs[i] != nil {
+			continue
+		}
+		cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
+		if signs[i].Result == types.VoteAgree {
+			if _, ok := failAddr[cmPubAddr]; !ok {
+				fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
+			}
+		} else {
+			failAddr[cmPubAddr] = false
+		}
+	}
+	if len(fruitOkAddr) == 0 {
+		log.Error("fruitOkAddr", "Error", consensus.ErrValidSignsZero.Error())
+		return consensus.ErrValidSignsZero
+	}
+	// Equal by fruit
+	committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
+	for _, v := range fruitOkAddr {
+		state.AddBalance(v, committeeCoinFruitMember)
+		LogPrint("committee", v, committeeCoinFruitMember)
+	}
 	return nil
 }
 

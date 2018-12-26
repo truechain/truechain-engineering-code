@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/core"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -33,10 +33,13 @@ var (
 	// ErrInvalidSignHash is returned if the fruit contains an invalid signatures hash.
 	ErrInvalidSignHash = errors.New("invalid sign")
 
+	//ErrInvalidFast is returned if the fastchain not have the hash
 	ErrInvalidFast = errors.New("invalid fast hash")
 
+	//ErrNoFruits is returned if the block not contains the exact fruit count
 	ErrNoFruits = errors.New("invalid fruits count")
 
+	//ErrInvalidFruits is returned if the fruits in block not continuity
 	ErrInvalidFruits = errors.New("invalid fruits number")
 )
 
@@ -127,7 +130,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 // transition, such as amount of used gas, the receipt roots and the state root
 // itself. ValidateState returns a database batch if the validation was a success
 // otherwise nil and an error is returned.
-
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 
@@ -141,6 +143,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 	return nil
 }
 
+//ValidateFruit is to verify if the fruit is legal
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
 	//
