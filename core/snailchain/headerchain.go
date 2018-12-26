@@ -27,13 +27,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -134,7 +134,6 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-
 func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatus, err error) {
 	// Cache some values to prevent constant recalculation
 	var (
@@ -208,6 +207,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatu
 // header writes should be protected by the parent chain mutex individually.
 type WhCallback func(*types.SnailHeader) error
 
+//ValidateHeaderChain validate the header of the snailchain
 func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
