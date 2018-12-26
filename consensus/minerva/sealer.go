@@ -207,7 +207,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 	)
 
 	//m.CheckDataSetState(block.Number().Uint64())
-
+	log.Info("start mine,", "epoch is:", block.Number().Uint64()/epochLength)
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
@@ -245,6 +245,7 @@ search:
 					//TODO need add fruit flow
 					header.Fruit = false
 
+					log.Info("miner success", "epoch is:", block.Number().Uint64()/epochLength, "--digest is:", header.MixDigest)
 					// Seal and return a block (if still needed)
 					select {
 					case found <- block.WithSeal(header):

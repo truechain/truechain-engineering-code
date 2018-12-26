@@ -26,21 +26,21 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
@@ -51,13 +51,13 @@ var (
 )
 
 const (
-	bodyCacheLimit      = 256
-	blockCacheLimit     = 256
-	maxFutureBlocks     = 256
-	maxTimeFutureBlocks = 30
-	badBlockLimit       = 10
-	triesInMemory       = 128
-
+	bodyCacheLimit         = 256
+	blockCacheLimit        = 256
+	maxFutureBlocks        = 256
+	maxTimeFutureBlocks    = 30
+	badBlockLimit          = 10
+	triesInMemory          = 128
+	fastBlockStateInternal = 6
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	BlockChainVersion = 3
 )
@@ -635,7 +635,7 @@ func (bc *BlockChain) HasState(hash common.Hash) bool {
 // or CurrentFastBlock number  > the number of fb
 func (bc *BlockChain) VerifyHasState(fb *types.Block) bool {
 	_, err := bc.stateCache.OpenTrie(fb.Root())
-	if err != nil && bc.CurrentBlock().NumberU64() > fb.NumberU64() {
+	if err != nil && bc.CurrentBlock().NumberU64() > fb.NumberU64()+uint64(fastBlockStateInternal) {
 		return true
 	}
 	return err == nil
@@ -796,7 +796,7 @@ func (bc *BlockChain) procFutureBlocks() {
 type WriteStatus byte
 
 const (
-	NonStatTy   WriteStatus = iota
+	NonStatTy WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )

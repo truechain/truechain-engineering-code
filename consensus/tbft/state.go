@@ -548,6 +548,9 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal)
+		if err != nil {
+			log.Warn("SetProposal","Warning",err)
+		}
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		_, err = cs.addProposalBlockPart(msg, peerID)
@@ -670,7 +673,7 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 
 	cs.eventBus.PublishEventNewRound(cs.RoundStateEvent())
 	// cs.metrics.Rounds.Set(float64(round))
-	cs.tryEnterProposal(height, round, 0)
+	cs.tryEnterProposal(height, round, 1)
 }
 
 func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
@@ -1273,7 +1276,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 	// Already have one
 	// TODO: possibly catch double proposals
-	if cs.Proposal != nil {
+	if cs.Proposal != nil || proposal == nil{
 		return nil
 	}
 
@@ -1294,10 +1297,10 @@ func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 	}
 
 	// Verify signature
-	// if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.GetChainID()),
-	// 	 proposal.Signature) {
-	// 	return ErrInvalidProposalSignature
-	// }
+	if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.GetChainID()),
+		 proposal.Signature) {
+		return ErrInvalidProposalSignature
+	}
 
 	cs.Proposal = proposal
 	cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(proposal.BlockPartsHeader)
