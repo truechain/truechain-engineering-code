@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"math/rand"
 	"os"
@@ -32,11 +33,11 @@ import (
 	"unsafe"
 
 	"github.com/edsrzf/mmap-go"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -249,9 +250,10 @@ type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset  []uint64  // The actual cache data content
-	once     sync.Once // Ensures the cache is generated only once
-	dateInit int
+	dataset    []uint64  // The actual cache data content
+	once       sync.Once // Ensures the cache is generated only once
+	dateInit   int
+	consistent common.Hash // Consistency of generated data
 }
 
 // newDataset creates a new truehash mining dataset
@@ -375,9 +377,11 @@ func (d *dataset) generate(blockNum uint64, m *Minerva) {
 				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
 				log.Info("updateLookupTBL is start,:blockNum is:  ", "------", blockNum)
 				//d.Flag = 0
-				flag, ds := m.updateLookupTBL(bn, d.dataset)
+				flag, ds, cont := m.updateLookupTBL(bn, d.dataset)
 				if flag {
 					d.dataset = ds
+					d.consistent = common.BytesToHash([]byte(cont))
+					log.Info("updateLookupTBL", "epoch is:", blockNum/epochLength, "---consistent is:", d.consistent.String())
 				} else {
 					log.Error("updateLookupTBL is err  ", "blockNum is:  ", blockNum)
 				}

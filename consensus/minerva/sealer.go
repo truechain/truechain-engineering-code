@@ -245,7 +245,6 @@ search:
 					//TODO need add fruit flow
 					header.Fruit = false
 
-					log.Info("miner success", "epoch is:", block.Number().Uint64()/epochLength, "--digest is:", header.MixDigest)
 					// Seal and return a block (if still needed)
 					select {
 					case found <- block.WithSeal(header):
@@ -299,12 +298,13 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 	genLookupTable(tableLookup[:], table[:])
 }
 
-func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, []uint64) {
+func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, []uint64, string) {
 	log.Info("updateupTBL start ，", "blockNum is:	", blockNum)
 	const offsetCnst = 0x1f
 	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
+	var cont string
 
 	cur_block_num := blockNum
 
@@ -314,12 +314,12 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, [
 
 	if sblockchain == nil {
 		log.Error("sblockchain is nil  ", "blockNum is:  ", blockNum)
-		return false, nil
+		return false, nil, ""
 	}
 	//res <= STARTUPDATENUM
 	if res <= STARTUPDATENUM {
 		log.Error("----The value is less than the reservation value---- ", "blockNum is:  ", blockNum)
-		return false, nil
+		return false, nil, ""
 	}
 	var st_block_num uint64 = uint64(cur_block_num - res)
 
@@ -328,7 +328,7 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, [
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + 1)
 		if header == nil {
 			log.Error("----updateTBL--The offset is nil---- ", "blockNum is:  ", blockNum)
-			return false, nil
+			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
 		offset[i*4] = (int(val[0]) & offsetCnst) - 16
@@ -341,17 +341,18 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, [
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN) + 1)
 		if header == nil {
 			log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", blockNum)
-			return false, nil
+			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
 		for k := 0; k < 16; k++ {
 			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
 		}
+		cont += header.Hash().String()
 	}
 
 	ds := m.UpdateTBL(offset, skip, plookupTbl)
 
-	return true, ds
+	return true, ds, cont
 }
 
 //UpdateTBL Update dataset information
