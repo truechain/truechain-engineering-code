@@ -253,7 +253,7 @@ func TestPbftRunFor2(t *testing.T) {
 	<-start
 }
 func TestPbftRunFor4(t *testing.T) {
-	////log.OpenLogDebug(4)
+	log.OpenLogDebug(3)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -267,7 +267,7 @@ func TestPbftRunFor4(t *testing.T) {
 	agent4 := NewPbftAgent("Agent4")
 
 	config1 := new(config.TbftConfig)
-	*config1 = *config.TestConfig()
+	*config1 = *config.DefaultConfig()
 	p2p1 := new(config.P2PConfig)
 	*p2p1 = *config1.P2P
 	p2p1.ListenAddress1 = "tcp://127.0.0.1:28890"
@@ -283,7 +283,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n1.Start()
 
 	config2 := new(config.TbftConfig)
-	*config2 = *config.TestConfig()
+	*config2 = *config.DefaultConfig()
 	p2p2 := new(config.P2PConfig)
 	*p2p2 = *config2.P2P
 	p2p2.ListenAddress1 = "tcp://127.0.0.1:28893"
@@ -299,7 +299,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n2.Start()
 
 	config3 := new(config.TbftConfig)
-	*config3 = *config.TestConfig()
+	*config3 = *config.DefaultConfig()
 	p2p3 := new(config.P2PConfig)
 	*p2p3 = *config3.P2P
 	p2p3.ListenAddress1 = "tcp://127.0.0.1:28895"
@@ -315,7 +315,7 @@ func TestPbftRunFor4(t *testing.T) {
 	n3.Start()
 
 	config4 := new(config.TbftConfig)
-	*config4 = *config.TestConfig()
+	*config4 = *config.DefaultConfig()
 	p2p4 := new(config.P2PConfig)
 	*p2p4 = *config4.P2P
 	p2p4.ListenAddress1 = "tcp://127.0.0.1:28897"
@@ -351,7 +351,7 @@ func TestPbftRunFor4(t *testing.T) {
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Port2: 28891, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28893, Port2: 28894, Coinbase: m2.Coinbase, Publickey: crypto.FromECDSAPub(m2.Publickey)})
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28895, Port2: 28896, Coinbase: m3.Coinbase, Publickey: crypto.FromECDSAPub(m3.Publickey)})
-	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Port2: 28899, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
+	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28897, Port2: 28898, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
 
 	n1.PutCommittee(c1)
 	n1.PutNodes(common.Big1, cn)
@@ -850,7 +850,7 @@ func TestRunPbft3(t *testing.T) {
 }
 
 func TestRunPbft4(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)

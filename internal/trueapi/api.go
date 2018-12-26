@@ -952,6 +952,8 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	formatSign := func(sign *types.PbftSign) (map[string]interface{}, error) {
 
 		signmap := map[string]interface{}{
+			"fastHeight": (*hexutil.Big)(sign.FastHeight),
+			"fastHash": sign.FastHash,
 			"sign":   hexutil.Bytes(sign.Sign),
 			"result": sign.Result,
 		}

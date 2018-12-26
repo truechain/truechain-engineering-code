@@ -208,11 +208,6 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			} else {
 				src.TrySend(VoteSetBitsChannel, d1)
 			}
-		case *ProposalHeartbeatMessage:
-			hb := msg.Heartbeat
-			log.Debug("Received proposal heartbeat message",
-				"height", hb.Height, "round", hb.Round, "sequence", hb.Sequence,
-				"valIdx", hb.ValidatorIndex, "valAddr", hb.ValidatorAddress)
 		default:
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -333,23 +328,11 @@ func (conR *ConsensusReactor) subscribeToBroadcastEvents() {
 		func(data ttypes.EventData) {
 			conR.broadcastHasVoteMessage(data.(*ttypes.Vote))
 		})
-
-	conR.conS.evsw.AddListenerForEvent(subscriber, ttypes.EventProposalHeartbeat,
-		func(data ttypes.EventData) {
-			conR.broadcastProposalHeartbeatMessage(data.(*ttypes.Heartbeat))
-		})
 }
 
 func (conR *ConsensusReactor) unsubscribeFromBroadcastEvents() {
 	const subscriber = "consensus-reactor"
 	conR.conS.evsw.RemoveListener(subscriber)
-}
-
-func (conR *ConsensusReactor) broadcastProposalHeartbeatMessage(hb *ttypes.Heartbeat) {
-	log.Debug("Broadcasting proposal heartbeat message",
-		"height", hb.Height, "round", hb.Round, "sequence", hb.Sequence)
-	msg := &ProposalHeartbeatMessage{hb}
-	conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(msg))
 }
 
 func (conR *ConsensusReactor) broadcastNewRoundStepMessages(rs *ttypes.RoundState) {
@@ -1288,7 +1271,6 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&HasVoteMessage{}, "true/HasVote", nil)
 	cdc.RegisterConcrete(&VoteSetMaj23Message{}, "true/VoteSetMaj23", nil)
 	cdc.RegisterConcrete(&VoteSetBitsMessage{}, "true/VoteSetBits", nil)
-	cdc.RegisterConcrete(&ProposalHeartbeatMessage{}, "true/ProposalHeartbeat", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
@@ -1427,16 +1409,4 @@ type VoteSetBitsMessage struct {
 // String returns a string representation.
 func (m *VoteSetBitsMessage) String() string {
 	return fmt.Sprintf("[VSB %v/%02d/%v %v %v]", m.Height, m.Round, m.Type, m.BlockID, m.Votes)
-}
-
-//-------------------------------------
-
-// ProposalHeartbeatMessage is sent to signal that a node is alive and waiting for transactions for a proposal.
-type ProposalHeartbeatMessage struct {
-	Heartbeat *ttypes.Heartbeat
-}
-
-// String returns a string representation.
-func (m *ProposalHeartbeatMessage) String() string {
-	return fmt.Sprintf("[HEARTBEAT %v]", m.Heartbeat)
 }

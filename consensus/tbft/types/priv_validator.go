@@ -44,7 +44,6 @@ type PrivValidator interface {
 
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
-	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
 }
 
 type privValidator struct {
@@ -196,17 +195,6 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 	proposal.Signature = sig
 	return nil
 }
-func (Validator *privValidator) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
-	Validator.mtx.Lock()
-	defer Validator.mtx.Unlock()
-	signBytes := heartbeat.SignBytes(chainID)
-	sig, err := Validator.PrivKey.Sign(signBytes)
-	if err != nil {
-		return err
-	}
-	heartbeat.Signature = sig
-	return nil
-}
 
 // returns error if HRS regression or no LastSignBytes. returns true if HRS is unchanged
 func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (bool, error) {
@@ -323,7 +311,6 @@ type StateAgent interface {
 	GetPubKey() tcrypto.PubKey
 	SignVote(chainID string, vote *Vote) error
 	SignProposal(chainID string, proposal *Proposal) error
-	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
 	PrivReset()
 }
 
@@ -466,9 +453,6 @@ func (state *StateAgentImpl) SignVote(chainID string, vote *Vote) error {
 }
 func (state *StateAgentImpl) SignProposal(chainID string, proposal *Proposal) error {
 	return state.Priv.SignProposal(chainID, proposal)
-}
-func (state *StateAgentImpl) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
-	return state.Priv.SignHeartbeat(chainID, heartbeat)
 }
 func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {
