@@ -415,9 +415,9 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 		info = v.Infos
 	}
 	watch := newInWatch(3,"FetchFastBlock")
-	block, err := state.Agent.FetchFastBlock(committeeI,info)
-	if err != nil || block == nil {
-		return nil, nil,err
+	block, err := state.Agent.FetchFastBlock(committeeID, info)
+	if err != nil {
+		return nil, err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
@@ -427,8 +427,7 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	}
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
-	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
-	return block,parts,err2
+	return block, err
 }
 
 //ConsensusCommit is BroadcastConsensus block to agent
@@ -500,11 +499,6 @@ func (state *StateAgentImpl) SignVote(chainID string, vote *Vote) error {
 //SignProposal sign of proposal msg
 func (state *StateAgentImpl) SignProposal(chainID string, proposal *Proposal) error {
 	return state.Priv.signProposal(chainID, proposal)
-}
-
-//SignHeartbeat sign of HeartBeat
-func (state *StateAgentImpl) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
-	return state.Priv.SignHeartbeat(chainID, heartbeat)
 }
 
 //Broadcast is agent Broadcast block

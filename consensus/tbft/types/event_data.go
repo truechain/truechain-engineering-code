@@ -42,8 +42,3 @@ type EventDataCommon struct {
 type EventDataVote struct {
 	Vote *Vote
 }
-
-//EventDataProposalHeartbeat event heartbeat
-type EventDataProposalHeartbeat struct {
-	Heartbeat *Heartbeat
-}

@@ -253,18 +253,23 @@ type BlockMeta struct {
 
 //BlockStore struct
 type BlockStore struct {
-	blocks map[uint64]*BlockMeta
+	blocks 			map[uint64]*BlockMeta
+	blockLock 		*sync.Mutex
 }
 
 // NewBlockStore warning all function not thread_safe
 func NewBlockStore() *BlockStore {
 	return &BlockStore{
-		blocks: make(map[uint64]*BlockMeta),
+		blocks: 	make(map[uint64]*BlockMeta),
+		blockLock: 	new(sync.Mutex),
 	}
 }
 
 //LoadBlockMeta load BlockMeta with height
 func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+
 	if v, ok := b.blocks[height]; ok {
 		return v
 	}
@@ -273,6 +278,9 @@ func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
 
 //LoadBlockPart load block part with height and index
 func (b *BlockStore) LoadBlockPart(height uint64, index uint) *Part {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+	
 	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
@@ -281,9 +289,9 @@ func (b *BlockStore) LoadBlockPart(height uint64, index uint) *Part {
 
 //MaxBlockHeight get max fast block height
 func (b *BlockStore) MaxBlockHeight() uint64 {
-	// ss.blockLock.Lock()
-	// defer ss.blockLock.Unlock()
-	var cur uint64
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+	var cur uint64 = 0
 	//var fb *ctypes.Block = nil
 	for k := range b.blocks {
 		if cur == 0 {
@@ -312,6 +320,9 @@ func (b *BlockStore) MinBlockHeight() uint64 {
 
 //LoadBlockCommit is load blocks commit vote
 func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+
 	if v, ok := b.blocks[height]; ok {
 		return v.SeenCommit
 	}
@@ -320,6 +331,9 @@ func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
 
 //SaveBlock save block to blockStore
 func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit,proposal *Proposal) {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+
 	if len(b.blocks) >= MaxLimitBlockStore {
 		k := b.MinBlockHeight()
 		if k <= 0 {

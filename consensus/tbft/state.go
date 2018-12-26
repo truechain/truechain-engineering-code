@@ -349,8 +349,8 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	//log.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
-	var d = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), rs.Step, 2})
+	var d time.Duration = cs.taskTimeOut
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), ttypes.RoundStepBlockSync, 0})
 }
 
 // Attempt to schedule a timeout (by sending timeoutInfo on the tickChan)
@@ -364,7 +364,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 
 //UpdateStateForSync is sync update state
 func (cs *ConsensusState) UpdateStateForSync() {
-	log.Info("begin UpdateStateForSync", "height", cs.Height)
+	log.Debug("begin updateStateForSync","height",cs.Height)
 	oldH := cs.Height
 	newH := cs.state.GetLastBlockHeight() + 1
 	if oldH != newH {
@@ -688,37 +688,6 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	cs.eventBus.PublishEventNewRound(cs.RoundStateEvent())
 	// cs.metrics.Rounds.Set(float64(round))
 	cs.tryEnterProposal(height, round, 1)
-}
-
-func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
-	counter := uint(0)
-	addr := cs.privValidator.GetAddress()
-	valIndex, _ := cs.Validators.GetByAddress(addr)
-	chainID := cs.state.GetChainID()
-	for {
-		if !cs.IsRunning() {
-			return
-		}
-		rs := cs.GetRoundState()
-		// if we've already moved on, no need to send more heartbeats
-		if rs.Step > ttypes.RoundStepNewRound || int(rs.Round) > round || rs.Height > height {
-			return
-		}
-		heartbeat := &ttypes.Heartbeat{
-			Height:           rs.Height,
-			Round:            rs.Round,
-			Sequence:         counter,
-			ValidatorAddress: addr,
-			ValidatorIndex:   uint(valIndex),
-		}
-		cs.privValidator.SignHeartbeat(chainID, heartbeat)
-
-		ehb := &ttypes.EventDataProposalHeartbeat{heartbeat}
-		cs.eventBus.PublishEventProposalHeartbeat(*ehb)
-		cs.evsw.FireEvent(ttypes.EventProposalHeartbeat, heartbeat)
-		counter++
-		time.Sleep(proposalHeartbeatIntervalSeconds * time.Second)
-	}
 }
 
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)
