@@ -40,12 +40,6 @@ func TestVoteSetBitsMessage(t *testing.T) {
 	Tests(msg, &msgOut)
 }
 
-func TestProposalHeartbeatMessage(t *testing.T) {
-	msg1 := &ProposalHeartbeatMessage{Heartbeat: &types.Heartbeat{ValidatorAddress: nil, ValidatorIndex: uint(1), Height: uint64(1), Round: uint(0), Sequence: uint(1), Signature: []byte("111")}}
-	var msg1Out ProposalHeartbeatMessage
-	Tests(msg1, &msg1Out)
-}
-
 func TestNewRoundStepMessage(t *testing.T) {
 	msg1 := &NewRoundStepMessage{Height: 1, Round: 1, SecondsSinceStartTime: 1, Step: 1, LastCommitRound: 1}
 	var msg1Out NewRoundStepMessage

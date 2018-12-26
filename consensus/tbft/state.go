@@ -19,13 +19,6 @@ import (
 )
 
 //-----------------------------------------------------------------------------
-// Config
-
-const (
-	proposalHeartbeatIntervalSeconds = 2
-)
-
-//-----------------------------------------------------------------------------
 // Errors
 
 var (
@@ -104,7 +97,7 @@ type ConsensusState struct {
 	done chan struct{}
 
 	// synchronous pubsub between consensus state and reactor.
-	// state only emits EventNewRoundStep, EventVote and EventProposalHeartbeat
+	// state only emits EventNewRoundStep and EventVote
 	evsw ttypes.EventSwitch
 }
 
@@ -676,35 +669,6 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	cs.tryEnterProposal(height, round, 1)
 }
 
-func (cs *ConsensusState) proposalHeartbeat(height uint64, round int) {
-	counter := uint(0)
-	addr := cs.privValidator.GetAddress()
-	valIndex, _ := cs.Validators.GetByAddress(addr)
-	chainID := cs.state.GetChainID()
-	for {
-		if !cs.IsRunning() {
-			return
-		}
-		rs := cs.GetRoundState()
-		// if we've already moved on, no need to send more heartbeats
-		if rs.Step > ttypes.RoundStepNewRound || int(rs.Round) > round || rs.Height > height {
-			return
-		}
-		heartbeat := &ttypes.Heartbeat{
-			Height:           rs.Height,
-			Round:            rs.Round,
-			Sequence:         counter,
-			ValidatorAddress: addr,
-			ValidatorIndex:   uint(valIndex),
-		}
-		cs.privValidator.SignHeartbeat(chainID, heartbeat)
-		cs.eventBus.PublishEventProposalHeartbeat(ttypes.EventDataProposalHeartbeat{heartbeat})
-		cs.evsw.FireEvent(ttypes.EventProposalHeartbeat, heartbeat)
-		counter++
-		time.Sleep(proposalHeartbeatIntervalSeconds * time.Second)
-	}
-}
-
 // Enter (CreateEmptyBlocks): from enterNewRound(height,round)
 // Enter (CreateEmptyBlocks, CreateEmptyBlocksInterval > 0 ): after enterNewRound(height,round), after timeout of CreateEmptyBlocksInterval
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
@@ -765,8 +729,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) {
 		dd := cs.config.EmptyBlocksIntervalForPer(int(wait))
 		wait ++
-		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})	
-		go cs.proposalHeartbeat(height, round)
+		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})
 	} else {
 		cs.enterPropose(height, round, block, blockParts)
 	}
