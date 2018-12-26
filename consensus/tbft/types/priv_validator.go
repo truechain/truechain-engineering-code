@@ -465,7 +465,7 @@ func (state *StateAgentImpl) SignVote(chainID string, vote *Vote) error {
 	return state.Priv.SignVote(chainID, vote)
 }
 func (state *StateAgentImpl) SignProposal(chainID string, proposal *Proposal) error {
-	return state.Priv.signProposal(chainID, proposal)
+	return state.Priv.SignProposal(chainID, proposal)
 }
 func (state *StateAgentImpl) SignHeartbeat(chainID string, heartbeat *Heartbeat) error {
 	return state.Priv.SignHeartbeat(chainID, heartbeat)
