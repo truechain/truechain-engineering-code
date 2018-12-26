@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	//"sync"
+	"sync"
 	//"time"
 
 	"github.com/ethereum/go-ethereum/common"

@@ -363,7 +363,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 }
 
 //UpdateStateForSync is sync update state
-func (cs *ConsensusState) UpdateStateForSync() {
+func (cs *ConsensusState) updateStateForSync() {
 	log.Debug("begin updateStateForSync","height",cs.Height)
 	oldH := cs.Height
 	newH := cs.state.GetLastBlockHeight() + 1
