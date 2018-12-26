@@ -375,22 +375,34 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 	return a
 }
 
-
 type committeeMember struct {
 	Address common.Address
 	PubKey  []byte
 }
 
+type electionMembers struct{
+	members     []*committeeMember
+	backups     []*committeeMember
+}
+
 // WriteCommittee stores the Committee of a block into the database.
-func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.CommitteeMember) {
-	members := make([]*committeeMember, len(committee))
-	for i, member := range committee {
+func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionCommittee) {
+	members := make([]*committeeMember, len(committee.Members))
+	for i, member := range committee.Members {
 		members[i] = &committeeMember{
 			Address: member.Coinbase,
 			PubKey: crypto.FromECDSAPub(member.Publickey),
 		}
 	}
-	data, err := rlp.EncodeToBytes(members)
+	backups := make([]*committeeMember, len(committee.Backups))
+	for i, member := range committee.Backups {
+		backups[i] = &committeeMember{
+			Address: member.Coinbase,
+			PubKey: crypto.FromECDSAPub(member.Publickey),
+		}
+	}
+
+	data, err := rlp.EncodeToBytes(&electionMembers{members: members, backups: backups})
 	if err != nil {
 		log.Crit("Failed to RLP encode block committee", "err", err)
 	}
@@ -403,34 +415,48 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.Committ
 }
 
 // ReadCommittee read committee
-func ReadCommittee(db DatabaseReader, number uint64) []*types.CommitteeMember {
+func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 	key := committeeKey(number)
 	data, _ := db.Get(key)
 	if len(data) == 0 {
 		return nil
 	}
-	var members []*committeeMember
-	if err := rlp.Decode(bytes.NewReader(data), &members); err != nil {
+	var (
+		election    electionMembers
+		committee   types.ElectionCommittee
+	)
+	if err := rlp.Decode(bytes.NewReader(data), &election); err != nil {
 		log.Error("Invalid block  committee RLP", "err", err)
 		return nil
 	}
-	committee := make([]*types.CommitteeMember, len(members))
-	for i, member := range members {
+	for _, member := range election.members {
 		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
 		if puberr != nil {
 			return nil
 		}
-		committee[i] = &types.CommitteeMember{
+		committee.Members = append(committee.Members, &types.CommitteeMember{
 			Coinbase: member.Address,
 			Publickey:pubkey,
-		}
+		})
 	}
-	return committee
+
+	for _, member := range election.backups {
+		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
+		if puberr != nil {
+			return nil
+		}
+		committee.Backups = append(committee.Backups, &types.CommitteeMember{
+			Coinbase: member.Address,
+			Publickey:pubkey,
+		})
+	}
+
+	return &committee
 }
 
 // ReadGenesisCommittee read the Genesis committee
 func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
-	return ReadCommittee(db, 0)
+	return ReadCommittee(db, 0).Members
 }
 
 // ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height

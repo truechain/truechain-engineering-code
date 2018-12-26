@@ -50,6 +50,12 @@ type CommitteeMember struct {
 	Flag      int32
 }
 
+// ElectionCommittee defines election members result
+type ElectionCommittee struct {
+	Members     []*CommitteeMember
+	Backups     []*CommitteeMember
+}
+
 func (c *CommitteeMember) String() string {
 	return fmt.Sprintf("F:%d,C:%s,P:%s", c.Flag, common.ToHex(c.Coinbase[:]),
 		common.ToHex(crypto.FromECDSAPub(c.Publickey)))

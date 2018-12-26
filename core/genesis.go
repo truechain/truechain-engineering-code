@@ -395,7 +395,7 @@ func (g *Genesis) CommitSnail(db ethdb.Database) (*types.SnailBlock, error) {
 	snaildb.WriteHeadBlockHash(db, block.Hash())
 	snaildb.WriteHeadHeaderHash(db, block.Hash())
 	// Write genesis election committeee
-	snaildb.WriteCommittee(db, block.NumberU64(), g.Committee)
+	snaildb.WriteCommittee(db, block.NumberU64(), &types.ElectionCommittee{Members: g.Committee})
 
 	// config := g.Config
 	// if config == nil {
