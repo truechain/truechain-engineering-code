@@ -316,18 +316,16 @@ func (q *queue) Schedule(headers []*types.Header, from uint64, pivot uint64) ([]
 		}
 
 
-		if header.Number.Uint64() >= pivot {
-			log.Debug("Schedule","header",header.Number.Uint64(),"pivot",pivot)
+		if 	q.mode != SnapShotSync {
+			log.Debug("Schedule", "header", header.Number.Uint64(), "pivot", pivot)
 			q.blockTaskPool[hash] = header
 			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
 
-			if q.mode == FastSync || q.mode == SnapShotSync{
+			if q.mode == FastSync {
 				q.receiptTaskPool[hash] = header
 				q.receiptTaskQueue.Push(header, -int64(header.Number.Uint64()))
 			}
 		}
-
-
 		//log.Info("---queue", "block test len", len(q.blockTaskPool), "recipt test len", len(q.receiptTaskPool))
 		inserts = append(inserts, header)
 		q.headerHead = hash

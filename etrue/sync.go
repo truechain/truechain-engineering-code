@@ -382,7 +382,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 			log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
 			return
 		}
-
+		log.Debug("sync exit")
 		if atomic.LoadUint32(&pm.fastSync) == 1 {
 
 			if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {

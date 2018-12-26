@@ -473,7 +473,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
 
 
-	if d.mode == FastSync || d.mode == SnapShotSync{
+	if d.mode == FastSync{
 		fetchers = append(fetchers, d.processFastSyncContent)
 	} else if d.mode == FullSync {
 		fetchers = append(fetchers, d.processFullSyncContent)
@@ -641,6 +641,8 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 		go p.GetPeer().RequestHeadersByNumber(from, height, 0, false, true)
 
 	}
+
+
 	// Start pulling the header chain skeleton until all is done
 	getHeaders(from, height)
 

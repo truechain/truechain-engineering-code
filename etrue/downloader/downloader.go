@@ -317,7 +317,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
 	err := d.synchronise(id, head, td, mode)
-
+	defer log.Debug("snail Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -1368,6 +1368,7 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	var (
 		stateSync *stateSync
+		oldPivot *types.Block   // Locked in pivot block, might change eventually
 	)
 
 
@@ -1385,11 +1386,30 @@ func (d *Downloader) processFullSyncContent(p etrue.PeerConnection, hash common.
 
 	for {
 
-		results := d.queue.Results(true)
+		results := d.queue.Results(d.mode == FullSync || oldPivot == nil)
+
+		if d.mode == FullSync && len(results) == 0 {
+			return nil
+		}
+
+		if  d.mode == FastSync && len(results) == 0  {
+			// If pivot sync is done, stop
+			if oldPivot == nil {
+				return stateSync.Cancel()
+			}
+			// If sync failed, stop
+			select {
+			case <-d.cancelCh:
+				return stateSync.Cancel()
+			default:
+			}
+		}
+		if d.chainInsertHook != nil {
+			d.chainInsertHook(results)
+		}
 		if err := d.importBlockResults(results, p, hash, td,remoteHeader); err != nil {
 			return err
 		}
-
 
 	}
 }
@@ -1452,9 +1472,12 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				height = fbNumLast - fbNum
 
 				log.Trace("fastDownloader", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
-
 				if height > 0 {
 					for {
+
+						if d.mode == SnapShotSync && fbNumLast > d.remoteHeader.Number.Uint64(){
+							d.mode = FastSync
+						}
 
 						errs := d.fastDown.Synchronise(p.GetID(), hash, td, fastdownloader.SyncMode(d.mode), fbNum, height)
 						if errs != nil {
@@ -1464,9 +1487,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 						if d.mode == FastSync {
 							currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
-						}else if d.mode == FastSync {
+						} else if d.mode == FastSync {
 							currentNum = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
-						}else if d.mode == SnapShotSync{
+						} else if d.mode == SnapShotSync {
 							currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
 						}
 
@@ -1479,8 +1502,8 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 						}
 						break
 					}
-				}
 
+				}
 			}
 
 		} else {
