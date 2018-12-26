@@ -357,7 +357,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	log.Info("getDataset:", "epoch is ", epoch, "blockNumber is ", block, "consistent is ", current.consistent)
+	log.Info("getDataset:", "epoch is ", epoch, "blockNumber is ", block, "consistent is ", current.consistent.String())
 
 	current.generate(block, m)
 

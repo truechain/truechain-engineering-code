@@ -17,12 +17,16 @@
 package minerva
 
 import (
+	"bufio"
 	crand "crypto/rand"
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
+	"os"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -352,6 +356,9 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, [
 
 	ds := m.UpdateTBL(offset, skip, plookupTbl)
 
+	// verify table, will remove
+	WriteTBL(offset, skip)
+
 	return true, ds, cont
 }
 
@@ -369,9 +376,8 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 			idx := k*DATALENGTH + x
 			pos := offset[idx] + x
 			sk := skip[idx]
-			pos0 := pos - sk*PMTSIZE
-			pos1 := pos + sk*PMTSIZE
-			for y := pos0; y < pos1; y += sk {
+			y := pos - sk*PMTSIZE/2
+			for i := 0; i < PMTSIZE; i++ {
 				if y >= 0 && y < SKIP_CYCLE_LEN {
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
@@ -382,4 +388,49 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 		}
 	}
 	return plookupTbl
+}
+
+// WriteTBL Save Update dataset information
+func WriteTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int) {
+
+	// Create a file and use bufio.NewWriter.
+	currentTime := time.Now()
+	filename := fmt.Sprintf("tbl%s.dat", currentTime.Format("2000.01.01"))
+	fmt.Println(filename)
+	f, _ := os.Create(filename)
+	w := bufio.NewWriter(f)
+
+	lktWz := uint32(4)
+	lktSz := uint32(DATALENGTH) * lktWz
+	fmt.Fprintf(w, "{\n")
+	for k := 0; k < TBLSIZE; k++ {
+
+		fmt.Fprintf(w, "\t{\n")
+		plkt := uint32(k) * lktSz
+
+		for x := 0; x < DATALENGTH; x++ {
+			idx := k*DATALENGTH + x
+			pos := offset[idx] + x
+			sk := skip[idx]
+			y := pos - sk*PMTSIZE/2
+			if x%64 == 0 {
+				fmt.Fprintf(w, "\n\t\t")
+
+			}
+			for i := 0; i < PMTSIZE; i++ {
+				if y >= 0 && y < SKIP_CYCLE_LEN {
+					fmt.Fprintf(w, "0x%03x,\t", y)
+				} else {
+					fmt.Fprintf(w, "0xfff,\t")
+				}
+				y += sk
+			}
+
+			plkt += lktWz
+		}
+		fmt.Fprintf(w, "\n\t}\n")
+	}
+	fmt.Fprintf(w, "}\n")
+	fmt.Fprintf(w, "\n")
+	w.Flush()
 }
