@@ -315,8 +315,9 @@ func (q *queue) Schedule(headers []*types.Header, from uint64, pivot uint64) ([]
 			continue
 		}
 
-		log.Debug("Schedule","header",header.Number.Uint64(),"pivot",pivot)
+
 		if header.Number.Uint64() >= pivot {
+			log.Debug("Schedule","header",header.Number.Uint64(),"pivot",pivot)
 			q.blockTaskPool[hash] = header
 			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
 
