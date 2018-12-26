@@ -395,6 +395,7 @@ func (agent *PbftAgent) loop() {
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:          committeeID,
 					Members:     ch.CommitteeMembers,
+					BackMembers: ch.BackupMembers,
 					StartHeight: ch.BeginFastNumber,
 				}
 				agent.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
@@ -405,6 +406,16 @@ func (agent *PbftAgent) loop() {
 					agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode})
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
+				}
+			case types.CommitteeUpdate:
+				receivedCommitteeInfo := &types.CommitteeInfo{
+					Id:          ch.CommitteeID,
+					StartHeight: ch.BeginFastNumber,
+					Members:     ch.CommitteeMembers,
+					BackMembers: ch.BackupMembers,
+				}
+				if agent.IsCommitteeMember(receivedCommitteeInfo) {
+					agent.server.UpdateCommittee(receivedCommitteeInfo)
 				}
 			case types.CommitteeOver:
 				log.Debug("CommitteeOver...", "CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
