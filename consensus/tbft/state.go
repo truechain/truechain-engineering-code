@@ -70,9 +70,9 @@ type ConsensusState struct {
 	// internal state
 	mtx sync.RWMutex
 	ttypes.RoundState
-	// state sm.State // State until height-1.
 	state      ttypes.StateAgent
 	blockStore *ttypes.BlockStore
+	proposalForCatchup	*ttypes.Proposal
 
 	// state changes may be triggered by: msgs from peers,
 	// msgs from ourself, or by timeouts
@@ -436,6 +436,7 @@ func (cs *ConsensusState) updateToState(state ttypes.StateAgent) {
 	}
 
 	cs.Validators = validators
+	cs.proposalForCatchup = nil
 	cs.Proposal = nil
 	cs.ProposalBlock = nil
 	cs.ProposalBlockParts = nil
@@ -987,9 +988,8 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 			log.Info("enterPrecommit: +2/3 prevoted for nil.")
 		} else {
 			log.Info("enterPrecommit: +2/3 prevoted for nil. Unlocking")
-			cs.LockedRound = 0
-			cs.LockedBlock = nil
-			cs.LockedBlockParts = nil
+			cs.LockedRound,cs.LockedBlock = 0,nil
+			cs.LockedBlockParts,cs.proposalForCatchup = nil,nil
 			cs.eventBus.PublishEventUnlock(cs.RoundStateEvent())
 		}
 		cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{}, nil)
@@ -1032,9 +1032,8 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		}
 		if ksign != nil {
 			if ksign.Result == types.VoteAgree {
-				cs.LockedRound = uint(round)
-				cs.LockedBlock = cs.ProposalBlock
-				cs.LockedBlockParts = cs.ProposalBlockParts
+				cs.LockedRound,cs.LockedBlock = uint(round),cs.ProposalBlock 
+				cs.LockedBlockParts,cs.proposalForCatchup = cs.ProposalBlockParts,cs.Proposal
 			}			
 			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
@@ -1048,9 +1047,8 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	// Fetch that block, unlock, and precommit nil.
 	// The +2/3 prevotes for this round is the POL for our unlock.
 	// TODO: In the future save the POL prevotes for justification.
-	cs.LockedRound = 0
-	cs.LockedBlock = nil
-	cs.LockedBlockParts = nil
+	cs.LockedRound,cs.LockedBlock = 0,nil
+	cs.LockedBlockParts,cs.proposalForCatchup = nil,nil
 	if !cs.ProposalBlockParts.HasHeader(blockID.PartsHeader) {
 		cs.ProposalBlock = nil
 		cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(blockID.PartsHeader)
@@ -1213,7 +1211,11 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		// but may differ from the LastCommit included in the next block
 		precommits := cs.Votes.Precommits(int(cs.CommitRound))
 		seenCommit := precommits.MakeCommit()
-		cs.blockStore.SaveBlock(block, blockParts, seenCommit,cs.Proposal)
+		proposal := cs.Proposal
+		if proposal == nil {
+			proposal = cs.proposalForCatchup
+		}
+		cs.blockStore.SaveBlock(block, blockParts, seenCommit,proposal)
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
@@ -1440,6 +1442,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				cs.LockedRound = 0
 				cs.LockedBlock = nil
 				cs.LockedBlockParts = nil
+				cs.proposalForCatchup = nil
 				cs.eventBus.PublishEventUnlock(cs.RoundStateEvent())
 			}
 
