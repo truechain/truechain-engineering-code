@@ -381,8 +381,8 @@ type committeeMember struct {
 }
 
 type electionMembers struct{
-	members     []*committeeMember
-	backups     []*committeeMember
+	Members     []*committeeMember
+	Backups     []*committeeMember
 }
 
 // WriteCommittee stores the Committee of a block into the database.
@@ -402,7 +402,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionC
 		}
 	}
 
-	data, err := rlp.EncodeToBytes(&electionMembers{members: members, backups: backups})
+	data, err := rlp.EncodeToBytes(&electionMembers{Members: members, Backups: backups})
 	if err != nil {
 		log.Crit("Failed to RLP encode block committee", "err", err)
 	}
@@ -429,7 +429,7 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 		log.Error("Invalid block  committee RLP", "err", err)
 		return nil
 	}
-	for _, member := range election.members {
+	for _, member := range election.Members {
 		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
 		if puberr != nil {
 			return nil
@@ -440,7 +440,7 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 		})
 	}
 
-	for _, member := range election.backups {
+	for _, member := range election.Backups {
 		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
 		if puberr != nil {
 			return nil

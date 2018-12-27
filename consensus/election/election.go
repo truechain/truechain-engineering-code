@@ -59,8 +59,6 @@ var (
 )
 
 var (
-	// ErrInvalidSender is returned if the transaction contains an invalid signature.
-	//ErrInvalidSign   = errors.New("invalid sign")
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
 )
@@ -540,8 +538,12 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		log.Error("Failed to fetch elected committee", "fast", fastNumber)
 		return nil
 	}
+	if len(committee.switches) == 0 {
+		return committee.Members()
+	}
+
 	states := make(map[string]int32)
-	if len(committee.switches) == 0 || fastNumber.Uint64() > committee.switches[len(committee.switches)-1] {
+	if fastNumber.Uint64() > committee.switches[len(committee.switches)-1] {
 		// Apply all committee state switches for latest block
 		for _, num := range committee.switches {
 			b := e.fastchain.GetBlockByNumber(num)
@@ -900,6 +902,8 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 		return
 	}
 
+	log.Info("Election update committee member state", "committee", infos.CID)
+
 	committee.switches = append(committee.switches, fastNumber.Uint64())
 	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID, committee.switches)
 
@@ -1087,6 +1091,7 @@ func (e *Election) loop() {
 				info := ev.Block.SwitchInfos()
 				// Update committee members flag based on block switchinfo
 				if len(info.Vals) > 0 {
+					log.Info("Election receive committee switch info", "committee", info.CID)
 					e.updateMembers(ev.Block.Number(), info)
 				}
 
