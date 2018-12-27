@@ -172,7 +172,11 @@ func NewElction(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChain
 		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
 		election.defaultMembers = members
 	} else {
-		election.defaultMembers = election.genesisCommittee[:4]
+		if len(election.genesisCommittee) >= 4 {
+			election.defaultMembers = election.genesisCommittee[:4]
+		} else {
+			log.Error("Election creation get no genesis committee members")
+		}
 	}
 
 	return election
