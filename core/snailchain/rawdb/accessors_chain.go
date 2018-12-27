@@ -336,6 +336,7 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.SnailB
 
 // WriteBlock serializes a block into the database, header and body separately.
 func WriteBlock(db DatabaseWriter, block *types.SnailBlock) {
+	log.Info("WriteBlock","Header",block.Header(),"body",types.DeriveSha(types.Fruits(block.Fruits())))
 	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
 }
