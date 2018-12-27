@@ -306,6 +306,16 @@ func (sw *Switch) StopPeerForError(peer Peer, reason interface{}) {
 	}
 }
 
+func (sw *Switch) GetPeerForID(id string) Peer {
+	peers := sw.peers.List()
+	for _, peer := range peers {
+		if string(peer.ID()) == id {
+			return peer
+		}
+	}
+	return nil
+}
+
 // StopPeerGracefully disconnects from a peer gracefully.
 // TODO: handle graceful disconnects.
 func (sw *Switch) StopPeerGracefully(peer Peer) {

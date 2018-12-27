@@ -434,10 +434,18 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
-		stop := service.consensusState.UpdateValidatorSet(info)
+		stop, member := service.consensusState.UpdateValidatorSet(info)
+		for _, v := range member {
+			pID := pkToP2pID(v.Publickey)
+			p := service.sw.GetPeerForID(string(pID))
+			if p != nil {
+				service.sw.StopPeerForError(p, nil)
+			}
+		}
 		if stop {
 			service.stop()
 		}
+
 		//update nodes
 		//nodes := makeCommitteeMembersForUpdateCommittee(info)
 		//service.setNodes(nodes)

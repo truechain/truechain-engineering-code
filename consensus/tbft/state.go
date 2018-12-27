@@ -75,17 +75,17 @@ type ConsensusState struct {
 	// internal state
 	mtx sync.RWMutex
 	ttypes.RoundState
-	state      ttypes.StateAgent
-	blockStore *ttypes.BlockStore
-	proposalForCatchup	*ttypes.Proposal
+	state              ttypes.StateAgent
+	blockStore         *ttypes.BlockStore
+	proposalForCatchup *ttypes.Proposal
 
 	// state changes may be triggered by: msgs from peers,
 	// msgs from ourself, or by timeouts
 	peerMsgQueue     chan msgInfo
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
-	timeoutTask 	 TimeoutTicker
-	taskTimeOut 	 time.Duration
+	timeoutTask      TimeoutTicker
+	taskTimeOut      time.Duration
 	// we use eventBus to trigger msg broadcasts in the reactor,
 	// and to notify external subscribers, eg. through a websocket
 	eventBus *ttypes.EventBus
@@ -349,7 +349,7 @@ func (cs *ConsensusState) scheduleRound0(rs *ttypes.RoundState) {
 	//log.Info("scheduleRound0", "now", time.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(time.Now()) // nolint: gotype, gosimple
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, ttypes.RoundStepNewHeight)
-	var d time.Duration = cs.taskTimeOut
+	var d = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, rs.Height, uint(rs.Round), ttypes.RoundStepBlockSync, 0})
 }
 
@@ -364,7 +364,7 @@ func (cs *ConsensusState) scheduleTimeoutWithWait(ti timeoutInfo) {
 
 //UpdateStateForSync is sync update state
 func (cs *ConsensusState) updateStateForSync() {
-	log.Debug("begin updateStateForSync","height",cs.Height)
+	log.Debug("begin updateStateForSync", "height", cs.Height)
 	oldH := cs.Height
 	newH := cs.state.GetLastBlockHeight() + 1
 	if oldH != newH {
@@ -374,9 +374,9 @@ func (cs *ConsensusState) updateStateForSync() {
 		sleepDuration := time.Duration(1) * time.Millisecond
 		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 1})
 	}
-	var d time.Duration = cs.taskTimeOut
+	var d = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
-	log.Debug("end updateStateForSync","newHeight",newH)
+	log.Debug("end updateStateForSync", "newHeight", newH)
 }
 
 // send a msg into the receiveRoutine regarding our own proposal, block part, or vote
@@ -563,7 +563,7 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal)
 		if err != nil {
-			log.Warn("SetProposal","Warning",err)
+			log.Warn("SetProposal", "Warning", err)
 		}
 	case *BlockPartMessage:
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
@@ -638,6 +638,7 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundSt
 	cs.updateStateForSync()
 	log.Debug("Received task tock End")
 }
+
 //-----------------------------------------------------------------------------
 // State functions
 // Used internally by handleTimeout and handleMsg to make state transitions
@@ -747,9 +748,9 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
-	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait )) {
+	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) {
 		dd := cs.config.EmptyBlocksIntervalForPer(int(wait))
-		wait ++
+		wait++
 		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})
 	} else {
 		cs.enterPropose(height, round, block, blockParts)
@@ -1017,8 +1018,8 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 			log.Info("enterPrecommit: +2/3 prevoted for nil.")
 		} else {
 			log.Info("enterPrecommit: +2/3 prevoted for nil. Unlocking")
-			cs.LockedRound,cs.LockedBlock = 0,nil
-			cs.LockedBlockParts,cs.proposalForCatchup = nil,nil
+			cs.LockedRound, cs.LockedBlock = 0, nil
+			cs.LockedBlockParts, cs.proposalForCatchup = nil, nil
 			cs.eventBus.PublishEventUnlock(cs.RoundStateEvent())
 		}
 		cs.signAddVote(ttypes.VoteTypePrecommit, nil, ttypes.PartSetHeader{}, nil)
@@ -1061,8 +1062,8 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		}
 		if ksign != nil {
 			if ksign.Result == types.VoteAgree {
-				cs.LockedRound,cs.LockedBlock = uint(round),cs.ProposalBlock
-				cs.LockedBlockParts,cs.proposalForCatchup = cs.ProposalBlockParts,cs.Proposal
+				cs.LockedRound, cs.LockedBlock = uint(round), cs.ProposalBlock
+				cs.LockedBlockParts, cs.proposalForCatchup = cs.ProposalBlockParts, cs.Proposal
 			}
 			cs.eventBus.PublishEventLock(cs.RoundStateEvent())
 			cs.signAddVote(ttypes.VoteTypePrecommit, blockID.Hash, blockID.PartsHeader, ksign)
@@ -1076,8 +1077,8 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 	// Fetch that block, unlock, and precommit nil.
 	// The +2/3 prevotes for this round is the POL for our unlock.
 	// TODO: In the future save the POL prevotes for justification.
-	cs.LockedRound,cs.LockedBlock = 0,nil
-	cs.LockedBlockParts,cs.proposalForCatchup = nil,nil
+	cs.LockedRound, cs.LockedBlock = 0, nil
+	cs.LockedBlockParts, cs.proposalForCatchup = nil, nil
 	if !cs.ProposalBlockParts.HasHeader(blockID.PartsHeader) {
 		cs.ProposalBlock = nil
 		cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(blockID.PartsHeader)
@@ -1271,7 +1272,7 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 	// Already have one
 	// TODO: possibly catch double proposals
-	if cs.Proposal != nil || proposal == nil{
+	if cs.Proposal != nil || proposal == nil {
 		return nil
 	}
 
@@ -1293,7 +1294,7 @@ func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 
 	// Verify signature
 	if !cs.Validators.GetProposer().PubKey.VerifyBytes(proposal.SignBytes(cs.state.GetChainID()),
-		 proposal.Signature) {
+		proposal.Signature) {
 		return ErrInvalidProposalSignature
 	}
 
@@ -1611,6 +1612,7 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 		}
 	}
 }
+
 func (cs *ConsensusState) swithResult(block *types.Block) {
 	sw := block.SwitchInfos()
 	if sw == nil || len(sw.Vals) < 2 {
@@ -1655,6 +1657,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		}
 	}()
 }
+
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	sw := block.SwitchInfos()
 	if sw != nil {
@@ -1678,6 +1681,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	}
 	return false
 }
+
 func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSign, error) {
 	if block == nil {
 		return nil, errors.New("block is nil")
@@ -1685,6 +1689,7 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	res := cs.switchVerify(block)
 	return cs.state.ValidateBlock(block, res)
 }
+
 func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.SwitchValidator {
 	if info == nil || len(info.Vals) < 2 {
 		return nil
@@ -1722,12 +1727,10 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 }
 
 //UpdateValidatorSet committee change
-func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfStop bool) {
-	//var mmRemove, mmNow []*types.CommitteeMember
+func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember) {
 	allMember := append(info.Members, info.BackMembers...)
 	for _, v := range allMember {
 		if v.Flag == types.StateUsedFlag {
-			//mmNow = append(mmNow, v)
 			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
 			cs.GetRoundState().Validators.Add(vTemp)
 		}
@@ -1735,7 +1738,7 @@ func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfSto
 			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
 				selfStop = true
 			}
-			//mmRemove =append(mmRemove,v)
+			remove = append(remove, v)
 			cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
 		}
 	}
