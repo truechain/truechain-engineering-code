@@ -83,7 +83,6 @@ type committee struct {
 	switchCheckNumber   *big.Int // the snailblock that start switch next committee
 	members             types.CommitteeMembers
 	backupMembers       types.CommitteeMembers
-
 	switches            []uint64 // blocknumbers whose block include switchinfos
 }
 
@@ -123,6 +122,8 @@ func (c *committee) setMemberState(pubkey []byte, flag int32) {
 		}
 	}
 }
+
+
 
 type Election struct {
 	genesisCommittee []*types.CommitteeMember
@@ -227,10 +228,11 @@ func NewFakeElection() *Election {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUnusedFlag} //todo helei
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag}
 		members = append(members, m)
 	}
 
+	// Backup members are empty in FakeMode Election
 	elected := &committee{
 		id:                  new(big.Int).Set(common.Big0),
 		beginFastNumber:     new(big.Int).Set(common.Big1),
@@ -411,7 +413,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	endElectionNumber := new(big.Int).Set(switchCheckNumber)
 	beginElectionNumber := new(big.Int).Add(new(big.Int).Sub(endElectionNumber, params.ElectionPeriodNumber), common.Big1)
 	if beginElectionNumber.Cmp(common.Big0) <= 0 {
-		//
 		beginElectionNumber = new(big.Int).Set(common.Big1)
 	}
 
@@ -440,7 +441,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		preEndElectionNumber := new(big.Int).Sub(switchCheckNumber, params.ElectionPeriodNumber)
 		preBeginElectionNumber := new(big.Int).Add(new(big.Int).Sub(preEndElectionNumber, params.ElectionPeriodNumber), common.Big1)
 		if preBeginElectionNumber.Cmp(common.Big0) <= 0 {
-			//
 			preBeginElectionNumber = new(big.Int).Set(common.Big1)
 		}
 		preEndFast := e.getLastNumber(preBeginElectionNumber, preEndElectionNumber)
@@ -460,6 +460,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			switchCheckNumber:   lastSnailNumber,
 			members:             members.Members,
 			backupMembers:       members.Backups,
+			switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), new(big.Int).Sub(committeeNumber, common.Big1).Uint64()),
 		}
 	}
 
@@ -470,13 +471,12 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		id:              committeeNumber,
 		beginFastNumber: new(big.Int).Add(lastFastNumber, common.Big1),
 		endFastNumber:   new(big.Int).Set(common.Big0),
-
 		firstElectionNumber: beginElectionNumber,
 		lastElectionNumber:  endElectionNumber,
 		switchCheckNumber:   new(big.Int).Add(lastSnailNumber, params.ElectionPeriodNumber),
 		members:             members.Members,
 		backupMembers:       members.Backups,
-		// switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), infos.CID, committee.switches)
+		switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), committeeNumber.Uint64()),
 	}
 }
 
@@ -658,7 +658,7 @@ func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 
 // getCandinates get candinate miners and seed from given snail blocks
 func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.Int) (common.Hash, []*candidateMember) {
-	var fruitsCount map[common.Address]uint64 = make(map[common.Address]uint64)
+	var fruitsCount = make(map[common.Address]uint64)
 	var members []*candidateMember
 
 	var seed []byte
@@ -838,10 +838,59 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	return &committee
 }
 
+// filterWithSwitchInfo return committee members which are applied all switchinfo changes
+func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types.CommitteeMember) {
+	members = c.Members()
+	backups = c.BackupMembers()
+	if len(c.switches) == 0 {
+		log.Warn("committee flag filter has no switch infos", "id", c.id)
+		return
+	}
+
+	// Apply all committee state switches for latest block
+	states := make(map[string]int32)
+	for _, num := range c.switches {
+		b := e.fastchain.GetBlockByNumber(num)
+		for _, s := range b.SwitchInfos().Vals {
+			switch s.Flag {
+			case types.StateAddFlag:
+				states[string(s.Pk)] = types.StateAddFlag
+			case types.StateRemovedFlag:
+				states[string(s.Pk)] = types.StateRemovedFlag
+			}
+		}
+	}
+
+	for i, m := range members {
+		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
+			if flag != types.StateRemovedFlag {
+				// Update the committee member state
+				var switched = *m
+				switched.Flag = types.StateUnusedFlag
+				members[i] = &switched
+			}
+		}
+	}
+	for i, m := range backups {
+		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
+			if flag == types.StateAddFlag {
+				// Update the committee member state
+				var switched = *m
+				switched.Flag = types.StateUsedFlag
+				backups[i] = &switched
+			}
+		}
+	}
+	return
+}
+
 // updateMembers update Committee members if switchinfo found in block
 func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) {
-	var committee *committee
+	if infos == nil || len(infos.Vals) < 2 {
+		return
+	}
 
+	var committee *committee
 	if infos.CID == e.committee.id.Uint64() {
 		committee = e.committee
 	} else if infos.CID == e.nextCommittee.id.Uint64() {
@@ -853,7 +902,9 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 
 	committee.switches = append(committee.switches, fastNumber.Uint64())
 	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID, committee.switches)
+
 	// Update current committee members state
+	/*
 	for _, s := range infos.Vals {
 		switch s.Flag {
 		case types.StateAddFlag:
@@ -862,6 +913,16 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 			committee.setMemberState(s.Pk, types.StateUnusedFlag)
 		}
 	}
+	*/
+
+	// Update pbft server's committee info via pbft agent proxy
+	members, backups := e.filterWithSwitchInfo(committee)
+	e.electionFeed.Send(types.ElectionEvent{
+		Option:             types.CommitteeUpdate,
+		CommitteeID:        committee.id,
+		CommitteeMembers:   members,
+		BackupMembers:      backups,
+	})
 }
 
 // Start load current committ and starts election processing
@@ -894,6 +955,7 @@ func (e *Election) Start() error {
 			switchCheckNumber:   new(big.Int).Add(e.committee.switchCheckNumber, params.ElectionPeriodNumber),
 			members:             members.Members,
 			backupMembers:       members.Backups,
+			switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), new(big.Int).Add(currentCommittee.id, common.Big1).Uint64()),
 		}
 		e.nextCommittee = nextCommittee
 		// start switchover
@@ -1026,12 +1088,6 @@ func (e *Election) loop() {
 				// Update committee members flag based on block switchinfo
 				if len(info.Vals) > 0 {
 					e.updateMembers(ev.Block.Number(), info)
-					e.electionFeed.Send(types.ElectionEvent{
-						Option:             types.CommitteeUpdate,
-						CommitteeID:        e.committee.id,
-						CommitteeMembers:   e.committee.Members(),
-						BackupMembers:   e.committee.BackupMembers(),
-					})
 				}
 
 				if e.startSwitchover {

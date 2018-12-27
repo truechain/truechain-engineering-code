@@ -542,7 +542,7 @@ func newFakeElection() *fakeElection {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag} //todo helei
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag}
 		members = append(members, m)
 	}
 	return &fakeElection{privates: priKeys, members: members}
