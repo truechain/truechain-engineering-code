@@ -424,9 +424,9 @@ func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
 	// Make sure that both the block as well at its state trie exists
 	block := bc.GetBlockByHash(hash)
 	if block == nil {
-		for _,key :=range bc.hc.headerCache.Keys(){
+		for _, key := range bc.hc.headerCache.Keys() {
 
-			log.Debug("FastSyncCommitHead=====err==","key",key)
+			log.Debug("FastSyncCommitHead=====err==", "key", key)
 
 		}
 
@@ -1120,7 +1120,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			chosen := header.Number.Uint64()
 
 			// If we exceeded out time allowance, flush an entire trie to disk
-			if bc.gcproc > bc.cacheConfig.TrieTimeLimit || header.Number.Int64() == blockDeleteHeight {
+			if bc.gcproc > bc.cacheConfig.TrieTimeLimit || header.Number.Int64()%blockDeleteHeight == 0 {
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
 				if chosen < lastWrite+triesInMemory && bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
