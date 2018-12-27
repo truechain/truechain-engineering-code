@@ -274,7 +274,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
-	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
+	log.Info("pm_synchronise ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
 		header, err := pm.fdownloader.FetchHeight(peer.id,0);
@@ -283,7 +283,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 			return
 		}
 
-		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
+		log.Info("Fast FetchHeight end",  "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
 		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 
