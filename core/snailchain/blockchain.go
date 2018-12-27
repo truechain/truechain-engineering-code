@@ -47,8 +47,8 @@ import (
 )
 
 var (
-	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-
+	blockInsertTimer = metrics.NewRegisteredTimer("snailchain/inserts", nil)
+	blockWriteTimer  = metrics.NewRegisteredTimer("snailchain/write", nil)
 	//ErrNoGenesis is returned if the Genesis not found in chain.
 	ErrNoGenesis = errors.New("Genesis not found in chain")
 )
@@ -1047,14 +1047,16 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			bc.reportBlock(block, err)
 			return i, events, err
 		}
-
+		t0 := time.Now()
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
 		status, err := bc.WriteCanonicalBlock(block)
+		t1 := time.Now()
 		if err != nil {
 			return i, events, err
 		}
+		blockWriteTimer.Update(t1.Sub(t0))
 		switch status {
 		case CanonStatTy:
 
