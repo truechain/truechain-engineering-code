@@ -863,8 +863,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 		return NonStatTy, err
 	}
 	// Write other block data using a batch.
-	batch := bc.db.NewBatch()
-	rawdb.WriteBlock(batch, block)
+	rawdb.WriteBlock(bc.db, block)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -884,15 +883,16 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 			}
 		}
 		// Write the positional metadata for fruit lookups
-		rawdb.WriteFtLookupEntries(batch, block)
+		rawdb.WriteFtLookupEntries(bc.db, block)
 
 		status = CanonStatTy
 	} else {
 		status = SideStatTy
 	}
-	if err := batch.Write(); err != nil {
-		return NonStatTy, err
-	}
+
+	//if err := batch.Write(); err != nil {
+	//	return NonStatTy, err
+	//}
 
 	// Set new head.
 	if status == CanonStatTy {
