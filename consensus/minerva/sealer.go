@@ -339,6 +339,7 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, [
 		offset[i*4+1] = (int(val[1]) & offsetCnst) - 16
 		offset[i*4+2] = (int(val[2]) & offsetCnst) - 16
 		offset[i*4+3] = (int(val[3]) & offsetCnst) - 16
+		cont += header.Hash().String()
 	}
 
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
