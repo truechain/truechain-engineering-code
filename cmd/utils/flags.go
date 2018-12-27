@@ -1136,7 +1136,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	cfg.NoPruning = ctx.GlobalString(GCModeFlag.Name) == "archive"
 
-	if ctx.GlobalIsSet(StateGCFlag.Name) {
+	if ctx.GlobalIsSet(StateGCFlag.Name) || cfg.SyncMode == downloader.SnapShotSync {
 		cfg.DeletedState = true
 	}
 
