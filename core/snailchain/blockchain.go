@@ -49,6 +49,7 @@ import (
 var (
 	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
 
+	//ErrNoGenesis is returned if the Genesis not found in chain.
 	ErrNoGenesis = errors.New("Genesis not found in chain")
 )
 
@@ -64,7 +65,7 @@ const (
 	SnailBlockChainVersion = 3
 )
 
-// SnialCacheConfig contains the configuration values for the trie caching/pruning
+// CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
 type CacheConfig struct {
 	Disabled      bool          // Whether to disable trie write caching (archive node)
@@ -72,7 +73,7 @@ type CacheConfig struct {
 	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
 }
 
-// BlockChain represents the canonical chain given a database with a genesis
+// SnailBlockChain represents the canonical chain given a database with a genesis
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
 //
 // Importing blocks in to the block chain happens according to the set of rules
@@ -132,7 +133,7 @@ type SnailBlockChain struct {
 	badBlocks *lru.Cache // Bad block cache
 }
 
-// NewBlockChain returns a fully initialised block chain using information
+// NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
 func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
