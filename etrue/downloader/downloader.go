@@ -1485,11 +1485,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 							return errs
 						}
 
-						if d.mode == FastSync {
+						if d.mode == FullSync {
 							currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
-						} else if d.mode == FastSync {
-							currentNum = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
-						} else if d.mode == SnapShotSync {
+						}  else if d.mode == SnapShotSync ||  d.mode == FastSync  {
 							currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
 						}
 
