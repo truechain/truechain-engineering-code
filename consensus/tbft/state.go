@@ -1614,7 +1614,9 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 }
 
 func (cs *ConsensusState) swithResult(block *types.Block) {
+
 	sw := block.SwitchInfos()
+	log.Info("swithResult", sw)
 	if sw == nil || len(sw.Vals) < 2 {
 		return
 	}
