@@ -1465,7 +1465,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	}
 	log.Debug("Fast Downloaded>>>>", "CurrentBlock:", d.blockchain.CurrentBlock().NumberU64())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
+		log.Info("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
 			return err
 		}
