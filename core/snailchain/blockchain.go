@@ -587,6 +587,8 @@ func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []
 	return
 }
 
+//GetBlocksFromNumber return snailblocks between given number to currentNumber
+//just for test
 func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*types.SnailBlock) {
 	currentNumber := bc.CurrentBlock().Number()
 	for i := fromNumber; i <= currentNumber.Uint64(); i++ {
