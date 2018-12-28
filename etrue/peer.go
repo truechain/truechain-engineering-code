@@ -20,15 +20,16 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/ethereum/go-ethereum/rlp"
 	"gopkg.in/fatih/set.v0"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -314,7 +315,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
-	log.Debug("SendTransactions","txs.Len()",txs.Len(),"peer id:",p.id)
+	log.Debug("SendTransactions", "txs.Len()", txs.Len(), "peer id:", p.id)
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
@@ -524,7 +525,11 @@ func (p *peer) SendReceiptsRLP(receipts []rlp.RawValue) error {
 // RequestOneFastHeader is a wrapper around the header query functions to fetch a
 // single fast header. It is used solely by the fetcher fast.
 func (p *peer) RequestOneFastHeader(hash common.Hash) error {
-	p.Log().Debug("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
+	if strings.HasPrefix(hash.String(), "00") {
+		p.Log().Warn("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
+	} else {
+		p.Log().Debug("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
+	}
 	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
@@ -532,7 +537,11 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 // specified header query, based on the hash of an origin block.
 func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, reverse bool, isFastchain bool) error {
 	if isFastchain {
-		p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		if strings.HasPrefix(origin.String(), "00") {
+			p.Log().Warn("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		} else {
+			p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
+		}
 		return p2p.Send(p.rw, GetFastOneBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
 	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
