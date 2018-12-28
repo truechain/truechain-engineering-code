@@ -435,8 +435,9 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 			return nil
 		}
 		committee.Members = append(committee.Members, &types.CommitteeMember{
-			Coinbase: member.Address,
-			Publickey:pubkey,
+			Coinbase:   member.Address,
+			Publickey:  pubkey,
+			Flag:       types.StateUsedFlag,
 		})
 	}
 
@@ -446,8 +447,9 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 			return nil
 		}
 		committee.Backups = append(committee.Backups, &types.CommitteeMember{
-			Coinbase: member.Address,
-			Publickey:pubkey,
+			Coinbase:   member.Address,
+			Publickey:  pubkey,
+			Flag:       types.StateUnusedFlag,
 		})
 	}
 
@@ -457,6 +459,9 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 // ReadGenesisCommittee read the Genesis committee
 func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
 	if committee := ReadCommittee(db, 0); committee != nil {
+		for _, m := range committee.Members {
+			m.Flag = types.StateUsedFlag
+		}
 		return committee.Members
 	}
 	return nil
