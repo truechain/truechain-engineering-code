@@ -352,60 +352,45 @@ func (m *Minerva) NewTestData(block uint64) {
 // dataset tries to retrieve a mining dataset for the specified block number
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
+	//each 12000 change the mine algorithm
 	epoch := block / epochLength
-	//log.Info("epoch value: ", epoch, "------", "block number is: ", block)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
 	log.Info("getDataset:", "epoch is ", epoch, "blockNumber is ", block, "consistent is ", current.consistent)
 
-	current.generate(block, m)
+	current.generate(epoch, m)
 
 	return current
 }
 
 // generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(blockNum uint64, m *Minerva) {
+func (d *dataset) generate(epoch uint64, m *Minerva) {
 	d.once.Do(func() {
-		//fmt.Println("d.once:",blockNum)
 		if d.dateInit == 0 {
-			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-			// blockNum <= UPDATABLOCKLENGTH
-			if blockNum <= UPDATABLOCKLENGTH {
-				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+			if epoch <= 0 {
+				log.Info("TableInit is start,:epoch is:  ", "------", epoch)
 				m.truehashTableInit(d.dataset)
 			} else {
-				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-				log.Info("updateLookupTBL is start,:blockNum is:  ", "------", blockNum)
-				//d.Flag = 0
+				// the new algorithm is use befor 10241 start block hear to calc
+				bn := (epoch-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				log.Info("updateLookupTBL is start,:epoch is:  ", "------", epoch)
+
 				flag, ds, cont := m.updateLookupTBL(bn, d.dataset)
 				if flag {
 					d.dataset = ds
+
+					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
-					log.Info("updateLookupTBL", "epoch is:", blockNum/epochLength, "---consistent is:", d.consistent.String())
+					log.Info("updateLookupTBL", "epoch is:", epoch, "---consistent is:", d.consistent.String())
 				} else {
-					log.Error("updateLookupTBL is err  ", "blockNum is:  ", blockNum)
+					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
 				}
 			}
 			d.dateInit = 1
 		}
 	})
 
-	//go d.updateTable(blockNum, m)
-
-}
-
-func (d *dataset) updateTable(blockNum uint64, m *Minerva) {
-	if blockNum%UPDATABLOCKLENGTH == STARTUPDATENUM+1 {
-		epoch := blockNum / epochLength
-		currentI, _ := m.datasets.get(epoch + 1)
-		current := currentI.(*dataset)
-		if current.dateInit == 0 {
-			current.generate(blockNum, m)
-			//fmt.Println(blockNum)
-		}
-	}
 }
 
 //SetSnailChainReader Append interface SnailChainReader after instantiations
