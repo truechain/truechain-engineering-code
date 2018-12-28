@@ -197,8 +197,8 @@ func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
-		fmt.Println("--------------------------",v)
-		fmt.Println("--------------------------",v.ID,v.Adrress,v.Port,v.IP,v.Enable)
+		fmt.Println("--------------------------", v, len(s.nodeTable))
+		fmt.Println("--------------------------", v.ID, v.Adrress, v.Port, v.IP, v.Enable)
 		address, err := hex.DecodeString(string(v.ID))
 		if v != nil && !v.Enable && err == nil && s.consensusState.Validators.HasAddress(address) {
 			s.connTo(v)
@@ -403,6 +403,11 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		service.stop()
 		return errors.New("make the nil CommitteeMembers")
 	}
+
+	for k, v := range nodeinfo {
+		fmt.Println("-------------------------", k, v)
+	}
+
 	service.setNodes(nodeinfo)
 	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
