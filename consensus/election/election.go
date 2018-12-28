@@ -758,6 +758,7 @@ func (e *Election) Start() error {
 
 	currentCommittee := e.getCommittee(fastHeadNumber, snailHeadNumber)
 	if currentCommittee == nil {
+		log.Crit("Election faiiled to get committee on start")
 		return nil
 	}
 
