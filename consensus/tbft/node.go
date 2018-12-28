@@ -435,6 +435,7 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 
 // UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
+	log.Info("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
 		stop, member := service.consensusState.UpdateValidatorSet(info)

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"sync"
 	"time"
@@ -413,8 +413,9 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	var info *ctypes.SwitchInfos
 	if v != nil {
 		info = v.Infos
+		log.Info("MakeBlock", "val", info.Vals)
 	}
-	watch := newInWatch(3,"FetchFastBlock")
+	watch := newInWatch(3, "FetchFastBlock")
 	block, err := state.Agent.FetchFastBlock(committeeID, info)
 	if err != nil {
 		return nil, err
@@ -435,7 +436,7 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
-	watch := newInWatch(3,"BroadcastConsensus")
+	watch := newInWatch(3, "BroadcastConsensus")
 	err := state.Agent.BroadcastConsensus(block)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
@@ -450,7 +451,7 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	if block == nil {
 		return nil, errors.New("block not have")
 	}
-	watch := newInWatch(3,"VerifyFastBlock")
+	watch := newInWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
@@ -509,24 +510,25 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 }
 
 type inWatch struct {
-	begin 	time.Time
-	end		time.Time
-	expect  float64
-	str 	string
+	begin  time.Time
+	end    time.Time
+	expect float64
+	str    string
 }
-func newInWatch(e float64,s string) *inWatch {
+
+func newInWatch(e float64, s string) *inWatch {
 	return &inWatch{
-		begin:			time.Now(),
-		end:			time.Now(),
-		expect:			e,
-		str:			s,
+		begin:  time.Now(),
+		end:    time.Now(),
+		expect: e,
+		str:    s,
 	}
 }
 func (in *inWatch) EndWatch() {
 	in.end = time.Now()
 }
 func (in *inWatch) Finish(comment interface{}) {
-	if d:= in.end.Sub(in.begin); d.Seconds() > in.expect {
-		log.Warn(in.str,"not expecting time",d.Seconds(),"comment",comment)
+	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
+		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
 	}
 }
