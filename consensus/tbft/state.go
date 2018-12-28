@@ -1616,10 +1616,11 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 func (cs *ConsensusState) swithResult(block *types.Block) {
 
 	sw := block.SwitchInfos()
-	log.Info("swithResult", sw)
+	log.Info("swithResult", "sw", sw)
 	if sw == nil || len(sw.Vals) < 2 {
 		return
 	}
+	log.Info("swithResult", "sw", sw, "vals", sw.Vals)
 	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 	sv := cs.pickSwitchValidator(sw)
 	if sv == nil {
