@@ -407,6 +407,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 			lastElectionNumber:  new(big.Int).Set(common.Big0),
 			switchCheckNumber:   params.ElectionPeriodNumber,
 			members:             e.genesisCommittee,
+			switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), 0),
 		}
 	}
 
@@ -890,10 +891,10 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 
 // updateMembers update Committee members if switchinfo found in block
 func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) {
-	if infos == nil || len(infos.Vals) < 2 {
+	if infos == nil || len(infos.Vals) == 0 {
 		return
 	}
-
+	log.Info("Election update committee member state", "committee", infos.CID)
 	var committee *committee
 	if infos.CID == e.committee.id.Uint64() {
 		committee = e.committee
@@ -903,8 +904,6 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 		log.Warn("Election switchinfo not in current Committee", "committee", infos.CID)
 		return
 	}
-
-	log.Info("Election update committee member state", "committee", infos.CID)
 
 	committee.switches = append(committee.switches, fastNumber.Uint64())
 	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID, committee.switches)

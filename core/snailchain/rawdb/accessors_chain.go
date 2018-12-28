@@ -470,8 +470,11 @@ func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
 // ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height
 func ReadCommitteeStates(db DatabaseReader, committee uint64) []uint64 {
 	data, _ := db.Get(committeeStateKey(committee))
+	if len(data) == 0 {
+		return nil
+	}
 	var changes []uint64
-	if err := rlp.Decode(bytes.NewReader(data), changes); err != nil {
+	if err := rlp.Decode(bytes.NewReader(data), &changes); err != nil {
 		log.Error("Invalid committee states RLP", "hash", committee, "err", err)
 		return nil
 	}
