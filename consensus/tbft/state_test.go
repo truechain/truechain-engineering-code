@@ -19,3 +19,12 @@ func TestTimeTicker(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 }
+
+type Test struct {
+	A int
+}
+
+func TestStructNil(t *testing.T) {
+	test := &Test{}
+	fmt.Println(test, test == nil)
+}
