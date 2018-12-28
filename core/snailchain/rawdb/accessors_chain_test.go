@@ -311,3 +311,31 @@ func TestBlockReceiptStorage(t *testing.T) {
 		t.Fatalf("deleted receipts returned: %v", rs)
 	}
 }
+
+func TestCommitteeStates(t *testing.T) {
+	db := ethdb.NewMemDatabase()
+	states := []uint64{10, 12, 14}
+	updated := []uint64{10, 12, 14, 20, 30}
+
+	WriteCommitteeStates(db, 0, states)
+	nums := ReadCommitteeStates(db, 0)
+	if len(nums) != len(states) {
+		t.Fatalf("Read Committee states invalid: %v", nums)
+	}
+	for i := range nums {
+		if nums[i] != states[i] {
+			t.Fatalf("Read Committee states error at %v", i)
+		}
+	}
+
+	WriteCommitteeStates(db, 0, updated)
+	nums = ReadCommitteeStates(db, 0)
+	if len(nums) != len(updated) {
+		t.Fatalf("Read Committee states invalid: %v", nums)
+	}
+	for i := range nums {
+		if nums[i] != updated[i] {
+			t.Fatalf("Read Committee states error at %v", i)
+		}
+	}
+}
