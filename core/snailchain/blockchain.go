@@ -654,7 +654,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 // WriteStatus status of write
 type WriteStatus byte
 
-//the the Three kind of status
+//the three kind of status
 const (
 	NonStatTy WriteStatus = iota
 	CanonStatTy
@@ -688,7 +688,7 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 	}
 }
 
-// SetSnailReceiptsData computes all the non-consensus fields of the receipts
+// SetReceiptsData computes all the non-consensus fields of the receipts
 func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
 
 	//signer := types.MakeSigner(config, block.Number())
@@ -734,7 +734,6 @@ func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receip
 
 // InsertReceiptChain attempts to complete an already existing header chain with
 // transaction and receipt data.
-
 func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, receiptChain []types.Receipts) (int, error) {
 
 	bc.wg.Add(1)
@@ -821,7 +820,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 
 var lastSnailWrite uint64
 
-// Get lowlevel persistence database
+// GetDatabase Get lowlevel persistence database
 func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
 	return bc.db
 }
@@ -1370,7 +1369,7 @@ func (bc *SnailBlockChain) CurrentHeader() *types.SnailHeader {
 	return bc.hc.CurrentHeader()
 }
 
-// GetSnailTd retrieves a block's total difficulty in the canonical chain from the
+// GetTd retrieves a block's total difficulty in the canonical chain from the
 // database by hash and number, caching it if found.
 func (bc *SnailBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return bc.hc.GetTd(hash, number)
