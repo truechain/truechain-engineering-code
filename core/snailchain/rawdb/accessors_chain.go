@@ -456,7 +456,10 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 
 // ReadGenesisCommittee read the Genesis committee
 func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
-	return ReadCommittee(db, 0).Members
+	if committee := ReadCommittee(db, 0); committee != nil {
+		return committee.Members
+	}
+	return nil
 }
 
 // ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height
