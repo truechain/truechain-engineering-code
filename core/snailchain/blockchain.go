@@ -603,7 +603,6 @@ func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*typ
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-
 func (bc *SnailBlockChain) GetUnclesInChain(block *types.SnailBlock, length int) []*types.SnailHeader {
 	uncles := []*types.SnailHeader{}
 	for i := 0; block != nil && i < length; i++ {
@@ -655,6 +654,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 // WriteStatus status of write
 type WriteStatus byte
 
+//the the Three kind of status
 const (
 	NonStatTy WriteStatus = iota
 	CanonStatTy
