@@ -1080,7 +1080,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
-		"size":            hexutil.Uint64(fruit.Size()),
+		"size":            fruit.Size(),
 		"timestamp":       (*hexutil.Big)(head.Time),
 	}
 	signs := fruit.Signs()
