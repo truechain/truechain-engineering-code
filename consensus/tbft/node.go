@@ -197,6 +197,7 @@ func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
+		fmt.Println("--------------------------",v.ID,v.Adrress,v.Port,v.IP,v.Enable)
 		address, err := hex.DecodeString(string(v.ID))
 		if v != nil && !v.Enable && err == nil && s.consensusState.Validators.HasAddress(address) {
 			s.connTo(v)

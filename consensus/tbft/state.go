@@ -1687,6 +1687,9 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 		return nil, errors.New("block is nil")
 	}
 	res := cs.switchVerify(block)
+	if len(block.SwitchInfos().Vals) == 0 {
+		res = true
+	}
 	return cs.state.ValidateBlock(block, res)
 }
 
