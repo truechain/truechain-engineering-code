@@ -120,6 +120,7 @@ type PbftAgent struct {
 	singleNode bool
 
 	nodeInfoWorks []*nodeInfoWork
+	txParallel    bool
 }
 
 // AgentWork is the leader current environment and holds
@@ -172,6 +173,7 @@ func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engi
 func (agent *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 	agent.initNodeWork()
 	agent.singleNode = config.NodeType
+	agent.txParallel = config.Txparallel
 	agent.privateKey = config.PrivateKey
 	agent.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
@@ -891,8 +893,8 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error
 		}
 		return voteSign, err
 	}
-	//receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig)  //update
-	receipts, _, usedGas, err := bc.Processor().Process2(fb, state, agent.vmConfig) //update
+	receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
+	//receipts, _, usedGas, err := bc.Processor().Process2(bc, fb, state, agent.vmConfig, agent.txParallel) //update
 	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
@@ -916,6 +918,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error
 		}
 		return voteSign, err
 	}
+
 	voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree)
 	if signError != nil {
 		return nil, signError

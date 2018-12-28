@@ -169,6 +169,21 @@ func (st *StateTransition) buyGas() error {
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
 	}
+	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
+		return err
+	}
+	st.gas += st.msg.Gas()
+
+	st.initialGas = st.msg.Gas()
+	st.state.SubBalance(st.msg.From(), mgval)
+	return nil
+}
+
+func (st *StateTransition) buyGas2() error {
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
+		return errInsufficientBalanceForGas
+	}
 	//To Do shuxun
 	/*if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
@@ -185,12 +200,29 @@ func (st *StateTransition) preCheck() error {
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.From())
 		if nonce < st.msg.Nonce() {
-			return ErrNonceTooHigh
+			//log.Error("preCheck too high", "from", st.msg.From(), "nonce", nonce, "st.msg.Nonce()", st.msg.Nonce())
+			//return ErrNonceTooHigh
 		} else if nonce > st.msg.Nonce() {
-			return ErrNonceTooLow
+			//log.Error("preCheck too low", "from", st.msg.From(), "nonce", nonce, "st.msg.Nonce()", st.msg.Nonce())
+			//return ErrNonceTooLow
 		}
 	}
 	return st.buyGas()
+}
+
+func (st *StateTransition) preCheck2() error {
+	// Make sure this transaction's nonce is correct.
+	if st.msg.CheckNonce() {
+		nonce := st.state.GetNonce(st.msg.From())
+		if nonce < st.msg.Nonce() {
+			log.Error("preCheck too high", "from", st.msg.From(), "nonce", nonce, "st.msg.Nonce()", st.msg.Nonce())
+			return ErrNonceTooHigh
+		} else if nonce > st.msg.Nonce() {
+			log.Error("preCheck too low", "from", st.msg.From(), "nonce", nonce, "st.msg.Nonce()", st.msg.Nonce())
+			return ErrNonceTooLow
+		}
+	}
+	return st.buyGas2()
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -244,7 +276,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 }
 
 func (st *StateTransition) TransitionDb2() (ret []byte, usedGas uint64, failed bool, err error) {
-	if err = st.preCheck(); err != nil {
+	if err = st.preCheck2(); err != nil {
 		return
 	}
 	msg := st.msg

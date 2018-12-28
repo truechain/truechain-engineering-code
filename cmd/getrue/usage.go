@@ -88,6 +88,11 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.SingleNodeFlag,
 		},
 	},
+	{Name: "TRANSACTION PARALLEL EXECUTION",
+		Flags: []cli.Flag{
+			utils.TxparallelFlag,
+		},
+	},
 	{Name: "ELECTION",
 		Flags: []cli.Flag{
 			utils.EnableElectionFlag,

@@ -175,6 +175,11 @@ var (
 		Usage: "sing node model start",
 	}
 
+	TxparallelFlag = cli.BoolFlag{
+		Name:  "txparallel",
+		Usage: "transaction parallel execution",
+	}
+
 	//election setting
 	EnableElectionFlag = cli.BoolFlag{
 		Name:  "election",
@@ -252,6 +257,7 @@ var (
 		Usage: "Dashboard metrics collection refresh rate",
 		Value: dashboard.DefaultConfig.Refresh,
 	}
+
 	// Transaction pool settings
 	TxPoolNoLocalsFlag = cli.BoolFlag{
 		Name:  "txpool.nolocals",
@@ -1077,6 +1083,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true
+	}
+	if ctx.GlobalBool(TxparallelFlag.Name) {
+		cfg.Txparallel = true
 	}
 	if ctx.GlobalIsSet(BFTIPFlag.Name) {
 		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)

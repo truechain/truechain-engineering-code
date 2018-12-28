@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
@@ -20,7 +21,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethclient"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/node"
 	"gopkg.in/urfave/cli.v1"
@@ -66,7 +66,7 @@ var (
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
-
+		utils.TxparallelFlag,
 		utils.EnableElectionFlag,
 
 		utils.BFTPortFlag,

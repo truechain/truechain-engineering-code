@@ -149,6 +149,9 @@ type Config struct {
 	// true indicate singlenode start
 	NodeType bool `toml:",omitempty"`
 
+	//tx parallel
+	Txparallel bool `toml:",omitempty"`
+
 	//true indicate only mine fruit
 	MineFruit bool `toml:",omitempty"`
 
