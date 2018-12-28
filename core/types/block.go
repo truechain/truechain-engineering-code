@@ -251,7 +251,7 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 	}
 	if infos != nil {
 		b.infos.CID = infos.CID
-		b.infos.Vals = make([]*SwitchEnter, 0, len(infos.Vals))
+		b.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
 		copy(b.infos.Vals, infos.Vals)
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
@@ -450,7 +450,7 @@ func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles 
 	copy(block.signs, signs)
 	if infos != nil {
 		block.infos.CID = infos.CID
-		block.infos.Vals = make([]*SwitchEnter, 0, len(infos.Vals))
+		block.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
 		copy(block.infos.Vals, infos.Vals)
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
