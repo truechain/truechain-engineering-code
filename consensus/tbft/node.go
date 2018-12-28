@@ -177,7 +177,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
-	if update && (s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) {
+	if update && ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
 		go func() { s.updateChan <- true }()
 	}
 }

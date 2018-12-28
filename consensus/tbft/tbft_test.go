@@ -71,7 +71,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
 	//time.Sleep(time.Second * 5)
-	return types.NewBlock(header, nil, nil, nil, nil), nil
+	return types.NewBlock(header, nil, nil, nil, infos), nil
 }
 
 func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
@@ -371,10 +371,8 @@ func TestPbftRunFor4(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 	n4.Notify(c1.Id, Start)
 
-
 	<-start
 }
-
 
 func TestPbftRunFor4AndChange(t *testing.T) {
 	//log.OpenLogDebug(3)

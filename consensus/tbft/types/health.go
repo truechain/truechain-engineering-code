@@ -356,7 +356,10 @@ func (h *HealthMgr) VerifySwitch(remove, add *ctypes.SwitchEnter) error {
 	}
 	res := r.SimpleString()
 
-	a := h.GetHealth(add.Pk)
+	var a *Health
+	if add != nil {
+		a = h.GetHealth(add.Pk)
+	}
 	aRes := false
 
 	if a != nil {
