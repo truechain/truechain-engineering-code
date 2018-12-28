@@ -121,8 +121,6 @@ func (c *committee) setMemberState(pubkey []byte, flag int32) {
 	}
 }
 
-
-
 type Election struct {
 	genesisCommittee []*types.CommitteeMember
 	defaultMembers   []*types.CommitteeMember
