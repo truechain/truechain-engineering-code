@@ -30,15 +30,17 @@ type Health struct {
 	Tick  int32
 	State int32
 	Val   *Validator
+	Self  bool
 }
 
 //NewHealth new
-func NewHealth(id p2p.ID, state int32, val *Validator) *Health {
+func NewHealth(id p2p.ID, state int32, val *Validator, Self bool) *Health {
 	return &Health{
 		ID:    id,
 		State: state,
 		Val:   val,
 		Tick:  0,
+		Self:  Self,
 	}
 }
 
@@ -168,13 +170,13 @@ func (h *HealthMgr) healthGoroutine() {
 }
 func (h *HealthMgr) work() {
 	for _, v := range h.Work {
-		if v.State == ctypes.StateUsedFlag {
+		if v.State == ctypes.StateUsedFlag && !v.Self {
 			atomic.AddInt32(&v.Tick, 1)
 			h.checkSwitchValidator(v)
 		}
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUsedFlag {
+		if v.State == ctypes.StateUsedFlag && !v.Self {
 			atomic.AddInt32(&v.State, 1)
 			h.checkSwitchValidator(v)
 		}
@@ -185,7 +187,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	val := atomic.LoadInt32(&v.Tick)
 	log.Info("Health", "id", v.ID, "val", val, "state", v.State)
 	cnt := h.getUsedValidCount()
-	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag {
+	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 		log.Info("Health", "Change", true)
 		back := h.pickUnuseValidator()
 		go h.Switch(h.makeSwitchValidators(v, back, "Switch", 0))
