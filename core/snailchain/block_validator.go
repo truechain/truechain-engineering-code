@@ -123,7 +123,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 
 	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
-		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
+		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
 	return nil
 }
