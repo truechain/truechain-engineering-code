@@ -868,7 +868,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 
 	for i, m := range members {
 		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
-			if flag != types.StateRemovedFlag {
+			if flag == types.StateRemovedFlag {
 				// Update the committee member state
 				var switched = *m
 				switched.Flag = types.StateUnusedFlag
