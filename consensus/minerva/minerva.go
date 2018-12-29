@@ -362,15 +362,14 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	log.Info("getDataset:", "epoch is ", current.epoch, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
-
 	current.generate(epoch, m)
+	log.Info("getDataset:", "epoch is ", current.epoch, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
 
 	return current
 }
 
 func (d *dataset) Hash() common.Hash {
-	return rlpHash(d)
+	return rlpHash(d.dataset)
 }
 
 // generate ensures that the dataset content is generated before use.
@@ -380,6 +379,7 @@ func (d *dataset) generate(epoch uint64, m *Minerva) {
 			if epoch <= 0 {
 				log.Info("TableInit is start,:epoch is:  ", "------", epoch)
 				m.truehashTableInit(d.dataset)
+				d.datasetHash = d.Hash()
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
 				bn := (epoch-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1

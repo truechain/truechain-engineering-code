@@ -717,7 +717,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	digest, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
 	if !bytes.Equal(header.MixDigest[:], digest) {
-		log.Error("VerifySnailSeal error  ", "epoch is:", header.Number.Uint64()/epochLength, "consistent is:", dataset.consistent, "---MixDigest is:", header.MixDigest, "---digest is:", common.BytesToHash(digest))
+		log.Error("VerifySnailSeal error  ", "block is", header.Number, "fast block", header.FastNumber, "epoch is:", dataset.epoch, "consistent is:", dataset.consistent, "datasethash", dataset.datasetHash, "---header.MixDigest is:", header.MixDigest, "---digest is:", common.BytesToHash(digest))
 		return errInvalidMixDigest
 	}
 
