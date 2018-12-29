@@ -765,10 +765,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
 		signs := make([][]*types.PbftSign, len(request))
+		infos := make([]*types.SwitchInfos, len(request))
 
 		for i, body := range request {
 			transactions[i] = body.Transactions
 			signs[i] = body.Signs
+			infos[i] = body.Infos
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0
@@ -776,7 +778,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHeight, "len(transactions)", len(transactions))
 		}
 		if filter {
-			transactions, signs = pm.fetcherFast.FilterBodies(p.id, transactions, signs, time.Now())
+			transactions, signs, infos = pm.fetcherFast.FilterBodies(p.id, transactions, signs, infos, time.Now())
 		}
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || !filter {
