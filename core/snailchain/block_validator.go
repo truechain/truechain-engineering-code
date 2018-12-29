@@ -71,10 +71,12 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
-	// Check whether the block's known, and if not, that it's linkable
-	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
+	// Check whether the block's known, and if not, that it's linkable.
+	// If this height exists a rewarded block,so discard this new one.
+	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) || v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
 		return ErrKnownBlock
 	}
+
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
@@ -121,7 +123,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 
 	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
-		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
+		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
 	return nil
 }

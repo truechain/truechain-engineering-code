@@ -937,7 +937,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"logsBloom":   head.Bloom,
 		"stateRoot":   head.Root,
 		"SnailHash":   head.SnailHash,
-		"SnailNumber": (*hexutil.Big)(head.SnailNumber),
+		"SnailNumber": head.SnailNumber,
 		//"miner":            head.Coinbase,
 		//"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"extraData":        hexutil.Bytes(head.Extra),
@@ -953,9 +953,9 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 		signmap := map[string]interface{}{
 			"fastHeight": (*hexutil.Big)(sign.FastHeight),
-			"fastHash": sign.FastHash,
-			"sign":   hexutil.Bytes(sign.Sign),
-			"result": sign.Result,
+			"fastHash":   sign.FastHash,
+			"sign":       hexutil.Bytes(sign.Sign),
+			"result":     sign.Result,
 		}
 
 		return signmap, nil
@@ -1069,7 +1069,7 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interface{}, error) {
 	head := fruit.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":          (*hexutil.Big)(head.Number),
+		"number":          head.Number,
 		"hash":            fruit.Hash(),
 		"fastHash":        head.FastHash,
 		"fastNumber":      head.FastNumber,
@@ -1080,7 +1080,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
-		"size":            hexutil.Uint64(fruit.Size()),
+		"size":            fruit.Size(),
 		"timestamp":       (*hexutil.Big)(head.Time),
 	}
 	signs := fruit.Signs()

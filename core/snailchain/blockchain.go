@@ -47,8 +47,9 @@ import (
 )
 
 var (
-	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-
+	blockInsertTimer = metrics.NewRegisteredTimer("snailchain/inserts", nil)
+	blockWriteTimer  = metrics.NewRegisteredTimer("snailchain/write", nil)
+	//ErrNoGenesis is returned if the Genesis not found in chain.
 	ErrNoGenesis = errors.New("Genesis not found in chain")
 )
 
@@ -64,7 +65,7 @@ const (
 	SnailBlockChainVersion = 3
 )
 
-// SnialCacheConfig contains the configuration values for the trie caching/pruning
+// CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
 type CacheConfig struct {
 	Disabled      bool          // Whether to disable trie write caching (archive node)
@@ -72,7 +73,7 @@ type CacheConfig struct {
 	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
 }
 
-// BlockChain represents the canonical chain given a database with a genesis
+// SnailBlockChain represents the canonical chain given a database with a genesis
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
 //
 // Importing blocks in to the block chain happens according to the set of rules
@@ -132,7 +133,7 @@ type SnailBlockChain struct {
 	badBlocks *lru.Cache // Bad block cache
 }
 
-// NewBlockChain returns a fully initialised block chain using information
+// NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
 func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
@@ -586,6 +587,8 @@ func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []
 	return
 }
 
+//GetBlocksFromNumber return snailblocks between given number to currentNumber
+//just for test
 func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*types.SnailBlock) {
 	currentNumber := bc.CurrentBlock().Number()
 	for i := fromNumber; i <= currentNumber.Uint64(); i++ {
@@ -600,7 +603,6 @@ func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*typ
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-
 func (bc *SnailBlockChain) GetUnclesInChain(block *types.SnailBlock, length int) []*types.SnailHeader {
 	uncles := []*types.SnailHeader{}
 	for i := 0; block != nil && i < length; i++ {
@@ -652,6 +654,7 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 // WriteStatus status of write
 type WriteStatus byte
 
+//the three kind of status
 const (
 	NonStatTy WriteStatus = iota
 	CanonStatTy
@@ -685,7 +688,7 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 	}
 }
 
-// SetSnailReceiptsData computes all the non-consensus fields of the receipts
+// SetReceiptsData computes all the non-consensus fields of the receipts
 func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
 
 	//signer := types.MakeSigner(config, block.Number())
@@ -731,7 +734,6 @@ func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receip
 
 // InsertReceiptChain attempts to complete an already existing header chain with
 // transaction and receipt data.
-
 func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, receiptChain []types.Receipts) (int, error) {
 
 	bc.wg.Add(1)
@@ -818,7 +820,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 
 var lastSnailWrite uint64
 
-// Get lowlevel persistence database
+// GetDatabase Get lowlevel persistence database
 func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
 	return bc.db
 }
@@ -862,8 +864,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 		return NonStatTy, err
 	}
 	// Write other block data using a batch.
-	batch := bc.db.NewBatch()
-	rawdb.WriteBlock(batch, block)
+	rawdb.WriteBlock(bc.db, block)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -883,15 +884,16 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 			}
 		}
 		// Write the positional metadata for fruit lookups
-		rawdb.WriteFtLookupEntries(batch, block)
+		rawdb.WriteFtLookupEntries(bc.db, block)
 
 		status = CanonStatTy
 	} else {
 		status = SideStatTy
 	}
-	if err := batch.Write(); err != nil {
-		return NonStatTy, err
-	}
+
+	//if err := batch.Write(); err != nil {
+	//	return NonStatTy, err
+	//}
 
 	// Set new head.
 	if status == CanonStatTy {
@@ -1046,14 +1048,16 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			bc.reportBlock(block, err)
 			return i, events, err
 		}
-
+		t0 := time.Now()
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
 		status, err := bc.WriteCanonicalBlock(block)
+		t1 := time.Now()
 		if err != nil {
 			return i, events, err
 		}
+		blockWriteTimer.Update(t1.Sub(t0))
 		switch status {
 		case CanonStatTy:
 
@@ -1215,7 +1219,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	}
 
 	// calculate the difference between deleted and added fruits
-	diff := types.FtDifference(deletedFts, addedFts)
+	diff := bc.ftDifference(deletedFts, addedFts)
 
 	batch := bc.db.NewBatch()
 
@@ -1234,6 +1238,24 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	}
 
 	return nil
+}
+
+// ftDifference returns a new set t which is the difference between a to b.
+func (bc *SnailBlockChain) ftDifference(a, b types.Fruits) (keep types.Fruits) {
+	keep = make(types.Fruits, 0, len(a))
+
+	remove := make(map[common.Hash]struct{})
+	for _, ft := range b {
+		remove[ft.Hash()] = struct{}{}
+	}
+
+	for _, ft := range a {
+		if _, ok := remove[ft.Hash()]; !ok {
+			keep = append(keep, ft)
+		}
+	}
+
+	return keep
 }
 
 // PostChainEvents iterates over the events generated by a chain insertion and
@@ -1365,7 +1387,7 @@ func (bc *SnailBlockChain) CurrentHeader() *types.SnailHeader {
 	return bc.hc.CurrentHeader()
 }
 
-// GetSnailTd retrieves a block's total difficulty in the canonical chain from the
+// GetTd retrieves a block's total difficulty in the canonical chain from the
 // database by hash and number, caching it if found.
 func (bc *SnailBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return bc.hc.GetTd(hash, number)
