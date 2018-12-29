@@ -243,7 +243,7 @@ func (h *HealthMgr) getUsedValidCount() int {
 		}
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUnusedFlag {
+		if v.State == ctypes.StateUnusedFlag  || v.State == ctypes.StateUsedFlag {
 			cnt++
 		}
 	}
