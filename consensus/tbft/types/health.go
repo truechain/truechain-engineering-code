@@ -188,8 +188,6 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	log.Info("Health", "id", v.ID, "val", val, "state", v.State)
 	cnt := h.getUsedValidCount()
 	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
-		//Voting period
-		atomic.StoreInt32(&v.Tick, v.Tick-30)
 		log.Info("Health", "Change", true)
 		back := h.pickUnuseValidator()
 		go h.Switch(h.makeSwitchValidators(v, back, "Switch", 0))
