@@ -28,8 +28,8 @@ const (
 	CommitteeOver
 
 	StateUnusedFlag    = 0xa0
-	StateSwitchingFlag = 0xa1
-	StateUsedFlag      = 0xa2
+	StateUsedFlag      = 0xa1
+	StateSwitchingFlag = 0xa2
 	StateRemovedFlag   = 0xa3
 	StateAddFlag       = 0xa4
 )
@@ -52,8 +52,8 @@ type CommitteeMember struct {
 
 // ElectionCommittee defines election members result
 type ElectionCommittee struct {
-	Members     []*CommitteeMember
-	Backups     []*CommitteeMember
+	Members []*CommitteeMember
+	Backups []*CommitteeMember
 }
 
 func (c *CommitteeMember) String() string {
