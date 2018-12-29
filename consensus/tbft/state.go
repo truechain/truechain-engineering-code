@@ -1693,6 +1693,7 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	if len(block.SwitchInfos().Vals) == 0 {
 		res = true
 	}
+	log.Info("validateBlock", "res", res)
 	return cs.state.ValidateBlock(block, res)
 }
 

@@ -453,6 +453,7 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	}
 	watch := newInWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)
+	log.Info("VerifyFastBlockResult", "sign", sign, "result", sign.Result, "err", err)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if sign != nil {
