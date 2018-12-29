@@ -735,7 +735,7 @@ func TestRunPbft1(t *testing.T) {
 }
 
 func TestRunPbft2(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -793,7 +793,7 @@ func TestRunPbft2(t *testing.T) {
 }
 
 func TestRunPbft3(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(4)
 	IdCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -1010,7 +1010,7 @@ func makeBlockID(hash []byte, header ttypes.PartSetHeader) ttypes.BlockID {
 
 func TestTock(t *testing.T) {
 	taskTimeOut := 3
-	var d time.Duration = time.Duration(taskTimeOut) * time.Second
+	var d = time.Duration(taskTimeOut) * time.Second
 	ttock := NewTimeoutTicker("ttock")
 	ttock.Start()
 
