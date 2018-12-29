@@ -34,7 +34,9 @@ import (
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -230,6 +232,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
 
+	log.Debug("get lru for dataset", "epoch", epoch)
 	// Get or create the item for the requested epoch.
 	item, ok := lru.cache.Get(epoch)
 	if !ok {
@@ -250,21 +253,23 @@ type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset    []uint64  // The actual cache data content
-	once       sync.Once // Ensures the cache is generated only once
-	dateInit   int
-	consistent common.Hash // Consistency of generated data
+	dataset     []uint64  // The actual cache data content
+	once        sync.Once // Ensures the cache is generated only once
+	dateInit    int
+	consistent  common.Hash // Consistency of generated data
+	datasetHash common.Hash // dataset hash
 }
 
 // newDataset creates a new truehash mining dataset
 func newDataset(epoch uint64) interface{} {
+
 	ds := &dataset{
 		epoch:    epoch,
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
-
+	log.Info("--- create a new dateset ", "epoch is", epoch)
 	return ds
 }
 
@@ -353,15 +358,19 @@ func (m *Minerva) NewTestData(block uint64) {
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
 	//each 12000 change the mine algorithm
-	epoch := block / epochLength
+	epoch := uint64(block / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	log.Info("getDataset:", "epoch is ", epoch, "blockNumber is ", block, "consistent is ", current.consistent)
+	log.Info("getDataset:", "epoch is ", current.epoch, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
 
 	current.generate(epoch, m)
 
 	return current
+}
+
+func (d *dataset) Hash() common.Hash {
+	return rlpHash(d)
 }
 
 // generate ensures that the dataset content is generated before use.
@@ -382,6 +391,8 @@ func (d *dataset) generate(epoch uint64, m *Minerva) {
 
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
+					d.datasetHash = d.Hash()
+
 					log.Info("updateLookupTBL", "epoch is:", epoch, "---consistent is:", d.consistent.String())
 				} else {
 					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
@@ -579,4 +590,12 @@ func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, er
 		signs = append(signs, voteSign)
 	}
 	return signs, nil
+}
+
+// for hash
+func rlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }
