@@ -1708,6 +1708,7 @@ func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.S
 			log.Info("pickSwitchValidator", "aEnter.Flag", aEnter.Flag, "v.Infos.Vals[0].Flag", v.Infos.Vals[0].Flag,
 				"aEnter.Pk", aEnter.Pk, "v.Infos.Vals[0].Pk", v.Infos.Vals[0].Pk, "rEnter.Flag", rEnter.Flag, "v.Infos.Vals[1].Flag", v.Infos.Vals[1].Flag,
 				"rEnter.Pk", rEnter.Pk, "v.Infos.Vals[1].Pk", v.Infos.Vals[1].Pk)
+			log.Info("pickSwitchValidator", "if", (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)))
 			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
 				cs.svs = append(cs.svs[:i], cs.svs[i+1:]...)
 				log.Info("pickSwitchValidator", "svsLen", len(cs.svs), "svs", cs.svs)
