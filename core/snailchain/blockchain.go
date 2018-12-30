@@ -1455,6 +1455,7 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	return block, index
 }
 
+// GetFruit retrieves a fruit from the database by FastHash
 func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
 	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
 	return fruit
