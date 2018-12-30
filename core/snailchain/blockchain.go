@@ -1435,7 +1435,7 @@ func (bc *SnailBlockChain) GetAncestor(hash common.Hash, number, ancestor uint64
 	return bc.hc.GetAncestor(hash, number, ancestor, maxNonCanonical)
 }
 
-// GetSnailHeaderByNumber retrieves a block header from the database by number,
+// GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
 func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 	return bc.hc.GetHeaderByNumber(number)
