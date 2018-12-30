@@ -1441,6 +1441,7 @@ func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 	return bc.hc.GetHeaderByNumber(number)
 }
 
+// GetFruitByFastHash retrieves a block from the database by FastHash
 func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
 	fruit, hash, number, index := rawdb.ReadFruit(bc.db, fastHash)
 	//log.Debug("Get fruit by fast hash", "fruit", fruit, "hash", hash, "number", number, "index", index, "fastHash",fastHash)
