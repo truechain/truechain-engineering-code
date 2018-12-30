@@ -1477,12 +1477,11 @@ func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig 
 func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
-
 func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
 }
 
-// SubscribeSnailChainEvent registers a subscription of ChainSnailEvent.
+// SubscribeChainEvent registers a subscription of ChainSnailEvent.
 func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
