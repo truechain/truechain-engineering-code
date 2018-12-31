@@ -1061,7 +1061,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		switch status {
 		case CanonStatTy:
 
-			log.Debug("Inserted new snail block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+			log.Info("Inserted new snail block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 				"fts", len(block.Fruits()), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
 			//coalescedLogs = append(coalescedLogs, logs...)
@@ -1075,7 +1075,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 		case SideStatTy:
 
-			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
+			log.Info("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()), "uncles", len(block.Uncles()))
 
 			blockInsertTimer.UpdateSince(bstart)
