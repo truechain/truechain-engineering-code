@@ -1501,7 +1501,7 @@ func (bc *SnailBlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subs
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-// SubscribeNewFruitEvent registers a subscription of fruits.
+// SubscribeFastBlockEvent registers a subscription of fruits.
 func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- types.NewFastBlocksEvent) event.Subscription {
 	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }
