@@ -62,6 +62,7 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 	//b.gasPool = new(GasPool).AddGas(b.header.GasLimit)
 }
 
+//AddFruit add a given fruit into the fruit array
 func (b *BlockGen) AddFruit(block *types.SnailBlock) {
 	b.fruits = append(b.fruits, block)
 }
@@ -466,7 +467,6 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	return snailChain, fastchain
 }
 
-
 func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
-	return MakeChain(snailBlockNumbers * params.MinimumFruits, snailBlockNumbers)
+	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers)
 }
