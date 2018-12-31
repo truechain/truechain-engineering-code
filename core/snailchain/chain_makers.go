@@ -211,6 +211,7 @@ func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int,
 	return blocks
 }
 
+//MakeSnailBlockFruit retrieves a snailblock or fruit by given parameter
 func MakeSnailBlockFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBlockNum int, makeFruitSize int,
 	pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) (*types.SnailBlock, error) {
 	return makeSnailBlockFruitInternal(chain, fastchain, makeBlockNum, 0, makeFruitSize, pubkey, coinbaseAddr, isBlock, diff)
