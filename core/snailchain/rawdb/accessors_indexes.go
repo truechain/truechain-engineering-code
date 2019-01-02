@@ -58,8 +58,8 @@ func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
 }
 
 // DeleteFtLookupEntry removes all fruit data associated with a hash.
-func DeleteFtLookupEntry(db DatabaseDeleter, fruitHash common.Hash) {
-	db.Delete(ftLookupKey(fruitHash))
+func DeleteFtLookupEntry(db DatabaseDeleter, fastHash common.Hash) {
+	db.Delete(ftLookupKey(fastHash))
 }
 
 // ReadFruit retrieves a specific fruit from the database, along with

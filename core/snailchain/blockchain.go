@@ -1224,7 +1224,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	batch := bc.db.NewBatch()
 
 	for _, ft := range diff {
-		rawdb.DeleteFtLookupEntry(batch, ft.Hash())
+		rawdb.DeleteFtLookupEntry(batch, ft.FastHash())
 	}
 
 	batch.Write()
