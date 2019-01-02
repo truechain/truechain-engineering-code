@@ -1746,14 +1746,16 @@ func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfSto
 	for _, v := range allMember {
 		if v.Flag == types.StateUsedFlag {
 			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
-			cs.GetRoundState().Validators.Add(vTemp)
+			b := cs.GetRoundState().Validators.Add(vTemp)
+			log.Info("UpdateValidatorSet", "add", b)
 		}
 		if v.Flag == types.StateRemovedFlag {
 			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
 				selfStop = true
 			}
 			remove = append(remove, v)
-			cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
+			v, b := cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
+			log.Info("UpdateValidatorSet", "va", v, "remove", b)
 		}
 	}
 	return
