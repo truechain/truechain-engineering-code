@@ -302,12 +302,24 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 	members := make([]*types.CommitteeMember, len(signs))
 	errs := make([]error, len(signs))
 
-	for i, sign := range signs {
-		member, err := e.VerifySign(sign)
-		if err != nil {
-			errs[i] = err
-			continue
+	if len(signs) == 0 {
+		log.Warn("Veriry signs get nil pbftsigns")
+		return nil, nil
+	}
+	// All signs should have the same fastblock height
+	committeeMembers := e.GetCommittee(signs[0].FastHeight)
+	if len(committeeMembers) == 0 {
+		log.Error("Election get none committee for verify pbft signs")
+		for i := range errs {
+			errs[i] = ErrCommittee
 		}
+		return nil, errs
+	}
+
+	for i, sign := range signs {
+		// member, err := e.VerifySign(sign)
+		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
+		member := e.GetMemberByPubkey(committeeMembers, crypto.FromECDSAPub(pubkey))
 		if member == nil {
 			errs[i] = ErrInvalidMember
 		} else {
