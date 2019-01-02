@@ -185,7 +185,7 @@ func (h *HealthMgr) work() {
 
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	val := atomic.LoadInt32(&v.Tick)
-	log.Info("Health", "id", v.ID, "val", val, "state", v.State)
+	log.Info("Health", "id", v.ID, "val", string(val), "state", v.State)
 	cnt := h.getUsedValidCount()
 	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 		log.Info("Health", "Change", true)
@@ -243,7 +243,7 @@ func (h *HealthMgr) getUsedValidCount() int {
 		}
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUnusedFlag  || v.State == ctypes.StateUsedFlag {
+		if v.State == ctypes.StateUnusedFlag || v.State == ctypes.StateUsedFlag {
 			cnt++
 		}
 	}
