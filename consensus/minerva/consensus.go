@@ -964,7 +964,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 			// Equal by fruit
 			committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 			for _, v := range fruitOkAddr {
-				stateDB.AddBalanceWithoutLog(v, minerFruitCoinOne, balanceLock)
+				stateDB.AddBalanceWithoutLog(v, committeeCoinFruitMember, balanceLock)
 				LogPrint("committee", v, committeeCoinFruitMember)
 			}
 		}(fruit)
