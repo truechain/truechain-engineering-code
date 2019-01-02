@@ -612,7 +612,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
-				log.Error("GetFastBlockHeadersMsg", "hash", query.Origin.Hash, "num", query.Origin.Number, "peer", p.id)
+				log.Error("GetFastBlockHeadersMsg", "hash", query.Origin.Hash, "num", query.Origin.Number, "CurrentNumber",pm.blockchain.CurrentHeader().Number.Uint64(),"peer", p.id)
 				break
 			}
 			headers = append(headers, origin)
