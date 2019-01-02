@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
@@ -222,12 +223,15 @@ func (valSet *ValidatorSet) Update(val *Validator) (updated bool) {
 // Remove deletes the validator with address. It returns the validator removed
 // and true. If returns nil and false if validator is not present in the set.
 func (valSet *ValidatorSet) Remove(address []byte) (val *Validator, removed bool) {
+	log.Info("ValidatorSetRemove", "remove", string(address))
 	idx := sort.Search(len(valSet.Validators), func(i int) bool {
 		return bytes.Compare(address, valSet.Validators[i].Address) <= 0
 	})
+	log.Info("ValidatorSetRemove", "idx", idx, "len", len(valSet.Validators), "address2", string(valSet.Validators[idx].Address))
 	if idx >= len(valSet.Validators) || !bytes.Equal(valSet.Validators[idx].Address, address) {
 		return nil, false
 	}
+
 	removedVal := valSet.Validators[idx]
 	newValidators := valSet.Validators[:idx]
 	if idx+1 < len(valSet.Validators) {
