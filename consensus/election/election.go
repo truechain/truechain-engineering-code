@@ -32,8 +32,8 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -102,9 +102,9 @@ func (c *committee) setMemberState(pubkey []byte, flag int32) {
 	for i, m := range c.members {
 		if bytes.Equal(crypto.FromECDSAPub(m.Publickey), pubkey) {
 			c.members[i] = &types.CommitteeMember{
-				Coinbase: m.Coinbase,
+				Coinbase:  m.Coinbase,
 				Publickey: m.Publickey,
-				Flag: flag,
+				Flag:      flag,
 			}
 			break
 		}
@@ -112,9 +112,9 @@ func (c *committee) setMemberState(pubkey []byte, flag int32) {
 	for i, m := range c.backupMembers {
 		if bytes.Equal(crypto.FromECDSAPub(m.Publickey), pubkey) {
 			c.backupMembers[i] = &types.CommitteeMember{
-				Coinbase: m.Coinbase,
+				Coinbase:  m.Coinbase,
 				Publickey: m.Publickey,
-				Flag: flag,
+				Flag:      flag,
 			}
 			break
 		}
@@ -469,9 +469,9 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 	members := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 	return &committee{
-		id:              committeeNumber,
-		beginFastNumber: new(big.Int).Add(lastFastNumber, common.Big1),
-		endFastNumber:   new(big.Int).Set(common.Big0),
+		id:                  committeeNumber,
+		beginFastNumber:     new(big.Int).Add(lastFastNumber, common.Big1),
+		endFastNumber:       new(big.Int).Set(common.Big0),
 		firstElectionNumber: beginElectionNumber,
 		lastElectionNumber:  endElectionNumber,
 		switchCheckNumber:   new(big.Int).Add(lastSnailNumber, params.ElectionPeriodNumber),
@@ -697,7 +697,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 
 				members = append(members, member)
 				if _, ok := fruitsCount[addr]; ok {
-					fruitsCount[addr] ++
+					fruitsCount[addr]++
 				} else {
 					fruitsCount[addr] = 1
 				}
@@ -871,7 +871,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 			if flag == types.StateRemovedFlag {
 				// Update the committee member state
 				var switched = *m
-				switched.Flag = StateRemovedFlag
+				switched.Flag = types.StateRemovedFlag
 				members[i] = &switched
 			}
 		}
@@ -910,23 +910,23 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 
 	// Update current committee members state
 	/*
-	for _, s := range infos.Vals {
-		switch s.Flag {
-		case types.StateAddFlag:
-			committee.setMemberState(s.Pk, types.StateUsedFlag)
-		case types.StateRemovedFlag:
-			committee.setMemberState(s.Pk, types.StateUnusedFlag)
+		for _, s := range infos.Vals {
+			switch s.Flag {
+			case types.StateAddFlag:
+				committee.setMemberState(s.Pk, types.StateUsedFlag)
+			case types.StateRemovedFlag:
+				committee.setMemberState(s.Pk, types.StateUnusedFlag)
+			}
 		}
-	}
 	*/
 
 	// Update pbft server's committee info via pbft agent proxy
 	members, backups := e.filterWithSwitchInfo(committee)
 	e.electionFeed.Send(types.ElectionEvent{
-		Option:             types.CommitteeUpdate,
-		CommitteeID:        committee.id,
-		CommitteeMembers:   members,
-		BackupMembers:      backups,
+		Option:           types.CommitteeUpdate,
+		CommitteeID:      committee.id,
+		CommitteeMembers: members,
+		BackupMembers:    backups,
 	})
 }
 
