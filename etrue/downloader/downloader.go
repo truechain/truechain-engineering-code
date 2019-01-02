@@ -1179,6 +1179,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 				if fetchHook != nil {
 					fetchHook(request.Sheaders)
 				}
+				log.Debug("fetch body","peer",peer,"request",len(request.Sheaders))
 				if err := fetch(peer, request); err != nil {
 					// Although we could try and make an attempt to fix this, this error really
 					// means that we've double allocated a fetch task to a peer. If that is the
