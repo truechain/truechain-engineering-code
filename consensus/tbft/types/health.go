@@ -185,7 +185,7 @@ func (h *HealthMgr) work() {
 
 func (h *HealthMgr) checkSwitchValidator(v *Health) {
 	val := atomic.LoadInt32(&v.Tick)
-	log.Info("Health", "id", v.ID, "val", string(val), "state", v.State)
+	log.Info("Health", "info:", fmt.Sprintf("id:%s val:%d state:%d", v.ID, val, v.State))
 	cnt := h.getUsedValidCount()
 	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 		log.Info("Health", "Change", true)
