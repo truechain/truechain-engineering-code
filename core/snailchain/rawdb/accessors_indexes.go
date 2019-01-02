@@ -18,9 +18,9 @@ package rawdb
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ReadFtLookupEntry retrieves the positional metadata associated with a fruit
@@ -58,8 +58,8 @@ func WriteFtLookupEntries(db DatabaseWriter, block *types.SnailBlock) {
 }
 
 // DeleteFtLookupEntry removes all fruit data associated with a hash.
-func DeleteFtLookupEntry(db DatabaseDeleter, fastHash common.Hash) {
-	db.Delete(ftLookupKey(fastHash))
+func DeleteFtLookupEntry(db DatabaseDeleter, fruitHash common.Hash) {
+	db.Delete(ftLookupKey(fruitHash))
 }
 
 // ReadFruit retrieves a specific fruit from the database, along with
