@@ -1246,11 +1246,11 @@ func (bc *SnailBlockChain) ftDifference(a, b types.Fruits) (keep types.Fruits) {
 
 	remove := make(map[common.Hash]struct{})
 	for _, ft := range b {
-		remove[ft.Hash()] = struct{}{}
+		remove[ft.FastHash()] = struct{}{}
 	}
 
 	for _, ft := range a {
-		if _, ok := remove[ft.Hash()]; !ok {
+		if _, ok := remove[ft.FastHash()]; !ok {
 			keep = append(keep, ft)
 		}
 	}
