@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
-	"github.com/tendermint/go-amino"
 	"reflect"
 	"sync"
 	"time"
@@ -39,7 +39,7 @@ type ConsensusReactor struct {
 	mtx      sync.RWMutex
 	fastSync bool
 	eventBus *ttypes.EventBus
-	hm   *ttypes.HealthMgr
+	hm       *ttypes.HealthMgr
 }
 
 // NewConsensusReactor returns a new ConsensusReactor with the given
@@ -147,10 +147,12 @@ func (conR *ConsensusReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
 	// TODO
 	//peer.Get(PeerStateKey).(*PeerState).Disconnect()
 }
+
 //SetHealthMgr sets peer  healthMgr
 func (conR *ConsensusReactor) SetHealthMgr(h *ttypes.HealthMgr) {
 	conR.hm = h
 }
+
 // Receive implements Reactor
 // NOTE: We process these messages even when we're fast_syncing.
 // Messages affect either a peer state or the consensus state.
@@ -516,7 +518,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 	if !prs.Proposal {
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
 		if blockMeta == nil || blockMeta.Proposal == nil {
-			log.Error("Failed to load block meta","Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
+			log.Error("Failed to load block meta", "Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
 			return
 		}
 		msg := &ProposalMessage{Proposal: blockMeta.Proposal}
@@ -933,6 +935,7 @@ func (ps *PeerState) SetHasProposalBlockPart(height uint64, round uint, index ui
 func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 	if vote, ok := ps.PickVoteToSend(votes); ok {
 		msg := &VoteMessage{Vote: vote.Copy()}
+		log.Info("PickSendVote", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
 	}
 	return false
