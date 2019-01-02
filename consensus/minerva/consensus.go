@@ -936,11 +936,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 			//committee reward
 			signs := fruit.Body().Signs
 			committeeMembers, errs := election.VerifySigns(signs)
-			if len(committeeMembers) != len(errs) {
-				log.Error("accumulateRewardsFast error", "fruitNumber", fruit.NumberU64(), "err", consensus.ErrInvalidSignsLength.Error())
-				errChan <- consensus.ErrInvalidSignsLength
-				return
-			}
 			//Effective and not evil
 			var fruitOkAddr []common.Address
 			for i, cm := range committeeMembers {
