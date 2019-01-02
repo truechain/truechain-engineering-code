@@ -1129,6 +1129,7 @@ func (ps *PeerState) SetHasVote(vote *ttypes.Vote) {
 
 func (ps *PeerState) setHasVote(height uint64, round int, typeB byte, index uint) {
 	psVotes := ps.getVoteBitArray(height, round, typeB)
+	log.Info("setHasVote", "index", index, "psVotes", psVotes)
 	if psVotes != nil {
 		psVotes.SetIndex(index, true)
 	}
