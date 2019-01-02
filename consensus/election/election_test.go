@@ -43,7 +43,7 @@ func makeTestBlock() *types.Block {
 		Number:     common.Big1,
 		GasLimit:   core.FastCalcGasLimit(genesis),
 	}
-	fb := types.NewBlock(header, nil, nil, nil)
+	fb := types.NewBlock(header, nil, nil, nil, nil)
 	return fb
 }
 
@@ -154,7 +154,7 @@ func TestGetCommittee(t *testing.T) {
 	snail, fast := makeChain(540)
 	election := NewElection(fast, snail, nodeType{})
 	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
-	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
+	members := election.electCommittee(big.NewInt(1), big.NewInt(168)).Members
 
 	if !committeeEqual(election.GetCommittee(last), election.GetCommittee(big.NewInt(1))) {
 		t.Errorf("Get committee members error for genesis committee last fast block")
@@ -176,7 +176,7 @@ func TestGetCommittee(t *testing.T) {
 func TestCommitteeMembers(t *testing.T) {
 	snail, fast := makeChain(180)
 	election := NewElection(fast, snail, nodeType{})
-	members := election.electCommittee(big.NewInt(1), big.NewInt(144))
+	members := election.electCommittee(big.NewInt(1), big.NewInt(144)).Members
 	if len(members) == 0 {
 		t.Errorf("Committee election get none member")
 	}
@@ -193,7 +193,7 @@ func TestCommittee2Members(t *testing.T) {
 	end.Sub(end, params.SnailConfirmInterval)
 	begin := new(big.Int).Add(new(big.Int).Sub(end, params.ElectionPeriodNumber), common.Big1)
 
-	members := election.electCommittee(begin, end)
+	members := election.electCommittee(begin, end).Members
 	if len(members) == 0 {
 		t.Errorf("Committee election get none member")
 	}
