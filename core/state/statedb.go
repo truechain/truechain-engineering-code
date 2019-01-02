@@ -24,10 +24,10 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
 
@@ -271,6 +271,18 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
 /*
  * SETTERS
  */
+
+func (self *StateDB) AddBalanceWithoutLog(addr common.Address, amount *big.Int, balanceLock *AddrLocker) {
+	balanceLock.LockAddr(addr)
+	defer balanceLock.UnlockAddr(addr)
+	stateObject := self.GetOrNewStateObject(addr)
+	if stateObject != nil {
+		if amount.Sign() == 0 {
+			return
+		}
+		stateObject.setBalance(new(big.Int).Add(stateObject.Balance(), amount))
+	}
+}
 
 // AddBalance adds amount to the account associated with addr.
 func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {
