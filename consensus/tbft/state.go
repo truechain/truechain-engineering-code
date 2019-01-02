@@ -1388,7 +1388,7 @@ func (cs *ConsensusState) tryAddVote(vote *ttypes.Vote, peerID string) error {
 		}
 		// Probably an invalid signature / Bad peer.
 		// Seems this can also err sometimes with "Unexpected step" - perhaps not from a bad peer ?
-		log.Error("Error attempting to add vote", "err", err, "height", vote.Height, "round", vote.Round, "type", vote.Type)
+		log.Error("Error attempting to add vote", "err", err, "height", vote.Height, "round", vote.Round, "type", vote.Type, "peerid", peerID, "address", vote.ValidatorAddress)
 		return ErrAddingVote
 
 	}
