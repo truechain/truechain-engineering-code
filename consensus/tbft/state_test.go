@@ -2,6 +2,7 @@ package tbft
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"testing"
 	"time"
 )
@@ -27,4 +28,14 @@ type Test struct {
 func TestStructNil(t *testing.T) {
 	test := &Test{}
 	fmt.Println(test, test == nil)
+}
+
+func TestHelp(t *testing.T) {
+	h := help.NewHeap()
+
+	h.Push("msg1", 4)
+	h.Push("msg3", 3)
+	h.Push("msg2", 2)
+
+	fmt.Println(h.Peek())
 }
