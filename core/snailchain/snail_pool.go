@@ -191,7 +191,7 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 	}
 	if append {
 		pool.fruitPending[fruit.FastHash()] = fruit
-		log.Debug("addFruit", "fb number", fruit.FastNumber())
+		log.Debug("addFruit", "fb number", fruit.FastNumber(), "fruit hash", fruit.Hash())
 	}
 
 	go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
