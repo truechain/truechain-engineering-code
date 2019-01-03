@@ -309,6 +309,7 @@ type StateAgent interface {
 	GetLastValidator() *ValidatorSet
 
 	GetLastBlockHeight() uint64
+	SetEndHeight(h uint64)
 	GetChainID() string
 	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
 	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error)
@@ -455,6 +456,9 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*KeepBlockSign, error) {
 	if block == nil {
 		return nil, errors.New("block not have")
+	}
+	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
+		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
 	}
 	watch := newInWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)

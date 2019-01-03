@@ -502,9 +502,10 @@ func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate,Reset privValidator", "height", cs.Height)
 	cs.state.PrivReset()
 	newHeight = cs.Height
-	cs.enterNewRound(newHeight, int(round))
 	var d = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, newHeight, uint(round), ttypes.RoundStepBlockSync, 0})
+	cs.enterNewRound(newHeight, int(round))
+
 	log.Debug("end ValidatorUpdate", "newHeight", newHeight)
 }
 
@@ -1686,6 +1687,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		default:
 		}
 	}()
+	cs.state.SetEndHeight(block.NumberU64())
 }
 
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
