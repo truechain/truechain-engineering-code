@@ -73,7 +73,7 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	// If this height exists a rewarded block,so discard this new one.
 	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
-		return ErrRewarded
+		return ErrRewardedBlock
 	}
 	// Check whether the block's known, and if not, that it's linkable.
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {

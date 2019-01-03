@@ -25,6 +25,6 @@ var (
 	// ErrBlacklistedHash is returned if a block to import is on the blacklist.
 	ErrBlacklistedHash = errors.New("blacklisted hash")
 
-	//ErrRewarded is returned if a block to import is already rewarded.
-	ErrRewarded = errors.New("block already rewarded")
+	//ErrRewardedBlock is returned if a block to import is already rewarded.
+	ErrRewardedBlock = errors.New("block already rewarded")
 )
