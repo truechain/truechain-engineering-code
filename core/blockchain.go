@@ -425,6 +425,19 @@ func (bc *BlockChain) CurrentReward() *types.BlockReward {
 	return bc.currentReward.Load().(*types.BlockReward)
 }
 
+func (bc *BlockChain) NextSnailNumberReward() *big.Int {
+	var (
+		rewardSnailHegiht *big.Int
+		blockReward       = bc.CurrentReward()
+	)
+	if blockReward == nil {
+		rewardSnailHegiht = new(big.Int).Set(common.Big1)
+	} else {
+		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
+	}
+	return rewardSnailHegiht
+}
+
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {
