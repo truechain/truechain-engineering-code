@@ -1444,7 +1444,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNumLast := result.Fruits[fruitLen-1].FastNumber().Uint64()
 			currentNum := uint64(0)
 
-			if d.mode == FastSync {
+			if d.mode == FullSync {
 				currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 			} else if d.mode == FastSync {
 				currentNum = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
@@ -1478,7 +1478,9 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 						if d.mode == FullSync {
 							currentNum = d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
-						} else if d.mode == SnapShotSync || d.mode == FastSync {
+						} else if d.mode == FastSync {
+							currentNum = d.fastDown.GetBlockChain().CurrentFastBlock().NumberU64()
+						} else if d.mode == SnapShotSync {
 							currentNum = d.fastDown.GetBlockChain().CurrentHeader().Number.Uint64()
 						}
 

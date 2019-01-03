@@ -374,6 +374,61 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
+	if atomic.LoadUint32(&pm.fastSync) == 1 {
+
+		if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+			currentNumber := uint64(0)
+			if mode == downloader.FastSync {
+				currentNumber = pm.blockchain.CurrentFastBlock().NumberU64()
+			}else if mode == downloader.SnapShotSync{
+				currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+			}
+
+			if fastHeight > currentNumber {
+
+				for {
+					fbNum := currentNumber
+					height := fastHeight - fbNum
+
+					if height > 0 {
+
+						if height > maxheight {
+							height = maxheight
+						}
+						for {
+
+							err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FastSync, fbNum, height)
+							if err != nil {
+								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+								return
+							}
+
+							if mode == downloader.FastSync {
+								currentNumber = pm.blockchain.CurrentFastBlock().NumberU64()
+							}else if mode == downloader.SnapShotSync{
+								currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+							}
+
+							if (fbNum + height) > currentNumber {
+								log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", currentNumber)
+								height = (fbNum + height) - currentNumber
+								fbNum = currentNumber
+								continue
+							}
+							break
+						}
+					} else {
+						break
+					}
+				}
+
+			}
+
+		}
+
+	}
+
+
 	log.Debug("sync exit")
 	atomic.StoreUint32(&pm.fastSync, 0)
 	atomic.StoreUint32(&pm.snapSync, 0)
