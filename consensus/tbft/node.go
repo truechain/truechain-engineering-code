@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
-
 	// "encoding/json"
 	"errors"
 	"fmt"
@@ -441,20 +439,29 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	log.Info("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
-		stop, _ := service.consensusState.UpdateValidatorSet_bak(info)
+		stop, member, val := service.consensusState.UpdateValidatorSet(info)
 
-		log.Info("UpdateCommittee", "service", "stop")
-		service.stop()
-		log.Info("UpdateCommittee", "service", "stop ok")
-		if !stop {
-			time.Sleep(time.Second * 10)
-			log.Info("UpdateCommittee", "service", "start")
-			n.PutCommittee(info)
-			service.start(info.Id, n)
-			log.Info("UpdateCommittee", "service", "start ok")
+		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64())
+
+		for _, v := range member {
+			pID := pkToP2pID(v.Publickey)
+			p := service.sw.GetPeerForID(string(pID))
+			if p != nil {
+				service.sw.StopPeerForError(p, nil)
+			}
+		}
+		if stop {
+			service.stop()
 		}
 
+		//update nodes
+		//nodes := makeCommitteeMembersForUpdateCommittee(info)
+		//service.setNodes(nodes)
+		go func() { service.updateChan <- true }()
+		//update health
+		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil
+
 	}
 	return errors.New("service not found")
 }
