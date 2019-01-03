@@ -751,15 +751,7 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 
 //generate rewardSnailHegiht
 func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
-	var (
-		rewardSnailHegiht *big.Int
-		blockReward       = agent.fastChain.CurrentReward()
-	)
-	if blockReward == nil {
-		rewardSnailHegiht = new(big.Int).Set(common.Big1)
-	} else {
-		rewardSnailHegiht = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
-	}
+	rewardSnailHegiht := agent.fastChain.NextSnailNumberReward()
 	space := new(big.Int).Sub(agent.snailChain.CurrentBlock().Number(), rewardSnailHegiht).Int64()
 	if space >= params.SnailConfirmInterval.Int64() {
 		header.SnailNumber = rewardSnailHegiht
