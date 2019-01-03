@@ -982,6 +982,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			err = bc.Validator().ValidateBody(block)
 		}
 		switch {
+		case err == ErrRewardedBlock:
+			stats.ignored++
+			continue
 		case err == ErrKnownBlock:
 			// Block and state both already known. However if the current block is below
 			// this number we did a rollback and we should reimport it nonetheless.
