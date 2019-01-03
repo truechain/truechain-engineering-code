@@ -845,7 +845,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	log.Debug("WriteCanonicalBlock...")
+	log.Info("Write new snail canonical block...", "number", block.Number(), "hash", block.Hash())
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -1058,6 +1058,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		status, err := bc.WriteCanonicalBlock(block)
 		t1 := time.Now()
 		if err != nil {
+			log.Info("Write new snail canonical block error", "number", block.Number(), "hash", block.Hash(), "err", err)
 			return i, events, err
 		}
 		blockWriteTimer.Update(t1.Sub(t0))

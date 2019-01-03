@@ -71,13 +71,14 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
-	// If this height exists a rewarded block,so discard this new one.
-	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
-		return ErrRewardedBlock
-	}
 	// Check whether the block's known, and if not, that it's linkable.
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
+	}
+
+	// If this height exists a rewarded block,so discard this new one.
+	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
+		return ErrRewardedBlock
 	}
 
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
@@ -88,9 +89,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	//if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
-	//	return err
-	//}
 
 	count := len(block.Fruits())
 	if count == 0 {
@@ -128,6 +126,8 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
 		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
+
+	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
 }
 
