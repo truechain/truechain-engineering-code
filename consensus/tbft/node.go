@@ -447,16 +447,17 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 				service.sw.StopPeerForError(p, nil)
 			}
 		}
-		if stop {
-			service.stop()
+		service.stop()
+		if !stop {
+			service.start(info.Id, n)
 		}
 
 		//update nodes
 		//nodes := makeCommitteeMembersForUpdateCommittee(info)
 		//service.setNodes(nodes)
-		go func() { service.updateChan <- true }()
-		//update health
-		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
+		//go func() { service.updateChan <- true }()
+		////update health
+		//service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil
 	}
 	return errors.New("service not found")
