@@ -71,9 +71,12 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
-	// Check whether the block's known, and if not, that it's linkable.
 	// If this height exists a rewarded block,so discard this new one.
-	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) || v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
+	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
+		return ErrRewarded
+	}
+	// Check whether the block's known, and if not, that it's linkable.
+	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
 
