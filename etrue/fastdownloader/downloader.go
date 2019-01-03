@@ -998,7 +998,6 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 
 	// Wait for batches of headers to process
 	gotHeaders := false
-	pivotRemote := d.remoteHeader.Number.Uint64()
 
 	for {
 		select {
@@ -1094,7 +1093,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 						}
 					}
 					// Otherwise insert the headers for content retrieval
-					inserts := d.queue.Schedule(chunk, origin, pivotRemote)
+					inserts := d.queue.Schedule(chunk, origin)
 					if len(inserts) != len(chunk) {
 						log.Debug("Fast Stale headers")
 						return errBadPeer

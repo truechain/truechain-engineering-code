@@ -288,7 +288,7 @@ func (q *queue) RetrieveHeaders() ([]*types.Header, int) {
 
 // Schedule adds a set of headers for the download queue for scheduling, returning
 // the new headers encountered.
-func (q *queue) Schedule(headers []*types.Header, from uint64, pivot uint64) ([]*types.Header) {
+func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -315,8 +315,7 @@ func (q *queue) Schedule(headers []*types.Header, from uint64, pivot uint64) ([]
 			continue
 		}
 
-
-		if 	q.mode != SnapShotSync {
+		if q.mode != SnapShotSync {
 			//log.Debug("Schedule", "header", header.Number.Uint64(), "pivot", pivot)
 			q.blockTaskPool[hash] = header
 			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
