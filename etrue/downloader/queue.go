@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
@@ -647,6 +647,7 @@ func (q *queue) expire(timeout time.Duration, pendPool map[string]*etrue.FetchRe
 			}
 			for _, header := range request.Sheaders {
 				taskQueue.Push(header, -float32(header.Number.Uint64()))
+				log.Info("Expire snail chain", "num", header.Number, "timeout", timeout, "hash", header.Hash(), "peer", id)
 			}
 			// Add the peer to the expiry report along the the number of failed requests
 			expiries[id] = len(request.Sheaders)
