@@ -1078,16 +1078,13 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 		case SideStatTy:
 
-			log.Info("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
+			log.Info("Inserted new snail forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()), "uncles", len(block.Uncles()))
 
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, types.ChainSnailSideEvent{block})
 		}
 		stats.processed++
-
-		//fruits := block.Fruits()
-		//log.Debug("Inserted new snail block fruits", "number", block.Number(), "len", len(fruits),"first", fruits[0].FastNumber(), "last", fruits[len(fruits) - 1].FastNumber())
 
 		stats.report(chain, i)
 	}
@@ -1125,10 +1122,8 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 			fts = countSnailFruits(chain[st.lastIndex : index+1])
 		)
 		context := []interface{}{
-			"blocks", st.processed, "fts", fts, "mgas", float64(st.usedGas) / 1000000,
-			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
-			"number", end.Number(), "hash", end.Hash(),
-			"fruit", end.Fruits()[0].FastNumber(),
+			"blocks", st.processed, "fts", fts, "elapsed", common.PrettyDuration(elapsed),
+			"number", end.Number(), "hash", end.Hash(), "fruit", end.Fruits()[0].FastNumber(),
 		}
 		if st.queued > 0 {
 			context = append(context, []interface{}{"queued", st.queued}...)
@@ -1162,6 +1157,13 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		deletedFts  types.Fruits
 	)
 
+	if oldBlock == nil {
+		return fmt.Errorf("Invalid old chain")
+	}
+	if newBlock == nil {
+		return fmt.Errorf("Invalid new chain")
+	}
+
 	// first reduce whoever is higher bound
 	if oldBlock.NumberU64() > newBlock.NumberU64() {
 		// reduce old chain
@@ -1174,12 +1176,6 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		for ; newBlock != nil && newBlock.NumberU64() != oldBlock.NumberU64(); newBlock = bc.GetBlock(newBlock.ParentHash(), newBlock.NumberU64()-1) {
 			newChain = append(newChain, newBlock)
 		}
-	}
-	if oldBlock == nil {
-		return fmt.Errorf("Invalid old chain")
-	}
-	if newBlock == nil {
-		return fmt.Errorf("Invalid new chain")
 	}
 
 	for {
