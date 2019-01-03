@@ -390,10 +390,10 @@ func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
 		return nil, nil,err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
-		return nil,nil,errors.New(fmt.Sprintf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight))
+		return nil,nil,fmt.Errorf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight)
 	}
 	if state.StartHeight > block.NumberU64() {
-		return nil,nil,errors.New(fmt.Sprintf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight))
+		return nil,nil,fmt.Errorf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight)
 	}
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
