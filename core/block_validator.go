@@ -62,7 +62,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		return consensus.ErrPrunedAncestor
 	}
 	//validate reward snailBlock
-	if block.SnailNumber() != nil {
+	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
 		snailNumber := block.SnailNumber().Uint64()
 		blockReward := fv.bc.GetFastHeightBySnailHeight(snailNumber)
 		if blockReward != nil {
@@ -72,6 +72,13 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 				return ErrSnailBlockRewarded
 			}
 		} else {
+			/*var currentRewardedNumber *big.Int
+			blockReward := fv.bc.CurrentReward()
+			if blockReward == nil {
+				currentRewardedNumber = new(big.Int).Set(common.Big1)
+			} else {
+				currentRewardedNumber = new(big.Int).Add(blockReward.SnailNumber, common.Big1)
+			}*/
 			currentRewardedNumber := fv.bc.CurrentReward().SnailNumber
 			if currentRewardedNumber.Uint64()+1 != snailNumber {
 				log.Error("validateRewardError", "snailNumber", snailNumber,
