@@ -305,9 +305,9 @@ func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) 
 }
 
 // UpdateValidatorsSet is Set when the committee member is chaneged
-func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight uint64) {
+func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight,eHeight uint64) {
 	go func() {
-		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight}, ""}
+		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight,eHeight}, ""}
 	}()
 }
 
@@ -501,6 +501,7 @@ func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	cs.updateToState(cs.state)
 	log.Info("ValidatorUpdate,Reset privValidator", "height", cs.Height)
 	cs.state.PrivReset()
+	cs.state.SetEndHeight(msg.eHeight)
 	newHeight = cs.Height
 	var d = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, newHeight, uint(round), ttypes.RoundStepBlockSync, 0})
@@ -1688,6 +1689,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		}
 	}()
 	cs.state.SetEndHeight(block.NumberU64())
+	log.Info("Switch Result,SetEndHeight","EndHight",block.NumberU64())
 }
 
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {

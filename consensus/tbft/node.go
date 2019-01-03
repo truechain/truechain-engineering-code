@@ -441,7 +441,7 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 		//update validator
 		stop, member, val := service.consensusState.UpdateValidatorSet(info)
 
-		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64())
+		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64(),0)
 
 		for _, v := range member {
 			pID := pkToP2pID(v.Publickey)
