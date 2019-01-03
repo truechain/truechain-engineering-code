@@ -436,6 +436,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 				lastElectionNumber:  new(big.Int).Set(common.Big0),
 				switchCheckNumber:   params.ElectionPeriodNumber,
 				members:             e.genesisCommittee,
+				switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), 0),
 			}
 		}
 		// get pre snail block to elect current committee
@@ -848,7 +849,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 	members = c.Members()
 	backups = c.BackupMembers()
 	if len(c.switches) == 0 {
-		log.Warn("committee flag filter has no switch infos", "id", c.id)
+		log.Info("Committee filter get no switch infos", "id", c.id)
 		return
 	}
 
@@ -895,7 +896,11 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 		return
 	}
 	log.Info("Election update committee member state", "committee", infos.CID)
-	var committee *committee
+
+	var (
+		committee   *committee
+		endfast     *big.Int
+	)
 	if infos.CID == e.committee.id.Uint64() {
 		committee = e.committee
 	} else if infos.CID == e.nextCommittee.id.Uint64() {
@@ -922,11 +927,18 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 
 	// Update pbft server's committee info via pbft agent proxy
 	members, backups := e.filterWithSwitchInfo(committee)
+	if committee.endFastNumber != nil {
+		endfast = committee.endFastNumber
+	} else {
+		endfast = big.NewInt(0)
+	}
 	e.electionFeed.Send(types.ElectionEvent{
-		Option:           types.CommitteeUpdate,
-		CommitteeID:      committee.id,
-		CommitteeMembers: members,
-		BackupMembers:    backups,
+		Option:             types.CommitteeUpdate,
+		CommitteeID:        committee.id,
+		BeginFastNumber:    fastNumber,
+		EndFastNumber:      endfast,
+		CommitteeMembers:   members,
+		BackupMembers:      backups,
 	})
 }
 
@@ -980,16 +992,19 @@ func (e *Election) Start() error {
 	go func(e *Election) {
 
 		printCommittee(e.committee)
+		members, backups := e.filterWithSwitchInfo(e.committee)
 		e.electionFeed.Send(types.ElectionEvent{
 			Option:           types.CommitteeSwitchover,
 			CommitteeID:      e.committee.id,
-			CommitteeMembers: e.committee.Members(),
+			CommitteeMembers: members,
+			BackupMembers:    backups,
 			BeginFastNumber:  e.committee.beginFastNumber,
 		})
 		e.electionFeed.Send(types.ElectionEvent{
 			Option:           types.CommitteeStart,
 			CommitteeID:      e.committee.id,
-			CommitteeMembers: e.committee.Members(),
+			CommitteeMembers: members,
+			BackupMembers:    backups,
 			BeginFastNumber:  e.committee.beginFastNumber,
 		})
 
