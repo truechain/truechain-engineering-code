@@ -30,15 +30,15 @@ swarm:
 all:
 	build/env.sh go run build/ci.go install
 
-android:
-	build/env.sh go run build/ci.go aar --local
-	@echo "Done building."
-	@echo "Import \"$(GOBIN)/getrue.aar\" to use the library."
+# android:
+#	build/env.sh go run build/ci.go aar --local
+#	@echo "Done building."
+#	@echo "Import \"$(GOBIN)/getrue.aar\" to use the library."
 
-ios:
-	build/env.sh go run build/ci.go xcode --local
-	@echo "Done building."
-	@echo "Import \"$(GOBIN)/Getrue.framework\" to use the library."
+# ios:
+#	build/env.sh go run build/ci.go xcode --local
+#	@echo "Done building."
+#	@echo "Import \"$(GOBIN)/Getrue.framework\" to use the library."
 
 test: all
 	build/env.sh go run build/ci.go test

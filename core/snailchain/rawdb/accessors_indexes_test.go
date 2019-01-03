@@ -19,9 +19,9 @@ package rawdb
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/common"
 )
 
 // Tests that positional lookup metadata can be stored and retrieved.
@@ -34,7 +34,7 @@ func TestLookupStorage(t *testing.T) {
 	fts := []*types.SnailBlock{ft1, ft2, ft3}
 
 	snailHeader := types.SnailHeader{Extra: []byte("test header")}
-	block := types.NewSnailBlock(&snailHeader, fts, []*types.PbftSign{},  []*types.SnailHeader{})
+	block := types.NewSnailBlock(&snailHeader, fts, []*types.PbftSign{}, []*types.SnailHeader{})
 
 	// Check that no transactions entries are in a pristine database
 	for i, ft := range fts {

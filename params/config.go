@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -57,14 +57,15 @@ var (
 		}),
 	}
 
-	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	// RinkebyChainConfig = &ChainConfig{
-	// 	ChainID: big.NewInt(100),
-	// 	Clique: &CliqueConfig{
-	// 		Period: 15,
-	// 		Epoch:  30000,
-	// 	},
-	// }
+	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
+	DevnetChainConfig = &ChainConfig{
+		ChainID: big.NewInt(10),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(20000),
+			MinimumFruitDifficulty: big.NewInt(50),
+			DurationLimit:          big.NewInt(60),
+		}),
+	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
@@ -77,7 +78,7 @@ var (
 	// adding flags to the config to also have to set these fields.
 	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty,MinimumFruitDifficulty,DurationLimit}}
+	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}}
 )
 
 // ChainConfig is the core config which determines the blockchain settings.

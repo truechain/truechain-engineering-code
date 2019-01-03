@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -104,8 +104,9 @@ var (
 // TxStatus is the current status of a transaction as seen by the pool.
 type TxStatus uint
 
+//all kind of status
 const (
-	TxStatusUnknown  TxStatus = iota
+	TxStatusUnknown TxStatus = iota
 	TxStatusQueued
 	TxStatusPending
 	TxStatusIncluded
@@ -148,10 +149,10 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	PriceLimit: 1,
 	PriceBump:  10,
 
-	AccountSlots: 16 * 20,
-	GlobalSlots:  4096 * 20,
-	AccountQueue: 64 * 20,
-	GlobalQueue:  1024 * 20,
+	AccountSlots: 16 * 5,
+	GlobalSlots:  4096 * 5,
+	AccountQueue: 64 * 5,
+	GlobalQueue:  1024 * 5,
 
 	Lifetime: 3 * time.Hour,
 }

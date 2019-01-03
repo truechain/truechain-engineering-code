@@ -24,10 +24,10 @@ import (
 	"strings"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/contracts/ens/contract"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (

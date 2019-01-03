@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // The validation package contains validation checks for transactions

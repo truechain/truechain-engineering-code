@@ -1,4 +1,4 @@
-// Copyright 2018 The Truechain Authors
+// Copyright 2018 The TrueChain Authors
 // This file is part of the truechain-engineering-code library.
 //
 // The truechain-engineering-code library is free software: you can redistribute it and/or modify
@@ -17,18 +17,18 @@
 package snailchain
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
-	"errors"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/truechain/truechain-engineering-code/core"
 )
 
 const (
@@ -155,6 +155,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 	return pool
 }
 
+//Start load and  rotate Journal
 func (pool *SnailPool) Start() {
 	// If journaling is enabled, load fruit from disk
 	if pool.config.Journal != "" {
@@ -185,10 +186,12 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 		return core.ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
-
+	if len(pool.allFruits) >= 8192 {
+		log.Debug("fruits pool is full", "len(pool.allFruits)", len(pool.allFruits))
+	}
 	if append {
 		pool.fruitPending[fruit.FastHash()] = fruit
-		log.Debug("addFruit", "fb number", fruit.FastNumber())
+		log.Debug("addFruit", "fb number", fruit.FastNumber(), "fruit hash", fruit.Hash())
 	}
 
 	go pool.fruitFeed.Send(types.NewFruitsEvent{types.SnailBlocks{fruit}})
@@ -232,9 +235,11 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 		}
 
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
+			log.Debug("addFruit fruit failed,difficulty is lower", "give Difficulty", fruit.Difficulty(), "having Difficulty", f.Difficulty())
 			return nil
 		} else if rst == 0 {
 			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
+				log.Debug("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
 				return nil
 			}
 			return pool.appendFruit(fruit, true)
@@ -301,7 +306,6 @@ func (pool *SnailPool) loop() {
 				pool.mu.Unlock()
 			}
 
-
 		case fruit := <-pool.newFruitCh:
 			if fruit != nil {
 				pool.addFruit(fruit)
@@ -366,10 +370,6 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 			delete(pool.fruitPending, fruit.FastHash())
 			allDiscardCounter.Inc(1)
 			delete(pool.allFruits, fruit.FastHash())
-			/*if _, ok := pool.allFastBlocks[fruit.FastHash()]; ok {
-				pool.removeFastBlockWithLock(pool.fastBlockPending, fruit.FastHash())
-				delete(pool.allFastBlocks, fruit.FastHash())
-			}*/
 		}
 	}
 }
@@ -385,7 +385,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 		newNum := newHead.Number().Uint64()
 
 		if depth := uint64(math.Abs(float64(oldNum) - float64(newNum))); depth > 64 {
-			log.Debug("Skipping deep transaction reorg", "depth", depth)
+			log.Debug("Skipping deep fruit reorg", "depth", depth)
 		} else {
 			// Reorg seems shallow enough to pull in all fruits into memory
 			var discarded, included []*types.SnailBlock
@@ -481,6 +481,7 @@ func (pool *SnailPool) removeUnfreshFruit() {
 	}
 }
 
+//RemovePendingFruitByFastHash remove unVerifyFreshness fruit
 func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -605,19 +606,19 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	}
 	// check freshness
 	/*
-	err := pool.engine.VerifyFreshness(fruit.Header(), nil)
-	if err != nil {
-		log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
+		err := pool.engine.VerifyFreshness(fruit.Header(), nil)
+		if err != nil {
+			log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 
-		return nil
-	}*/
+			return nil
+		}*/
 
 	/*
-	header := fruit.Header()
-	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
-		log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
-		return err
-	}*/
+		header := fruit.Header()
+		if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
+			log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
+			return err
+		}*/
 
 	return nil
 }

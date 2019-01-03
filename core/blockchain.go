@@ -26,21 +26,21 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/mclock"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
@@ -51,13 +51,13 @@ var (
 )
 
 const (
-	bodyCacheLimit      = 256
-	blockCacheLimit     = 256
-	maxFutureBlocks     = 256
-	maxTimeFutureBlocks = 30
-	badBlockLimit       = 10
-	triesInMemory       = 128
-
+	bodyCacheLimit         = 256
+	blockCacheLimit        = 256
+	maxFutureBlocks        = 256
+	maxTimeFutureBlocks    = 30
+	badBlockLimit          = 10
+	triesInMemory          = 128
+	fastBlockStateInternal = 6
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	BlockChainVersion = 3
 )
@@ -308,10 +308,6 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
 	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
-
-	//for _,sign:= range bc.GetBlockByNumber(368315).Signs(){
-	//	log.Info("signblock ","sign",sign)
-	//}
 
 	//log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
 
@@ -635,6 +631,16 @@ func (bc *BlockChain) HasState(hash common.Hash) bool {
 	return err == nil
 }
 
+// VerifyHasState checks if state trie is fully present in the database or not.
+// or CurrentFastBlock number  > the number of fb
+func (bc *BlockChain) VerifyHasState(fb *types.Block) bool {
+	_, err := bc.stateCache.OpenTrie(fb.Root())
+	if err != nil && bc.CurrentBlock().NumberU64() > fb.NumberU64()+uint64(fastBlockStateInternal) {
+		return true
+	}
+	return err == nil
+}
+
 // HasBlockAndState checks if a block and associated state trie is fully present
 // in the database or not, caching it if present.
 func (bc *BlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
@@ -643,7 +649,8 @@ func (bc *BlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
 	if block == nil {
 		return false
 	}
-	return bc.HasState(block.Root())
+	//return bc.HasState(block.Root())
+	return bc.VerifyHasState(block)
 }
 
 // GetBlock retrieves a block from the database by hash and number,
@@ -789,7 +796,7 @@ func (bc *BlockChain) procFutureBlocks() {
 type WriteStatus byte
 
 const (
-	NonStatTy   WriteStatus = iota
+	NonStatTy WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )
@@ -982,26 +989,14 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	// Calculate the total difficulty of the block
-	//ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
-	//if ptd == nil {
-	//	return NonStatTy, consensus.ErrUnknownAncestor
-	//}
 	// Make sure no inconsistent state is leaked during insertion
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
 	currentBlock := bc.CurrentBlock()
-	//localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-	//externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
-	// Irrelevant of the canonical status, write the block itself to the database
-	//if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
-	//	return NonStatTy, err
-	//}
 	// Write other block data using a batch.
-	batch := bc.db.NewBatch()
-	rawdb.WriteBlock(batch, block)
+	rawdb.WriteBlock(bc.db, block)
 
 	if block.SnailNumber().Int64() != 0 {
 		//create BlockReward
@@ -1012,7 +1007,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			SnailNumber: block.SnailNumber(),
 		}
 		//insert BlockReward to db
-		rawdb.WriteBlockReward(batch, br)
+		rawdb.WriteBlockReward(bc.db, br)
 		rawdb.WriteHeadRewardNumber(bc.db, block.SnailNumber().Uint64())
 
 		bc.currentReward.Store(br)
@@ -1070,32 +1065,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			}
 		}
 	}
-	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
 
-	// If the total difficulty is higher than our known, add it to the canonical chain
-	// Second clause in the if statement reduces the vulnerability to selfish mining.
-	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
-	//reorg := externTd.Cmp(localTd) > 0
-	//currentBlock = bc.CurrentBlock()
-	//if !reorg && externTd.Cmp(localTd) == 0 {
-	//		Split same-difficulty blocks by number, then at random
-	//	reorg = block.NumberU64() < currentBlock.NumberU64() || (block.NumberU64() == currentBlock.NumberU64() && mrand.Float64() < 0.5)
-	//}
-	//if reorg {
-	//	// Reorganise the chain if the parent is not the head block
-	//	if block.ParentHash() != currentBlock.Hash() {
-	//		if err := bc.reorg(currentBlock, block); err != nil {
-	//			return NonStatTy, err
-	//		}
-	//	}
-	//	// Write the positional metadata for transaction/receipt lookups and preimages
-	//	rawdb.WriteTxLookupEntries(batch, block)
-	//	rawdb.WritePreimages(batch, block.NumberU64(), state.Preimages())
-	//
-	//	status = CanonStatTy
-	//} else {
-	//	status = SideStatTy
-	//}
+	batch := bc.db.NewBatch()
+	rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
 
 	if block.ParentHash() != currentBlock.Hash() {
 		if err := bc.reorg(currentBlock, block); err != nil {
@@ -1111,10 +1083,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		return NonStatTy, err
 	}
 
-	// Set new head.
-	if status == CanonStatTy {
-		bc.insert(block)
-	}
+	bc.insert(block)
 	bc.futureBlocks.Remove(block.Hash())
 	return status, err
 }

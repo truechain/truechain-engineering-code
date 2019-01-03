@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
@@ -647,6 +647,7 @@ func (q *queue) expire(timeout time.Duration, pendPool map[string]*etrue.FetchRe
 			}
 			for _, header := range request.Sheaders {
 				taskQueue.Push(header, -float32(header.Number.Uint64()))
+				log.Info("Expire snail chain", "num", header.Number, "timeout", timeout, "hash", header.Hash(), "peer", id)
 			}
 			// Add the peer to the expiry report along the the number of failed requests
 			expiries[id] = len(request.Sheaders)
@@ -755,13 +756,11 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-		// TODO:
-		//if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
-		//if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
-		//	return errInvalidBody
-		//}
+
+		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
+			return errInvalidChain
+		}
 		result.Fruits = fruitsLists[index]
-		//result.Uncles = uncleLists[index]
 		return nil
 	}
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)

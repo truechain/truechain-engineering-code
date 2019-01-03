@@ -2,10 +2,10 @@ package types
 
 import (
 	"errors"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"sort"
 	"sync"
@@ -191,7 +191,7 @@ func (ps *PeerSet) Register(p PeerConnection) error {
 	ps.peers[p.GetID()] = p
 	ps.lock.Unlock()
 
-	ps.newPeerFeed.Send(p)
+	ps.newPeerFeed.SendSync(p)
 	return nil
 }
 
@@ -207,7 +207,7 @@ func (ps *PeerSet) Unregister(id string) error {
 	delete(ps.peers, id)
 	ps.lock.Unlock()
 
-	ps.peerDropFeed.Send(p)
+	ps.peerDropFeed.SendSync(p)
 	return nil
 }
 

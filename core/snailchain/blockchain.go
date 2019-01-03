@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package core implements the Ethereum consensus protocol.
+// Package snailchain implements the truechain snailchain protocol.
 package snailchain
 
 import (
@@ -27,28 +27,29 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/hashicorp/golang-lru"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	//"github.com/truechain/truechain-engineering-code/crypto"
+	//"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/rlp"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 var (
-	blockInsertTimer = metrics.NewRegisteredTimer("chain/inserts", nil)
-
+	blockInsertTimer = metrics.NewRegisteredTimer("snailchain/inserts", nil)
+	blockWriteTimer  = metrics.NewRegisteredTimer("snailchain/write", nil)
+	//ErrNoGenesis is returned if the Genesis not found in chain.
 	ErrNoGenesis = errors.New("Genesis not found in chain")
 )
 
@@ -64,7 +65,7 @@ const (
 	SnailBlockChainVersion = 3
 )
 
-// SnialCacheConfig contains the configuration values for the trie caching/pruning
+// CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
 type CacheConfig struct {
 	Disabled      bool          // Whether to disable trie write caching (archive node)
@@ -72,7 +73,7 @@ type CacheConfig struct {
 	TrieTimeLimit time.Duration // Time limit after which to flush the current in-memory trie to disk
 }
 
-// BlockChain represents the canonical chain given a database with a genesis
+// SnailBlockChain represents the canonical chain given a database with a genesis
 // block. The Blockchain manages chain imports, reverts, chain reorganisations.
 //
 // Importing blocks in to the block chain happens according to the set of rules
@@ -132,7 +133,7 @@ type SnailBlockChain struct {
 	badBlocks *lru.Cache // Bad block cache
 }
 
-// NewBlockChain returns a fully initialised block chain using information
+// NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
 func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
@@ -586,6 +587,8 @@ func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []
 	return
 }
 
+//GetBlocksFromNumber return snailblocks between given number to currentNumber
+//just for test
 func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*types.SnailBlock) {
 	currentNumber := bc.CurrentBlock().Number()
 	for i := fromNumber; i <= currentNumber.Uint64(); i++ {
@@ -600,7 +603,6 @@ func (bc *SnailBlockChain) GetBlocksFromNumber(fromNumber uint64) (blocks []*typ
 
 // GetUnclesInChain retrieves all the uncles from a given block backwards until
 // a specific distance is reached.
-
 func (bc *SnailBlockChain) GetUnclesInChain(block *types.SnailBlock, length int) []*types.SnailHeader {
 	uncles := []*types.SnailHeader{}
 	for i := 0; block != nil && i < length; i++ {
@@ -652,8 +654,9 @@ func (bc *SnailBlockChain) procFutureBlocks() {
 // WriteStatus status of write
 type WriteStatus byte
 
+//the three kind of status
 const (
-	NonStatTy   WriteStatus = iota
+	NonStatTy WriteStatus = iota
 	CanonStatTy
 	SideStatTy
 )
@@ -685,7 +688,7 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 	}
 }
 
-// SetSnailReceiptsData computes all the non-consensus fields of the receipts
+// SetReceiptsData computes all the non-consensus fields of the receipts
 func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
 
 	//signer := types.MakeSigner(config, block.Number())
@@ -731,7 +734,6 @@ func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receip
 
 // InsertReceiptChain attempts to complete an already existing header chain with
 // transaction and receipt data.
-
 func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, receiptChain []types.Receipts) (int, error) {
 
 	bc.wg.Add(1)
@@ -818,7 +820,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 
 var lastSnailWrite uint64
 
-// Get lowlevel persistence database
+// GetDatabase Get lowlevel persistence database
 func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
 	return bc.db
 }
@@ -843,7 +845,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	log.Debug("WriteCanonicalBlock...")
+	log.Info("Write new snail canonical block...", "number", block.Number(), "hash", block.Hash())
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -862,8 +864,7 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 		return NonStatTy, err
 	}
 	// Write other block data using a batch.
-	batch := bc.db.NewBatch()
-	rawdb.WriteBlock(batch, block)
+	rawdb.WriteBlock(bc.db, block)
 
 	// If the total difficulty is higher than our known, add it to the canonical chain
 	// Second clause in the if statement reduces the vulnerability to selfish mining.
@@ -883,15 +884,16 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 			}
 		}
 		// Write the positional metadata for fruit lookups
-		rawdb.WriteFtLookupEntries(batch, block)
+		rawdb.WriteFtLookupEntries(bc.db, block)
 
 		status = CanonStatTy
 	} else {
 		status = SideStatTy
 	}
-	if err := batch.Write(); err != nil {
-		return NonStatTy, err
-	}
+
+	//if err := batch.Write(); err != nil {
+	//	return NonStatTy, err
+	//}
 
 	// Set new head.
 	if status == CanonStatTy {
@@ -980,6 +982,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			err = bc.Validator().ValidateBody(block)
 		}
 		switch {
+		case err == ErrRewardedBlock:
+			stats.ignored++
+			continue
 		case err == ErrKnownBlock:
 			// Block and state both already known. However if the current block is below
 			// this number we did a rollback and we should reimport it nonetheless.
@@ -1046,18 +1051,21 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			bc.reportBlock(block, err)
 			return i, events, err
 		}
-
+		t0 := time.Now()
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
 		status, err := bc.WriteCanonicalBlock(block)
+		t1 := time.Now()
 		if err != nil {
+			log.Info("Write new snail canonical block error", "number", block.Number(), "hash", block.Hash(), "err", err)
 			return i, events, err
 		}
+		blockWriteTimer.Update(t1.Sub(t0))
 		switch status {
 		case CanonStatTy:
 
-			log.Debug("Inserted new snail block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+			log.Info("Inserted new snail block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 				"fts", len(block.Fruits()), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
 			//coalescedLogs = append(coalescedLogs, logs...)
@@ -1071,16 +1079,13 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 		case SideStatTy:
 
-			log.Debug("Inserted forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
+			log.Info("Inserted new snail forked block", "number", block.Number(), "hash", block.Hash(), "diff", block.Difficulty(), "elapsed",
 				common.PrettyDuration(time.Since(bstart)), "fts", len(block.Fruits()), "uncles", len(block.Uncles()))
 
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, types.ChainSnailSideEvent{block})
 		}
 		stats.processed++
-
-		//fruits := block.Fruits()
-		//log.Debug("Inserted new snail block fruits", "number", block.Number(), "len", len(fruits),"first", fruits[0].FastNumber(), "last", fruits[len(fruits) - 1].FastNumber())
 
 		stats.report(chain, i)
 	}
@@ -1118,10 +1123,8 @@ func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 			fts = countSnailFruits(chain[st.lastIndex : index+1])
 		)
 		context := []interface{}{
-			"blocks", st.processed, "fts", fts, "mgas", float64(st.usedGas) / 1000000,
-			"elapsed", common.PrettyDuration(elapsed), "mgasps", float64(st.usedGas) * 1000 / float64(elapsed),
-			"number", end.Number(), "hash", end.Hash(),
-			"fruit", end.Fruits()[0].FastNumber(),
+			"blocks", st.processed, "fts", fts, "elapsed", common.PrettyDuration(elapsed),
+			"number", end.Number(), "hash", end.Hash(), "fruit", end.Fruits()[0].FastNumber(),
 		}
 		if st.queued > 0 {
 			context = append(context, []interface{}{"queued", st.queued}...)
@@ -1155,6 +1158,13 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		deletedFts  types.Fruits
 	)
 
+	if oldBlock == nil {
+		return fmt.Errorf("Invalid old chain")
+	}
+	if newBlock == nil {
+		return fmt.Errorf("Invalid new chain")
+	}
+
 	// first reduce whoever is higher bound
 	if oldBlock.NumberU64() > newBlock.NumberU64() {
 		// reduce old chain
@@ -1167,12 +1177,6 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		for ; newBlock != nil && newBlock.NumberU64() != oldBlock.NumberU64(); newBlock = bc.GetBlock(newBlock.ParentHash(), newBlock.NumberU64()-1) {
 			newChain = append(newChain, newBlock)
 		}
-	}
-	if oldBlock == nil {
-		return fmt.Errorf("Invalid old chain")
-	}
-	if newBlock == nil {
-		return fmt.Errorf("Invalid new chain")
 	}
 
 	for {
@@ -1215,12 +1219,12 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	}
 
 	// calculate the difference between deleted and added fruits
-	diff := types.FtDifference(deletedFts, addedFts)
+	diff := bc.ftDifference(deletedFts, addedFts)
 
 	batch := bc.db.NewBatch()
 
 	for _, ft := range diff {
-		rawdb.DeleteFtLookupEntry(batch, ft.Hash())
+		rawdb.DeleteFtLookupEntry(batch, ft.FastHash())
 	}
 
 	batch.Write()
@@ -1234,6 +1238,24 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 	}
 
 	return nil
+}
+
+// ftDifference returns a new set t which is the difference between a to b.
+func (bc *SnailBlockChain) ftDifference(a, b types.Fruits) (keep types.Fruits) {
+	keep = make(types.Fruits, 0, len(a))
+
+	remove := make(map[common.Hash]struct{})
+	for _, ft := range b {
+		remove[ft.FastHash()] = struct{}{}
+	}
+
+	for _, ft := range a {
+		if _, ok := remove[ft.FastHash()]; !ok {
+			keep = append(keep, ft)
+		}
+	}
+
+	return keep
 }
 
 // PostChainEvents iterates over the events generated by a chain insertion and
@@ -1365,7 +1387,7 @@ func (bc *SnailBlockChain) CurrentHeader() *types.SnailHeader {
 	return bc.hc.CurrentHeader()
 }
 
-// GetSnailTd retrieves a block's total difficulty in the canonical chain from the
+// GetTd retrieves a block's total difficulty in the canonical chain from the
 // database by hash and number, caching it if found.
 func (bc *SnailBlockChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	return bc.hc.GetTd(hash, number)
@@ -1413,12 +1435,13 @@ func (bc *SnailBlockChain) GetAncestor(hash common.Hash, number, ancestor uint64
 	return bc.hc.GetAncestor(hash, number, ancestor, maxNonCanonical)
 }
 
-// GetSnailHeaderByNumber retrieves a block header from the database by number,
+// GetHeaderByNumber retrieves a block header from the database by number,
 // caching it (associated with its hash) if found.
 func (bc *SnailBlockChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 	return bc.hc.GetHeaderByNumber(number)
 }
 
+// GetFruitByFastHash retrieves a block from the database by FastHash
 func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64) {
 	fruit, hash, number, index := rawdb.ReadFruit(bc.db, fastHash)
 	//log.Debug("Get fruit by fast hash", "fruit", fruit, "hash", hash, "number", number, "index", index, "fastHash",fastHash)
@@ -1432,11 +1455,13 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 	return block, index
 }
 
-func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) (*types.SnailBlock) {
+// GetFruit retrieves a fruit from the database by FastHash
+func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
 	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
 	return fruit
 }
 
+// GetGenesisCommittee retrieves Genesis CommitteeMembers from the database
 func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
 	committee := rawdb.ReadGenesisCommittee(bc.db)
 	if committee == nil {
@@ -1452,17 +1477,16 @@ func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig 
 func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
-
 func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
 	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
 }
 
-// SubscribeSnailChainEvent registers a subscription of ChainSnailEvent.
+// SubscribeChainEvent registers a subscription of ChainSnailEvent.
 func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
 	return bc.scope.Track(bc.chainFeed.Subscribe(ch))
 }
 
-// SubscribeSnailChainHeadEvent registers a subscription of types.ChainSnailHeadEvent.
+// SubscribeChainHeadEvent registers a subscription of types.ChainSnailHeadEvent.
 func (bc *SnailBlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
 }
@@ -1477,7 +1501,7 @@ func (bc *SnailBlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subs
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-// SubscribeNewFruitEvent registers a subscription of fruits.
+// SubscribeFastBlockEvent registers a subscription of fruits.
 func (bc *SnailBlockChain) SubscribeFastBlockEvent(ch chan<- types.NewFastBlocksEvent) event.Subscription {
 	return bc.scope.Track(bc.fastBlockFeed.Subscribe(ch))
 }

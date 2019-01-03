@@ -20,7 +20,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethclient"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/node"
 	"gopkg.in/urfave/cli.v1"
@@ -41,8 +41,6 @@ var (
 		utils.UnlockedAccountFlag,
 		utils.PasswordFileFlag,
 		utils.BootnodesFlag,
-		utils.BootnodesV4Flag,
-		utils.BootnodesV5Flag,
 		utils.DataDirFlag,
 		utils.KeyStoreDirFlag,
 		utils.NoUSBFlag,
@@ -50,12 +48,7 @@ var (
 		utils.DashboardAddrFlag,
 		utils.DashboardPortFlag,
 		utils.DashboardRefreshFlag,
-		utils.EthashCacheDirFlag,
-		utils.EthashCachesInMemoryFlag,
-		utils.EthashCachesOnDiskFlag,
-		utils.EthashDatasetDirFlag,
-		utils.EthashDatasetsInMemoryFlag,
-		utils.EthashDatasetsOnDiskFlag,
+
 		utils.TxPoolNoLocalsFlag,
 		utils.TxPoolJournalFlag,
 		utils.TxPoolRejournalFlag,
@@ -66,21 +59,22 @@ var (
 		utils.TxPoolAccountQueueFlag,
 		utils.TxPoolGlobalQueueFlag,
 		utils.TxPoolLifetimeFlag,
+
 		utils.SnailPoolJournalFlag,
 		utils.SnailPoolRejournalFlag,
 		utils.SnailPoolFruitCountFlag,
-		utils.FastSyncFlag,
-		utils.LightModeFlag,
 		utils.SyncModeFlag,
 
 		utils.SingleNodeFlag,
-		utils.MineFruitFlag,
+
 		utils.EnableElectionFlag,
+
 		utils.BFTPortFlag,
-		utils.BFTStandByPortFlag,
+		utils.BFTStandbyPortFlag,
 		utils.BFTIPFlag,
 		utils.BftKeyFileFlag,
 		utils.BftKeyHexFlag,
+		utils.OldTbftFlag,
 
 		utils.GCModeFlag,
 		utils.LightServFlag,
@@ -96,7 +90,9 @@ var (
 		utils.EtherbaseFlag,
 		utils.CoinbaseFlag,
 		utils.GasPriceFlag,
+
 		utils.MinerThreadsFlag,
+		utils.MineFruitFlag,
 		utils.MiningEnabledFlag,
 		utils.TargetGasLimitFlag,
 		utils.NATFlag,
@@ -108,12 +104,12 @@ var (
 		utils.DeveloperFlag,
 		utils.DeveloperPeriodFlag,
 		utils.TestnetFlag,
-		utils.RinkebyFlag,
+		utils.DevnetFlag,
 		utils.VMEnableDebugFlag,
 		utils.NetworkIdFlag,
 		utils.RPCCORSDomainFlag,
 		utils.RPCVirtualHostsFlag,
-		utils.EthStatsURLFlag,
+		utils.EtrueStatsURLFlag,
 		utils.MetricsEnabledFlag,
 		utils.FakePoWFlag,
 		utils.NoCompactionFlag,
@@ -135,12 +131,6 @@ var (
 		utils.WSAllowedOriginsFlag,
 		utils.IPCDisabledFlag,
 		utils.IPCPathFlag,
-	}
-
-	whisperFlags = []cli.Flag{
-		utils.WhisperEnabledFlag,
-		utils.WhisperMaxMessageSizeFlag,
-		utils.WhisperMinPOWFlag,
 	}
 
 	metricsFlags = []cli.Flag{
@@ -192,12 +182,15 @@ func init() {
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
-	app.Flags = append(app.Flags, whisperFlags...)
 	app.Flags = append(app.Flags, metricsFlags...)
 
 	app.Before = func(ctx *cli.Context) error {
 		runtime.GOMAXPROCS(runtime.NumCPU())
-		if err := debug.Setup(ctx); err != nil {
+		logdir := ""
+		if ctx.GlobalBool(utils.DashboardEnabledFlag.Name) {
+			logdir = (&node.Config{DataDir: utils.MakeDataDir(ctx)}).ResolvePath("logs")
+		}
+		if err := debug.Setup(ctx, logdir); err != nil {
 			return err
 		}
 		// Cap the cache allowance and tune the garbage colelctor
@@ -313,7 +306,7 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	// Start auxiliary services if enabled
 	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) || ctx.GlobalBool(utils.DeveloperFlag.Name) {
 		// Mining only makes sense if a full Truechain node is running
-		if ctx.GlobalBool(utils.LightModeFlag.Name) || ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
+		if ctx.GlobalString(utils.SyncModeFlag.Name) == "light" {
 			utils.Fatalf("Light clients do not support mining")
 		}
 		var truechain *etrue.Truechain

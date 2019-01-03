@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/ethereum/go-ethereum/common/math"
 	osMath "math"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"

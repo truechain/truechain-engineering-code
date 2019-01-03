@@ -19,9 +19,9 @@ package snailchain
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/log"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -33,10 +33,13 @@ var (
 	// ErrInvalidSignHash is returned if the fruit contains an invalid signatures hash.
 	ErrInvalidSignHash = errors.New("invalid sign")
 
+	//ErrInvalidFast is returned if the fastchain not have the hash
 	ErrInvalidFast = errors.New("invalid fast hash")
 
+	//ErrNoFruits is returned if the block not contains the exact fruit count
 	ErrNoFruits = errors.New("invalid fruits count")
 
+	//ErrInvalidFruits is returned if the fruits in block not continuity
 	ErrInvalidFruits = errors.New("invalid fruits number")
 )
 
@@ -68,10 +71,16 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
-	// Check whether the block's known, and if not, that it's linkable
+	// Check whether the block's known, and if not, that it's linkable.
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
+
+	// If this height exists a rewarded block,so discard this new one.
+	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
+		return ErrRewardedBlock
+	}
+
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
@@ -80,9 +89,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	//if err := v.engine.VerifySnailUncles(v.bc, block); err != nil {
-	//	return err
-	//}
 
 	count := len(block.Fruits())
 	if count == 0 {
@@ -118,8 +124,10 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	}
 
 	if hash := types.DeriveSha(types.Fruits(block.Fruits())); hash != header.FruitsHash {
-		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.FruitsHash)
+		return fmt.Errorf("fruits hash mismatch: have %x, want %x", hash, header.FruitsHash)
 	}
+
+	log.Info("Validate new snail body", "block", block.Number(), "hash", block.Hash(), "fruits", header.FruitsHash, "first", fruits[0].FastNumber(), "count", len(fruits))
 	return nil
 }
 
@@ -127,7 +135,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 // transition, such as amount of used gas, the receipt roots and the state root
 // itself. ValidateState returns a database batch if the validation was a success
 // otherwise nil and an error is returned.
-
 func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 
@@ -141,6 +148,7 @@ func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb 
 	return nil
 }
 
+//ValidateFruit is to verify if the fruit is legal
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
 	//

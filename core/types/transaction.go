@@ -23,10 +23,10 @@ import (
 	"math/big"
 	"sync/atomic"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -264,24 +264,6 @@ func (s Transactions) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s Transactions) GetRlp(i int) []byte {
 	enc, _ := rlp.EncodeToBytes(s[i])
 	return enc
-}
-
-// TxDifference returns a new set t which is the difference between a to b.
-func FtDifference(a, b Fruits) (keep Fruits) {
-	keep = make(Fruits, 0, len(a))
-
-	remove := make(map[common.Hash]struct{})
-	for _, ft := range b {
-		remove[ft.Hash()] = struct{}{}
-	}
-
-	for _, ft := range a {
-		if _, ok := remove[ft.Hash()]; !ok {
-			keep = append(keep, ft)
-		}
-	}
-
-	return keep
 }
 
 // TxDifference returns a new set t which is the difference between a to b.

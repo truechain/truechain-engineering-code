@@ -17,17 +17,21 @@
 package minerva
 
 import (
+	"bufio"
 	crand "crypto/rand"
+	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
+	"os"
 	"runtime"
 	"sync"
+	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
 )
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
@@ -99,7 +103,6 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 // ConSeal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
 func (m *Minerva) ConSeal(chain consensus.SnailChainReader, block *types.SnailBlock, stop <-chan struct{}, send chan *types.SnailBlock) {
-	log.Debug(" +++++++++get in Conseal ", "fb number", block.FastNumber(), "threads", m.threads)
 	// If we're running a fake PoW, simply return a 0 nonce immediately
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		header := block.Header()
@@ -208,7 +211,7 @@ func (m *Minerva) mineSnail(block *types.SnailBlock, id int, seed uint64, abort 
 	)
 
 	//m.CheckDataSetState(block.Number().Uint64())
-
+	log.Info("start mine,", "epoch is:", block.Number().Uint64()/epochLength)
 	// Start generating random nonces until we abort or find a good one
 	var (
 		attempts = int64(0)
@@ -235,8 +238,7 @@ search:
 			}
 			// Compute the PoW value of this nonce
 			digest, result := truehashFull(dataset.dataset, hash, nonce)
-			//fmt.Println("----------------------------------------------")
-			//fmt.Println("digest ----: ",new(big.Int).SetBytes(digest))
+
 			headResult := result[:16]
 			if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
 				// Correct nonce found, create a new header with it
@@ -256,8 +258,7 @@ search:
 					}
 					break search
 				}
-				//fmt.Println("headResult ----: ",new(big.Int).SetBytes(headResult))
-				//fmt.Println("target ----: ",target)
+
 			} else {
 				lastResult := result[16:]
 				if header.FastNumber.Uint64() != 0 {
@@ -278,11 +279,8 @@ search:
 						}
 					}
 				}
-				//fmt.Println("lastResult ----: ",new(big.Int).SetBytes(lastResult))
-				//fmt.Println("fruitTarget ----: ",fruitTarget)
 			}
 			nonce++
-			//fmt.Println("nonce ----: ",nonce-seed)
 		}
 	}
 	// Datasets are unmapped in a finalizer. Ensure that the dataset stays live
@@ -302,66 +300,71 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 		//fmt.Printf("%d,", k+1)
 	}
 	genLookupTable(tableLookup[:], table[:])
-	//trueInit = 1
 }
 
-func (m *Minerva) updateLookupTBL(blockNum uint64, plookup_tbl []uint64) (bool, []uint64) {
+func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, []uint64, string) {
 	log.Info("updateupTBL start ，", "blockNum is:	", blockNum)
-	const offset_cnst = 0x1f
-	const skip_cnst = 0x3
+	const offsetCnst = 0x1f
+	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
+	var cont string
 
 	cur_block_num := blockNum
-	//res := cur_block_num % UPDATABLOCKLENGTH
+
 	res := cur_block_num % UPDATABLOCKLENGTH
 	sblockchain := m.sbc
 	//current block number is invaild
 
 	if sblockchain == nil {
 		log.Error("sblockchain is nil  ", "blockNum is:  ", blockNum)
-		return false, nil
+		return false, nil, ""
 	}
 	//res <= STARTUPDATENUM
 	if res <= STARTUPDATENUM {
 		log.Error("----The value is less than the reservation value---- ", "blockNum is:  ", blockNum)
-		return false, nil
+		return false, nil, ""
 	}
 	var st_block_num uint64 = uint64(cur_block_num - res)
-	//for i := 0; i < 8192; i++ {
+
 	for i := 0; i < OFF_CYCLE_LEN; i++ {
 
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + 1)
 		if header == nil {
 			log.Error("----updateTBL--The offset is nil---- ", "blockNum is:  ", blockNum)
-			return false, nil
+			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
-		offset[i*4] = (int(val[0]) & offset_cnst) - 16
-		offset[i*4+1] = (int(val[1]) & offset_cnst) - 16
-		offset[i*4+2] = (int(val[2]) & offset_cnst) - 16
-		offset[i*4+3] = (int(val[3]) & offset_cnst) - 16
+		offset[i*4] = (int(val[0]) & offsetCnst) - 16
+		offset[i*4+1] = (int(val[1]) & offsetCnst) - 16
+		offset[i*4+2] = (int(val[2]) & offsetCnst) - 16
+		offset[i*4+3] = (int(val[3]) & offsetCnst) - 16
+		cont += header.Hash().String()
 	}
 
-	//for i := 0; i < 2048; i++ {
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
 		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN) + 1)
 		if header == nil {
 			log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", blockNum)
-			return false, nil
+			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
 		for k := 0; k < 16; k++ {
-			skip[i*16+k] = (int(val[k]) & skip_cnst) + 1
+			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
 		}
+		cont += header.Hash().String()
 	}
 
-	ds := m.UpdateTBL(offset, skip, plookup_tbl)
+	ds := m.UpdateTBL(offset, skip, plookupTbl)
 
-	return true, ds
+	// verify table, will remove
+	WriteTBL(offset, skip)
+
+	return true, ds, cont
 }
 
-func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookup_tbl []uint64) []uint64 {
+//UpdateTBL Update dataset information
+func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []uint64) []uint64 {
 
 	lktWz := uint32(DATALENGTH / 64)
 	lktSz := uint32(DATALENGTH) * lktWz
@@ -374,17 +377,61 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 			idx := k*DATALENGTH + x
 			pos := offset[idx] + x
 			sk := skip[idx]
-			pos0 := pos - sk*PMTSIZE
-			pos1 := pos + sk*PMTSIZE
-			for y := pos0; y < pos1; y += sk {
+			y := pos - sk*PMTSIZE/2
+			for i := 0; i < PMTSIZE; i++ {
 				if y >= 0 && y < SKIP_CYCLE_LEN {
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
-					plookup_tbl[plkt+vI] |= 1 << vR
+					plookupTbl[plkt+vI] |= 1 << vR
 				}
 			}
 			plkt += lktWz
 		}
 	}
-	return plookup_tbl
+	return plookupTbl
+}
+
+// WriteTBL Save Update dataset information
+func WriteTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int) {
+
+	// Create a file and use bufio.NewWriter.
+	currentTime := time.Now()
+	filename := fmt.Sprintf("tbl%s.dat", currentTime.Format("2000.01.01"))
+	fmt.Println(filename)
+	f, _ := os.Create(filename)
+	w := bufio.NewWriter(f)
+
+	lktWz := uint32(4)
+	lktSz := uint32(DATALENGTH) * lktWz
+	fmt.Fprintf(w, "{\n")
+	for k := 0; k < TBLSIZE; k++ {
+
+		fmt.Fprintf(w, "\t{\n")
+		plkt := uint32(k) * lktSz
+
+		for x := 0; x < DATALENGTH; x++ {
+			idx := k*DATALENGTH + x
+			pos := offset[idx] + x
+			sk := skip[idx]
+			y := pos - sk*PMTSIZE/2
+			if x%64 == 0 {
+				fmt.Fprintf(w, "\n\t\t")
+
+			}
+			for i := 0; i < PMTSIZE; i++ {
+				if y >= 0 && y < SKIP_CYCLE_LEN {
+					fmt.Fprintf(w, "0x%03x,\t", y)
+				} else {
+					fmt.Fprintf(w, "0xfff,\t")
+				}
+				y += sk
+			}
+
+			plkt += lktWz
+		}
+		fmt.Fprintf(w, "\n\t}\n")
+	}
+	fmt.Fprintf(w, "}\n")
+	fmt.Fprintf(w, "\n")
+	w.Flush()
 }

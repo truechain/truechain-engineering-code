@@ -14,13 +14,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package minverva implements the truechain hybrid consensus engine.
+// Package minerva implements the truechain hybrid consensus engine.
 package minerva
 
 import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"math/rand"
 	"os"
@@ -32,16 +33,19 @@ import (
 	"unsafe"
 
 	"github.com/edsrzf/mmap-go"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
+// ErrInvalidDumpMagic errorinfo
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
 
 var (
@@ -59,48 +63,51 @@ var (
 	// dumpMagic is a dataset dump header to sanity check a data dump.
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
 
-	//Snail block rewards initial 116.48733*10^18
+	//SnailBlockRewardsInitial Snail block rewards initial 116.48733*10^18
 	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
 
-	//Snail block rewards base value is 115.555555555555 * 10^12
+	//SnailBlockRewardsBase Snail block rewards base value is 115.555555555555 * 10^12
 	SnailBlockRewardsBase = 115555555555555
 
-	//up to wei  SnailBlockRewardsBase * this is wei
+	// Big1e6 up to wei  SnailBlockRewardsBase * this is wei
 	Big1e6 = big.NewInt(1e6)
 
-	//Snail block rewards change interval 4500 blocks
+	// SnailBlockRewardsChangeInterval Snail block rewards change interval 4500 blocks
 	SnailBlockRewardsChangeInterval = 4500
 
-	//Snail block rewards change interval decrease %2
+	// SnailBlockRewardsChangePercentage snall block rewards change interval decrease %2
 	SnailBlockRewardsChangePercentage = 2
 
-	//BaseBig
+	//BaseBig ...
 	BaseBig = big.NewInt(1e18)
 
-	//The number of main network fragments is currently fixed at 1
+	//NetworkFragmentsNuber The number of main network fragments is currently fixed at 1
 	NetworkFragmentsNuber = 1
 
-	//Mining constant is 20
+	//MiningConstant Mining constant is 20
 	MiningConstant = 20
 
-	//pbft and miner allocation constant
+	//SqrtMin pbft and miner allocation constant
 	//Generating formula :TestOutSqrt
 	SqrtMin = 25
+
+	//SqrtMax ...
 	SqrtMax = 6400
 
-	//Snail block body fruit initial 30*10^15
+	//SnailBlockBodyFruitInitial Snail block body fruit initial 30*10^15
 	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
 
-	//Snail block rewards fruit ratio  10%
+	//SnailBlockRewardsFruitRatio Snail block rewards fruit ratio  10%
 	SnailBlockRewardsFruitRatio = 0.1
 
-	//Number of committees
+	//CommitteesCount Number of committees
 	CommitteesCount = new(big.Int).SetInt64(1)
 
-	//Miner quantity
+	//MinerCount Miner quantity
 	MinerCount = new(big.Int).SetInt64(1)
 )
 
+// ConstSqrt ...
 type ConstSqrt struct {
 	Num  int     `json:"num"`
 	Sqrt float64 `json:"sqrt"`
@@ -225,6 +232,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
 
+	log.Debug("get lru for dataset", "epoch", epoch)
 	// Get or create the item for the requested epoch.
 	item, ok := lru.cache.Get(epoch)
 	if !ok {
@@ -236,13 +244,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		}
 		lru.cache.Add(epoch, item)
 	}
-	// Update the 'future item' if epoch is larger than previously seen.
-	//if epoch < maxEpoch-1 && lru.future < epoch+1 {
-	//	log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
-	//	future = lru.new(epoch + 1)
-	//	lru.future = epoch + 1
-	//	lru.futureItem = future
-	//}
+
 	return item, future
 }
 
@@ -251,26 +253,30 @@ type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset  []uint64  // The actual cache data content
-	once     sync.Once // Ensures the cache is generated only once
-	dateInit int
+	dataset     []uint64  // The actual cache data content
+	once        sync.Once // Ensures the cache is generated only once
+	dateInit    int
+	consistent  common.Hash // Consistency of generated data
+	datasetHash common.Hash // dataset hash
 }
 
 // newDataset creates a new truehash mining dataset
 func newDataset(epoch uint64) interface{} {
+
 	ds := &dataset{
 		epoch:    epoch,
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
-
+	log.Info("--- create a new dateset ", "epoch is", epoch)
 	return ds
 }
 
 // Mode defines the type and amount of PoW verification an minerva engine makes.
 type Mode uint
 
+// constant
 const (
 	ModeNormal Mode = iota
 	ModeShared
@@ -290,6 +296,7 @@ type Config struct {
 	PowMode        Mode
 }
 
+// Minerva consensus
 type Minerva struct {
 	config Config
 
@@ -342,6 +349,7 @@ func New(config Config) *Minerva {
 	return minerva
 }
 
+// NewTestData Method test usage
 func (m *Minerva) NewTestData(block uint64) {
 	m.getDataset(block)
 }
@@ -349,78 +357,64 @@ func (m *Minerva) NewTestData(block uint64) {
 // dataset tries to retrieve a mining dataset for the specified block number
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
-	epoch := block / epochLength
-	//log.Info("epoch value: ", epoch, "------", "block number is: ", block)
+	//each 12000 change the mine algorithm
+	epoch := uint64(block / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	current.generate(block, m)
-	//if futureI != nil {
-	//	future := futureI.(*dataset)
-	//	future.generate(block, m)
-	//
-	//}
+	current.generate(epoch, m)
+	log.Debug("getDataset:", "epoch is ", current.epoch, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
 
-	// Test byte possession
-	//da := fmt.Sprintln("dataset size:", unsafe.Sizeof(current.dataset))
-	//on := fmt.Sprintln("once size:", unsafe.Sizeof(current.once))
-	//dai := fmt.Sprintln("dateInit size:", unsafe.Sizeof(current.dateInit))
-	//ep := fmt.Sprintln("epoch size:", unsafe.Sizeof(current.epoch))
 	return current
 }
 
+func (d *dataset) Hash() common.Hash {
+	return rlpHash(d.dataset)
+}
+
 // generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(blockNum uint64, m *Minerva) {
+func (d *dataset) generate(epoch uint64, m *Minerva) {
 	d.once.Do(func() {
-		//fmt.Println("d.once:",blockNum)
 		if d.dateInit == 0 {
-			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
-			// blockNum <= UPDATABLOCKLENGTH
-			if blockNum <= UPDATABLOCKLENGTH {
-				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
+			if epoch <= 0 {
+				log.Info("TableInit is start,:epoch is:  ", "------", epoch)
 				m.truehashTableInit(d.dataset)
+				d.datasetHash = d.Hash()
 			} else {
-				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
-				log.Info("updateLookupTBL is start,:blockNum is:  ", "------", blockNum)
-				//d.Flag = 0
-				flag, ds := m.updateLookupTBL(bn, d.dataset)
+				// the new algorithm is use befor 10241 start block hear to calc
+				bn := (epoch-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				log.Info("updateLookupTBL is start,:epoch is:  ", "------", epoch)
+
+				flag, ds, cont := m.updateLookupTBL(bn, d.dataset)
 				if flag {
 					d.dataset = ds
+
+					// consistent is make sure the algorithm is current and not change
+					d.consistent = common.BytesToHash([]byte(cont))
+					d.datasetHash = d.Hash()
+
+					log.Info("updateLookupTBL", "epoch is:", epoch, "---consistent is:", d.consistent.String())
 				} else {
-					log.Error("updateLookupTBL is err  ", "blockNum is:  ", blockNum)
+					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
 				}
 			}
 			d.dateInit = 1
 		}
 	})
 
-	//go d.updateTable(blockNum, m)
-
 }
 
-func (d *dataset) updateTable(blockNum uint64, m *Minerva) {
-	if blockNum%UPDATABLOCKLENGTH == STARTUPDATENUM+1 {
-		epoch := blockNum / epochLength
-		currentI, _ := m.datasets.get(epoch + 1)
-		current := currentI.(*dataset)
-		if current.dateInit == 0 {
-			current.generate(blockNum, m)
-			//fmt.Println(blockNum)
-		}
-	}
-}
-
-//Append interface SnailChainReader after instantiations
+//SetSnailChainReader Append interface SnailChainReader after instantiations
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
 }
 
-//Append interface CommitteeElection after instantiation
+//SetElection Append interface CommitteeElection after instantiation
 func (m *Minerva) SetElection(e consensus.CommitteeElection) {
 	m.election = e
 }
 
+// GetElection return election
 func (m *Minerva) GetElection() consensus.CommitteeElection {
 	return m.election
 
@@ -596,4 +590,12 @@ func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, er
 		signs = append(signs, voteSign)
 	}
 	return signs, nil
+}
+
+// for hash
+func rlpHash(x interface{}) (h common.Hash) {
+	hw := sha3.NewKeccak256()
+	rlp.Encode(hw, x)
+	hw.Sum(h[:0])
+	return h
 }

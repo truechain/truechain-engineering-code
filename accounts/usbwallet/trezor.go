@@ -1,3 +1,18 @@
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // This file contains the implementation for interacting with the Trezor hardware
 // wallets. The wire protocol spec can be found on the SatoshiLabs website:
@@ -14,10 +29,10 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/usbwallet/internal/trezor"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -206,7 +221,7 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction
 		signer = new(types.HomesteadSigner)
 	} else {
 		signer = types.NewEIP155Signer(chainID)
-		signature[64] = signature[64] - byte(chainID.Uint64()*2+35)
+		signature[64] -= byte(chainID.Uint64()*2 + 35)
 	}
 	// Inject the final signature into the transaction and sanity check the sender
 	signed, err := tx.WithSignature(signer, signature)

@@ -24,7 +24,7 @@ var (
 		Action:   utils.MigrateFlags(localConsole),
 		Name:     "console",
 		Usage:    "Start an interactive JavaScript environment",
-		Flags:    append(append(append(nodeFlags, rpcFlags...), consoleFlags...), whisperFlags...),
+		Flags:    append(append(append(nodeFlags, rpcFlags...), consoleFlags...)),
 		Category: "CONSOLE COMMANDS",
 		Description: `
 The Getrue console is an interactive shell for the JavaScript runtime environment
@@ -110,8 +110,8 @@ func remoteConsole(ctx *cli.Context) error {
 		if path != "" {
 			if ctx.GlobalBool(utils.TestnetFlag.Name) {
 				path = filepath.Join(path, "testnet")
-			} else if ctx.GlobalBool(utils.RinkebyFlag.Name) {
-				path = filepath.Join(path, "rinkeby")
+			} else if ctx.GlobalBool(utils.DevnetFlag.Name) {
+				path = filepath.Join(path, "devnet")
 			}
 		}
 		endpoint = fmt.Sprintf("%s/getrue.ipc", path)

@@ -20,9 +20,9 @@ import (
 	"hash"
 	"sync"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type hasher struct {

@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
@@ -450,8 +450,8 @@ func (db *Database) Dereference(root common.Hash) {
 	memcacheGCSizeMeter.Mark(int64(storage - db.nodesSize))
 	memcacheGCNodesMeter.Mark(int64(nodes - len(db.nodes)))
 
-	log.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
-		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
+	//log.Debug("Dereferenced trie from memory database", "nodes", nodes-len(db.nodes), "size", storage-db.nodesSize, "time", time.Since(start),
+	//	"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
 }
 
 // dereference is the private locked version of Dereference.

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"sync"
 )

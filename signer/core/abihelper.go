@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 
 	"bytes"
 	"os"

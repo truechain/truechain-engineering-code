@@ -26,14 +26,14 @@ import (
 
 	"crypto/ecdsa"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
 )
 
 // DefaultConfig contains default settings for use on the Truechain main net.
@@ -151,6 +151,9 @@ type Config struct {
 
 	//true indicate only mine fruit
 	MineFruit bool `toml:",omitempty"`
+
+	//start for old pbft server
+	OldTbft bool `toml:",omitempty"`
 }
 
 func (c *Config) GetNodeType() bool {

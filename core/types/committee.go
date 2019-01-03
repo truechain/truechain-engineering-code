@@ -3,27 +3,36 @@ package types
 import (
 	"crypto/ecdsa"
 	"encoding/json"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
+	"strings"
 	"time"
 )
 
 const (
-	CommitteeStart      = iota // start pbft consensus
-	CommitteeStop              // stop pbft consensus
-	CommitteeSwitchover        //switch pbft committee
-	CommitteeOver              // notify current pbft committee end block
+	// CommitteeStart start pbft consensus
+	CommitteeStart = iota
+	// CommitteeStop stop pbft consensus
+	CommitteeStop
+	//CommitteeSwitchover switch pbft committee
+	CommitteeSwitchover
+	// CommitteeOver notify current pbft committee end block
+	CommitteeOver
 )
 
 const (
-	VoteAgreeAgainst = iota //vote against
-	VoteAgree               //vote  agree
+	//VoteAgreeAgainst vote sign with against
+	VoteAgreeAgainst = iota
+	//VoteAgree vote sign with agree
+	VoteAgree
 )
 
+//CommitteeMembers committee members
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
@@ -31,7 +40,12 @@ type CommitteeMember struct {
 	Publickey *ecdsa.PublicKey
 }
 
-func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
+func (c *CommitteeMember) String() string {
+	return fmt.Sprintf("C:%s,P:%s", common.ToHex(c.Coinbase[:]),
+		common.ToHex(crypto.FromECDSAPub(c.Publickey)))
+}
+
+func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
@@ -41,11 +55,11 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	g.Coinbase = dec.Address
+	c.Coinbase = dec.Address
 
 	var err error
 	if dec.PubKey != nil {
-		g.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
+		c.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
 		if err != nil {
 			return err
 		}
@@ -53,6 +67,7 @@ func (g *CommitteeMember) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+//CommitteeNode contains  main info of committee node
 type CommitteeNode struct {
 	IP        string
 	Port      uint
@@ -61,12 +76,17 @@ type CommitteeNode struct {
 	Publickey []byte
 }
 
+func (c *CommitteeNode) String() string {
+	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}", c.IP, c.Port, c.Port2,
+		common.ToHex(c.Coinbase[:]), common.ToHex(c.Publickey))
+}
+
 type PbftSigns []*PbftSign
 
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
-	Result     uint        // 0--agree,1--against
+	Result     uint        // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
 }
 
@@ -75,6 +95,7 @@ type PbftAgentProxy interface {
 	VerifyFastBlock(*Block) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
+	GetCurrentHeight() *big.Int
 }
 
 type PbftServerProxy interface {
@@ -91,6 +112,7 @@ func (h *PbftSign) Hash() common.Hash {
 	return rlpHash(h)
 }
 
+//HashWithNoSign returns the hash which PbftSign without sign
 func (h *PbftSign) HashWithNoSign() common.Hash {
 	return rlpHash([]interface{}{
 		h.FastHeight,
@@ -100,16 +122,35 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 }
 
 type CommitteeInfo struct {
-	Id      *big.Int
-	Members []*CommitteeMember
+	Id          *big.Int
+	StartHeight *big.Int
+	Members     []*CommitteeMember
 }
 
+func (c *CommitteeInfo) String() string {
+	if c.Members != nil {
+		memStrings := make([]string, len(c.Members))
+		for i, m := range c.Members {
+			if m == nil {
+				memStrings[i] = "nil-Member"
+			} else {
+				memStrings[i] = m.String()
+			}
+		}
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}", c.Id, c.StartHeight, strings.Join(memStrings, "\n  "))
+	}
+	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
+}
+
+//EncryptCommitteeNode represent a committee member encrypt info
+// which encrypt committeeNode with member Publickey
 type EncryptCommitteeNode []byte
 type Sign []byte
 
+//EncryptNodeMessage  all information of the committee
 type EncryptNodeMessage struct {
 	CreatedAt   time.Time
-	CommitteeId *big.Int
+	CommitteeID *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
 }
@@ -117,7 +158,7 @@ type EncryptNodeMessage struct {
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	return RlpHash([]interface{}{
 		c.Nodes,
-		c.CommitteeId,
+		c.CommitteeID,
 	})
 }
 

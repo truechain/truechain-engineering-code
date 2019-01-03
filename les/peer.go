@@ -26,13 +26,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/les/flowcontrol"
 	"github.com/truechain/truechain-engineering-code/light"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (

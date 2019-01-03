@@ -1,4 +1,18 @@
-
+// Copyright 2017 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 package keystore
 
@@ -13,10 +27,10 @@ import (
 	"sync"
 	"time"
 
+	mapset "github.com/deckarep/golang-set"
 	"github.com/truechain/truechain-engineering-code/accounts"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/log"
-	"gopkg.in/fatih/set.v0"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Minimum amount of time between cache reloads. This limit applies if the platform does
@@ -65,7 +79,7 @@ func newAccountCache(keydir string) (*accountCache, chan struct{}) {
 		keydir: keydir,
 		byAddr: make(map[common.Address][]accounts.Account),
 		notify: make(chan struct{}, 1),
-		fileC:  fileCache{all: set.NewNonTS()},
+		fileC:  fileCache{all: mapset.NewThreadUnsafeSet()},
 	}
 	ac.watcher = newWatcher(ac)
 	return ac, ac.notify
@@ -223,7 +237,7 @@ func (ac *accountCache) scanAccounts() error {
 		log.Debug("Failed to reload keystore contents", "err", err)
 		return err
 	}
-	if creates.Size() == 0 && deletes.Size() == 0 && updates.Size() == 0 {
+	if creates.Cardinality() == 0 && deletes.Cardinality() == 0 && updates.Cardinality() == 0 {
 		return nil
 	}
 	// Create a helper method to scan the contents of the key files
@@ -258,15 +272,15 @@ func (ac *accountCache) scanAccounts() error {
 	// Process all the file diffs
 	start := time.Now()
 
-	for _, p := range creates.List() {
+	for _, p := range creates.ToSlice() {
 		if a := readAccount(p.(string)); a != nil {
 			ac.add(*a)
 		}
 	}
-	for _, p := range deletes.List() {
+	for _, p := range deletes.ToSlice() {
 		ac.deleteByFile(p.(string))
 	}
-	for _, p := range updates.List() {
+	for _, p := range updates.ToSlice() {
 		path := p.(string)
 		ac.deleteByFile(path)
 		if a := readAccount(path); a != nil {

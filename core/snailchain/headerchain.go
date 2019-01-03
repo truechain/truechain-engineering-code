@@ -26,14 +26,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
+	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -93,7 +93,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 	}
 
 	//TODO have get hc.hash 20180805
-	
+
 	hc.genesisHeader = hc.GetHeaderByNumber(0)
 	if hc.genesisHeader == nil {
 		return nil, ErrNoGenesis
@@ -105,7 +105,7 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 			hc.currentHeader.Store(chead)
 		}
 	}
-	
+
 	hc.currentHeaderHash = hc.CurrentHeader().Hash()
 
 	return hc, nil
@@ -134,7 +134,6 @@ func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
 // without the real blocks. Hence, writing headers directly should only be done
 // in two scenarios: pure-header mode of operation (light clients), or properly
 // separated header/block phases (non-archive clients).
-
 func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatus, err error) {
 	// Cache some values to prevent constant recalculation
 	var (
@@ -208,6 +207,7 @@ func (hc *HeaderChain) WriteHeader(header *types.SnailHeader) (status WriteStatu
 // header writes should be protected by the parent chain mutex individually.
 type WhCallback func(*types.SnailHeader) error
 
+//ValidateHeaderChain validate the header of the snailchain
 func (hc *HeaderChain) ValidateHeaderChain(chain []*types.SnailHeader, checkFreq int) (int, error) {
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
@@ -327,9 +327,8 @@ func (hc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, ma
 		// in this case it is cheaper to just read the header
 		if header := hc.GetHeader(hash, number); header != nil {
 			return header.ParentHash, number - 1
-		} else {
-			return common.Hash{}, 0
 		}
+		return common.Hash{}, 0
 	}
 	for ancestor != 0 {
 		if rawdb.ReadCanonicalHash(hc.chainDb, number) == hash {
@@ -433,7 +432,7 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.SnailHeader {
 // header is retrieved from the HeaderChain's internal cache.
 func (hc *HeaderChain) CurrentHeader() *types.SnailHeader {
 	//return nil
-	//TODO shoud add 
+	//TODO shoud add
 	return hc.currentHeader.Load().(*types.SnailHeader)
 }
 
@@ -492,13 +491,13 @@ func (hc *HeaderChain) SetHead(head uint64, delFn DeleteCallback) {
 func (hc *HeaderChain) SetGenesis(head *types.SnailHeader) {
 	hc.genesisHeader = head
 }
- 
+
 // Config retrieves the header chain's chain configuration.
 func (hc *HeaderChain) Config() *params.ChainConfig { return hc.config }
 
 // Engine retrieves the header chain's consensus engine.
 func (hc *HeaderChain) Engine() consensus.Engine { return hc.engine }
- 
+
 // GetBlock implements consensus.ChainReader, and returns nil for every input as
 // a header chain does not have blocks available for retrieval.
 func (hc *HeaderChain) GetBlock(hash common.Hash, number uint64) *types.SnailBlock {

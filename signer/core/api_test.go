@@ -29,11 +29,11 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 //Used for testing

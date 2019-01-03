@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 func TestBlockNumberJSONUnmarshal(t *testing.T) {

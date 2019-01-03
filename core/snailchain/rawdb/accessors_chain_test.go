@@ -21,11 +21,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // Tests block header storage and retrieval operations.
@@ -68,7 +68,7 @@ func TestBodyStorage(t *testing.T) {
 	// Create a test body to move around the database and make sure it's really new
 	//body := &types.SnailBody{Fruits: []*types.Header{{Extra: []byte("test header")}}}
 	snailHeader := types.SnailHeader{Extra: []byte("test header")}
-	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{},  []*types.SnailHeader{})
+	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{}, []*types.SnailHeader{})
 	body := &types.SnailBody{Fruits: []*types.SnailBlock{snailBlock}, Signs: nil}
 
 	hasher := sha3.NewKeccak256()
@@ -142,15 +142,14 @@ func TestBlockStorage(t *testing.T) {
 		t.Fatalf("Deleted body returned: %v", entry)
 	}
 }
+
 //
 // Tests that partial block contents don't get reassembled into full blocks.
 func TestPartialBlockStorage(t *testing.T) {
 	db := ethdb.NewMemDatabase()
 	block := types.NewSnailBlockWithHeader(&types.SnailHeader{
-		Extra:       []byte("test block"),
-		UncleHash:   types.EmptyUncleHash,
-		TxHash:      types.EmptyRootHash,
-		ReceiptHash: types.EmptyRootHash,
+		Extra:     []byte("test block"),
+		UncleHash: types.EmptyUncleHash,
 	})
 	// Store a header and check that it's not recognized as a block
 	WriteHeader(db, block.Header())

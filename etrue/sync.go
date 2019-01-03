@@ -22,10 +22,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"math/big"
 )
@@ -36,9 +36,9 @@ const (
 
 	// This is the target size for the packs of transactions sent by txsyncLoop.
 	// A pack can get larger than this if a single transactions exceeds this size.
-	txsyncPackSize    = 100 * 1024
-	fruitsyncPackSize = 100 * 1024
-	maxheight		  = 600
+	txsyncPackSize    = 64 * 1024
+	fruitsyncPackSize = 50 * 1024
+	maxheight         = 600
 )
 
 type txsync struct {
@@ -55,6 +55,7 @@ type fruitsync struct {
 func (pm *ProtocolManager) syncTransactions(p *peer) {
 	var txs types.Transactions
 	pending, _ := pm.txpool.Pending()
+	log.Debug("syncTransactions", "len(pending)", len(pending))
 	for _, batch := range pending {
 		txs = append(txs, batch...)
 	}
@@ -112,6 +113,7 @@ func (pm *ProtocolManager) txsyncLoop() {
 		}
 		// Send the pack in the background.
 		s.p.Log().Trace("Sending batch of transactions", "count", len(pack.txs), "bytes", size)
+		log.Debug("Sending batch of transactions", "count", len(pack.txs), "bytes", size)
 		sending = true
 		go func() { done <- pack.p.SendTransactions(pack.txs) }()
 	}
@@ -272,16 +274,16 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 
 	pHead, pTd := peer.Head()
-	log.Debug("pm_synchronise >>>> ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
+	log.Info("pm_synchronise ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
 	if pTd.Cmp(td) <= 0 {
 		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
-		header, err := pm.fdownloader.FetchHeight(peer.id,0);
+		header, err := pm.fdownloader.FetchHeight(peer.id, 0)
 		if err != nil || header == nil {
-			log.Debug("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
+			log.Warn("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
 			return
 		}
 
-		log.Debug("Fast FetchHeight end", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
+		log.Info("Fast FetchHeight end", "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
 		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
 		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
 

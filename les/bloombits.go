@@ -19,7 +19,7 @@ package les
 import (
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common/bitutil"
+	"github.com/ethereum/go-ethereum/common/bitutil"
 	"github.com/truechain/truechain-engineering-code/light"
 )
 

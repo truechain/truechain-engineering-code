@@ -28,11 +28,11 @@ import (
 	"unsafe"
 
 	"bytes"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/hexutil"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 var (
@@ -130,19 +130,19 @@ func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) 
 
 // Header represents a block header in the true Fastblockchain.
 type Header struct {
-	ParentHash  common.Hash `json:"parentHash"       gencodec:"required"`
-	Root        common.Hash `json:"stateRoot"        gencodec:"required"`
-	TxHash      common.Hash `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash `json:"receiptsRoot"     gencodec:"required"`
-	Proposer    common.Address 	`json:"maker"            gencodec:"required"`
-	Bloom       Bloom       `json:"logsBloom"        gencodec:"required"`
-	SnailHash   common.Hash `json:"snailHash"        gencodec:"required"`
-	SnailNumber *big.Int    `json:"snailNumber"      gencodec:"required"`
-	Number      *big.Int    `json:"number"           gencodec:"required"`
-	GasLimit    uint64      `json:"gasLimit"         gencodec:"required"`
-	GasUsed     uint64      `json:"gasUsed"          gencodec:"required"`
-	Time        *big.Int    `json:"timestamp"        gencodec:"required"`
-	Extra       []byte      `json:"extraData"        gencodec:"required"`
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Proposer    common.Address `json:"maker"            gencodec:"required"`
+	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
+	SnailHash   common.Hash    `json:"snailHash"        gencodec:"required"`
+	SnailNumber *big.Int       `json:"snailNumber"      gencodec:"required"`
+	Number      *big.Int       `json:"number"           gencodec:"required"`
+	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
+	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
+	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
+	Extra       []byte         `json:"extraData"        gencodec:"required"`
 }
 
 // field type overrides for gencodec
@@ -240,13 +240,6 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.header.Bloom = CreateBloom(receipts)
 	}
 
-	if len(receipts) == 0 {
-		b.header.ReceiptHash = EmptyRootHash
-	} else {
-		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
-		b.header.Bloom = CreateBloom(receipts)
-	}
-
 	if len(signs) != 0 {
 		b.signs = make(PbftSigns, len(signs))
 		copy(b.signs, signs)
@@ -274,7 +267,6 @@ func (b *Body) GetLeaderSign() *PbftSign {
 func NewBlockWithHeader(header *Header) *Block {
 	return &Block{header: CopyHeader(header)}
 }
-
 
 // CopyHeader creates a deep copy of a fast block header to prevent side effects from
 // modifying a header variable.
@@ -340,7 +332,6 @@ func (b *Block) GasLimit() uint64      { return b.header.GasLimit }
 func (b *Block) GasUsed() uint64       { return b.header.GasUsed }
 func (b *Block) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
 func (b *Block) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
-
 
 func (b *Block) Proposer() common.Address { return b.header.Proposer }
 func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
@@ -627,7 +618,6 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 func NewSnailBlockWithHeader(header *SnailHeader) *SnailBlock {
 	return &SnailBlock{header: CopySnailHeader(header)}
 }
-
 
 func CopyFruit(f *SnailBlock) *SnailBlock {
 	//return NewSnailBlockWithHeader(f.Header()).WithBody(f.fruits, f.signs, f.uncles)
