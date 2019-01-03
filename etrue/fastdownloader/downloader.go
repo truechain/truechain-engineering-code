@@ -230,7 +230,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		quitCh: make(chan struct{}),
 	}
 
-	dl.qosTuner()
+	go dl.qosTuner()
 	return dl
 }
 
