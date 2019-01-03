@@ -915,8 +915,9 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 		//all fail committee coinBase
 		failAddr    sync.Map
 		waitGroup   sync.WaitGroup
-		balanceLock = new(state.AddrLocker)
-		errChan     = make(chan error, len(blockFruits))
+		balanceLock sync.Mutex
+		//balanceLock = new(state.AddrLocker)
+		errChan = make(chan error, len(blockFruits))
 	)
 
 	//miner's award
@@ -930,7 +931,10 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 				waitGroup.Done()
 			}()
 			//fruit award
-			stateDB.AddBalanceWithoutLog(fruit.Coinbase(), minerFruitCoinOne, balanceLock)
+			//stateDB.AddBalanceWithoutLog(fruit.Coinbase(), minerFruitCoinOne, balanceLock)
+			balanceLock.Lock()
+			stateDB.AddBalance(fruit.Coinbase(), minerFruitCoinOne)
+			balanceLock.Unlock()
 			LogPrint("minerFruit", fruit.Coinbase(), minerFruitCoinOne)
 
 			//committee reward
@@ -959,7 +963,10 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 			// Equal by fruit
 			committeeCoinFruitMember := new(big.Int).Div(committeeCoinFruit, big.NewInt(int64(len(fruitOkAddr))))
 			for _, v := range fruitOkAddr {
-				stateDB.AddBalanceWithoutLog(v, committeeCoinFruitMember, balanceLock)
+				//stateDB.AddBalanceWithoutLog(v, committeeCoinFruitMember, balanceLock)
+				balanceLock.Lock()
+				stateDB.AddBalance(v, committeeCoinFruitMember)
+				balanceLock.Unlock()
 				LogPrint("committee", v, committeeCoinFruitMember)
 			}
 		}(fruit)
