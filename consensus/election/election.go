@@ -313,7 +313,7 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 		for i := range errs {
 			errs[i] = ErrCommittee
 		}
-		return nil, errs
+		return members, errs
 	}
 
 	for i, sign := range signs {
