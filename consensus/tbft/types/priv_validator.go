@@ -310,6 +310,7 @@ type StateAgent interface {
 
 	GetLastBlockHeight() uint64
 	SetEndHeight(h uint64)
+	SetBeginHeight(h uint64)
 	GetChainID() string
 	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
 	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error)
@@ -330,7 +331,7 @@ type StateAgentImpl struct {
 	Validators  *ValidatorSet
 	ChainID     string
 	LastHeight  uint64
-	StartHeight uint64
+	BeginHeight uint64
 	EndHeight   uint64
 	CID         uint64
 }
@@ -343,7 +344,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		Agent:       agent,
 		ChainID:     chainID,
 		Validators:  vals,
-		StartHeight: height,
+		BeginHeight: height,
 		EndHeight:   0, // defualt 0,mean not work
 		LastHeight:  lh.Uint64(),
 		CID:         cid,
@@ -388,9 +389,15 @@ func (state *StateAgentImpl) PrivReset() {
 	state.Priv.Reset()
 }
 
-//SetEndHeight set now committee fast block height for end
+//SetEndHeight set now committee fast block height for end. (begin,end]
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
+}
+// SetBeginHeight set height of block for the committee to begin. (begin,end]
+func (state *StateAgentImpl) SetBeginHeight(h uint64) {
+	if state.EndHeight > 0 && h < state.EndHeight {
+		state.BeginHeight = h
+	}
 }
 
 //GetChainID is get state'chainID
@@ -429,8 +436,8 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
 	}
-	if state.StartHeight > block.NumberU64() {
-		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.StartHeight)
+	if state.BeginHeight > block.NumberU64() {
+		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())

@@ -491,23 +491,27 @@ func (cs *ConsensusState) newStep() {
 	}
 }
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
-	log.Info("ValidatorUpdate....")
+	log.Info("ValidatorUpdate","uHeight",msg.uHeight,"eHeight",msg.eHeight,"cHeight",cs.Height,"Round",cs.Round)
+	round, oldHeight := cs.Round, cs.Height
+	
 	cs.state.UpdateValidator(msg.vset)
-	changeHeight, round, newHeight := msg.uHeight, uint(0), cs.Height
-	if uint64(changeHeight+1) == newHeight {
-		log.Info("ValidatorUpdate,has same height", "curHeight", newHeight, "chgHeight", changeHeight)
-		round = cs.Round + 1
-	}
 	cs.updateToState(cs.state)
-	log.Info("ValidatorUpdate,Reset privValidator", "height", cs.Height)
 	cs.state.PrivReset()
 	cs.state.SetEndHeight(msg.eHeight)
-	newHeight = cs.Height
-	var d = cs.taskTimeOut
-	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, newHeight, uint(round), ttypes.RoundStepBlockSync, 0})
-	cs.enterNewRound(newHeight, int(round))
+	cs.state.SetBeginHeight(msg.uHeight)
+	newHeight := cs.Height
+	log.Info("ValidatorUpdate,Update state")
 
+	if newHeight == oldHeight {
+		log.Warn("ValidatorUpdate,has same height in current consensus", "oldHeight", oldHeight, "newHeight", newHeight)
+		round = round + 1
+	} else {
+		round = 0
+	}
+	var d = cs.taskTimeOut
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, newHeight, round, ttypes.RoundStepBlockSync, 0})
 	log.Debug("end ValidatorUpdate", "newHeight", newHeight)
+	cs.enterNewRound(newHeight, int(round))
 }
 
 //-----------------------------------------
