@@ -795,7 +795,9 @@ func (w *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock, bc *
 
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(copyPendingFruits)
-
+	if len(fruits) > 0 {
+		log.Debug("CopyPendingFruit pengding fruit info", "len of pengding", len(fruits), "sort copy fruits len", len(copyPendingFruits), "pengding min", copyPendingFruits[0].FastNumber(), "pengding max", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
+	}
 	return copyPendingFruits
 
 }
