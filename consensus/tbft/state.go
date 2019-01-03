@@ -304,9 +304,9 @@ func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) 
 	return nil
 }
 // UpdateValidatorsSet is Set when the committee member is chaneged
-func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet) {
+func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet,uHeight uint64) {
 	go func(){
-		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset}, ""}
+		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset,uHeight}, ""}
 	}()
 }
 
@@ -492,19 +492,19 @@ func (cs *ConsensusState) newStep() {
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate....")
 	cs.state.UpdateValidator(msg.vset)
-	log.Debug("begin updateStateForSync", "height", cs.Height)
-	oldH := cs.Height
-	newH := cs.state.GetLastBlockHeight() + 1
-	if oldH != newH {
-		cs.updateToState(cs.state)
-		log.Info("Reset privValidator", "height", cs.Height)
-		cs.state.PrivReset()
-		sleepDuration := time.Duration(1) * time.Millisecond
-		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 1})
+	changeHeight,round,newHeight := msg.uHeight,uint(0),cs.Height
+	if uint64(changeHeight+1) == newHeight {
+		log.Info("ValidatorUpdate,has same height","curHeight",newHeight,"chgHeight",changeHeight)
+		round = cs.Round + 1
 	}
+	cs.updateToState(cs.state)
+	log.Info("ValidatorUpdate,Reset privValidator", "height", cs.Height)
+	cs.state.PrivReset()
+	newHeight = cs.Height
+	cs.enterNewRound(newHeight, int(round))
 	var d = cs.taskTimeOut
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
-	log.Debug("end updateStateForSync", "newHeight", newH)
+	log.Debug("end ValidatorUpdate", "newHeight", newHeight)
 }
 //-----------------------------------------
 // the main go routines

@@ -1346,6 +1346,7 @@ func (m *ProposalMessage) String() string {
 // ValidatorUpdateMessage is send when a new committee is elected
 type ValidatorUpdateMessage struct {
 	vset 		*ttypes.ValidatorSet
+	uHeight		uint64
 }
 // String returns a string representation.
 func (v *ValidatorUpdateMessage) String() string {
