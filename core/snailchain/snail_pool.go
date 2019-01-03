@@ -361,7 +361,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	maxFbNumber := fruits[len(fruits)-1].FastNumber()
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1 {
-			log.Trace(" removeWithLock del fruit", "fb number", fruit.FastNumber())
+			log.Debug(" removeWithLock del fruit", "fb number", fruit.FastNumber())
 			fruitPendingDiscardCounter.Inc(1)
 			delete(pool.fruitPending, fruit.FastHash())
 			allDiscardCounter.Inc(1)
