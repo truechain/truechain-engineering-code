@@ -32,8 +32,10 @@ import (
 )
 
 const (
-	fruitChanSize     = 1024
-	chainHeadChanSize = 10
+	fruitChanSize         = 1024
+	chainHeadChanSize     = 10
+	fastchainHeadChanSize = 1024
+	fastBlockChanSize     = 1024
 )
 
 var (
@@ -94,13 +96,17 @@ type SnailPool struct {
 
 	scope event.SubscriptionScope
 
-	fruitFeed event.Feed
-	mu        sync.RWMutex
-	journal   *snailJournal // Journal of local fruit to back up to disk
+	fruitFeed     event.Feed
+	fastBlockFeed event.Feed
+	mu            sync.RWMutex
+	journal       *snailJournal // Journal of local fruit to back up to disk
 
 	//chainHeadCh  chan ChainHeadEvent
 	chainHeadCh  chan types.ChainSnailHeadEvent
 	chainHeadSub event.Subscription
+
+	fastchainEventCh  chan types.ChainFastEvent
+	fastchainEventSub event.Subscription
 
 	validator core.SnailValidator
 
@@ -134,7 +140,8 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 
 		validator: sv,
 
-		chainHeadCh: make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
+		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
+		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
 
 		newFruitCh:   make(chan *types.SnailBlock, fruitChanSize),
 		allFruits:    make(map[common.Hash]*types.SnailBlock),
@@ -143,6 +150,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 	pool.reset(nil, chain.CurrentBlock())
 
 	// Subscribe events from blockchain
+	pool.fastchainEventSub = pool.fastchain.SubscribeChainEvent(pool.fastchainEventCh)
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	//pool.minedFruitSub = pool.eventMux.Subscribe(NewMinedFruitEvent{})
@@ -167,6 +175,24 @@ func (pool *SnailPool) Start() {
 			log.Warn("Failed to rotate fruit journal", "err", err)
 		}
 	}
+}
+
+//updateFruit move the validated fruit to pending list
+func (pool *SnailPool) updateFruit(fruit *types.SnailBlock) {
+
+	pool.muFruit.Lock()
+	defer pool.muFruit.Unlock()
+
+	if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
+		log.Info("update fruit validation error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+		allReplaceCounter.Inc(1)
+		fruitpendingReplaceCounter.Inc(1)
+		delete(pool.allFruits, fruit.FastHash())
+		delete(pool.fruitPending, fruit.FastHash())
+		return
+	}
+
+	pool.fruitPending[fruit.FastHash()] = fruit
 }
 
 func (pool *SnailPool) compareFruit(f1, f2 *types.SnailBlock) int {
@@ -304,6 +330,15 @@ func (pool *SnailPool) loop() {
 				head = ev.Block
 
 				pool.mu.Unlock()
+			}
+
+		case ev := <-pool.fastchainEventCh:
+			if ev.Block != nil {
+				log.Debug("get new fastblock", "number", ev.Block.Number())
+				fruit := pool.allFruits[ev.Block.Hash()]
+				if fruit != nil {
+					pool.updateFruit(fruit)
+				}
 			}
 
 		case fruit := <-pool.newFruitCh:
