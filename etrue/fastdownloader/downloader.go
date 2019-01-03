@@ -237,7 +237,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		trackStateReq: make(chan *stateReq),
 	}
 
-	//go dl.qosTuner()
+	go dl.qosTuner()
 	go dl.stateFetcher()
 	return dl
 }
