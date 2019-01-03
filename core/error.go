@@ -22,7 +22,9 @@ var (
 	// ErrKnownBlock is returned when a block to import is already known locally.
 	ErrKnownBlock = errors.New("block already known")
 
-	ErrSnailRewarded = errors.New("snail block has been rewarded")
+	ErrSnailBlockRewarded = errors.New("snail block has been rewarded")
+
+	ErrSnailNumberReward = errors.New("snail block number reward error ")
 
 	// ErrGasLimitReached is returned by the gas pool if the amount of gas required
 	// by a transaction is higher than what's left in the block.

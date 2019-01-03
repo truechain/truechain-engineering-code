@@ -884,7 +884,6 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error
 		}
 		return voteSign, err
 	}
-	err = agent.verifyRewardBlock(fb.Header())
 	if err != nil {
 		log.Error("verifyFastBlock verifyRewardBlock error", "header", fb.Number(), "err", err)
 		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst)
@@ -934,15 +933,6 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block) (*types.PbftSign, error
 	}
 	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	return voteSign, nil
-}
-
-func (agent *PbftAgent) verifyRewardBlock(header *types.Header) error {
-	blockReward := agent.fastChain.GetFastHeightBySnailHeight(header.SnailNumber.Uint64())
-	//the snail block has been rewarded
-	if blockReward != nil {
-		return core.ErrSnailRewarded
-	}
-	return nil
 }
 
 //BroadcastConsensus  when More than 2/3 signs with agree,
