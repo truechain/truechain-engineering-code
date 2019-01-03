@@ -15,7 +15,6 @@ import (
 )
 
 const (
-
 	// CommitteeStart start pbft consensus
 	CommitteeStart = iota
 	// CommitteeStop stop pbft consensus
@@ -143,6 +142,7 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 type CommitteeInfo struct {
 	Id          *big.Int
 	StartHeight *big.Int
+	EndHeight   *big.Int
 	Members     []*CommitteeMember
 	BackMembers []*CommitteeMember
 }
