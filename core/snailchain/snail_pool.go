@@ -361,7 +361,7 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 	maxFbNumber := fruits[len(fruits)-1].FastNumber()
 	for _, fruit := range pool.allFruits {
 		if fruit.FastNumber().Cmp(maxFbNumber) < 1 {
-			log.Debug(" removeWithLock del fruit", "fb number", fruit.FastNumber())
+			log.Trace(" removeWithLock del fruit", "fb number", fruit.FastNumber())
 			fruitPendingDiscardCounter.Inc(1)
 			delete(pool.fruitPending, fruit.FastHash())
 			allDiscardCounter.Inc(1)
@@ -381,7 +381,7 @@ func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
 		newNum := newHead.Number().Uint64()
 
 		if depth := uint64(math.Abs(float64(oldNum) - float64(newNum))); depth > 64 {
-			log.Debug("Skipping deep transaction reorg", "depth", depth)
+			log.Debug("Skipping deep fruit reorg", "depth", depth)
 		} else {
 			// Reorg seems shallow enough to pull in all fruits into memory
 			var discarded, included []*types.SnailBlock
