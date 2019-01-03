@@ -882,7 +882,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 			if flag == types.StateAddFlag {
 				// Update the committee member state
 				var switched = *m
-				switched.Flag = types.StateUsedFlag
+				switched.Flag = types.StateUsedFlaug
 				backups[i] = &switched
 			}
 		}
