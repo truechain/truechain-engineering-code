@@ -269,22 +269,35 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 	pm.lock.Lock()
 	defer pm.lock.Unlock()
-
 	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
 		log.Debug("synchronise peer nil>>>")
 		return
 	}
+
+	var err error;
+
+	defer func() {
+		// reset on error
+		if err != nil {
+			pm.downloader.Mux.Post(downloader.FailedEvent{err})
+		} else {
+			pm.downloader.Mux.Post(downloader.DoneEvent{})
+		}
+
+	}()
+
 	// Make sure the peer's TD is higher than our own
 	currentBlock := pm.snailchain.CurrentBlock()
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-
 	pHead, pTd := peer.Head()
 	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
 	log.Debug("peer Head ", "pHead", pHead, "pTd", pTd, "td", td,"fastHead",peer.fastHead,"fastHeight",fastHeight)
-	if pTd.Cmp(td) <= 0 {
 
+
+	if pTd.Cmp(td) <= 0 {
+		pm.downloader.Mux.Post(downloader.StartEvent{})
 		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
 		log.Debug("Fast FetchHeight start ", "header", fastHeight, "currentBlockNumber", currentNumber,"&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
 
@@ -303,7 +316,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					}
 					for {
 
-						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
+						err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
 							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 							return
@@ -367,12 +380,14 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 	}
 
-	//mode = downloader.FullSync
+	pm.downloader.Mux.Post(downloader.StartEvent{})
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
-	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
+	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
 		return
 	}
+
+
 
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 
@@ -397,7 +412,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 						}
 						for {
 
-							err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FastSync, fbNum, height)
+							err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FastSync, fbNum, height)
 							if err != nil {
 								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 								return
@@ -454,4 +469,9 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Debug("synchronise", "number", head.Number(), "sign", head.GetLeaderSign() != nil)
 		go pm.BroadcastFastBlock(head, false)
 	}
+
+
+
+
+
 }

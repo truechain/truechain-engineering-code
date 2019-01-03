@@ -94,7 +94,7 @@ var (
 
 type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
-	mux  *event.TypeMux // Event multiplexer to announce sync operation events
+	Mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
@@ -207,7 +207,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	dl := &Downloader{
 		mode:           mode,
 		stateDB:        stateDb,
-		mux:            mux,
+		Mux:            mux,
 		queue:          newQueue(),
 		peers:          etrue.NewPeerSet(),
 		rttEstimate:    uint64(rttMaxEstimate),
@@ -409,18 +409,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
-	d.mux.Post(StartEvent{})
-	//latestNum := uint64(0)
 
-	defer func() {
-
-		// reset on error
-		if err != nil {
-			d.mux.Post(FailedEvent{err})
-		} else {
-			d.mux.Post(DoneEvent{})
-		}
-	}()
 	defer func() {
 
 		log.Debug("syncWithPeer exit")
@@ -1548,7 +1537,6 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 	if cancel == nil {
 		return errNoSyncActive
 	}
-	log.Debug(">>>>>>>>>>>>>>(d *Downloader) deliver snail ", "Items", packet.Items())
 	select {
 	case destCh <- packet:
 		return nil
@@ -1571,7 +1559,7 @@ func (d *Downloader) qosTuner() {
 		atomic.StoreUint64(&d.rttConfidence, conf)
 
 		// Log the new QoS values and sleep until the next RTT
-		log.Debug("Recalculated downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
+		log.Debug("Recalculated snail downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
 		select {
 		case <-d.quitCh:
 			return
@@ -1605,7 +1593,7 @@ func (d *Downloader) qosReduceConfidence() {
 	atomic.StoreUint64(&d.rttConfidence, conf)
 
 	rtt := time.Duration(atomic.LoadUint64(&d.rttEstimate))
-	log.Debug("Relaxed downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
+	log.Debug("Relaxed snail downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
 }
 
 // requestRTT returns the current target round trip time for a download request
