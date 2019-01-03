@@ -344,7 +344,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 		if server, ok := n.services[id.Uint64()]; ok {
 			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 			server.stop()
-			delete(n.services, id.Uint64())
+			//delete(n.services, id.Uint64())
 			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 		}
 		return nil
@@ -439,7 +439,28 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	log.Info("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
-		stop, member := service.consensusState.UpdateValidatorSet(info)
+		stop, _ := service.consensusState.UpdateValidatorSet_bak(info)
+
+		log.Info("UpdateCommittee", "service", "stop")
+		service.stop()
+		log.Info("UpdateCommittee", "service", "stop ok")
+		if !stop {
+			log.Info("UpdateCommittee", "service", "start")
+			service.start(info.Id, n)
+			log.Info("UpdateCommittee", "service", "start ok")
+		}
+
+		return nil
+	}
+	return errors.New("service not found")
+}
+
+// UpdateCommittee update the committee info from agent when the members was changed
+func (n *Node) UpdateCommittee_Bak(info *types.CommitteeInfo) error {
+	log.Info("UpdateCommittee", "info", info)
+	if service, ok := n.services[info.Id.Uint64()]; ok {
+		//update validator
+		stop, member := service.consensusState.UpdateValidatorSet_bak(info)
 		for _, v := range member {
 			pID := pkToP2pID(v.Publickey)
 			p := service.sw.GetPeerForID(string(pID))
@@ -447,17 +468,16 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 				service.sw.StopPeerForError(p, nil)
 			}
 		}
-		service.stop()
-		if !stop {
-			service.start(info.Id, n)
+		if stop {
+			service.stop()
 		}
 
 		//update nodes
 		//nodes := makeCommitteeMembersForUpdateCommittee(info)
 		//service.setNodes(nodes)
-		//go func() { service.updateChan <- true }()
-		////update health
-		//service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
+		go func() { service.updateChan <- true }()
+		//update health
+		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil
 	}
 	return errors.New("service not found")

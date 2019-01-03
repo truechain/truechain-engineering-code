@@ -303,10 +303,11 @@ func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) 
 	// TODO: wait for event?!
 	return nil
 }
+
 // UpdateValidatorsSet is Set when the committee member is chaneged
-func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet,uHeight uint64) {
-	go func(){
-		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset,uHeight}, ""}
+func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight uint64) {
+	go func() {
+		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight}, ""}
 	}()
 }
 
@@ -492,9 +493,9 @@ func (cs *ConsensusState) newStep() {
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate....")
 	cs.state.UpdateValidator(msg.vset)
-	changeHeight,round,newHeight := msg.uHeight,uint(0),cs.Height
+	changeHeight, round, newHeight := msg.uHeight, uint(0), cs.Height
 	if uint64(changeHeight+1) == newHeight {
-		log.Info("ValidatorUpdate,has same height","curHeight",newHeight,"chgHeight",changeHeight)
+		log.Info("ValidatorUpdate,has same height", "curHeight", newHeight, "chgHeight", changeHeight)
 		round = cs.Round + 1
 	}
 	cs.updateToState(cs.state)
@@ -506,6 +507,7 @@ func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
 	log.Debug("end ValidatorUpdate", "newHeight", newHeight)
 }
+
 //-----------------------------------------
 // the main go routines
 
@@ -1765,7 +1767,7 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 }
 
 //UpdateValidatorSet committee change
-func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember) {
+func (cs *ConsensusState) UpdateValidatorSet_bak(info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember) {
 	allMember := append(info.Members, info.BackMembers...)
 	for _, v := range allMember {
 		if v.Flag == types.StateUsedFlag {
@@ -1779,6 +1781,29 @@ func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfSto
 			}
 			remove = append(remove, v)
 			v, b := cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
+			log.Info("UpdateValidatorSet", "va", v, "remove", b)
+		}
+	}
+	return
+}
+
+//UpdateValidatorSet committee change
+func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember,
+	validator *ttypes.ValidatorSet) {
+	allMember := append(info.Members, info.BackMembers...)
+	validator = cs.GetRoundState().Validators
+	for _, v := range allMember {
+		if v.Flag == types.StateUsedFlag {
+			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
+			b := validator.Add(vTemp)
+			log.Info("UpdateValidatorSet", "add", b)
+		}
+		if v.Flag == types.StateRemovedFlag {
+			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
+				selfStop = true
+			}
+			remove = append(remove, v)
+			v, b := validator.RemoveForPK(*v.Publickey)
 			log.Info("UpdateValidatorSet", "va", v, "remove", b)
 		}
 	}
