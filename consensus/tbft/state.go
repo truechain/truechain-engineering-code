@@ -303,6 +303,12 @@ func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) 
 	// TODO: wait for event?!
 	return nil
 }
+// UpdateValidatorsSet is Set when the committee member is chaneged
+func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet) {
+	go func(){
+		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset}, ""}
+	}()
+}
 
 // AddProposalBlockPart inputs a part of the proposal block. not used
 func (cs *ConsensusState) AddProposalBlockPart(height uint64, round uint, part *ttypes.Part, peerID string) error {
@@ -483,7 +489,23 @@ func (cs *ConsensusState) newStep() {
 		cs.evsw.FireEvent(ttypes.EventNewRoundStep, &cs.RoundState)
 	}
 }
-
+func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
+	log.Info("ValidatorUpdate....")
+	cs.state.UpdateValidator(msg.vset)
+	log.Debug("begin updateStateForSync", "height", cs.Height)
+	oldH := cs.Height
+	newH := cs.state.GetLastBlockHeight() + 1
+	if oldH != newH {
+		cs.updateToState(cs.state)
+		log.Info("Reset privValidator", "height", cs.Height)
+		cs.state.PrivReset()
+		sleepDuration := time.Duration(1) * time.Millisecond
+		cs.timeoutTicker.ScheduleTimeout(timeoutInfo{sleepDuration, cs.Height, uint(0), ttypes.RoundStepNewHeight, 1})
+	}
+	var d = cs.taskTimeOut
+	cs.timeoutTask.ScheduleTimeout(timeoutInfo{d, cs.Height, uint(cs.Round), ttypes.RoundStepBlockSync, 0})
+	log.Debug("end updateStateForSync", "newHeight", newH)
+}
 //-----------------------------------------
 // the main go routines
 
@@ -590,6 +612,8 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 		// TODO: If rs.Height == vote.Height && rs.Round < vote.Round,
 		// the peer is sending us CatchupCommit precommits.
 		// We could make note of this and help filter in broadcastHasVoteMessage().
+	case *ValidatorUpdateMessage:
+		cs.validatorUpdate(msg)
 	default:
 		log.Error("Unknown msg type", reflect.TypeOf(msg))
 	}

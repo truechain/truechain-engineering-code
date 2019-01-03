@@ -1289,6 +1289,7 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&HasVoteMessage{}, "true/HasVote", nil)
 	cdc.RegisterConcrete(&VoteSetMaj23Message{}, "true/VoteSetMaj23", nil)
 	cdc.RegisterConcrete(&VoteSetBitsMessage{}, "true/VoteSetBits", nil)
+	cdc.RegisterConcrete(&ValidatorUpdateMessage{}, "true/ValidatorSet", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
@@ -1342,7 +1343,17 @@ type ProposalMessage struct {
 func (m *ProposalMessage) String() string {
 	return fmt.Sprintf("[Proposal %v]", m.Proposal)
 }
-
+// ValidatorUpdateMessage is send when a new committee is elected
+type ValidatorUpdateMessage struct {
+	vset 		*ttypes.ValidatorSet
+}
+// String returns a string representation.
+func (v *ValidatorUpdateMessage) String() string {
+	if v == nil {
+		return "nil message"
+	}
+	return fmt.Sprintf("ValidatorUpdateMessage %v",v.vset)
+}
 //-------------------------------------
 
 // ProposalPOLMessage is sent when a previous proposal is re-proposed.

@@ -305,6 +305,7 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 // StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet
+	UpdateValidator(vset *ValidatorSet) error
 	GetLastValidator() *ValidatorSet
 
 	GetLastBlockHeight() uint64
@@ -401,7 +402,11 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	pp := (priv).(*privValidator)
 	state.Priv = pp
 }
-
+//UpdateValidator set new Validators when committee member was changed
+func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet) error {
+	state.Validators = vset
+	return nil
+}
 //MakePartSet make block to part for partSiae
 func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
 	return MakePartSet(partSize, block)
