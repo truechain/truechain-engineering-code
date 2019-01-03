@@ -794,7 +794,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		if sBlock == nil {
 			return nil, types.ErrSnailHeightNotYet
 		}
-		err := accumulateRewardsFast(m.election, state, sBlock)
+		err := accumulateRewardsFast_single(m.election, state, sBlock)
 		if err != nil {
 			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
 			return nil, err
