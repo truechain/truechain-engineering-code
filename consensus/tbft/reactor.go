@@ -792,7 +792,9 @@ func (conR *ConsensusReactor) StringIndented(indent string) string {
 //-----------------------------------------------------------------------------
 
 var (
+	// ErrPeerStateHeightRegression is Error peer state height regression
 	ErrPeerStateHeightRegression = errors.New("Error peer state height regression")
+	// ErrPeerStateInvalidStartTime is Error peer state invalid startTime
 	ErrPeerStateInvalidStartTime = errors.New("Error peer state invalid startTime")
 )
 
