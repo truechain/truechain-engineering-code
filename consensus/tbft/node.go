@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
+
 	// "encoding/json"
 	"errors"
 	"fmt"
@@ -445,7 +447,9 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 		service.stop()
 		log.Info("UpdateCommittee", "service", "stop ok")
 		if !stop {
+			time.Sleep(time.Second * 10)
 			log.Info("UpdateCommittee", "service", "start")
+			n.PutCommittee(info)
 			service.start(info.Id, n)
 			log.Info("UpdateCommittee", "service", "start ok")
 		}
