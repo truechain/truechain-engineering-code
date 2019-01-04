@@ -27,9 +27,10 @@ type NewTxsEvent struct{ Txs []*Transaction }
 //NewFruitsEvent is posted when a fruit has been imported.
 type NewFruitsEvent struct{ Fruits []*SnailBlock }
 
-// NewMinedFruitEvent is posted when a block has been imported.
+// NewMinedFruitEvent is posted when a block has been Mined.
 type NewMinedFruitEvent struct{ Block *SnailBlock }
 
+// NewFastBlocksEvent is posted when a block has been imported.
 type NewFastBlocksEvent struct{ FastBlocks []*Block }
 
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
