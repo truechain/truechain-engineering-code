@@ -1746,6 +1746,11 @@ func (api *PrivateDebugAPI) SetHead(number hexutil.Uint64) {
 	api.b.SetHead(uint64(number))
 }
 
+// SetSnailHead rewinds the head of the snail blockchain to a previous block.
+func (api *PrivateDebugAPI) SetSnailHead(number hexutil.Uint64) {
+	api.b.SetSnailHead(uint64(number))
+}
+
 // PublicNetAPI offers network related RPC methods
 type PublicNetAPI struct {
 	net            *p2p.Server
