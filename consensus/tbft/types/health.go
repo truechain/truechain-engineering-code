@@ -20,6 +20,7 @@ const (
 	HealthOut = 60 //* 10
 	//MixValidator min committee count
 	MixValidator = 2
+	DoorDarkCount = 3
 )
 
 //Health struct
@@ -62,7 +63,8 @@ type SwitchValidator struct {
 	Add    *Health
 	Infos  *ctypes.SwitchInfos
 	Resion string
-	From   int
+	From   int					// 0-- add ,1--remove
+	DoorCount int
 }
 
 //HealthMgr struct
@@ -252,31 +254,29 @@ func (h *HealthMgr) getUsedValidCount() int {
 
 //switchResult run switch
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
-	if res.From == 1 {
-		ss := "failed"
-		if res.Resion == "" {
-			if len(res.Infos.Vals) > 2 {
-				enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
-				var add, remove *Health
-				if enter1.Flag == ctypes.StateAddFlag {
-					add = h.GetHealth(enter1.Pk)
-					if enter2.Flag == ctypes.StateRemovedFlag {
-						remove = h.GetHealth(enter2.Pk)
-					}
-				} else if enter1.Flag == ctypes.StateRemovedFlag {
-					remove = h.GetHealth(enter1.Pk)
+	ss := "failed"
+	if res.Resion == "" {
+		if len(res.Infos.Vals) > 2 {
+			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
+			var add, remove *Health
+			if enter1.Flag == ctypes.StateAddFlag {
+				add = h.GetHealth(enter1.Pk)
+				if enter2.Flag == ctypes.StateRemovedFlag {
+					remove = h.GetHealth(enter2.Pk)
 				}
-				if remove != nil {
-					atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
-					ss = "Success"
-				}
-				if add != nil {
-					atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
-				}
+			} else if enter1.Flag == ctypes.StateRemovedFlag {
+				remove = h.GetHealth(enter1.Pk)
+			}
+			if remove != nil {
+				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
+				ss = "Success"
+			}
+			if add != nil {
+				atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
 			}
 		}
-		log.Info("switch", "result:", ss, "infos", res.Infos)
 	}
+	log.Info("switch", "result:", ss, "infos", res.Infos)
 }
 
 //pickUnuseValidator get a back committee

@@ -105,6 +105,7 @@ type ConsensusState struct {
 	// state only emits EventNewRoundStep and EventVote
 	evsw ttypes.EventSwitch
 	svs  []*ttypes.SwitchValidator
+	svsBlackDoor 	[]*ttypes.SwitchValidator
 	hm   *ttypes.HealthMgr
 }
 
@@ -129,6 +130,7 @@ func NewConsensusState(
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
 		svs:              make([]*ttypes.SwitchValidator, 0, 0),
+		svsBlackDoor:      make([]*ttypes.SwitchValidator, 0, 0),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -893,6 +895,15 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 	var v *ttypes.SwitchValidator
 	if len(cs.svs) > 0 {
 		v = cs.svs[0]
+		cs.svs = append(cs.svs[:0], cs.svs[1:]...)
+		cs.svsBlackDoor = append(cs.svsBlackDoor,v)
+		log.Info("Make Proposal and move item","item",v)
+	} else if len(cs.svsBlackDoor) > 0 {
+		cs.reduceBlackDoorCount()
+		if cs.svsBlackDoor[0].DoorCount == 0 {
+			v = cs.svsBlackDoor[0]
+			movetail(cs.svsBlackDoor)
+		}
 	}
 	block, err := cs.state.MakeBlock(v)
 	if block != nil && err == nil {
@@ -900,6 +911,19 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 		return block, parts, err2
 	}
 	return block, nil, err
+}
+func (cs *ConsensusState) reduceBlackDoorCount() {
+	for _,val := range cs.svsBlackDoor {
+		if val.DoorCount > 0 {
+			val.DoorCount --
+		}
+	}
+}
+func movetail(s []*ttypes.SwitchValidator) {
+	if len(s) > 0 {
+		tmp := s[0]
+		s = append(append(s[:0],s[1:]...),tmp)
+	}
 }
 
 // Enter: `timeoutPropose` after entering Propose.
@@ -1628,20 +1652,33 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 }
 
 //---------------------------------------------------------
-func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
-	if s != nil && s.From == 0 && len(s.Infos.Vals) > 2 {
-		aEnter, rEnter := s.Infos.Vals[0], s.Infos.Vals[1]
-		exist := false
-		for _, v := range cs.svs {
-			if len(v.Infos.Vals) > 2 {
-				if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
-					exist = true
-					break
-				}
+func (cs *ConsensusState) hasSwitchValidator(infos *types.SwitchInfos,s []*ttypes.SwitchValidator) bool {
+	if len(infos.Vals) <= 2 { return false }
+	aEnter, rEnter := infos.Vals[0], infos.Vals[1]
+	exist := false
+	for _, v := range s {
+		if len(v.Infos.Vals) > 2 {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && 
+			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+				exist = true
+				break
 			}
 		}
-		if !exist {
-			cs.svs = append(cs.svs, s)
+	}
+	return exist
+}
+func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
+	if s != nil {
+		if s.From == 0 {		// add 
+			exist := cs.hasSwitchValidator(s.Infos,cs.svsBlackDoor)
+			if !exist {
+				exist = cs.hasSwitchValidator(s.Infos,cs.svs)
+			}		
+			if !exist {
+				cs.svs = append(cs.svs, s)
+			}	
+		} else if s.From == 1 {		// remove
+			cs.pickSwitchValidator(s.Infos)
 		}
 	}
 }
@@ -1654,19 +1691,10 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		return
 	}
 	log.Info("swithResult", "sw", sw, "vals", sw.Vals)
-	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
-	sv := cs.pickSwitchValidator(sw)
-	if sv == nil {
-		sv = &ttypes.SwitchValidator{
-			Infos:  sw,
-			Resion: "",
-			From:   1,
-		}
-	} else {
-		sv.From = 1
-		sv.Resion = ""
-	}
+	// stop fetch until update committee members
+	cs.state.SetEndHeight(block.NumberU64())
 
+	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 	var add, remove *ttypes.Health
 	if aEnter.Flag == types.StateAddFlag {
 		add = cs.hm.GetHealth(aEnter.Pk)
@@ -1677,22 +1705,31 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		remove = cs.hm.GetHealth(aEnter.Pk)
 	}
 	if remove == nil {
+		log.Error("swithResult,remove is nil")
 		return
 	}
-	// remove validator from validatorSet
-	if add != nil {
-		cs.Validators.Add(add.Val)
-	}
-	cs.Validators.Remove(remove.Val.Address)
-	// notify to healthMgr
 
+	sv := cs.pickSwitchValidator(sw)
+	if sv == nil {
+		sv = &ttypes.SwitchValidator{
+			Infos:  sw,
+			Resion: "",
+			Remove: remove,
+			Add:	add,
+		}
+	} else {
+		log.Error("swithResult,not found sv","sw",sw)
+		return
+	}
+
+	// notify to healthMgr
 	go func() {
 		select {
 		case cs.hm.ChanFrom() <- sv:
 		default:
 		}
 	}()
-	cs.state.SetEndHeight(block.NumberU64())
+
 	log.Info("Switch Result,SetEndHeight","EndHight",block.NumberU64())
 }
 
@@ -1738,13 +1775,24 @@ func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.S
 		return nil
 	}
 	aEnter, rEnter := info.Vals[0], info.Vals[1]
+	for i, v := range cs.svsBlackDoor {
+		if len(v.Infos.Vals) > 2 {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && 
+			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+				cs.svsBlackDoor = append(cs.svsBlackDoor[:i], cs.svsBlackDoor[i+1:]...)
+				log.Info("pickSwitchValidator", "svsLen", len(cs.svsBlackDoor), "svs", cs.svsBlackDoor)
+				return v
+			}
+		}
+	}
 	for i, v := range cs.svs {
 		if len(v.Infos.Vals) > 2 {
 			log.Info("pickSwitchValidator", "aEnter.Flag", aEnter.Flag, "v.Infos.Vals[0].Flag", v.Infos.Vals[0].Flag,
 				"aEnter.Pk", aEnter.Pk, "v.Infos.Vals[0].Pk", v.Infos.Vals[0].Pk, "rEnter.Flag", rEnter.Flag, "v.Infos.Vals[1].Flag", v.Infos.Vals[1].Flag,
 				"rEnter.Pk", rEnter.Pk, "v.Infos.Vals[1].Pk", v.Infos.Vals[1].Pk)
 			log.Info("pickSwitchValidator", "if", (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)))
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && 
+			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
 				cs.svs = append(cs.svs[:i], cs.svs[i+1:]...)
 				log.Info("pickSwitchValidator", "svsLen", len(cs.svs), "svs", cs.svs)
 				return v
