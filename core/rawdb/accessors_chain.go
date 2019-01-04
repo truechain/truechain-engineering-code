@@ -351,7 +351,7 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block 
 	if body == nil {
 		return nil
 	}
-	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Signs, nil, body.Infos)
+	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Signs, body.Infos)
 }
 
 // WriteBlock serializes a block into the database, header and body separately.

@@ -437,12 +437,11 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction contents.
-func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles []*Header, infos *SwitchInfos) *Block {
+func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, infos *SwitchInfos) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),
 		signs:        make([]*PbftSign, len(signs)),
-		uncles:       make([]*Header, len(uncles)),
 		infos:		  &SwitchInfos{},
 	}
 	
@@ -454,10 +453,6 @@ func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles 
 		copy(block.infos.Vals, infos.Vals)
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
-
-	for i := range uncles {
-		block.uncles[i] = CopyHeader(uncles[i])
-	}
 
 	return block
 }

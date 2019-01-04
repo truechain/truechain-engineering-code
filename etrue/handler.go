@@ -773,7 +773,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			infos[i] = body.Infos
 		}
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
-		filter := len(transactions) > 0 || len(signs) > 0
+		filter := len(transactions) > 0 || len(signs) > 0 || len(infos) > 0
 		if len(signs) > 0 {
 			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHeight, "len(transactions)", len(transactions))
 		}
@@ -781,9 +781,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			transactions, signs, infos = pm.fetcherFast.FilterBodies(p.id, transactions, signs, infos, time.Now())
 		}
 		// mecMark
-		if len(transactions) > 0 || len(signs) > 0 || !filter {
-			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "filter", filter)
-			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs)
+		if len(transactions) > 0 || len(signs) > 0 || len(signs) > 0 || !filter {
+			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs),"len(infos)", len(infos), "filter", filter)
+			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
