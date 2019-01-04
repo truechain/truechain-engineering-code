@@ -261,3 +261,9 @@ func RandInt63n(n int64) int64 {
 	i63n := random.Int63n(n)
 	return i63n
 }
+
+//-----------------------------------------------------------------------------
+// PeerInValidators judge the peer whether in validators set
+type PeerInValidators interface {
+	HasPeerID(id string) error
+}

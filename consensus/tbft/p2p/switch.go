@@ -72,6 +72,7 @@ type Switch struct {
 
 	filterConnByAddr func(net.Addr) error
 	filterConnByID   func(ID) error
+	hasPeer 	help.PeerInValidators
 
 	mConfig conn.MConnConfig
 }
@@ -80,13 +81,14 @@ type Switch struct {
 type SwitchOption func(*Switch)
 
 // NewSwitch creates a new Switch with the given config.
-func NewSwitch(cfg *config.P2PConfig, options ...SwitchOption) *Switch {
+func NewSwitch(cfg *config.P2PConfig,hasPeer help.PeerInValidators, options ...SwitchOption) *Switch {
 	sw := &Switch{
 		config:       cfg,
 		reactors:     make(map[string]Reactor),
 		chDescs:      make([]*conn.ChannelDescriptor, 0),
 		reactorsByCh: make(map[byte]Reactor),
 		peers:        NewPeerSet(),
+		hasPeer:	  hasPeer,
 		dialing:      help.NewCMap(),
 		reconnecting: help.NewCMap(),
 	}
@@ -632,6 +634,9 @@ func (sw *Switch) addPeer(pc peerConn) error {
 
 	// ensure connection key matches self reported key
 	connID := pc.ID()
+	if err := sw.hasPeer.HasPeerID(string(connID)); err != nil {
+		return err
+	}
 
 	if peerID != connID {
 		return fmt.Errorf(

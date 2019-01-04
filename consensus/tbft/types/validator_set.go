@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
@@ -99,6 +100,16 @@ func (valSet *ValidatorSet) HasAddress(address []byte) bool {
 	return idx < len(valSet.Validators) && bytes.Equal(valSet.Validators[idx].Address, address)
 }
 
+func (valSet *ValidatorSet) MakeIDs() map[string]interface{} {
+	if valSet == nil || len(valSet.Validators) == 0 {
+		return nil
+	}
+	ids := make(map[string]interface{},0)
+	for _, val := range valSet.Validators {
+		ids[hex.EncodeToString(val.Address[:])] = nil
+	}
+	return ids
+}
 // GetByAddress returns an index of the validator with address and validator
 // itself if found. Otherwise, -1 and nil are returned.
 func (valSet *ValidatorSet) GetByAddress(address []byte) (index int, val *Validator) {

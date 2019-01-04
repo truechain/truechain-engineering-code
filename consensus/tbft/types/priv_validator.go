@@ -302,6 +302,7 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 
 //----------------------------------------
 
+
 // StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet
@@ -329,6 +330,8 @@ type StateAgentImpl struct {
 	Priv        *privValidator
 	Agent       ctypes.PbftAgentProxy
 	Validators  *ValidatorSet
+	ids 		map[string]interface{}
+	lock        *sync.Mutex
 	ChainID     string
 	LastHeight  uint64
 	BeginHeight uint64
@@ -340,15 +343,18 @@ type StateAgentImpl struct {
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 	vals *ValidatorSet, height, cid uint64) *StateAgentImpl {
 	lh := agent.GetCurrentHeight()
-	return &StateAgentImpl{
+	state := &StateAgentImpl{
 		Agent:       agent,
 		ChainID:     chainID,
 		Validators:  vals,
 		BeginHeight: height,
+		lock:        new(sync.Mutex),
 		EndHeight:   0, // defualt 0,mean not work
 		LastHeight:  lh.Uint64(),
 		CID:         cid,
 	}
+	state.ids = vals.MakeIDs()
+	return state
 }
 
 //MakePartSet  block to partset
@@ -388,6 +394,18 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 func (state *StateAgentImpl) PrivReset() {
 	state.Priv.Reset()
 }
+// HasPeerID judge the peerid whether in validators
+func (state *StateAgentImpl) HasPeerID(id string) error {
+	if state.ids == nil {
+		return errors.New("Validators is nil")
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	if _,ok := state.ids[id]; ok {
+		return nil
+	}
+	return fmt.Errorf("the peerid is not in validators,peerid=%s",id)
+}
 
 //SetEndHeight set now committee fast block height for end. (begin,end]
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
@@ -413,6 +431,10 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 //UpdateValidator set new Validators when committee member was changed
 func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet) error {
 	state.Validators = vset
+	ids := state.Validators.MakeIDs()
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	state.ids = ids
 	return nil
 }
 //MakePartSet make block to part for partSiae

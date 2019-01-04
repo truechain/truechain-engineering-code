@@ -52,10 +52,10 @@ const (
 	Switch
 )
 
-func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state ttypes.StateAgent,
+func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *ttypes.StateAgentImpl,
 	store *ttypes.BlockStore, cid uint64) *service {
 	return &service{
-		sw:             p2p.NewSwitch(p2pcfg),
+		sw:             p2p.NewSwitch(p2pcfg,state),
 		consensusState: NewConsensusState(cscfg, state, store),
 		// nodeTable:      make(map[p2p.ID]*nodeInfo),
 		lock:       new(sync.Mutex),
