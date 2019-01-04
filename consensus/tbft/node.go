@@ -30,9 +30,9 @@ type service struct {
 	lock             *sync.Mutex
 	updateChan       chan bool
 	eventBus         *ttypes.EventBus // pub/sub for services
-	// network
-	addrBook  pex.AddrBook // known peers
-	healthMgr *ttypes.HealthMgr
+	addrBook         pex.AddrBook     // known peers
+	healthMgr        *ttypes.HealthMgr
+	selfID           p2p.ID
 }
 
 type nodeInfo struct {
@@ -41,6 +41,7 @@ type nodeInfo struct {
 	IP      string
 	Port    uint
 	Enable  bool
+	Flag    int32
 }
 
 const (
@@ -55,7 +56,7 @@ const (
 func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *ttypes.StateAgentImpl,
 	store *ttypes.BlockStore, cid uint64) *service {
 	return &service{
-		sw:             p2p.NewSwitch(p2pcfg,state),
+		sw:             p2p.NewSwitch(p2pcfg, state),
 		consensusState: NewConsensusState(cscfg, state, store),
 		// nodeTable:      make(map[p2p.ID]*nodeInfo),
 		lock:       new(sync.Mutex),
@@ -66,6 +67,14 @@ func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *tt
 		addrBook:  pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
 		healthMgr: ttypes.NewHealthMgr(cid),
 	}
+}
+
+func (s *service) nodesHaveSelf() bool {
+	if s.sa.Priv == nil {
+		return true
+	}
+	v, ok := s.nodeTable[s.selfID]
+	return ok && v.Flag == types.StateUsedFlag
 }
 
 func (s *service) setNodes(nodes map[p2p.ID]*nodeInfo) {
@@ -152,10 +161,6 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		}
 		// check node pk
 		address := crypto.PubkeyToAddress(*pub)
-		if ok := s.sa.GetValidator().HasAddress(address[:]); !ok {
-			log.Error("has not address:", "address", address, "ip", node.IP, "port", node.Port)
-			continue
-		}
 		port := node.Port2
 		if cid.Uint64()%2 == 0 {
 			port = node.Port
@@ -163,21 +168,15 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		id := p2p.ID(hex.EncodeToString(address[:]))
 		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
-		if v, ok := s.nodeTable[id]; ok && v == nil {
+		if v, ok := s.nodeTable[id]; ok {
 			log.Info("Enter NodeInfo", "id", id, "addr", addr)
-			s.nodeTable[id] = &nodeInfo{
-				ID:      id,
-				Adrress: addr,
-				IP:      node.IP,
-				Port:    port,
-				Enable:  false,
-			}
+			v.Adrress, v.IP, v.Port = addr, node.IP, port
 			update = true
 		}
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
-	if update && ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
+	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
 		go func() { s.updateChan <- true }()
 	}
 }
@@ -198,8 +197,7 @@ func (s *service) updateNodes() {
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
 		if v != nil {
-			address, err := hex.DecodeString(string(v.ID))
-			if !v.Enable && err == nil && s.consensusState.Validators.HasAddress(address) {
+			if !v.Enable && v.Flag == types.StateUsedFlag {
 				s.connTo(v)
 			}
 		}
@@ -412,7 +410,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.sw.SetAddrBook(service.addrBook)
 	service.consensusReactor.SetHealthMgr(service.healthMgr)
 	service.consensusReactor.SetEventBus(service.eventBus)
-
+	service.selfID = n.nodekey.ID()
 	n.services[id.Uint64()] = service
 	return nil
 }
@@ -450,6 +448,17 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 				service.sw.StopPeerForError(p, nil)
 			}
 		}
+
+		//update node info
+		service.lock.Lock()
+		ni := makeCommitteeMembers(info.Id.Uint64(), service, info)
+		for k, v := range service.nodeTable {
+			if vn, ok := ni[k]; ok {
+				v.Flag = vn.Flag
+			}
+		}
+		service.lock.Unlock()
+
 		if stop {
 			service.stop()
 		}
@@ -524,7 +533,10 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 		tt := tcrypto.PubKeyTrue(*m.Publickey)
 		address := tt.Address()
 		id := p2p.ID(hex.EncodeToString(address))
-		tab[id] = nil
+		tab[id] = &nodeInfo{
+			ID:   id,
+			Flag: m.Flag,
+		}
 		log.Info("CommitteeMembers", "index", i, "id", id)
 	}
 	return tab
