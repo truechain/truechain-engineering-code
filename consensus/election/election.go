@@ -882,7 +882,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 			if flag == types.StateAddFlag {
 				// Update the committee member state
 				var switched = *m
-				switched.Flag = types.StateUsedFlaug
+				switched.Flag = types.StateUsedFlag
 				backups[i] = &switched
 			}
 		}
@@ -898,8 +898,8 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 	log.Info("Election update committee member state", "committee", infos.CID)
 
 	var (
-		committee   *committee
-		endfast     *big.Int
+		committee *committee
+		endfast   *big.Int
 	)
 	if infos.CID == e.committee.id.Uint64() {
 		committee = e.committee
@@ -933,12 +933,12 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 		endfast = big.NewInt(0)
 	}
 	e.electionFeed.Send(types.ElectionEvent{
-		Option:             types.CommitteeUpdate,
-		CommitteeID:        committee.id,
-		BeginFastNumber:    fastNumber,
-		EndFastNumber:      endfast,
-		CommitteeMembers:   members,
-		BackupMembers:      backups,
+		Option:           types.CommitteeUpdate,
+		CommitteeID:      committee.id,
+		BeginFastNumber:  fastNumber,
+		EndFastNumber:    endfast,
+		CommitteeMembers: members,
+		BackupMembers:    backups,
 	})
 }
 
