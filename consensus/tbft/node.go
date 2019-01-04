@@ -147,13 +147,13 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		nodeString[i] = node.String()
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
-			log.Error("putnode:", err, node.IP, node.Port)
+			log.Error("putnode:", "err", err, "ip", node.IP, "port", node.Port)
 			continue
 		}
 		// check node pk
 		address := crypto.PubkeyToAddress(*pub)
 		if ok := s.sa.GetValidator().HasAddress(address[:]); !ok {
-			log.Error("has not address:", address, node.IP, node.Port)
+			log.Error("has not address:", "address", address, "ip", node.IP, "port", node.Port)
 			continue
 		}
 		port := node.Port2
