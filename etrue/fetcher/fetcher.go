@@ -689,7 +689,7 @@ func (f *Fetcher) loop() {
 
 							if f.getBlock(hash) == nil {
 								// mecMark
-								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], nil, task.infos[i])
+								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], task.infos[i])
 								block.ReceivedAt = task.time
 
 								blocks = append(blocks, block)
@@ -951,7 +951,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*types.PbftSign, signHashs []common.Hash) {
 	go func() {
 		height := block.Number()
-		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil, block.SwitchInfos())
+		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, block.SwitchInfos())
 		find := f.insert(peer, inBlock, signHashs)
 		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
 

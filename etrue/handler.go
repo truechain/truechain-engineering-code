@@ -781,7 +781,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			transactions, signs, infos = pm.fetcherFast.FilterBodies(p.id, transactions, signs, infos, time.Now())
 		}
 		// mecMark
-		if len(transactions) > 0 || len(signs) > 0 || len(signs) > 0 || !filter {
+		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs),"len(infos)", len(infos), "filter", filter)
 			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos)
 			if err != nil {
