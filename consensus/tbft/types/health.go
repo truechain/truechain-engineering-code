@@ -20,7 +20,7 @@ const (
 	HealthOut = 60 //* 10
 	//MixValidator min committee count
 	MixValidator = 2
-	DoorDarkCount = 3
+	BlackDoorCount = 3
 )
 
 //Health struct
@@ -234,6 +234,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		Infos:  infos,
 		Resion: resion,
 		From:   from,
+		DoorCount: BlackDoorCount,
 	}
 }
 
