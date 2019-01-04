@@ -20,9 +20,9 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
@@ -55,6 +55,11 @@ func (b *TrueAPIBackend) CurrentBlock() *types.Block {
 func (b *TrueAPIBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)
+}
+
+func (b *TrueAPIBackend) SetSnailHead(number uint64) {
+	b.etrue.protocolManager.downloader.Cancel()
+	b.etrue.snailblockchain.SetHead(number)
 }
 
 func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {
@@ -137,7 +142,6 @@ func (b *TrueAPIBackend) GetFruit(ctx context.Context, fastblockHash common.Hash
 	return b.etrue.snailblockchain.GetFruit(fastblockHash), nil
 }
 
-
 func (b *TrueAPIBackend) GetReceipts(ctx context.Context, hash common.Hash) (types.Receipts, error) {
 	if number := rawdb.ReadHeaderNumber(b.etrue.chainDb, hash); number != nil {
 		return rawdb.ReadReceipts(b.etrue.chainDb, hash, *number), nil
@@ -192,7 +196,6 @@ func (b *TrueAPIBackend) SubscribeChainSideEvent(ch chan<- types.ChainFastSideEv
 func (b *TrueAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscription {
 	return b.etrue.BlockChain().SubscribeLogsEvent(ch)
 }
-
 
 func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	if number < 0 {
@@ -269,11 +272,11 @@ func (b *TrueAPIBackend) SnailPoolContent() []*types.SnailBlock {
 	return b.etrue.SnailPool().Content()
 }
 
-func (b *TrueAPIBackend) SnailPoolInspect()  []*types.SnailBlock{
+func (b *TrueAPIBackend) SnailPoolInspect() []*types.SnailBlock {
 	return b.etrue.SnailPool().Inspect()
 }
 
-func (b *TrueAPIBackend) SnailPoolStats()  (pending int, unVerified int){
+func (b *TrueAPIBackend) SnailPoolStats() (pending int, unVerified int) {
 	return b.etrue.SnailPool().Stats()
 }
 
