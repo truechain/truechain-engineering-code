@@ -502,7 +502,7 @@ func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	newHeight := cs.Height
 	log.Info("ValidatorUpdate,Update state")
 
-	if newHeight == oldHeight {
+	if newHeight == oldHeight && round > 0{
 		log.Warn("ValidatorUpdate,has same height in current consensus", "oldHeight", oldHeight, "newHeight", newHeight)
 		round = round + 1
 	} else {
