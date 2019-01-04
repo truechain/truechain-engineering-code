@@ -1,18 +1,18 @@
-// Copyright 2017 The truechian Authors
-// This file is part of the truechain library.
+// Copyright 2018 The TrueChain Authors
+// This file is part of the truechain-engineering-code library.
 //
-// The truechain library is free software: you can redistribute it and/or modify
+// The truechain-engineering-code library is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The truechain library is distributed in the hope that it will be useful,
+// The truechain-engineering-code library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the truechain library. If not, see <http://www.gnu.org/licenses/>.
+// along with the truechain-engineering-code library. If not, see <http://www.gnu.org/licenses/>.
 
 package snailchain
 
@@ -21,9 +21,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
-	"github.com/truechain/truechain-engineering-code/rlp"
 )
 
 // errNoActiveSnailJournal is returned if a fruit is attempted to be inserted

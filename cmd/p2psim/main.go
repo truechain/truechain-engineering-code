@@ -45,7 +45,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/p2p/simulations"

@@ -1,20 +1,35 @@
+// Copyright 2016 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package bind generates Ethereum contract Go bindings.
 //
 // Detailed usage document and tutorial available on the go-ethereum Wiki page:
-// https://github.com/truechain/truechain-engineering-code/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
+// https://github.com/ethereum/go-ethereum/wiki/Native-DApps:-Go-bindings-to-Ethereum-contracts
 package bind
 
 import (
 	"bytes"
 	"fmt"
+	"go/format"
 	"regexp"
 	"strings"
 	"text/template"
 	"unicode"
 
 	"github.com/truechain/truechain-engineering-code/accounts/abi"
-	"golang.org/x/tools/imports"
 )
 
 // Lang is a target programming language selector to generate bindings for.
@@ -130,9 +145,9 @@ func Bind(types []string, abis []string, bytecodes []string, pkg string, lang La
 	if err := tmpl.Execute(buffer, data); err != nil {
 		return "", err
 	}
-	// For Go bindings pass the code through goimports to clean it up and double check
+	// For Go bindings pass the code through gofmt to clean it up
 	if lang == LangGo {
-		code, err := imports.Process(".", buffer.Bytes(), nil)
+		code, err := format.Source(buffer.Bytes())
 		if err != nil {
 			return "", fmt.Errorf("%v\n%s", err, buffer)
 		}
@@ -192,7 +207,7 @@ func bindTypeGo(kind abi.Type) string {
 
 // The inner function of bindTypeGo, this finds the inner type of stringKind.
 // (Or just the type itself if it is not an array or slice)
-// The length of the matched part is returned, with the the translated type.
+// The length of the matched part is returned, with the translated type.
 func bindUnnestedTypeGo(stringKind string) (int, string) {
 
 	switch {
@@ -240,7 +255,7 @@ func bindTypeJava(kind abi.Type) string {
 
 // The inner function of bindTypeJava, this finds the inner type of stringKind.
 // (Or just the type itself if it is not an array or slice)
-// The length of the matched part is returned, with the the translated type.
+// The length of the matched part is returned, with the translated type.
 func bindUnnestedTypeJava(stringKind string) (int, string) {
 
 	switch {

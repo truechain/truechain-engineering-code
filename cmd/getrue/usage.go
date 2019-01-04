@@ -49,7 +49,7 @@ type flagGroup struct {
 // AppHelpFlagGroups is the application flags, grouped by functionality.
 var AppHelpFlagGroups = []flagGroup{
 	{
-		Name: "ETHEREUM",
+		Name: "TRUECHAIN",
 		Flags: []cli.Flag{
 			configFileFlag,
 			utils.DataDirFlag,
@@ -57,10 +57,10 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.NoUSBFlag,
 			utils.NetworkIdFlag,
 			utils.TestnetFlag,
-			utils.RinkebyFlag,
+			utils.DevnetFlag,
 			utils.SyncModeFlag,
 			utils.GCModeFlag,
-			utils.EthStatsURLFlag,
+			utils.EtrueStatsURLFlag,
 			utils.IdentityFlag,
 			utils.LightServFlag,
 			utils.LightPeersFlag,
@@ -73,17 +73,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.DeveloperPeriodFlag,
 		},
 	},
-	{
-		Name: "ETHASH",
-		Flags: []cli.Flag{
-			utils.EthashCacheDirFlag,
-			utils.EthashCachesInMemoryFlag,
-			utils.EthashCachesOnDiskFlag,
-			utils.EthashDatasetDirFlag,
-			utils.EthashDatasetsInMemoryFlag,
-			utils.EthashDatasetsOnDiskFlag,
-		},
-	},
 	//{
 	//	Name: "DASHBOARD",
 	//	Flags: []cli.Flag{
@@ -94,6 +83,27 @@ var AppHelpFlagGroups = []flagGroup{
 	//		utils.DashboardAssetsFlag,
 	//	},
 	//},
+	{Name: "SINGLE NODE MODEL START",
+		Flags: []cli.Flag{
+			utils.SingleNodeFlag,
+		},
+	},
+	{Name: "ELECTION",
+		Flags: []cli.Flag{
+			utils.EnableElectionFlag,
+		},
+	},
+	{Name: "BPFT COMMITTEE",
+		Flags: []cli.Flag{
+			utils.BFTIPFlag,
+			utils.BFTPortFlag,
+			utils.BFTStandbyPortFlag,
+			utils.BftKeyFileFlag,
+			utils.BftKeyHexFlag,
+			utils.BftKeyFileFlag,
+		},
+	},
+
 	{
 		Name: "TRANSACTION POOL",
 		Flags: []cli.Flag{
@@ -160,8 +170,6 @@ var AppHelpFlagGroups = []flagGroup{
 		Name: "NETWORKING",
 		Flags: []cli.Flag{
 			utils.BootnodesFlag,
-			utils.BootnodesV4Flag,
-			utils.BootnodesV5Flag,
 			utils.ListenPortFlag,
 			utils.MaxPeersFlag,
 			utils.MaxPendingPeersFlag,
@@ -215,17 +223,6 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.MetricsInfluxDBUsernameFlag,
 			utils.MetricsInfluxDBPasswordFlag,
 			utils.MetricsInfluxDBHostTagFlag,
-		},
-	},
-	{
-		Name:  "WHISPER (EXPERIMENTAL)",
-		Flags: whisperFlags,
-	},
-	{
-		Name: "DEPRECATED",
-		Flags: []cli.Flag{
-			utils.FastSyncFlag,
-			utils.LightModeFlag,
 		},
 	},
 	{

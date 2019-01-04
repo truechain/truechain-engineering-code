@@ -20,7 +20,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 )
 

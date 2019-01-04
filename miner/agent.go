@@ -22,7 +22,7 @@ import (
 
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type CpuAgent struct {
@@ -138,12 +138,12 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 			break
 		}
 	}
-	 
+
 
 }
 
 func (self *CpuAgent) GetHashRate() int64 {
-	
+
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		return int64(pow.Hashrate())
 	}

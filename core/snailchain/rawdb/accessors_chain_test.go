@@ -21,11 +21,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Tests block header storage and retrieval operations.

@@ -75,6 +75,12 @@
 			"revisionTime": "2016-10-29T20:57:26Z"
 		},
 		{
+			"checksumSHA1": "1xK7ycc1ICRInk/S9iiyB9Rpv50=",
+			"path": "github.com/deckarep/golang-set",
+			"revision": "504e848d77ea4752b3057b8fb46da0e7f746ccf3",
+			"revisionTime": "2018-06-03T19:32:48Z"
+		},
+		{
 			"checksumSHA1": "2Fy1Y6Z3lRRX1891WF/+HT4XS2I=",
 			"path": "github.com/dgrijalva/jwt-go",
 			"revision": "2268707a8f0843315e2004ee4f1d021dc08baedf",
@@ -103,6 +109,34 @@
 			"path": "github.com/elastic/gosigar/sys/windows",
 			"revision": "a3814ce5008e612a0c6d027608b54e1d0d9a5613",
 			"revisionTime": "2018-01-22T22:25:45Z"
+		},
+		{
+			"checksumSHA1": "fJxCWcMw0M8QJ6JOACJgw8Zkb0o=",
+			"path": "github.com/ethereum/go-ethereum/common",
+			"revision": "dae82f098570e15d44584f0d7f350713f4774727",
+			"revisionTime": "2018-11-28T12:42:37Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "5SfSc8UoYCbhk3R6F7C3Dsg34+Y=",
+			"path": "github.com/ethereum/go-ethereum/crypto",
+			"revision": "dae82f098570e15d44584f0d7f350713f4774727",
+			"revisionTime": "2018-11-28T12:42:37Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "KSRJC/V4LkGTakqzakXY/Ces0sw=",
+			"path": "github.com/ethereum/go-ethereum/log",
+			"revision": "dae82f098570e15d44584f0d7f350713f4774727",
+			"revisionTime": "2018-11-28T12:42:37Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "zrskypwp1RbmLX2f/47diH1vxQc=",
+			"path": "github.com/ethereum/go-ethereum/rlp",
+			"revision": "dae82f098570e15d44584f0d7f350713f4774727",
+			"revisionTime": "2018-11-28T12:42:37Z",
+			"tree": true
 		},
 		{
 			"checksumSHA1": "7oFpbmDfGobwKsFLIf6wMUvVoKw=",
@@ -274,10 +308,10 @@
 			"revisionTime": "2017-02-10T17:28:01Z"
 		},
 		{
-			"checksumSHA1": "EkT5JmFvz3zOPWappEFyYWUaeY0=",
+			"checksumSHA1": "GiVgQkx5acnq+JZtYiuHPlhHoso=",
 			"path": "github.com/mattn/go-isatty",
-			"revision": "281032e84ae07510239465db46bf442aa44b953a",
-			"revisionTime": "2017-02-09T17:56:15Z"
+			"revision": "3fb116b820352b7f0c281308a4d6250c22d94e27",
+			"revisionTime": "2018-08-30T10:17:45Z"
 		},
 		{
 			"checksumSHA1": "MNkKJyk2TazKMJYbal5wFHybpyA=",

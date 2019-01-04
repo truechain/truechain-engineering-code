@@ -23,9 +23,9 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/signer/core"
 	"github.com/truechain/truechain-engineering-code/signer/rules/deps"
 	"github.com/truechain/truechain-engineering-code/signer/storage"

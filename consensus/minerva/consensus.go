@@ -25,12 +25,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/math"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -809,6 +809,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 			return nil, err
 		}
 	}
+
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
 		state.RevertToSnapshot(snap)
 		return nil, err
@@ -899,7 +900,6 @@ func accumulateRewardsFast(election consensus.CommitteeElection, state *state.St
 		signs := fruit.Body().Signs
 
 		committeeMembers, errs := election.VerifySigns(signs)
-
 		if len(committeeMembers) != len(errs) {
 			return consensus.ErrInvalidSignsLength
 		}

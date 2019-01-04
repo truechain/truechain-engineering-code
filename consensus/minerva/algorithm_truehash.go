@@ -17,7 +17,7 @@
 package minerva
 
 import (
-	"github.com/truechain/truechain-engineering-code/crypto/sha3"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 )
 
 const DATALENGTH = 2048 //2048 520

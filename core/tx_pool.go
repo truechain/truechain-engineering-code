@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -104,6 +104,7 @@ var (
 // TxStatus is the current status of a transaction as seen by the pool.
 type TxStatus uint
 
+//all kind of status
 const (
 	TxStatusUnknown TxStatus = iota
 	TxStatusQueued

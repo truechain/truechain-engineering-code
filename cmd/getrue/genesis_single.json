@@ -1,14 +1,16 @@
 {
   "config": {
     "chainId": 10,
-    "minerva":{"durationLimit" : "0x258",
-      "minimumDifficulty":"0x1e8480",
-      "minimumFruitDifficulty":"0x7d0"
+    "minerva":{"durationLimit" : "0x3c",
+      "minimumDifficulty":"0x7d0",
+      "minimumFruitDifficulty":"0x32"
       }
   },
   "alloc":{
     "0x7c357530174275dd30e46319b89f71186256e4f7" : { "balance" : 90000000000000000000000},
-    "0x4cf807958b9f6d9fd9331397d7a89a079ef43288" : { "balance" : 90000000000000000000000}
+    "0x4cf807958b9f6d9fd9331397d7a89a079ef43288" : { "balance" : 90000000000000000000000},
+    "0xbe7e39fa0645f6eaf501ad02318a7fda5c4df6c6" : { "balance" : 90000000000000000000000},
+    "0xB824adf0Bad5E49bB214922F4499bD2cf08ef519" : { "balance" : 90000000000000000000000}
   },
   "committee":[
     {

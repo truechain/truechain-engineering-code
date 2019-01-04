@@ -27,20 +27,20 @@ import (
 	"time"
 
 	"github.com/hashicorp/golang-lru"
-	"github.com/truechain/truechain-engineering-code/common"
-	"github.com/truechain/truechain-engineering-code/common/mclock"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/rlp"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
@@ -311,10 +311,6 @@ func (bc *BlockChain) loadLastState() error {
 	//log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
 	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
 	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
-
-	//for _,sign:= range bc.GetBlockByNumber(368315).Signs(){
-	//	log.Info("signblock ","sign",sign)
-	//}
 
 	//log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
 
@@ -638,6 +634,16 @@ func (bc *BlockChain) HasState(hash common.Hash) bool {
 	return err == nil
 }
 
+// VerifyHasState checks if state trie is fully present in the database or not.
+// or CurrentFastBlock number  > the number of fb
+func (bc *BlockChain) VerifyHasState(fb *types.Block) bool {
+	_, err := bc.stateCache.OpenTrie(fb.Root())
+	if err != nil && bc.CurrentBlock().NumberU64() > fb.NumberU64() {
+		return true
+	}
+	return err == nil
+}
+
 // HasBlockAndState checks if a block and associated state trie is fully present
 // in the database or not, caching it if present.
 func (bc *BlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
@@ -646,7 +652,8 @@ func (bc *BlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
 	if block == nil {
 		return false
 	}
-	return bc.HasState(block.Root())
+	//return bc.HasState(block.Root())
+	return bc.VerifyHasState(block)
 }
 
 // GetBlock retrieves a block from the database by hash and number,

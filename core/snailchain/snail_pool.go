@@ -1,4 +1,4 @@
-// Copyright 2018 The Truechain Authors
+// Copyright 2018 The TrueChain Authors
 // This file is part of the truechain-engineering-code library.
 //
 // The truechain-engineering-code library is free software: you can redistribute it and/or modify
@@ -17,18 +17,18 @@
 package snailchain
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
-	"errors"
 
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
-	"github.com/truechain/truechain-engineering-code/core"
 )
 
 const (
@@ -155,6 +155,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 	return pool
 }
 
+//Start load and  rotate Journal
 func (pool *SnailPool) Start() {
 	// If journaling is enabled, load fruit from disk
 	if pool.config.Journal != "" {
@@ -300,7 +301,6 @@ func (pool *SnailPool) loop() {
 
 				pool.mu.Unlock()
 			}
-
 
 		case fruit := <-pool.newFruitCh:
 			if fruit != nil {
@@ -481,6 +481,7 @@ func (pool *SnailPool) removeUnfreshFruit() {
 	}
 }
 
+//RemovePendingFruitByFastHash remove unVerifyFreshness fruit
 func (pool *SnailPool) RemovePendingFruitByFastHash(fasthash common.Hash) {
 	pool.muFruit.Lock()
 	defer pool.muFruit.Unlock()
@@ -605,19 +606,19 @@ func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	}
 	// check freshness
 	/*
-	err := pool.engine.VerifyFreshness(fruit.Header(), nil)
-	if err != nil {
-		log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
+		err := pool.engine.VerifyFreshness(fruit.Header(), nil)
+		if err != nil {
+			log.Debug("validateFruit verify freshness err","err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
 
-		return nil
-	}*/
+			return nil
+		}*/
 
 	/*
-	header := fruit.Header()
-	if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
-		log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
-		return err
-	}*/
+		header := fruit.Header()
+		if err := pool.engine.VerifySnailHeader(pool.chain, pool.fastchain, header, true); err != nil {
+			log.Info("validateFruit verify header err", "err", err, "fruit", fruit.FastNumber(), "hash", fruit.Hash())
+			return err
+		}*/
 
 	return nil
 }

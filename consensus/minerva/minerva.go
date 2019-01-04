@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package minverva implements the truechain hybrid consensus engine.
+// Package minerva implements the truechain hybrid consensus engine.
 package minerva
 
 import (
@@ -35,13 +35,14 @@ import (
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
-	"github.com/truechain/truechain-engineering-code/log"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
+// ErrInvalidDumpMagic errorinfo
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
 
 var (
@@ -59,48 +60,51 @@ var (
 	// dumpMagic is a dataset dump header to sanity check a data dump.
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
 
-	//Snail block rewards initial 116.48733*10^18
+	//SnailBlockRewardsInitial Snail block rewards initial 116.48733*10^18
 	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
 
-	//Snail block rewards base value is 115.555555555555 * 10^12
+	//SnailBlockRewardsBase Snail block rewards base value is 115.555555555555 * 10^12
 	SnailBlockRewardsBase = 115555555555555
 
-	//up to wei  SnailBlockRewardsBase * this is wei
+	// Big1e6 up to wei  SnailBlockRewardsBase * this is wei
 	Big1e6 = big.NewInt(1e6)
 
-	//Snail block rewards change interval 4500 blocks
+	// SnailBlockRewardsChangeInterval Snail block rewards change interval 4500 blocks
 	SnailBlockRewardsChangeInterval = 4500
 
-	//Snail block rewards change interval decrease %2
+	// SnailBlockRewardsChangePercentage snall block rewards change interval decrease %2
 	SnailBlockRewardsChangePercentage = 2
 
-	//BaseBig
+	//BaseBig ...
 	BaseBig = big.NewInt(1e18)
 
-	//The number of main network fragments is currently fixed at 1
+	//NetworkFragmentsNuber The number of main network fragments is currently fixed at 1
 	NetworkFragmentsNuber = 1
 
-	//Mining constant is 20
+	//MiningConstant Mining constant is 20
 	MiningConstant = 20
 
-	//pbft and miner allocation constant
+	//SqrtMin pbft and miner allocation constant
 	//Generating formula :TestOutSqrt
 	SqrtMin = 25
+
+	//SqrtMax ...
 	SqrtMax = 6400
 
-	//Snail block body fruit initial 30*10^15
+	//SnailBlockBodyFruitInitial Snail block body fruit initial 30*10^15
 	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
 
-	//Snail block rewards fruit ratio  10%
+	//SnailBlockRewardsFruitRatio Snail block rewards fruit ratio  10%
 	SnailBlockRewardsFruitRatio = 0.1
 
-	//Number of committees
+	//CommitteesCount Number of committees
 	CommitteesCount = new(big.Int).SetInt64(1)
 
-	//Miner quantity
+	//MinerCount Miner quantity
 	MinerCount = new(big.Int).SetInt64(1)
 )
 
+// ConstSqrt ...
 type ConstSqrt struct {
 	Num  int     `json:"num"`
 	Sqrt float64 `json:"sqrt"`
@@ -236,13 +240,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		}
 		lru.cache.Add(epoch, item)
 	}
-	// Update the 'future item' if epoch is larger than previously seen.
-	//if epoch < maxEpoch-1 && lru.future < epoch+1 {
-	//	log.Trace("Requiring new future minerva "+lru.what, "epoch", epoch+1)
-	//	future = lru.new(epoch + 1)
-	//	lru.future = epoch + 1
-	//	lru.futureItem = future
-	//}
+
 	return item, future
 }
 
@@ -271,6 +269,7 @@ func newDataset(epoch uint64) interface{} {
 // Mode defines the type and amount of PoW verification an minerva engine makes.
 type Mode uint
 
+// constant
 const (
 	ModeNormal Mode = iota
 	ModeShared
@@ -290,6 +289,7 @@ type Config struct {
 	PowMode        Mode
 }
 
+// Minerva consensus
 type Minerva struct {
 	config Config
 
@@ -342,6 +342,7 @@ func New(config Config) *Minerva {
 	return minerva
 }
 
+// NewTestData Method test usage
 func (m *Minerva) NewTestData(block uint64) {
 	m.getDataset(block)
 }
@@ -355,17 +356,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	current := currentI.(*dataset)
 
 	current.generate(block, m)
-	//if futureI != nil {
-	//	future := futureI.(*dataset)
-	//	future.generate(block, m)
-	//
-	//}
 
-	// Test byte possession
-	//da := fmt.Sprintln("dataset size:", unsafe.Sizeof(current.dataset))
-	//on := fmt.Sprintln("once size:", unsafe.Sizeof(current.once))
-	//dai := fmt.Sprintln("dateInit size:", unsafe.Sizeof(current.dateInit))
-	//ep := fmt.Sprintln("epoch size:", unsafe.Sizeof(current.epoch))
 	return current
 }
 
@@ -411,16 +402,17 @@ func (d *dataset) updateTable(blockNum uint64, m *Minerva) {
 	}
 }
 
-//Append interface SnailChainReader after instantiations
+//SetSnailChainReader Append interface SnailChainReader after instantiations
 func (m *Minerva) SetSnailChainReader(scr consensus.SnailChainReader) {
 	m.sbc = scr
 }
 
-//Append interface CommitteeElection after instantiation
+//SetElection Append interface CommitteeElection after instantiation
 func (m *Minerva) SetElection(e consensus.CommitteeElection) {
 	m.election = e
 }
 
+// GetElection return election
 func (m *Minerva) GetElection() consensus.CommitteeElection {
 	return m.election
 

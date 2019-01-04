@@ -4,9 +4,9 @@ import (
 	"crypto/ecdsa"
 	. "encoding/hex"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/common"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"math/big"
 	"math/rand"
@@ -45,7 +45,7 @@ func (pap *PbftAgentProxyImp) FetchFastBlock(committeeId *big.Int) (*types.Block
 	header.Number = getID()
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	if rand.Intn(100) > 90 {
+	if rand.Intn(100) > 0 {
 		return types.NewBlock(header, nil, nil, nil), nil
 	} else {
 		ID = new(big.Int).Add(ID, big.NewInt(-1))

@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/truechain/truechain-engineering-code/crypto"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/p2p"
 )
 
