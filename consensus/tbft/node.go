@@ -414,16 +414,17 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 	}
 	return tab
 }
-func (n *Node) SetCommitteeStop(committeeId *big.Int, stop uint64) error {
-	log.Info("SetCommitteeStop", "id", committeeId, "stop", stop)
+// SetCommitteeStop set the end block height during this committee
+func (n *Node) SetCommitteeStop(committeeID *big.Int, stop uint64) error {
+	log.Info("SetCommitteeStop", "id", committeeID, "stop", stop)
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
-	if server, ok := n.services[committeeId.Uint64()]; ok {
+	if server, ok := n.services[committeeID.Uint64()]; ok {
 		server.getStateAgent().SetEndHeight(stop)
 		return nil
 	}
-	return errors.New("wrong conmmitt ID:" + committeeId.String())
+	return errors.New("wrong conmmitt ID:" + committeeID.String())
 }
 
 func getCommittee(n *Node, cid uint64) (info *service) {
