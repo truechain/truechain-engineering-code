@@ -895,7 +895,7 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 	if infos == nil || len(infos.Vals) == 0 {
 		return
 	}
-	log.Info("Election update committee member state", "committee", infos.CID)
+	log.Info("Election update committee member state", "committee", infos.CID, "block", fastNumber)
 
 	var (
 		committee *committee
