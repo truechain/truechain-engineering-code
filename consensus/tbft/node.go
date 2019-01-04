@@ -140,7 +140,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		nodeString[i] = node.String()
 		pub, err := crypto.UnmarshalPubkey(node.Publickey)
 		if err != nil {
-			log.Error("putnode:", err, node.IP, node.Port)
+			log.Error("putnode:", "err", err, "ip", node.IP, "port", node.Port)
 			continue
 		}
 		// check node pk
