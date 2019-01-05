@@ -649,7 +649,7 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 }
 
 //FetchFastBlock  generate fastBlock as leader
-func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int) (*types.Block, error) {
+func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, checkTX bool) (*types.Block, error) {
 	log.Debug("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()

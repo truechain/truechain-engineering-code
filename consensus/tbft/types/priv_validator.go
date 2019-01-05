@@ -5,12 +5,12 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 	"sync"
 	"time"
@@ -57,9 +57,9 @@ type privValidator struct {
 	mtx sync.Mutex
 }
 type KeepBlockSign struct {
-	Result 			uint
-	Sign 			[]byte
-	Hash			common.Hash
+	Result uint
+	Sign   []byte
+	Hash   common.Hash
 }
 
 func NewPrivValidator(priv ecdsa.PrivateKey) PrivValidator {
@@ -303,7 +303,7 @@ type StateAgent interface {
 
 	GetLastBlockHeight() uint64
 	GetChainID() string
-	MakeBlock() (*ctypes.Block, *PartSet,error)
+	MakeBlock(checkTX bool) (*ctypes.Block, *PartSet, error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
@@ -315,31 +315,31 @@ type StateAgent interface {
 }
 
 type StateAgentImpl struct {
-	Priv       *privValidator
-	Agent      ctypes.PbftAgentProxy
-	Validators *ValidatorSet
-	ChainID    string
+	Priv        *privValidator
+	Agent       ctypes.PbftAgentProxy
+	Validators  *ValidatorSet
+	ChainID     string
 	LastHeight  uint64
 	StartHeight uint64
-	EndHeight  	uint64
-	CID 	   	uint64
+	EndHeight   uint64
+	CID         uint64
 }
 
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
-	vals *ValidatorSet, height,cid uint64) *StateAgentImpl {
+	vals *ValidatorSet, height, cid uint64) *StateAgentImpl {
 	lh := agent.GetCurrentHeight()
 	return &StateAgentImpl{
-		Agent:      	agent,
-		ChainID:    	chainID,
-		Validators: 	vals,
-		StartHeight:    height,
-		EndHeight:		0,			// defualt 0,mean not work
-		LastHeight:		lh.Uint64(),
-		CID:			cid,
+		Agent:       agent,
+		ChainID:     chainID,
+		Validators:  vals,
+		StartHeight: height,
+		EndHeight:   0, // defualt 0,mean not work
+		LastHeight:  lh.Uint64(),
+		CID:         cid,
 	}
 }
 
-func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
+func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
 	bzs, err := rlp.EncodeToBytes(block)
@@ -348,9 +348,9 @@ func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet,error) {
 	}
 	bz, err := cdc.MarshalBinary(bzs)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	return NewPartSetFromData(bz, partSize),nil
+	return NewPartSetFromData(bz, partSize), nil
 }
 func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	if reader.IsComplete() {
@@ -382,29 +382,29 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	pp := (priv).(*privValidator)
 	state.Priv = pp
 }
-func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet,error) {
+func (state *StateAgentImpl) MakeBlock(checkTX bool) (*ctypes.Block, *PartSet, error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
-	watch := newInWatch(3,"FetchFastBlock")
-	block, err := state.Agent.FetchFastBlock(committeeID)
+	watch := newInWatch(3, "FetchFastBlock")
+	block, err := state.Agent.FetchFastBlock(committeeID, checkTX)
 	if err != nil || block == nil {
-		return nil, nil,err
+		return nil, nil, err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
-		return nil,nil,fmt.Errorf("over height range,cur=%v,end=%v",block.NumberU64(),state.EndHeight)
+		return nil, nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
 	}
 	if state.StartHeight > block.NumberU64() {
-		return nil,nil,fmt.Errorf("no more height,cur=%v,start=%v",block.NumberU64(),state.StartHeight)
+		return nil, nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.StartHeight)
 	}
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
-	parts,err2 := MakePartSet(BlockPartSizeBytes, block)
-	return block,parts,err2
+	parts, err2 := MakePartSet(BlockPartSizeBytes, block)
+	return block, parts, err2
 }
 func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
-	watch := newInWatch(3,"BroadcastConsensus")
+	watch := newInWatch(3, "BroadcastConsensus")
 	err := state.Agent.BroadcastConsensus(block)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
@@ -415,18 +415,18 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 }
 func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
 	if block == nil {
-		return nil,errors.New("block not have")
+		return nil, errors.New("block not have")
 	}
-	watch := newInWatch(3,"VerifyFastBlock")
+	watch := newInWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if sign != nil {
 		return &KeepBlockSign{
-			Result:			sign.Result,
-			Sign:			sign.Sign,
-			Hash:			sign.FastHash,
-		} ,err
+			Result: sign.Result,
+			Sign:   sign.Sign,
+			Hash:   sign.FastHash,
+		}, err
 	}
 	return nil, err
 }
@@ -461,24 +461,25 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 }
 
 type inWatch struct {
-	begin 	time.Time
-	end		time.Time
-	expect  float64
-	str 	string
+	begin  time.Time
+	end    time.Time
+	expect float64
+	str    string
 }
-func newInWatch(e float64,s string) *inWatch {
+
+func newInWatch(e float64, s string) *inWatch {
 	return &inWatch{
-		begin:			time.Now(),
-		end:			time.Now(),
-		expect:			e,
-		str:			s,
+		begin:  time.Now(),
+		end:    time.Now(),
+		expect: e,
+		str:    s,
 	}
 }
 func (in *inWatch) EndWatch() {
-	in.end = time.Now() 
+	in.end = time.Now()
 }
 func (in *inWatch) Finish(comment interface{}) {
-	if d:= in.end.Sub(in.begin); d.Seconds() > in.expect {
-		log.Warn(in.str,"not expecting time",d.Seconds(),"comment",comment)
+	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
+		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
 	}
 }

@@ -91,7 +91,7 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int) (*Block, error)
+	FetchFastBlock(committeeId *big.Int, checkTX bool) (*Block, error)
 	VerifyFastBlock(*Block) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
