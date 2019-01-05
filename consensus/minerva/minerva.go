@@ -245,6 +245,14 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		lru.cache.Add(epoch, item)
 	}
 
+	// start to create a futrue dataset
+	if epoch < maxEpoch-1 && lru.future < epoch+1 {
+		log.Debug("creat a new futrue dataset", "epoch is ", epoch+1)
+		future = lru.new(epoch + 1)
+		lru.future = epoch + 1
+		lru.futureItem = future
+	}
+
 	return item, future
 }
 
@@ -359,11 +367,22 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
 	//each 12000 change the mine algorithm
 	epoch := uint64(block / UPDATABLOCKLENGTH)
-	currentI, _ := m.datasets.get(epoch)
+	currentI, futureI := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
 	current.generate(epoch, m)
-	log.Debug("getDataset:", "epoch is ", current.epoch, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
+
+	// when change the algorithm before 12000*n
+	if block == (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
+		go func() {
+			if futureI != nil {
+				future := futureI.(*dataset)
+				future.generate(m.datasets.future, m)
+			}
+		}()
+	}
+
+	log.Debug("getDataset:", "epoch is ", current.epoch, "futrue epoch is", m.datasets.future, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
 
 	return current
 }
@@ -382,18 +401,14 @@ func (d *dataset) generate(epoch uint64, m *Minerva) {
 				d.datasetHash = d.Hash()
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				bn := (epoch-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
 				log.Info("updateLookupTBL is start,:epoch is:  ", "------", epoch)
-
-				flag, ds, cont := m.updateLookupTBL(bn, d.dataset)
+				flag, _, cont := m.updateLookupTBL(epoch, d.dataset)
 				if flag {
-					d.dataset = ds
-
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
 					d.datasetHash = d.Hash()
 
-					log.Info("updateLookupTBL", "epoch is:", epoch, "---consistent is:", d.consistent.String())
+					log.Info("updateLookupTBL change success", "epoch is:", epoch, "---consistent is:", d.consistent.String())
 				} else {
 					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
 				}

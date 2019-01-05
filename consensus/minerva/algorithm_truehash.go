@@ -30,6 +30,7 @@ const STARTUPDATENUM = 10240    //10240  2600
 const OFF_SKIP_LEN = 32768      //32768  8230
 const OFF_CYCLE_LEN = 8192      //8192  2080
 const SKIP_CYCLE_LEN = 2048     //2048 520
+const OFF_STATR = 12            //in advance updata the algorithm
 
 func genLookupTable(plookup []uint64, ptable []uint32) int {
 	lktWz := uint32(DATALENGTH / 64)

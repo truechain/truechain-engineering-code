@@ -302,36 +302,37 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 	genLookupTable(tableLookup[:], table[:])
 }
 
-func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, []uint64, string) {
-	log.Info("updateupTBL start ，", "blockNum is:	", blockNum)
+func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []uint64, string) {
 	const offsetCnst = 0x1f
 	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
 	var cont string
 
-	cur_block_num := blockNum
+	log.Info("updateupTBL start ，", "epoch is:	", epoch)
+	if epoch <= 0 {
+		log.Error("----The value is less than the reservation value---- ", "epoch is:  ", epoch)
+		return false, nil, ""
+	}
 
-	res := cur_block_num % UPDATABLOCKLENGTH
 	sblockchain := m.sbc
-	//current block number is invaild
-
 	if sblockchain == nil {
-		log.Error("sblockchain is nil  ", "blockNum is:  ", blockNum)
+		log.Error("sblockchain is nil  ", "epoch is:  ", epoch)
 		return false, nil, ""
 	}
-	//res <= STARTUPDATENUM
-	if res <= STARTUPDATENUM {
-		log.Error("----The value is less than the reservation value---- ", "blockNum is:  ", blockNum)
-		return false, nil, ""
-	}
-	var st_block_num uint64 = uint64(cur_block_num - res)
 
+	// if epoch =1 start 1-8192 -8293-10240
+	// if epoch =2 start 12001-20192 -20193-22240
+	// each epoch need start to 1 to 10240
+	st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
+	log.Info("------st_block_num ", "is ", st_block_num)
+
+	//get offset cnst  8192 lenght
 	for i := 0; i < OFF_CYCLE_LEN; i++ {
 
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + 1)
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
 		if header == nil {
-			log.Error("----updateTBL--The offset is nil---- ", "blockNum is:  ", blockNum)
+			log.Error("----updateTBL--The offset is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
 			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
@@ -342,10 +343,11 @@ func (m *Minerva) updateLookupTBL(blockNum uint64, plookupTbl []uint64) (bool, [
 		cont += header.Hash().String()
 	}
 
+	//get skip cnst 2048 lenght
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN) + 1)
+		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN))
 		if header == nil {
-			log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", blockNum)
+			log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
 			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
@@ -395,6 +397,7 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 func WriteTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int) {
 
 	// Create a file and use bufio.NewWriter.
+	log.Info("write TBL ")
 	currentTime := time.Now()
 	filename := fmt.Sprintf("tbl%s.dat", currentTime.Format("2000.01.01"))
 	fmt.Println(filename)
