@@ -266,9 +266,13 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	// Rewind the header chain, deleting all block bodies until then
+	// Rewind the header chain, deleting all block bodies and FtLookupEntry until then
 	delFn := func(db rawdb.DatabaseDeleter, hash common.Hash, num uint64) {
 		rawdb.DeleteBody(db, hash, num)
+		block := bc.GetBlockByNumber(num)
+		for _, ft := range block.Fruits() {
+			rawdb.DeleteFtLookupEntry(db, ft.FastHash())
+		}
 	}
 	bc.hc.SetHead(head, delFn)
 	currentHeader := bc.hc.CurrentHeader()
