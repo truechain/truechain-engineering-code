@@ -760,11 +760,11 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 		// get block
 		block, blockParts, err = cs.createProposalBlock()
 		if err != nil || block == nil {
-			log.Info("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
+			log.Error("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
 			doing = false
 		} else if block != nil {
 			if height != block.NumberU64() {
-				log.Info("State Wrong,height not match", "cs.Height", height, "block.height", block.NumberU64())
+				log.Error("State Wrong,height not match", "cs.Height", height, "block.height", block.NumberU64())
 				cs.updateToState(cs.state)
 				cs.scheduleRound0(&cs.RoundState)
 				return
