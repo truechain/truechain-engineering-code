@@ -1160,7 +1160,7 @@ func (agent *PbftAgent) singleloop() {
 			cnt   = 0
 		)
 		for {
-			block, err = agent.FetchFastBlock(nil)
+			block, err = agent.FetchFastBlock(nil, false)
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
 				time.Sleep(time.Second)
