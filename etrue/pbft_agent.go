@@ -394,9 +394,9 @@ func (agent *PbftAgent) loop() {
 				}
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:          committeeID,
+					StartHeight: ch.BeginFastNumber,
 					Members:     ch.CommitteeMembers,
 					BackMembers: ch.BackupMembers,
-					StartHeight: ch.BeginFastNumber,
 				}
 				agent.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 

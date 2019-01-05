@@ -304,7 +304,7 @@ func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey
 		return false
 	}
 	for _, member := range members {
-		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) && (member.Flag == types.StateUsedFlag || member.Flag == types.StateUnusedFlag) {
 			return true
 		}
 	}
