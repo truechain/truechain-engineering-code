@@ -365,8 +365,8 @@ func (m *Minerva) NewTestData(block uint64) {
 // dataset tries to retrieve a mining dataset for the specified block number
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
-	//each 12000 change the mine algorithm
-	epoch := uint64(block / UPDATABLOCKLENGTH)
+	//each 12000 change the mine algorithm block -1 is make sure the 12000 is use epoch 0
+	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, futureI := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
