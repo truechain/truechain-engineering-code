@@ -527,7 +527,7 @@ func DefaultDevGenesisBlock() *Genesis {
 	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044aa7cef6d282ec22e0ef6d55d36b17d607afee920668320430717552cd7d4905e07d92a0e939f96ef6d617174a136267ed6a4efcc14879abe6aa097965fb4740"))
 
 	return &Genesis{
-		Config:     params.MainnetChainConfig,
+		Config:     params.DevnetChainConfig,
 		Nonce:      928,
 		ExtraData:  nil,
 		GasLimit:   88080384,
@@ -586,8 +586,8 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		Alloc:      map[common.Address]types.GenesisAccount{
-			// common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: amount},
-			// common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: amount},
+		// common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: amount},
+		// common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: amount},
 		},
 		Committee: []*types.CommitteeMember{
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey1},

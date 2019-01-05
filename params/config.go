@@ -59,11 +59,11 @@ var (
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	DevnetChainConfig = &ChainConfig{
-		ChainID: big.NewInt(10),
+		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(20000),
-			MinimumFruitDifficulty: big.NewInt(50),
-			DurationLimit:          big.NewInt(60),
+			MinimumDifficulty:      big.NewInt(10000),
+			MinimumFruitDifficulty: big.NewInt(100),
+			DurationLimit:          big.NewInt(120),
 		}),
 	}
 
