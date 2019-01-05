@@ -384,14 +384,14 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 			self = true
 		}
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, types.StateUsedFlag, val, self)
+		health := ttypes.NewHealth(id, v.Flag, val, self)
 		service.healthMgr.PutWorkHealth(health)
 	}
 
 	for _, v := range committeeInfo.BackMembers {
 		id := pkToP2pID(v.Publickey)
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, types.StateUnusedFlag, val, false)
+		health := ttypes.NewHealth(id, v.Flag, val, false)
 		service.healthMgr.PutBackHealth(health)
 	}
 
@@ -478,13 +478,16 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 //MakeValidators is make CommitteeInfo to ValidatorSet
 func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	id := cmm.Id
-	members := cmm.Members
+	members := append(cmm.Members, cmm.BackMembers...)
 	if id == nil || len(members) <= 0 {
 		return nil
 	}
 	vals := make([]*ttypes.Validator, 0, 0)
 	var power int64 = 1
 	for i, m := range members {
+		if m.Flag != types.StateUsedFlag {
+			continue
+		}
 		if i == 0 {
 			power = 1
 		} else {
