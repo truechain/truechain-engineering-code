@@ -61,6 +61,7 @@ type ChainSnailEvent struct {
 	Hash  common.Hash
 }
 
+// ChainSnailSideEvent is posted when a block in SideStatTy
 type ChainSnailSideEvent struct {
 	Block *SnailBlock
 }
