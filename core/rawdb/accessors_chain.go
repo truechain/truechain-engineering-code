@@ -126,7 +126,7 @@ func WriteHeadFastBlockHash(db DatabaseWriter, hash common.Hash) {
 // ReadFastTrieProgress retrieves the number of body and receipt state synced to allow
 // reporting correct numbers across restarts.
 func ReadStateGcBR(db DatabaseReader) uint64 {
-	data, _ := db.Get(fastTrieProgressKey)
+	data, _ := db.Get(stateGcBodyReceiptKey)
 	if len(data) == 0 {
 		return 0
 	}
@@ -379,6 +379,20 @@ func ReadBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block 
 		return nil
 	}
 	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Signs, nil)
+}
+
+// ReadSnapBlock retrieves an snap block corresponding to the hash, assembling it
+// back from the stored header. If either the header could not
+// be retrieved nil is returned.
+//
+// Note, due to concurrent download of header the header and thus
+// canonical hash can be stored in the database but the body data not (yet).
+func ReadSnapBlock(db DatabaseReader, hash common.Hash, number uint64) *types.Block {
+	header := ReadHeader(db, hash, number)
+	if header == nil {
+		return nil
+	}
+	return types.NewBlockWithHeader(header)
 }
 
 // WriteBlock serializes a block into the database, header and body separately.

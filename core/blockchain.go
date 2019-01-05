@@ -73,7 +73,7 @@ const (
 // CacheConfig contains the configuration values for the trie caching/pruning
 // that's resident in a blockchain.
 type CacheConfig struct {
-	HeightGcState  *big.Int      // height  mark delete body and receipt
+	HeightGcState  atomic.Value  // height  mark delete body and receipt
 	Deleted        bool          // Whether to delete body and receipt
 	Disabled       bool          // Whether to disable trie write caching (archive node)
 	TrieCleanLimit int           // Memory allowance (MB) to use for caching trie nodes in memory
@@ -187,13 +187,13 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
-			HeightGcState:  common.Big0,
 			Deleted:        false,
 			TrieCleanLimit: 256,
 			TrieNodeLimit:  256,
 			TrieTimeLimit:  5 * time.Minute,
 		}
 	}
+	cacheConfig.HeightGcState.Store(rawdb.ReadStateGcBR(db))
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
@@ -614,10 +614,10 @@ func (bc *BlockChain) insert(block *types.Block) {
 
 	// If the block is better than our head or is on a different chain, force update heads
 	//if updateHeads {
-		bc.hc.SetCurrentHeader(block.Header())
-		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
+	bc.hc.SetCurrentHeader(block.Header())
+	rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
-		bc.currentFastBlock.Store(block)
+	bc.currentFastBlock.Store(block)
 	//}
 }
 
@@ -720,7 +720,12 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	if block, ok := bc.blockCache.Get(hash); ok {
 		return block.(*types.Block)
 	}
-	block := rawdb.ReadBlock(bc.db, hash, number)
+	var block *types.Block
+	if bc.cacheConfig.Deleted || bc.cacheConfig.HeightGcState.Load().(uint64) > number {
+		block = rawdb.ReadSnapBlock(bc.db, hash, number)
+	} else {
+		block = rawdb.ReadBlock(bc.db, hash, number)
+	}
 	if block == nil {
 		return nil
 	}
@@ -1162,10 +1167,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	}
 
 	if bc.cacheConfig.Deleted {
-		number := rawdb.ReadStateGcBR(bc.db)
+		number := bc.cacheConfig.HeightGcState.Load().(uint64)
 		level := number / blockDeleteHeight
 		if block.NumberU64() > number+blockDeleteHeight*(level+1)+blockDeleteLimite {
-			rawdb.WriteStateGcBR(bc.db, blockDeleteOnce)
 			go bc.stateGcBodyAndReceipt(number)
 		}
 	}
@@ -1640,6 +1644,10 @@ func (bc *BlockChain) update() {
 	for {
 		select {
 		case <-futureTimer.C:
+			if bc.cacheConfig.Deleted {
+				number := bc.cacheConfig.HeightGcState.Load().(uint64)
+				bc.stateGcBodyAndReceipt(number)
+			}
 			bc.procFutureBlocks()
 		case <-bc.quit:
 			return
@@ -1878,14 +1886,28 @@ func (bc *BlockChain) GetBlockNumber() uint64 {
 }
 
 func (bc *BlockChain) stateGcBodyAndReceipt(gcNumber uint64) {
+	height := bc.CurrentBlock().NumberU64()
 	for i := uint64(0); i < blockDeleteOnce; i++ {
+		if gcNumber+i >= height {
+			return
+		}
+		if gcNumber+i == 0 {
+			continue
+		}
 		block := bc.GetBlockByNumber(gcNumber + i)
 		if bc.HasBlock(block.Hash(), block.NumberU64()) {
+			for _, tx := range block.Transactions() {
+				if rawdb.HasTxLookupEntry(bc.db, tx.Hash()) {
+					rawdb.DeleteTxLookupEntry(bc.db, tx.Hash())
+				}
+			}
 			rawdb.DeleteBody(bc.db, block.Hash(), block.NumberU64())
 		}
 		if rawdb.HasReceipts(bc.db, block.Hash(), block.NumberU64()) {
 			rawdb.DeleteReceipts(bc.db, block.Hash(), block.NumberU64())
 		}
-		rawdb.WriteStateGcBR(bc.db, gcNumber+i)
 	}
+	log.Info("stateGcBodyAndReceipt", "height", height, "number", gcNumber+blockDeleteOnce)
+	bc.cacheConfig.HeightGcState.Store(gcNumber + blockDeleteOnce)
+	rawdb.WriteStateGcBR(bc.db, gcNumber+blockDeleteOnce)
 }
