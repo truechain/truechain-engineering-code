@@ -301,6 +301,14 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
 
+	// Append a single chain head event if we've progressed the chain
+	lastCanon := bc.GetBlockByNumber(head)
+	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
+		events := make([]interface{}, 0, 1)
+		events = append(events, types.ChainSnailHeadEvent{lastCanon})
+		bc.PostChainEvents(events)
+	}
+
 	return bc.loadLastState()
 
 }
