@@ -197,7 +197,7 @@ func (s *service) updateNodes() {
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
 		if v != nil {
-			if !v.Enable && v.Flag == types.StateUsedFlag {
+			if !v.Enable && v.Flag == types.StateUsedFlag && v.Adrress != nil {
 				s.connTo(v)
 			}
 		}
@@ -471,34 +471,6 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
 		return nil
 
-	}
-	return errors.New("service not found")
-}
-
-// UpdateCommittee update the committee info from agent when the members was changed
-func (n *Node) UpdateCommittee_Bak(info *types.CommitteeInfo) error {
-	log.Info("UpdateCommittee", "info", info)
-	if service, ok := n.services[info.Id.Uint64()]; ok {
-		//update validator
-		stop, member := service.consensusState.UpdateValidatorSet_bak(info)
-		for _, v := range member {
-			pID := pkToP2pID(v.Publickey)
-			p := service.sw.GetPeerForID(string(pID))
-			if p != nil {
-				service.sw.StopPeerForError(p, nil)
-			}
-		}
-		if stop {
-			service.stop()
-		}
-
-		//update nodes
-		//nodes := makeCommitteeMembersForUpdateCommittee(info)
-		//service.setNodes(nodes)
-		go func() { service.updateChan <- true }()
-		//update health
-		service.healthMgr.UpdateFromCommittee(info.Members, info.BackMembers)
-		return nil
 	}
 	return errors.New("service not found")
 }

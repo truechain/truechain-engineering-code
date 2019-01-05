@@ -103,10 +103,10 @@ type ConsensusState struct {
 
 	// synchronous pubsub between consensus state and reactor.
 	// state only emits EventNewRoundStep and EventVote
-	evsw ttypes.EventSwitch
-	svs  []*ttypes.SwitchValidator
-	svsBlackDoor 	[]*ttypes.SwitchValidator
-	hm   *ttypes.HealthMgr
+	evsw         ttypes.EventSwitch
+	svs          []*ttypes.SwitchValidator
+	svsBlackDoor []*ttypes.SwitchValidator
+	hm           *ttypes.HealthMgr
 }
 
 // CSOption sets an optional parameter on the ConsensusState.
@@ -130,7 +130,7 @@ func NewConsensusState(
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
 		svs:              make([]*ttypes.SwitchValidator, 0, 0),
-		svsBlackDoor:      make([]*ttypes.SwitchValidator, 0, 0),
+		svsBlackDoor:     make([]*ttypes.SwitchValidator, 0, 0),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -307,9 +307,9 @@ func (cs *ConsensusState) SetProposal(proposal *ttypes.Proposal, peerID string) 
 }
 
 // UpdateValidatorsSet is Set when the committee member is chaneged
-func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight,eHeight uint64) {
+func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight, eHeight uint64) {
 	go func() {
-		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight,eHeight}, ""}
+		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight, eHeight}, ""}
 	}()
 }
 
@@ -493,9 +493,9 @@ func (cs *ConsensusState) newStep() {
 	}
 }
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
-	log.Info("ValidatorUpdate","uHeight",msg.uHeight,"eHeight",msg.eHeight,"cHeight",cs.Height,"Round",cs.Round)
+	log.Info("ValidatorUpdate", "uHeight", msg.uHeight, "eHeight", msg.eHeight, "cHeight", cs.Height, "Round", cs.Round)
 	round, oldHeight := cs.Round, cs.Height
-	
+
 	cs.state.UpdateValidator(msg.vset)
 	cs.updateToState(cs.state)
 	cs.state.PrivReset()
@@ -504,7 +504,7 @@ func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	newHeight := cs.Height
 	log.Info("ValidatorUpdate,Update state")
 
-	if newHeight == oldHeight && round > 0{
+	if newHeight == oldHeight && round > 0 {
 		log.Warn("ValidatorUpdate,has same height in current consensus", "oldHeight", oldHeight, "newHeight", newHeight)
 		round = round + 1
 	} else {
@@ -896,8 +896,8 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 	if len(cs.svs) > 0 {
 		v = cs.svs[0]
 		cs.svs = append(cs.svs[:0], cs.svs[1:]...)
-		cs.svsBlackDoor = append(cs.svsBlackDoor,v)
-		log.Info("Make Proposal and move item","item",v)
+		cs.svsBlackDoor = append(cs.svsBlackDoor, v)
+		log.Info("Make Proposal and move item", "item", v)
 	} else if len(cs.svsBlackDoor) > 0 {
 		cs.reduceBlackDoorCount()
 		if cs.svsBlackDoor[0].DoorCount == 0 {
@@ -913,16 +913,16 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 	return block, nil, err
 }
 func (cs *ConsensusState) reduceBlackDoorCount() {
-	for _,val := range cs.svsBlackDoor {
+	for _, val := range cs.svsBlackDoor {
 		if val.DoorCount > 0 {
-			val.DoorCount --
+			val.DoorCount--
 		}
 	}
 }
 func movetail(s []*ttypes.SwitchValidator) {
 	if len(s) > 0 {
 		tmp := s[0]
-		s = append(append(s[:0],s[1:]...),tmp)
+		s = append(append(s[:0], s[1:]...), tmp)
 	}
 }
 
@@ -1652,14 +1652,16 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 }
 
 //---------------------------------------------------------
-func (cs *ConsensusState) hasSwitchValidator(infos *types.SwitchInfos,s []*ttypes.SwitchValidator) bool {
-	if len(infos.Vals) <= 2 { return false }
+func (cs *ConsensusState) hasSwitchValidator(infos *types.SwitchInfos, s []*ttypes.SwitchValidator) bool {
+	if len(infos.Vals) <= 2 {
+		return false
+	}
 	aEnter, rEnter := infos.Vals[0], infos.Vals[1]
 	exist := false
 	for _, v := range s {
 		if len(v.Infos.Vals) > 2 {
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && 
-			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
+				(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
 				exist = true
 				break
 			}
@@ -1669,15 +1671,15 @@ func (cs *ConsensusState) hasSwitchValidator(infos *types.SwitchInfos,s []*ttype
 }
 func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 	if s != nil {
-		if s.From == 0 {		// add 
-			exist := cs.hasSwitchValidator(s.Infos,cs.svsBlackDoor)
+		if s.From == 0 { // add
+			exist := cs.hasSwitchValidator(s.Infos, cs.svsBlackDoor)
 			if !exist {
-				exist = cs.hasSwitchValidator(s.Infos,cs.svs)
-			}		
+				exist = cs.hasSwitchValidator(s.Infos, cs.svs)
+			}
 			if !exist {
 				cs.svs = append(cs.svs, s)
-			}	
-		} else if s.From == 1 {		// remove
+			}
+		} else if s.From == 1 { // remove
 			cs.pickSwitchValidator(s.Infos)
 		}
 	}
@@ -1715,10 +1717,10 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 			Infos:  sw,
 			Resion: "",
 			Remove: remove,
-			Add:	add,
+			Add:    add,
 		}
 	} else {
-		log.Error("swithResult,not found sv","sw",sw)
+		log.Error("swithResult,not found sv", "sw", sw)
 		return
 	}
 
@@ -1730,7 +1732,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		}
 	}()
 
-	log.Info("Switch Result,SetEndHeight","EndHight",block.NumberU64())
+	log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
 }
 
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
@@ -1777,8 +1779,8 @@ func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.S
 	aEnter, rEnter := info.Vals[0], info.Vals[1]
 	for i, v := range cs.svsBlackDoor {
 		if len(v.Infos.Vals) > 2 {
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && 
-			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
+				(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
 				cs.svsBlackDoor = append(cs.svsBlackDoor[:i], cs.svsBlackDoor[i+1:]...)
 				log.Info("pickSwitchValidator", "svsLen", len(cs.svsBlackDoor), "svs", cs.svsBlackDoor)
 				return v
@@ -1791,8 +1793,8 @@ func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.S
 				"aEnter.Pk", aEnter.Pk, "v.Infos.Vals[0].Pk", v.Infos.Vals[0].Pk, "rEnter.Flag", rEnter.Flag, "v.Infos.Vals[1].Flag", v.Infos.Vals[1].Flag,
 				"rEnter.Pk", rEnter.Pk, "v.Infos.Vals[1].Pk", v.Infos.Vals[1].Pk)
 			log.Info("pickSwitchValidator", "if", (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)))
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && 
-			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
+				(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
 				cs.svs = append(cs.svs[:i], cs.svs[i+1:]...)
 				log.Info("pickSwitchValidator", "svsLen", len(cs.svs), "svs", cs.svs)
 				return v
@@ -1820,27 +1822,6 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 		return 1
 	}
 	return 0
-}
-
-//UpdateValidatorSet committee change
-func (cs *ConsensusState) UpdateValidatorSet_bak(info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember) {
-	allMember := append(info.Members, info.BackMembers...)
-	for _, v := range allMember {
-		if v.Flag == types.StateUsedFlag {
-			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
-			b := cs.GetRoundState().Validators.Add(vTemp)
-			log.Info("UpdateValidatorSet", "add", b)
-		}
-		if v.Flag == types.StateRemovedFlag {
-			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
-				selfStop = true
-			}
-			remove = append(remove, v)
-			v, b := cs.GetRoundState().Validators.RemoveForPK(*v.Publickey)
-			log.Info("UpdateValidatorSet", "va", v, "remove", b)
-		}
-	}
-	return
 }
 
 //UpdateValidatorSet committee change
