@@ -8,7 +8,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
-// Volatile state for each Validator
+// Validator state for each Validator
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
@@ -18,7 +18,7 @@ type Validator struct {
 	Accum       int64         `json:"accum"`
 }
 
-//add validator for pk
+//NewValidator is return a new Validator
 func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
 	return &Validator{
 		Address:     pubKey.Address(),
@@ -28,14 +28,14 @@ func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
 	}
 }
 
-// Creates a new copy of the validator so we can mutate accum.
+// Copy Creates a new copy of the validator so we can mutate accum.
 // Panics if the validator is nil.
 func (v *Validator) Copy() *Validator {
 	vCopy := *v
 	return &vCopy
 }
 
-// Returns the one with higher Accum.
+// CompareAccum Returns the one with higher Accum.
 func (v *Validator) CompareAccum(other *Validator) *Validator {
 	if v == nil {
 		return other

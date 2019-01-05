@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	tcrypyo "github.com/ethereum/go-ethereum/crypto"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
@@ -17,6 +17,7 @@ const (
 	// Edwards25519 point, and a field element. Both of which are 32 bytes.
 	SignatureEd25519Size = 64
 )
+
 var cdc = amino.NewCodec()
 
 func init() {
@@ -28,6 +29,7 @@ func init() {
 	cdc.RegisterConcrete(PrivKeyTrue{},
 		EcdsaPrivKeyAminoRoute, nil)
 }
+
 // PrivKeyTrue implements PrivKey.
 type PrivKeyTrue ecdsa.PrivateKey
 
@@ -39,13 +41,13 @@ func (priv PrivKeyTrue) Bytes() []byte {
 // Sign produces a signature on the provided message.
 func (priv PrivKeyTrue) Sign(msg []byte) ([]byte, error) {
 	priv1 := ecdsa.PrivateKey(priv)
-	return tcrypyo.Sign(msg,&priv1)
+	return tcrypyo.Sign(msg, &priv1)
 }
 
 // PubKey gets the corresponding public key from the private key.
 func (priv PrivKeyTrue) PubKey() PubKey {
 	priv1 := ecdsa.PrivateKey(priv)
-	pub0,ok := priv1.Public().(*ecdsa.PublicKey)
+	pub0, ok := priv1.Public().(*ecdsa.PublicKey)
 	if !ok {
 		panic(0)
 	}
@@ -62,15 +64,13 @@ func (priv PrivKeyTrue) Equals(other PrivKey) bool {
 		priv1 := ecdsa.PrivateKey(priv)
 		data1 := tcrypyo.FromECDSA(&priv1)
 		return bytes.Equal(data0[:], data1[:])
-	} else {
-		return false
 	}
+	return false
 }
 
-// GenPrivKey generates a new ed25519 private key.
-
+// GenPrivKey  generates a new ed25519 private key.
 func GenPrivKey() PrivKeyTrue {
-	priv,err := tcrypyo.GenerateKey()
+	priv, err := tcrypyo.GenerateKey()
 	if err != nil {
 		panic(err)
 	}
@@ -102,9 +102,10 @@ func (pub PubKeyTrue) Bytes() []byte {
 	return bz
 }
 
-func (pub PubKeyTrue) VerifyBytes(msg []byte, sig_ []byte) bool {
+//VerifyBytes is check msg
+func (pub PubKeyTrue) VerifyBytes(msg []byte, sig []byte) bool {
 	// make sure we use the same algorithm to sign
-	if pub0,err := tcrypyo.SigToPub(msg,sig_); err == nil {
+	if pub0, err := tcrypyo.SigToPub(msg, sig); err == nil {
 		pub1 := PubKeyTrue(*pub0)
 		return pub.Equals(pub1)
 	}
@@ -120,7 +121,7 @@ func (pub PubKeyTrue) String() string {
 	return fmt.Sprintf("PubKeyTrue{%X}", data[:])
 }
 
-// nolint: golint
+// Equals is comp public key
 func (pub PubKeyTrue) Equals(other PubKey) bool {
 	if otherEd, ok := other.(PubKeyTrue); ok {
 		pub0 := ecdsa.PublicKey(otherEd)
@@ -131,7 +132,6 @@ func (pub PubKeyTrue) Equals(other PubKey) bool {
 			return false
 		}
 		return bytes.Equal(data0[:], data1[:])
-	} else {
-		return false
 	}
+	return false
 }

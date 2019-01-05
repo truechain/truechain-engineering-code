@@ -1,6 +1,7 @@
 package help
 
 import (
+	"github.com/ethereum/go-ethereum/log"
 	"sync"
 	"time"
 )
@@ -23,6 +24,7 @@ type ThrottleTimer struct {
 }
 
 func NewThrottleTimer(name string, dur time.Duration) *ThrottleTimer {
+	log.Debug("NewThrottleTimer")
 	var ch = make(chan struct{})
 	var quit = make(chan struct{})
 	var t = &ThrottleTimer{Name: name, Ch: ch, dur: dur, quit: quit}

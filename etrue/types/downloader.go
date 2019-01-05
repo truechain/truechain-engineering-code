@@ -377,7 +377,7 @@ type FetchResult struct {
 	Fruits  types.SnailBlocks
 
 	Fheader      *types.Header
-	//Uncles       []*types.Header
+	Infos 		 *types.SwitchInfos
 	Transactions types.Transactions
 	Receipts     types.Receipts
 }

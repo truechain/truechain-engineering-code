@@ -818,7 +818,7 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
-	return types.NewBlock(header, txs, receipts, nil), nil //TODO remove signs
+	return types.NewBlock(header, txs, receipts, nil, nil), nil //TODO remove signs
 }
 
 // FinalizeSnail implements consensus.Engine, accumulating the block fruit and uncle rewards,

@@ -19,10 +19,18 @@ const (
 	CommitteeStart = iota
 	// CommitteeStop stop pbft consensus
 	CommitteeStop
-	//CommitteeSwitchover switch pbft committee
+	// CommitteeSwitchover switch pbft committee
 	CommitteeSwitchover
+	// CommitteeUpdate update committee members and backups
+	CommitteeUpdate
 	// CommitteeOver notify current pbft committee end block
 	CommitteeOver
+
+	StateUnusedFlag    = 0xa0
+	StateUsedFlag      = 0xa1
+	StateSwitchingFlag = 0xa2
+	StateRemovedFlag   = 0xa3
+	StateAddFlag       = 0xa4
 )
 
 const (
@@ -38,10 +46,17 @@ type CommitteeMembers []*CommitteeMember
 type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
+	Flag      int32
+}
+
+// ElectionCommittee defines election members result
+type ElectionCommittee struct {
+	Members []*CommitteeMember
+	Backups []*CommitteeMember
 }
 
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("C:%s,P:%s", common.ToHex(c.Coinbase[:]),
+	return fmt.Sprintf("F:%d,C:%s,P:%s", c.Flag, common.ToHex(c.Coinbase[:]),
 		common.ToHex(crypto.FromECDSAPub(c.Publickey)))
 }
 
@@ -49,6 +64,7 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
+		Flag    int32          `json:"flag,omitempty"`
 	}
 	var dec committee
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -56,6 +72,7 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	}
 
 	c.Coinbase = dec.Address
+	c.Flag = dec.Flag
 
 	var err error
 	if dec.PubKey != nil {
@@ -91,8 +108,8 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int) (*Block, error)
-	VerifyFastBlock(*Block) (*PbftSign, error)
+	FetchFastBlock(committeeId *big.Int, infos *SwitchInfos) (*Block, error)
+	VerifyFastBlock(*Block, bool) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
@@ -100,6 +117,7 @@ type PbftAgentProxy interface {
 
 type PbftServerProxy interface {
 	PutCommittee(committeeInfo *CommitteeInfo) error
+	UpdateCommittee(info *CommitteeInfo) error
 	PutNodes(id *big.Int, nodes []*CommitteeNode) error
 	Notify(id *big.Int, action int) error
 	SetCommitteeStop(committeeId *big.Int, stop uint64) error
@@ -124,7 +142,9 @@ func (h *PbftSign) HashWithNoSign() common.Hash {
 type CommitteeInfo struct {
 	Id          *big.Int
 	StartHeight *big.Int
+	EndHeight   *big.Int
 	Members     []*CommitteeMember
+	BackMembers []*CommitteeMember
 }
 
 func (c *CommitteeInfo) String() string {
@@ -171,4 +191,41 @@ func RlpHash(x interface{}) (h common.Hash) {
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h
+}
+
+const (
+	SwitchAppend = 0xEE
+	SwitchRemove = 0xAA
+)
+
+type SwitchEnter struct {
+	Pk   []byte
+	Flag uint32
+}
+
+func (infos *SwitchInfos) Hash() common.Hash {
+	return rlpHash(infos)
+}
+
+func (s *SwitchEnter) String() string {
+	if s == nil { return "switchEnter-nil" }
+	return fmt.Sprintf("p:%s,s:%d", common.ToHex(s.Pk), s.Flag)
+}
+
+type SwitchInfos struct {
+	CID  uint64
+	Vals []*SwitchEnter
+}
+
+func (s *SwitchInfos) String() string {
+	if s == nil { return "switchInfo-nil" }
+	memStrings := make([]string, len(s.Vals))
+	for i, m := range s.Vals {
+		if m == nil {
+			memStrings[i] = "nil-Member"
+		} else {
+			memStrings[i] = m.String()
+		}
+	}
+	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}", s.CID, strings.Join(memStrings, "\n  "))
 }

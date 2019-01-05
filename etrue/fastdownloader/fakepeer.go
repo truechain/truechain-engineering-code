@@ -125,16 +125,16 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
 		txs    [][]*types.Transaction
 		signs  [][]*types.PbftSign
-		//uncles [][]*types.Header
+		infos  []*types.SwitchInfos
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
 		signs = append(signs, block.Signs())
 		txs = append(txs, block.Transactions())
-		//uncles = append(uncles, block.Uncles())
+		infos = append(infos, block.SwitchInfos())
 	}
 
-	p.dl.DeliverBodies(p.id, txs, signs)
+	p.dl.DeliverBodies(p.id, txs, signs,infos)
 	return nil
 }
 

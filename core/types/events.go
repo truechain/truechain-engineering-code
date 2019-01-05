@@ -79,6 +79,7 @@ type ElectionEvent struct {
 	Option           uint
 	CommitteeID      *big.Int
 	CommitteeMembers []*CommitteeMember
+	BackupMembers    []*CommitteeMember
 	BeginFastNumber  *big.Int
 	EndFastNumber    *big.Int
 }

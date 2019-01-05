@@ -1028,7 +1028,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 	var (
 		deliver = func(packet etrue.DataPack) (int, error) {
 			pack := packet.(*bodyPack)
-			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.signs)
+			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.signs,pack.infos)
 		}
 		expire   = func() map[string]int { return d.queue.ExpireBodies(d.requestTTL()) }
 		fetch    = func(p etrue.PeerConnection, req *etrue.FetchRequest) error { return p.FetchBodies(req) }
@@ -1461,7 +1461,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash())
-		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Infos)
 		log.Trace("Fast downloader signs:", "block signs:", blocks[i].Signs())
 	}
 	log.Debug("Fast Downloaded>>>>", "CurrentBlock:", d.blockchain.CurrentBlock().NumberU64())
@@ -1608,7 +1608,7 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult, stateSync 
 	blocks := make([]*types.Block, len(results))
 	receipts := make([]types.Receipts, len(results))
 	for i, result := range results {
-		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Infos)
 		receipts[i] = result.Receipts
 	}
 	log.Debug("Inserting fast-sync  ", "blocks", len(blocks))
@@ -1620,7 +1620,7 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult, stateSync 
 }
 
 func (d *Downloader) commitPivotBlock(result *etrue.FetchResult) error {
-	block := types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+	block := types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Infos)
 	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
 	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
 		return err
@@ -1644,8 +1644,8 @@ func (d *Downloader) DeliverOneHeader(id string, headers []*types.Header) (err e
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign) (err error) {
-	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs}, bodyInMeter, bodyDropMeter)
+func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos) (err error) {
+	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs,infos}, bodyInMeter, bodyDropMeter)
 }
 
 // DeliverReceipts injects a new batch of receipts received from a remote node.

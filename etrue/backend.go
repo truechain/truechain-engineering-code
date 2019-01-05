@@ -210,7 +210,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
 
-	etrue.election = elect.NewElction(etrue.blockchain, etrue.snailblockchain, etrue.config)
+	etrue.election = elect.NewElection(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
 	//etrue.snailblockchain.Validator().SetElection(etrue.election, etrue.blockchain)
 
@@ -499,12 +499,13 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 		s.lesServer.Start(srvr)
 	}
 	if s.config.OldTbft {
+		return fmt.Errorf("oldpbft Temporarily incompatible")
 		s.startPbftServerOld()
 		if s.pbftServerOld == nil {
 			log.Error("start pbft server failed.")
 			return errors.New("start pbft server failed.")
 		}
-		s.agent.server = s.pbftServerOld
+		//s.agent.server = s.pbftServerOld
 		log.Info("", "server", s.agent.server)
 	} else {
 		s.startPbftServer()

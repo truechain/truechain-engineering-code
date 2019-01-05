@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"math/rand"
 	"os"
@@ -34,9 +33,7 @@ import (
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -232,7 +229,6 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
 
-	log.Debug("get lru for dataset", "epoch", epoch)
 	// Get or create the item for the requested epoch.
 	item, ok := lru.cache.Get(epoch)
 	if !ok {
@@ -245,14 +241,6 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		lru.cache.Add(epoch, item)
 	}
 
-	// start to create a futrue dataset
-	if epoch < maxEpoch-1 && lru.future < epoch+1 {
-		log.Debug("creat a new futrue dataset", "epoch is ", epoch+1)
-		future = lru.new(epoch + 1)
-		lru.future = epoch + 1
-		lru.futureItem = future
-	}
-
 	return item, future
 }
 
@@ -261,23 +249,20 @@ type dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
-	dataset     []uint64  // The actual cache data content
-	once        sync.Once // Ensures the cache is generated only once
-	dateInit    int
-	consistent  common.Hash // Consistency of generated data
-	datasetHash common.Hash // dataset hash
+	dataset  []uint64  // The actual cache data content
+	once     sync.Once // Ensures the cache is generated only once
+	dateInit int
 }
 
 // newDataset creates a new truehash mining dataset
 func newDataset(epoch uint64) interface{} {
-
 	ds := &dataset{
 		epoch:    epoch,
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
 	//truehashTableInit(ds.evenDataset)
-	log.Info("--- create a new dateset ", "epoch is", epoch)
+
 	return ds
 }
 
@@ -365,59 +350,56 @@ func (m *Minerva) NewTestData(block uint64) {
 // dataset tries to retrieve a mining dataset for the specified block number
 func (m *Minerva) getDataset(block uint64) *dataset {
 	// Retrieve the requested ethash dataset
-	//each 12000 change the mine algorithm block -1 is make sure the 12000 is use epoch 0
-	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
-	currentI, futureI := m.datasets.get(epoch)
+	epoch := block / epochLength
+	//log.Info("epoch value: ", epoch, "------", "block number is: ", block)
+	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	current.generate(epoch, m)
-
-	// when change the algorithm before 12000*n
-	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
-		go func() {
-			log.Info("start to create a future dataset")
-			if futureI != nil {
-				future := futureI.(*dataset)
-				future.generate(m.datasets.future, m)
-			}
-		}()
-	}
-
-	log.Debug("getDataset:", "epoch is ", current.epoch, "futrue epoch is", m.datasets.future, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
+	current.generate(block, m)
 
 	return current
 }
 
-func (d *dataset) Hash() common.Hash {
-	return rlpHash(d.dataset)
-}
-
 // generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(epoch uint64, m *Minerva) {
+func (d *dataset) generate(blockNum uint64, m *Minerva) {
 	d.once.Do(func() {
+		//fmt.Println("d.once:",blockNum)
 		if d.dateInit == 0 {
-			if epoch <= 0 {
-				log.Info("TableInit is start,:epoch is:  ", "------", epoch)
+			//d.dataset = make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+			// blockNum <= UPDATABLOCKLENGTH
+			if blockNum <= UPDATABLOCKLENGTH {
+				log.Info("TableInit is start,:blockNum is:  ", "------", blockNum)
 				m.truehashTableInit(d.dataset)
-				d.datasetHash = d.Hash()
 			} else {
-				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start,:epoch is:  ", "------", epoch)
-				flag, _, cont := m.updateLookupTBL(epoch, d.dataset)
+				//bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				bn := (blockNum/UPDATABLOCKLENGTH-1)*UPDATABLOCKLENGTH + STARTUPDATENUM + 1
+				log.Info("updateLookupTBL is start,:blockNum is:  ", "------", blockNum)
+				//d.Flag = 0
+				flag, ds := m.updateLookupTBL(bn, d.dataset)
 				if flag {
-					// consistent is make sure the algorithm is current and not change
-					d.consistent = common.BytesToHash([]byte(cont))
-					d.datasetHash = d.Hash()
-
-					log.Info("updateLookupTBL change success", "epoch is:", epoch, "---consistent is:", d.consistent.String())
+					d.dataset = ds
 				} else {
-					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
+					log.Error("updateLookupTBL is err  ", "blockNum is:  ", blockNum)
 				}
 			}
 			d.dateInit = 1
 		}
 	})
 
+	//go d.updateTable(blockNum, m)
+
+}
+
+func (d *dataset) updateTable(blockNum uint64, m *Minerva) {
+	if blockNum%UPDATABLOCKLENGTH == STARTUPDATENUM+1 {
+		epoch := blockNum / epochLength
+		currentI, _ := m.datasets.get(epoch + 1)
+		current := currentI.(*dataset)
+		if current.dateInit == 0 {
+			current.generate(blockNum, m)
+			//fmt.Println(blockNum)
+		}
+	}
 }
 
 //SetSnailChainReader Append interface SnailChainReader after instantiations
@@ -560,7 +542,7 @@ func newFakeElection() *fakeElection {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag}
 		members = append(members, m)
 	}
 	return &fakeElection{privates: priKeys, members: members}
@@ -606,12 +588,4 @@ func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, er
 		signs = append(signs, voteSign)
 	}
 	return signs, nil
-}
-
-// for hash
-func rlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
-	rlp.Encode(hw, x)
-	hw.Sum(h[:0])
-	return h
 }

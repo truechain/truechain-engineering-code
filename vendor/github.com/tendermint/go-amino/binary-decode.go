@@ -1,11 +1,11 @@
 package amino
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
-	"encoding/binary"
 )
 
 //----------------------------------------

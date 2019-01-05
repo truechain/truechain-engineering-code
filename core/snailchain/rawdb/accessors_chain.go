@@ -22,9 +22,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
@@ -380,21 +380,34 @@ type committeeMember struct {
 	PubKey  []byte
 }
 
+type electionMembers struct{
+	Members     []*committeeMember
+	Backups     []*committeeMember
+}
+
 // WriteCommittee stores the Committee of a block into the database.
-func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.CommitteeMember) {
-	members := make([]*committeeMember, len(committee))
-	for i, member := range committee {
+func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionCommittee) {
+	members := make([]*committeeMember, len(committee.Members))
+	for i, member := range committee.Members {
 		members[i] = &committeeMember{
 			Address: member.Coinbase,
-			PubKey:  crypto.FromECDSAPub(member.Publickey),
+			PubKey: crypto.FromECDSAPub(member.Publickey),
 		}
 	}
-	data, err := rlp.EncodeToBytes(members)
+	backups := make([]*committeeMember, len(committee.Backups))
+	for i, member := range committee.Backups {
+		backups[i] = &committeeMember{
+			Address: member.Coinbase,
+			PubKey: crypto.FromECDSAPub(member.Publickey),
+		}
+	}
+
+	data, err := rlp.EncodeToBytes(&electionMembers{Members: members, Backups: backups})
 	if err != nil {
 		log.Crit("Failed to RLP encode block committee", "err", err)
 	}
 
-	key := headerCommitteeKey(number)
+	key := committeeKey(number)
 	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store block committee", "err", err)
 	}
@@ -402,33 +415,89 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.Committ
 }
 
 // ReadCommittee read committee
-//
-func ReadCommittee(db DatabaseReader, number uint64) []*types.CommitteeMember {
-	key := headerCommitteeKey(number)
+func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
+	key := committeeKey(number)
 	data, _ := db.Get(key)
 	if len(data) == 0 {
 		return nil
 	}
-	var members []*committeeMember
-	if err := rlp.Decode(bytes.NewReader(data), &members); err != nil {
+	var (
+		election    electionMembers
+		committee   types.ElectionCommittee
+	)
+	if err := rlp.Decode(bytes.NewReader(data), &election); err != nil {
 		log.Error("Invalid block  committee RLP", "err", err)
 		return nil
 	}
-	committee := make([]*types.CommitteeMember, len(members))
-	for i, member := range members {
-		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey)
+	for _, member := range election.Members {
+		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
 		if puberr != nil {
 			return nil
 		}
-		committee[i] = &types.CommitteeMember{
-			Coinbase:  member.Address,
-			Publickey: pubkey,
-		}
+		committee.Members = append(committee.Members, &types.CommitteeMember{
+			Coinbase:   member.Address,
+			Publickey:  pubkey,
+			Flag:       types.StateUsedFlag,
+		})
 	}
-	return committee
+
+	for _, member := range election.Backups {
+		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
+		if puberr != nil {
+			return nil
+		}
+		committee.Backups = append(committee.Backups, &types.CommitteeMember{
+			Coinbase:   member.Address,
+			Publickey:  pubkey,
+			Flag:       types.StateUnusedFlag,
+		})
+	}
+
+	return &committee
 }
 
 // ReadGenesisCommittee read the Genesis committee
 func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
-	return ReadCommittee(db, 0)
+	if committee := ReadCommittee(db, 0); committee != nil {
+		for _, m := range committee.Members {
+			m.Flag = types.StateUsedFlag
+		}
+		return committee.Members
+	}
+	return nil
+}
+
+// ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height
+func ReadCommitteeStates(db DatabaseReader, committee uint64) []uint64 {
+	data, _ := db.Get(committeeStateKey(committee))
+	if len(data) == 0 {
+		return nil
+	}
+	var changes []uint64
+	if err := rlp.Decode(bytes.NewReader(data), &changes); err != nil {
+		log.Error("Invalid committee states RLP", "hash", committee, "err", err)
+		return nil
+	}
+	return changes
+}
+
+// HasCommitteeStates indicates whether committee changes stored
+func HasCommitteeStates(db DatabaseReader, committee uint64) bool {
+	if has, err := db.Has(committeeStateKey(committee)); !has || err != nil {
+		return false
+	}
+	return true
+}
+
+// WriteCommitteeStates store the all committee members sepecified with fastblock height
+func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []uint64) {
+	data, err := rlp.EncodeToBytes(changes)
+	if err != nil {
+		log.Crit("Failed to RLP encode committee change numbers", "err", err)
+	}
+
+	key := committeeStateKey(committee)
+	if err := db.Put(key, data); err != nil {
+		log.Crit("Failed to store committee change numbers", "err", err)
+	}
 }

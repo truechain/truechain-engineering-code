@@ -1,7 +1,7 @@
 package types
 
 import (
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	amino "github.com/tendermint/go-amino"
 	cryptoAmino "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto/cryptoamino"
 )
 
@@ -11,6 +11,7 @@ func init() {
 	RegisterBlockAmino(cdc)
 }
 
+//RegisterBlockAmino is register for block amino
 func RegisterBlockAmino(cdc *amino.Codec) {
 	cryptoAmino.RegisterAmino(cdc)
 }

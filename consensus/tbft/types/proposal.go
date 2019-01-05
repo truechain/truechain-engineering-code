@@ -8,8 +8,10 @@ import (
 )
 
 var (
+	//ErrInvalidBlockPartSignature is Error invalid block part signature
 	ErrInvalidBlockPartSignature = errors.New("Error invalid block part signature")
-	ErrInvalidBlockPartHash      = errors.New("Error invalid block part hash")
+	//ErrInvalidBlockPartHash is Error invalid block part hash
+	ErrInvalidBlockPartHash = errors.New("Error invalid block part hash")
 )
 
 // Proposal defines a block proposal for the consensus.
@@ -54,6 +56,6 @@ func (p *Proposal) SignBytes(chainID string) []byte {
 	if err != nil {
 		panic(err)
 	}
-	signBytes := help.RlpHash([]interface{}{bz,})
+	signBytes := help.RlpHash([]interface{}{bz})
 	return signBytes[:]
 }
