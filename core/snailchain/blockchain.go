@@ -997,7 +997,8 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		switch {
 		case err == ErrRewardedBlock:
 			stats.ignored++
-			continue
+			return i, events, ErrRewardedBlock
+
 		case err == ErrKnownBlock:
 			// Block and state both already known. However if the current block is below
 			// this number we did a rollback and we should reimport it nonetheless.
