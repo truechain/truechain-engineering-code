@@ -56,6 +56,12 @@ func (h *Health) SimpleString() string {
 	t := atomic.LoadInt32(&h.Tick)
 	return fmt.Sprintf("state:%d,tick:%d", s, t)
 }
+// Equal return true they are same id or both nil otherwise return false
+func (h *Health) Equal(other *Health) bool {
+	if h == nil && other == nil { return true }
+	if h == nil || other == nil { return false }
+	return h.ID == other.ID
+}
 
 //SwitchValidator struct
 type SwitchValidator struct {
@@ -268,6 +274,9 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			} else if enter1.Flag == ctypes.StateRemovedFlag {
 				remove = h.GetHealth(enter1.Pk)
 			}
+			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
+				log.Error("switchResult item not match","remove",remove,"Remove",res.Remove,"add",add,"Add",res.Add)
+			} 
 			if remove != nil {
 				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
 				ss = "Success"
