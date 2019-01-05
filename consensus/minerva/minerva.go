@@ -373,8 +373,9 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	current.generate(epoch, m)
 
 	// when change the algorithm before 12000*n
-	if block == (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
+	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
 		go func() {
+			log.Info("start to create a future dataset")
 			if futureI != nil {
 				future := futureI.(*dataset)
 				future.generate(m.datasets.future, m)
