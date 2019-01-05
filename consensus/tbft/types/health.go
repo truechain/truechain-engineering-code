@@ -46,6 +46,7 @@ func NewHealth(id p2p.ID, state int32, val *Validator, Self bool) *Health {
 }
 
 func (h *Health) String() string {
+	if h == nil { return "health-nil" }
 	return fmt.Sprintf("id:%s,ip:%s,port:%d,tick:%d,state:%d,addr:%s", h.ID, h.IP, h.Port, h.Tick, h.State,
 		common.ToHex(h.Val.Address))
 }
@@ -71,6 +72,12 @@ type SwitchValidator struct {
 	Resion string
 	From   int					// 0-- add ,1--remove
 	DoorCount int
+}
+
+func (s *SwitchValidator) String() string {
+	if s == nil { return "switch-validator-nil" }
+	return fmt.Sprintf("switch-validator:[R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
+	s.Remove,s.Add,s.Infos,s.Resion,s.From,s.DoorCount)
 }
 
 //HealthMgr struct
