@@ -1,4 +1,4 @@
-package p2p
+package tp2p
 
 import (
 	"encoding/hex"
@@ -39,5 +39,3 @@ func PubKeyToID(pubKey crypto.PubKey) ID {
 }
 
 //------------------------------------------------------------------------------
-
-

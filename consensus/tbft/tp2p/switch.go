@@ -1,10 +1,10 @@
-package p2p
+package tp2p
 
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math"
 	"net"
@@ -72,7 +72,7 @@ type Switch struct {
 
 	filterConnByAddr func(net.Addr) error
 	filterConnByID   func(ID) error
-	hasPeer 	help.PeerInValidators
+	hasPeer          help.PeerInValidators
 
 	mConfig conn.MConnConfig
 }
@@ -81,14 +81,14 @@ type Switch struct {
 type SwitchOption func(*Switch)
 
 // NewSwitch creates a new Switch with the given config.
-func NewSwitch(cfg *config.P2PConfig,hasPeer help.PeerInValidators, options ...SwitchOption) *Switch {
+func NewSwitch(cfg *config.P2PConfig, hasPeer help.PeerInValidators, options ...SwitchOption) *Switch {
 	sw := &Switch{
 		config:       cfg,
 		reactors:     make(map[string]Reactor),
 		chDescs:      make([]*conn.ChannelDescriptor, 0),
 		reactorsByCh: make(map[byte]Reactor),
 		peers:        NewPeerSet(),
-		hasPeer:	  hasPeer,
+		hasPeer:      hasPeer,
 		dialing:      help.NewCMap(),
 		reconnecting: help.NewCMap(),
 	}

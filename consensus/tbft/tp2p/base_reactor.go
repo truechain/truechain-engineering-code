@@ -1,8 +1,8 @@
-package p2p
+package tp2p
 
 import (
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
 )
 
 type Reactor interface {
@@ -34,12 +34,12 @@ type Reactor interface {
 
 type BaseReactor struct {
 	help.BaseService // Provides Start, Stop, .Quit
-	Switch          *Switch
+	Switch           *Switch
 }
 
 func NewBaseReactor(name string, impl Reactor) *BaseReactor {
 	return &BaseReactor{
-		BaseService: *help.NewBaseService( name, impl),
+		BaseService: *help.NewBaseService(name, impl),
 		Switch:      nil,
 	}
 }

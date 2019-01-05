@@ -1,8 +1,8 @@
-package p2p
+package tp2p
 
 import (
-	cryptoAmino "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto/cryptoamino"
 	amino "github.com/tendermint/go-amino"
+	cryptoAmino "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto/cryptoamino"
 )
 
 var cdc = amino.NewCodec()

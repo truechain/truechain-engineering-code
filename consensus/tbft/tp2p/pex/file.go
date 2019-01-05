@@ -3,9 +3,9 @@ package pex
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"os"
 )
 
 /* Loading & Saving */

@@ -13,9 +13,9 @@ import (
 
 	"crypto/elliptic"
 	"github.com/ethereum/go-ethereum/log"
+	amino "github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
-	amino "github.com/tendermint/go-amino"
 )
 
 const (

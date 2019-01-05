@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/pex"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/pex"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
@@ -22,22 +22,22 @@ import (
 )
 
 type service struct {
-	sw               *p2p.Switch
+	sw               *tp2p.Switch
 	consensusState   *ConsensusState   // latest consensus state
 	consensusReactor *ConsensusReactor // for participating in the consensus
 	sa               *ttypes.StateAgentImpl
-	nodeTable        map[p2p.ID]*nodeInfo
+	nodeTable        map[tp2p.ID]*nodeInfo
 	lock             *sync.Mutex
 	updateChan       chan bool
 	eventBus         *ttypes.EventBus // pub/sub for services
 	addrBook         pex.AddrBook     // known peers
 	healthMgr        *ttypes.HealthMgr
-	selfID           p2p.ID
+	selfID           tp2p.ID
 }
 
 type nodeInfo struct {
-	ID      p2p.ID
-	Adrress *p2p.NetAddress
+	ID      tp2p.ID
+	Adrress *tp2p.NetAddress
 	IP      string
 	Port    uint
 	Enable  bool
@@ -56,7 +56,7 @@ const (
 func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *ttypes.StateAgentImpl,
 	store *ttypes.BlockStore, cid uint64) *service {
 	return &service{
-		sw:             p2p.NewSwitch(p2pcfg, state),
+		sw:             tp2p.NewSwitch(p2pcfg, state),
 		consensusState: NewConsensusState(cscfg, state, store),
 		// nodeTable:      make(map[p2p.ID]*nodeInfo),
 		lock:       new(sync.Mutex),
@@ -77,7 +77,7 @@ func (s *service) nodesHaveSelf() bool {
 	return ok && v.Flag == types.StateUsedFlag
 }
 
-func (s *service) setNodes(nodes map[p2p.ID]*nodeInfo) {
+func (s *service) setNodes(nodes map[tp2p.ID]*nodeInfo) {
 	s.nodeTable = nodes
 }
 func (s *service) start(cid *big.Int, node *Node) error {
@@ -92,7 +92,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	}
 	nodeinfo := node.nodeinfo
 	_, lAddr := help.ProtocolAndAddress(lstr)
-	lAddrIP, lAddrPort := p2p.SplitHostPort(lAddr)
+	lAddrIP, lAddrPort := tp2p.SplitHostPort(lAddr)
 	nodeinfo.ListenAddr = fmt.Sprintf("%v:%v", lAddrIP, lAddrPort)
 	// Add ourselves to addrbook to prevent dialing ourselves
 	s.addrBook.AddOurAddress(nodeinfo.NetAddress())
@@ -102,7 +102,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	s.sw.SetNodeInfo(nodeinfo)
 	s.sw.SetNodeKey(&node.nodekey)
 	log.Info("commitee start", "node info", nodeinfo.String())
-	l := p2p.NewDefaultListener(
+	l := tp2p.NewDefaultListener(
 		lstr,
 		node.config.P2P.ExternalAddress,
 		node.config.P2P.UPNP,
@@ -165,8 +165,8 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		if cid.Uint64()%2 == 0 {
 			port = node.Port
 		}
-		id := p2p.ID(hex.EncodeToString(address[:]))
-		addr, err := p2p.NewNetAddressString(p2p.IDAddressString(id,
+		id := tp2p.ID(hex.EncodeToString(address[:]))
+		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
 			log.Info("Enter NodeInfo", "id", id, "addr", addr)
@@ -182,14 +182,14 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 }
 
 //pkToP2pID pk to p2p id
-func pkToP2pID(pk *ecdsa.PublicKey) p2p.ID {
+func pkToP2pID(pk *ecdsa.PublicKey) tp2p.ID {
 	publickey := crypto.FromECDSAPub(pk)
 	pub, err := crypto.UnmarshalPubkey(publickey)
 	if err != nil {
 		return ""
 	}
 	address := crypto.PubkeyToAddress(*pub)
-	return p2p.ID(hex.EncodeToString(address[:]))
+	return tp2p.ID(hex.EncodeToString(address[:]))
 }
 
 func (s *service) updateNodes() {
@@ -234,8 +234,8 @@ type Node struct {
 
 	// services
 	services map[uint64]*service
-	nodekey  p2p.NodeKey
-	nodeinfo p2p.NodeInfo
+	nodekey  tp2p.NodeKey
+	nodeinfo tp2p.NodeInfo
 	chainID  string
 	lock     *sync.Mutex
 }
@@ -260,7 +260,7 @@ func NewNode(config *cfg.TbftConfig, chainID string, priv *ecdsa.PrivateKey,
 		Agent:    agent,
 		lock:     new(sync.Mutex),
 		services: make(map[uint64]*service),
-		nodekey: p2p.NodeKey{
+		nodekey: tp2p.NodeKey{
 			PrivKey: tcrypto.PrivKeyTrue(*priv),
 		},
 	}
@@ -296,8 +296,8 @@ func (n *Node) RunForever() {
 	//})
 }
 
-func (n *Node) makeNodeInfo() p2p.NodeInfo {
-	nodeInfo := p2p.NodeInfo{
+func (n *Node) makeNodeInfo() tp2p.NodeInfo {
+	nodeInfo := tp2p.NodeInfo{
 		ID:      n.nodekey.ID(),
 		Network: n.chainID,
 		Version: "0.1.0",
@@ -315,7 +315,7 @@ func (n *Node) makeNodeInfo() p2p.NodeInfo {
 	}
 	// Split protocol, address, and port.
 	_, lAddr := help.ProtocolAndAddress(n.config.P2P.ListenAddress1)
-	lAddrIP, lAddrPort := p2p.SplitHostPort(lAddr)
+	lAddrIP, lAddrPort := tp2p.SplitHostPort(lAddr)
 	nodeInfo.ListenAddr = fmt.Sprintf("%v:%v", lAddrIP, lAddrPort)
 	return nodeInfo
 }
@@ -498,16 +498,16 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	}
 	return ttypes.NewValidatorSet(vals)
 }
-func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
+func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*nodeInfo {
 	members := append(cmm.Members, cmm.BackMembers...)
 	if ss == nil || len(members) <= 0 {
 		return nil
 	}
-	tab := make(map[p2p.ID]*nodeInfo)
+	tab := make(map[tp2p.ID]*nodeInfo)
 	for i, m := range members {
 		tt := tcrypto.PubKeyTrue(*m.Publickey)
 		address := tt.Address()
-		id := p2p.ID(hex.EncodeToString(address))
+		id := tp2p.ID(hex.EncodeToString(address))
 		tab[id] = &nodeInfo{
 			ID:   id,
 			Flag: m.Flag,
@@ -517,17 +517,17 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 	return tab
 }
 
-func makeCommitteeMembersForUpdateCommittee(cmm *types.CommitteeInfo) map[p2p.ID]*nodeInfo {
+func makeCommitteeMembersForUpdateCommittee(cmm *types.CommitteeInfo) map[tp2p.ID]*nodeInfo {
 	members := cmm.Members
 	if cmm.BackMembers != nil {
 		members = append(members, cmm.BackMembers...)
 	}
-	tab := make(map[p2p.ID]*nodeInfo)
+	tab := make(map[tp2p.ID]*nodeInfo)
 	for i, m := range members {
 		if m.Flag == types.StateUsedFlag {
 			tt := tcrypto.PubKeyTrue(*m.Publickey)
 			address := tt.Address()
-			id := p2p.ID(hex.EncodeToString(address))
+			id := tp2p.ID(hex.EncodeToString(address))
 			tab[id] = nil
 			log.Info("CommitteeMembers", "index", i, "id", id)
 		}

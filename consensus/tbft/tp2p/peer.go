@@ -1,17 +1,17 @@
-package p2p
+package tp2p
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
-	"errors"
 
-	crypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/params"
-	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
+	crypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var testIPSuffix uint32
@@ -138,7 +138,7 @@ func newOutboundPeerConn(
 ) (peerConn, error) {
 	conn, err := dial(addr, config)
 	if err != nil {
-		return peerConn{}, errors.New(fmt.Sprint(err,"dail Error creating peer"))
+		return peerConn{}, errors.New(fmt.Sprint(err, "dail Error creating peer"))
 	}
 
 	pc, err := newPeerConn(conn, config, true, persistent, ourNodePrivKey, addr)

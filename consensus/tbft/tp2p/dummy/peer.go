@@ -3,9 +3,9 @@ package dummy
 import (
 	"net"
 
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	p2p "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
 	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 type peer struct {

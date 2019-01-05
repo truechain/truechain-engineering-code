@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-
 type pipe struct {
 	net.Conn
 }

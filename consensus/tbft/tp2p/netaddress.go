@@ -1,17 +1,17 @@
 // Originally Copyright (c) 2013-2014 Conformal Systems LLC.
 // https://github.com/conformal/btcd/blob/master/LICENSE
 
-package p2p
+package tp2p
 
 import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // NetAddress defines information about a peer on the network

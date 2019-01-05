@@ -3,11 +3,11 @@ package pex
 import (
 	"fmt"
 
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 )
 
 type ErrAddrBookNonRoutable struct {
-	Addr *p2p.NetAddress
+	Addr *tp2p.NetAddress
 }
 
 func (err ErrAddrBookNonRoutable) Error() string {
@@ -15,7 +15,7 @@ func (err ErrAddrBookNonRoutable) Error() string {
 }
 
 type ErrAddrBookSelf struct {
-	Addr *p2p.NetAddress
+	Addr *tp2p.NetAddress
 }
 
 func (err ErrAddrBookSelf) Error() string {
@@ -23,7 +23,7 @@ func (err ErrAddrBookSelf) Error() string {
 }
 
 type ErrAddrBookPrivate struct {
-	Addr *p2p.NetAddress
+	Addr *tp2p.NetAddress
 }
 
 func (err ErrAddrBookPrivate) Error() string {
@@ -31,7 +31,7 @@ func (err ErrAddrBookPrivate) Error() string {
 }
 
 type ErrAddrBookPrivateSrc struct {
-	Src *p2p.NetAddress
+	Src *tp2p.NetAddress
 }
 
 func (err ErrAddrBookPrivateSrc) Error() string {
@@ -39,8 +39,8 @@ func (err ErrAddrBookPrivateSrc) Error() string {
 }
 
 type ErrAddrBookNilAddr struct {
-	Addr *p2p.NetAddress
-	Src  *p2p.NetAddress
+	Addr *tp2p.NetAddress
+	Src  *tp2p.NetAddress
 }
 
 func (err ErrAddrBookNilAddr) Error() string {

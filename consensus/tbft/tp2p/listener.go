@@ -1,4 +1,4 @@
-package p2p
+package tp2p
 
 import (
 	"fmt"
@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/upnp"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/upnp"
 )
 
 // Listener is a network listener for stream-oriented protocols, providing

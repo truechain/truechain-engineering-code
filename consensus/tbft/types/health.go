@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	"sort"
 	"sync/atomic"
@@ -19,13 +19,13 @@ const (
 	//HealthOut peer time out
 	HealthOut = 60 //* 10
 	//MixValidator min committee count
-	MixValidator = 2
+	MixValidator   = 2
 	BlackDoorCount = 3
 )
 
 //Health struct
 type Health struct {
-	ID    p2p.ID
+	ID    tp2p.ID
 	IP    string
 	Port  uint
 	Tick  int32
@@ -35,7 +35,7 @@ type Health struct {
 }
 
 //NewHealth new
-func NewHealth(id p2p.ID, state int32, val *Validator, Self bool) *Health {
+func NewHealth(id tp2p.ID, state int32, val *Validator, Self bool) *Health {
 	return &Health{
 		ID:    id,
 		State: state,
@@ -46,7 +46,9 @@ func NewHealth(id p2p.ID, state int32, val *Validator, Self bool) *Health {
 }
 
 func (h *Health) String() string {
-	if h == nil { return "health-nil" }
+	if h == nil {
+		return "health-nil"
+	}
 	return fmt.Sprintf("id:%s,ip:%s,port:%d,tick:%d,state:%d,addr:%s", h.ID, h.IP, h.Port, h.Tick, h.State,
 		common.ToHex(h.Val.Address))
 }
@@ -57,34 +59,41 @@ func (h *Health) SimpleString() string {
 	t := atomic.LoadInt32(&h.Tick)
 	return fmt.Sprintf("state:%d,tick:%d", s, t)
 }
+
 // Equal return true they are same id or both nil otherwise return false
 func (h *Health) Equal(other *Health) bool {
-	if h == nil && other == nil { return true }
-	if h == nil || other == nil { return false }
+	if h == nil && other == nil {
+		return true
+	}
+	if h == nil || other == nil {
+		return false
+	}
 	return h.ID == other.ID
 }
 
 //SwitchValidator struct
 type SwitchValidator struct {
-	Remove *Health
-	Add    *Health
-	Infos  *ctypes.SwitchInfos
-	Resion string
-	From   int					// 0-- add ,1--remove
+	Remove    *Health
+	Add       *Health
+	Infos     *ctypes.SwitchInfos
+	Resion    string
+	From      int // 0-- add ,1--remove
 	DoorCount int
 }
 
 func (s *SwitchValidator) String() string {
-	if s == nil { return "switch-validator-nil" }
+	if s == nil {
+		return "switch-validator-nil"
+	}
 	return fmt.Sprintf("switch-validator:[R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
-	s.Remove,s.Add,s.Infos,s.Resion,s.From,s.DoorCount)
+		s.Remove, s.Add, s.Infos, s.Resion, s.From, s.DoorCount)
 }
 
 //HealthMgr struct
 type HealthMgr struct {
 	help.BaseService
 	Sum            int64
-	Work           map[p2p.ID]*Health
+	Work           map[tp2p.ID]*Health
 	Back           []*Health
 	switchChanTo   chan *SwitchValidator
 	switchChanFrom chan *SwitchValidator
@@ -95,7 +104,7 @@ type HealthMgr struct {
 //NewHealthMgr func
 func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
-		Work:           make(map[p2p.ID]*Health, 0),
+		Work:           make(map[tp2p.ID]*Health, 0),
 		Back:           make([]*Health, 0, 0),
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
@@ -114,7 +123,7 @@ func (h *HealthMgr) SetBackValidators(hh []*Health) {
 }
 
 //UpdataHealthInfo update one health
-func (h *HealthMgr) UpdataHealthInfo(id p2p.ID, ip string, port uint, pk []byte) {
+func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte) {
 	enter := h.GetHealth(pk)
 	if enter != nil && enter.ID != "" {
 		enter.ID, enter.IP, enter.Port = id, ip, port
@@ -244,9 +253,9 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		Vals: vals,
 	}
 	return &SwitchValidator{
-		Infos:  infos,
-		Resion: resion,
-		From:   from,
+		Infos:     infos,
+		Resion:    resion,
+		From:      from,
 		DoorCount: BlackDoorCount,
 	}
 }
@@ -282,8 +291,8 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 				remove = h.GetHealth(enter1.Pk)
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
-				log.Error("switchResult item not match","remove",remove,"Remove",res.Remove,"add",add,"Add",res.Add)
-			} 
+				log.Error("switchResult item not match", "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
+			}
 			if remove != nil {
 				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
 				ss = "Success"
@@ -309,7 +318,7 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 }
 
 //Update tick
-func (h *HealthMgr) Update(id p2p.ID) {
+func (h *HealthMgr) Update(id tp2p.ID) {
 	if v, ok := h.Work[id]; ok {
 		val := atomic.LoadInt32(&v.Tick)
 		atomic.AddInt32(&v.Tick, -val)

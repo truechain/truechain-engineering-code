@@ -2,7 +2,6 @@
 
 package conn
 
-
 import "net"
 
 func NetPipe() (net.Conn, net.Conn) {

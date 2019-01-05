@@ -1,9 +1,9 @@
-package p2p
+package tp2p
 
 import (
+	"github.com/ethereum/go-ethereum/log"
 	"net"
 	"sync"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // IPeerSet has a (immutable) subset of the methods of PeerSet.

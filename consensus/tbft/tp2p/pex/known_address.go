@@ -3,22 +3,22 @@ package pex
 import (
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 )
 
 // knownAddress tracks information about a known network address
 // that is used to determine how viable an address is.
 type knownAddress struct {
-	Addr        *p2p.NetAddress `json:"addr"`
-	Src         *p2p.NetAddress `json:"src"`
-	Attempts    int32           `json:"attempts"`
-	LastAttempt time.Time       `json:"last_attempt"`
-	LastSuccess time.Time       `json:"last_success"`
-	BucketType  byte            `json:"bucket_type"`
-	Buckets     []int           `json:"buckets"`
+	Addr        *tp2p.NetAddress `json:"addr"`
+	Src         *tp2p.NetAddress `json:"src"`
+	Attempts    int32            `json:"attempts"`
+	LastAttempt time.Time        `json:"last_attempt"`
+	LastSuccess time.Time        `json:"last_success"`
+	BucketType  byte             `json:"bucket_type"`
+	Buckets     []int            `json:"buckets"`
 }
 
-func newKnownAddress(addr *p2p.NetAddress, src *p2p.NetAddress) *knownAddress {
+func newKnownAddress(addr *tp2p.NetAddress, src *tp2p.NetAddress) *knownAddress {
 	return &knownAddress{
 		Addr:        addr,
 		Src:         src,
@@ -29,7 +29,7 @@ func newKnownAddress(addr *p2p.NetAddress, src *p2p.NetAddress) *knownAddress {
 	}
 }
 
-func (ka *knownAddress) ID() p2p.ID {
+func (ka *knownAddress) ID() tp2p.ID {
 	return ka.Addr.ID
 }
 

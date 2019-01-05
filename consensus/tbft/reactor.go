@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"reflect"
 	"sync"
@@ -32,7 +32,7 @@ const (
 
 // ConsensusReactor defines a reactor for the consensus service.
 type ConsensusReactor struct {
-	p2p.BaseReactor // BaseService + p2p.Switch
+	tp2p.BaseReactor // BaseService + p2p.Switch
 
 	conS *ConsensusState
 
@@ -49,7 +49,7 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 		conS:     consensusState,
 		fastSync: fastSync,
 	}
-	conR.BaseReactor = *p2p.NewBaseReactor("ConsensusReactor", conR)
+	conR.BaseReactor = *tp2p.NewBaseReactor("ConsensusReactor", conR)
 	return conR
 }
 
@@ -84,9 +84,9 @@ func (conR *ConsensusReactor) OnStop() {
 }
 
 // GetChannels implements Reactor
-func (conR *ConsensusReactor) GetChannels() []*p2p.ChannelDescriptor {
+func (conR *ConsensusReactor) GetChannels() []*tp2p.ChannelDescriptor {
 	// TODO optimize
-	return []*p2p.ChannelDescriptor{
+	return []*tp2p.ChannelDescriptor{
 		{
 			ID:                  StateChannel,
 			Priority:            5,
@@ -118,7 +118,7 @@ func (conR *ConsensusReactor) GetChannels() []*p2p.ChannelDescriptor {
 }
 
 // AddPeer implements Reactor
-func (conR *ConsensusReactor) AddPeer(peer p2p.Peer) {
+func (conR *ConsensusReactor) AddPeer(peer tp2p.Peer) {
 	if !conR.IsRunning() {
 		return
 	}
@@ -140,7 +140,7 @@ func (conR *ConsensusReactor) AddPeer(peer p2p.Peer) {
 }
 
 // RemovePeer implements Reactor
-func (conR *ConsensusReactor) RemovePeer(peer p2p.Peer, reason interface{}) {
+func (conR *ConsensusReactor) RemovePeer(peer tp2p.Peer, reason interface{}) {
 	if !conR.IsRunning() {
 		return
 	}
@@ -159,7 +159,7 @@ func (conR *ConsensusReactor) SetHealthMgr(h *ttypes.HealthMgr) {
 // Peer state updates can happen in parallel, but processing of
 // proposals, block parts, and votes are ordered by the receiveRoutine
 // NOTE: blocks on consensus state for proposals, block parts, and votes
-func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) {
+func (conR *ConsensusReactor) Receive(chID byte, src tp2p.Peer, msgBytes []byte) {
 	conR.hm.Update(src.ID())
 	if !conR.IsRunning() {
 		log.Debug("Receive", "src", src, "chId", chID, "bytes", msgBytes)
@@ -403,7 +403,7 @@ func makeRoundStepMessages(rs *ttypes.RoundState) (nrsMsg *NewRoundStepMessage, 
 	return
 }
 
-func (conR *ConsensusReactor) sendNewRoundStepMessages(peer p2p.Peer) {
+func (conR *ConsensusReactor) sendNewRoundStepMessages(peer tp2p.Peer) {
 	log.Debug("sendNewRoundStepMessages", "makeRoundStepMessages", "in")
 	rs := conR.conS.GetRoundState()
 	nrsMsg, csMsg := makeRoundStepMessages(rs)
@@ -415,7 +415,7 @@ func (conR *ConsensusReactor) sendNewRoundStepMessages(peer p2p.Peer) {
 	}
 }
 
-func (conR *ConsensusReactor) gossipDataRoutine(peer p2p.Peer, ps *PeerState) {
+func (conR *ConsensusReactor) gossipDataRoutine(peer tp2p.Peer, ps *PeerState) {
 	//logger := log.With("peer", peer)
 
 OUTER_LOOP:
@@ -513,7 +513,7 @@ OUTER_LOOP:
 }
 
 func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
-	prs *ttypes.PeerRoundState, ps *PeerState, peer p2p.Peer) {
+	prs *ttypes.PeerRoundState, ps *PeerState, peer tp2p.Peer) {
 
 	if !prs.Proposal {
 		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
@@ -568,7 +568,7 @@ func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 	time.Sleep(conR.conS.config.PeerGossipSleep())
 }
 
-func (conR *ConsensusReactor) gossipVotesRoutine(peer p2p.Peer, ps *PeerState) {
+func (conR *ConsensusReactor) gossipVotesRoutine(peer tp2p.Peer, ps *PeerState) {
 	//logger := conR.Logger.With("peer", peer)
 
 	// Simple hack to throttle logs upon sleep.
@@ -692,7 +692,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 
 // NOTE: `queryMaj23Routine` has a simple crude design since it only comes
 // into play for liveness when there's a signature DDoS attack happening.
-func (conR *ConsensusReactor) queryMaj23Routine(peer p2p.Peer, ps *PeerState) {
+func (conR *ConsensusReactor) queryMaj23Routine(peer tp2p.Peer, ps *PeerState) {
 	//logger := conR.Logger.With("peer", peer)
 
 OUTER_LOOP:
@@ -816,7 +816,7 @@ var (
 // NOTE: THIS GETS DUMPED WITH rpc/core/consensus.go.
 // Be mindful of what you Expose.
 type PeerState struct {
-	peer   p2p.Peer
+	peer   tp2p.Peer
 	logger log.Logger
 
 	mtx   sync.Mutex            // NOTE: Modify below using setters, never directly.
@@ -838,7 +838,7 @@ func (pss peerStateStats) String() string {
 }
 
 // NewPeerState returns a new PeerState for the given Peer
-func NewPeerState(peer p2p.Peer) *PeerState {
+func NewPeerState(peer tp2p.Peer) *PeerState {
 	return &PeerState{
 		peer: peer,
 		//logger: log.NewNopLogger(),
@@ -1343,19 +1343,22 @@ type ProposalMessage struct {
 func (m *ProposalMessage) String() string {
 	return fmt.Sprintf("[Proposal %v]", m.Proposal)
 }
+
 // ValidatorUpdateMessage is send when a new committee is elected
 type ValidatorUpdateMessage struct {
-	vset 		*ttypes.ValidatorSet
-	uHeight		uint64
-	eHeight 	uint64
+	vset    *ttypes.ValidatorSet
+	uHeight uint64
+	eHeight uint64
 }
+
 // String returns a string representation.
 func (v *ValidatorUpdateMessage) String() string {
 	if v == nil {
 		return "nil message"
 	}
-	return fmt.Sprintf("ValidatorUpdateMessage %v",v.vset)
+	return fmt.Sprintf("ValidatorUpdateMessage %v", v.vset)
 }
+
 //-------------------------------------
 
 // ProposalPOLMessage is sent when a previous proposal is re-proposed.
