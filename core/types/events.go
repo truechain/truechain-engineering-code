@@ -68,7 +68,7 @@ type ChainSnailSideEvent struct {
 
 type ChainSnailHeadEvent struct{ Block *SnailBlock }
 
-// for fruit event
+// FruitEvent for fruit event,seems not used
 type FruitEvent struct {
 	Block *Block
 	Hash  common.Hash
