@@ -380,12 +380,19 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 			pos := offset[idx] + x
 			sk := skip[idx]
 			y := pos - sk*PMTSIZE/2
+			c := 0
 			for i := 0; i < PMTSIZE; i++ {
 				if y >= 0 && y < SKIP_CYCLE_LEN {
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
 					plookupTbl[plkt+vI] |= 1 << vR
+					c = c+1
 				}
+			}
+			if c == 0 {
+				vI := uint32(x / 64)
+				vR := uint32(x % 64)
+				plookupTbl[plkt+vI] |= 1 << vR
 			}
 			plkt += lktWz
 		}
