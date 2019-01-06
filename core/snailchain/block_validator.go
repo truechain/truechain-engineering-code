@@ -157,7 +157,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 		return consensus.ErrFutureBlock
 	}
 
-	fb := v.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
+	fb := v.fastchain.GetHeader(fruit.FastHash(), fruit.FastNumber().Uint64())
 	if fb == nil {
 		return ErrInvalidFast
 	}

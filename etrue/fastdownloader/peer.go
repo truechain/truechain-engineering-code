@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/ethereum/go-ethereum/log"
+	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
 const (
@@ -131,10 +131,10 @@ func (p *peerConnection) GetStateStarted() time.Time   { return p.stateStarted }
 func (p *peerConnection) GetID() string   { return p.id }
 func (p *peerConnection) GetVersion() int { return p.version }
 
-func (p *peerConnection) GetPeer() etrue.Peer    { return p.peer }
-func (p *peerConnection) SetPeer(peer etrue.Peer)    {p.peer = peer }
-func (p *peerConnection) GetLog() log.Logger     { return p.log }
-func (p *peerConnection) GetLock() *sync.RWMutex { return &p.lock }
+func (p *peerConnection) GetPeer() etrue.Peer     { return p.peer }
+func (p *peerConnection) SetPeer(peer etrue.Peer) { p.peer = peer }
+func (p *peerConnection) GetLog() log.Logger      { return p.log }
+func (p *peerConnection) GetLock() *sync.RWMutex  { return &p.lock }
 
 // Reset clears the internal state of a peer entity.
 func (p *peerConnection) Reset() {
@@ -165,7 +165,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 		return errAlreadyFetching
 	}
 	p.headerStarted = time.Now()
-
+	log.Info("---------------------------- 44")
 	// Issue the header retrieval request (absolut upwards without gaps)
 	go p.peer.RequestHeadersByNumber(from, count, 0, false, true)
 

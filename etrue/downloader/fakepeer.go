@@ -147,7 +147,7 @@ func (p *FakePeer) RequestReceipts(hashes []common.Hash,isFastchain bool) error 
 	for _, hash := range hashes {
 		receipts = append(receipts, rawdb.ReadReceipts(p.db, hash, *p.hc.GetBlockNumber(hash)))
 	}
-	p.dl.DeliverReceipts(p.id, receipts)
+	//p.dl.DeliverReceipts(p.id, receipts)
 	return nil
 }
 

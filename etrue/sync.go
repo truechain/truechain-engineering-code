@@ -28,6 +28,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"math/big"
+	dtype "github.com/truechain/truechain-engineering-code/etrue/types"
 )
 
 const (
@@ -264,55 +265,64 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
+	pm.lock.Lock()
+	defer pm.lock.Unlock()
 	defer log.Debug("synchronise >>>> exit")
 	if peer == nil {
-		log.Warn("synchronise peer nil>>>")
+		log.Debug("synchronise peer nil>>>")
 		return
 	}
+
+	var err error;
+
+	defer func() {
+		// reset on error
+		if err != nil {
+			pm.downloader.Mux.Post(downloader.FailedEvent{err})
+		} else {
+			pm.downloader.Mux.Post(downloader.DoneEvent{})
+		}
+
+	}()
+
 	// Make sure the peer's TD is higher than our own
 	currentBlock := pm.snailchain.CurrentBlock()
 	td := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-
 	pHead, pTd := peer.Head()
-	log.Info("pm_synchronise ", "pTd", pTd, "td", td, "NumberU64", currentBlock.NumberU64())
-	if pTd.Cmp(td) <= 0 {
-		log.Debug("Fast FetchHeight start ", "NOW TIME", time.Now().String(), "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64())
-		header, err := pm.fdownloader.FetchHeight(peer.id, 0)
-		if err != nil || header == nil {
-			log.Warn("pTd.Cmp(td) <= 0 ", "err", err, "header", header)
-			return
-		}
+	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
-		log.Info("Fast FetchHeight end", "currentBlockNumber", pm.blockchain.CurrentBlock().NumberU64(), "PeerCurrentBlockNumber", header.Number.Uint64())
-		log.Debug(">>>>>>>>>>>>>>pTd.Cmp(td)  header", "header", header.Number.Uint64())
-		if header.Number.Uint64() > pm.blockchain.CurrentBlock().NumberU64() {
+	log.Debug("peer Head ", "pHead", pHead, "pTd", pTd, "td", td,"fastHead",peer.fastHead,"fastHeight",fastHeight)
+
+
+	if pTd.Cmp(td) <= 0 {
+		pm.downloader.Mux.Post(downloader.StartEvent{})
+		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
+		log.Debug("Fast FetchHeight start ", "header", fastHeight, "currentBlockNumber", currentNumber,"&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
+
+		if fastHeight > currentNumber {
 
 			for {
-				fbNum := pm.blockchain.CurrentBlock().NumberU64()
-				height := header.Number.Uint64() - fbNum
+
+				currentNumber := pm.blockchain.CurrentBlock().NumberU64()
+				fbNum := currentNumber
+				height := fastHeight - fbNum
 
 				if height > 0 {
-
-					//err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), -1, fbNum, height)
-					//time.Sleep(1*time.Second)
 
 					if height > maxheight {
 						height = maxheight
 					}
-
-					log.Debug(">>>>>>>>>>>>>>222", "fbNum", fbNum, "heigth", height, "currentNum", fbNum)
 					for {
 
-						err := pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
+						err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
 							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
 							return
 						}
 
 						fbNumLast := pm.blockchain.CurrentBlock().NumberU64()
-
+						log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", fbNumLast)
 						if (fbNum + height) > fbNumLast {
-							log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", fbNumLast)
 							height = (fbNum + height) - fbNumLast
 							fbNum = fbNumLast
 							continue
@@ -327,12 +337,17 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		}
 		return
 	}
+
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		// Fast sync was explicitly requested, and explicitly granted
 		mode = downloader.FastSync
-	} else if currentBlock.NumberU64() == 0 && pm.snailchain.CurrentFastBlock().NumberU64() > 0 {
+	} else if atomic.LoadUint32(&pm.snapSync) == 1 {
+
+		mode = downloader.SnapShotSync
+
+	}else if currentBlock.NumberU64() == 0 && pm.snailchain.CurrentFastBlock().NumberU64() > 0 {
 		// The database  seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
@@ -340,26 +355,96 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		// however it's safe to reenable fast sync.
 		atomic.StoreUint32(&pm.fastSync, 1)
 		mode = downloader.FastSync
+
 	}
 
-	if mode == downloader.FastSync {
+
+	if mode == downloader.FastSync || mode == downloader.SnapShotSync {
+		var pivotHeader *types.Header
+
 		// Make sure the peer's total difficulty we are synchronizing is higher.
 		if pm.snailchain.GetTdByHash(pm.snailchain.CurrentFastBlock().Hash()).Cmp(pTd) >= 0 {
 			return
 		}
+
+		var err error
+		pivotNumber := fastHeight - dtype.FsMinFullBlocks
+		if pivotHeader, err = pm.fdownloader.FetchHeight(peer.id, pivotNumber); err != nil {
+			log.Info("pivotHeader>>>","err",err)
+			return
+		}else {
+			pm.downloader.SetHeader(pivotHeader)
+			pm.fdownloader.SetHeader(pivotHeader)
+		}
 	}
 
-	//mode = downloader.FullSync
+	pm.downloader.Mux.Post(downloader.StartEvent{})
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
-	if err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
+	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
 		return
 	}
 
+
+
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
-		log.Info("Fast sync complete, auto disabling")
-		atomic.StoreUint32(&pm.fastSync, 0)
+
+		if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+			currentNumber := uint64(0)
+			if mode == downloader.FastSync {
+				currentNumber = pm.blockchain.CurrentFastBlock().NumberU64()
+			}else if mode == downloader.SnapShotSync{
+				currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+			}
+
+			if fastHeight > currentNumber {
+
+				for {
+					fbNum := currentNumber
+					height := fastHeight - fbNum
+
+					if height > 0 {
+
+						if height > maxheight {
+							height = maxheight
+						}
+						for {
+
+							err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FastSync, fbNum, height)
+							if err != nil {
+								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+								return
+							}
+
+							if mode == downloader.FastSync {
+								currentNumber = pm.blockchain.CurrentFastBlock().NumberU64()
+							}else if mode == downloader.SnapShotSync{
+								currentNumber = pm.blockchain.CurrentHeader().Number.Uint64()
+							}
+
+							if (fbNum + height) > currentNumber {
+								log.Info("fastDownloader while", "fbNum", fbNum, "heigth", height, "currentNum", currentNumber)
+								height = (fbNum + height) - currentNumber
+								fbNum = currentNumber
+								continue
+							}
+							break
+						}
+					} else {
+						break
+					}
+				}
+
+			}
+
+		}
+
 	}
+
+
+	log.Debug("sync exit")
+	atomic.StoreUint32(&pm.fastSync, 0)
+	atomic.StoreUint32(&pm.snapSync, 0)
 	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
 	atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 	//atomic.StoreUint32(&pm.acceptSnailBlocks, 1) // Mark initial sync done on any fetcher import
