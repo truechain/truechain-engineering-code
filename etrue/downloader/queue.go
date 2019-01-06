@@ -65,7 +65,6 @@ type queue struct {
 	blockPendPool  map[string]*etrue.FetchRequest     // [eth/62] Currently pending block (body) retrieval operations
 	blockDonePool  map[common.Hash]struct{}           // [eth/62] Set of the completed block (body) fetches
 
-
 	resultCache  []*etrue.FetchResult // Downloaded but not yet delivered fetch results
 	resultOffset uint64               // Offset of the first cached fetch result in the block chain
 	resultSize   common.StorageSize   // Approximate size of a block (exponential moving average)
@@ -79,15 +78,15 @@ type queue struct {
 func newQueue() *queue {
 	lock := new(sync.Mutex)
 	return &queue{
-		headerPendPool:   make(map[string]*etrue.FetchRequest),
-		headerContCh:     make(chan bool),
-		blockTaskPool:    make(map[common.Hash]*types.SnailHeader),
-		blockTaskQueue:   prque.New(nil),
-		blockPendPool:    make(map[string]*etrue.FetchRequest),
-		blockDonePool:    make(map[common.Hash]struct{}),
-		resultCache:      make([]*etrue.FetchResult, blockCacheItems),
-		active:           sync.NewCond(lock),
-		lock:             lock,
+		headerPendPool: make(map[string]*etrue.FetchRequest),
+		headerContCh:   make(chan bool),
+		blockTaskPool:  make(map[common.Hash]*types.SnailHeader),
+		blockTaskQueue: prque.New(nil),
+		blockPendPool:  make(map[string]*etrue.FetchRequest),
+		blockDonePool:  make(map[common.Hash]struct{}),
+		resultCache:    make([]*etrue.FetchResult, blockCacheItems),
+		active:         sync.NewCond(lock),
+		lock:           lock,
 	}
 }
 
@@ -136,8 +135,6 @@ func (q *queue) PendingBlocks() int {
 	return q.blockTaskQueue.Size()
 }
 
-
-
 // InFlightHeaders retrieves whether there are header fetch requests currently
 // in flight.
 func (q *queue) InFlightHeaders() bool {
@@ -154,8 +151,6 @@ func (q *queue) InFlightBlocks() bool {
 	defer q.lock.Unlock()
 
 	return len(q.blockPendPool) > 0
-}
-
 }
 
 // Idle returns if the queue is fully idle or has some data still inside.
@@ -178,7 +173,6 @@ func (q *queue) ShouldThrottleBlocks() bool {
 
 	return q.resultSlots(q.blockPendPool, q.blockDonePool) <= 0
 }
-
 
 // resultSlots calculates the number of results slots available for requests
 // whilst adhering to both the item and the memory limit too of the results
@@ -401,7 +395,6 @@ func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRe
 	return q.reserveHeaders(p, count, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, isNoop)
 }
 
-
 // reserveHeaders reserves a set of data download operations for a given peer,
 // skipping any previously failed ones. This method is a generic version used
 // by the individual special reservation functions.
@@ -437,6 +430,7 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 			common.Report("index allocation went beyond available resultCache space")
 			return nil, false, errInvalidChain
 		}
+		components := 1
 		if q.resultCache[index] == nil {
 			q.resultCache[index] = &etrue.FetchResult{
 				Pending: components,
@@ -494,7 +488,6 @@ func (q *queue) CancelBodies(request *etrue.FetchRequest) {
 	q.cancel(request, q.blockTaskQueue, q.blockPendPool)
 }
 
-
 // Cancel aborts a fetch request, returning all pending hashes to the task queue.
 func (q *queue) cancel(request *etrue.FetchRequest, taskQueue *prque.Prque, pendPool map[string]*etrue.FetchRequest) {
 	q.lock.Lock()
@@ -541,7 +534,6 @@ func (q *queue) ExpireBodies(timeout time.Duration) map[string]int {
 
 	return q.expire(timeout, q.blockPendPool, q.blockTaskQueue, bodyTimeoutMeter)
 }
-
 
 // expire is the generic check that move expired tasks from a pending pool back
 // into a task pool, returning all entities caught with expired tasks.
@@ -680,7 +672,6 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	}
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)
 }
-
 
 // deliver injects a data retrieval response into the results queue.
 //
