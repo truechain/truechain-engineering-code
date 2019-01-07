@@ -85,11 +85,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 		return ErrKnownBlock
 	}
 
-	// If this height exists a rewarded block,so discard this new one.
-	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
-		return ErrRewardedBlock
-	}
-
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
