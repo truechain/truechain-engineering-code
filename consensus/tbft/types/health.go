@@ -257,6 +257,8 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		Resion:    resion,
 		From:      from,
 		DoorCount: BlackDoorCount,
+		Remove:	   remove,
+		Add:	   add,
 	}
 }
 
