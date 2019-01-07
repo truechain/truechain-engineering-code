@@ -1004,7 +1004,6 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		}
 		switch {
 		case err == ErrRewardedBlock:
-			stats.ignored++
 			return i, events, ErrRewardedBlock
 
 		case err == ErrKnownBlock:
