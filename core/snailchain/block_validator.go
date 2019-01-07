@@ -68,8 +68,8 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 }
 
 //ValidateRewarded verify whether the block has been rewarded.
-func (v *BlockValidator) ValidateRewarded(block *types.SnailBlock) error {
-	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
+func (v *BlockValidator) ValidateRewarded(number uint64) error {
+	if v.fastchain.GetFastHeightBySnailHeight(number) != nil {
 		return ErrRewardedBlock
 	}
 	return nil

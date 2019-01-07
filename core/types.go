@@ -60,5 +60,5 @@ type SnailValidator interface {
 	ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error
 
 	// ValidateRewarded validates the given block if rewarded
-	ValidateRewarded(block *types.SnailBlock) error
+	ValidateRewarded(number uint64) error
 }

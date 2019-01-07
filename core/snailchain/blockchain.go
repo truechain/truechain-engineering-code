@@ -263,6 +263,11 @@ func (bc *SnailBlockChain) loadLastState() error {
 func (bc *SnailBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
 
+	err := bc.Validator().ValidateRewarded(head + 1)
+	if err != nil {
+		log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
+		return err
+	}
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
@@ -992,7 +997,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateRewarded(block)
+			err = bc.Validator().ValidateRewarded(block.NumberU64())
 			err = bc.Validator().ValidateBody(block)
 		}
 		switch {
