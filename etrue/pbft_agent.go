@@ -660,6 +660,12 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, checkTX bool) (*typ
 		feeAmount    = big.NewInt(0)
 		tstamp       = time.Now().Unix()
 	)
+	//checkTX equals true and pending in txPool has no transaction
+	if checkTX {
+		if !agent.eth.TxPool().HasTxInPending() {
+			return &types.Block{}, nil
+		}
+	}
 	//validate newBlock number exceed endNumber
 	if endNumber := agent.endFastNumber[committeeID]; endNumber != nil && endNumber.Cmp(parent.Number()) != 1 {
 		log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)

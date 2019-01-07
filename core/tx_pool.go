@@ -477,6 +477,15 @@ func (pool *TxPool) State() *state.ManagedState {
 	return pool.pendingState
 }
 
+func (pool *TxPool) HasTxInPending() bool {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+	if len(pool.pending) > 0 {
+		return true
+	}
+	return false
+}
+
 // Stats retrieves the current pool stats, namely the number of pending and the
 // number of queued (non-executable) transactions.
 func (pool *TxPool) Stats() (int, int) {
