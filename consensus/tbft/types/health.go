@@ -20,7 +20,7 @@ const (
 	HealthOut = 60 //* 10
 	//MixValidator min committee count
 	MixValidator   = 2
-	BlackDoorCount = 3
+	BlackDoorCount = 4
 )
 
 //Health struct
@@ -68,7 +68,7 @@ func (h *Health) Equal(other *Health) bool {
 	if h == nil || other == nil {
 		return false
 	}
-	return h.ID == other.ID
+	return h.ID == other.ID && bytes.Equal(h.Val.PubKey.Bytes(),other.Val.PubKey.Bytes())
 }
 
 //SwitchValidator struct
@@ -232,7 +232,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		Flag: ctypes.StateRemovedFlag,
 	})
 	for _, v := range h.Work {
-		if !bytes.Equal(remove.Val.PubKey.Bytes(), v.Val.PubKey.Bytes()) && v.State == ctypes.StateUsedFlag {
+		if !v.Equal(remove) && v.State == ctypes.StateUsedFlag {
 			vals = append(vals, &ctypes.SwitchEnter{
 				Pk:   v.Val.PubKey.Bytes(),
 				Flag: uint32(atomic.LoadInt32(&v.State)),
@@ -240,7 +240,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		}
 	}
 	for _, v := range h.Back {
-		if !bytes.Equal(remove.Val.PubKey.Bytes(), v.Val.PubKey.Bytes()) && v.State == ctypes.StateUsedFlag {
+		if !v.Equal(remove) && !v.Equal(add) && v.State == ctypes.StateUsedFlag {
 			vals = append(vals, &ctypes.SwitchEnter{
 				Pk:   v.Val.PubKey.Bytes(),
 				Flag: uint32(atomic.LoadInt32(&v.State)),
