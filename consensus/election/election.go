@@ -126,7 +126,6 @@ type Election struct {
 	defaultMembers   []*types.CommitteeMember
 
 	commiteeCache *lru.Cache
-	committeeList map[uint64]*committee
 
 	electionMode    ElectMode
 	committee       *committee
@@ -187,7 +186,6 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	election := &Election{
 		fastchain:         fastBlockChain,
 		snailchain:        snailBlockChain,
-		committeeList:     make(map[uint64]*committee),
 		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
 		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
 		singleNode:        config.GetNodeType(),
