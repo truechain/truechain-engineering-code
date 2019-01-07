@@ -192,8 +192,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	// 	rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
 	// }
 
-	// TODO: start bloom indexer
-	//etrue.bloomIndexer.Start(etrue.blockchain)
+	etrue.bloomIndexer.Start(etrue.blockchain)
 
 	sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 	etrue.snailblockchain.SetValidator(sv)
