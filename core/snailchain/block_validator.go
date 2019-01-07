@@ -67,6 +67,15 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 	return validator
 }
 
+//ValidateRewarded verify whether the block has been rewarded.
+func (v *BlockValidator) ValidateRewarded(block *types.SnailBlock) error {
+	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
+		return ErrRewardedBlock
+	}
+	return nil
+}
+
+//
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
