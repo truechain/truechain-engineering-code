@@ -120,11 +120,22 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	return h
 }
 
-//SetBackValidators set back committee
-func (h *HealthMgr) SetBackValidators(hh []*Health) {
-	h.Back = hh
-	sort.Sort(HealthsByAddress(h.Back))
+//PutWorkHealth add a *health to work
+func (h *HealthMgr) PutWorkHealth(he *Health) {
+	h.Work[he.ID] = he
 }
+
+//PutBackHealth add a *health to back
+func (h *HealthMgr) PutBackHealth(he *Health) {
+	if he != nil {
+		if he.State == ctypes.StateFixedFlag {
+			h.seed = append(h.seed,he)
+		}else {
+			h.Back = append(h.Back, he)
+		}
+	}
+}
+
 func (h *HealthMgr) verifySeedNode() error {
 	return nil
 }
@@ -162,16 +173,6 @@ func (h *HealthMgr) OnStop() {
 		h.healthTick.Stop()
 	}
 	h.Stop()
-}
-
-//PutWorkHealth add a *health to work
-func (h *HealthMgr) PutWorkHealth(he *Health) {
-	h.Work[he.ID] = he
-}
-
-//PutBackHealth add a *health to back
-func (h *HealthMgr) PutBackHealth(he *Health) {
-	h.Back = append(h.Back, he)
 }
 
 //Switch send switch
@@ -328,38 +329,38 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 //Update tick
 func (h *HealthMgr) Update(id tp2p.ID) {
 	if v, ok := h.Work[id]; ok {
-		val := atomic.LoadInt32(&v.Tick)
-		atomic.AddInt32(&v.Tick, -val)
-		return
+		if v.State != ctypes.StateFixedFlag {
+			val := atomic.LoadInt32(&v.Tick)
+			atomic.AddInt32(&v.Tick, -val)
+			return	
+		}
 	}
 	for _, v := range h.Back {
 		if v.ID == id {
-			val := atomic.LoadInt32(&v.Tick)
-			atomic.AddInt32(&v.Tick, -val)
+			if v.State != ctypes.StateFixedFlag {
+				val := atomic.LoadInt32(&v.Tick)
+				atomic.AddInt32(&v.Tick, -val)
+			}
 			return
 		}
 	}
 }
 
-//GetHealthFormWork get worker for address
-func (h *HealthMgr) GetHealthFormWork(address []byte) *Health {
-	for _, v := range h.Work {
-		if bytes.Equal(address, v.Val.Address) {
-			return v
-		}
-	}
-	return nil
-}
-
 func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
-	if part == 1 { // back
+	if part == 0 { // back
 		for _, v := range h.Back {
 			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
 				return v
 			}
 		}
-	} else { // work
+	} else if part == 1 { // work
 		for _, v := range h.Work {
+			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
+				return v
+			}
+		}
+	} else {
+		for _,v := range h.seed {
 			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
 				return v
 			}
@@ -370,9 +371,12 @@ func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
 
 //GetHealth get a Health for mgr
 func (h *HealthMgr) GetHealth(pk []byte) *Health {
-	enter := h.getHealthFromPart(pk, 0)
+	enter := h.getHealthFromPart(pk, 1)
 	if enter == nil {
-		enter = h.getHealthFromPart(pk, 1)
+		enter = h.getHealthFromPart(pk, 0)
+	}
+	if enter == nil {
+		enter = h.getHealthFromPart(pk, 2)
 	}
 	return enter
 }
