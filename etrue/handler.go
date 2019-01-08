@@ -782,7 +782,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
-			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs),"len(infos)", len(infos), "filter", filter)
+			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
 			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
@@ -993,7 +993,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkTransaction(tx.Hash())
 		}
-		//log.Debug("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
+		log.Trace("receive TxMsg", "peer", p.id, "len(txs)", len(txs), "ip", p.RemoteAddr())
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
