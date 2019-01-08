@@ -10,7 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"sort"
+	// "sort"
 	"sync/atomic"
 	"time"
 )
