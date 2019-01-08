@@ -30,7 +30,7 @@ const (
 	StateUsedFlag      = 0xa1
 	StateSwitchingFlag = 0xa2
 	StateRemovedFlag   = 0xa3
-	StateAddFlag       = 0xa4
+	StateAppendFlag       = 0xa4
 )
 
 const (
@@ -192,11 +192,6 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
-
-const (
-	SwitchAppend = 0xEE
-	SwitchRemove = 0xAA
-)
 
 type SwitchEnter struct {
 	Pk   []byte

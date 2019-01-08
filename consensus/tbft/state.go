@@ -1700,7 +1700,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 
 	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 	var add, remove *ttypes.Health
-	if aEnter.Flag == types.StateAddFlag {
+	if aEnter.Flag == types.StateAppendFlag {
 		add = cs.hm.GetHealth(aEnter.Pk)
 		if rEnter.Flag == types.StateRemovedFlag {
 			remove = cs.hm.GetHealth(rEnter.Pk)
@@ -1742,7 +1742,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	if sw != nil {
 		if len(sw.Vals) > 2 {
 			add, remove := sw.Vals[0], sw.Vals[1]
-			if (add.Flag == types.StateAddFlag && remove.Flag == types.StateRemovedFlag) ||
+			if (add.Flag == types.StateAppendFlag && remove.Flag == types.StateRemovedFlag) ||
 				(add.Flag == types.StateRemovedFlag && remove.Flag == types.StateUsedFlag) {
 				if add.Flag == types.StateRemovedFlag {
 					remove = add

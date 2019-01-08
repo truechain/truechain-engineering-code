@@ -563,8 +563,8 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 			b := e.fastchain.GetBlockByNumber(num)
 			for _, s := range b.SwitchInfos().Vals {
 				switch s.Flag {
-				case types.StateAddFlag:
-					states[string(s.Pk)] = types.StateAddFlag
+				case types.StateAppendFlag:
+					states[string(s.Pk)] = types.StateAppendFlag
 				case types.StateRemovedFlag:
 					states[string(s.Pk)] = types.StateRemovedFlag
 				}
@@ -586,7 +586,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	}
 	for _, m := range committee.BackupMembers() {
 		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
-			if flag == types.StateAddFlag {
+			if flag == types.StateAppendFlag {
 				members = append(members, m)
 			}
 		}
@@ -869,8 +869,8 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 		b := e.fastchain.GetBlockByNumber(num)
 		for _, s := range b.SwitchInfos().Vals {
 			switch s.Flag {
-			case types.StateAddFlag:
-				states[string(s.Pk)] = types.StateAddFlag
+			case types.StateAppendFlag:
+				states[string(s.Pk)] = types.StateAppendFlag
 			case types.StateRemovedFlag:
 				states[string(s.Pk)] = types.StateRemovedFlag
 			}
@@ -889,7 +889,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 	}
 	for i, m := range backups {
 		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
-			if flag == types.StateAddFlag {
+			if flag == types.StateAppendFlag {
 				// Update the committee member state
 				var switched = *m
 				switched.Flag = types.StateUsedFlag
@@ -927,7 +927,7 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 	/*
 		for _, s := range infos.Vals {
 			switch s.Flag {
-			case types.StateAddFlag:
+			case types.StateAppendFlag:
 				committee.setMemberState(s.Pk, types.StateUsedFlag)
 			case types.StateRemovedFlag:
 				committee.setMemberState(s.Pk, types.StateUnusedFlag)

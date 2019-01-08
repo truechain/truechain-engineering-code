@@ -98,6 +98,7 @@ type HealthMgr struct {
 	switchChanTo   chan *SwitchValidator
 	switchChanFrom chan *SwitchValidator
 	healthTick     *time.Ticker
+	switchBuffer   []*SwitchValidator
 	cid            uint64
 }
 
@@ -106,6 +107,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
 		Work:           make(map[tp2p.ID]*Health, 0),
 		Back:           make([]*Health, 0, 0),
+		switchBuffer:	make([]*SwitchValidator,0,0),
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
 		Sum:            0,
@@ -224,7 +226,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 	if add != nil {
 		vals = append(vals, &ctypes.SwitchEnter{
 			Pk:   add.Val.PubKey.Bytes(),
-			Flag: ctypes.StateAddFlag,
+			Flag: ctypes.StateAppendFlag,
 		})
 	}
 	vals = append(vals, &ctypes.SwitchEnter{
@@ -284,7 +286,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 		if len(res.Infos.Vals) > 2 {
 			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
 			var add, remove *Health
-			if enter1.Flag == ctypes.StateAddFlag {
+			if enter1.Flag == ctypes.StateAppendFlag {
 				add = h.GetHealth(enter1.Pk)
 				if enter2.Flag == ctypes.StateRemovedFlag {
 					remove = h.GetHealth(enter2.Pk)
