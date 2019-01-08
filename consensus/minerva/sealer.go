@@ -250,10 +250,12 @@ search:
 					// Seal and return a block (if still needed)
 
 					//set signs is nill
-					block.SetSnailBlockSigns(nil)
+
+					blockR := block.WithSeal(header)
+					blockR.SetSnailBlockSigns(nil)
 
 					select {
-					case found <- block.WithSeal(header):
+					case found <- blockR:
 						logger.Trace("Truehash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 					case <-abort:
 						logger.Trace("Truehash nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
@@ -272,11 +274,12 @@ search:
 						log.Debug("sealer mineSnail", "miner fruit fb", header.Number)
 
 						// set fruits
-						block.SetSnailBlockFruits(nil)
-
+						//block.SetSnailBlockFruits(nil)
+						blockR := block.WithSeal(header)
+						blockR.SetSnailBlockFruits(nil)
 						// Seal and return a block (if still needed)
 						select {
-						case found <- block.WithSeal(header):
+						case found <- blockR:
 							logger.Trace("IsFruit nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
 						case <-abort:
 							logger.Trace("IsFruit nonce found but discarded", "attempts", nonce-seed, "nonce", nonce)
