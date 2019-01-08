@@ -123,7 +123,9 @@ func (h *HealthMgr) SetBackValidators(hh []*Health) {
 	h.Back = hh
 	sort.Sort(HealthsByAddress(h.Back))
 }
-
+func (h *HealthMgr) verifySeedNode() error {
+	return nil
+}
 //UpdataHealthInfo update one health
 func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte) {
 	enter := h.GetHealth(pk)
@@ -196,13 +198,13 @@ func (h *HealthMgr) healthGoroutine() {
 }
 func (h *HealthMgr) work() {
 	for _, v := range h.Work {
-		if v.State == ctypes.StateUsedFlag && !v.Self {
+		if v.State == ctypes.StateUsedFlag && v.State != ctypes.StateFixedFlag && !v.Self {
 			atomic.AddInt32(&v.Tick, 1)
 			h.checkSwitchValidator(v)
 		}
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUsedFlag && !v.Self {
+		if v.State == ctypes.StateUsedFlag && v.State != ctypes.StateFixedFlag && !v.Self {
 			atomic.AddInt32(&v.State, 1)
 			h.checkSwitchValidator(v)
 		}
