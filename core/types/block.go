@@ -410,6 +410,13 @@ func (b *Block) GetLeaderSign() *PbftSign {
 	return nil
 }
 
+func (b *Block) IsAward() bool {
+	if b.SnailNumber().IsUint64() && b.SnailNumber().Uint64() > 0 {
+		return true
+	}
+	return false
+}
+
 func (b *Block) SetSwitchInfo(info *SwitchInfos) {
 	b.infos.CID = info.CID
 	b.infos.Vals = make([]*SwitchEnter, 0, len(info.Vals))
