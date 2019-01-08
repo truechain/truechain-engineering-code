@@ -128,7 +128,6 @@ type worker struct {
 
 	coinbase  common.Address
 	extra     []byte
-	toElect   bool   // for elect
 	fruitOnly bool   // only miner fruit
 	publickey []byte // for publickey
 
@@ -202,7 +201,6 @@ func (w *worker) setElection(toElect bool, pubkey []byte) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.toElect = toElect
 	w.publickey = make([]byte, len(pubkey))
 	copy(w.publickey, pubkey)
 }
@@ -547,7 +545,6 @@ func (w *worker) commitNewWork() {
 	//TODO need add more struct member
 	header := &types.SnailHeader{
 		ParentHash: parent.Hash(),
-		ToElect:    w.toElect,
 		Publickey:  w.publickey,
 		Number:     num.Add(num, common.Big1),
 		Extra:      w.extra,

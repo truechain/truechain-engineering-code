@@ -491,7 +491,6 @@ type SnailHeader struct {
 	FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
 	Number          *big.Int       `json:"number"           gencodec:"required"`
 	Publickey       []byte         `json:"publicKey"        gencodec:"required"`
-	ToElect         bool           `json:"toElect"          gencodec:"required"`
 	Time            *big.Int       `json:"timestamp"        gencodec:"required"`
 	Extra           []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest       common.Hash    `json:"mixHash"          gencodec:"required"`
@@ -588,7 +587,6 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 		h.FruitDifficulty,
 		h.Number,
 		h.Publickey,
-		h.ToElect,
 		h.Time,
 		h.Extra,
 	})
@@ -760,12 +758,20 @@ func (b *SnailBlock) PointNumber() *big.Int    { return new(big.Int).Set(b.heade
 func (b *SnailBlock) FruitsHash() common.Hash  { return b.header.FruitsHash }
 func (b *SnailBlock) FastHash() common.Hash    { return b.header.FastHash }
 func (b *SnailBlock) FastNumber() *big.Int     { return new(big.Int).Set(b.header.FastNumber) }
-func (b *SnailBlock) ToElect() bool            { return b.header.ToElect }
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
 func (b *SnailBlock) IsFruit() bool            { return b.header.Fruit }
 func (b *SnailBlock) Fruits() []*SnailBlock    { return b.fruits }
 func (b *SnailBlock) Signs() PbftSigns         { return b.signs }
+
+func (b *SnailBlock) ToElect() bool {
+	if len(b.header.Publickey) > 0 {
+		return true
+	} else {
+		return false
+	}
+
+}
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }

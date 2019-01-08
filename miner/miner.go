@@ -134,6 +134,7 @@ func (miner *Miner) loop() {
 					atomic.StoreInt32(&miner.commitFlag, 0)
 				} else {
 					log.Debug("not in commiteer munber so start to miner")
+
 					atomic.StoreInt32(&miner.commitFlag, 1)
 					miner.Start(miner.coinbase)
 
@@ -297,11 +298,17 @@ func (miner *Miner) SetElection(toElect bool, pubkey []byte) {
 		return
 	}
 	miner.toElect = toElect
-	miner.publickey = make([]byte, len(pubkey))
 
-	copy(miner.publickey, pubkey)
-	miner.worker.setElection(toElect, pubkey)
-	log.Info("Set election success")
+	if toElect {
+
+		miner.publickey = make([]byte, len(pubkey))
+
+		copy(miner.publickey, pubkey)
+		miner.worker.setElection(toElect, pubkey)
+		log.Info("--------------------set publickey ------", "pubkey", miner.publickey)
+	}
+
+	log.Info("Set election success", "len pubkey", len(miner.publickey))
 }
 
 // SetFruitOnly allow the mine only mined fruit
