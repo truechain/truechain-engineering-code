@@ -606,7 +606,7 @@ func (p *peer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 
 // Handshake executes the etrue protocol handshake, negotiating version number,
 // network IDs, difficulties, head and genesis blocks.
-func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastGenesis common.Hash, fastHeight *big.Int) error {
+func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis common.Hash, fastHead common.Hash, fastHeight *big.Int) error {
 	// Send out own handshake in a new thread
 	errc := make(chan error, 2)
 	var status statusData // safe to read after two values have been received from errc
@@ -620,11 +620,10 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 			CurrentBlock:     head,
 			GenesisBlock:     genesis,
 			CurrentFastBlock: fastHead,
-			GenesisFastBlock: fastGenesis,
 		})
 	}()
 	go func() {
-		errc <- p.readStatus(network, &status, genesis, fastGenesis)
+		errc <- p.readStatus(network, &status, genesis)
 	}()
 	timeout := time.NewTimer(handshakeTimeout)
 	defer timeout.Stop()
@@ -642,7 +641,7 @@ func (p *peer) Handshake(network uint64, td *big.Int, head common.Hash, genesis 
 	return nil
 }
 
-func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash, fastGenesis common.Hash) (err error) {
+func (p *peer) readStatus(network uint64, status *statusData, genesis common.Hash) (err error) {
 	msg, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
@@ -659,9 +658,6 @@ func (p *peer) readStatus(network uint64, status *statusData, genesis common.Has
 	}
 	if status.GenesisBlock != genesis {
 		return errResp(ErrGenesisBlockMismatch, "%x (!= %x)", status.GenesisBlock[:8], genesis[:8])
-	}
-	if status.GenesisFastBlock != fastGenesis {
-		return errResp(ErrFastGenesisBlockMismatch, "%x (!= %x)", status.GenesisFastBlock[:8], fastGenesis[:8])
 	}
 	if status.NetworkId != network {
 		return errResp(ErrNetworkIdMismatch, "%d (!= %d)", status.NetworkId, network)

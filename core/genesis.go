@@ -221,7 +221,7 @@ func setupFastGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainCo
 	return newcfg, stored, nil
 }
 
-// Commit writes the block and state of a genesis specification to the database.
+// CommitFast writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) CommitFast(db ethdb.Database) (*types.Block, error) {
 	block := g.ToFastBlock(db)
@@ -244,7 +244,7 @@ func (g *Genesis) CommitFast(db ethdb.Database) (*types.Block, error) {
 	return block, nil
 }
 
-// ToBlock creates the genesis block and writes state of a genesis specification
+// ToFastBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToFastBlock(db ethdb.Database) *types.Block {
 	if db == nil {
@@ -276,10 +276,18 @@ func (g *Genesis) ToFastBlock(db ethdb.Database) *types.Block {
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 
-	return types.NewBlock(head, nil, nil, nil, nil)
+	// All genesis committee members are included in switchinfo of block #0
+	committee := &types.SwitchInfos{CID: 0}
+	for _, member := range g.Committee {
+		committee.Vals = append(committee.Vals, &types.SwitchEnter{
+			Pk: crypto.FromECDSAPub(member.Publickey),
+			Flag: types.StateUsedFlag,
+		})
+	}
+	return types.NewBlock(head, nil, nil, nil, committee)
 }
 
-// MustCommit writes the genesis block and state to db, panicking on error.
+// MustFastCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
 func (g *Genesis) MustFastCommit(db ethdb.Database) *types.Block {
 	block, err := g.CommitFast(db)
@@ -357,7 +365,7 @@ func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainC
 	return newcfg, stored, nil
 }
 
-// ToBlock creates the genesis block and writes state of a genesis specification
+// ToSnailBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToSnailBlock(db ethdb.Database) *types.SnailBlock {
 	if db == nil {
@@ -379,10 +387,23 @@ func (g *Genesis) ToSnailBlock(db ethdb.Database) *types.SnailBlock {
 		head.Difficulty = params.GenesisDifficulty
 	}
 
-	return types.NewSnailBlock(head, nil, nil, nil)
+	fastBlock := g.ToFastBlock(db)
+	fruitHead := &types.SnailHeader{
+		Number:     new(big.Int).SetUint64(g.Number),
+		Nonce:      types.EncodeNonce(g.Nonce),
+		Time:       new(big.Int).SetUint64(g.Timestamp),
+		ParentHash: g.ParentHash,
+		FastNumber: fastBlock.Number(),
+		FastHash:   fastBlock.Hash(),
+		FruitDifficulty: g.Difficulty,
+		Coinbase:   g.Coinbase,
+	}
+	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil)
+
+	return types.NewSnailBlock(head, []*types.SnailBlock{fruit}, nil, nil)
 }
 
-// Commit writes the block and state of a genesis specification to the database.
+// CommitSnail writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) CommitSnail(db ethdb.Database) (*types.SnailBlock, error) {
 	block := g.ToSnailBlock(db)
@@ -481,13 +502,13 @@ func decodePrealloc(data string) types.GenesisAlloc {
 	return ga
 }
 
-// // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
+// GenesisFastBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisFastBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
 	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
 	return g.MustFastCommit(db)
 }
 
-// // GenesisBlockForTesting creates and writes a block in which addr has the given wei balance.
+// GenesisSnailBlockForTesting creates and writes a block in which addr has the given wei balance.
 func GenesisSnailBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
 	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
 	return g.MustSnailCommit(db)

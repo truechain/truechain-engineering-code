@@ -407,7 +407,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// Execute the Truechain handshake
 	var (
-		fastGenesis = pm.blockchain.Genesis()
 		fastHead    = pm.blockchain.CurrentHeader()
 		fastHash    = fastHead.Hash()
 
@@ -418,7 +417,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		td         = pm.snailchain.GetTd(hash, number)
 		fastHeight = pm.blockchain.CurrentBlock().Number()
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastGenesis.Hash(), fastHeight); err != nil {
+	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastHeight); err != nil {
 		p.Log().Debug("Truechain handshake failed", "err", err)
 		return err
 	}

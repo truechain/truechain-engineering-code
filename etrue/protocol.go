@@ -85,7 +85,6 @@ const (
 	ErrProtocolVersionMismatch
 	ErrNetworkIdMismatch
 	ErrGenesisBlockMismatch
-	ErrFastGenesisBlockMismatch
 	ErrNoStatusMsg
 	ErrExtraStatusMsg
 	ErrSuspendedPeer
@@ -103,7 +102,6 @@ var errorToString = map[int]string{
 	ErrProtocolVersionMismatch:  "Protocol version mismatch",
 	ErrNetworkIdMismatch:        "NetworkId mismatch",
 	ErrGenesisBlockMismatch:     "Genesis block mismatch",
-	ErrFastGenesisBlockMismatch: "Fast Genesis block mismatch",
 	ErrNoStatusMsg:              "No status message",
 	ErrExtraStatusMsg:           "Extra status message",
 	ErrSuspendedPeer:            "Suspended peer",
@@ -160,7 +158,6 @@ type statusData struct {
 	CurrentBlock     common.Hash
 	GenesisBlock     common.Hash
 	CurrentFastBlock common.Hash
-	GenesisFastBlock common.Hash
 }
 
 // newBlockHashesData is the network packet for the block announcements.
