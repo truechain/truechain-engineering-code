@@ -345,10 +345,13 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 
 //pickUnuseValidator get a back committee
 func (h *HealthMgr) pickUnuseValidator() *Health {
-	sum := len(h.Back)
-	for i := 0; i < sum; i++ {
-		v := h.Back[i]
+	for _,v := range h.Back {
 		if s := atomic.CompareAndSwapInt32(&v.State, int32(ctypes.StateUnusedFlag), int32(ctypes.StateSwitchingFlag)); s {
+			return v
+		}
+	}
+	for _,v := range h.seed {
+		if swap := atomic.CompareAndSwapInt32(&v.State, int32(ctypes.StateUnusedFlag), int32(ctypes.StateSwitchingFlag)); swap {
 			return v
 		}
 	}
