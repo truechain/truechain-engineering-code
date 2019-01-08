@@ -765,9 +765,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 		} else if block != nil {
 			if height != block.NumberU64() {
 				log.Error("State Wrong,height not match", "cs.Height", height, "block.height", block.NumberU64())
-				cs.updateToState(cs.state)
-				cs.scheduleRound0(&cs.RoundState)
-				return
+				doing = false
 			}
 		}
 	}
