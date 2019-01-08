@@ -114,6 +114,7 @@ type PbftAgentProxy interface {
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
+	GetSeedMember() []*CommitteeMember
 }
 
 type PbftServerProxy interface {
@@ -204,7 +205,9 @@ func (infos *SwitchInfos) Hash() common.Hash {
 }
 
 func (s *SwitchEnter) String() string {
-	if s == nil { return "switchEnter-nil" }
+	if s == nil {
+		return "switchEnter-nil"
+	}
 	return fmt.Sprintf("p:%s,s:%d", common.ToHex(s.Pk), s.Flag)
 }
 
@@ -214,7 +217,9 @@ type SwitchInfos struct {
 }
 
 func (s *SwitchInfos) String() string {
-	if s == nil { return "switchInfo-nil" }
+	if s == nil {
+		return "switchInfo-nil"
+	}
 	memStrings := make([]string, len(s.Vals))
 	for i, m := range s.Vals {
 		if m == nil {

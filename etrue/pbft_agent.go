@@ -751,6 +751,10 @@ func (agent *PbftAgent) GetCurrentHeight() *big.Int {
 	return num
 }
 
+func (agent *PbftAgent) GetSeedMember() []*types.CommitteeMember {
+	return nil
+}
+
 //validate space between latest fruit number of snailchain  and  lastest fastBlock number
 func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 	if agent.singleNode {

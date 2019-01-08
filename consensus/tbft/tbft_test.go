@@ -78,6 +78,10 @@ func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
 	return new(big.Int).Sub(getIDForCache(pap.Name), common.Big1)
 }
 
+func (pap *PbftAgentProxyImp) GetSeedMember() []*types.CommitteeMember {
+	return nil
+}
+
 func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     vote,

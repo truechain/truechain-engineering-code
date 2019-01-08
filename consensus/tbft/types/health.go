@@ -68,7 +68,7 @@ func (h *Health) Equal(other *Health) bool {
 	if h == nil || other == nil {
 		return false
 	}
-	return h.ID == other.ID && bytes.Equal(h.Val.PubKey.Bytes(),other.Val.PubKey.Bytes())
+	return h.ID == other.ID && bytes.Equal(h.Val.PubKey.Bytes(), other.Val.PubKey.Bytes())
 }
 
 //SwitchValidator struct
@@ -109,7 +109,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 		Work:           make(map[tp2p.ID]*Health, 0),
 		Back:           make([]*Health, 0, 0),
 		seed:           make([]*Health, 0, 0),
-		switchBuffer:	make([]*SwitchValidator,0,0),
+		switchBuffer:   make([]*SwitchValidator, 0, 0),
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
 		Sum:            0,
@@ -129,14 +129,43 @@ func (h *HealthMgr) PutWorkHealth(he *Health) {
 func (h *HealthMgr) PutBackHealth(he *Health) {
 	if he != nil {
 		if he.State == ctypes.StateFixedFlag {
-			h.seed = append(h.seed,he)
-		}else {
+			h.seed = append(h.seed, he)
+		} else {
 			h.Back = append(h.Back, he)
 		}
 	}
 }
 
-func (h *HealthMgr) verifySeedNode() error {
+//check Committee
+func (h *HealthMgr) verifyCommitteeInfo(cm *ctypes.CommitteeInfo) error {
+	//checkFlag
+	for _, v := range cm.Members {
+		if v.Flag != ctypes.StateUsedFlag ||
+			v.Flag != ctypes.StateRemovedFlag {
+			return errors.New("committee member error 1")
+		}
+	}
+
+	var seeds []*ctypes.CommitteeMember
+
+	for _, v := range cm.BackMembers {
+		if v.Flag != ctypes.StateUsedFlag ||
+			v.Flag != ctypes.StateRemovedFlag ||
+			v.Flag != ctypes.StateUnusedFlag ||
+			v.Flag != ctypes.StateFixedFlag {
+			return errors.New("committee member error 2")
+		}
+		if v.Flag == ctypes.StateFixedFlag {
+			seeds = append(seeds, v)
+		}
+	}
+
+	return h.verifySeedNode(seeds)
+}
+
+//check seed node
+func (h *HealthMgr) verifySeedNode(seeds []*ctypes.CommitteeMember) error {
+
 	return nil
 }
 //UpdataHealthInfo update one health
@@ -360,7 +389,7 @@ func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
 			}
 		}
 	} else {
-		for _,v := range h.seed {
+		for _, v := range h.seed {
 			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
 				return v
 			}
