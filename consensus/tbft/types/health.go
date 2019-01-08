@@ -136,38 +136,6 @@ func (h *HealthMgr) PutBackHealth(he *Health) {
 	}
 }
 
-//check Committee
-func (h *HealthMgr) verifyCommitteeInfo(cm *ctypes.CommitteeInfo) error {
-	//checkFlag
-	for _, v := range cm.Members {
-		if v.Flag != ctypes.StateUsedFlag ||
-			v.Flag != ctypes.StateRemovedFlag {
-			return errors.New("committee member error 1")
-		}
-	}
-
-	var seeds []*ctypes.CommitteeMember
-
-	for _, v := range cm.BackMembers {
-		if v.Flag != ctypes.StateUsedFlag ||
-			v.Flag != ctypes.StateRemovedFlag ||
-			v.Flag != ctypes.StateUnusedFlag ||
-			v.Flag != ctypes.StateFixedFlag {
-			return errors.New("committee member error 2")
-		}
-		if v.Flag == ctypes.StateFixedFlag {
-			seeds = append(seeds, v)
-		}
-	}
-
-	return h.verifySeedNode(seeds)
-}
-
-//check seed node
-func (h *HealthMgr) verifySeedNode(seeds []*ctypes.CommitteeMember) error {
-
-	return nil
-}
 //UpdataHealthInfo update one health
 func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte) {
 	enter := h.GetHealth(pk)
@@ -293,8 +261,8 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		Resion:    resion,
 		From:      from,
 		DoorCount: BlackDoorCount,
-		Remove:	   remove,
-		Add:	   add,
+		Remove:    remove,
+		Add:       add,
 	}
 }
 
@@ -345,12 +313,12 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 
 //pickUnuseValidator get a back committee
 func (h *HealthMgr) pickUnuseValidator() *Health {
-	for _,v := range h.Back {
+	for _, v := range h.Back {
 		if s := atomic.CompareAndSwapInt32(&v.State, int32(ctypes.StateUnusedFlag), int32(ctypes.StateSwitchingFlag)); s {
 			return v
 		}
 	}
-	for _,v := range h.seed {
+	for _, v := range h.seed {
 		if swap := atomic.CompareAndSwapInt32(&v.State, int32(ctypes.StateUnusedFlag), int32(ctypes.StateSwitchingFlag)); swap {
 			return v
 		}
@@ -364,7 +332,7 @@ func (h *HealthMgr) Update(id tp2p.ID) {
 		if v.State != ctypes.StateFixedFlag {
 			val := atomic.LoadInt32(&v.Tick)
 			atomic.AddInt32(&v.Tick, -val)
-			return	
+			return
 		}
 	}
 	for _, v := range h.Back {

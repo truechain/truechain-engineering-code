@@ -588,3 +588,38 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 	}
 	return result
 }
+
+//check Committee
+func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
+	//checkFlag
+	for _, v := range cm.Members {
+		if v.Flag != types.StateUsedFlag ||
+			v.Flag != types.StateRemovedFlag {
+			return errors.New("committee member error 1")
+		}
+	}
+
+	var seeds []*types.CommitteeMember
+
+	for _, v := range cm.BackMembers {
+		if v.Flag != types.StateUsedFlag ||
+			v.Flag != types.StateRemovedFlag ||
+			v.Flag != types.StateUnusedFlag ||
+			v.Flag != types.StateFixedFlag {
+			return errors.New("committee member error 2")
+		}
+		if v.Flag == types.StateFixedFlag {
+			seeds = append(seeds, v)
+		}
+	}
+
+	return n.verifySeedNode(seeds)
+}
+
+//check seed node
+func (h *Node) verifySeedNode(seeds []*types.CommitteeMember) error {
+	if len(seeds) == 0 {
+		return errors.New("committee member error 3")
+	}
+	return nil
+}
