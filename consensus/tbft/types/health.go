@@ -95,6 +95,7 @@ type HealthMgr struct {
 	Sum            int64
 	Work           map[tp2p.ID]*Health
 	Back           []*Health
+	seed           []*Health
 	switchChanTo   chan *SwitchValidator
 	switchChanFrom chan *SwitchValidator
 	healthTick     *time.Ticker
@@ -107,6 +108,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	h := &HealthMgr{
 		Work:           make(map[tp2p.ID]*Health, 0),
 		Back:           make([]*Health, 0, 0),
+		seed:           make([]*Health, 0, 0),
 		switchBuffer:	make([]*SwitchValidator,0,0),
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),

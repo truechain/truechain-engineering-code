@@ -30,7 +30,8 @@ const (
 	StateUsedFlag      = 0xa1
 	StateSwitchingFlag = 0xa2
 	StateRemovedFlag   = 0xa3
-	StateAppendFlag       = 0xa4
+	StateAppendFlag    = 0xa4
+	StateFixedFlag     = 0xa5
 )
 
 const (
