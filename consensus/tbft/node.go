@@ -593,7 +593,7 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 	//checkFlag
 	for _, v := range cm.Members {
-		if v.Flag != types.StateUsedFlag ||
+		if v.Flag != types.StateUsedFlag &&
 			v.Flag != types.StateRemovedFlag {
 			return errors.New("committee member error 1")
 		}
@@ -602,10 +602,10 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 	var seeds []*types.CommitteeMember
 
 	for _, v := range cm.BackMembers {
-		if v.Flag != types.StateUsedFlag ||
-			v.Flag != types.StateRemovedFlag ||
-			v.Flag != types.StateUnusedFlag ||
-			v.Flag != types.TypeFixed {
+		if v.Flag != types.StateUsedFlag &&
+			v.Flag != types.StateRemovedFlag &&
+			v.Flag != types.StateUnusedFlag &&
+			v.Flag != types.StateFixedFlag {
 			return errors.New("committee member error 2")
 		}
 		if v.Flag == types.TypeFixed {
@@ -613,13 +613,16 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 		}
 	}
 
-	return n.verifySeedNode(seeds)
+	cSeeds := n.Agent.GetSeedMember()
+
+	return n.verifySeedNode(seeds, cSeeds)
 }
 
 //check seed node
-func (h *Node) verifySeedNode(seeds []*types.CommitteeMember) error {
-	if len(seeds) == 0 {
+func (h *Node) verifySeedNode(seeds []*types.CommitteeMember, cSeeds []*types.CommitteeMember) error {
+	if len(seeds) == 0 || len(cSeeds) == 0 || (len(seeds) != len(cSeeds)) {
 		return errors.New("committee member error 3")
 	}
+
 	return nil
 }
