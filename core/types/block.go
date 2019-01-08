@@ -765,9 +765,9 @@ func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header
 func (b *SnailBlock) IsFruit() bool {
 	// params.MinimumFruits 60
 	if len(b.fruits) > 0 {
-		return true
-	} else {
 		return false
+	} else {
+		return true
 	}
 }
 func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
