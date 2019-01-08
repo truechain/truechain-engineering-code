@@ -384,14 +384,14 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 			self = true
 		}
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, v.Flag, val, self)
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
 		service.healthMgr.PutWorkHealth(health)
 	}
 
 	for _, v := range committeeInfo.BackMembers {
 		id := pkToP2pID(v.Publickey)
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, v.Flag, val, false)
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
 		service.healthMgr.PutBackHealth(health)
 	}
 
@@ -604,8 +604,7 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 	for _, v := range cm.BackMembers {
 		if v.Flag != types.StateUsedFlag &&
 			v.Flag != types.StateRemovedFlag &&
-			v.Flag != types.StateUnusedFlag &&
-			v.Flag != types.StateFixedFlag {
+			v.Flag != types.StateUnusedFlag {
 			return errors.New("committee member error 2")
 		}
 		if v.Flag == types.TypeFixed {
@@ -623,6 +622,5 @@ func (h *Node) verifySeedNode(seeds []*types.CommitteeMember, cSeeds []*types.Co
 	if len(seeds) == 0 || len(cSeeds) == 0 || (len(seeds) != len(cSeeds)) {
 		return errors.New("committee member error 3")
 	}
-
 	return nil
 }
