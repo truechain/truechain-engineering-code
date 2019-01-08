@@ -559,11 +559,10 @@ type snailBlockStats struct {
 	ParentHash common.Hash `json:"parentHash"`
 	Timestamp  *big.Int    `json:"timestamp"`
 
-	Miner       common.Address  `json:"miner"`
-	Diff        string          `json:"difficulty"`
-	TotalDiff   string          `json:"totalDifficulty"`
-	Uncles      snailUncleStats `json:"uncles"`
-	FruitNumber *big.Int        `json:"fruits"`
+	Miner       common.Address `json:"miner"`
+	Diff        string         `json:"difficulty"`
+	TotalDiff   string         `json:"totalDifficulty"`
+	FruitNumber *big.Int       `json:"fruits"`
 	//Specific properties of fruit
 	//signs types.PbftSigns
 }
@@ -675,9 +674,9 @@ func (s *Service) assembleBlockStats(block *types.Block) *blockStats {
 func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockStats {
 	// Gather the block infos from the local blockchain
 	var (
-		header      *types.SnailHeader
-		td          *big.Int
-		uncles      []*types.SnailHeader
+		header *types.SnailHeader
+		td     *big.Int
+		//uncles      []*types.SnailHeader
 		fruitNumber *big.Int
 	)
 	if s.etrue != nil {
@@ -687,7 +686,6 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		}
 		header = block.Header()
 		td = s.etrue.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
-		uncles = block.Uncles()
 		fruitNumber = big.NewInt(int64(len((block.Fruits()))))
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
@@ -702,14 +700,14 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
 	return &snailBlockStats{
-		Number:      header.Number,
-		Hash:        header.Hash(),
-		ParentHash:  header.ParentHash,
-		Timestamp:   header.Time,
-		Miner:       author,
-		Diff:        block.Difficulty().String(),
-		TotalDiff:   td.String(),
-		Uncles:      uncles,
+		Number:     header.Number,
+		Hash:       header.Hash(),
+		ParentHash: header.ParentHash,
+		Timestamp:  header.Time,
+		Miner:      author,
+		Diff:       block.Difficulty().String(),
+		TotalDiff:  td.String(),
+		//Uncles:      uncles,
 		FruitNumber: fruitNumber,
 	}
 }

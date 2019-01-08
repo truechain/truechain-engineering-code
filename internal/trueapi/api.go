@@ -1024,7 +1024,6 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		"fruitHash":       head.FruitsHash,
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
-		"sha3Uncles":      head.UncleHash,
 		"miner":           head.Coinbase,
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
@@ -1056,13 +1055,6 @@ func RPCMarshalSnailBlock(b *types.SnailBlock, inclFruit bool) (map[string]inter
 		fields["endFruitNumber"] = (*hexutil.Big)(fs[len(fs)-1].FastNumber())
 	}
 
-	uncles := b.Uncles()
-	uncleHashes := make([]common.Hash, len(uncles))
-	for i, uncle := range uncles {
-		uncleHashes[i] = uncle.Hash()
-	}
-	fields["uncles"] = uncleHashes
-
 	return fields, nil
 }
 
@@ -1075,7 +1067,6 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"fastNumber":      head.FastNumber,
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
-		"sha3Uncles":      head.UncleHash,
 		"miner":           head.Coinbase,
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),

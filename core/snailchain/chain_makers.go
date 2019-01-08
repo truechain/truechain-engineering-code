@@ -178,7 +178,6 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.BlockDifficulty(),
-			UncleHash:  parent.UncleHash(),
 		}}),
 		Number: new(big.Int).Add(parent.Number(), common.Big1),
 		Time:   time,
