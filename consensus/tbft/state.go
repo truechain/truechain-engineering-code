@@ -892,7 +892,7 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 	// remove commit in block
 	var v *ttypes.SwitchValidator
 	if len(cs.svs) == 0 {
-		cs.moveAndReduceDoorCount() 	// move to svs from svsBlockDoor,when DoorCount==0 and svs is empty
+		cs.moveAndReduceDoorCount() // move to svs from svsBlockDoor,when DoorCount==0 and svs is empty
 	}
 	if len(cs.svs) > 0 {
 		v = cs.svs[0]
@@ -900,7 +900,7 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 		v.DoorCount = ttypes.BlackDoorCount - 1
 		cs.svsBlackDoor = append(cs.svsBlackDoor, v)
 		log.Info("Make Proposal and move item", "item", v)
-	} 
+	}
 
 	block, err := cs.state.MakeBlock(v)
 	if block != nil && err == nil {
@@ -915,7 +915,7 @@ func (cs *ConsensusState) moveAndReduceDoorCount() {
 			val.DoorCount--
 		}
 		if val.DoorCount == 0 {
-			cs.svs = append(cs.svs,val)
+			cs.svs = append(cs.svs, val)
 		}
 	}
 }
