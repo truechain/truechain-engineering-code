@@ -92,7 +92,6 @@ func (s *SwitchValidator) String() string {
 //HealthMgr struct
 type HealthMgr struct {
 	help.BaseService
-	Sum            int64
 	Work           map[tp2p.ID]*Health
 	Back           []*Health
 	seed           []*Health
@@ -112,7 +111,6 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 		switchBuffer:   make([]*SwitchValidator, 0, 0),
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
-		Sum:            0,
 		cid:            cid,
 		healthTick:     nil,
 	}
@@ -275,6 +273,11 @@ func (h *HealthMgr) getUsedValidCount() int {
 	}
 	for _, v := range h.Back {
 		if v.State == ctypes.StateUnusedFlag || v.State == ctypes.StateUsedFlag {
+			cnt++
+		}
+	}
+	for _, v := range h.seed {
+		if v.State == ctypes.StateFixedFlag || v.State == ctypes.StateUsedFlag {
 			cnt++
 		}
 	}
