@@ -53,7 +53,7 @@ const (
 	ntpFailureThreshold = 32               // Continuous timeouts after which to check NTP
 	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
 	driftThreshold      = 10 * time.Second // Allowed clock drift before warning user
-	trueVersion         = 5
+	trueVersion         = 520
 )
 
 // RPC packet types
@@ -655,6 +655,7 @@ func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte
 	closest := t.closest(target, bucketSize).entries
 	t.mutex.Unlock()
 
+	log.Debug("findnode rep", "from", from.IP, "entries", closest)
 	p := neighbors{Expiration: uint64(time.Now().Add(expiration).Unix())}
 	var sent bool
 	// Send neighbors in chunks with at most maxNeighbors per packet
