@@ -21,6 +21,10 @@ const (
 	//MixValidator min committee count
 	MixValidator   = 2
 	BlackDoorCount = 4
+
+	SwitchPartWork = 0
+	SwitchPartBack = 1
+	SwitchPartSeed = 2
 )
 
 //Health struct
@@ -297,7 +301,7 @@ func (h *HealthMgr) getUsedValidCount() int {
 		}
 	}
 	for _, v := range h.seed {
-		if v.HType == ctypes.TypeFixed || v.State == ctypes.StateUsedFlag {
+		if v.HType == ctypes.TypeFixed && (v.State == ctypes.StateUsedFlag || v.State == ctypes.StateUnusedFlag) {
 			cnt++
 		}
 	}
@@ -379,19 +383,19 @@ func (h *HealthMgr) Update(id tp2p.ID) {
 }
 
 func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
-	if part == 0 { // back
+	if part == SwitchPartBack { // back
 		for _, v := range h.Back {
 			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
 				return v
 			}
 		}
-	} else if part == 1 { // work
+	} else if part == SwitchPartWork { // work
 		for _, v := range h.Work {
 			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
 				return v
 			}
 		}
-	} else {
+	} else if part == SwitchPartSeed {
 		for _, v := range h.seed {
 			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
 				return v
@@ -403,12 +407,12 @@ func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
 
 //GetHealth get a Health for mgr
 func (h *HealthMgr) GetHealth(pk []byte) *Health {
-	enter := h.getHealthFromPart(pk, 1)
+	enter := h.getHealthFromPart(pk, SwitchPartWork)
 	if enter == nil {
-		enter = h.getHealthFromPart(pk, 0)
+		enter = h.getHealthFromPart(pk, SwitchPartBack)
 	}
 	if enter == nil {
-		enter = h.getHealthFromPart(pk, 2)
+		enter = h.getHealthFromPart(pk, SwitchPartSeed)
 	}
 	return enter
 }
