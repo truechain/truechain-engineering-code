@@ -704,6 +704,9 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 	if doing {
 		// get block
 		checkTx := cs.config.WaitForEmptyBlocks(int(wait))
+		if round >0 {
+			checkTx = false
+		}
 		block, blockParts, err = cs.createProposalBlock(checkTx)
 		if err != nil || block == nil {
 			log.Info("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
