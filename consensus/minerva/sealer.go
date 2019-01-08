@@ -303,7 +303,7 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 }
 
 func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []uint64, string) {
-	const offsetCnst = 0x1f
+	const offsetCnst = 0x7
 	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
@@ -336,10 +336,10 @@ func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []ui
 			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
-		offset[i*4] = (int(val[0]) & offsetCnst) - 16
-		offset[i*4+1] = (int(val[1]) & offsetCnst) - 16
-		offset[i*4+2] = (int(val[2]) & offsetCnst) - 16
-		offset[i*4+3] = (int(val[3]) & offsetCnst) - 16
+		offset[i*4] = (int(val[0]) & offsetCnst) - 4
+		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
+		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
+		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
 		cont += header.Hash().String()
 	}
 
@@ -356,12 +356,13 @@ func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []ui
 		}
 		cont += header.Hash().String()
 	}
-
+	WriteTBL2(offset)
+	WriteTBL3(skip)
 	ds := m.UpdateTBL(offset, skip, plookupTbl)
 
 	// verify table, will remove
 	WriteTBL(offset, skip)
-
+	WriteTBL1(ds)
 	return true, ds, cont
 }
 
@@ -387,7 +388,9 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 					vR := uint32(y % 64)
 					plookupTbl[plkt+vI] |= 1 << vR
 					c = c+1
+
 				}
+				y = y+sk
 			}
 			if c == 0 {
 				vI := uint32(x / 64)
@@ -426,7 +429,6 @@ func WriteTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int) {
 			y := pos - sk*PMTSIZE/2
 			if x%64 == 0 {
 				fmt.Fprintf(w, "\n\t\t")
-
 			}
 			for i := 0; i < PMTSIZE; i++ {
 				if y >= 0 && y < SKIP_CYCLE_LEN {
@@ -442,6 +444,79 @@ func WriteTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int) {
 		fmt.Fprintf(w, "\n\t}\n")
 	}
 	fmt.Fprintf(w, "}\n")
+	fmt.Fprintf(w, "\n")
+	w.Flush()
+}
+
+func WriteTBL1(table []uint64) {
+
+	// Create a file and use bufio.NewWriter.
+	log.Info("write TBL ")
+	currentTime := time.Now()
+	filename := fmt.Sprintf("tbl1%s.dat", currentTime.Format("2000.01.01"))
+	fmt.Println(filename)
+	f, _ := os.Create(filename)
+	w := bufio.NewWriter(f)
+
+	lktWz := uint32(DATALENGTH / 64)
+	lktSz := uint32(DATALENGTH) * lktWz
+	fmt.Fprintf(w, "{\n")
+	for k := 0; k < TBLSIZE; k++ {
+
+		plkt := uint32(k) * lktSz
+		fmt.Fprintf(w, "\t{\n")
+		for x := 0; x < DATALENGTH; x++ {
+			fmt.Fprintf(w, "\t\t")
+			for z := 0; z < int(lktWz); z++{
+				ind := int(int(plkt) + x*int(lktWz) + z)
+				val := table[ind]
+				fmt.Fprintf(w, "0x%016x,\t", val)
+			}
+			fmt.Fprintf(w, "\n")
+		}
+		fmt.Fprintf(w, "\n\t},\n")
+	}
+	fmt.Fprintf(w, "};\n")
+	fmt.Fprintf(w, "\n")
+	w.Flush()
+}
+func WriteTBL2(table [OFF_SKIP_LEN]int) {
+
+	// Create a file and use bufio.NewWriter.
+	log.Info("write TBL ")
+	currentTime := time.Now()
+	filename := fmt.Sprintf("offset%s.dat", currentTime.Format("2000.01.01"))
+	fmt.Println(filename)
+	f, _ := os.Create(filename)
+	w := bufio.NewWriter(f)
+
+
+	fmt.Fprintf(w, "{\n")
+	for k := 0; k < OFF_SKIP_LEN; k++ {
+				val := table[k]
+				fmt.Fprintf(w, "%d\n", val)
+	}
+	fmt.Fprintf(w, "};\n")
+	fmt.Fprintf(w, "\n")
+	w.Flush()
+}
+func WriteTBL3(table [OFF_SKIP_LEN]int) {
+
+	// Create a file and use bufio.NewWriter.
+	log.Info("write TBL ")
+	currentTime := time.Now()
+	filename := fmt.Sprintf("skip%s.dat", currentTime.Format("2000.01.01"))
+	fmt.Println(filename)
+	f, _ := os.Create(filename)
+	w := bufio.NewWriter(f)
+
+
+	fmt.Fprintf(w, "{\n")
+	for k := 0; k < OFF_SKIP_LEN; k++ {
+		val := table[k]
+		fmt.Fprintf(w, "%d\n", val)
+	}
+	fmt.Fprintf(w, "};\n")
 	fmt.Fprintf(w, "\n")
 	w.Flush()
 }
