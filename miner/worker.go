@@ -337,7 +337,7 @@ func (w *worker) update() {
 				}
 			}
 
-		// Handle ChainSideEvent
+			// Handle ChainSideEvent
 		case ev := <-w.chainSideCh:
 			log.Debug("chain side", "number", ev.Block.Number(), "hash", ev.Block.Hash())
 			if !w.atCommintNewWoker {
@@ -347,7 +347,7 @@ func (w *worker) update() {
 				}
 			}
 
-		//TODO　fruit event
+			//TODO　fruit event
 		case <-w.fruitCh:
 			// if only fruit only not need care about fruit event
 			if !w.atCommintNewWoker && !w.fruitOnly {
@@ -375,7 +375,7 @@ func (w *worker) update() {
 		case <-w.minedfruitSub.Err():
 			return
 
-		// TODO fast block event
+			// TODO fast block event
 		case <-w.fastchainEventSub.Err():
 
 			return
@@ -795,7 +795,7 @@ func (w *worker) CopyPendingFruit(fruits map[common.Hash]*types.SnailBlock, bc *
 
 	var blockby types.SnailBlockBy = types.FruitNumber
 	blockby.Sort(copyPendingFruits)
-	if len(fruits) > 0 {
+	if len(fruits) > 0 && len(copyPendingFruits) > 0 {
 		log.Debug("CopyPendingFruit pengding fruit info", "len of pengding", len(fruits), "sort copy fruits len", len(copyPendingFruits), "pengding min", copyPendingFruits[0].FastNumber(), "pengding max", copyPendingFruits[len(copyPendingFruits)-1].FastNumber())
 	}
 	return copyPendingFruits
