@@ -281,10 +281,12 @@ func (s *dialstate) taskDone(t task, now time.Time) {
 	switch t := t.(type) {
 	case *dialTask:
 		s.hist.add(t.dest.ID, now.Add(dialHistoryExpiration))
+		log.Trace("Dial task done", "flag", t.flags, "ip", t.dest.IP, "id", t.dest.ID)
 		delete(s.dialing, t.dest.ID)
 	case *discoverTask:
 		s.lookupRunning = false
 		s.lookupBuf = append(s.lookupBuf, t.results...)
+		log.Trace("Dial task done", "results", t.results, "lookupBuf", s.lookupBuf)
 	}
 }
 

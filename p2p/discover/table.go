@@ -277,6 +277,7 @@ func (tab *Table) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 		tab.mutex.Lock()
 		// generate initial result set
 		result = tab.closest(target, bucketSize)
+		log.Debug("lookup", "result", result, "target", target, "targetID", targetID)
 		tab.mutex.Unlock()
 		if len(result.entries) > 0 || !refreshIfEmpty {
 			break
@@ -296,6 +297,7 @@ func (tab *Table) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 			if !asked[n.ID] {
 				asked[n.ID] = true
 				pendingQueries++
+				log.Debug("lookup", "n", n, "target", target, "targetID", targetID)
 				go tab.findnode(n, targetID, reply)
 			}
 		}
@@ -335,6 +337,7 @@ func (tab *Table) findnode(n *Node, targetID NodeID, reply chan<- []*Node) {
 	for _, n := range r {
 		tab.add(n)
 	}
+	log.Debug("findnode", "n", n, "targetID", targetID, "r", len(r))
 	reply <- r
 }
 
