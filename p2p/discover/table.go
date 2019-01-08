@@ -748,3 +748,13 @@ func (h *nodesByDistance) push(n *Node, maxElems int) {
 		h.entries[ix] = n
 	}
 }
+
+// push adds the given node to the list, keeping the total size below maxElems.
+func (h *nodesByDistance) String() string {
+	s := "nodes distance"
+	for _, entrie := range h.entries {
+		s += entrie.String()
+	}
+	s += h.target.String()
+	return s
+}
