@@ -270,7 +270,6 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
 			Time:            tstamp,
 			Coinbase:        coinbaseAddr,
-			Fruit:           isFruit,
 			FastNumber:      fastNumber,
 			FruitDifficulty: fruitDiff,
 			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
@@ -431,8 +430,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 		fruitnumbers int
 	)
 	cache := &core.CacheConfig{
-	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -441,7 +440,6 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 
 	fastGenesis := genesis.MustFastCommit(testdb)
 	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	//fastblocks := makeFast(fastGenesis, n * params.MinimumFruits, engine, testdb, canonicalSeed)
 
 	//engine.SetElection(core.NewFakeElection())
 	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, fastBlockNumbers, func(i int, b *core.BlockGen) {

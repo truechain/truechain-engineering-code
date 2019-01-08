@@ -494,8 +494,6 @@ type SnailHeader struct {
 	Extra           []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest       common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce           BlockNonce     `json:"nonce"            gencodec:"required"`
-
-	Fruit bool
 }
 
 type SnailBody struct {
@@ -757,9 +755,16 @@ func (b *SnailBlock) FastHash() common.Hash    { return b.header.FastHash }
 func (b *SnailBlock) FastNumber() *big.Int     { return new(big.Int).Set(b.header.FastNumber) }
 func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
 func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
-func (b *SnailBlock) IsFruit() bool            { return b.header.Fruit }
-func (b *SnailBlock) Fruits() []*SnailBlock    { return b.fruits }
-func (b *SnailBlock) Signs() PbftSigns         { return b.signs }
+func (b *SnailBlock) IsFruit() bool {
+	// params.MinimumFruits 60
+	if len(b.fruits) > 0 {
+		return true
+	} else {
+		return false
+	}
+}
+func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
+func (b *SnailBlock) Signs() PbftSigns      { return b.signs }
 
 func (b *SnailBlock) ToElect() bool {
 	if len(b.header.Publickey) > 0 {
@@ -793,20 +798,30 @@ func (b *SnailBlock) Size() common.StorageSize {
 // the sealed one.
 func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 	cpy := *header
-	if cpy.Fruit {
-		return &SnailBlock{
-			header: &cpy,
-			fruits: nil,
-			signs:  b.signs,
-		}
-	} else {
-		return &SnailBlock{
-			header: &cpy,
-			fruits: b.fruits,
-			signs:  nil,
-		}
-	}
 
+	return &SnailBlock{
+		header: &cpy,
+		fruits: b.fruits,
+		signs:  b.signs,
+	}
+}
+
+func (b *SnailBlock) SetSnailBlockFruits(fruits Fruits) {
+	if len(fruits) > 0 {
+		b.fruits = make([]*SnailBlock, len(fruits))
+		copy(b.fruits, fruits)
+	} else {
+		b.fruits = nil
+	}
+}
+
+func (b *SnailBlock) SetSnailBlockSigns(signs []*PbftSign) {
+	if len(signs) > 0 {
+		b.signs = make([]*PbftSign, len(signs))
+		copy(b.signs, signs)
+	} else {
+		b.signs = nil
+	}
 }
 
 // WithBody returns a new snailblock with the given transaction and uncle contents.

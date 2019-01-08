@@ -129,19 +129,19 @@ func GetParents(chain consensus.SnailChainReader, header *types.SnailHeader) []*
 }
 
 //VerifySnailHeader verify snail Header number
-func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header *types.SnailHeader, seal bool) error {
+func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header *types.SnailHeader, seal bool, isFruit bool) error {
 	// If we're running a full engine faking, accept any input as valid
 	if m.config.PowMode == ModeFullFake {
 		return nil
 	}
 
-	if header.Fruit {
+	if isFruit {
 		pointer := chain.GetHeader(header.PointerHash, header.PointerNumber.Uint64())
 		if pointer == nil {
 			log.Warn("VerifySnailHeader get pointer failed.", "fNumber", header.FastNumber, "pNumber", header.PointerNumber, "pHash", header.PointerHash)
 			return consensus.ErrUnknownPointer
 		}
-		return m.verifySnailHeader(chain, fastchain, header, pointer, nil, false, seal)
+		return m.verifySnailHeader(chain, fastchain, header, pointer, nil, false, seal, isFruit)
 	}
 	// Short circuit if the header is known, or it's parent not
 	if chain.GetHeader(header.Hash(), header.Number.Uint64()) != nil {
@@ -153,7 +153,7 @@ func (m *Minerva) VerifySnailHeader(chain consensus.SnailChainReader, fastchain 
 	}
 
 	// Sanity checks passed, do a proper verification
-	return m.verifySnailHeader(chain, fastchain, header, nil, parents, false, seal)
+	return m.verifySnailHeader(chain, fastchain, header, nil, parents, false, seal, isFruit)
 }
 
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -328,7 +328,7 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	count := len(parents) - len(headers) + index
 	parentHeaders := parents[:count]
 
-	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index])
+	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index], false)
 }
 
 // VerifySnailUncles verifies that the given block's uncles conform to the consensus
@@ -411,7 +411,7 @@ func (m *Minerva) verifyHeader(chain consensus.ChainReader, header, parent *type
 	return nil
 }
 func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain consensus.ChainReader, header, pointer *types.SnailHeader,
-	parents []*types.SnailHeader, uncle bool, seal bool) error {
+	parents []*types.SnailHeader, uncle bool, seal bool, isFruit bool) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("extra-data too long: %d > %d", len(header.Extra), params.MaximumExtraDataSize)
@@ -422,13 +422,13 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 			return errLargeBlockTime
 		}
 	} else {
-		if !header.Fruit {
+		if !isFruit {
 			if header.Time.Cmp(big.NewInt(time.Now().Add(allowedFutureBlockTime).Unix())) > 0 {
 				return consensus.ErrFutureBlock
 			}
 		}
 	}
-	if !header.Fruit {
+	if !isFruit {
 		if header.Time.Cmp(parents[len(parents)-1].Time) <= 0 {
 			return errZeroBlockTime
 		}
@@ -455,7 +455,7 @@ func (m *Minerva) verifySnailHeader(chain consensus.SnailChainReader, fastchain 
 
 	// Verify the engine specific seal securing the block
 	if seal {
-		if err := m.VerifySnailSeal(chain, header); err != nil {
+		if err := m.VerifySnailSeal(chain, header, isFruit); err != nil {
 			return err
 		}
 	}
@@ -563,11 +563,11 @@ func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block
 }
 
 // GetDifficulty get difficulty by header
-func (m *Minerva) GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int) {
+func (m *Minerva) GetDifficulty(header *types.SnailHeader, isFruit bool) (*big.Int, *big.Int) {
 	dataset := m.getDataset(header.Number.Uint64())
 	_, result := truehashLight(dataset.dataset, header.HashNoNonce().Bytes(), header.Nonce.Uint64())
 
-	if header.Fruit {
+	if isFruit {
 		last := result[16:]
 		actDiff := new(big.Int).Div(maxUint128, new(big.Int).SetBytes(last))
 
@@ -692,7 +692,7 @@ func calcDifficulty(config *params.ChainConfig, time uint64, parents []*types.Sn
 
 // VerifySnailSeal implements consensus.Engine, checking whether the given block satisfies
 // the PoW difficulty requirements.
-func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader) error {
+func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *types.SnailHeader, isFruit bool) error {
 	// If we're running a fake PoW, accept any seal as valid
 	if m.config.PowMode == ModeFake || m.config.PowMode == ModeFullFake {
 		time.Sleep(m.fakeDelay)
@@ -703,7 +703,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	}
 	// If we're running a shared PoW, delegate verification to it
 	if m.shared != nil {
-		return m.shared.VerifySnailSeal(chain, header)
+		return m.shared.VerifySnailSeal(chain, header, isFruit)
 	}
 	// Ensure that we have a valid difficulty for the block
 	if header.Difficulty.Sign() <= 0 {
@@ -722,7 +722,7 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 		return errInvalidMixDigest
 	}
 
-	if header.Fruit {
+	if isFruit {
 		fruitTarget := new(big.Int).Div(maxUint128, header.FruitDifficulty)
 
 		last := result[16:]

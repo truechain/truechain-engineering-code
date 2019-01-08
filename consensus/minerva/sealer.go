@@ -246,10 +246,12 @@ search:
 					header = types.CopySnailHeader(header)
 					header.Nonce = types.EncodeNonce(nonce)
 					header.MixDigest = common.BytesToHash(digest)
-					//TODO need add fruit flow
-					header.Fruit = false
 
 					// Seal and return a block (if still needed)
+
+					//set signs is nill
+					block.SetSnailBlockSigns(nil)
+
 					select {
 					case found <- block.WithSeal(header):
 						logger.Trace("Truehash nonce found and reported", "attempts", nonce-seed, "nonce", nonce)
@@ -267,9 +269,11 @@ search:
 						header = types.CopySnailHeader(header)
 						header.Nonce = types.EncodeNonce(nonce)
 						header.MixDigest = common.BytesToHash(digest)
-						//TODO need add fruit flow
-						header.Fruit = true
 						log.Debug("sealer mineSnail", "miner fruit fb", header.Number)
+
+						// set fruits
+						block.SetSnailBlockFruits(nil)
+
 						// Seal and return a block (if still needed)
 						select {
 						case found <- block.WithSeal(header):

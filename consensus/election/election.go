@@ -697,7 +697,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 				}
 				addr := crypto.PubkeyToAddress(*pubkey)
 
-				act, diff := e.engine.GetDifficulty(f.Header())
+				act, diff := e.engine.GetDifficulty(f.Header(), true)
 
 				member := &candidateMember{
 					coinbase:   f.Coinbase(),
