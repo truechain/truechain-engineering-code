@@ -56,6 +56,11 @@ type txdata struct {
 	R *big.Int `json:"r" gencodec:"required"`
 	S *big.Int `json:"s" gencodec:"required"`
 
+	// Paied Signature values
+	PV *big.Int `json:"pv" gencodec:"required"`
+	PR *big.Int `json:"pr" gencodec:"required"`
+	PS *big.Int `json:"ps" gencodec:"required"`
+
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
 }
