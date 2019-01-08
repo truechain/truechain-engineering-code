@@ -486,7 +486,6 @@ type SnailHeader struct {
 	FastHash        common.Hash    `json:"fastHash"         gencodec:"required"`
 	FastNumber      *big.Int       `json:"fastNumber"       gencodec:"required"`
 	SignHash        common.Hash    `json:"signHash"  		gencodec:"required"`
-	Bloom           Bloom          `json:"logsBloom"        gencodec:"required"`
 	Difficulty      *big.Int       `json:"difficulty"       gencodec:"required"`
 	FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
 	Number          *big.Int       `json:"number"           gencodec:"required"`
@@ -582,7 +581,6 @@ func (h *SnailHeader) HashNoNonce() common.Hash {
 		h.FruitsHash,
 		h.FastHash,
 		h.FastNumber,
-		h.Bloom,
 		h.Difficulty,
 		h.FruitDifficulty,
 		h.Number,
@@ -749,7 +747,6 @@ func (b *SnailBlock) Time() *big.Int            { return new(big.Int).Set(b.head
 func (b *SnailBlock) NumberU64() uint64         { return b.header.Number.Uint64() }
 func (b *SnailBlock) MixDigest() common.Hash    { return b.header.MixDigest }
 func (b *SnailBlock) Nonce() uint64             { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
-func (b *SnailBlock) Bloom() Bloom              { return b.header.Bloom }
 func (b *SnailBlock) Coinbase() common.Address  { return b.header.Coinbase }
 func (b *SnailBlock) ParentHash() common.Hash   { return b.header.ParentHash }
 
