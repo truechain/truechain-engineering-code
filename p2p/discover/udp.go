@@ -628,6 +628,7 @@ func (req *pong) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 	if expired(req.Expiration) {
 		return errExpired
 	}
+	log.Info("pong rep", "ip", req.To.IP, "name", req.name())
 	if !t.handleReply(fromID, pongPacket, req) {
 		return errUnsolicitedReply
 	}
