@@ -30,18 +30,20 @@ type Health struct {
 	Port  uint
 	Tick  int32
 	State int32
+	HType  int32
 	Val   *Validator
 	Self  bool
 }
 
 //NewHealth new
-func NewHealth(id tp2p.ID, state int32, val *Validator, Self bool) *Health {
+func NewHealth(id tp2p.ID, t,state int32, val *Validator, Self bool) *Health {
 	return &Health{
-		ID:    id,
-		State: state,
-		Val:   val,
-		Tick:  0,
-		Self:  Self,
+		ID:    	id,
+		State: 	state,
+		HType:	t,
+		Val:   	val,
+		Tick:  	0,
+		Self:  	Self,
 	}
 }
 
@@ -89,6 +91,7 @@ func (s *SwitchValidator) String() string {
 	return fmt.Sprintf("switch-validator:[R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
 		s.Remove, s.Add, s.Infos, s.Resion, s.From, s.DoorCount)
 }
+// Equal return true they are same id or both nil otherwise return false
 func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 	if s == nil && other == nil {
 		return true
@@ -138,7 +141,7 @@ func (h *HealthMgr) PutWorkHealth(he *Health) {
 //PutBackHealth add a *health to back
 func (h *HealthMgr) PutBackHealth(he *Health) {
 	if he != nil {
-		if he.State == ctypes.StateFixedFlag {
+		if he.HType == ctypes.TypeFixed {
 			h.seed = append(h.seed, he)
 		} else {
 			h.Back = append(h.Back, he)
@@ -208,13 +211,13 @@ func (h *HealthMgr) healthGoroutine() {
 }
 func (h *HealthMgr) work() {
 	for _, v := range h.Work {
-		if v.State == ctypes.StateUsedFlag && v.State != ctypes.StateFixedFlag && !v.Self {
+		if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 			atomic.AddInt32(&v.Tick, 1)
 			h.checkSwitchValidator(v)
 		}
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUsedFlag && v.State != ctypes.StateFixedFlag && !v.Self {
+		if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 			atomic.AddInt32(&v.Tick, 1)
 			h.checkSwitchValidator(v)
 		}
@@ -293,7 +296,7 @@ func (h *HealthMgr) getUsedValidCount() int {
 		}
 	}
 	for _, v := range h.seed {
-		if v.State == ctypes.StateFixedFlag || v.State == ctypes.StateUsedFlag {
+		if v.HType == ctypes.TypeFixed || v.State == ctypes.StateUsedFlag {
 			cnt++
 		}
 	}
@@ -357,7 +360,7 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 //Update tick
 func (h *HealthMgr) Update(id tp2p.ID) {
 	if v, ok := h.Work[id]; ok {
-		if v.State != ctypes.StateFixedFlag {
+		if v.HType != ctypes.TypeFixed {
 			val := atomic.LoadInt32(&v.Tick)
 			atomic.AddInt32(&v.Tick, -val)
 			return
@@ -365,7 +368,7 @@ func (h *HealthMgr) Update(id tp2p.ID) {
 	}
 	for _, v := range h.Back {
 		if v.ID == id {
-			if v.State != ctypes.StateFixedFlag {
+			if v.HType != ctypes.TypeFixed {
 				val := atomic.LoadInt32(&v.Tick)
 				atomic.AddInt32(&v.Tick, -val)
 			}

@@ -31,7 +31,10 @@ const (
 	StateSwitchingFlag = 0xa2
 	StateRemovedFlag   = 0xa3
 	StateAppendFlag    = 0xa4
-	StateFixedFlag     = 0xa5
+	// health enter type
+	TypeFixed     	= 0xa5
+	TypeWorked		= 0xa6
+	TypeBack		= 0xa7
 )
 
 const (
@@ -48,6 +51,7 @@ type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
 	Flag      int32
+	MType 	  int32
 }
 
 // ElectionCommittee defines election members result

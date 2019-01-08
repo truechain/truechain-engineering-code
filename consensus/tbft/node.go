@@ -605,10 +605,10 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 		if v.Flag != types.StateUsedFlag ||
 			v.Flag != types.StateRemovedFlag ||
 			v.Flag != types.StateUnusedFlag ||
-			v.Flag != types.StateFixedFlag {
+			v.Flag != types.TypeFixed {
 			return errors.New("committee member error 2")
 		}
-		if v.Flag == types.StateFixedFlag {
+		if v.Flag == types.TypeFixed {
 			seeds = append(seeds, v)
 		}
 	}
