@@ -17,7 +17,7 @@ import (
 
 const (
 	//HealthOut peer time out
-	HealthOut = 60 //* 10
+	HealthOut = 60 * 60 * 24 * 7 //* 10
 	//MixValidator min committee count
 	MixValidator   = 2
 	BlackDoorCount = 4
@@ -30,20 +30,20 @@ type Health struct {
 	Port  uint
 	Tick  int32
 	State int32
-	HType  int32
+	HType int32
 	Val   *Validator
 	Self  bool
 }
 
 //NewHealth new
-func NewHealth(id tp2p.ID, t,state int32, val *Validator, Self bool) *Health {
+func NewHealth(id tp2p.ID, t, state int32, val *Validator, Self bool) *Health {
 	return &Health{
-		ID:    	id,
-		State: 	state,
-		HType:	t,
-		Val:   	val,
-		Tick:  	0,
-		Self:  	Self,
+		ID:    id,
+		State: state,
+		HType: t,
+		Val:   val,
+		Tick:  0,
+		Self:  Self,
 	}
 }
 
@@ -81,7 +81,7 @@ type SwitchValidator struct {
 	Resion    string
 	From      int // 0-- add ,1--remove
 	DoorCount int
-	ID 		  int
+	ID        int
 }
 
 func (s *SwitchValidator) String() string {
@@ -91,6 +91,7 @@ func (s *SwitchValidator) String() string {
 	return fmt.Sprintf("switch-validator:[R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
 		s.Remove, s.Add, s.Infos, s.Resion, s.From, s.DoorCount)
 }
+
 // Equal return true they are same id or both nil otherwise return false
 func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 	if s == nil && other == nil {
@@ -100,7 +101,7 @@ func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 		return false
 	}
 	return s.ID == other.ID && s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add)
-} 
+}
 
 //HealthMgr struct
 type HealthMgr struct {
@@ -111,8 +112,8 @@ type HealthMgr struct {
 	switchChanTo   chan *SwitchValidator
 	switchChanFrom chan *SwitchValidator
 	healthTick     *time.Ticker
-	curSwitch	   []*SwitchValidator
-	switchBuffer   []*SwitchValidator	
+	curSwitch      []*SwitchValidator
+	switchBuffer   []*SwitchValidator
 	cid            uint64
 }
 
@@ -122,7 +123,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 		Work:           make(map[tp2p.ID]*Health, 0),
 		Back:           make([]*Health, 0, 0),
 		seed:           make([]*Health, 0, 0),
-		curSwitch:   	make([]*SwitchValidator, 0, 0),
+		curSwitch:      make([]*SwitchValidator, 0, 0),
 		switchBuffer:   make([]*SwitchValidator, 0, 0),
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
@@ -233,7 +234,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health) {
 		log.Info("Health", "Change", true)
 		back := h.pickUnuseValidator()
 		cur := h.makeSwitchValidators(v, back, "Switch", 0)
-		h.curSwitch = append(h.curSwitch,cur)
+		h.curSwitch = append(h.curSwitch, cur)
 		go h.Switch(cur)
 		atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
 	}
@@ -279,7 +280,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		DoorCount: BlackDoorCount,
 		Remove:    remove,
 		Add:       add,
-		ID:		   0,		// for tmp
+		ID:        0, // for tmp
 	}
 }
 
@@ -307,13 +308,13 @@ func (h *HealthMgr) getUsedValidCount() int {
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	ss := "failed"
 	if len(h.curSwitch) == 0 {
-		log.Error("curSwitch has nothing","res",res)
+		log.Error("curSwitch has nothing", "res", res)
 		return
 	}
 	cur := h.curSwitch[0]
 	if !cur.Equal(res) {
-		log.Error("switchResult res not match","cur",cur,"res",res)
-		return	
+		log.Error("switchResult res not match", "cur", cur, "res", res)
+		return
 	}
 	if res.Resion == "" {
 		if len(res.Infos.Vals) > 2 {
