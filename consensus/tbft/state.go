@@ -103,7 +103,6 @@ type ConsensusState struct {
 	// state only emits EventNewRoundStep and EventVote
 	evsw         ttypes.EventSwitch
 	svs          []*ttypes.SwitchValidator
-	svsBlackDoor []*ttypes.SwitchValidator
 	hm           *ttypes.HealthMgr
 }
 
@@ -128,7 +127,6 @@ func NewConsensusState(
 		state:            state,
 		evsw:             ttypes.NewEventSwitch(),
 		svs:              make([]*ttypes.SwitchValidator, 0, 0),
-		svsBlackDoor:     make([]*ttypes.SwitchValidator, 0, 0),
 	}
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -756,7 +754,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	if doing {
 		// get block
-		block, blockParts, err = cs.createProposalBlock()
+		block, blockParts, err = cs.createProposalBlock(round)
 		if err != nil || block == nil {
 			log.Error("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
 			doing = false
@@ -886,18 +884,23 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // is returned for convenience so we can log the proposal block.
 // Returns nil block upon error.
 // NOTE: keep it side-effect free for clarity.
-func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, error) {
+func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.PartSet, error) {
 	// remove commit in block
 	var v *ttypes.SwitchValidator
-	if len(cs.svs) == 0 {
-		cs.moveAndReduceDoorCount() // move to svs from svsBlockDoor,when DoorCount==0 and svs is empty
-	}
 	if len(cs.svs) > 0 {
-		v = cs.svs[0]
-		cs.svs = append(cs.svs[:0], cs.svs[1:]...)
-		v.DoorCount = ttypes.BlackDoorCount - 1
-		cs.svsBlackDoor = append(cs.svsBlackDoor, v)
-		log.Info("Make Proposal and move item", "item", v)
+		tmp := cs.svs[0]
+		if tmp.DoorCount == 0 || tmp.DoorCount >= ttypes.BlackDoorCount {
+			if tmp.Round == -1 {
+				tmp.Round = round
+			}
+			v = tmp
+			log.Info("Make Proposal and move item", "item", v)
+		}
+		if tmp.DoorCount >= ttypes.BlackDoorCount {
+			tmp.DoorCount = 1
+		} else {
+			tmp.DoorCount++
+		}
 	}
 
 	block, err := cs.state.MakeBlock(v)
@@ -907,23 +910,6 @@ func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, 
 	}
 	return block, nil, err
 }
-func (cs *ConsensusState) moveAndReduceDoorCount() {
-	for _, val := range cs.svsBlackDoor {
-		if val.DoorCount > 0 {
-			val.DoorCount--
-		}
-		if val.DoorCount == 0 {
-			cs.svs = append(cs.svs, val)
-		}
-	}
-}
-func moveTail(s []*ttypes.SwitchValidator) {
-	if len(s) > 0 {
-		tmp := s[0]
-		s = append(append(s[:0], s[1:]...), tmp)
-	}
-}
-
 // Enter: `timeoutPropose` after entering Propose.
 // Enter: proposal block and POL is ready.
 // Enter: any +2/3 prevotes for future round.
@@ -1649,35 +1635,43 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 }
 
 //---------------------------------------------------------
-func (cs *ConsensusState) hasSwitchValidator(infos *types.SwitchInfos, s []*ttypes.SwitchValidator) bool {
-	if len(infos.Vals) <= 2 {
-		return false
-	}
-	aEnter, rEnter := infos.Vals[0], infos.Vals[1]
-	exist := false
+func (cs *ConsensusState) hasSwitchValidator(other *ttypes.SwitchValidator, s []*ttypes.SwitchValidator) bool {
+	// if len(infos.Vals) <= 2 {
+	// 	return false
+	// }
+	// aEnter, rEnter := infos.Vals[0], infos.Vals[1]
+	// exist := false
+	// for _, v := range s {
+	// 	if len(v.Infos.Vals) > 2 {
+	// 		if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
+	// 			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
+	// 			exist = true
+	// 			break
+	// 		}
+	// 	}
+	// }
 	for _, v := range s {
-		if len(v.Infos.Vals) > 2 {
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
-				(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
-				exist = true
-				break
-			}
+		if e := v.Equal(other); e {
+			return true
 		}
 	}
-	return exist
+	return false
 }
 func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 	if s != nil {
 		if s.From == 0 { // add
-			exist := cs.hasSwitchValidator(s.Infos, cs.svsBlackDoor)
-			if !exist {
-				exist = cs.hasSwitchValidator(s.Infos, cs.svs)
-			}
-			if !exist {
+			if len(cs.svs) == 0 {
 				cs.svs = append(cs.svs, s)
+			} else {
+				log.Info("already has switch Item......")
 			}
-		} else if s.From == 1 { // remove
-			cs.pickSwitchValidator(s.Infos)
+		} else if s.From == 1 { // restore
+			round := int(cs.Round)
+			if round > s.Round || s.Round == -1 {	 
+				if v := cs.pickSwitchValidator(s); v != nil {
+					cs.notifyHealthMgr(v)
+				}
+			}
 		}
 	}
 }
@@ -1707,29 +1701,25 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		log.Error("swithResult,remove is nil")
 		return
 	}
-
-	sv := cs.pickSwitchValidator(sw)
-	if sv == nil {
-		sv = &ttypes.SwitchValidator{
-			Infos:  sw,
-			Resion: "",
-			Remove: remove,
-			Add:    add,
-		}
-	} else {
-		log.Error("swithResult,not found sv", "sw", sw)
-		return
-	}
-
-	// notify to healthMgr
+	sv := &ttypes.SwitchValidator{
+		Infos:  sw,
+		Resion: "",
+		Remove: remove,
+		Add:    add,
+	}	
+	sv = cs.pickSwitchValidator(sv)
+	if sv != nil {
+		cs.notifyHealthMgr(sv)
+		log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
+	} 
+}
+func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 	go func() {
 		select {
 		case cs.hm.ChanFrom() <- sv:
 		default:
 		}
 	}()
-
-	log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
 }
 
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
@@ -1756,6 +1746,19 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	return false
 }
 
+func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator) *ttypes.SwitchValidator {
+	if len(cs.svs) > 0  {
+		tmp := cs.svs[0]
+		if ok:= tmp.Equal(sv); ok {
+			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
+		} else {
+			log.Error("pickSV not match","sv",sv,"item0",tmp)
+			return nil
+		}
+	}
+	return sv
+}
+
 func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSign, error) {
 	if block == nil {
 		return nil, errors.New("block is nil")
@@ -1767,40 +1770,6 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	log.Info("validateBlock", "res", res)
 	return cs.state.ValidateBlock(block, res)
 }
-
-func (cs *ConsensusState) pickSwitchValidator(info *types.SwitchInfos) *ttypes.SwitchValidator {
-	log.Info("pickSwitchValidator", "info", info.Vals)
-	if info == nil || len(info.Vals) < 2 {
-		return nil
-	}
-	aEnter, rEnter := info.Vals[0], info.Vals[1]
-	for i, v := range cs.svsBlackDoor {
-		if len(v.Infos.Vals) > 2 {
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
-				(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
-				cs.svsBlackDoor = append(cs.svsBlackDoor[:i], cs.svsBlackDoor[i+1:]...)
-				log.Info("pickSwitchValidator", "svsLen", len(cs.svsBlackDoor), "svs", cs.svsBlackDoor)
-				return v
-			}
-		}
-	}
-	for i, v := range cs.svs {
-		if len(v.Infos.Vals) > 2 {
-			log.Info("pickSwitchValidator", "aEnter.Flag", aEnter.Flag, "v.Infos.Vals[0].Flag", v.Infos.Vals[0].Flag,
-				"aEnter.Pk", aEnter.Pk, "v.Infos.Vals[0].Pk", v.Infos.Vals[0].Pk, "rEnter.Flag", rEnter.Flag, "v.Infos.Vals[1].Flag", v.Infos.Vals[1].Flag,
-				"rEnter.Pk", rEnter.Pk, "v.Infos.Vals[1].Pk", v.Infos.Vals[1].Pk)
-			log.Info("pickSwitchValidator", "if", (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) && (rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)))
-			if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
-				(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
-				cs.svs = append(cs.svs[:i], cs.svs[i+1:]...)
-				log.Info("pickSwitchValidator", "svsLen", len(cs.svs), "svs", cs.svs)
-				return v
-			}
-		}
-	}
-	return nil
-}
-
 // CompareHRS is compare msg'and peerSet's height round Step
 func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint, s2 ttypes.RoundStepType) int {
 	if h1 < h2 {

@@ -82,8 +82,9 @@ type SwitchValidator struct {
 	Add       *Health
 	Infos     *ctypes.SwitchInfos
 	Resion    string
-	From      int // 0-- add ,1--remove
+	From      int // 0-- add ,1-- resore
 	DoorCount int
+	Round 	  int 		// -1 not exc,no lock
 	ID        uint64
 }
 
@@ -91,8 +92,8 @@ func (s *SwitchValidator) String() string {
 	if s == nil {
 		return "switch-validator-nil"
 	}
-	return fmt.Sprintf("switch-validator:[R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
-		s.Remove, s.Add, s.Infos, s.Resion, s.From, s.DoorCount)
+	return fmt.Sprintf("switch-validator:[ID:%v,Round:%d,R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
+		s.ID,s.Round,s.Remove, s.Add, s.Infos, s.Resion, s.From, s.DoorCount)
 }
 
 // Equal return true they are same id or both nil otherwise return false
@@ -286,9 +287,10 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		Infos:     infos,
 		Resion:    resion,
 		From:      from,
-		DoorCount: BlackDoorCount,
+		DoorCount: 0,
 		Remove:    remove,
 		Add:       add,
+		Round:	   -1,
 		ID:        uid, // for tmp
 	}
 }
