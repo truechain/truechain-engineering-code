@@ -297,7 +297,6 @@ func (tab *Table) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 			if !asked[n.ID] {
 				asked[n.ID] = true
 				pendingQueries++
-				log.Debug("lookup", "n", n, "target", target, "targetID", targetID)
 				go tab.findnode(n, targetID, reply)
 			}
 		}
@@ -337,7 +336,7 @@ func (tab *Table) findnode(n *Node, targetID NodeID, reply chan<- []*Node) {
 	for _, n := range r {
 		tab.add(n)
 	}
-	log.Debug("findnode", "n", n, "targetID", targetID, "r", len(r))
+	log.Debug("Lookup findnode", "n", n, "targetID", targetID, "r", len(r), "entries", r)
 	reply <- r
 }
 
