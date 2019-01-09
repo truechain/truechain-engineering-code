@@ -122,6 +122,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run etrue.Truechain in light sync mode, use les.LightEthereum")
 	}
+	//if config.SyncMode == downloader.SnapShotSync {
+	//	return nil, errors.New("can't run etrue.Truechain in SnapShotSync sync mode, use les.LightEthereum")
+	//}
+
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
@@ -162,13 +166,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		rawdb.WriteDatabaseVersion(chainDb, core.BlockChainVersion)
 	}
 	var (
-		vmConfig = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
-		//cacheConfig     = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
-		cacheConfig      = &core.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
-		snailCacheConfig = &chain.CacheConfig{Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
+		vmConfig    = vm.Config{EnablePreimageRecording: config.EnablePreimageRecording}
+		cacheConfig = &core.CacheConfig{Deleted: config.DeletedState, Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 
-	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, snailCacheConfig, etrue.chainConfig, etrue.engine, vmConfig)
+	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}

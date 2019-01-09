@@ -29,10 +29,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -129,7 +129,7 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 
 	fastchain.InsertChain(fastblocks)
 
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{})
 
 	blocks, err := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
 

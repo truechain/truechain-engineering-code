@@ -156,6 +156,7 @@ type statusData struct {
 	ProtocolVersion  uint32
 	NetworkId        uint64
 	TD               *big.Int
+	FastHeight       *big.Int
 	CurrentBlock     common.Hash
 	GenesisBlock     common.Hash
 	CurrentFastBlock common.Hash

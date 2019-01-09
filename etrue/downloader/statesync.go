@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package fastdownloader
+package downloader
 
 import (
 	"fmt"
@@ -60,12 +60,23 @@ type stateSyncStats struct {
 }
 
 // syncState starts downloading state with the given root hash.
-func (d *Downloader) syncState(root common.Hash) *stateSync {
+func (d *Downloader) SyncState(root common.Hash) *stateSync {
 	s := newStateSync(d, root)
 	select {
 	case d.stateSyncStart <- s:
 	case <-d.quitCh:
-		s.err = errCancelStateFetch
+		s.err = etrue.ErrCancelStateFetch
+		close(s.done)
+	}
+	return s
+}
+
+func (d *Downloader) SyncStateFd(root common.Hash) etrue.StateSyncInter  {
+	s := newStateSync(d, root)
+	select {
+	case d.stateSyncStart <- s:
+	case <-d.quitCh:
+		s.err = etrue.ErrCancelStateFetch
 		close(s.done)
 	}
 	return s
@@ -132,14 +143,15 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 		case <-s.done:
 			return nil
 
-		// Send the next finished request to the current sync:
+			// Send the next finished request to the current sync:
 		case deliverReqCh <- deliverReq:
+			log.Debug("deliverReqCh ==== ","deliverReq",deliverReq.items[0])
 			// Shift out the first request, but also set the emptied slot to nil for GC
 			copy(finished, finished[1:])
 			finished[len(finished)-1] = nil
 			finished = finished[:len(finished)-1]
 
-		// Handle incoming state packs:
+			// Handle incoming state packs:
 		case pack := <-d.stateCh:
 			// Discard any data not requested (or previously timed out)
 			req := active[pack.PeerId()]
@@ -168,7 +180,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			finished = append(finished, req)
 			delete(active, p.GetID())
 
-		// Handle timed-out requests:
+			// Handle timed-out requests:
 		case req := <-timeout:
 			// If the peer is already requesting something else, ignore the stale timeout.
 			// This can happen when the timeout and the delivery happens simultaneously,
@@ -180,7 +192,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 			finished = append(finished, req)
 			delete(active, req.peer.GetID())
 
-		// Track outgoing state requests:
+			// Track outgoing state requests:
 		case req := <-d.trackStateReq:
 			// If an active request already exists for this peer, we have a problem. In
 			// theory the trie node schedule must never assign two requests to the same
@@ -258,6 +270,10 @@ func (s *stateSync) run() {
 	close(s.done)
 }
 
+func NewStateSync()  {
+	
+}
+
 // Wait blocks until the sync is done or canceled.
 func (s *stateSync) Wait() error {
 	<-s.done
@@ -300,10 +316,10 @@ func (s *stateSync) loop() (err error) {
 			// New peer arrived, try to assign it download tasks
 
 		case <-s.cancel:
-			return errCancelStateFetch
+			return etrue.ErrCancelStateFetch
 
 		case <-s.d.cancelCh:
-			return errCancelStateFetch
+			return etrue.ErrCancelStateFetch
 
 		case req := <-s.deliver:
 			// Response, disconnect or timeout triggered, drop the peer if stalling
@@ -315,11 +331,12 @@ func (s *stateSync) loop() (err error) {
 				s.d.dropPeer(req.peer.GetID())
 			}
 			// Process all the received blobs and check for stale delivery
-			if err = s.process(req); err != nil {
+			delivered, err := s.process(req)
+			if err != nil {
 				log.Warn("Node data write error", "err", err)
 				return err
 			}
-			req.peer.SetNodeDataIdle(len(req.response))
+			req.peer.SetNodeDataIdle(delivered)
 		}
 	}
 	return nil
@@ -400,9 +417,11 @@ func (s *stateSync) fillTasks(n int, req *stateReq) {
 // process iterates over a batch of delivered state data, injecting each item
 // into a running state sync, re-queuing any items that were requested but not
 // delivered.
-func (s *stateSync) process(req *stateReq) error {
+// Returns whether the peer actually managed to deliver anything of value,
+// and any error that occurred
+func (s *stateSync) process(req *stateReq) (int, error) {
 	// Collect processing stats and update progress if valid data was received
-	duplicate, unexpected := 0, 0
+	duplicate, unexpected, successful := 0, 0, 0
 
 	defer func(start time.Time) {
 		if duplicate > 0 || unexpected > 0 {
@@ -420,12 +439,13 @@ func (s *stateSync) process(req *stateReq) error {
 			s.numUncommitted++
 			s.bytesUncommitted += len(blob)
 			progress = progress || prog
+			successful++
 		case trie.ErrNotRequested:
 			unexpected++
 		case trie.ErrAlreadyProcessed:
 			duplicate++
 		default:
-			return fmt.Errorf("invalid state node %s: %v", hash.TerminalString(), err)
+			return successful, fmt.Errorf("invalid state node %s: %v", hash.TerminalString(), err)
 		}
 		if _, ok := req.tasks[hash]; ok {
 			delete(req.tasks, hash)
@@ -443,12 +463,12 @@ func (s *stateSync) process(req *stateReq) error {
 		// If we've requested the node too many times already, it may be a malicious
 		// sync where nobody has the right data. Abort.
 		if len(task.attempts) >= npeers {
-			return fmt.Errorf("state node %s failed with all peers (%d tries, %d peers)", hash.TerminalString(), len(task.attempts), npeers)
+			return successful, fmt.Errorf("state node %s failed with all peers (%d tries, %d peers)", hash.TerminalString(), len(task.attempts), npeers)
 		}
 		// Missing item, place into the retry queue.
 		s.tasks[hash] = task
 	}
-	return nil
+	return successful, nil
 }
 
 // processNodeData tries to inject a trie node data blob delivered from a remote
@@ -480,4 +500,12 @@ func (s *stateSync) updateStats(written, duplicate, unexpected int, duration tim
 	if written > 0 {
 		rawdb.WriteFastTrieProgress(s.d.stateDB, s.d.syncStatsState.processed)
 	}
+}
+
+func (s *stateSync) Done() <- chan struct{} {
+	return s.done
+}
+
+func  (s *stateSync) Err() error  {
+	return s.err
 }

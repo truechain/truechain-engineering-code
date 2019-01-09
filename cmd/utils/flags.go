@@ -210,13 +210,17 @@ var (
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
 		Name:  "syncmode",
-		Usage: `Blockchain sync mode ("fast", "full", or "light")`,
+		Usage: `Blockchain sync mode ("fast", "full", "light",or "snapshot")`,
 		Value: &defaultSyncMode,
 	}
 	GCModeFlag = cli.StringFlag{
 		Name:  "gcmode",
 		Usage: `Blockchain garbage collection mode ("full", "archive")`,
 		Value: "full",
+	}
+	StateGCFlag = cli.BoolFlag{
+		Name:  "stategc",
+		Usage: "Delete block body and receipt",
 	}
 	LightServFlag = cli.IntFlag{
 		Name:  "lightserv",
@@ -1128,6 +1132,10 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	cfg.NoPruning = ctx.GlobalString(GCModeFlag.Name) == "archive"
 
+	if ctx.GlobalIsSet(StateGCFlag.Name) || cfg.SyncMode == downloader.SnapShotSync {
+		cfg.DeletedState = true
+	}
+
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cfg.TrieCache = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
@@ -1209,6 +1217,9 @@ func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 			return les.New(ctx, cfg)
 		})
 	} else {
+		//if cfg.SyncMode == downloader.SnapShotSync {
+
+		//} else {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			fullNode, err := etrue.New(ctx, cfg)
 			if fullNode != nil && cfg.LightServ > 0 {
@@ -1217,6 +1228,8 @@ func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 			}
 			return fullNode, err
 		})
+		//}
+
 	}
 	if err != nil {
 		Fatalf("Failed to register the Truechain service: %v", err)
@@ -1338,11 +1351,6 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
 		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
-	scache := &snailchain.CacheConfig{
-		Disabled:      ctx.GlobalString(GCModeFlag.Name) == "archive",
-		TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
-	}
 
 	if ctx.GlobalIsSet(CacheFlag.Name) || ctx.GlobalIsSet(CacheGCFlag.Name) {
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
@@ -1350,7 +1358,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 
 	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
-	schain, err = snailchain.NewSnailBlockChain(chainDb, scache, config, engine, vmcfg)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, vmcfg)
 
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)

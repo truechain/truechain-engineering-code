@@ -76,6 +76,8 @@ type ProtocolManager struct {
 	networkID uint64
 
 	fastSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	snapSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+
 	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
 	acceptFruits uint32
 	//acceptSnailBlocks uint32
@@ -124,12 +126,17 @@ type ProtocolManager struct {
 	// and processing
 	wg         sync.WaitGroup
 	agentProxy AgentNetworkProxy
+
+	syncLock uint32
+	syncWg   *sync.Cond
+	lock     *sync.Mutex
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
 // with the Truechain network.
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, SnailPool SnailPool, engine consensus.Engine, blockchain *core.BlockChain, snailchain *snailchain.SnailBlockChain, chaindb ethdb.Database, agent *PbftAgent) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
+	lock := new(sync.Mutex)
 	manager := &ProtocolManager{
 		networkID:   networkID,
 		eventMux:    mux,
@@ -145,6 +152,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		fruitsyncCh: make(chan *fruitsync),
 		quitSync:    make(chan struct{}),
 		agentProxy:  agent,
+		syncWg:      sync.NewCond(lock),
+		lock:        lock,
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
@@ -156,6 +165,10 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	if mode == downloader.FastSync {
 		manager.fastSync = uint32(1)
+	}
+
+	if mode == downloader.SnapShotSync {
+		manager.snapSync = uint32(1)
 	}
 
 	// Initiate a sub-protocol for every implemented version we can handle
@@ -198,10 +211,11 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	// Construct the different synchronisation mechanisms
 	// TODO: support downloader func.
-
+	log.Info("---==--- mode ?", "mode is   :", mode)
 	fmode := fastdownloader.SyncMode(mode)
 	manager.fdownloader = fastdownloader.New(fmode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, snailchain, nil, manager.removePeer, manager.fdownloader)
+	manager.fdownloader.SetSD(manager.downloader)
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
@@ -400,13 +414,14 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		fastHead    = pm.blockchain.CurrentHeader()
 		fastHash    = fastHead.Hash()
 
-		genesis = pm.snailchain.Genesis()
-		head    = pm.snailchain.CurrentHeader()
-		hash    = head.Hash()
-		number  = head.Number.Uint64()
-		td      = pm.snailchain.GetTd(hash, number)
+		genesis    = pm.snailchain.Genesis()
+		head       = pm.snailchain.CurrentHeader()
+		hash       = head.Hash()
+		number     = head.Number.Uint64()
+		td         = pm.snailchain.GetTd(hash, number)
+		fastHeight = pm.blockchain.CurrentBlock().Number()
 	)
-	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastGenesis.Hash()); err != nil {
+	if err := p.Handshake(pm.networkID, td, hash, genesis.Hash(), fastHash, fastGenesis.Hash(), fastHeight); err != nil {
 		p.Log().Debug("Truechain handshake failed", "err", err)
 		return err
 	}
@@ -571,7 +586,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
-		log.Debug("SnailBlockHeadersMsg>>", "headers:", len(headers))
+		if len(headers) != 0 {
+			log.Debug("SnailBlockHeadersMsg>>", "headers:", len(headers), "headerNumber", headers[0].Number)
+		}
 		err := pm.downloader.DeliverHeaders(p.id, headers)
 		if err != nil {
 			log.Debug("Failed to deliver headers", "err", err)
@@ -677,7 +694,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			headers []*types.Header
 		)
 
-		fheader := pm.blockchain.CurrentBlock().Header()
+		fheader := pm.blockchain.GetBlockByNumber(pm.snailchain.CurrentBlock().Fruits()[len(pm.snailchain.CurrentBlock().Fruits())-1].FastNumber().Uint64()).Header()
 		headers = append(headers, fheader)
 
 		log.Debug("Handle get fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
@@ -869,12 +886,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case p.version >= eth63 && msg.Code == NodeDataMsg:
 		// A batch of node state data arrived to one of our previous requests
+
 		var data [][]byte
 		if err := msg.Decode(&data); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+
+		log.Debug(" NodeDataMsg node state data", "data", data)
 		// Deliver all to the downloader
-		if err := pm.fdownloader.DeliverNodeData(p.id, data); err != nil {
+		if err := pm.downloader.DeliverNodeData(p.id, data); err != nil {
 			log.Debug("Failed to deliver node state data", "err", err)
 		}
 
@@ -963,17 +983,20 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		p.MarkFastBlock(request.Block.Hash())
 		pm.fetcherFast.Enqueue(p.id, request.Block)
 
-		// TODO: downloader sync func
 		// Assuming the block is importable by the peer, but possibly not yet done so,
-		// calculate the head hash and TD that the peer truly must have.
+		// calculate the head height that the peer truly must have.
+		height := new(big.Int).Sub(request.Block.Number(), common.Big1)
+		// Update the peers height if better than the previous
+		if fastHeight := p.FastHeight(); height.Cmp(fastHeight) > 0 {
+			p.SetFastHeight(height)
 
-		// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-		// a singe block (as the true TD is below the propagated block), however this
-		// scenario should easily be covered by the fetcher.
-
-		currentBlock := pm.blockchain.CurrentBlock()
-		if request.Block.NumberU64()-currentBlock.NumberU64() > maxKnownFastBlocks {
-			go pm.synchronise(p)
+			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+			// a singe block (as the true TD is below the propagated block), however this
+			// scenario should easily be covered by the fetcher.
+			currentBlock := pm.blockchain.CurrentBlock()
+			if currentBlock.Number().Cmp(new(big.Int).Sub(height, common.Big256)) < 0 {
+				go pm.synchronise(p)
+			}
 		}
 
 	case msg.Code == TxMsg:

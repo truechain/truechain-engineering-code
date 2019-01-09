@@ -211,6 +211,15 @@ func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uin
 	return err
 }
 
+// HasFastBlock checks if a block is present in the testers canonical chain.
+func (dl *DownloadTester) HasFastBlock(hash common.Hash, number uint64) bool {
+	dl.lock.RLock()
+	defer dl.lock.RUnlock()
+
+	_, ok := dl.ownReceipts[hash]
+	return ok
+}
+
 // HasHeader checks if a header is present in the testers canonical chain.
 func (dl *DownloadTester) HasHeader(hash common.Hash, number uint64) bool {
 	return dl.GetHeaderByHash(hash) != nil
