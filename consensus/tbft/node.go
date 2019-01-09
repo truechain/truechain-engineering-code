@@ -592,6 +592,16 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 //check Committee
 func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 	//checkFlag
+	if cm.Id.Uint64() == 0 {
+		for _, v := range cm.Members {
+			if v.Flag != types.StateUsedFlag ||
+				v.MType != types.TypeFixed {
+				return errors.New("committee member error 0")
+			}
+		}
+		return nil
+	}
+
 	for _, v := range cm.Members {
 		if v.Flag != types.StateUsedFlag &&
 			v.Flag != types.StateRemovedFlag {
@@ -621,6 +631,11 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 func (h *Node) verifySeedNode(seeds []*types.CommitteeMember, cSeeds []*types.CommitteeMember) error {
 	if len(seeds) == 0 || len(cSeeds) == 0 || (len(seeds) != len(cSeeds)) {
 		return errors.New("committee member error 3")
+	}
+	for i := len(seeds) - 1; i >= 0; i-- {
+		if !seeds[i].Compared(cSeeds[i]) {
+			return errors.New("committee member error 4")
+		}
 	}
 	return nil
 }

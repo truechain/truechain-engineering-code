@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
@@ -32,9 +33,9 @@ const (
 	StateRemovedFlag   = 0xa3
 	StateAppendFlag    = 0xa4
 	// health enter type
-	TypeFixed     	= 0xa5
-	TypeWorked		= 0xa6
-	TypeBack		= 0xa7
+	TypeFixed  = 0xa5
+	TypeWorked = 0xa6
+	TypeBack   = 0xa7
 )
 
 const (
@@ -51,13 +52,21 @@ type CommitteeMember struct {
 	Coinbase  common.Address
 	Publickey *ecdsa.PublicKey
 	Flag      int32
-	MType 	  int32
+	MType     int32
 }
 
 // ElectionCommittee defines election members result
 type ElectionCommittee struct {
 	Members []*CommitteeMember
 	Backups []*CommitteeMember
+}
+
+func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
+	if c.MType == d.MType && c.Coinbase.String() != d.Coinbase.String() &&
+		bytes.Compare(crypto.FromECDSAPub(c.Publickey), crypto.FromECDSAPub(d.Publickey)) == 0 {
+		return true
+	}
+	return false
 }
 
 func (c *CommitteeMember) String() string {
