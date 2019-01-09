@@ -289,7 +289,9 @@ func (t *udp) close() {
 	close(t.closing)
 	t.conn.Close()
 	// TODO: wait for the loops to end.
-	t.ticker.Stop()
+	if t.ticker != nil {
+		t.ticker.Stop()
+	}
 }
 
 // ping sends a ping message to the given node and waits for a reply.
@@ -655,7 +657,7 @@ func (req *pong) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 	if expired(req.Expiration) {
 		return errExpired
 	}
-	log.Info("pong rep", "ip", req.To.IP, "name", req.name())
+
 	if !t.handleReply(fromID, pongPacket, req) {
 		return errUnsolicitedReply
 	}
