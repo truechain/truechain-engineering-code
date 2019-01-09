@@ -241,6 +241,10 @@ func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(fs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
 }
 
+func (fs FrontierSigner) PSender(tx *Transaction) (common.Address, error) {
+	return recoverPlain(fs.Hash(tx), tx.data.PR, tx.data.PS, tx.data.PV, false)
+}
+
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
 	if Vb.BitLen() > 8 {
 		return common.Address{}, ErrInvalidSig
