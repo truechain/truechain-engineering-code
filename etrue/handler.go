@@ -1134,7 +1134,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return fmt.Errorf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr())
 	}
 
-	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
 	return nil
 }
 
