@@ -75,8 +75,8 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type ProtocolManager struct {
 	networkID uint64
 
-	fastSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	snapSync     uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	fastSync uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	snapSync uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 
 	acceptTxs    uint32 // Flag whether we're considered synchronised (enables transaction processing)
 	acceptFruits uint32
@@ -1297,6 +1297,7 @@ func (pm *ProtocolManager) minedFastBroadcastLoop() {
 	for {
 		select {
 		case blockEvent := <-pm.minedFastCh:
+			atomic.StoreUint32(&pm.acceptTxs, 1)
 			pm.BroadcastFastBlock(blockEvent.Block, true) // First propagate fast block to peers
 
 			// Err() channel will be closed when unsubscribing.
@@ -1311,6 +1312,7 @@ func (pm *ProtocolManager) pbSignBroadcastLoop() {
 		select {
 		case signEvent := <-pm.pbSignsCh:
 			log.Info("Committee sign", "number", signEvent.PbftSign.FastHeight, "hash", signEvent.PbftSign.Hash(), "recipients", len(pm.peers.peers))
+			atomic.StoreUint32(&pm.acceptTxs, 1)
 			pm.BroadcastFastBlock(signEvent.Block, true) // Only then announce to the rest
 			//pm.BroadcastPbSign(signEvent.Block.Signs())
 			pm.BroadcastFastBlock(signEvent.Block, false) // Only then announce to the rest
@@ -1341,6 +1343,7 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 	for obj := range pm.minedSnailBlockSub.Chan() {
 		switch ev := obj.Data.(type) {
 		case types.NewMinedBlockEvent:
+			atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 			pm.BroadcastSnailBlock(ev.Block, true)  // First propagate fruit to peers
 			pm.BroadcastSnailBlock(ev.Block, false) // Only then announce to the rest
 		}
