@@ -3,14 +3,14 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"math/big"
-	"strings"
-	"sync"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
+	"strings"
+	"sync"
 )
 
 // P2PID UNSTABLE
@@ -449,11 +449,11 @@ func (voteSet *VoteSet) MakePbftSigns(thash []byte) ([]*ttypes.PbftSign, error) 
 	}
 	blockid := voteSet.maj23
 	if !help.EqualHashes(thash, blockid.Hash) {
-		return nil, errors.New(fmt.Sprintf("hash:%s,blockid:%s", common.ToHex(thash), common.ToHex(blockid.Hash)))
+		return nil, errors.New(fmt.Sprintf("hash:%s,blockid:%s", hexutil.Encode(thash), hexutil.Encode(blockid.Hash)))
 	}
 	voteByBlock, ok := voteSet.votesByBlock[blockid.Key()]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("none blockhash was vote,hash=%s", common.ToHex(voteSet.maj23.Hash)))
+		return nil, errors.New(fmt.Sprintf("none blockhash was vote,hash=%s", hexutil.Encode(voteSet.maj23.Hash)))
 	}
 	signs := make([]*ttypes.PbftSign, 0)
 	for i, vote := range voteByBlock.votes {

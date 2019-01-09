@@ -106,7 +106,7 @@ func (Validator *privValidator) SignVote(chainID string, vote *Vote) error {
 	Validator.mtx.Lock()
 	defer Validator.mtx.Unlock()
 	if err := Validator.signVote(chainID, vote); err != nil {
-		return fmt.Errorf("Error signing vote: %v", err)
+		return fmt.Errorf("error signing vote: %v", err)
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (Validator *privValidator) signVote(chainID string, vote *Vote) error {
 			vote.Timestamp = timestamp
 			vote.Signature = Validator.LastSignature
 		} else {
-			err = fmt.Errorf("Conflicting data")
+			err = fmt.Errorf("conflicting data")
 		}
 		return err
 	}
@@ -156,7 +156,7 @@ func (Validator *privValidator) SignProposal(chainID string, proposal *Proposal)
 	Validator.mtx.Lock()
 	defer Validator.mtx.Unlock()
 	if err := Validator.signProposal(chainID, proposal); err != nil {
-		return fmt.Errorf("Error signing proposal: %v", err)
+		return fmt.Errorf("error signing proposal: %v", err)
 	}
 	return nil
 }
@@ -185,7 +185,7 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 			proposal.Timestamp = timestamp
 			proposal.Signature = Validator.LastSignature
 		} else {
-			err = fmt.Errorf("Conflicting data")
+			err = fmt.Errorf("conflicting data")
 		}
 		return err
 	}
@@ -203,17 +203,17 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 // returns error if HRS regression or no LastSignBytes. returns true if HRS is unchanged
 func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (bool, error) {
 	if Validator.LastHeight > height {
-		return false, errors.New("Height regression")
+		return false, errors.New("height regression")
 	}
 
 	if Validator.LastHeight == height {
 		if int(Validator.LastRound) > round {
-			return false, errors.New("Round regression")
+			return false, errors.New("round regression")
 		}
 
 		if int(Validator.LastRound) == round {
 			if Validator.LastStep > step {
-				return false, errors.New("Step regression")
+				return false, errors.New("step regression")
 			} else if Validator.LastStep == step {
 				if Validator.LastSignBytes != nil {
 					if Validator.LastSignature == nil {
@@ -221,7 +221,7 @@ func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (
 					}
 					return true, nil
 				}
-				return false, errors.New("No LastSignature found")
+				return false, errors.New("no LastSignature found")
 			}
 		}
 	}
@@ -375,13 +375,13 @@ func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
 func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	if reader.IsComplete() {
 		maxsize := int64(MaxBlockBytes)
-		bytes := make([]byte, maxsize, maxsize)
-		_, err := cdc.UnmarshalBinaryReader(reader.GetReader(), &bytes, maxsize)
+		b := make([]byte, maxsize, maxsize)
+		_, err := cdc.UnmarshalBinaryReader(reader.GetReader(), &b, maxsize)
 		if err != nil {
 			return nil, err
 		}
 		var block ctypes.Block
-		if err = rlp.DecodeBytes(bytes, &block); err != nil {
+		if err = rlp.DecodeBytes(b, &block); err != nil {
 			return nil, err
 		}
 		return &block, nil
@@ -397,7 +397,7 @@ func (state *StateAgentImpl) PrivReset() {
 // HasPeerID judge the peerid whether in validators
 func (state *StateAgentImpl) HasPeerID(id string) error {
 	if state.ids == nil {
-		return errors.New("Validators is nil")
+		return errors.New("validators is nil")
 	}
 	state.lock.Lock()
 	defer state.lock.Unlock()

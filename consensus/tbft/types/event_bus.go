@@ -1,16 +1,13 @@
 package types
 
 import (
-	//"context"
-	//"fmt"
 	"errors"
-
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
-const defaultCapacity = 0
+//const defaultCapacity = 0
 
 // type EventBusSubscriber interface {
 // 	Subscribe(ctx context.Context, subscriber string, query tmpubsub.Query, out chan<- interface{}) error
@@ -96,7 +93,7 @@ func (b *EventBus) Subscribe(key string, out chan<- interface{}) event.Subscript
 
 //PublishEventVote send event data common EventVote
 func (b *EventBus) PublishEventVote(event EventDataVote) error {
-	if v,ok := b.subs[EventVote];ok {
+	if v, ok := b.subs[EventVote]; ok {
 		v.Send(event)
 		return nil
 	}
@@ -248,6 +245,6 @@ func (b *EventBus) PublishEventLock(event EventDataRoundState) error {
 
 func logIfTagExists(tag string, tags map[string]string, logger log.Logger) {
 	if value, ok := tags[tag]; ok {
-		logger.Error("Found predefined tag (value will be overwritten)", "tag", tag, "value", value)
+		logger.Error("found predefined tag (value will be overwritten)", "tag", tag, "value", value)
 	}
 }

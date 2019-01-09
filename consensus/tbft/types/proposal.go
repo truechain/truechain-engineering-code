@@ -1,17 +1,16 @@
 package types
 
 import (
-	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"time"
 )
 
 var (
-	//ErrInvalidBlockPartSignature is Error invalid block part signature
-	ErrInvalidBlockPartSignature = errors.New("Error invalid block part signature")
-	//ErrInvalidBlockPartHash is Error invalid block part hash
-	ErrInvalidBlockPartHash = errors.New("Error invalid block part hash")
+//ErrInvalidBlockPartSignature is Error invalid block part signature
+//ErrInvalidBlockPartSignature = errors.New("error invalid block part signature")
+//ErrInvalidBlockPartHash is Error invalid block part hash
+//ErrInvalidBlockPartHash = errors.New("error invalid block part hash")
 )
 
 // Proposal defines a block proposal for the consensus.

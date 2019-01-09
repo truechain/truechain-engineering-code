@@ -17,7 +17,7 @@ type RoundVoteSet struct {
 
 var (
 	//ErrorGotVoteFromUnwantedRound is Peer has sent a vote that does not match our round for more than one round
-	ErrorGotVoteFromUnwantedRound = errors.New("Peer has sent a vote that does not match our round for more than one round")
+	ErrorGotVoteFromUnwantedRound = errors.New("peer has sent a vote that does not match our round for more than one round")
 )
 
 // HeightVoteSet comment

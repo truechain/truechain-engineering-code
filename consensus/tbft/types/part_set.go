@@ -11,16 +11,16 @@ import (
 
 var (
 	//ErrPartSetUnexpectedIndex is Error part set unexpected index
-	ErrPartSetUnexpectedIndex = errors.New("Error part set unexpected index")
+	ErrPartSetUnexpectedIndex = errors.New("error part set unexpected index")
 	//ErrPartSetInvalidProof is Error part set invalid proof
-	ErrPartSetInvalidProof = errors.New("Error part set invalid proof")
+	ErrPartSetInvalidProof = errors.New("error part set invalid proof")
 )
 
 //Part struct
 type Part struct {
-	Index uint          		`json:"index"`
-	Bytes help.HexBytes 		`json:"bytes"`
-	Proof help.SimpleProof 		`json:"proof"`
+	Index uint             `json:"index"`
+	Bytes help.HexBytes    `json:"bytes"`
+	Proof help.SimpleProof `json:"proof"`
 
 	hash []byte
 }

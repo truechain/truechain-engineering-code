@@ -11,21 +11,21 @@ import (
 
 var (
 	//ErrVoteUnexpectedStep is Error Unexpected step
-	ErrVoteUnexpectedStep = errors.New("Unexpected step")
+	ErrVoteUnexpectedStep = errors.New("unexpected step")
 	//ErrVoteInvalidValidatorIndex is Error Invalid validator index
-	ErrVoteInvalidValidatorIndex = errors.New("Invalid validator index")
+	ErrVoteInvalidValidatorIndex = errors.New("invalid validator index")
 	// ErrVoteInvalidValidatorAddress is Error Invalid validator address
-	ErrVoteInvalidValidatorAddress = errors.New("Invalid validator address")
+	ErrVoteInvalidValidatorAddress = errors.New("invalid validator address")
 	//ErrVoteInvalidSignature is Error Invalid signature
-	ErrVoteInvalidSignature = errors.New("Invalid signature")
+	ErrVoteInvalidSignature = errors.New("invalid signature")
 	//ErrVoteInvalidBlockHash is Error Invalid block hash
-	ErrVoteInvalidBlockHash = errors.New("Invalid block hash")
+	//ErrVoteInvalidBlockHash = errors.New("invalid block hash")
 	//ErrVoteNonDeterministicSignature is Error Non-deterministic signature
-	ErrVoteNonDeterministicSignature = errors.New("Non-deterministic signature")
+	ErrVoteNonDeterministicSignature = errors.New("non-deterministic signature")
 	//ErrVoteConflictingVotes  is Error Conflicting votes from validator
-	ErrVoteConflictingVotes = errors.New("Conflicting votes from validator")
+	ErrVoteConflictingVotes = errors.New("conflicting votes from validator")
 	//ErrVoteNil is Error Nil vote
-	ErrVoteNil = errors.New("Nil vote")
+	ErrVoteNil = errors.New("nil vote")
 )
 
 // Types of votes

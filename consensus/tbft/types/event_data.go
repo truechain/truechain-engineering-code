@@ -6,20 +6,20 @@ package types
 
 // Reserved event types
 const (
-	EventCompleteProposal  = "CompleteProposal"
-	EventLock              = "Lock"
-	EventNewBlock          = "NewBlock"
-	EventNewBlockHeader    = "NewBlockHeader"
-	EventNewRound          = "NewRound"
-	EventNewRoundStep      = "NewRoundStep"
-	EventPolka             = "Polka"
-	EventRelock            = "Relock"
-	EventTimeoutPropose    = "TimeoutPropose"
-	EventTimeoutWait       = "TimeoutWait"
-	EventTx                = "Tx"
-	EventUnlock            = "Unlock"
-	EventVote              = "Vote"
-	EventMsgNotFound       = "MessageUnsubscribe"
+	EventCompleteProposal = "CompleteProposal"
+	EventLock             = "Lock"
+	//EventNewBlock          = "NewBlock"
+	//EventNewBlockHeader    = "NewBlockHeader"
+	EventNewRound       = "NewRound"
+	EventNewRoundStep   = "NewRoundStep"
+	EventPolka          = "Polka"
+	EventRelock         = "Relock"
+	EventTimeoutPropose = "TimeoutPropose"
+	EventTimeoutWait    = "TimeoutWait"
+	//EventTx                = "Tx"
+	EventUnlock      = "Unlock"
+	EventVote        = "Vote"
+	EventMsgNotFound = "MessageUnsubscribe"
 )
 
 //EventDataRoundState NOTE: This goes into the replay WAL

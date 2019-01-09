@@ -104,12 +104,13 @@ func (valSet *ValidatorSet) MakeIDs() map[string]interface{} {
 	if valSet == nil || len(valSet.Validators) == 0 {
 		return nil
 	}
-	ids := make(map[string]interface{},0)
+	ids := make(map[string]interface{}, 0)
 	for _, val := range valSet.Validators {
 		ids[hex.EncodeToString(val.Address[:])] = nil
 	}
 	return ids
 }
+
 // GetByAddress returns an index of the validator with address and validator
 // itself if found. Otherwise, -1 and nil are returned.
 func (valSet *ValidatorSet) GetByAddress(address []byte) (index int, val *Validator) {
@@ -276,10 +277,10 @@ func (valSet *ValidatorSet) Iterate(fn func(index int, val *Validator) bool) {
 //VerifyCommit  Verify that +2/3 of the set had signed the given signBytes
 func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height uint64, commit *Commit) error {
 	if valSet.Size() != uint(len(commit.Precommits)) {
-		return fmt.Errorf("Invalid commit -- wrong set size: %v vs %v", valSet.Size(), len(commit.Precommits))
+		return fmt.Errorf("invalid commit -- wrong set size: %v vs %v", valSet.Size(), len(commit.Precommits))
 	}
 	if height != commit.Height() {
-		return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, commit.Height())
+		return fmt.Errorf("invalid commit -- wrong height: %v vs %v", height, commit.Height())
 	}
 
 	talliedVotingPower := int64(0)
@@ -291,19 +292,19 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 			continue
 		}
 		if precommit.Height != height {
-			return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, precommit.Height)
+			return fmt.Errorf("invalid commit -- wrong height: %v vs %v", height, precommit.Height)
 		}
 		if int(precommit.Round) != round {
-			return fmt.Errorf("Invalid commit -- wrong round: %v vs %v", round, precommit.Round)
+			return fmt.Errorf("invalid commit -- wrong round: %v vs %v", round, precommit.Round)
 		}
 		if precommit.Type != VoteTypePrecommit {
-			return fmt.Errorf("Invalid commit -- not precommit @ index %v", idx)
+			return fmt.Errorf("invalid commit -- not precommit @ index %v", idx)
 		}
 		_, val := valSet.GetByIndex(uint(idx))
 		// Validate signature
 		precommitSignBytes := precommit.SignBytes(chainID)
 		if !val.PubKey.VerifyBytes(precommitSignBytes, precommit.Signature) {
-			return fmt.Errorf("Invalid commit -- invalid signature: %v", precommit)
+			return fmt.Errorf("invalid commit -- invalid signature: %v", precommit)
 		}
 		if !blockID.Equals(precommit.BlockID) {
 			continue // Not an error, but doesn't count
@@ -317,8 +318,8 @@ func (valSet *ValidatorSet) VerifyCommit(chainID string, blockID BlockID, height
 	if talliedVotingPower > valSet.TotalVotingPower()*2/3 {
 		return nil
 	}
-	return fmt.Errorf("Invalid commit -- insufficient voting power: got %v, needed %v",
-		talliedVotingPower, (valSet.TotalVotingPower()*2/3 + 1))
+	return fmt.Errorf("invalid commit -- insufficient voting power: got %v, needed %v",
+		talliedVotingPower, valSet.TotalVotingPower()*2/3+1)
 }
 
 // VerifyCommitAny will check to see if the set would
@@ -338,10 +339,10 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 	blockID BlockID, height uint64, commit *Commit) error {
 
 	if newSet.Size() != uint(len(commit.Precommits)) {
-		return fmt.Errorf("Invalid commit -- wrong set size: %v vs %v", newSet.Size(), len(commit.Precommits))
+		return fmt.Errorf("invalid commit -- wrong set size: %v vs %v", newSet.Size(), len(commit.Precommits))
 	}
 	if height != commit.Height() {
-		return fmt.Errorf("Invalid commit -- wrong height: %v vs %v", height, commit.Height())
+		return fmt.Errorf("invalid commit -- wrong height: %v vs %v", height, commit.Height())
 	}
 
 	oldVotingPower := int64(0)
@@ -356,13 +357,13 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 		}
 		if precommit.Height != height {
 			// return certerr.ErrHeightMismatch(height, precommit.Height)
-			return fmt.Errorf("Blocks don't match - %d vs %d", round, precommit.Round)
+			return fmt.Errorf("blocks don't match - %d vs %d", round, precommit.Round)
 		}
 		if int(precommit.Round) != round {
-			return fmt.Errorf("Invalid commit -- wrong round: %v vs %v", round, precommit.Round)
+			return fmt.Errorf("invalid commit -- wrong round: %v vs %v", round, precommit.Round)
 		}
 		if precommit.Type != VoteTypePrecommit {
-			return fmt.Errorf("Invalid commit -- not precommit @ index %v", idx)
+			return fmt.Errorf("invalid commit -- not precommit @ index %v", idx)
 		}
 		if !blockID.Equals(precommit.BlockID) {
 			continue // Not an error, but doesn't count
@@ -378,7 +379,7 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 		// Validate signature old school
 		precommitSignBytes := precommit.SignBytes(chainID)
 		if !ov.PubKey.VerifyBytes(precommitSignBytes, precommit.Signature) {
-			return fmt.Errorf("Invalid commit -- invalid signature: %v", precommit)
+			return fmt.Errorf("invalid commit -- invalid signature: %v", precommit)
 		}
 		// Good precommit!
 		if precommit.Result == ctypes.VoteAgree {
@@ -393,11 +394,11 @@ func (valSet *ValidatorSet) VerifyCommitAny(newSet *ValidatorSet, chainID string
 	}
 
 	if oldVotingPower <= valSet.TotalVotingPower()*2/3 {
-		return fmt.Errorf("Invalid commit -- insufficient old voting power: got %v, needed %v",
-			oldVotingPower, (valSet.TotalVotingPower()*2/3 + 1))
+		return fmt.Errorf("invalid commit -- insufficient old voting power: got %v, needed %v",
+			oldVotingPower, valSet.TotalVotingPower()*2/3+1)
 	} else if newVotingPower <= newSet.TotalVotingPower()*2/3 {
-		return fmt.Errorf("Invalid commit -- insufficient cur voting power: got %v, needed %v",
-			newVotingPower, (newSet.TotalVotingPower()*2/3 + 1))
+		return fmt.Errorf("invalid commit -- insufficient cur voting power: got %v, needed %v",
+			newVotingPower, newSet.TotalVotingPower()*2/3+1)
 	}
 	return nil
 }
@@ -411,7 +412,7 @@ func (valSet *ValidatorSet) StringIndented(indent string) string {
 	if valSet == nil {
 		return "nil-ValidatorSet"
 	}
-	valStrings := []string{}
+	var valStrings []string
 	valSet.Iterate(func(index int, val *Validator) bool {
 		valStrings = append(valStrings, val.String())
 		return false

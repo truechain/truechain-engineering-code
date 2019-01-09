@@ -1,8 +1,8 @@
 package types
 
 import (
-	amino "github.com/tendermint/go-amino"
-	cryptoAmino "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto/cryptoamino"
+	"github.com/tendermint/go-amino"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto/cryptoamino"
 )
 
 var cdc = amino.NewCodec()
