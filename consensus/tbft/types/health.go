@@ -85,7 +85,7 @@ type SwitchValidator struct {
 	Resion    string
 	From      int // 0-- add ,1--remove
 	DoorCount int
-	ID        int
+	ID        uint64
 }
 
 func (s *SwitchValidator) String() string {
@@ -119,6 +119,7 @@ type HealthMgr struct {
 	curSwitch      []*SwitchValidator
 	switchBuffer   []*SwitchValidator
 	cid            uint64
+	uid 		   uint64
 }
 
 //NewHealthMgr func
@@ -135,6 +136,9 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 		healthTick:     nil,
 	}
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
+	hi,lo := cid << 32,uint64(100)
+	h.uid = hi | lo
+	log.Info("HealthMgr init","cid",cid,"hi",hi,"lo",lo,"uid",h.uid)	
 	return h
 }
 
@@ -277,6 +281,8 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		CID:  h.cid,
 		Vals: vals,
 	}
+	uid := h.uid
+	h.uid++
 	return &SwitchValidator{
 		Infos:     infos,
 		Resion:    resion,
@@ -284,7 +290,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		DoorCount: BlackDoorCount,
 		Remove:    remove,
 		Add:       add,
-		ID:        0, // for tmp
+		ID:        uid, // for tmp
 	}
 }
 
@@ -345,6 +351,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 		}
 	}
 	log.Info("switch", "result:", ss, "res", res)
+	h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
 }
 
 //pickUnuseValidator get a back committee
