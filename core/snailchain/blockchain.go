@@ -136,13 +136,8 @@ type SnailBlockChain struct {
 // NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
-	if cacheConfig == nil {
-		cacheConfig = &CacheConfig{
-			TrieNodeLimit: 256 * 1024 * 1024,
-			TrieTimeLimit: 5 * time.Minute,
-		}
-	}
+func NewSnailBlockChain(db ethdb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
+
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
 	blockCache, _ := lru.New(blockCacheLimit)
@@ -151,7 +146,6 @@ func NewSnailBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig
 
 	bc := &SnailBlockChain{
 		chainConfig:  chainConfig,
-		cacheConfig:  cacheConfig,
 		db:           db,
 		triegc:       prque.New(),
 		quit:         make(chan struct{}),

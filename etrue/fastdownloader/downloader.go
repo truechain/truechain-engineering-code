@@ -738,7 +738,7 @@ func (d *Downloader) fetchBodies(from uint64) error {
 	var (
 		deliver = func(packet etrue.DataPack) (int, error) {
 			pack := packet.(*bodyPack)
-			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.signs)
+			return d.queue.DeliverBodies(pack.peerID, pack.transactions, pack.signs,pack.infos)
 		}
 		expire   = func() map[string]int { return d.queue.ExpireBodies(d.requestTTL()) }
 		fetch    = func(p etrue.PeerConnection, req *etrue.FetchRequest) error { return p.FetchBodies(req) }
@@ -1308,8 +1308,8 @@ func (d *Downloader) DeliverOneHeader(id string, headers []*types.Header) (err e
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign) (err error) {
-	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs}, bodyInMeter, bodyDropMeter)
+func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign,infos []*types.SwitchInfos) (err error) {
+	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs,infos}, bodyInMeter, bodyDropMeter)
 }
 
 // DeliverReceipts injects a new batch of receipts received from a remote node.
