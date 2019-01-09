@@ -201,6 +201,10 @@ func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(hs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, true)
 }
 
+func (hs HomesteadSigner) PSender(tx *Transaction) (common.Address, error) {
+	return recoverPlain(hs.Hash(tx), tx.data.PR, tx.data.PS, tx.data.PV, true)
+}
+
 type FrontierSigner struct{}
 
 func (s FrontierSigner) Equal(s2 Signer) bool {
