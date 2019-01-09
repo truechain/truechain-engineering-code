@@ -58,7 +58,7 @@ func NewConsensusReactor(consensusState *ConsensusState, fastSync bool) *Consens
 func (conR *ConsensusReactor) OnStart() error {
 	log.Info("Begin ConsensusReactor start ", "fastSync", conR.FastSync())
 	if conR.hm == nil {
-		return errors.New("uninit hm...")
+		return errors.New("uninit hm")
 	}
 	conR.subscribeToBroadcastEvents()
 
@@ -76,7 +76,7 @@ func (conR *ConsensusReactor) OnStop() {
 	log.Info("Begin ConsensusReactor finish")
 	conR.unsubscribeFromBroadcastEvents()
 	running := conR.conS.IsRunning()
-	conR.conS.Stop()
+	help.CheckAndPrintError(conR.conS.Stop())
 	if running {
 		conR.conS.Wait()
 	}
@@ -418,7 +418,7 @@ func (conR *ConsensusReactor) sendNewRoundStepMessages(peer tp2p.Peer) {
 func (conR *ConsensusReactor) gossipDataRoutine(peer tp2p.Peer, ps *PeerState) {
 	//logger := log.With("peer", peer)
 
-OUTER_LOOP:
+outerLoop:
 	for {
 		// Manage disconnects from self or peer.
 		if !peer.IsRunning() || !conR.IsRunning() {
@@ -442,7 +442,7 @@ OUTER_LOOP:
 					if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
 						ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
 					}
-					continue OUTER_LOOP
+					continue outerLoop
 				}
 			}
 		}
@@ -462,17 +462,17 @@ OUTER_LOOP:
 					ps.InitProposalBlockParts(blockMeta.BlockID.PartsHeader)
 				}
 				// continue the loop since prs is a copy and not effected by this initialization
-				continue OUTER_LOOP
+				continue outerLoop
 			}
 			conR.gossipDataForCatchup(rs, prs, ps, peer)
-			continue OUTER_LOOP
+			continue outerLoop
 		}
 
 		// If height and round don't match, sleep.
 		if (rs.Height != prs.Height) || (rs.Round != prs.Round) {
 			//logger.Info("Peer Height|Round mismatch, sleeping", "peerHeight", prs.Height, "peerRound", prs.Round, "peer", peer)
 			time.Sleep(conR.conS.config.PeerGossipSleep())
-			continue OUTER_LOOP
+			continue outerLoop
 		}
 
 		// By here, height and round match.
@@ -503,12 +503,12 @@ OUTER_LOOP:
 				log.Debug("Sending POL", "height", prs.Height, "round", prs.Round)
 				peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg))
 			}
-			continue OUTER_LOOP
+			continue outerLoop
 		}
 
 		// Nothing to do. Sleep.
 		time.Sleep(conR.conS.config.PeerGossipSleep())
-		continue OUTER_LOOP
+		continue outerLoop
 	}
 }
 
@@ -574,7 +574,7 @@ func (conR *ConsensusReactor) gossipVotesRoutine(peer tp2p.Peer, ps *PeerState) 
 	// Simple hack to throttle logs upon sleep.
 	var sleeping = 0
 
-OUTER_LOOP:
+outerLoop:
 	for {
 		// Manage disconnects from self or peer.
 		if !peer.IsRunning() || !conR.IsRunning() {
@@ -598,7 +598,7 @@ OUTER_LOOP:
 		if rs.Height == prs.Height {
 			//heightLogger := logger.With("height", prs.Height)
 			if conR.gossipVotesForHeight(rs, prs, ps) {
-				continue OUTER_LOOP
+				continue outerLoop
 			}
 		}
 
@@ -607,7 +607,7 @@ OUTER_LOOP:
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
 			if ps.PickSendVote(rs.LastCommit) {
 				log.Debug("Picked rs.LastCommit to send", "height", prs.Height)
-				continue OUTER_LOOP
+				continue outerLoop
 			}
 		}
 
@@ -619,7 +619,7 @@ OUTER_LOOP:
 			commit := conR.conS.blockStore.LoadBlockCommit(prs.Height)
 			if commit != nil && ps.PickSendVote(commit) {
 				log.Debug("Picked Catchup commit to send", "height", prs.Height)
-				continue OUTER_LOOP
+				continue outerLoop
 			}
 		}
 
@@ -634,7 +634,7 @@ OUTER_LOOP:
 			sleeping = 1
 		}
 		time.Sleep(conR.conS.config.PeerGossipSleep())
-		continue OUTER_LOOP
+		continue outerLoop
 	}
 }
 
@@ -695,7 +695,7 @@ func (conR *ConsensusReactor) gossipVotesForHeight(rs *ttypes.RoundState, prs *t
 func (conR *ConsensusReactor) queryMaj23Routine(peer tp2p.Peer, ps *PeerState) {
 	//logger := conR.Logger.With("peer", peer)
 
-OUTER_LOOP:
+outerLoop:
 	for {
 		// Manage disconnects from self or peer.
 		if !peer.IsRunning() || !conR.IsRunning() {
@@ -778,7 +778,7 @@ OUTER_LOOP:
 
 		time.Sleep(conR.conS.config.PeerQueryMaj23Sleep())
 
-		continue OUTER_LOOP
+		continue outerLoop
 	}
 }
 
@@ -805,10 +805,10 @@ func (conR *ConsensusReactor) StringIndented(indent string) string {
 //-----------------------------------------------------------------------------
 
 var (
-	//ErrPeerStateHeightRegression is Error peer state height regression
-	ErrPeerStateHeightRegression = errors.New("Error peer state height regression")
-	//ErrPeerStateInvalidStartTime is Error peer state invalid startTime
-	ErrPeerStateInvalidStartTime = errors.New("Error peer state invalid startTime")
+//ErrPeerStateHeightRegression is Error peer state height regression
+//ErrPeerStateHeightRegression = errors.New("error peer state height regression")
+//ErrPeerStateInvalidStartTime is Error peer state invalid startTime
+//ErrPeerStateInvalidStartTime = errors.New("error peer state invalid startTime")
 )
 
 // PeerState contains the known state of a peer, including its connection and
@@ -1294,7 +1294,7 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
 	if len(bz) > maxMsgSize {
-		return msg, fmt.Errorf("Msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
+		return msg, fmt.Errorf("msg exceeds max size (%d > %d)", len(bz), maxMsgSize)
 	}
 	err = cdc.UnmarshalBinaryBare(bz, &msg)
 	return
