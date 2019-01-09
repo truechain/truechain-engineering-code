@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	// "sort"
 	"sync/atomic"
 	"time"
 )
@@ -56,7 +55,7 @@ func (h *Health) String() string {
 		return "health-nil"
 	}
 	return fmt.Sprintf("id:%s,ip:%s,port:%d,tick:%d,state:%d,addr:%s", h.ID, h.IP, h.Port, h.Tick, h.State,
-		common.ToHex(h.Val.Address))
+		hexutil.Encode(h.Val.Address))
 }
 
 //SimpleString string
@@ -191,7 +190,7 @@ func (h *HealthMgr) OnStop() {
 	if h.healthTick != nil {
 		h.healthTick.Stop()
 	}
-	h.Stop()
+	help.CheckAndPrintError(h.Stop())
 }
 
 //Switch send switch
