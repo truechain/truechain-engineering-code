@@ -728,6 +728,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
+	//append block.IsAward solve the problem of slow block and solve issuse #63
 	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) && !block.IsAward() {
 		dd := cs.config.EmptyBlocksIntervalForPer(int(wait))
 		wait++
