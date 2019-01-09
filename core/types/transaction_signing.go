@@ -111,6 +111,8 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 type Signer interface {
 	// Sender returns the sender address of the transaction.
 	Sender(tx *Transaction) (common.Address, error)
+	// PSender returns the paid address of the transaction.
+	PSender(tx *Transaction) (common.Address, error)
 	// SignatureValues returns the raw R, S, V values corresponding to the
 	// given signature.
 	SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error)
