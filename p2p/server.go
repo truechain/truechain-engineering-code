@@ -142,6 +142,10 @@ type Config struct {
 
 	// Logger is a custom logger to use with the p2p.Server.
 	Logger log.Logger `toml:",omitempty"`
+
+	// Host is the host interface on which to start the pbft server. If this
+	// field is empty, can't be a committee member.
+	Host string `toml:",omitempty"`
 }
 
 // Server manages all peer connections.
@@ -494,6 +498,7 @@ func (srv *Server) Start() (err error) {
 			NetRestrict:  srv.NetRestrict,
 			Bootnodes:    srv.BootstrapNodes,
 			Unhandled:    unhandled,
+			Host:         srv.Host,
 		}
 		ntab, err := discover.ListenUDP(conn, cfg)
 		if err != nil {

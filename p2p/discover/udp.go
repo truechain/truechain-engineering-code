@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,6 +55,7 @@ const (
 	ntpWarningCooldown  = 10 * time.Minute // Minimum amount of time to pass before repeating NTP warning
 	driftThreshold      = 10 * time.Second // Allowed clock drift before warning user
 	trueVersion         = 520
+	checkIPTime         = 10 * time.Second
 )
 
 // RPC packet types
@@ -170,6 +172,8 @@ type udp struct {
 	nat     nat.Interface
 
 	*Table
+	host   string
+	ticker *time.Ticker
 }
 
 // pending represents a pending reply.
@@ -226,6 +230,7 @@ type Config struct {
 	NetRestrict  *netutil.Netlist  // network whitelist
 	Bootnodes    []*Node           // list of bootstrap nodes
 	Unhandled    chan<- ReadPacket // unhandled packets are sent on this channel
+	Host         string            // Host is the host interface on which to start the pbft server.
 }
 
 // ListenUDP returns a new table that listens for UDP packets on laddr.
@@ -261,13 +266,30 @@ func newUDP(c conn, cfg Config) (*Table, *udp, error) {
 
 	go udp.loop()
 	go udp.readLoop(cfg.Unhandled)
+	if cfg.Host != "" {
+		udp.ticker = time.NewTicker(checkIPTime)
+		go udp.checkHostIP(cfg.Host)
+	}
 	return udp.Table, udp, nil
+}
+
+// checkHostIP check committee ip is correct.
+func (t *udp) checkHostIP(ip string) {
+	for {
+		select {
+		case <-t.ticker.C:
+			if strings.Compare(ip, t.host) != 0 {
+				log.Warn("Check host ip", "committee ip must be", t.host, "config ip", ip)
+			}
+		}
+	}
 }
 
 func (t *udp) close() {
 	close(t.closing)
 	t.conn.Close()
 	// TODO: wait for the loops to end.
+	t.ticker.Stop()
 }
 
 // ping sends a ping message to the given node and waits for a reply.
@@ -561,6 +583,11 @@ func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 		return err
 	}
 	err = packet.handle(t, from, fromID, hash)
+
+	if v, ok := packet.(*pong); ok {
+		t.host = v.To.IP.String()
+	}
+
 	log.Trace("<< "+packet.name(), "addr", from, "err", err)
 	return err
 }
@@ -656,7 +683,7 @@ func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte
 	closest := t.closest(target, bucketSize).entries
 	t.mutex.Unlock()
 
-	log.Debug("findnode rep", "from", from.IP, "entries", closest)
+	log.Trace("findnode rep", "from", from.IP, "entries", closest)
 	p := neighbors{Expiration: uint64(time.Now().Add(expiration).Unix())}
 	var sent bool
 	// Send neighbors in chunks with at most maxNeighbors per packet

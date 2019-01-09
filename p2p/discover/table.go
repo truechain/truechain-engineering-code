@@ -336,7 +336,7 @@ func (tab *Table) findnode(n *Node, targetID NodeID, reply chan<- []*Node) {
 	for _, n := range r {
 		tab.add(n)
 	}
-	log.Debug("Lookup findnode", "n", n, "targetID", targetID, "r", len(r), "entries", r)
+	log.Trace("Lookup findnode", "n", n, "targetID", targetID, "r", len(r), "entries", r)
 	reply <- r
 }
 

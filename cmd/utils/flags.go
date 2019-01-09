@@ -917,6 +917,10 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 		cfg.NoDiscovery = true
 		cfg.DiscoveryV5 = false
 	}
+
+	if !ctx.GlobalBool(SingleNodeFlag.Name) && ctx.GlobalBool(EnableElectionFlag.Name) && ctx.GlobalIsSet(BFTIPFlag.Name) {
+		cfg.Host = ctx.GlobalString(BFTIPFlag.Name)
+	}
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
