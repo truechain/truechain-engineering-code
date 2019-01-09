@@ -72,7 +72,7 @@ func PSender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 
-	addr, err := signer.Sender(tx)
+	addr, err := signer.PSender(tx)
 	if err != nil {
 		return common.Address{}, err
 	}
