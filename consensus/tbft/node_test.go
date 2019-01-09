@@ -3,6 +3,7 @@ package tbft
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"testing"
 )
 
@@ -21,4 +22,10 @@ func TestNoteBuild(t *testing.T) {
 		v.E = 999
 	}
 	fmt.Println(F[0].E)
+}
+
+func TestHex(t *testing.T) {
+	var c []byte
+	c = append(c, byte(222))
+	fmt.Println(common.ToHex(c), hexutil.Encode(c))
 }
