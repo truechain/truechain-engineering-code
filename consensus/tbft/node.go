@@ -3,10 +3,6 @@ package tbft
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
-	"strconv"
-	"strings"
-	"sync"
-	// "encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,6 +15,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 type service struct {
@@ -135,9 +134,9 @@ func (s *service) stop() error {
 	if s.sw.IsRunning() {
 		s.updateChan <- false
 		s.healthMgr.OnStop()
-		s.eventBus.Stop()
+		help.CheckAndPrintError(s.eventBus.Stop())
 	}
-	s.sw.Stop()
+	help.CheckAndPrintError(s.sw.Stop())
 	return nil
 }
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {
@@ -280,7 +279,7 @@ func (n *Node) OnStop() {
 	defer n.lock.Unlock()
 	for i, v := range n.services {
 		log.Info("begin stop tbft server ", "id", i)
-		v.stop()
+		help.CheckAndPrintError(v.stop())
 		log.Info("end stop tbft server ", "id", i)
 	}
 	// first stop the non-reactor services
@@ -332,7 +331,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 				panic(0)
 			}
 			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
-			server.start(id, n)
+			help.CheckAndPrintError(server.start(id, n))
 			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			return nil
 		}
@@ -341,7 +340,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 	case Stop:
 		if server, ok := n.services[id.Uint64()]; ok {
 			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
-			server.stop()
+			help.CheckAndPrintError(server.stop())
 			//delete(n.services, id.Uint64())
 			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 		}
@@ -395,11 +394,11 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 		service.healthMgr.PutBackHealth(health)
 	}
 
-	service.healthMgr.OnStart()
+	help.CheckAndPrintError(service.healthMgr.OnStart())
 	service.consensusState.SetHealthMgr(service.healthMgr)
-	nodeinfo := makeCommitteeMembers(id.Uint64(), service, committeeInfo)
+	nodeinfo := makeCommitteeMembers(service, committeeInfo)
 	if nodeinfo == nil {
-		service.stop()
+		help.CheckAndPrintError(service.stop())
 		return errors.New("make the nil CommitteeMembers")
 	}
 
@@ -451,7 +450,7 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 
 		//update node info
 		service.lock.Lock()
-		ni := makeCommitteeMembers(info.Id.Uint64(), service, info)
+		ni := makeCommitteeMembers(service, info)
 		for k, v := range service.nodeTable {
 			if vn, ok := ni[k]; ok {
 				v.Flag = vn.Flag
@@ -460,7 +459,7 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 		service.lock.Unlock()
 
 		if stop {
-			service.stop()
+			help.CheckAndPrintError(service.stop())
 		}
 
 		//update nodes
@@ -498,7 +497,7 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 	}
 	return ttypes.NewValidatorSet(vals)
 }
-func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*nodeInfo {
+func makeCommitteeMembers(ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*nodeInfo {
 	members := append(cmm.Members, cmm.BackMembers...)
 	if ss == nil || len(members) <= 0 {
 		return nil
@@ -513,24 +512,6 @@ func makeCommitteeMembers(cid uint64, ss *service, cmm *types.CommitteeInfo) map
 			Flag: m.Flag,
 		}
 		log.Info("CommitteeMembers", "index", i, "id", id)
-	}
-	return tab
-}
-
-func makeCommitteeMembersForUpdateCommittee(cmm *types.CommitteeInfo) map[tp2p.ID]*nodeInfo {
-	members := cmm.Members
-	if cmm.BackMembers != nil {
-		members = append(members, cmm.BackMembers...)
-	}
-	tab := make(map[tp2p.ID]*nodeInfo)
-	for i, m := range members {
-		if m.Flag == types.StateUsedFlag {
-			tt := tcrypto.PubKeyTrue(*m.Publickey)
-			address := tt.Address()
-			id := tp2p.ID(hex.EncodeToString(address))
-			tab[id] = nil
-			log.Info("CommitteeMembers", "index", i, "id", id)
-		}
 	}
 	return tab
 }
@@ -628,7 +609,7 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 }
 
 //check seed node
-func (h *Node) verifySeedNode(seeds []*types.CommitteeMember, cSeeds []*types.CommitteeMember) error {
+func (n *Node) verifySeedNode(seeds []*types.CommitteeMember, cSeeds []*types.CommitteeMember) error {
 	if len(seeds) == 0 || len(cSeeds) == 0 || (len(seeds) != len(cSeeds)) {
 		return errors.New("committee member error 3")
 	}
