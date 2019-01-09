@@ -303,7 +303,7 @@ type StateAgent interface {
 
 	GetLastBlockHeight() uint64
 	GetChainID() string
-	MakeBlock(checkTX bool) (*ctypes.Block, *PartSet, error)
+	MakeBlock() (*ctypes.Block, *PartSet, error)
 	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
@@ -382,10 +382,10 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	pp := (priv).(*privValidator)
 	state.Priv = pp
 }
-func (state *StateAgentImpl) MakeBlock(checkTX bool) (*ctypes.Block, *PartSet, error) {
+func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet, error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
 	watch := newInWatch(3, "FetchFastBlock")
-	block, err := state.Agent.FetchFastBlock(committeeID, checkTX)
+	block, err := state.Agent.FetchFastBlock(committeeID)
 	if err != nil || block == nil {
 		return nil, nil, err
 	}

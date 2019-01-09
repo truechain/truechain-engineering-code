@@ -65,7 +65,7 @@ func IDAdd(agent string) {
 	IDCache[agent] = new(big.Int).Add(tmp, big.NewInt(1))
 }
 
-func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, checkTX bool) (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	fmt.Println(pap.Name, header.Number)

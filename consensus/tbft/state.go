@@ -703,11 +703,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	if doing {
 		// get block
-		checkTx := cs.config.WaitForEmptyBlocks(int(wait))
-		if round >0 {
-			checkTx = false
-		}
-		block, blockParts, err = cs.createProposalBlock(checkTx)
+		block, blockParts, err = cs.createProposalBlock()
 		if err != nil || block == nil {
 			log.Info("createProposalBlock", "height:", height, "round:", round, "makeblock:", err)
 			doing = false
@@ -732,7 +728,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
-	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) {
+	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) && !block.IsAward() {
 		dd := cs.config.EmptyBlocksIntervalForPer(int(wait))
 		wait++
 		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})
@@ -839,9 +835,9 @@ func (cs *ConsensusState) isProposalComplete() bool {
 // is returned for convenience so we can log the proposal block.
 // Returns nil block upon error.
 // NOTE: keep it side-effect free for clarity.
-func (cs *ConsensusState) createProposalBlock(checkTX bool) (*types.Block, *ttypes.PartSet, error) {
+func (cs *ConsensusState) createProposalBlock() (*types.Block, *ttypes.PartSet, error) {
 	// remove commit in block
-	return cs.state.MakeBlock(checkTX)
+	return cs.state.MakeBlock()
 }
 
 // Enter: `timeoutPropose` after entering Propose.

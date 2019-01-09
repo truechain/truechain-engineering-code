@@ -649,7 +649,7 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 }
 
 //FetchFastBlock  generate fastBlock as leader
-func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, checkTX bool) (*types.Block, error) {
+func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int) (*types.Block, error) {
 	log.Debug("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
@@ -676,12 +676,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, checkTX bool) (*typ
 		Number:     parentNumber.Add(parentNumber, common.Big1),
 		GasLimit:   core.FastCalcGasLimit(parent),
 		Time:       big.NewInt(tstamp),
-	}
-	//checkTX equals true and pending in txPool has no transaction
-	if checkTX {
-		if !agent.eth.TxPool().HasTxInPending() {
-			return types.NewBlock(header, nil, nil, nil), nil
-		}
 	}
 	//assign Proposer
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
@@ -1174,7 +1168,7 @@ func (agent *PbftAgent) singleloop() {
 			cnt   = 0
 		)
 		for {
-			block, err = agent.FetchFastBlock(nil, false)
+			block, err = agent.FetchFastBlock(nil)
 			if err != nil {
 				log.Error("singleloop FetchFastBlock error", "err", err)
 				time.Sleep(time.Second)

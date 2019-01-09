@@ -781,7 +781,7 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
-	if header != nil && len(header.SnailHash) > 0 && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
+	if header != nil && header.SnailHash != *new(common.Hash) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
 		if sBlockHeader == nil {

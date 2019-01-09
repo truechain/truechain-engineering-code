@@ -407,6 +407,13 @@ func (b *Block) WithSeal(header *Header) *Block {
 	}
 }
 
+func (b *Block) IsAward() bool {
+	if b.SnailHash() != *new(common.Hash) && b.SnailNumber() != nil {
+		return true
+	}
+	return false
+}
+
 // WithBody returns a new block with the given transaction contents.
 func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles []*Header) *Block {
 	block := &Block{

@@ -157,7 +157,7 @@ func CheckSign(etrue *Truechain) {
 }
 
 func CheckSelf(etrue *Truechain) {
-	fb, _ := etrue.agent.FetchFastBlock(nil, false)
+	fb, _ := etrue.agent.FetchFastBlock(nil)
 	fmt.Println(fb.Number())
 	voteSign, err := etrue.agent.GenerateSign(fb)
 	if err != nil {
