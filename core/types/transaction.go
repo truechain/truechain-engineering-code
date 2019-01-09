@@ -252,6 +252,11 @@ func (tx *Transaction) Cost() *big.Int {
 	return total
 }
 
+// AmountCost returns amount.
+func (tx *Transaction) AmountCost() *big.Int {
+	return tx.data.Amount
+}
+
 func (tx *Transaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
 }
