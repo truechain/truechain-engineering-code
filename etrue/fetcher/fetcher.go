@@ -285,7 +285,6 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 		origin: peer,
 		block:  block,
 	}
-	log.Debug("Enqueue", "num", block.NumberU64(), "hash", block.Hash(), "peer", peer)
 	select {
 	case f.inject <- op:
 		return nil
@@ -399,7 +398,7 @@ func (f *Fetcher) loop() {
 					}
 					// If too high up the chain or phase, continue later
 					number := block.NumberU64()
-					log.Debug("Loop", "number", number, "height", height, "same block", len(blocks), "peer", peer)
+					log.Trace("Loop", "number", number, "height", height, "same block", len(blocks), "peer", peer)
 					if number > height+1 {
 						f.queue.Push(opMulti, -float32(number))
 						if f.queueChangeHook != nil {
@@ -863,7 +862,9 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 
-	f.enqueueSign(peer, block.Signs())
+	if len(f.blockConsensus[number]) == 0 {
+		f.enqueueSign(peer, block.Signs())
+	}
 
 	// Schedule the block for future importing
 	if f.getPendingBlock(hash) == nil {
