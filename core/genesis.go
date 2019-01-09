@@ -427,8 +427,8 @@ func DefaultGenesisBlock() *Genesis {
 		Config:     params.MainnetChainConfig,
 		Nonce:      928,
 		ExtraData:  nil,
-		GasLimit:   176160768,
-		Difficulty: big.NewInt(6000000),
+		GasLimit:   88080384,
+		Difficulty: big.NewInt(20000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
