@@ -348,7 +348,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 		mode = downloader.SnapShotSync
 
-	}else if currentBlock.NumberU64() == 0 && pm.snailchain.CurrentFastBlock().NumberU64() > 0 {
+	}else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 		// The database  seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
