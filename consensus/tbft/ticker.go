@@ -1,9 +1,9 @@
 package tbft
 
 import (
-	"time"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"time"
 )
 
 var (
