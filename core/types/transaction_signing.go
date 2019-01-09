@@ -154,6 +154,18 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
 }
 
+func (s EIP155Signer) PSender(tx *Transaction) (common.Address, error) {
+	if !tx.Protected() {
+		return HomesteadSigner{}.PSender(tx)
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	PV := new(big.Int).Sub(tx.data.PV, s.chainIdMul)
+	PV.Sub(PV, big8)
+	return recoverPlain(s.Hash(tx), tx.data.PR, tx.data.PS, PV, true)
+}
+
 // WithSignature returns a new transaction with the given signature. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
