@@ -38,6 +38,13 @@ type sigCache struct {
 	from   common.Address
 }
 
+// pSigCache is used to cache the derived sender and contains
+// the signer used to derive it.
+type pSigCache struct {
+	signer Signer
+	Payer  common.Address
+}
+
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	signer := NewEIP155Signer(config.ChainID)
