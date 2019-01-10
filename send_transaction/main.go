@@ -157,11 +157,8 @@ func send(count int, ip string) {
 		return
 	}
 
-	// send
-	waitMain := &sync.WaitGroup{}
-
 	address, _ := new(big.Int).SetString(result, 16)
-	value := address.Div(address, big.NewInt(int64(len(account)))).String()
+	value := "0x" + address.Div(address, big.NewInt(int64(len(account)))).String()
 	fmt.Println("sendRawTransaction son address ", value)
 
 	//send main to son address
@@ -170,8 +167,7 @@ func send(count int, ip string) {
 		if from == 0 {
 			continue
 		}
-		waitMain.Add(1)
-		if result, err := sendRawTransaction(client, account[from], account[i], "0x"+value, waitMain); err != nil {
+		if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
 			fmt.Println("sendRawTransaction son address error ", result)
 			return
 		}
@@ -192,6 +188,8 @@ func send(count int, ip string) {
 
 	time.Sleep(time.Second * SLEEPTX)
 
+	// send
+	waitMain := &sync.WaitGroup{}
 	for {
 		waitMain.Add(1)
 		go sendTransactions(client, account, count, waitMain)
@@ -241,20 +239,13 @@ func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
 		}
 	}
 
-	if result, _ := sendRawTransaction(client, from, address, "0x2100", wait); result != "" {
+	if result, _ := sendRawTransaction(client, from, address, "0x2100"); result != "" {
 		Count++
 	}
 }
 
-// Genesis address
-func genAddress() string {
-	priKey, _ := crypto.GenerateKey()
-	address := crypto.PubkeyToAddress(priKey.PublicKey)
-	return address.Hex()
-}
+func sendRawTransaction(client *rpc.Client, from string, to string, value string) (string, error) {
 
-func sendRawTransaction(client *rpc.Client, from string, to string, value string, wait *sync.WaitGroup) (string, error) {
-	defer wait.Done()
 	mapData := make(map[string]interface{})
 
 	mapData["from"] = from
@@ -271,4 +262,11 @@ func unlockAccount(client *rpc.Client, account string, password string, time int
 	err := client.Call(&reBool, "personal_unlockAccount", account, password, time)
 	fmt.Println(name, " personal_unlockAccount Ok", reBool)
 	return reBool, err
+}
+
+// Genesis address
+func genAddress() string {
+	priKey, _ := crypto.GenerateKey()
+	address := crypto.PubkeyToAddress(priKey.PublicKey)
+	return address.Hex()
 }
