@@ -1072,6 +1072,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalBool(MineFruitFlag.Name) {
 		cfg.MineFruit = true
 	}
+	if ctx.GlobalBool(MiningEnabledFlag.Name) {
+		cfg.Mine = true
+	}
 	if ctx.GlobalBool(OldTbftFlag.Name) {
 		cfg.OldTbft = true
 	}
