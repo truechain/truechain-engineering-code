@@ -997,9 +997,9 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 		err := <-results
 		if err == nil {
-			err = bc.Validator().ValidateRewarded(block.NumberU64())
+			err = bc.Validator().ValidateBody(block)
 			if err == nil {
-				err = bc.Validator().ValidateBody(block)
+				err = bc.Validator().ValidateRewarded(block.NumberU64())
 			}
 		}
 		switch {
