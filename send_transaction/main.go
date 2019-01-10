@@ -164,7 +164,7 @@ func send(count int, ip string) {
 	//send main to son address
 	for i := 0; i < count; i++ {
 		//main unlock account
-		if from == 0 {
+		if from == i {
 			continue
 		}
 		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
@@ -176,7 +176,7 @@ func send(count int, ip string) {
 
 	//son address unlock account
 	for i := 0; i < count; i++ {
-		if from == 0 {
+		if from == i {
 			continue
 		}
 		fmt.Println(i, " unlockAccount main address ", " son address ", account[i], " value ", value)
