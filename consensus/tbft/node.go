@@ -60,7 +60,7 @@ func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *tt
 		// nodeTable:      make(map[p2p.ID]*nodeInfo),
 		lock:       new(sync.Mutex),
 		updateChan: make(chan bool, 2),
-		eventBus:   ttypes.NewEventBus(),
+		//eventBus:   ttypes.NewEventBus(),
 		// If PEX is on, it should handle dialing the seeds. Otherwise the switch does it.
 		// Note we currently use the addrBook regardless at least for AddOurAddress
 		addrBook:  pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
@@ -408,7 +408,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
 	service.sw.SetAddrBook(service.addrBook)
 	service.consensusReactor.SetHealthMgr(service.healthMgr)
-	service.consensusReactor.SetEventBus(service.eventBus)
+	//service.consensusReactor.SetEventBus(service.eventBus)
 	service.selfID = n.nodekey.ID()
 	n.services[id.Uint64()] = service
 	return nil
