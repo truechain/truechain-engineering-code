@@ -271,7 +271,7 @@ search:
 						header = types.CopySnailHeader(header)
 						header.Nonce = types.EncodeNonce(nonce)
 						header.MixDigest = common.BytesToHash(digest)
-						log.Debug("sealer mineSnail", "miner fruit fb", header.Number)
+						//log.Debug("sealer mineSnail", "miner fruit fb", header.Number)
 
 						// set fruits
 						//block.SetSnailBlockFruits(nil)
