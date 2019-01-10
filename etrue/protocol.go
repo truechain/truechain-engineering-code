@@ -72,8 +72,6 @@ const (
 	SnailBlockHeadersMsg      = 0x12
 	GetSnailBlockBodiesMsg    = 0x13
 	SnailBlockBodiesMsg       = 0x14
-	GetFastOneBlockHeadersMsg = 0x15
-	FastOneBlockHeadersMsg    = 0x16
 )
 
 type errCode int

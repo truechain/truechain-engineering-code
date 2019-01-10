@@ -1302,11 +1302,6 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err err
 	return d.deliver(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
 }
 
-// TODO
-func (d *Downloader) DeliverOneHeader(id string, headers []*types.Header) (err error) {
-	return d.deliverOne(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
-}
-
 // DeliverBodies injects a new batch of block bodies received from a remote node.
 func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign,infos []*types.SwitchInfos) (err error) {
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs,infos}, bodyInMeter, bodyDropMeter)
@@ -1317,10 +1312,6 @@ func (d *Downloader) DeliverReceipts(id string, receipts [][]*types.Receipt) (er
 	return d.deliver(id, d.receiptCh, &receiptPack{id, receipts}, receiptInMeter, receiptDropMeter)
 }
 
-// DeliverNodeData injects a new batch of node state data received from a remote node.
-func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
-	return d.deliver(id, nil, &statePack{id, data}, stateInMeter, stateDropMeter)
-}
 
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {

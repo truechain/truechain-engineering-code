@@ -23,21 +23,20 @@ import (
 )
 
 var (
-	headerInMeter      = metrics.NewRegisteredMeter("eth/downloader/headers/in", nil)
-	headerReqTimer     = metrics.NewRegisteredTimer("eth/downloader/headers/req", nil)
-	headerDropMeter    = metrics.NewRegisteredMeter("eth/downloader/headers/drop", nil)
-	headerTimeoutMeter = metrics.NewRegisteredMeter("eth/downloader/headers/timeout", nil)
+	headerInMeter      = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/in", nil)
+	headerReqTimer     = metrics.NewRegisteredTimer("etrue/fastdownloader/headers/req", nil)
+	headerDropMeter    = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/drop", nil)
+	headerTimeoutMeter = metrics.NewRegisteredMeter("etrueetrue/fastdownloader/headers/timeout", nil)
 
-	bodyInMeter      = metrics.NewRegisteredMeter("eth/downloader/bodies/in", nil)
-	bodyReqTimer     = metrics.NewRegisteredTimer("eth/downloader/bodies/req", nil)
-	bodyDropMeter    = metrics.NewRegisteredMeter("eth/downloader/bodies/drop", nil)
-	bodyTimeoutMeter = metrics.NewRegisteredMeter("eth/downloader/bodies/timeout", nil)
+	bodyInMeter      = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/in", nil)
+	bodyReqTimer     = metrics.NewRegisteredTimer("etrue/fastfastdownloader/bodies/req", nil)
+	bodyDropMeter    = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/drop", nil)
+	bodyTimeoutMeter = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/timeout", nil)
 
-	receiptInMeter      = metrics.NewRegisteredMeter("eth/downloader/receipts/in", nil)
-	receiptReqTimer     = metrics.NewRegisteredTimer("eth/downloader/receipts/req", nil)
-	receiptDropMeter    = metrics.NewRegisteredMeter("eth/downloader/receipts/drop", nil)
-	receiptTimeoutMeter = metrics.NewRegisteredMeter("eth/downloader/receipts/timeout", nil)
+	receiptInMeter      = metrics.NewRegisteredMeter("etrue/fastdownloader/receipts/in", nil)
+	receiptReqTimer     = metrics.NewRegisteredTimer("etrue/fastdownloader/receipts/req", nil)
+	receiptDropMeter    = metrics.NewRegisteredMeter("etrue/fastdownloader/receipts/drop", nil)
+	receiptTimeoutMeter = metrics.NewRegisteredMeter("etrue/fastdownloader/receipts/timeout", nil)
 
-	stateInMeter   = metrics.NewRegisteredMeter("eth/downloader/states/in", nil)
-	stateDropMeter = metrics.NewRegisteredMeter("eth/downloader/states/drop", nil)
+
 )

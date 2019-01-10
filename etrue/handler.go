@@ -681,21 +681,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
 		return p.SendFastBlockHeaders(headers)
 
-	case msg.Code == GetFastOneBlockHeadersMsg:
-
-		log.Debug("GetFastOneBlockHeadersMsg>>>>>>>>>>>>", "peer", p.id)
-		// Decode the complex header query
-		// Gather headers until the fetch or network limits is reached
-		var (
-			headers []*types.Header
-		)
-
-		fheader := pm.blockchain.GetBlockByNumber(pm.snailchain.CurrentBlock().Fruits()[len(pm.snailchain.CurrentBlock().Fruits())-1].FastNumber().Uint64()).Header()
-		headers = append(headers, fheader)
-
-		log.Debug("Handle get fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendOneFastBlockHeader(headers)
-
 	case msg.Code == FastBlockHeadersMsg:
 
 		// A batch of headers arrived to one of our previous requests
@@ -721,23 +706,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-	case msg.Code == FastOneBlockHeadersMsg:
-
-		// A batch of headers arrived to one of our previous requests
-		var headers []*types.Header
-		if err := msg.Decode(&headers); err != nil {
-			return errResp(ErrDecode, "msg %v: %v", msg, err)
-		}
-
-		// mecMark
-		if len(headers) > 0 {
-
-			err := pm.fdownloader.DeliverOneHeader(p.id, headers)
-			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
-			}
-		}
-		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>", "peer", p.id)
