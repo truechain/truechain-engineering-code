@@ -80,25 +80,27 @@ type Miner struct {
 	electionCh  chan types.ElectionEvent
 	electionSub event.Subscription
 
-	canStart    int32 // can start indicates whether we can start the mining operation
-	shouldStart int32 // should start indicates whether we should start after sync
-	commitFlag  int32
+	canStart       int32 // can start indicates whether we can start the mining operation
+	shouldStart    int32 // should start indicates whether we should start after sync
+	commitFlag     int32
+	mineEnableFlag bool
 }
 
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
-	election CommitteeElection, mineFruit bool, singleNode bool) *Miner {
+	election CommitteeElection, mineFruit bool, singleNode bool, mineEnableFlag bool) *Miner {
 	miner := &Miner{
-		truechain:  truechain,
-		mux:        mux,
-		engine:     engine,
-		election:   election,
-		fruitOnly:  mineFruit, // set fruit only
-		singleNode: singleNode,
-		electionCh: make(chan types.ElectionEvent, txChanSize),
-		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
-		canStart:   1,
-		commitFlag: 1,
+		truechain:      truechain,
+		mux:            mux,
+		engine:         engine,
+		election:       election,
+		fruitOnly:      mineFruit, // set fruit only
+		singleNode:     singleNode,
+		electionCh:     make(chan types.ElectionEvent, txChanSize),
+		worker:         newWorker(config, engine, common.Address{}, truechain, mux),
+		canStart:       1,
+		commitFlag:     1,
+		mineEnableFlag: mineEnableFlag,
 	}
 
 	miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
@@ -192,6 +194,12 @@ out:
 //Start miner
 func (miner *Miner) Start(coinbase common.Address) {
 	log.Debug("start miner --miner start function")
+
+	if !miner.mineEnableFlag {
+		log.Info("-------------------not enable the mine flag")
+		return
+	}
+
 	atomic.StoreInt32(&miner.shouldStart, 1)
 	miner.SetEtherbase(coinbase)
 
