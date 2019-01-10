@@ -117,6 +117,18 @@ func send(count int, ip string) {
 	}
 	fmt.Println("account:", account)
 
+	var reBool bool
+	for i := len(account); i < count; i++ {
+		//new account
+		err = client.Call(&reBool, "personal_newAccount", "admin")
+		if err != nil {
+			fmt.Println("personal_newAccount Error:", err.Error())
+			msg <- false
+			return
+		}
+	}
+	fmt.Println("personal_newAccount ", count, " accounts ", " Ok ", reBool)
+
 	// get balance
 	var result string
 	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
@@ -131,7 +143,6 @@ func send(count int, ip string) {
 	fmt.Println("etrue_getBalance Ok:", bl, result)
 
 	//unlock account
-	var reBool bool
 	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
@@ -190,13 +201,16 @@ func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup)
 
 	address := genAddress()
 	if to == 0 {
-		address = account[to]
+		if account[to] != "" {
+			address = account[to]
+		}
 	}
 	mapData["to"] = address
 
 	mapData["value"] = "0x2100"
 	var result string
 	client.Call(&result, "etrue_sendTransaction", mapData)
+	fmt.Println("etrue_sendTransaction", result, " mapData ", mapData)
 	if result != "" {
 		Count++
 	}
