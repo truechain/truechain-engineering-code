@@ -483,10 +483,10 @@ func (cs *ConsensusState) newStep() {
 	//rs := cs.RoundStateEvent()
 	cs.nSteps++
 	// newStep is called by updateToState in NewConsensusState before the eventBus is set!
-	if cs.eventBus != nil {
-		//help.CheckAndPrintError(cs.eventBus.PublishEventNewRoundStep(rs))
-		cs.evsw.FireEvent(ttypes.EventNewRoundStep, &cs.RoundState)
-	}
+	//if cs.eventBus != nil {
+	//help.CheckAndPrintError(cs.eventBus.PublishEventNewRoundStep(rs))
+	cs.evsw.FireEvent(ttypes.EventNewRoundStep, &cs.RoundState)
+	//}
 }
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate", "uHeight", msg.uHeight, "eHeight", msg.eHeight, "cHeight", cs.Height, "Round", cs.Round)
