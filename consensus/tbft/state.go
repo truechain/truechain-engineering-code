@@ -1669,9 +1669,8 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 		} else if s.From == 1 { // restore
 			round := int(cs.Round)
 			if round > s.Round || s.Round == -1 {
-				if v := cs.pickSwitchValidator(s); v != nil {
-					cs.notifyHealthMgr(v)
-				}
+				v := cs.pickSwitchValidator(s,true)
+				cs.notifyHealthMgr(v)
 			}
 		}
 	}
@@ -1708,11 +1707,9 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		Remove: remove,
 		Add:    add,
 	}
-	sv = cs.pickSwitchValidator(sv)
-	if sv != nil {
-		cs.notifyHealthMgr(sv)
-		log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
-	}
+	sv = cs.pickSwitchValidator(sv,false)
+	cs.notifyHealthMgr(sv)
+	log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
 }
 func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 	go func() {
@@ -1747,14 +1744,14 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	return false
 }
 
-func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator) *ttypes.SwitchValidator {
+func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator,id bool) *ttypes.SwitchValidator {
 	if len(cs.svs) > 0 {
 		tmp := cs.svs[0]
-		if ok := tmp.Equal(sv); ok {
-			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
-		} else {
+		if ok := tmp.Equal(sv,id); !ok {
 			log.Error("pickSV not match", "sv", sv, "item0", tmp)
-			return nil
+		} else {
+			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
+			return tmp	
 		}
 	}
 	return sv

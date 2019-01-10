@@ -24,6 +24,8 @@ const (
 	SwitchPartWork = 0
 	SwitchPartBack = 1
 	SwitchPartSeed = 2
+
+	EnableHealthMgr = false
 )
 
 //Health struct
@@ -97,13 +99,16 @@ func (s *SwitchValidator) String() string {
 }
 
 // Equal return true they are same id or both nil otherwise return false
-func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
+func (s *SwitchValidator) Equal(other *SwitchValidator,id bool) bool {
 	if s == nil && other == nil {
 		return true
 	}
 	if s == nil || other == nil {
 		return false
 	}
+	if !id {
+		return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add)
+	} 
 	return s.ID == other.ID && s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add)
 }
 
@@ -219,6 +224,7 @@ func (h *HealthMgr) healthGoroutine() {
 	}
 }
 func (h *HealthMgr) work() {
+	if !EnableHealthMgr { return }
 	for _, v := range h.Work {
 		if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 			atomic.AddInt32(&v.Tick, 1)
@@ -315,19 +321,12 @@ func (h *HealthMgr) getUsedValidCount() int {
 	return cnt
 }
 
-//switchResult run switch
+//switchResult handle the sv after consensus and the result removed from self 
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
+	if !EnableHealthMgr { return }
+
 	ss := "failed"
-	if len(h.curSwitch) == 0 {
-		log.Error("curSwitch has nothing", "res", res)
-		return
-	}
-	cur := h.curSwitch[0]
-	if !cur.Equal(res) {
-		log.Error("switchResult res not match", "cur", cur, "res", res)
-		return
-	}
-	if res.Resion == "" {
+	if res.Resion == "" && res.From == 0 {
 		if len(res.Infos.Vals) > 2 {
 			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
 			var add, remove *Health
@@ -350,6 +349,20 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 				atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
 			}
 		}
+	}
+	// remove sv in curSwitch if can
+	if len(h.curSwitch) == 0 {
+		log.Info("curSwitch has nothing", "res", res,"status",ss)
+		return
+	}
+	id := true
+	if res.ID == 0 {
+		id = false
+	}
+	cur := h.curSwitch[0]
+	if !cur.Equal(res,id) {
+		log.Info("switchResult res not match", "cur", cur, "res", res,"status",ss)
+		return
 	}
 	log.Info("switch", "result:", ss, "res", res)
 	h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
@@ -427,6 +440,11 @@ func (h *HealthMgr) GetHealth(pk []byte) *Health {
 
 //VerifySwitch verify remove and add switchEnter
 func (h *HealthMgr) VerifySwitch(remove, add *ctypes.SwitchEnter) error {
+	if !EnableHealthMgr {
+		err := fmt.Errorf("healthMgr not enable")
+		log.Error("VerifySwitch","err",err) 
+		return err
+	}
 	r := h.GetHealth(remove.Pk)
 	rRes := false
 
