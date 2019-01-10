@@ -24,6 +24,9 @@ var interval = time.Millisecond * 0
 //get all account
 var account []string
 
+//get all account
+var noBalance []int
+
 // The message state
 var msg = make(chan bool)
 
@@ -158,7 +161,7 @@ func send(count int, ip string) {
 	}
 
 	address, _ := new(big.Int).SetString(result, 16)
-	value := "0x" + address.Div(address, big.NewInt(int64(len(account)*100))).String()
+	value := "0x" + address.Div(address, big.NewInt(int64(len(account)*1000))).String()
 	fmt.Println("sendRawTransaction son address ", value)
 
 	//send main to son address
@@ -177,12 +180,38 @@ func send(count int, ip string) {
 		}
 		fmt.Println("etrue_getBalance son address ", account[i], " result ", result)
 
-		if result == "0" {
+		if result != "0x0" {
 			continue
 		}
 
+		noBalance = append(noBalance, i)
+
 		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
 		if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
+			fmt.Println("sendRawTransaction son address error ", result, " err ", err)
+			return
+		}
+		time.Sleep(time.Second * 2)
+	}
+
+	for i := 0; i < len(noBalance); i++ {
+		// get balance
+		err = client.Call(&result, "etrue_getBalance", account[noBalance[i]], "latest")
+		if err != nil {
+			fmt.Println("etrue_getBalance Error:", err)
+			msg <- false
+			return
+		}
+		fmt.Println("etrue_getBalance son address ", account[noBalance[i]], " result ", result)
+
+		if result != "0x0" {
+			continue
+		}
+
+		noBalance = append(noBalance, i)
+
+		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[noBalance[i]], " value ", value)
+		if result, err := sendRawTransaction(client, account[from], account[noBalance[i]], value); err != nil {
 			fmt.Println("sendRawTransaction son address error ", result, " err ", err)
 			return
 		}
