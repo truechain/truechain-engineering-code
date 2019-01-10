@@ -80,10 +80,10 @@ func (s *service) setNodes(nodes map[tp2p.ID]*nodeInfo) {
 	s.nodeTable = nodes
 }
 func (s *service) start(cid *big.Int, node *Node) error {
-	err := s.eventBus.Start()
-	if err != nil {
-		return err
-	}
+	//err := s.eventBus.Start()
+	//if err != nil {
+	//	return err
+	//}
 	// Create & add listener
 	lstr := node.config.P2P.ListenAddress2
 	if cid.Uint64()%2 == 0 {
@@ -112,7 +112,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	s.consensusState.SetPrivValidator(privValidator)
 	s.sa.SetPrivValidator(privValidator)
 	// Start the switch (the P2P server).
-	err = s.sw.Start()
+	err := s.sw.Start()
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (s *service) stop() error {
 	if s.sw.IsRunning() {
 		s.updateChan <- false
 		s.healthMgr.OnStop()
-		help.CheckAndPrintError(s.eventBus.Stop())
+		//help.CheckAndPrintError(s.eventBus.Stop())
 	}
 	help.CheckAndPrintError(s.sw.Stop())
 	return nil
