@@ -461,6 +461,7 @@ func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
 	if committee := ReadCommittee(db, 0); committee != nil {
 		for _, m := range committee.Members {
 			m.Flag = types.StateUsedFlag
+			m.MType = types.TypeFixed
 		}
 		return committee.Members
 	}

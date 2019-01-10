@@ -194,21 +194,24 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 
 	// get genesis committee
 	election.genesisCommittee = election.snailchain.GetGenesisCommittee()
+	if len(election.genesisCommittee) == 0 {
+		log.Error("Election creation get no genesis committee members")
+	}
 
 	election.fastChainEventSub = election.fastchain.SubscribeChainEvent(election.fastChainEventCh)
 	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
 	if election.singleNode {
-		var members []*types.CommitteeMember
 		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
-		election.defaultMembers = members
-	} else {
-		if len(election.genesisCommittee) >= 4 {
-			election.defaultMembers = election.genesisCommittee[:4]
-		} else {
-			log.Error("Election creation get no genesis committee members")
-		}
+	}
+	if !election.singleNode && len(election.genesisCommittee) < 4 {
+			log.Error("Election creation get insufficient genesis committee members")
+	}
+	for _, m := range election.genesisCommittee {
+		var member = *m
+		member.Flag = types.StateUnusedFlag
+		election.defaultMembers = append(election.defaultMembers, &member)
 	}
 
 	return election
@@ -828,11 +831,6 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 	var committee types.ElectionCommittee
 
-	/* defaultMembers not support
-	for _, member := range e.defaultMembers {
-		committee.Members = append(committee.Members, member)
-	}
-	*/
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
 		log.Info("can't get new committee, retain current committee")
@@ -849,7 +847,12 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 	for _, member := range committee.Members {
 		member.Flag = types.StateUsedFlag
+		member.MType = types.TypeWorked
 	}
+	for _, member := range committee.Backups {
+		member.MType = types.TypeBack
+	}
+	committee.Backups = append(committee.Backups, e.defaultMembers...)
 
 	return &committee
 }
