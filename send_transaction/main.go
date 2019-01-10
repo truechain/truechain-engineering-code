@@ -167,6 +167,7 @@ func send(count int, ip string) {
 		if from == 0 {
 			continue
 		}
+		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
 		if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
 			fmt.Println("sendRawTransaction son address error ", result)
 			return
@@ -178,6 +179,7 @@ func send(count int, ip string) {
 		if from == 0 {
 			continue
 		}
+		fmt.Println(i, " unlockAccount main address ", " son address ", account[i], " value ", value)
 		_, err = unlockAccount(client, account[i], "admin", 90000, "son address")
 		if err != nil {
 			fmt.Println("personal_unlockAccount Error:", err.Error())
@@ -185,6 +187,8 @@ func send(count int, ip string) {
 			return
 		}
 	}
+
+	fmt.Println("sleep 30s")
 
 	time.Sleep(time.Second * SLEEPTX)
 
