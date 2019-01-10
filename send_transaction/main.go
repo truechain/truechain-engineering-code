@@ -34,7 +34,7 @@ var num int
 const SLEEPTIME = 120
 
 // SLEEPTX The interval between send son address
-const SLEEPTX = 30
+const SLEEPTX = 5
 
 // get par
 func main() {
