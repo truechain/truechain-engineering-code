@@ -39,3 +39,11 @@ func TestHelp(t *testing.T) {
 
 	fmt.Println(h.Peek())
 }
+
+func TestChanDate(t *testing.T) {
+	c := make(chan *Test, 2)
+	test := &Test{A: 1}
+	c <- test
+	test.A = 2
+	fmt.Println(<-c)
+}
