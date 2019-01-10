@@ -117,17 +117,19 @@ func send(count int, ip string) {
 	}
 	fmt.Println("account:", account)
 
-	var reBool bool
 	for i := len(account); i < count; i++ {
 		//new account
-		err = client.Call(&reBool, "personal_newAccount", "admin")
+		var address []string
+		err = client.Call(&address, "personal_newAccount", "admin")
 		if err != nil {
 			fmt.Println("personal_newAccount Error:", err.Error())
 			msg <- false
 			return
 		}
+		account = append(account, address...)
+		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", account)
 	}
-	fmt.Println("personal_newAccount ", count, " accounts ", " Ok ", reBool)
+	fmt.Println("personal_newAccount sucess ", len(account))
 
 	// get balance
 	var result string
@@ -143,6 +145,7 @@ func send(count int, ip string) {
 	fmt.Println("etrue_getBalance Ok:", bl, result)
 
 	//unlock account
+	var reBool bool
 	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
