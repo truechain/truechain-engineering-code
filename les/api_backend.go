@@ -39,7 +39,7 @@ import (
 )
 
 type LesApiBackend struct {
-	etrue *LightEthereum
+	etrue *LightEtrue
 	gpo   *gasprice.Oracle
 }
 

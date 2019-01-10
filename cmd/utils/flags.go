@@ -1213,17 +1213,14 @@ func SetDashboardConfig(ctx *cli.Context, cfg *dashboard.Config) {
 	cfg.Refresh = ctx.GlobalDuration(DashboardRefreshFlag.Name)
 }
 
-// RegisterEthService adds an Truechain client to the stack.
-func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
+// RegisterEtrueService adds an Truechain client to the stack.
+func RegisterEtrueService(stack *node.Node, cfg *etrue.Config) {
 	var err error
 	if cfg.SyncMode == downloader.LightSync {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			return les.New(ctx, cfg)
 		})
 	} else {
-		//if cfg.SyncMode == downloader.SnapShotSync {
-
-		//} else {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			fullNode, err := etrue.New(ctx, cfg)
 			if fullNode != nil && cfg.LightServ > 0 {
@@ -1232,8 +1229,6 @@ func RegisterEthService(stack *node.Node, cfg *etrue.Config) {
 			}
 			return fullNode, err
 		})
-		//}
-
 	}
 	if err != nil {
 		Fatalf("Failed to register the Truechain service: %v", err)
@@ -1247,18 +1242,18 @@ func RegisterDashboardService(stack *node.Node, cfg *dashboard.Config, commit st
 	})
 }
 
-// RegisterEthStatsService configures the Truechain Stats daemon and adds it to
+// RegisterEtrueStatsService configures the Truechain Stats daemon and adds it to
 // th egiven node.
-func RegisterEthStatsService(stack *node.Node, url string) {
+func RegisterEtrueStatsService(stack *node.Node, url string) {
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		// Retrieve both etrue and les services
-		var ethServ *etrue.Truechain
-		ctx.Service(&ethServ)
+		var etrueServ *etrue.Truechain
+		ctx.Service(&etrueServ)
 
-		var lesServ *les.LightEthereum
+		var lesServ *les.LightEtrue
 		ctx.Service(&lesServ)
 
-		return etruestats.New(url, ethServ, lesServ)
+		return etruestats.New(url, etrueServ, lesServ)
 	}); err != nil {
 		Fatalf("Failed to register the Truechain Stats service: %v", err)
 	}

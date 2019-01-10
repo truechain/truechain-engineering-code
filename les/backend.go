@@ -22,9 +22,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
@@ -38,7 +39,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/light"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
@@ -46,7 +46,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
-type LightEthereum struct {
+type LightEtrue struct {
 	config *etrue.Config
 
 	odr         *LesOdr
@@ -80,7 +80,7 @@ type LightEthereum struct {
 	wg sync.WaitGroup
 }
 
-func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEthereum, error) {
+func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 	chainDb, err := etrue.CreateDB(ctx, config, "lightchaindata")
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEthereum, error)
 	peers := newPeerSet()
 	quitSync := make(chan struct{})
 
-	leth := &LightEthereum{
+	leth := &LightEtrue{
 		config:           config,
 		chainConfig:      chainConfig,
 		chainDb:          chainDb,
@@ -176,61 +176,60 @@ func (s *LightDummyAPI) Mining() bool {
 
 // APIs returns the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
-func (s *LightEthereum) APIs() []rpc.API {
-	apis :=trueapi.GetAPIs(s.ApiBackend)
-	namespaces :=[]string{"etrue","eth"}
-	for _,name :=range namespaces {
-		apis = append(apis,[]rpc.API{
+func (s *LightEtrue) APIs() []rpc.API {
+	apis := trueapi.GetAPIs(s.ApiBackend)
+	namespaces := []string{"etrue", "eth"}
+	for _, name := range namespaces {
+		apis = append(apis, []rpc.API{
 			{
 				Namespace: name,
 				Version:   "1.0",
 				Service:   &LightDummyAPI{},
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   downloader.NewPublicDownloaderAPI(s.protocolManager.downloader, s.eventMux),
 				Public:    true,
-			},{
+			}, {
 				Namespace: name,
 				Version:   "1.0",
 				Service:   filters.NewPublicFilterAPI(s.ApiBackend, true),
 				Public:    true,
 			},
-
 		}...)
 	}
-	apis = append( apis,[]rpc.API{
-		  {
+	apis = append(apis, []rpc.API{
+		{
 			Namespace: "net",
 			Version:   "1.0",
 			Service:   s.netRPCService,
 			Public:    true,
 		},
 	}...)
-	return  apis
+	return apis
 }
 
-func (s *LightEthereum) ResetWithGenesisBlock(gb *types.Block) {
+func (s *LightEtrue) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
-func (s *LightEthereum) BlockChain() *light.LightChain      { return s.blockchain }
-func (s *LightEthereum) TxPool() *light.TxPool              { return s.txPool }
-func (s *LightEthereum) Engine() consensus.Engine           { return s.engine }
-func (s *LightEthereum) LesVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
-func (s *LightEthereum) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
-func (s *LightEthereum) EventMux() *event.TypeMux           { return s.eventMux }
+func (s *LightEtrue) BlockChain() *light.LightChain      { return s.blockchain }
+func (s *LightEtrue) TxPool() *light.TxPool              { return s.txPool }
+func (s *LightEtrue) Engine() consensus.Engine           { return s.engine }
+func (s *LightEtrue) LesVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
+func (s *LightEtrue) Downloader() *downloader.Downloader { return s.protocolManager.downloader }
+func (s *LightEtrue) EventMux() *event.TypeMux           { return s.eventMux }
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
-func (s *LightEthereum) Protocols() []p2p.Protocol {
+func (s *LightEtrue) Protocols() []p2p.Protocol {
 	return s.protocolManager.SubProtocols
 }
 
 // Start implements node.Service, starting all internal goroutines needed by the
 // Truechain protocol implementation.
-func (s *LightEthereum) Start(srvr *p2p.Server) error {
+func (s *LightEtrue) Start(srvr *p2p.Server) error {
 	s.startBloomHandlers()
 	log.Warn("Light client mode is an experimental feature")
 	s.netRPCService = trueapi.NewPublicNetAPI(srvr, s.networkId)
@@ -243,7 +242,7 @@ func (s *LightEthereum) Start(srvr *p2p.Server) error {
 
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Truechain protocol.
-func (s *LightEthereum) Stop() error {
+func (s *LightEtrue) Stop() error {
 	s.odr.Stop()
 	if s.bloomIndexer != nil {
 		s.bloomIndexer.Close()

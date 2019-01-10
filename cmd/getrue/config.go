@@ -11,12 +11,12 @@ import (
 
 	"gopkg.in/urfave/cli.v1"
 
+	"github.com/naoina/toml"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/dashboard"
 	"github.com/truechain/truechain-engineering-code/etrue"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/naoina/toml"
 )
 
 var (
@@ -58,10 +58,10 @@ type etruestatsConfig struct {
 }
 
 type gethConfig struct {
-	Etrue     etrue.Config
-	Node      node.Config
-	Ethstats  etruestatsConfig
-	Dashboard dashboard.Config
+	Etrue      etrue.Config
+	Node       node.Config
+	Etruestats etruestatsConfig
+	Dashboard  dashboard.Config
 }
 
 func loadConfig(file string, cfg *gethConfig) error {
@@ -83,7 +83,7 @@ func defaultNodeConfig() node.Config {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
 	cfg.Version = params.VersionWithCommit(gitCommit)
-	cfg.HTTPModules = append(cfg.HTTPModules, "etrue","eth", "shh")
+	cfg.HTTPModules = append(cfg.HTTPModules, "etrue", "eth", "shh")
 	cfg.WSModules = append(cfg.WSModules, "etrue")
 	cfg.IPCPath = "getrue.ipc"
 	return cfg
@@ -112,7 +112,7 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	}
 	utils.SetTruechainConfig(ctx, stack, &cfg.Etrue)
 	if ctx.GlobalIsSet(utils.EtrueStatsURLFlag.Name) {
-		cfg.Ethstats.URL = ctx.GlobalString(utils.EtrueStatsURLFlag.Name)
+		cfg.Etruestats.URL = ctx.GlobalString(utils.EtrueStatsURLFlag.Name)
 	}
 
 	utils.SetDashboardConfig(ctx, &cfg.Dashboard)
@@ -123,15 +123,15 @@ func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 func makeFullNode(ctx *cli.Context) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
 
-	utils.RegisterEthService(stack, &cfg.Etrue)
+	utils.RegisterEtrueService(stack, &cfg.Etrue)
 
 	if ctx.GlobalBool(utils.DashboardEnabledFlag.Name) {
 		utils.RegisterDashboardService(stack, &cfg.Dashboard, gitCommit)
 	}
 
 	// Add the Truechain Stats daemon if requested.
-	if cfg.Ethstats.URL != "" {
-		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
+	if cfg.Etruestats.URL != "" {
+		utils.RegisterEtrueStatsService(stack, cfg.Etruestats.URL)
 	}
 	return stack
 }
