@@ -243,7 +243,12 @@ func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
 		}
 	}
 
-	if result, _ := sendRawTransaction(client, from, address, "0x2100"); result != "" {
+	result, err := sendRawTransaction(client, from, address, "0x2100")
+	if err != nil {
+		fmt.Println("sendRawTransaction", "result ", result, " error", err)
+	}
+
+	if result != "" {
 		Count++
 	}
 }
