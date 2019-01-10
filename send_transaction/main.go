@@ -158,7 +158,7 @@ func send(count int, ip string) {
 	}
 
 	address, _ := new(big.Int).SetString(result, 16)
-	value := "0x" + address.Div(address, big.NewInt(int64(len(account)))).String()
+	value := "0x" + address.Div(address, big.NewInt(int64(len(account)*100))).String()
 	fmt.Println("sendRawTransaction son address ", value)
 
 	//send main to son address
@@ -169,7 +169,7 @@ func send(count int, ip string) {
 		}
 		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
 		if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
-			fmt.Println("sendRawTransaction son address error ", result)
+			fmt.Println("sendRawTransaction son address error ", result, " err ", err)
 			return
 		}
 	}
