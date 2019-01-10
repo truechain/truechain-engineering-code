@@ -167,11 +167,26 @@ func send(count int, ip string) {
 		if from == i {
 			continue
 		}
+
+		// get balance
+		err = client.Call(&result, "etrue_getBalance", account[i], "latest")
+		if err != nil {
+			fmt.Println("etrue_getBalance Error:", err)
+			msg <- false
+			return
+		}
+		fmt.Println("etrue_getBalance son address ", account[i], " result ", result)
+
+		if result == "0" {
+			continue
+		}
+
 		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
 		if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
 			fmt.Println("sendRawTransaction son address error ", result, " err ", err)
 			return
 		}
+		time.Sleep(time.Second * 2)
 	}
 
 	//son address unlock account
@@ -188,7 +203,7 @@ func send(count int, ip string) {
 		}
 	}
 
-	fmt.Println("sleep 30s")
+	fmt.Println("sleep ", SLEEPTX, "s")
 
 	time.Sleep(time.Second * SLEEPTX)
 
