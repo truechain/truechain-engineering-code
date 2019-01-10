@@ -1636,28 +1636,6 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 }
 
 //---------------------------------------------------------
-func (cs *ConsensusState) hasSwitchValidator(other *ttypes.SwitchValidator, s []*ttypes.SwitchValidator) bool {
-	// if len(infos.Vals) <= 2 {
-	// 	return false
-	// }
-	// aEnter, rEnter := infos.Vals[0], infos.Vals[1]
-	// exist := false
-	// for _, v := range s {
-	// 	if len(v.Infos.Vals) > 2 {
-	// 		if (aEnter.Flag == v.Infos.Vals[0].Flag && bytes.Equal(aEnter.Pk, v.Infos.Vals[0].Pk)) &&
-	// 			(rEnter.Flag == v.Infos.Vals[1].Flag && bytes.Equal(rEnter.Pk, v.Infos.Vals[1].Pk)) {
-	// 			exist = true
-	// 			break
-	// 		}
-	// 	}
-	// }
-	for _, v := range s {
-		if e := v.Equal(other); e {
-			return true
-		}
-	}
-	return false
-}
 func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 	if s != nil {
 		if s.From == 0 { // add
