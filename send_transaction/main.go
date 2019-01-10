@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -31,6 +32,9 @@ var num int
 
 // SLEEPTIME The interval between reconnections
 const SLEEPTIME = 120
+
+// SLEEPTX The interval between send son address
+const SLEEPTX = 30
 
 // get par
 func main() {
@@ -127,9 +131,9 @@ func send(count int, ip string) {
 			return
 		}
 		account = append(account, address)
-		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", account)
+		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", len(account))
 	}
-	fmt.Println("personal_newAccount sucess ", len(account))
+	fmt.Println("personal_newAccount success ", len(account))
 
 	// get balance
 	var result string
@@ -140,24 +144,55 @@ func send(count int, ip string) {
 		return
 	}
 
+	if strings.HasPrefix(result, "0x") {
+		result = strings.TrimPrefix(result, "0x")
+	}
 	bl, _ := new(big.Int).SetString(result, 10)
-
 	fmt.Println("etrue_getBalance Ok:", bl, result)
 
-	//unlock account
-	var reBool bool
-	err = client.Call(&reBool, "personal_unlockAccount", account[from], "admin", 90000)
+	//main unlock account
+	_, err = unlockAccount(client, account[from], "admin", 90000, "main")
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
 		msg <- false
 		return
 	}
 
-	fmt.Println("personal_unlockAccount Ok", reBool)
-
-	fmt.Println("===========================")
 	// send
 	waitMain := &sync.WaitGroup{}
+
+	address, _ := new(big.Int).SetString(result, 16)
+	value := address.Div(address, big.NewInt(int64(len(account)))).String()
+	fmt.Println("sendRawTransaction son address ", value)
+
+	//send main to son address
+	for i := 0; i < count; i++ {
+		//main unlock account
+		if from == 0 {
+			continue
+		}
+
+		if result, err := sendRawTransaction(client, account[from], account[i], value, waitMain); err != nil {
+			fmt.Println("sendRawTransaction son address error ", result)
+			return
+		}
+	}
+
+	//son address unlock account
+	for i := 0; i < count; i++ {
+		if from == 0 {
+			continue
+		}
+		_, err = unlockAccount(client, account[i], "admin", 90000, "son address")
+		if err != nil {
+			fmt.Println("personal_unlockAccount Error:", err.Error())
+			msg <- false
+			return
+		}
+	}
+
+	time.Sleep(time.Second * SLEEPTX)
+
 	for {
 		waitMain.Add(1)
 		go sendTransactions(client, account, count, waitMain)
@@ -187,9 +222,9 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
 
-	for a := 0; a < count; a++ {
+	for i := 0; i < count; i++ {
 		waitGroup.Add(1)
-		go sendTransaction(client, account, waitGroup)
+		go sendTransaction(client, account[i], waitGroup)
 	}
 	fmt.Println("Send in go Complete", count)
 	waitGroup.Wait()
@@ -197,24 +232,17 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 }
 
 //send one transaction
-func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup) {
+func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
 	defer wait.Done()
-	mapData := make(map[string]interface{})
-	mapData["from"] = account[from]
 
 	address := genAddress()
-	if to == 0 {
+	if to == 1 {
 		if account[to] != "" {
 			address = account[to]
 		}
 	}
-	mapData["to"] = address
 
-	mapData["value"] = "0x2100"
-	var result string
-	client.Call(&result, "etrue_sendTransaction", mapData)
-	fmt.Println("etrue_sendTransaction", result, " mapData ", mapData)
-	if result != "" {
+	if result, _ := sendRawTransaction(client, from, address, "0x2100", wait); result != "" {
 		Count++
 	}
 }
@@ -224,4 +252,24 @@ func genAddress() string {
 	priKey, _ := crypto.GenerateKey()
 	address := crypto.PubkeyToAddress(priKey.PublicKey)
 	return address.Hex()
+}
+
+func sendRawTransaction(client *rpc.Client, from string, to string, value string, wait *sync.WaitGroup) (string, error) {
+	defer wait.Done()
+	mapData := make(map[string]interface{})
+
+	mapData["from"] = from
+	mapData["to"] = to
+	mapData["value"] = value
+
+	var result string
+	err := client.Call(&result, "etrue_sendTransaction", mapData)
+	return result, err
+}
+
+func unlockAccount(client *rpc.Client, account string, password string, time int, name string) (bool, error) {
+	var reBool bool
+	err := client.Call(&reBool, "personal_unlockAccount", account, password, time)
+	fmt.Println(name, " personal_unlockAccount Ok", reBool)
+	return reBool, err
 }
