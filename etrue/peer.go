@@ -510,11 +510,6 @@ func (p *peer) SendFastBlockHeaders(headers []*types.Header) error {
 	return p2p.Send(p.rw, FastBlockHeadersMsg, headers)
 }
 
-// SendFastBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendOneFastBlockHeader(headers []*types.Header) error {
-	return p2p.Send(p.rw, FastOneBlockHeadersMsg, headers)
-}
-
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
 func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {
@@ -559,7 +554,7 @@ func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, re
 		} else {
 			p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		}
-		return p2p.Send(p.rw, GetFastOneBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
+		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
 	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})

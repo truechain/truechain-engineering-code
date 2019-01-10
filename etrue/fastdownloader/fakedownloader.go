@@ -608,7 +608,7 @@ func (dlp *DownloadTesterPeer) RequestNodeData(hashes []common.Hash, isFastchain
 			}
 		}
 	}
-	go dlp.dl.downloader.DeliverNodeData(dlp.id, results)
+	//go dlp.dl.downloader.DeliverNodeData(dlp.id, results)
 
 	return nil
 }
