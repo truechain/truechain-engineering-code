@@ -119,14 +119,14 @@ func send(count int, ip string) {
 
 	for i := len(account); i < count; i++ {
 		//new account
-		var address []string
+		var address string
 		err = client.Call(&address, "personal_newAccount", "admin")
 		if err != nil {
 			fmt.Println("personal_newAccount Error:", err.Error())
 			msg <- false
 			return
 		}
-		account = append(account, address...)
+		account = append(account, address)
 		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", account)
 	}
 	fmt.Println("personal_newAccount sucess ", len(account))
