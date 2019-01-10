@@ -147,8 +147,7 @@ func send(count int, ip string) {
 	if strings.HasPrefix(result, "0x") {
 		result = strings.TrimPrefix(result, "0x")
 	}
-	bl, _ := new(big.Int).SetString(result, 10)
-	fmt.Println("etrue_getBalance Ok:", bl, result)
+	fmt.Println("etrue_getBalance Ok:", result)
 
 	//main unlock account
 	_, err = unlockAccount(client, account[from], "admin", 90000, "main")
@@ -171,8 +170,8 @@ func send(count int, ip string) {
 		if from == 0 {
 			continue
 		}
-
-		if result, err := sendRawTransaction(client, account[from], account[i], value, waitMain); err != nil {
+		waitMain.Add(1)
+		if result, err := sendRawTransaction(client, account[from], account[i], "0x"+value, waitMain); err != nil {
 			fmt.Println("sendRawTransaction son address error ", result)
 			return
 		}
