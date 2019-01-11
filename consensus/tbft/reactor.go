@@ -935,7 +935,7 @@ func (ps *PeerState) SetHasProposalBlockPart(height uint64, round uint, index ui
 func (ps *PeerState) PickSendVote(votes ttypes.VoteSetReader) bool {
 	if vote, ok := ps.PickVoteToSend(votes); ok {
 		msg := &VoteMessage{Vote: vote.Copy()}
-		log.Info("PickSendVote", "height", vote.Height, "round", vote.Round, "type", vote.Type)
+		log.Debug("PickSendVote", "height", vote.Height, "round", vote.Round, "type", vote.Type)
 		return ps.peer.Send(VoteChannel, cdc.MustMarshalBinaryBare(msg))
 	}
 	return false
@@ -1129,7 +1129,7 @@ func (ps *PeerState) SetHasVote(vote *ttypes.Vote) {
 
 func (ps *PeerState) setHasVote(height uint64, round int, typeB byte, index uint) {
 	psVotes := ps.getVoteBitArray(height, round, typeB)
-	log.Info("setHasVote", "index", index, "psVotes", psVotes)
+	log.Debug("setHasVote", "index", index, "psVotes", psVotes)
 	if psVotes != nil {
 		psVotes.SetIndex(index, true)
 	}

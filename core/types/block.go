@@ -416,6 +416,22 @@ func (b *Block) IsAward() bool {
 	}
 	return false
 }
+
+func (b *Block) IsSwitch() bool {
+	if b.infos != nil && len(b.infos.Vals) > 0 {
+		return true
+	}
+	return false
+}
+
+//Condition when proposal block award or switch is not nil
+func (b *Block) IsProposal() bool {
+	if b.IsAward() || b.IsSwitch() {
+		return true
+	}
+	return false
+}
+
 func (b *Block) SetSwitchInfo(info *SwitchInfos) {
 	b.infos.CID = info.CID
 	b.infos.Vals = make([]*SwitchEnter, 0, len(info.Vals))

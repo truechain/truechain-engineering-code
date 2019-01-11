@@ -777,7 +777,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 
 	// Wait for txs to be available in the txpool and we tryenterPropose in round 0.
 	empty := len(block.Transactions()) == 0
-	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) && !block.IsAward() {
+	if empty && cs.config.CreateEmptyBlocks && round == 0 && cs.config.WaitForEmptyBlocks(int(wait)) && !block.IsProposal() {
 		dd := cs.config.EmptyBlocksIntervalForPer(int(wait))
 		wait++
 		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})
@@ -1647,7 +1647,7 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 		} else if s.From == 1 { // restore
 			round := int(cs.Round)
 			if round > s.Round || s.Round == -1 {
-				v := cs.pickSwitchValidator(s,true)
+				v := cs.pickSwitchValidator(s, true)
 				cs.notifyHealthMgr(v)
 			}
 		}
@@ -1685,7 +1685,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		Remove: remove,
 		Add:    add,
 	}
-	sv = cs.pickSwitchValidator(sv,false)
+	sv = cs.pickSwitchValidator(sv, false)
 	cs.notifyHealthMgr(sv)
 	log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
 }
@@ -1713,7 +1713,7 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 				remove = cs.hm.GetHealth(aEnter.Pk)
 			}
 			if remove == nil {
-				log.Error("swithResult,remove is nil","Type Error,add", add, "remove", remove)
+				log.Error("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
 				return false
 			}
 			sv := &ttypes.SwitchValidator{
@@ -1732,14 +1732,14 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	return false
 }
 
-func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator,id bool) *ttypes.SwitchValidator {
+func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator, id bool) *ttypes.SwitchValidator {
 	if len(cs.svs) > 0 {
 		tmp := cs.svs[0]
-		if ok := tmp.Equal(sv,id); !ok {
+		if ok := tmp.Equal(sv, id); !ok {
 			log.Error("pickSV not match", "sv", sv, "item0", tmp)
 		} else {
 			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
-			return tmp	
+			return tmp
 		}
 	}
 	return sv
