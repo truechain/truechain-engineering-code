@@ -833,7 +833,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
-		log.Info("can't get new committee, retain current committee")
+		log.Error("can't get election candidates, retain default committee")
 	} else {
 		members := e.elect(candidates, seed)
 		// TODO: define the members count to const value
@@ -852,7 +852,13 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	for _, member := range committee.Backups {
 		member.MType = types.TypeBack
 	}
-	committee.Backups = append(committee.Backups, e.defaultMembers...)
+	if len(committee.Members) > 0 {
+		committee.Backups = append(committee.Backups, e.defaultMembers...)
+	} else {
+		log.Error("can't get new committee, use default committee")
+		// Use genesis committee as default committee
+		committee.Members = e.genesisCommittee
+	}
 
 	return &committee
 }
