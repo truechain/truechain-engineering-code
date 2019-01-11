@@ -2,13 +2,13 @@ package tbft
 
 import (
 	"fmt"
-	config "github.com/truechain/truechain-engineering-code/params"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"path/filepath"
 	"testing"
@@ -65,7 +65,6 @@ func TestRlpBlock(t *testing.T) {
 		fmt.Println(err.Error())
 	}
 }
-
 
 func TestPbftRunForHealth(t *testing.T) {
 	log.OpenLogDebug(3)
@@ -165,6 +164,7 @@ func TestPbftRunForHealth(t *testing.T) {
 	m4.Flag = types.StateUsedFlag
 	c1.Members = append(c1.Members, m1, m2, m3, m4)
 	c1.StartHeight = common.Big0
+	c1.EndHeight = common.Big0
 
 	cn := make([]*types.CommitteeNode, 0)
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28890, Port2: 28891, Coinbase: m1.Coinbase, Publickey: crypto.FromECDSAPub(m1.Publickey)})
