@@ -38,13 +38,6 @@ type sigCache struct {
 	from   common.Address
 }
 
-// pSigCache is used to cache the derived sender and contains
-// the signer used to derive it.
-type pSigCache struct {
-	signer Signer
-	Payer  common.Address
-}
-
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	signer := NewEIP155Signer(config.ChainID)
@@ -69,21 +62,11 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 // signing method. The cache is invalidated if the cached signer does
 // not match the signer used in the current call.
 func PSender(signer Signer, tx *Transaction) (common.Address, error) {
-	if sc := tx.from.Load(); sc != nil {
-		sigCache := sc.(pSigCache)
-		// If the signer used to derive from in a previous
-		// call is not the same as used current, invalidate
-		// the cache.
-		if sigCache.signer.Equal(signer) {
-			return sigCache.Payer, nil
-		}
-	}
 
 	addr, err := signer.PSender(tx)
 	if err != nil {
 		return common.Address{}, err
 	}
-	tx.from.Store(pSigCache{signer: signer, Payer: addr})
 	return addr, nil
 }
 
