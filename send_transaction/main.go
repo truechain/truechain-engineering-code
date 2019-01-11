@@ -276,6 +276,7 @@ func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool
 			for j := 0; j < len(noBalance); j++ {
 				if i == noBalance[j] {
 					getBalance = false
+					break
 				}
 			}
 
@@ -291,11 +292,15 @@ func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool
 
 				if balance.Uint64() > 0 {
 					fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i)
+					if i == count-1 {
+						find = true
+					}
 					continue
 				}
 
 				noBalance = append(noBalance, i)
 			} else {
+				fmt.Println("etrue_getBalance son address continue ", account[i], " i ", i, " noBalance ", len(noBalance))
 				continue
 			}
 
@@ -312,6 +317,7 @@ func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool
 			time.Sleep(time.Second)
 			getBalance = true
 		}
+
 		if find {
 			break
 		}
