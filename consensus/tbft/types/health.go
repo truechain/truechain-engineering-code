@@ -11,6 +11,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
 	"sync/atomic"
+	"sync"
 	"time"
 )
 
@@ -143,6 +144,7 @@ type HealthMgr struct {
 	switchBuffer   []*SwitchValidator
 	cid            uint64
 	uid 		   uint64
+	lock 		   *sync.Mutex
 }
 
 //NewHealthMgr func
@@ -156,6 +158,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
 		cid:            cid,
+		lock: 			new(sync.Mutex),
 		healthTick:     nil,
 	}
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
@@ -216,6 +219,28 @@ func (h *HealthMgr) OnStop() {
 	}
 	help.CheckAndPrintError(h.Stop())
 }
+func (h *HealthMgr) getCurSV() *SwitchValidator{
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	if len(h.curSwitch) > 0 {
+		return h.curSwitch[0]
+	}
+	return nil
+}
+func (h *HealthMgr) setCurSV(sv *SwitchValidator) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	if len(h.curSwitch) == 0 && sv != nil {
+		h.curSwitch = append(h.curSwitch,sv)
+	}
+}
+func (h *HealthMgr) removeCurSV() {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	if len(h.curSwitch) == 0 {
+		h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
+	}
+}
 
 //Switch send switch
 func (h *HealthMgr) Switch(s *SwitchValidator) {
@@ -263,18 +288,18 @@ func (h *HealthMgr) checkSwitchValidator(v *Health,sshift bool) {
 		val := atomic.AddInt32(&v.Tick, 1)
 		log.Info("Health", "info:", fmt.Sprintf("id:%s val:%d state:%d", v.ID, val, v.State))
 
-		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag &&
-			!v.Self && len(h.curSwitch) == 0 {
-			log.Info("Health", "Change", true)
-			back := h.pickUnuseValidator()
-			cur := h.makeSwitchValidators(v, back, "Switch", 0)
-			h.curSwitch = append(h.curSwitch, cur)
-			go h.Switch(cur)
-			atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
+		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
+			if sv0 := h.getCurSV(); sv0 == nil {
+				log.Info("Health", "Change", true)
+				back := h.pickUnuseValidator()
+				cur := h.makeSwitchValidators(v, back, "Switch", 0)
+				h.setCurSV(cur)
+				go h.Switch(cur)
+				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))	
+			}
 		}	
 
-		if len(h.curSwitch) > 0 {
-			sv0 := h.curSwitch[0]
+		if sv0 := h.getCurSV(); sv0 != nil {	
 			val0 := atomic.LoadInt32(&sv0.Remove.Tick)
 			if val0 < HealthOut && sv0.From == 0 {
 				sv1 := *sv0
@@ -357,10 +382,9 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	if !EnableHealthMgr { return }
 	
 	// remove sv in curSwitch if can
-	if len(h.curSwitch) > 0 {
-		cur := h.curSwitch[0] 
+	if cur := h.getCurSV(); cur != nil {
 		if (res.From == 1 && cur.Equal(res)) || cur.EqualWithoutID(res) || cur.EqualWithRemove(res) {
-			h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
+			h.removeCurSV()
 		}
 	}
 
@@ -464,9 +488,12 @@ func (h *HealthMgr) GetHealth(pk []byte) *Health {
 
 //VerifySwitch verify remove and add switchEnter
 func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
-	
-	if len(h.curSwitch) > 0 {
-		sv0 := h.curSwitch[0] 
+	if !EnableHealthMgr {
+		err := fmt.Errorf("healthMgr not enable")
+		log.Error("VerifySwitch","err",err) 
+		return err
+	}
+	if sv0 := h.getCurSV(); sv0 != nil {
 		if sv0.Equal(sv) {
 			return nil 	// proposal is self?
 		}	
@@ -475,27 +502,23 @@ func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
 }
 
 func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
-	if !EnableHealthMgr {
-		err := fmt.Errorf("healthMgr not enable")
-		log.Error("VerifySwitch","err",err) 
-		return err
-	}
-	r := remove
-	rRes := false
 
-	if r == nil {
+	rRes := false
+	if remove == nil {
 		return errors.New("not found the remove:" + remove.String())
 	}
 
-	rTick := atomic.LoadInt32(&r.Tick)
-	if r.State >= ctypes.StateUsedFlag && r.State <= ctypes.StateSwitchingFlag && rTick >= HealthOut {
+	rTick := atomic.LoadInt32(&remove.Tick)
+	rState := atomic.LoadInt32(&remove.State)
+	if rState >= ctypes.StateUsedFlag && rState <= ctypes.StateSwitchingFlag && rTick >= HealthOut {
 		rRes = true
 	}
-	res := r.SimpleString()
+	res := remove.SimpleString()
 
 	aRes := false
 	if add != nil {
-		if add.State != ctypes.StateRemovedFlag && add.State != ctypes.StateUsedFlag {
+		aState := atomic.LoadInt32(&add.State)
+		if aState != ctypes.StateRemovedFlag && aState != ctypes.StateUsedFlag {
 			aRes = true
 		}
 		res += add.SimpleString()
