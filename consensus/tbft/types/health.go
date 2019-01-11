@@ -211,10 +211,16 @@ func (h *HealthMgr) Switch(s *SwitchValidator) {
 	}
 }
 func (h *HealthMgr) healthGoroutine() {
+	sshift,islog,cnt := true,true,0
 	for {
 		select {
 		case <-h.healthTick.C:
-			h.work()
+			sshift,cnt = h.isShiftSV()
+			h.work(sshift)
+			if !sshift && islog {
+				log.Info("Stop Shift Switch Validator, because minimum SV","Count",cnt,"CID",h.cid)
+				islog = false
+			}
 		case s := <-h.ChanFrom():
 			h.switchResult(s)
 		case <-h.Quit():
@@ -223,34 +229,41 @@ func (h *HealthMgr) healthGoroutine() {
 		}
 	}
 }
-func (h *HealthMgr) work() {
+func (h *HealthMgr) work(sshift bool) {
 	if !EnableHealthMgr { return }
+
 	for _, v := range h.Work {
-		if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
-			atomic.AddInt32(&v.Tick, 1)
-			h.checkSwitchValidator(v)
-		}
+		h.checkSwitchValidator(v,sshift)
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
-			atomic.AddInt32(&v.Tick, 1)
-			h.checkSwitchValidator(v)
-		}
+		h.checkSwitchValidator(v,sshift)
 	}
 }
 
-func (h *HealthMgr) checkSwitchValidator(v *Health) {
-	val := atomic.LoadInt32(&v.Tick)
-	log.Info("Health", "info:", fmt.Sprintf("id:%s val:%d state:%d", v.ID, val, v.State))
-	cnt := h.getUsedValidCount()
-	if cnt > MixValidator && val > HealthOut && v.State == ctypes.StateUsedFlag &&
-		!v.Self && len(h.curSwitch) == 0 {
-		log.Info("Health", "Change", true)
-		back := h.pickUnuseValidator()
-		cur := h.makeSwitchValidators(v, back, "Switch", 0)
-		h.curSwitch = append(h.curSwitch, cur)
-		go h.Switch(cur)
-		atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
+func (h *HealthMgr) checkSwitchValidator(v *Health,sshift bool) {
+	if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
+		val := atomic.AddInt32(&v.Tick, 1)
+		log.Info("Health", "info:", fmt.Sprintf("id:%s val:%d state:%d", v.ID, val, v.State))
+
+		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag &&
+			!v.Self && len(h.curSwitch) == 0 {
+			log.Info("Health", "Change", true)
+			back := h.pickUnuseValidator()
+			cur := h.makeSwitchValidators(v, back, "Switch", 0)
+			h.curSwitch = append(h.curSwitch, cur)
+			go h.Switch(cur)
+			atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
+		}	
+
+		if len(h.curSwitch) > 0 {
+			sv0 := h.curSwitch[0]
+			val0 := atomic.LoadInt32(&sv0.Remove.Tick)
+			if val0 < HealthOut && sv0.From == 0 {
+				sv1 := *sv0
+				sv1.From = 1
+				go h.Switch(&sv1)
+			}
+		}
 	}
 }
 
@@ -301,7 +314,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 	}
 }
 
-func (h *HealthMgr) getUsedValidCount() int {
+func (h *HealthMgr) isShiftSV() (bool,int) {
 	cnt := 0
 	for _, v := range h.Work {
 		if v.State == ctypes.StateUsedFlag {
@@ -313,12 +326,12 @@ func (h *HealthMgr) getUsedValidCount() int {
 			cnt++
 		}
 	}
-	for _, v := range h.seed {
-		if v.HType == ctypes.TypeFixed && (v.State == ctypes.StateUsedFlag || v.State == ctypes.StateUnusedFlag) {
-			cnt++
-		}
-	}
-	return cnt
+	// for _, v := range h.seed {
+	// 	if v.HType == ctypes.TypeFixed && (v.State == ctypes.StateUsedFlag || v.State == ctypes.StateUnusedFlag) {
+	// 		cnt++
+	// 	}
+	// }
+	return cnt > MixValidator,cnt
 }
 
 //switchResult handle the sv after consensus and the result removed from self 
@@ -439,13 +452,24 @@ func (h *HealthMgr) GetHealth(pk []byte) *Health {
 }
 
 //VerifySwitch verify remove and add switchEnter
-func (h *HealthMgr) VerifySwitch(remove, add *ctypes.SwitchEnter) error {
+func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
+	
+	if len(h.curSwitch) > 0 {
+		sv0 := h.curSwitch[0] 
+		if sv0.Equal(sv,true) {
+			return nil 	// proposal is self
+		}	
+	}
+	return h.verifySwitchEnter(sv.Remove,sv.Add)
+}
+
+func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
 	if !EnableHealthMgr {
 		err := fmt.Errorf("healthMgr not enable")
 		log.Error("VerifySwitch","err",err) 
 		return err
 	}
-	r := h.GetHealth(remove.Pk)
+	r := remove
 	rRes := false
 
 	if r == nil {
@@ -453,33 +477,24 @@ func (h *HealthMgr) VerifySwitch(remove, add *ctypes.SwitchEnter) error {
 	}
 
 	rTick := atomic.LoadInt32(&r.Tick)
-	if r.State >= ctypes.StateUsedFlag && rTick >= HealthOut {
+	if r.State >= ctypes.StateUsedFlag && r.State <= ctypes.StateSwitchingFlag && rTick >= HealthOut {
 		rRes = true
 	}
 	res := r.SimpleString()
 
-	var a *Health
-	if add != nil {
-		a = h.GetHealth(add.Pk)
-	}
 	aRes := false
-
-	if a != nil {
-		if a.State != ctypes.StateRemovedFlag {
+	if add != nil {
+		if add.State != ctypes.StateRemovedFlag && add.State != ctypes.StateUsedFlag {
 			aRes = true
 		}
-		res += a.SimpleString()
+		res += add.SimpleString()
 	} else {
 		aRes = true
 	}
 	if rRes && aRes {
 		return nil
 	}
-	addStr := ""
-	if add != nil {
-		addStr = add.String()
-	}
-	return errors.New("Wrang state:" + res + "Remove:" + remove.String() + ",add:" + addStr)
+	return errors.New("Wrang state:" + res + "Remove:" + remove.String() + ",add:" + add.String())
 }
 
 //UpdateFromCommittee agent put member and back, update flag

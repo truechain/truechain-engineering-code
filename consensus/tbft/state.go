@@ -1702,21 +1702,31 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	sw := block.SwitchInfos()
 	if sw != nil {
 		if len(sw.Vals) > 2 {
-			add, remove := sw.Vals[0], sw.Vals[1]
-			if (add.Flag == types.StateAppendFlag && remove.Flag == types.StateRemovedFlag) ||
-				(add.Flag == types.StateRemovedFlag && remove.Flag == types.StateUsedFlag) {
-				if add.Flag == types.StateRemovedFlag {
-					remove = add
-					add = nil
+			aEnter, rEnter := sw.Vals[0], sw.Vals[1]
+			var add, remove *ttypes.Health
+			if aEnter.Flag == types.StateAppendFlag {
+				add = cs.hm.GetHealth(aEnter.Pk)
+				if rEnter.Flag == types.StateRemovedFlag {
+					remove = cs.hm.GetHealth(rEnter.Pk)
 				}
-				err := cs.hm.VerifySwitch(remove, add)
-				if err == nil {
-					return true
-				}
-				log.Info("switchVerify", "result", err)
-			} else {
-				log.Info("switchVerify", "Type Error,add", add, "remove", remove)
+			} else if aEnter.Flag == types.StateRemovedFlag {
+				remove = cs.hm.GetHealth(aEnter.Pk)
 			}
+			if remove == nil {
+				log.Error("swithResult,remove is nil","Type Error,add", add, "remove", remove)
+				return false
+			}
+			sv := &ttypes.SwitchValidator{
+				Infos:  sw,
+				Resion: "",
+				Remove: remove,
+				Add:    add,
+			}
+			err := cs.hm.VerifySwitch(sv)
+			if err == nil {
+				return true
+			}
+			log.Info("switchVerify", "result", err)
 		}
 	}
 	return false
