@@ -71,10 +71,10 @@ func main() {
 		fmt.Println("from err default 0")
 	}
 
-	to, err = strconv.Atoi(os.Args[5])
-
-	if err != nil {
-		fmt.Println("to err 0：Local address 1: Generate address")
+	if len(os.Args[5]) > 5 {
+		to, err = strconv.Atoi(os.Args[5])
+	} else {
+		fmt.Println("to 0：Local address 1: Generate address")
 	}
 
 	ip := "127.0.0.1:8888"
@@ -147,10 +147,8 @@ func send(count int, ip string) {
 		return
 	}
 
-	if strings.HasPrefix(result, "0x") {
-		result = strings.TrimPrefix(result, "0x")
-	}
-	fmt.Println("etrue_getBalance Ok:", result)
+	balance := getBalanceValue(result)
+	fmt.Println("etrue_getBalance Ok:", balance)
 
 	//main unlock account
 	_, err = unlockAccount(client, account[from], "admin", 90000, "main")
@@ -160,83 +158,14 @@ func send(count int, ip string) {
 		return
 	}
 
-	address, _ := new(big.Int).SetString(result, 16)
-	value := "0x" + address.Div(address, big.NewInt(int64(len(account)*1000))).String()
-	fmt.Println("sendRawTransaction son address ", value)
-
 	//send main to son address
-	for i := 0; i < count; i++ {
-		//main unlock account
-		if from == i {
-			continue
-		}
-
-		// get balance
-		err = client.Call(&result, "etrue_getBalance", account[i], "latest")
-		if err != nil {
-			fmt.Println("etrue_getBalance Error:", err)
-			msg <- false
-			return
-		}
-		fmt.Println("etrue_getBalance son address ", account[i], " result ", result)
-
-		if result != "0x0" {
-			continue
-		}
-
-		noBalance = append(noBalance, i)
-
-		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
-		if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
-			fmt.Println("sendRawTransaction son address error ", result, " err ", err)
-			return
-		}
-		time.Sleep(time.Second * 2)
-	}
-
-	for i := 0; i < len(noBalance); i++ {
-		// get balance
-		err = client.Call(&result, "etrue_getBalance", account[noBalance[i]], "latest")
-		if err != nil {
-			fmt.Println("etrue_getBalance Error:", err)
-			msg <- false
-			return
-		}
-		fmt.Println("etrue_getBalance son address ", account[noBalance[i]], " result ", result)
-
-		if result != "0x0" {
-			continue
-		}
-
-		noBalance = append(noBalance, i)
-
-		fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[noBalance[i]], " value ", value)
-		if result, err := sendRawTransaction(client, account[from], account[noBalance[i]], value); err != nil {
-			fmt.Println("sendRawTransaction son address error ", result, " err ", err)
-			return
-		}
-		time.Sleep(time.Second * 2)
-	}
+	fmt.Println("create ", count, " new account success ", createCountNewAccount(client, count, balance))
 
 	//son address unlock account
-	for i := 0; i < count; i++ {
-		if from == i {
-			continue
-		}
-		fmt.Println(i, " unlockAccount main address ", " son address ", account[i], " value ", value)
-		_, err = unlockAccount(client, account[i], "admin", 90000, "son address")
-		if err != nil {
-			fmt.Println("personal_unlockAccount Error:", err.Error())
-			msg <- false
-			return
-		}
-	}
-
-	fmt.Println("sleep ", SLEEPTX, "s")
-
-	time.Sleep(time.Second * SLEEPTX)
+	fmt.Println("unlock ", count, " son account success ", unlockCountNewAccount(client, count))
 
 	// send
+	fmt.Println("Start sendTransactions from ", count, " account to other new account")
 	waitMain := &sync.WaitGroup{}
 	for {
 		waitMain.Add(1)
@@ -254,9 +183,7 @@ func send(count int, ip string) {
 			return
 		}
 
-		bl, _ := new(big.Int).SetString(result, 10)
-		fmt.Println("etrue_getBalance Ok:", bl, result)
-
+		fmt.Println("etrue_getBalance Ok:", getBalanceValue(result), result)
 	}
 	waitMain.Wait()
 	msg <- true
@@ -322,4 +249,87 @@ func genAddress() string {
 	priKey, _ := crypto.GenerateKey()
 	address := crypto.PubkeyToAddress(priKey.PublicKey)
 	return address.Hex()
+}
+
+func getBalanceValue(hex string) *big.Int {
+	if strings.HasPrefix(hex, "0x") {
+		hex = strings.TrimPrefix(hex, "0x")
+	}
+	value, _ := new(big.Int).SetString(hex, 16)
+	fmt.Println("etrue_getBalance Ok:", value)
+	return value
+}
+
+func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool {
+	var result string
+	find := false
+	getBalance := true
+	value := "0x" + balance.Div(balance, big.NewInt(int64(len(account)*1000))).String()
+	fmt.Println("sendRawTransaction son address ", value)
+
+	for {
+		for i := 0; i < count; i++ {
+			//main unlock account
+			if from == i {
+				continue
+			}
+
+			for j := 0; j < len(noBalance); j++ {
+				if i == j {
+					getBalance = false
+				}
+			}
+
+			if getBalance {
+				// get balance
+				err := client.Call(&result, "etrue_getBalance", account[i], "latest")
+				if err != nil {
+					fmt.Println("etrue_getBalance Error:", err)
+					msg <- false
+					return false
+				}
+				balance := getBalanceValue(result)
+				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance)
+
+				if balance.Int64() > 0 {
+					continue
+				}
+
+				noBalance = append(noBalance, i)
+			}
+
+			if i == count-1 && len(noBalance) == 0 {
+				find = true
+			}
+
+			fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
+			if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
+				fmt.Println("sendRawTransaction son address error ", result, " err ", err)
+				return false
+			}
+			time.Sleep(time.Second * 2)
+			getBalance = true
+		}
+		if find {
+			break
+		}
+	}
+
+	return true
+}
+
+func unlockCountNewAccount(client *rpc.Client, count int) bool {
+	for i := 0; i < count; i++ {
+		if from == i {
+			continue
+		}
+		fmt.Println(i, " unlockAccount main address ", " son address ", account[i])
+		_, err := unlockAccount(client, account[i], "admin", 90000, "son address")
+		if err != nil {
+			fmt.Println("personal_unlockAccount Error:", err.Error())
+			msg <- false
+			return false
+		}
+	}
+	return true
 }
