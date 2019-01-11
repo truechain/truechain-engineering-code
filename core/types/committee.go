@@ -207,12 +207,12 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
-
+// SwitchEnter is the enter inserted in block when committee member changed
 type SwitchEnter struct {
 	Pk   []byte
 	Flag uint32
 }
-
+// Hash return SwitchInfos hash bytes
 func (infos *SwitchInfos) Hash() common.Hash {
 	return rlpHash(infos)
 }
@@ -223,7 +223,44 @@ func (s *SwitchEnter) String() string {
 	}
 	return fmt.Sprintf("p:%s,s:%d", common.ToHex(s.Pk), s.Flag)
 }
+func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
+	if s == nil && other == nil {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
+	return bytes.Equal(s.Pk,other.Pk) && s.Flag == other.Flag
+}
 
+type SwitchEnters []*SwitchEnter 
+
+// Equal will equal not require item index
+func (s SwitchEnters) Equal(other SwitchEnters) bool {
+	if s == nil && other == nil {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
+	if len(s) != len(other) {
+		return false
+	}
+
+	for _,v1 := range s {
+		equal := false
+		for _,v2 := range other {
+			if v1.Equal(v2) {
+				equal = true
+			} 
+		}
+		if !equal {
+			return false
+		}
+	}
+	return true
+}
+// SwitchInfos is the infos inserted in block when committee member changed
 type SwitchInfos struct {
 	CID  uint64
 	Vals []*SwitchEnter
@@ -242,4 +279,14 @@ func (s *SwitchInfos) String() string {
 		}
 	}
 	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}", s.CID, strings.Join(memStrings, "\n  "))
+}
+
+func (s *SwitchInfos) Equal(other *SwitchInfos) bool {
+	if s == nil && other == nil {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
+	return s.CID == other.CID && SwitchEnters(s.Vals).Equal(SwitchEnters(other.Vals))
 }
