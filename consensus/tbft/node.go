@@ -196,12 +196,21 @@ func (s *service) updateNodes() {
 	defer s.lock.Unlock()
 	for _, v := range s.nodeTable {
 		if v != nil {
-			if !v.Enable && v.Flag == types.StateUsedFlag && v.Adrress != nil {
+			if s.canConn(v) {
 				s.connTo(v)
 			}
 		}
 	}
 }
+
+//add self check
+func (s *service) canConn(v *nodeInfo) bool {
+	if !v.Enable && v.Flag == types.StateUsedFlag && v.Adrress != nil && v.ID != s.selfID {
+		return true
+	}
+	return false
+}
+
 func (s *service) connTo(node *nodeInfo) {
 	if node.Enable {
 		return
