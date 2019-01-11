@@ -237,7 +237,7 @@ func (h *HealthMgr) setCurSV(sv *SwitchValidator) {
 func (h *HealthMgr) removeCurSV() {
 	h.lock.Lock()
 	defer h.lock.Unlock()
-	if len(h.curSwitch) == 0 {
+	if len(h.curSwitch) > 0 {
 		h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
 	}
 }
