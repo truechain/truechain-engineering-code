@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -153,6 +154,15 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 	data := tx.data
 	data.Hash = &hash
 	return data.MarshalJSON()
+}
+
+func (tx *Transaction) Info() string {
+	str := ""
+	if tx != nil {
+		str += fmt.Sprintf("nonce=%v,price =%v ,v=%v,r=%v,s=%v,Pv=%v,Pr=%v,Ps=%v,", tx.data.AccountNonce, tx.data.Price,
+			tx.data.V, tx.data.R, tx.data.S, tx.data.PV, tx.data.PR, tx.data.PS)
+	}
+	return str
 }
 
 // UnmarshalJSON decodes the web3 RPC transaction format.

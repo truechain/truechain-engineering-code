@@ -42,6 +42,8 @@ const (
 )
 
 var (
+	EmptyAddress = common.Address{}
+	EmptyHash    = common.Hash{}
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
 
@@ -573,10 +575,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInvalidSender
 	}
 	// Make sure the transaction is psigned properly
-	/*pfrom, err := types.PSender(pool.signer, tx)
+	pfrom, err := types.PSender(pool.signer, tx)
+	fmt.Printf("validateTx method get address payment=%v\n", pfrom)
 	if err != nil {
 		return ErrInvalidPayer
-	}*/
+	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
@@ -588,16 +591,14 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	/*efrom := common.Address{}
-	if pfrom != efrom {
+	if pfrom != EmptyAddress {
 		if pool.currentState.GetBalance(pfrom).Cmp(tx.GasCost()) < 0 || pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
 			return ErrInsufficientFunds
 		}
-	} else if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-		return ErrInsufficientFunds
-	}*/
-	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-		return ErrInsufficientFunds
+	} else {
+		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+			return ErrInsufficientFunds
+		}
 	}
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, true)
 	if err != nil {
