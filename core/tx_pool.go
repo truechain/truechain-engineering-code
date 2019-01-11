@@ -45,6 +45,9 @@ var (
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
 
+	// ErrInvalidPayer is returned if the transaction contains an invalid payer's signature.
+	ErrInvalidPayer = errors.New("invalid payer")
+
 	// ErrNonceTooLow is returned if the nonce of a transaction is lower than the
 	// one present in the local chain.
 	ErrNonceTooLow = errors.New("nonce too low")
@@ -572,7 +575,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Make sure the transaction is psigned properly
 	pfrom, err := types.PSender(pool.signer, tx)
 	if err != nil {
-		return ErrInvalidSender
+		return ErrInvalidPayer
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
