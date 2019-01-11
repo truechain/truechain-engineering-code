@@ -71,7 +71,7 @@ func main() {
 		fmt.Println("from err default 0")
 	}
 
-	if len(os.Args[5]) > 5 {
+	if len(os.Args) > 5 {
 		to, err = strconv.Atoi(os.Args[5])
 	} else {
 		fmt.Println("to 0：Local address 1: Generate address")
