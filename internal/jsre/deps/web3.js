@@ -3766,6 +3766,9 @@ var inputTransactionFormatter = function (options){
     if (options.to) { // it might be contract creation
         options.to = inputAddressFormatter(options.to);
     }
+    if (options.pyament) { // it might be payment
+        options.pyament = inputAddressFormatter(options.pyament);
+    }
 
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
