@@ -1735,12 +1735,11 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 func (cs *ConsensusState) pickSwitchValidator(sv *ttypes.SwitchValidator, id bool) *ttypes.SwitchValidator {
 	if len(cs.svs) > 0 {
 		tmp := cs.svs[0]
-		if ok := tmp.Equal(sv, id); !ok {
-			log.Error("pickSV not match", "sv", sv, "item0", tmp)
-		} else {
+		if (id && tmp.Equal(sv)) || (!id && tmp.EqualWithRemove(sv)) {
 			cs.svs = append(cs.svs[:0], cs.svs[1:]...)
 			return tmp
 		}
+		log.Error("pickSV not match", "sv", sv, "item0", tmp)
 	}
 	return sv
 }

@@ -99,19 +99,37 @@ func (s *SwitchValidator) String() string {
 }
 
 // Equal return true they are same id or both nil otherwise return false
-func (s *SwitchValidator) Equal(other *SwitchValidator,id bool) bool {
+func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 	if s == nil && other == nil {
 		return true
 	}
 	if s == nil || other == nil {
 		return false
 	}
-	if !id {
-		return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add)
-	} 
-	return s.ID == other.ID && s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add)
+	return s.ID == other.ID && s.Remove.Equal(other.Remove) && 
+			s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
+}
+// EqualWithoutID return true they are same id or both nil otherwise return false 
+func (s *SwitchValidator) EqualWithoutID(other *SwitchValidator) bool {
+	if s == nil && other == nil {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
+	return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
 }
 
+// EqualWithRemove return true they are same id or both nil otherwise return false 
+func (s *SwitchValidator) EqualWithRemove(other *SwitchValidator) bool {
+	if s == nil && other == nil {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
+	return s.Remove.Equal(other.Remove)
+}
 //HealthMgr struct
 type HealthMgr struct {
 	help.BaseService
@@ -322,24 +340,32 @@ func (h *HealthMgr) isShiftSV() (bool,int) {
 		}
 	}
 	for _, v := range h.Back {
-		if v.State == ctypes.StateUnusedFlag || v.State == ctypes.StateUsedFlag {
+		if v.State == ctypes.StateUsedFlag {
 			cnt++
 		}
 	}
-	// for _, v := range h.seed {
-	// 	if v.HType == ctypes.TypeFixed && (v.State == ctypes.StateUsedFlag || v.State == ctypes.StateUnusedFlag) {
-	// 		cnt++
-	// 	}
-	// }
+	for _, v := range h.seed {
+		if v.State == ctypes.StateUsedFlag {
+			cnt++
+		}
+	}
 	return cnt > MixValidator,cnt
 }
 
 //switchResult handle the sv after consensus and the result removed from self 
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	if !EnableHealthMgr { return }
+	
+	// remove sv in curSwitch if can
+	if len(h.curSwitch) > 0 {
+		cur := h.curSwitch[0] 
+		if (res.From == 1 && cur.Equal(res)) || cur.EqualWithoutID(res) {
+			h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
+		}
+	}
 
 	ss := "failed"
-	if res.Resion == "" && res.From == 0 {
+	if res.From == 0 {
 		if len(res.Infos.Vals) > 2 {
 			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
 			var add, remove *Health
@@ -363,22 +389,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 		}
 	}
-	// remove sv in curSwitch if can
-	if len(h.curSwitch) == 0 {
-		log.Info("curSwitch has nothing", "res", res,"status",ss)
-		return
-	}
-	id := true
-	if res.ID == 0 {
-		id = false
-	}
-	cur := h.curSwitch[0]
-	if !cur.Equal(res,id) {
-		log.Info("switchResult res not match", "cur", cur, "res", res,"status",ss)
-		return
-	}
 	log.Info("switch", "result:", ss, "res", res)
-	h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
 }
 
 //pickUnuseValidator get a back committee
@@ -456,8 +467,8 @@ func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
 	
 	if len(h.curSwitch) > 0 {
 		sv0 := h.curSwitch[0] 
-		if sv0.Equal(sv,true) {
-			return nil 	// proposal is self
+		if sv0.Equal(sv) {
+			return nil 	// proposal is self?
 		}	
 	}
 	return h.verifySwitchEnter(sv.Remove,sv.Add)
