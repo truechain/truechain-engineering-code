@@ -49,7 +49,7 @@ const (
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
-	maxQueuedTxs = 128
+	maxQueuedTxs = 256
 	// maxQueuedSigns is the maximum number of sign lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
 	// contain a single transaction, or thousands.
@@ -345,7 +345,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 			p.knownTxs.Add(tx.Hash())
 		}
 	default:
-		p.Log().Debug("Dropping transaction propagation", "count", len(txs))
+		p.Log().Info("Dropping transaction propagation", "count", len(txs))
 	}
 }
 
