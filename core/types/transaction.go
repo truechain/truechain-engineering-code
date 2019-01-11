@@ -98,6 +98,9 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
+		PV:           new(big.Int),
+		PR:           new(big.Int),
+		PS:           new(big.Int),
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -243,6 +246,13 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	cpy := &Transaction{data: tx.data}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
 	return cpy, nil
+}
+
+func (tx *Transaction) CopyPaymentRSV() *Transaction {
+	cpy := &Transaction{data: tx.data}
+	cpy.data.PR, cpy.data.PS, cpy.data.PV = tx.data.R, tx.data.S, tx.data.V
+	tx.data.R, tx.data.S, tx.data.V = new(big.Int), new(big.Int), new(big.Int)
+	return cpy
 }
 
 // Cost returns amount + gasprice * gaslimit.
