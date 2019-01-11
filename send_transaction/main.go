@@ -259,11 +259,11 @@ func getBalanceValue(hex string) *big.Int {
 	return value
 }
 
-func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool {
+func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	var result string
 	find := false
 	getBalance := true
-	value := "0x" + balance.Div(balance, big.NewInt(int64(len(account)))).String()
+	value := "0x" + main.Div(main, big.NewInt(int64(len(account)))).String()
 	fmt.Println("createCountNewAccount ", value)
 
 	for {
@@ -290,7 +290,7 @@ func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool
 				}
 				balance := getBalanceValue(result)
 
-				if balance.Cmp(balance.Div(balance, big.NewInt(int64(len(account))))) > 0 {
+				if balance.Cmp(main.Div(main, big.NewInt(int64(len(account))))) > 0 {
 					fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i)
 					if i == count-1 {
 						find = true
