@@ -359,7 +359,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	// remove sv in curSwitch if can
 	if len(h.curSwitch) > 0 {
 		cur := h.curSwitch[0] 
-		if (res.From == 1 && cur.Equal(res)) || cur.EqualWithoutID(res) {
+		if (res.From == 1 && cur.Equal(res)) || cur.EqualWithoutID(res) || cur.EqualWithRemove(res) {
 			h.curSwitch = append(h.curSwitch[:0], h.curSwitch[1:]...)
 		}
 	}
@@ -382,10 +382,12 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 			if remove != nil {
 				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
+				atomic.StoreInt32(&remove.Tick,0)	// issues for the sv was in another proposal queue
 				ss = "Success"
 			}
 			if add != nil {
 				atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
+				atomic.StoreInt32(&add.Tick,0)
 			}
 		}
 	}
@@ -411,16 +413,14 @@ func (h *HealthMgr) pickUnuseValidator() *Health {
 func (h *HealthMgr) Update(id tp2p.ID) {
 	if v, ok := h.Work[id]; ok {
 		if v.HType != ctypes.TypeFixed {
-			val := atomic.LoadInt32(&v.Tick)
-			atomic.AddInt32(&v.Tick, -val)
+			atomic.StoreInt32(&v.Tick, 0)
 			return
 		}
 	}
 	for _, v := range h.Back {
 		if v.ID == id {
 			if v.HType != ctypes.TypeFixed {
-				val := atomic.LoadInt32(&v.Tick)
-				atomic.AddInt32(&v.Tick, -val)
+				atomic.StoreInt32(&v.Tick, 0)
 			}
 			return
 		}
