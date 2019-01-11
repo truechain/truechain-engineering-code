@@ -62,7 +62,7 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 // signing method. The cache is invalidated if the cached signer does
 // not match the signer used in the current call.
 func PSender(signer Signer, tx *Transaction) (common.Address, error) {
-	if tx.data.PR == common.Big0 && tx.data.PV == common.Big0 && tx.data.PS == common.Big0 {
+	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
 		return common.Address{}, nil
 	}
 	addr, err := signer.PSender(tx)
