@@ -384,34 +384,22 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	store := ttypes.NewBlockStore()
 	service := newNodeService(n.config.P2P, n.config.Consensus, state, store, cid)
 
-	for _, v := range committeeInfo.Members {
-		id := pkToP2pID(v.Publickey)
-		//exclude self
-		self := false
-		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
-			self = true
-		}
-		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
-		service.healthMgr.PutWorkHealth(health)
+	if len(committeeInfo.Members) < ttypes.MixValidator {
+		return fmt.Errorf("members len is error :want big to %d get %d", ttypes.MixValidator, len(committeeInfo.Members))
 	}
 
-	for _, v := range committeeInfo.BackMembers {
-		id := pkToP2pID(v.Publickey)
-		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
-		service.healthMgr.PutBackHealth(health)
-	}
+	n.AddHealthForCommittee(service.healthMgr, committeeInfo)
 
 	help.CheckAndPrintError(service.healthMgr.OnStart())
 	service.consensusState.SetHealthMgr(service.healthMgr)
-	nodeinfo := makeCommitteeMembers(service, committeeInfo)
-	if nodeinfo == nil {
+	nodeInfo := makeCommitteeMembers(service, committeeInfo)
+
+	if nodeInfo == nil {
 		help.CheckAndPrintError(service.stop())
 		return errors.New("make the nil CommitteeMembers")
 	}
 
-	service.setNodes(nodeinfo)
+	service.setNodes(nodeInfo)
 	service.sa = state
 	service.consensusReactor = NewConsensusReactor(service.consensusState, false)
 	service.sw.AddReactor("CONSENSUS", service.consensusReactor)
@@ -421,6 +409,27 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.selfID = n.nodekey.ID()
 	n.services[id.Uint64()] = service
 	return nil
+}
+
+func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo) {
+	for _, v := range c.Members {
+		id := pkToP2pID(v.Publickey)
+		//exclude self
+		self := false
+		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+			self = true
+		}
+		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
+		h.PutWorkHealth(health)
+	}
+
+	for _, v := range c.BackMembers {
+		id := pkToP2pID(v.Publickey)
+		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
+		h.PutBackHealth(health)
+	}
 }
 
 //PutNodes is agent put peer's ip port

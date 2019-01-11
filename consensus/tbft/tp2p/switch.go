@@ -227,17 +227,17 @@ func (sw *Switch) OnStop() {
 	// Stop listeners
 	log.Info("Begin Switch finish")
 	for _, listener := range sw.listeners {
-		listener.Stop()
+		help.CheckAndPrintError(listener.Stop())
 	}
 	sw.listeners = nil
 	// Stop peers
 	for _, peer := range sw.peers.List() {
-		peer.Stop()
+		help.CheckAndPrintError(peer.Stop())
 		sw.peers.Remove(peer)
 	}
 	// Stop reactors
 	for _, reactor := range sw.reactors {
-		reactor.Stop()
+		help.CheckAndPrintError(reactor.Stop())
 	}
 	log.Info("End Switch finish")
 }
@@ -327,7 +327,7 @@ func (sw *Switch) StopPeerGracefully(peer Peer) {
 
 func (sw *Switch) stopAndRemovePeer(peer Peer, reason interface{}) {
 	sw.peers.Remove(peer)
-	peer.Stop()
+	help.CheckAndPrintError(peer.Stop())
 	for _, reactor := range sw.reactors {
 		reactor.RemovePeer(peer, reason)
 	}
@@ -540,7 +540,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		maxPeers := sw.config.MaxNumPeers - DefaultMinNumOutboundPeers
 		if maxPeers <= sw.peers.Size() {
 			log.Info("Ignoring inbound connection: already have enough peers", "address", inConn.RemoteAddr().String(), "numPeers", sw.peers.Size(), "max", maxPeers)
-			inConn.Close()
+			help.CheckAndPrintError(inConn.Close())
 			continue
 		}
 
@@ -563,7 +563,7 @@ func (sw *Switch) addInboundPeerWithConfig(
 ) error {
 	peerConn, err := newInboundPeerConn(conn, config, sw.nodeKey.PrivKey)
 	if err != nil {
-		conn.Close() // peer is nil
+		help.CheckAndPrintError(conn.Close()) // peer is nil
 		return err
 	}
 	log.Info("add in bound peer")
