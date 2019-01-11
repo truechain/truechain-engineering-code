@@ -1386,6 +1386,7 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
+	Payment  common.Address  `json:"payment"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1471,18 +1472,38 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	return tx.Hash(), nil
 }
 
+func (s *PublicTransactionPoolAPI) getWallet(addr common.Address) (accounts.Account, accounts.Wallet, error) {
+	account := accounts.Account{Address: addr}
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return accounts.Account{}, nil, err
+	}
+	return account, wallet, nil
+}
+
+func (s *PublicTransactionPoolAPI) signPaymen(payment common.Address, tx *types.Transaction) (*types.Transaction, error) {
+	account := accounts.Account{Address: payment}
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return nil, err
+	}
+	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	if err != nil {
+		return nil, err
+	}
+	newTx := signed.CopyPaymentRSV()
+	return newTx, nil
+}
+
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
-
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
 		return common.Hash{}, err
 	}
-
 	if args.Nonce == nil {
 		// Hold the addresse's mutex around signing to prevent concurrent assignment of
 		// the same nonce to multiple accounts.
@@ -1497,7 +1518,18 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
-	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	var newTx *types.Transaction
+	if args.Payment != [20]byte{} {
+		newTx, err := s.signPaymen(args.Payment, tx)
+		if err != nil {
+			log.Warn("payment error", "error", err, "newTx", newTx)
+			return common.Hash{}, err
+		}
+	} else {
+		newTx = tx
+	}
+
+	signed, err := wallet.SignTx(account, newTx, s.b.ChainConfig().ChainID)
 	if err != nil {
 		return common.Hash{}, err
 	}
