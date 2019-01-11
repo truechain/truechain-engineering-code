@@ -852,7 +852,7 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	for _, member := range committee.Backups {
 		member.MType = types.TypeBack
 	}
-	if len(committee.Members) > 0 {
+	if len(committee.Members) >= 4 {
 		committee.Backups = append(committee.Backups, e.defaultMembers...)
 	} else {
 		log.Error("can't get new committee, use default committee")
