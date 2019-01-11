@@ -91,6 +91,7 @@ type (
 
 	// findnode is a query for nodes close to the given target.
 	findnode struct {
+		Version    uint
 		Target     NodeID // doesn't need to be an actual public key
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
@@ -355,6 +356,7 @@ func (t *udp) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]*Node
 		return nreceived >= bucketSize
 	})
 	t.send(toaddr, findnodePacket, &findnode{
+		Version:    trueVersion,
 		Target:     target,
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
@@ -668,6 +670,9 @@ func (req *pong) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) er
 func (req *pong) name() string { return "PONG/v4" }
 
 func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) error {
+	if req.Version != trueVersion {
+		return fmt.Errorf("error %d version number", req.Version)
+	}
 	if expired(req.Expiration) {
 		return errExpired
 	}
