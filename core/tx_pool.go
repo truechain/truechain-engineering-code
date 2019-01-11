@@ -588,12 +588,15 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	efrom := common.Address{}
+	/*efrom := common.Address{}
 	if pfrom != efrom {
 		if pool.currentState.GetBalance(pfrom).Cmp(tx.GasCost()) < 0 || pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
 			return ErrInsufficientFunds
 		}
 	} else if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+		return ErrInsufficientFunds
+	}*/
+	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, true)
