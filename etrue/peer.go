@@ -39,12 +39,12 @@ var (
 )
 
 const (
-	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
-	maxKnownSigns       = 32768 // Maximum signs to keep in the known list
-	maxKnownNodeInfo    = 1024  // Maximum node info to keep in the known list
-	maxKnownFruits      = 1024  // Maximum fruits hashes to keep in the known list (prevent DOS)
-	maxKnownSnailBlocks = 1024  // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
-	maxKnownFastBlocks  = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
+	maxKnownTxs         = 163840 // Maximum transactions hashes to keep in the known list (prevent DOS) 32768 * 5
+	maxKnownSigns       = 8192   // Maximum signs to keep in the known list
+	maxKnownNodeInfo    = 1024   // Maximum node info to keep in the known list
+	maxKnownFruits      = 1024   // Maximum fruits hashes to keep in the known list (prevent DOS)
+	maxKnownSnailBlocks = 1024   // Maximum snailBlocks hashes to keep in the known list (prevent DOS)
+	maxKnownFastBlocks  = 1024   // Maximum block hashes to keep in the known list (prevent DOS)
 
 	// maxQueuedTxs is the maximum number of transaction lists to queue up before
 	// dropping broadcasts. This is a sensitive number as a transaction list might
@@ -332,7 +332,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
-	log.Debug("SendTransactions", "txs", len( txs), "peer", p.id)
+	log.Debug("SendTransactions", "txs", len(txs), "peer", p.id)
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 

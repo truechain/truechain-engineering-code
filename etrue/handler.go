@@ -407,8 +407,8 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// Execute the Truechain handshake
 	var (
-		fastHead    = pm.blockchain.CurrentHeader()
-		fastHash    = fastHead.Hash()
+		fastHead = pm.blockchain.CurrentHeader()
+		fastHash = fastHead.Hash()
 
 		genesis    = pm.snailchain.Genesis()
 		head       = pm.snailchain.CurrentHeader()
@@ -705,7 +705,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				log.Debug("Failed to deliver headers", "err", err)
 			}
 		}
-
 
 	case msg.Code == GetFastBlockBodiesMsg:
 		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>", "peer", p.id)
@@ -1229,7 +1228,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		for _, peer := range peers {
 			txset[peer] = append(txset[peer], tx)
 		}
-		log.Debug("BroadcastTxs", "hash", tx.Hash(), "recipients", len(peers))
+		log.Trace("BroadcastTxs", "hash", tx.Hash(), "recipients", len(peers))
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
@@ -1317,7 +1316,6 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
-			log.Debug("txBroadcastLoop", "len(Txs)", len(event.Txs))
 			pm.BroadcastTxs(event.Txs)
 
 			// Err() channel will be closed when unsubscribing.

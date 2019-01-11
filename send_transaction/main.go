@@ -148,7 +148,6 @@ func send(count int, ip string) {
 	}
 
 	balance := getBalanceValue(result)
-	fmt.Println("etrue_getBalance Ok:", balance)
 
 	//main unlock account
 	_, err = unlockAccount(client, account[from], "admin", 90000, "main")
@@ -159,10 +158,10 @@ func send(count int, ip string) {
 	}
 
 	//send main to son address
-	fmt.Println("create ", count, " new account success ", createCountNewAccount(client, count, balance))
+	fmt.Println("create ", count, " new account ", createCountNewAccount(client, count, balance))
 
 	//son address unlock account
-	fmt.Println("unlock ", count, " son account success ", unlockCountNewAccount(client, count))
+	fmt.Println("unlock ", count, " son account ", unlockCountNewAccount(client, count))
 
 	// send
 	fmt.Println("Start sendTransactions from ", count, " account to other new account")
@@ -275,7 +274,7 @@ func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool
 			}
 
 			for j := 0; j < len(noBalance); j++ {
-				if i == j {
+				if i == noBalance[j] {
 					getBalance = false
 				}
 			}
@@ -289,13 +288,15 @@ func createCountNewAccount(client *rpc.Client, count int, balance *big.Int) bool
 					return false
 				}
 				balance := getBalanceValue(result)
-				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance)
+				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i)
 
 				if balance.Int64() > 0 {
 					continue
 				}
 
 				noBalance = append(noBalance, i)
+			} else {
+				continue
 			}
 
 			if i == count-1 && len(noBalance) == 0 {
