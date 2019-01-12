@@ -470,7 +470,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	for {
 		if err := pm.handleMsg(p); err != nil {
 			p.Log().Info("Truechain message handling failed", "RemoteAddr", p.RemoteAddr(), "err", err)
+			if pm.msgTime != nil {
+				pm.msgTime.Stop()
+				pm.msgTime = nil
+			}
 			return err
+		} else {
+			pm.msgTime.Reset(handleMsgTimeout)
 		}
 	}
 }
@@ -1119,7 +1125,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 
 	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
-	pm.msgTime.Reset(handleMsgTimeout)
 	return nil
 }
 
