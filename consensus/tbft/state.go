@@ -1726,9 +1726,9 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 			if err == nil {
 				return true
 			}
-			log.Info("switchVerify", "result", err)
+			log.Info("switchVerify", "result", err,"info",sv)
 		}
-	}
+	} 
 	return false
 }
 

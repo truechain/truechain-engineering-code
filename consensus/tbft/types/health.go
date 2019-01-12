@@ -95,8 +95,8 @@ func (s *SwitchValidator) String() string {
 	if s == nil {
 		return "switch-validator-nil"
 	}
-	return fmt.Sprintf("switch-validator:[ID:%v,Round:%d,R:%s,A:%s,Info:%s,Resion:%s,From:%d,Door:%d]",
-		s.ID,s.Round,s.Remove, s.Add, s.Infos, s.Resion, s.From, s.DoorCount)
+	return fmt.Sprintf("switch-validator:[ID:%v,Round:%d,From:%d,Door:%d,Resion:%s,R:%s,A:%s,Info:%s]",
+		s.ID,s.Round, s.From, s.DoorCount, s.Resion, s.Remove, s.Add, s.Infos)
 }
 
 // Equal return true they are same id or both nil otherwise return false
@@ -286,16 +286,15 @@ func (h *HealthMgr) work(sshift bool) {
 func (h *HealthMgr) checkSwitchValidator(v *Health,sshift bool) {
 	if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 		val := atomic.AddInt32(&v.Tick, 1)
-		log.Info("Health", "info:", fmt.Sprintf("id:%s val:%d state:%d", v.ID, val, v.State))
-
 		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 			if sv0 := h.getCurSV(); sv0 == nil {
 				log.Info("Health", "Change", true)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
-				h.setCurSV(cur)
-				go h.Switch(cur)
 				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))	
+				h.setCurSV(cur)
+				log.Info("CheckSwitchValidator(remove,add)", "info:", cur)
+				go h.Switch(cur)
 			}
 		}	
 
@@ -304,6 +303,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health,sshift bool) {
 			if val0 < HealthOut && sv0.From == 0 {
 				sv1 := *sv0
 				sv1.From = 1
+				log.Info("Restore SwitchValidator","info",sv1)
 				go h.Switch(&sv1)
 			}
 		}
@@ -415,7 +415,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 		}
 	}
-	log.Info("switch", "result:", ss, "res", res)
+	log.Info("switchResult", "result:", ss, "res", res)
 }
 
 //pickUnuseValidator get a back committee
@@ -495,6 +495,7 @@ func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
 	}
 	if sv0 := h.getCurSV(); sv0 != nil {
 		if sv0.Equal(sv) {
+			log.Info("HealthMgr verify:sv equal sv0","info",sv)
 			return nil 	// proposal is self?
 		}	
 	}
