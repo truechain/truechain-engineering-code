@@ -266,6 +266,12 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 func (pm *ProtocolManager) removePeer(id string) {
 	// Short circuit if the peer was already removed
 	peer := pm.peers.Peer(id)
+
+	if pm.msgTime != nil {
+		pm.msgTime.Stop()
+		pm.msgTime = nil
+	}
+
 	if peer == nil {
 		return
 	}
