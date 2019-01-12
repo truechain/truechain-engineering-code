@@ -662,7 +662,7 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 
 //FetchFastBlock  generate fastBlock as leader
 func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
-	log.Debug("into GenerateFastBlock...", "committeeId", committeeID)
+	log.Info("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	var (
@@ -732,7 +732,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 			return fastBlock, err
 		}
 	}
-	log.Debug("generateFastBlock", "Height:", fastBlock.Number())
+	log.Info("generateFastBlock", "Height:", fastBlock.Number())
 
 	voteSign, err := agent.GenerateSign(fastBlock)
 	if err != nil {
@@ -743,7 +743,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	if voteSign != nil {
 		fastBlock.AppendSign(voteSign)
 	}
-	log.Debug("out GenerateFastBlock...")
+	log.Info("out GenerateFastBlock...")
 	return fastBlock, err
 }
 
@@ -881,7 +881,7 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
 func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.PbftSign, error) {
-	log.Debug("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
+	log.Info("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 
 	// get current head
 	var (
@@ -958,14 +958,14 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 	if signError != nil {
 		return nil, signError
 	}
-	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
+	log.Info("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	return voteSign, nil
 }
 
 //BroadcastConsensus  when More than 2/3 signs with agree,
 //  committee Member Reach a consensus  and insert the fastBlock into fastBlockChain
 func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Debug("into BroadcastSign.", "fastHeight", fb.Number())
+	log.Info("into BroadcastSign.", "fastHeight", fb.Number())
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	//insert bockchain
@@ -977,7 +977,7 @@ func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	consensusTime := time.Now().Unix() - fb.Header().Time.Int64()
 	pbftConsensusCounter.Clear()
 	pbftConsensusCounter.Inc(consensusTime)
-	log.Debug("out BroadcastSign.", "fastHeight", fb.Number())
+	log.Info("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
 
