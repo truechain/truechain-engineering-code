@@ -353,6 +353,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		CID:         cid,
 	}
 	state.ids = vals.MakeIDs()
+	log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",height,"end",state.EndHeight,"current",lh)
 	return state
 }
 
@@ -410,12 +411,16 @@ func (state *StateAgentImpl) HasPeerID(id string) error {
 //SetEndHeight set now committee fast block height for end. (begin,end]
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
+	lh := state.Agent.GetCurrentHeight()
+	log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",state.BeginHeight,"end",state.EndHeight,"current",lh)
 }
 
 // SetBeginHeight set height of block for the committee to begin. (begin,end]
 func (state *StateAgentImpl) SetBeginHeight(h uint64) {
 	if state.EndHeight > 0 && h < state.EndHeight {
 		state.BeginHeight = h
+		lh := state.Agent.GetCurrentHeight()
+		log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",state.BeginHeight,"end",state.EndHeight,"current",lh)	
 	}
 }
 
@@ -491,6 +496,9 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
 		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
+	}
+	if state.BeginHeight > block.NumberU64() {
+		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
 	watch := newInWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)
