@@ -26,7 +26,7 @@ var (
 	headerInMeter      = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/in", nil)
 	headerReqTimer     = metrics.NewRegisteredTimer("etrue/fastdownloader/headers/req", nil)
 	headerDropMeter    = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/drop", nil)
-	headerTimeoutMeter = metrics.NewRegisteredMeter("etrueetrue/fastdownloader/headers/timeout", nil)
+	headerTimeoutMeter = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/timeout", nil)
 
 	bodyInMeter      = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/in", nil)
 	bodyReqTimer     = metrics.NewRegisteredTimer("etrue/fastfastdownloader/bodies/req", nil)

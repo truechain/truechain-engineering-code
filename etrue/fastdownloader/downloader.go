@@ -559,6 +559,10 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		case <-timeout:
 			p.GetLog().Debug("Waiting for head header timed out")
 			return nil, errTimeout
+
+		case <-d.bodyCh:
+		case <-d.receiptCh:
+			// Out of bounds delivery, ignore
 		}
 	}
 }
