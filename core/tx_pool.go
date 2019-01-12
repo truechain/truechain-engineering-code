@@ -271,7 +271,7 @@ func (pool *TxPool) loop() {
 
 	// Start the stats reporting and transaction eviction tickers
 	var prevPending, prevQueued, prevStales int
-	//var prevDiscardCount *big.Int
+	var prevDiscardCount *big.Int
 
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
@@ -311,12 +311,12 @@ func (pool *TxPool) loop() {
 			pool.mu.RLock()
 			pending, queued := pool.stats()
 			stales := pool.priced.stales
-			//DiscardCount := remoteTxsDiscardCount
+			DiscardCount := remoteTxsDiscardCount
 			pool.mu.RUnlock()
 
 			if pending != prevPending || queued != prevQueued || stales != prevStales {
-				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales, "remoteTxsDiscardCount", &remoteTxsDiscardCount)
-				prevPending, prevQueued, prevStales = pending, queued, stales
+				prevPending, prevQueued, prevStales, prevDiscardCount = pending, queued, stales, DiscardCount
+				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales, "remoteTxsDiscardCount", prevDiscardCount)
 			}
 
 			// Handle inactive account transaction eviction
