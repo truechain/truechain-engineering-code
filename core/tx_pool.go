@@ -39,6 +39,7 @@ const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
 	defaultGasPrice   = 1000000
+	txChanSize        = 2048
 )
 
 var (
@@ -212,7 +213,8 @@ type TxPool struct {
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
 
-	wg sync.WaitGroup // for shutdown sync
+	newTxsCh chan []*types.Transaction
+	wg       sync.WaitGroup // for shutdown sync
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -232,6 +234,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		beats:       make(map[common.Address]time.Time),
 		all:         newTxLookup(),
 		chainHeadCh: make(chan types.ChainFastHeadEvent, chainHeadChanSize),
+		newTxsCh:    make(chan []*types.Transaction, txChanSize),
 		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
 	pool.locals = newAccountSet(pool.signer)
@@ -291,6 +294,11 @@ func (pool *TxPool) loop() {
 				head = ev.Block
 
 				pool.mu.Unlock()
+			}
+			// Handle new remote transactions
+		case txs := <-pool.newTxsCh:
+			if txs != nil {
+				pool.addTxs(txs, false)
 			}
 			// Be unsubscribed due to system stopped
 		case <-pool.chainHeadSub.Err():
@@ -800,7 +808,15 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
-	return pool.addTxs(txs, false)
+	errs := make([]error, len(txs))
+	select {
+	case pool.newTxsCh <- txs:
+		return nil
+	default:
+		log.Info("Dropping transaction propagation", "count", len(txs))
+		errs[0] = errors.New("newTxsCh is full")
+	}
+	return errs
 }
 
 // addTx enqueues a single transaction into the pool if it is valid.
