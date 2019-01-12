@@ -297,7 +297,7 @@ func (s *Service) loop() {
 				}
 			case list := <-s.snailHistCh:
 				if err = s.reportSnailHistory(conn, list); err != nil {
-					log.Warn("Requested history report failed", "err", err)
+					log.Warn("Requested snailHistory report failed", "err", err)
 				}
 			case head := <-headCh:
 				if err = s.reportBlock(conn, head); err != nil {
@@ -376,7 +376,8 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 	// Make sure the request is valid and doesn't crash us
 	request, ok := msg["emit"][1].(map[string]interface{})
 	if !ok {
-		log.Warn("Invalid stats history request", "msg", msg["emit"][1])
+		log.Warn("Invalid stats history request", "request", request, "command", command,
+			"msg", msg["emit"][1])
 		if command == "history" {
 			s.histCh <- nil
 		} else {
@@ -575,14 +576,14 @@ type txStats struct {
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
 // empty arrays instead of returning null for them.
-type uncleStats []*types.Header
+/*type uncleStats []*types.Header
 
 func (s uncleStats) MarshalJSON() ([]byte, error) {
 	if uncles := ([]*types.Header)(s); len(uncles) > 0 {
 		return json.Marshal(uncles)
 	}
 	return []byte("[]"), nil
-}
+}*/
 
 type snailUncleStats []*types.SnailHeader
 
