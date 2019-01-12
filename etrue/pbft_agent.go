@@ -718,6 +718,9 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 		}
 		work := agent.current
 		pending, _ := agent.eth.TxPool().Pending()
+		if len(pending) != 0 {
+			log.Info("has transaction...")
+		}
 		txs := types.NewTransactionsByPriceAndNonce(agent.current.signer, pending)
 		work.commitTransactions(agent.mux, txs, agent.fastChain, feeAmount)
 		//calculate snailBlock reward
