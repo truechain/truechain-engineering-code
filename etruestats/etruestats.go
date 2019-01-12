@@ -376,7 +376,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 	// Make sure the request is valid and doesn't crash us
 	request, ok := msg["emit"][1].(map[string]interface{})
 	if !ok {
-		log.Warn("Invalid stats history request", "request", request, "command", command,
+		log.Warn("Invalid stats history request", "msg[emit]", msg["emit"], "request", request, "command", command,
 			"msg", msg["emit"][1])
 		if command == "history" {
 			s.histCh <- nil
