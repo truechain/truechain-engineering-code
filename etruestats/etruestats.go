@@ -737,6 +737,7 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 			indexes = append(indexes, i)
 		}
 	}
+	log.Info("reportHistory", "indexes", indexes)
 	// Gather the batch of blocks to report
 	history := make([]*blockStats, len(indexes))
 	for i, number := range indexes {
@@ -795,6 +796,7 @@ func (s *Service) reportSnailHistory(conn *websocket.Conn, list []uint64) error 
 			indexes = append(indexes, i)
 		}
 	}
+	log.Info("reportSnailHistory", "indexes", indexes)
 	// Gather the batch of blocks to report
 	history := make([]*snailBlockStats, len(indexes))
 	for i, number := range indexes {
