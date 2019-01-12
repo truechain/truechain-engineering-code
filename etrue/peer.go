@@ -130,6 +130,7 @@ type peer struct {
 
 	queuedFastAnns chan *types.Block // Queue of fastBlocks to announce to the peer
 	term           chan struct{}     // Termination channel to stop the broadcaster
+	dropTx         uint64
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -153,6 +154,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedSnailBlock: make(chan *snailBlockEvent, maxQueuedSnailBlock),
 		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
 		term:             make(chan struct{}),
+		dropTx:           0,
 	}
 }
 
@@ -345,7 +347,8 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 			p.knownTxs.Add(tx.Hash())
 		}
 	default:
-		p.Log().Info("Dropping transaction propagation", "count", len(txs))
+		p.dropTx += uint64(len(txs))
+		p.Log().Info("Dropping transaction propagation", "count", len(txs), "dropTx", p.dropTx, "peer", p.RemoteAddr())
 	}
 }
 
