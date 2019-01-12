@@ -813,7 +813,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	case pool.newTxsCh <- txs:
 		return nil
 	default:
-		log.Info("Dropping transaction propagation", "count", len(txs))
+		log.Info("discard remote txs", "count", len(txs))
 		errs[0] = errors.New("newTxsCh is full")
 	}
 	return errs
