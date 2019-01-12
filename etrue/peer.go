@@ -334,7 +334,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
-	log.Debug("SendTransactions", "txs", len(txs), "peer", p.id)
+	log.Debug("SendTransactions", "txs", len(txs), "size", txs[0].Size(), "peer", p.id)
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
@@ -348,7 +348,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 		}
 	default:
 		p.dropTx += uint64(len(txs))
-		p.Log().Info("Dropping transaction propagation", "count", len(txs), "dropTx", p.dropTx, "peer", p.RemoteAddr())
+		p.Log().Info("Dropping transaction propagation", "count", len(txs), "size", txs[0].Size(), "dropTx", p.dropTx, "peer", p.RemoteAddr())
 	}
 }
 

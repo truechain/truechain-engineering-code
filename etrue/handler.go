@@ -980,7 +980,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			p.MarkTransaction(tx.Hash())
 		}
 		log.Trace("receive TxMsg", "peer", p.id, "len(txs)", len(txs), "ip", p.RemoteAddr())
-		pm.txpool.AddRemotes(txs)
+		go pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
 		// EncryptNodeMessage can be processed, parse all of them and deliver to the queue
@@ -1228,7 +1228,7 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		for _, peer := range peers {
 			txset[peer] = append(txset[peer], tx)
 		}
-		log.Trace("BroadcastTxs", "hash", tx.Hash(), "recipients", len(peers), "nonce", tx.Nonce())
+		log.Trace("BroadcastTxs", "hash", tx.Hash(), "recipients", len(peers), "nonce", tx.Nonce(), "size", tx.Size())
 	}
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
