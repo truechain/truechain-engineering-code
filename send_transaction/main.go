@@ -264,8 +264,8 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	find := false
 	getBalance := true
 	average := main.Div(main, big.NewInt(int64(len(account))))
-	value := "0x" + average.String()
-	fmt.Println("createCountNewAccount ", value)
+	value := "0x" + fmt.Sprintf("%x", average)
+	fmt.Println("createCountNewAccount ", " average ", average, " hex ", value)
 
 	for {
 		for i := 0; i < count; i++ {
@@ -277,6 +277,7 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 			for j := 0; j < len(noBalance); j++ {
 				if i == noBalance[j] {
 					getBalance = false
+					noBalance = append(noBalance[:j], noBalance[j+1:]...)
 					break
 				}
 			}
@@ -298,16 +299,12 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 						break
 					}
 					continue
+				} else {
+					noBalance = append(noBalance, i)
 				}
 
-				noBalance = append(noBalance, i)
 			} else {
 				fmt.Println("etrue_getBalance son address continue ", account[i], " i ", i, " noBalance ", len(noBalance))
-			}
-
-			if i == count-1 && len(noBalance) == 0 {
-				find = true
-				break
 			}
 
 			fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
