@@ -282,6 +282,10 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				}
 			}
 
+			if len(noBalance) != 0 && getBalance {
+				continue
+			}
+
 			if getBalance {
 				// get balance
 				err := client.Call(&result, "etrue_getBalance", account[i], "latest")
