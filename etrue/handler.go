@@ -269,7 +269,6 @@ func (pm *ProtocolManager) removePeer(id string) {
 
 	if pm.msgTime != nil {
 		pm.msgTime.Stop()
-		pm.msgTime = nil
 	}
 
 	if peer == nil {
@@ -462,15 +461,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// main loop. handle incoming messages.
 	for {
-		if err := pm.handleMsg(p); err != nil {
+		err := pm.handleMsg(p)
+		if pm.msgTime != nil {
+			pm.msgTime.Stop()
+		}
+		if err != nil {
 			p.Log().Info("Truechain message handling failed", "RemoteAddr", p.RemoteAddr(), "err", err)
-			if pm.msgTime != nil {
-				pm.msgTime.Stop()
-				pm.msgTime = nil
-			}
 			return err
-		} else {
-			pm.msgTime.Reset(handleMsgTimeout)
 		}
 	}
 }
@@ -491,9 +488,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	pm.msgTime = time.AfterFunc(handleMsgTimeout, func() {
 		//p.Log().Warn("Timed out handle message", "peer", p.id, "msg code", msg.Code)
-		if pm.msgTime != nil {
-			pm.msgTime.Reset(handleMsgTimeout)
-		}
 	})
 
 	// Handle the message depending on its contents
