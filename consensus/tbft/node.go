@@ -182,8 +182,8 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 
 //pkToP2pID pk to p2p id
 func pkToP2pID(pk *ecdsa.PublicKey) tp2p.ID {
-	publickey := crypto.FromECDSAPub(pk)
-	pub, err := crypto.UnmarshalPubkey(publickey)
+	publicKey := crypto.FromECDSAPub(pk)
+	pub, err := crypto.UnmarshalPubkey(publicKey)
 	if err != nil {
 		return ""
 	}
@@ -218,7 +218,11 @@ func (s *service) connTo(node *nodeInfo) {
 	log.Info("[put nodes]connTo", "addr", node.Adrress)
 	errDialErr := s.sw.DialPeerWithAddress(node.Adrress, true)
 	if errDialErr != nil {
-		log.Error("[connTo] dail peer " + errDialErr.Error())
+		if strings.HasPrefix(errDialErr.Error(), "Duplicate peer ID") {
+			node.Enable = true
+		} else {
+			log.Error("[connTo] dail peer " + errDialErr.Error())
+		}
 	} else {
 		node.Enable = true
 	}
