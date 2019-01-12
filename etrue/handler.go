@@ -337,13 +337,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedSnailBlockSub = pm.eventMux.Subscribe(types.NewMinedBlockEvent{})
 	go pm.minedSnailBlockLoop()
 
-	// start sync handlers
-	//go pm.syncer()
-	//go pm.txsyncLoop()
-	//go pm.fruitsyncLoop()
-	//atomic.StoreUint32(&pm.acceptTxs, 1)
-	//atomic.StoreUint32(&pm.acceptFruits, 1)
-
+	//go pm.checkHandlMsg()
 }
 
 func (pm *ProtocolManager) Stop() {
@@ -496,7 +490,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	now := time.Now()
 
 	pm.msgTime = time.AfterFunc(handleMsgTimeout, func() {
-		p.Log().Warn("Timed out handle message", "peer", p.id, "msg code", msg.Code)
+		//p.Log().Warn("Timed out handle message", "peer", p.id, "msg code", msg.Code)
 		if pm.msgTime != nil {
 			pm.msgTime.Reset(handleMsgTimeout)
 		}
