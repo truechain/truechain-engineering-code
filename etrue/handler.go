@@ -497,7 +497,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	pm.msgTime = time.AfterFunc(handleMsgTimeout, func() {
 		p.Log().Warn("Timed out handle message", "peer", p.id, "msg code", msg.Code)
-		pm.msgTime.Reset(handleMsgTimeout)
+		if pm.msgTime != nil {
+			pm.msgTime.Reset(handleMsgTimeout)
+		}
 	})
 
 	// Handle the message depending on its contents
