@@ -248,7 +248,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	//judge is the fb exist
 	fb := pool.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
 	if fb == nil {
-		log.Info("addFruit get block failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "fHash", fruit.FastHash())
+		log.Trace("addFruit get block failed.", "number", fruit.FastNumber(), "hash", fruit.Hash(), "fHash", fruit.FastHash())
 		return ErrNotExist
 	}
 
@@ -256,16 +256,16 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 	// compare with allFruits's fruit
 	if f, ok := pool.allFruits[fruit.FastHash()]; ok {
 		if err := pool.validator.ValidateFruit(fruit, nil, true); err != nil {
-			log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+			log.Trace("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 			return err
 		}
 
 		if rst := fruit.Difficulty().Cmp(f.Difficulty()); rst < 0 {
-			log.Debug("addFruit fruit failed,difficulty is lower", "give Difficulty", fruit.Difficulty(), "having Difficulty", f.Difficulty())
+			log.Trace("addFruit fruit failed,difficulty is lower", "give Difficulty", fruit.Difficulty(), "having Difficulty", f.Difficulty())
 			return nil
 		} else if rst == 0 {
 			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
-				log.Debug("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
+				log.Trace("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
 				return nil
 			}
 			return pool.appendFruit(fruit, true)
@@ -277,7 +277,7 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			if err == types.ErrSnailHeightNotYet {
 				return pool.appendFruit(fruit, false)
 			}
-			log.Debug("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
+			log.Trace("addFruit validation fruit error ", "fruit ", fruit.Hash(), "number", fruit.FastNumber(), " err: ", err)
 			return err
 		}
 
