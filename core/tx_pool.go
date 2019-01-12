@@ -259,8 +259,20 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
-
+	go pool.addremote()
 	return pool
+}
+
+func (pool *TxPool) addremote() {
+	for {
+		select {
+		// Handle new remote transactions
+		case txs := <-pool.newTxsCh:
+			if txs != nil {
+				pool.addTxs(txs, false)
+			}
+		}
+	}
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -296,11 +308,6 @@ func (pool *TxPool) loop() {
 				head = ev.Block
 
 				pool.mu.Unlock()
-			}
-			// Handle new remote transactions
-		case txs := <-pool.newTxsCh:
-			if txs != nil {
-				pool.addTxs(txs, false)
 			}
 			// Be unsubscribed due to system stopped
 		case <-pool.chainHeadSub.Err():
