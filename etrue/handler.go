@@ -61,7 +61,7 @@ const (
 )
 
 var (
-	daoChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the DAO handshake challenge
+	handleMsgTimeout = 30 * time.Second // Time allowance for a node to handle message
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
@@ -130,6 +130,7 @@ type ProtocolManager struct {
 	syncLock uint32
 	syncWg   *sync.Cond
 	lock     *sync.Mutex
+	msgTime  *time.Timer // check msg deal timeout
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
@@ -358,6 +359,11 @@ func (pm *ProtocolManager) Stop() {
 	// Quit fetcher, txsyncLoop.
 	close(pm.quitSync)
 
+	if pm.msgTime != nil {
+		pm.msgTime.Stop()
+		pm.msgTime = nil
+	}
+
 	// Disconnect existing sessions.
 	// This also closes the gate for any new registrations on the peer set.
 	// sessions which are already established but not added to pm.peers yet
@@ -476,6 +482,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 	now := time.Now()
+
+	pm.msgTime = time.AfterFunc(handleMsgTimeout, func() {
+		p.Log().Warn("Timed out handle message", "peer", p.id, "msg code", msg.Code)
+		pm.msgTime.Reset(handleMsgTimeout)
+	})
+
 	// Handle the message depending on its contents
 	switch {
 	case msg.Code == StatusMsg:
@@ -1101,6 +1113,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 
 	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
+	pm.msgTime.Reset(handleMsgTimeout)
 	return nil
 }
 
