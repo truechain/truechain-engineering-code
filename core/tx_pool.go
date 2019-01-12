@@ -271,6 +271,7 @@ func (pool *TxPool) loop() {
 
 	// Start the stats reporting and transaction eviction tickers
 	var prevPending, prevQueued, prevStales int
+	//var prevDiscardCount *big.Int
 
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
@@ -310,10 +311,11 @@ func (pool *TxPool) loop() {
 			pool.mu.RLock()
 			pending, queued := pool.stats()
 			stales := pool.priced.stales
+			//DiscardCount := remoteTxsDiscardCount
 			pool.mu.RUnlock()
 
 			if pending != prevPending || queued != prevQueued || stales != prevStales {
-				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales)
+				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales, "remoteTxsDiscardCount", &remoteTxsDiscardCount)
 				prevPending, prevQueued, prevStales = pending, queued, stales
 			}
 
@@ -814,8 +816,8 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	case pool.newTxsCh <- txs:
 		return nil
 	default:
-		remoteTxsDiscardCount = new(*big.Int).Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
-		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", &remoteTxsDiscardCount)
+		remoteTxsDiscardCount = new(big.Int).Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
+		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount)
 		errs[0] = errors.New("newTxsCh is full")
 	}
 	return errs
