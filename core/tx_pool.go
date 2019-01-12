@@ -84,8 +84,9 @@ var (
 )
 
 var (
-	evictionInterval    = time.Minute     // Time interval to check for evictable transactions
-	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
+	evictionInterval      = time.Minute     // Time interval to check for evictable transactions
+	statsReportInterval   = 8 * time.Second // Time interval to report transaction pool stats
+	remoteTxsDiscardCount *big.Int
 )
 
 var (
@@ -813,7 +814,8 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	case pool.newTxsCh <- txs:
 		return nil
 	default:
-		log.Info("discard remote txs", "count", len(txs))
+		remoteTxsDiscardCount = new(*big.Int).Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
+		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", &remoteTxsDiscardCount)
 		errs[0] = errors.New("newTxsCh is full")
 	}
 	return errs
