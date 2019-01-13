@@ -992,6 +992,8 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			bc.reportBlock(block, ErrBlacklistedHash)
 			return i, events, ErrBlacklistedHash
 		}
+
+		log.Debug("insert snail block ..", "number", block.Number(), "hash", block.Hash())
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
