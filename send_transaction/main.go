@@ -274,15 +274,16 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				continue
 			}
 
+			noBlance := false
 			for j := 0; j < len(noBalance); j++ {
 				if i == noBalance[j] {
-					getBalance = false
+					noBlance = true
 					noBalance = append(noBalance[:j], noBalance[j+1:]...)
 					break
 				}
 			}
 
-			if len(noBalance) != 0 && getBalance {
+			if len(noBalance) != 0 && !noBlance {
 				continue
 			}
 
@@ -306,9 +307,6 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				} else {
 					noBalance = append(noBalance, i)
 				}
-
-			} else {
-				fmt.Println("etrue_getBalance son address continue ", account[i], " i ", i, " noBalance ", len(noBalance))
 			}
 
 			fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
