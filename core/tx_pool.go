@@ -66,6 +66,10 @@ var (
 	// is higher than the balance of the user's account.
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
 
+	ErrInsufficientFundsForPayer = errors.New("insufficient funds for gas * price for payer")
+
+	ErrInsufficientFundsForSender = errors.New("insufficient funds for value for sender")
+
 	// ErrIntrinsicGas is returned if the transaction is specified to use less gas
 	// than required to start the invocation.
 	ErrIntrinsicGas = errors.New("intrinsic gas too low")
@@ -575,8 +579,8 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInvalidSender
 	}
 	// Make sure the transaction is psigned properly
-	pfrom, err := types.PSender(pool.signer, tx)
-	log.Warn("validateTx method get address", "pfrom", pfrom)
+	payer, err := types.PSender(pool.signer, tx)
+	log.Warn("validateTx method get address", "pfrom", payer)
 	if err != nil {
 		return ErrInvalidPayer
 	}
@@ -591,9 +595,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if pfrom != EmptyAddress {
-		if pool.currentState.GetBalance(pfrom).Cmp(tx.GasCost()) < 0 || pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
-			return ErrInsufficientFunds
+	if payer != EmptyAddress {
+		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
+			return ErrInsufficientFundsForPayer
+		}
+		if pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
+			return ErrInsufficientFundsForSender
 		}
 	} else {
 		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
