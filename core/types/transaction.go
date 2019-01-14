@@ -244,6 +244,11 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 
 	var err error
 	msg.from, err = Sender(s, tx)
+	if err != nil {
+		return msg, err
+	}
+
+	msg.payment, err = PSender(s, tx)
 	return msg, err
 }
 
@@ -418,6 +423,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 type Message struct {
 	to         *common.Address
 	from       common.Address
+	payment    common.Address
 	nonce      uint64
 	amount     *big.Int
 	gasLimit   uint64
@@ -439,11 +445,12 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
-func (m Message) From() common.Address { return m.from }
-func (m Message) To() *common.Address  { return m.to }
-func (m Message) GasPrice() *big.Int   { return m.gasPrice }
-func (m Message) Value() *big.Int      { return m.amount }
-func (m Message) Gas() uint64          { return m.gasLimit }
-func (m Message) Nonce() uint64        { return m.nonce }
-func (m Message) Data() []byte         { return m.data }
-func (m Message) CheckNonce() bool     { return m.checkNonce }
+func (m Message) From() common.Address    { return m.from }
+func (m Message) To() *common.Address     { return m.to }
+func (m Message) Payment() common.Address { return m.payment }
+func (m Message) GasPrice() *big.Int      { return m.gasPrice }
+func (m Message) Value() *big.Int         { return m.amount }
+func (m Message) Gas() uint64             { return m.gasLimit }
+func (m Message) Nonce() uint64           { return m.nonce }
+func (m Message) Data() []byte            { return m.data }
+func (m Message) CheckNonce() bool        { return m.checkNonce }

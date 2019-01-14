@@ -1459,6 +1459,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		return common.Hash{}, err
 	}
 	signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
+	//print message
 	from, err := types.Sender(signer, tx)
 	if err != nil {
 		log.Error("", "from", from.String())
@@ -1470,7 +1471,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		return common.Hash{}, err
 	}
 	fmt.Println("submitTransaction:", "payemnt=", payemnt, "from=", from)
-
+	//end
 	if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
 		from, err := types.Sender(signer, tx)

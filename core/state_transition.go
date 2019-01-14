@@ -22,8 +22,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -62,6 +62,7 @@ type StateTransition struct {
 
 // Message represents a message sent to a contract.
 type Message interface {
+	Payment() common.Address
 	From() common.Address
 	//FromFrontier() (common.Address, error)
 	To() *common.Address
@@ -164,6 +165,21 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
+func (st *StateTransition) buyGas_Payment() error {
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if st.state.GetBalance(st.msg.Payment()).Cmp(mgval) < 0 {
+		return errInsufficientBalanceForGas
+	}
+	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
+		return err
+	}
+	st.gas += st.msg.Gas()
+
+	st.initialGas = st.msg.Gas()
+	st.state.SubBalance(st.msg.Payment(), mgval)
+	return nil
+}
+
 func (st *StateTransition) preCheck() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
@@ -174,7 +190,12 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	if st.msg.Payment() != EmptyAddress {
+		return st.buyGas_Payment()
+	} else {
+		return st.buyGas()
+	}
+
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -221,6 +242,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
+
 	st.refundGas()
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
@@ -237,8 +259,11 @@ func (st *StateTransition) refundGas() {
 
 	// Return etrue for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(st.msg.From(), remaining)
-
+	if st.msg.Payment() != EmptyAddress {
+		st.state.AddBalance(st.msg.Payment(), remaining)
+	} else {
+		st.state.AddBalance(st.msg.From(), remaining)
+	}
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
 	st.gp.AddGas(st.gas)
