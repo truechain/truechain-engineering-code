@@ -102,7 +102,7 @@ func (m *txSortedMap) Forward(threshold uint64) types.Transactions {
 // the specified function evaluates to true.
 func (m *txSortedMap) Filter(filter func(*types.Transaction) bool) types.Transactions {
 	var removed types.Transactions
-	log.Warn("this level just for test", "txSortedMap", "removed", removed)
+	log.Warn("txSortedMap", "removed", removed)
 	// Collect all the transactions to filter out
 	for nonce, tx := range m.items {
 		if filter(tx) {
@@ -289,12 +289,12 @@ func (l *txList) Forward(threshold uint64) types.Transactions {
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
 func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer, currentState *state.StateDB) (types.Transactions, types.Transactions) {
-	log.Warn("this level just for test", "Filter", "costLimit", costLimit)
+	log.Warn("Filter", "costLimit", costLimit)
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
 	}
-	log.Warn("this level just for test", "juge", "costLimit", costLimit)
+	log.Warn("juge", "costLimit", costLimit)
 	l.costcap = new(big.Int).Set(costLimit) // Lower the caps to the thresholds
 	l.gascap = gasLimit
 
