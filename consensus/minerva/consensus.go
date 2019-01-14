@@ -652,7 +652,7 @@ func calcDifficulty(config *params.ChainConfig, time uint64, parents []*types.Sn
 	}
 	averageDiff := new(big.Int).Div(diff, period)
 
-	durationDivisor := new(big.Int).Mul(config.Minerva.DurationLimit, period)
+	durationDivisor := new(big.Int).Mul(big.NewInt(300), period)
 
 	bigTime := new(big.Int).SetUint64(time)
 	bigParentTime := new(big.Int).Set(parentHeaders[0].Time)
