@@ -300,6 +300,7 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
 		// Make sure the transaction is psigned properly
 		pfrom, err := types.PSender(signer, tx)
+		log.Warn("this level just for test", "eror", err)
 		if err != nil {
 			return true
 		}
