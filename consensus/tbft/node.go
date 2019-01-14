@@ -453,13 +453,28 @@ func (n *Node) PutNodes(id *big.Int, nodes []*types.CommitteeNode) error {
 	return nil
 }
 
+func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember) {
+	allMembers := append(info.Members, info.BackMembers...)
+	for _, v := range allMembers {
+		if v.Flag == types.StateRemovedFlag {
+			if service.consensusState.state.GetPubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+				selfStop = true
+			}
+			remove = append(remove, v)
+		}
+	}
+	return
+}
+
 // UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 	log.Info("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
-		stop, member, val := service.consensusState.UpdateValidatorSet(info)
-		log.Info("UpdateCommittee", "stop", stop, "member", member, "val", val)
+		stop, member := n.checkValidatorSet(service, info)
+		log.Info("UpdateCommittee", "stop", stop, "member", member)
+		val := MakeValidators(info)
+		log.Info("UpdateCommittee", "newValidator", val)
 		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64(), info.EndHeight.Uint64())
 
 		for _, v := range member {

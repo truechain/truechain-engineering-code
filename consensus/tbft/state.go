@@ -603,7 +603,7 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 	case *VoteMessage:
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
-		log.Info("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
+		log.Debug("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
 		err := cs.tryAddVote(msg.Vote, peerID)
 		if err == ErrAddingVote {
 			// TODO: punish peer
@@ -1725,8 +1725,8 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		if err == nil {
 			return true
 		}
-		log.Info("switchVerify", "result", err,"info",sv)
-	} 
+		log.Info("switchVerify", "result", err, "info", sv)
+	}
 	return false
 }
 
