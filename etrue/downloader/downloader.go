@@ -1202,7 +1202,6 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 				if fetchHook != nil {
 					fetchHook(request.Sheaders)
 				}
-				log.Debug("fetch body","peer",peer,"request",len(request.Sheaders))
 				if err := fetch(peer, request); err != nil {
 					// Although we could try and make an attempt to fix this, this error really
 					// means that we've double allocated a fetch task to a peer. If that is the
@@ -1446,7 +1445,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 				return errFruits
 			}
 
-			log.Debug(">>>>>>>>>>>>>>111", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
+			log.Debug("importBlockResults ", "fbNum", fbNum, "heigth", height, "fbNumLast", fbNumLast, "currentNum", currentNum)
 			if fbNumLast > currentNum {
 
 				fbNum = currentNum
@@ -1488,12 +1487,11 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			}
 
 		} else {
-			log.Debug("Snail--->>>", "blocks>>>>", blocks[0], "fruits>>", result.Fruits)
+			log.Debug("Snail importBlockResults", "blocks", blocks[0], "fruits", result.Fruits)
 		}
 
-		log.Debug("fastCurrentNum", "number", d.fastDown.GetBlockChain().CurrentBlock().NumberU64())
 		if index, err := d.blockchain.InsertChain(blocks); err != nil {
-			log.Debug("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
+			log.Error("Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
 			if err == types.ErrSnailHeightNotYet {
 				return err
 			}
