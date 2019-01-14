@@ -333,6 +333,11 @@ func (w *worker) update() {
 				if atomic.LoadInt32(&w.mining) == 1 {
 					w.commitNewWork()
 				}
+			} else {
+				if atomic.LoadInt32(&w.mining) == 1 && !w.fruitOnly && len(w.current.Block.Fruits()) >= 60 {
+					log.Info("stop the mining and start a new mine", "need stop mining block number ", w.current.Block.Number())
+					w.commitNewWork()
+				}
 			}
 
 			// Handle ChainSideEvent
@@ -759,6 +764,9 @@ func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockCh
 			w.current.fruits = fruitset
 
 		}
+	} else {
+		// make the fruits to nil if not find the fruitset
+		w.current.fruits = nil
 	}
 }
 
