@@ -102,7 +102,6 @@ func (m *txSortedMap) Forward(threshold uint64) types.Transactions {
 // the specified function evaluates to true.
 func (m *txSortedMap) Filter(filter func(*types.Transaction) bool) types.Transactions {
 	var removed types.Transactions
-	log.Warn("txSortedMap", "removed", removed)
 	// Collect all the transactions to filter out
 	for nonce, tx := range m.items {
 		if filter(tx) {
@@ -289,12 +288,10 @@ func (l *txList) Forward(threshold uint64) types.Transactions {
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
 func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer, currentState *state.StateDB) (types.Transactions, types.Transactions) {
-	log.Warn("Filter", "l.costcap.Cmp(costLimit) <= 0", l.costcap.Cmp(costLimit) <= 0, "l.gascap <= gasLimit", l.gascap <= gasLimit)
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
 	}
-	log.Warn("juge", "costLimit", costLimit)
 	l.costcap = new(big.Int).Set(costLimit) // Lower the caps to the thresholds
 	l.gascap = gasLimit
 
@@ -302,16 +299,15 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
 		// Make sure the transaction is psigned properly
 		pfrom, err := types.PSender(signer, tx)
-		log.Warn("this level just for test", "eror", err)
 		if err != nil {
 			return true
 		}
 		efrom := common.Address{}
 		if pfrom != efrom {
-			log.Warn("this level just for test", "tx.AmountCost()", tx.AmountCost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit, "tx.GasCost()", tx.GasCost(), "currentState.GetBalance(pfrom)", currentState.GetBalance(pfrom))
+			log.Debug("this level just for test", "tx.AmountCost()", tx.AmountCost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit, "tx.GasCost()", tx.GasCost(), "currentState.GetBalance(pfrom)", currentState.GetBalance(pfrom))
 			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
 		} else {
-			log.Warn("this level just for test", "tx.Cost()", tx.Cost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit)
+			log.Debug("this level just for test", "tx.Cost()", tx.Cost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit)
 			return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 		}
 	})
