@@ -17,16 +17,12 @@
 package minerva
 
 import (
-	"bufio"
 	crand "crypto/rand"
-	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
-	"os"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -382,10 +378,10 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
 					plookupTbl[plkt+vI] |= 1 << vR
-					c = c+1
+					c = c + 1
 
 				}
-				y = y+sk
+				y = y + sk
 			}
 			if c == 0 {
 				vI := uint32(x / 64)
@@ -397,4 +393,3 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 	}
 	return plookupTbl
 }
-
