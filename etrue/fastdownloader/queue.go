@@ -107,7 +107,6 @@ func (q *queue) Reset() {
 
 	q.closed = false
 	q.mode = FullSync
-	log.Debug("(q *queue) Reset()")
 	q.headerHead = common.Hash{}
 	q.headerPendPool = make(map[string]*etrue.FetchRequest)
 
@@ -538,7 +537,6 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 		taskQueue.Push(header, -int64(header.Number.Uint64()))
 	}
 	if progress {
-		log.Debug("q.active.Signal()>>>>>>>>>>>reserveHeaders>>>>>>")
 		// Wake WaitResults, resultCache was modified
 		q.active.Signal()
 	}
@@ -770,7 +768,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 		}
 
 		for _, sign := range signs[index] {
-			log.Debug("DeliverBodies>>>>", "sign.FastHeight", sign.FastHeight, "header", header.Number, "sign.FastHash()", sign.FastHash, "header.Hash()", header.Hash())
+			//log.Debug("DeliverBodies>>>>", "sign.FastHeight", sign.FastHeight, "header", header.Number, "sign.FastHash()", sign.FastHash, "header.Hash()", header.Hash())
 			if sign.FastHeight.Cmp(header.Number) != 0 || sign.FastHash != header.Hash() {
 				log.Error("errInvalidBody>>>>>>>")
 				return errInvalidChain
@@ -865,7 +863,6 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 	}
 	// Wake up WaitResults
 	if accepted > 0 {
-		log.Debug("q.active.Signal() fast >>>>>>>>>>>deliver")
 		q.active.Signal()
 	}
 	// If none of the data was good, it's a stale delivery

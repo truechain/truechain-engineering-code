@@ -483,7 +483,6 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 		fn := fn
 		go func() {
 			defer d.cancelWg.Done()
-			log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++")
 			errc <- fn()
 		}()
 	}
@@ -500,7 +499,6 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 		if err = <-errc; err != nil {
 			break
 		}
-		log.Debug("fast++++++++++++++++++++++++++++++++++++++++++++ exit ")
 	}
 
 	d.queue.Close()
@@ -646,7 +644,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			return errCancelHeaderFetch
 
 		case packet := <-d.headerCh:
-			log.Debug("fetchHeaders <- d.headerCh ", "packet", packet)
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Fast Received skeleton from incorrect peer", "peer", packet.PeerId())
@@ -1010,7 +1007,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
-			log.Debug("headers := <-d.headerProcCh:", "headers", headers)
+			//log.Debug("headers := <-d.headerProcCh:", "headers", headers)
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1100,7 +1097,6 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) er
 					// Otherwise insert the headers for content retrieval
 					inserts := d.queue.Schedule(chunk, origin)
 					if len(inserts) != len(chunk) {
-						log.Debug("Fast Stale headers")
 						return errBadPeer
 					}
 				}
@@ -1165,7 +1161,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	}
 	log.Debug("Fast Downloaded>>>>", "CurrentBlock:", d.blockchain.CurrentBlock().NumberU64())
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
-		log.Debug("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
+		log.Error("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
 			return err
 		}
@@ -1222,7 +1218,7 @@ func (d *Downloader) processFastSyncContent() error {
 					return stateSync.Err()
 				}
 				if err := d.commitPivotBlock(P); err != nil {
-					log.Debug("FastSyncCommitHead >>>> ", "err", err)
+					log.Error("FastSyncCommitHead state ", "err", err)
 					return err
 				}
 				atomic.StoreInt32(&d.committed, 1)
@@ -1242,7 +1238,6 @@ func (d *Downloader) processFastSyncContent() error {
 
 func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.FetchResult, before, after []*etrue.FetchResult) {
 	for _, result := range results {
-		log.Debug("splitAroundPivot", "header", result.Fheader.Number.Uint64(), "pivot", pivot)
 		num := result.Fheader.Number.Uint64()
 		switch {
 
@@ -1292,7 +1287,6 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
 		receipts[i] = result.Receipts
 	}
-	log.Debug("Inserting fast-sync  ", "blocks", len(blocks))
 	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
 		log.Debug("Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		return errInvalidChain
@@ -1327,7 +1321,6 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 		}
 	}()
 
-	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliver", "packet.Items()==", packet.Items())
 	// Deliver or abort if the sync is canceled while queuing
 	d.cancelLock.RLock()
 	cancel := d.cancelCh
@@ -1335,7 +1328,6 @@ func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue
 	if cancel == nil {
 		return errNoSyncActive
 	}
-	log.Debug("deliver <- packet ", "packet", packet)
 	select {
 	case destCh <- packet:
 		return nil
@@ -1353,7 +1345,6 @@ func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet et
 			dropMeter.Mark(int64(packet.Items()))
 		}
 	}()
-	log.Debug("fast >>>>>>>>>>>>>>(d *Downloader) deliverOne", "packet.Items()==", packet.Items())
 	// Deliver or abort if the sync is canceled while queuing
 	//log.Debug("deliver <- packet ","packet",packet)
 	select {

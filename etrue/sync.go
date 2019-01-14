@@ -317,7 +317,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 						err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
-							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+							log.Error("ProtocolManager fast sync: ", "err", err)
 							return
 						}
 
@@ -371,7 +371,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		var err error
 		pivotNumber := fastHeight - dtype.FsMinFullBlocks
 		if pivotHeader, err = pm.fdownloader.FetchHeight(peer.id, pivotNumber); err != nil {
-			log.Info("pivotHeader>>>","err",err)
+			log.Error("pivotHeader>>>","err",err)
 			return
 		}else {
 			pm.downloader.SetHeader(pivotHeader)
@@ -382,7 +382,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pm.downloader.Mux.Post(downloader.StartEvent{})
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
-		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
+		log.Error("ProtocolManager end", "err", err)
 		return
 	}
 
@@ -413,7 +413,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 							err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FastSync, fbNum, height)
 							if err != nil {
-								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+								log.Error("ProtocolManager fast sync: ", "err", err)
 								return
 							}
 
