@@ -241,6 +241,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.locals = newAccountSet(pool.signer)
 	pool.priced = newTxPricedList(pool.all)
 	pool.reset(nil, chain.CurrentBlock().Header())
+	remoteTxsDiscardCount = new(big.Int).SetUint64(0)
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {
@@ -823,7 +824,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	case pool.newTxsCh <- txs:
 		return nil
 	default:
-		remoteTxsDiscardCount = new(big.Int).Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
+		remoteTxsDiscardCount = remoteTxsDiscardCount.Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
 		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount)
 		errs[0] = errors.New("newTxsCh is full")
 	}
