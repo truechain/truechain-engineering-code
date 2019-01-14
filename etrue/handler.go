@@ -155,7 +155,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		agentProxy:  agent,
 		syncWg:      sync.NewCond(lock),
 		lock:        lock,
-		msgTime:     time.NewTimer(handleMsgTimeout),
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
