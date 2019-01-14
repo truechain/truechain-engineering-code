@@ -306,10 +306,10 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 		}
 		efrom := common.Address{}
 		if pfrom != efrom {
-			log.Debug("this level just for test", "tx.AmountCost()", tx.AmountCost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit, "tx.GasCost()", tx.GasCost(), "currentState.GetBalance(pfrom)", currentState.GetBalance(pfrom))
+			log.Warn("this level just for test", "tx.AmountCost()", tx.AmountCost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit, "tx.GasCost()", tx.GasCost(), "currentState.GetBalance(pfrom)", currentState.GetBalance(pfrom))
 			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
 		} else {
-			log.Debug("this level just for test", "tx.Cost()", tx.Cost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit)
+			log.Warn("this level just for test", "tx.Cost()", tx.Cost(), "costLimit", costLimit, "tx.Gas()", tx.Gas(), "gasLimit", gasLimit)
 			return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 		}
 	})
