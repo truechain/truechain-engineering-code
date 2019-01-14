@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
