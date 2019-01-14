@@ -263,7 +263,7 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	var result string
 	find := false
 	getBalance := true
-	average := main.Div(main, big.NewInt(int64(len(account))))
+	average := main.Div(main, big.NewInt(int64(len(account)*2)))
 	value := "0x" + fmt.Sprintf("%x", average)
 	fmt.Println("createCountNewAccount ", " average ", average, " hex ", value)
 
