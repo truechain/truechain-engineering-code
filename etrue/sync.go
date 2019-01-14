@@ -334,7 +334,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					break
 				}
 			}
-
+			atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
+			atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		}
 		return
 	}
@@ -443,7 +444,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 
-	log.Debug("sync exit")
 	atomic.StoreUint32(&pm.fastSync, 0)
 	atomic.StoreUint32(&pm.snapSync, 0)
 	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
