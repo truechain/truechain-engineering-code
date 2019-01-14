@@ -263,7 +263,7 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	var result string
 	find := false
 	getBalance := true
-	average := main.Div(main, big.NewInt(int64(len(account)*2)))
+	average := main.Div(main, big.NewInt(int64(len(account)*4)))
 	value := "0x" + fmt.Sprintf("%x", average)
 	fmt.Println("createCountNewAccount ", " average ", average, " hex ", value)
 
@@ -298,7 +298,7 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				balance := getBalanceValue(result)
 
 				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " average ", average)
-				if balance.Cmp(average) > 0 {
+				if balance.Cmp(average) >= 0 {
 					if i == count-1 && len(noBalance) == 0 {
 						find = true
 						break
