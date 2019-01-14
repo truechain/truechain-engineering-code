@@ -62,17 +62,16 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 // PSender returns the address derived from the signature (PV, PR, PS) using secp256k1
 // elliptic curve and an error if it failed deriving or upon an incorrect
 // signature.
-//
 func PSender(signer Signer, tx *Transaction) (common.Address, error) {
+	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
+		return common.Address{}, nil
+	}
+
 	if sc := tx.payment.Load(); sc != nil {
 		sigCache_payment := sc.(sigCache_payment)
 		if sigCache_payment.signer.Equal(signer) {
 			return sigCache_payment.payment, nil
 		}
-	}
-
-	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
-		return common.Address{}, nil
 	}
 	addr, err := signer.PSender(tx)
 	if err != nil {
