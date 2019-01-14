@@ -23,8 +23,9 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for
@@ -287,7 +288,7 @@ func (l *txList) Forward(threshold uint64) types.Transactions {
 // a point in calculating all the costs or if the balance covers all. If the threshold
 // is lower than the costgas cap, the caps will be reset to a new high after removing
 // the newly invalidated transactions.
-func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions, types.Transactions) {
+func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer, currentState *state.StateDB) (types.Transactions, types.Transactions) {
 	// If all transactions are below the threshold, short circuit
 	if l.costcap.Cmp(costLimit) <= 0 && l.gascap <= gasLimit {
 		return nil, nil
@@ -296,7 +297,19 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64) (types.Transactions
 	l.gascap = gasLimit
 
 	// Filter out all the transactions above the account's funds
-	removed := l.txs.Filter(func(tx *types.Transaction) bool { return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit })
+	removed := l.txs.Filter(func(tx *types.Transaction) bool {
+		// Make sure the transaction is psigned properly
+		pfrom, err := types.PSender(signer, tx)
+		if err != nil {
+			return true
+		}
+		efrom := common.Address{}
+		if pfrom != efrom {
+			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
+		} else {
+			return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
+		}
+	})
 
 	// If the list was strict, filter anything above the lowest nonce
 	var invalids types.Transactions
