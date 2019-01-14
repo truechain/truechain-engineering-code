@@ -39,9 +39,10 @@ var (
 type Transaction struct {
 	data txdata
 	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
+	hash    atomic.Value
+	size    atomic.Value
+	from    atomic.Value
+	payment atomic.Value
 }
 
 type txdata struct {
@@ -58,9 +59,9 @@ type txdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 
 	// Paied Signature values
-	PV *big.Int `json:"pv" gencodec:"required"`
-	PR *big.Int `json:"pr" gencodec:"required"`
-	PS *big.Int `json:"ps" gencodec:"required"`
+	PV *big.Int `json:"pv" rlp:"nil"` // nil means donnot have payment
+	PR *big.Int `json:"pr" rlp:"nil"`
+	PS *big.Int `json:"ps" rlp:"nil"`
 
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
