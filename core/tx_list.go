@@ -102,6 +102,7 @@ func (m *txSortedMap) Forward(threshold uint64) types.Transactions {
 // the specified function evaluates to true.
 func (m *txSortedMap) Filter(filter func(*types.Transaction) bool) types.Transactions {
 	var removed types.Transactions
+	log.Warn("txSortedMap", "removed", removed)
 	// Collect all the transactions to filter out
 	for nonce, tx := range m.items {
 		if filter(tx) {
@@ -294,12 +295,13 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 	}*/
 	l.costcap = new(big.Int).Set(costLimit) // Lower the caps to the thresholds
 	l.gascap = gasLimit
-
+	log.Warn("Filter", "costLimit", costLimit)
 	// Filter out all the transactions above the account's funds
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
 		// Make sure the transaction is psigned properly
 		pfrom, err := types.PSender(signer, tx)
 		if err != nil {
+			log.Warn("pfrom get failed", "error", err)
 			return true
 		}
 		efrom := common.Address{}
