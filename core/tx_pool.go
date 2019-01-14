@@ -576,7 +576,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Make sure the transaction is psigned properly
 	pfrom, err := types.PSender(pool.signer, tx)
-	fmt.Printf("validateTx method get address payment=%v\n", pfrom)
+	log.Warn("validateTx method get address payment=%v\n", pfrom)
 	if err != nil {
 		return ErrInvalidPayer
 	}
@@ -619,6 +619,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 // whitelisted, preventing any associated transaction from being dropped out of
 // the pool due to pricing constraints.
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
+	log.Warn("add", "tx", tx.Hash())
 	// If the transaction is already known, discard it
 	hash := tx.Hash()
 	if pool.all.Get(hash) != nil {
@@ -771,6 +772,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
+	log.Warn("AddLocal", "tx", tx.Hash())
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -799,7 +801,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-
+	log.Warn("addTx", "tx", tx.Hash())
 	// Try to inject the transaction and update any state
 	replace, err := pool.add(tx, local)
 	if err != nil {
@@ -807,6 +809,7 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	}
 	// If we added a new transaction, run promotion checks and return
 	if !replace {
+		log.Warn("not replace", "tx", tx.Hash())
 		from, _ := types.Sender(pool.signer, tx) // already validated
 		pool.promoteExecutables([]common.Address{from})
 	}
@@ -943,7 +946,9 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
+		log.Warn("promoteExecutables", "addr", addr)
 		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
+		log.Warn("Filter over", "addr", addr)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
