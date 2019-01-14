@@ -155,6 +155,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		agentProxy:  agent,
 		syncWg:      sync.NewCond(lock),
 		lock:        lock,
+		msgTime:     time.NewTimer(handleMsgTimeout),
 	}
 	// Figure out whether to allow fast sync or not
 	// TODO: add downloader func later
@@ -267,10 +268,6 @@ func (pm *ProtocolManager) removePeer(id string) {
 	// Short circuit if the peer was already removed
 	peer := pm.peers.Peer(id)
 
-	if pm.msgTime != nil {
-		pm.msgTime.Stop()
-	}
-
 	if peer == nil {
 		return
 	}
@@ -359,7 +356,9 @@ func (pm *ProtocolManager) Stop() {
 	close(pm.quitSync)
 
 	if pm.msgTime != nil {
-		pm.msgTime.Stop()
+		if !pm.msgTime.Stop() {
+			<-pm.msgTime.C
+		}
 		pm.msgTime = nil
 	}
 
@@ -485,10 +484,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 	now := time.Now()
-
-	pm.msgTime = time.AfterFunc(handleMsgTimeout, func() {
-		//p.Log().Warn("Timed out handle message", "peer", p.id, "msg code", msg.Code)
-	})
 
 	// Handle the message depending on its contents
 	switch {

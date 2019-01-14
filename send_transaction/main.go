@@ -274,16 +274,16 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				continue
 			}
 
-			noBlance := false
 			for j := 0; j < len(noBalance); j++ {
 				if i == noBalance[j] {
-					noBlance = true
+					getBalance = true
 					noBalance = append(noBalance[:j], noBalance[j+1:]...)
 					break
 				}
+				getBalance = false
 			}
 
-			if len(noBalance) != 0 && !noBlance {
+			if !getBalance {
 				continue
 			}
 
@@ -315,7 +315,6 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				return false
 			}
 			time.Sleep(time.Second)
-			getBalance = true
 		}
 
 		if find {
