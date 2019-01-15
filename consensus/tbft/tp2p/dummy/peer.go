@@ -4,8 +4,8 @@ import (
 	"net"
 
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	p2p "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p"
-	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/p2p/conn"
+	tp2p "github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
+	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
 )
 
 type peer struct {
@@ -13,7 +13,7 @@ type peer struct {
 	kv map[string]interface{}
 }
 
-var _ p2p.Peer = (*peer)(nil)
+var _ tp2p.Peer = (*peer)(nil)
 
 // NewPeer creates new dummy peer.
 func NewPeer() *peer {
@@ -26,8 +26,8 @@ func NewPeer() *peer {
 }
 
 // ID always returns dummy.
-func (p *peer) ID() p2p.ID {
-	return p2p.ID("dummy")
+func (p *peer) ID() tp2p.ID {
+	return tp2p.ID("dummy")
 }
 
 // IsOutbound always returns false.
@@ -41,8 +41,8 @@ func (p *peer) IsPersistent() bool {
 }
 
 // NodeInfo always returns empty node info.
-func (p *peer) NodeInfo() p2p.NodeInfo {
-	return p2p.NodeInfo{}
+func (p *peer) NodeInfo() tp2p.NodeInfo {
+	return tp2p.NodeInfo{}
 }
 
 // RemoteIP always returns localhost.
@@ -80,6 +80,6 @@ func (p *peer) Get(key string) interface{} {
 }
 
 // OriginalAddr always returns nil.
-func (p *peer) OriginalAddr() *p2p.NetAddress {
+func (p *peer) OriginalAddr() *tp2p.NetAddress {
 	return nil
 }

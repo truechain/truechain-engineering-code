@@ -746,6 +746,15 @@ func TestRunPbft1(t *testing.T) {
 
 	n1.PutNodes(common.Big1, cn)
 	n1.Notify(c1.Id, Start)
+
+	for {
+		time.Sleep(time.Minute * 5)
+		c1.Members[3].Flag = types.StateRemovedFlag
+		c1.Members[3].MType = types.TypeWorked
+		c1.StartHeight = getIDForCache("Agent3")
+		c1.EndHeight = big.NewInt(111111111)
+		n1.UpdateCommittee(c1)
+	}
 	<-start
 }
 
@@ -813,6 +822,14 @@ func TestRunPbft2(t *testing.T) {
 
 	n2.PutNodes(common.Big1, cn)
 
+	for {
+		time.Sleep(time.Minute * 5)
+		c1.Members[3].Flag = types.StateRemovedFlag
+		c1.Members[3].MType = types.TypeWorked
+		c1.StartHeight = getIDForCache("Agent3")
+		c1.EndHeight = big.NewInt(111111111)
+		n2.UpdateCommittee(c1)
+	}
 	<-start
 }
 
@@ -880,6 +897,14 @@ func TestRunPbft3(t *testing.T) {
 
 	n3.PutNodes(common.Big1, cn)
 
+	for {
+		time.Sleep(time.Minute * 5)
+		c1.Members[3].Flag = types.StateRemovedFlag
+		c1.Members[3].MType = types.TypeWorked
+		c1.StartHeight = getIDForCache("Agent3")
+		c1.EndHeight = big.NewInt(111111111)
+		n3.UpdateCommittee(c1)
+	}
 	<-start
 }
 
@@ -947,6 +972,14 @@ func TestRunPbft4(t *testing.T) {
 
 	n4.PutNodes(common.Big1, cn)
 
+	for {
+		time.Sleep(time.Minute * 5)
+		c1.Members[3].Flag = types.StateRemovedFlag
+		c1.Members[3].MType = types.TypeWorked
+		c1.StartHeight = getIDForCache("Agent3")
+		c1.EndHeight = big.NewInt(111111111)
+		n4.UpdateCommittee(c1)
+	}
 	<-start
 }
 

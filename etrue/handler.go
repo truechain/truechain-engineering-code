@@ -61,7 +61,7 @@ const (
 )
 
 var (
-	daoChallengeTimeout = 15 * time.Second // Time allowance for a node to reply to the DAO handshake challenge
+	handleMsgTimeout = 30 * time.Second // Time allowance for a node to handle message
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
@@ -130,6 +130,7 @@ type ProtocolManager struct {
 	syncLock uint32
 	syncWg   *sync.Cond
 	lock     *sync.Mutex
+	msgTime  *time.Timer // check msg deal timeout
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
@@ -265,6 +266,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 func (pm *ProtocolManager) removePeer(id string) {
 	// Short circuit if the peer was already removed
 	peer := pm.peers.Peer(id)
+
 	if peer == nil {
 		return
 	}
@@ -330,13 +332,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	pm.minedSnailBlockSub = pm.eventMux.Subscribe(types.NewMinedBlockEvent{})
 	go pm.minedSnailBlockLoop()
 
-	// start sync handlers
-	//go pm.syncer()
-	//go pm.txsyncLoop()
-	//go pm.fruitsyncLoop()
-	//atomic.StoreUint32(&pm.acceptTxs, 1)
-	//atomic.StoreUint32(&pm.acceptFruits, 1)
-
+	//go pm.checkHandlMsg()
 }
 
 func (pm *ProtocolManager) Stop() {
@@ -357,6 +353,13 @@ func (pm *ProtocolManager) Stop() {
 
 	// Quit fetcher, txsyncLoop.
 	close(pm.quitSync)
+
+	if pm.msgTime != nil {
+		if !pm.msgTime.Stop() {
+			<-pm.msgTime.C
+		}
+		pm.msgTime = nil
+	}
 
 	// Disconnect existing sessions.
 	// This also closes the gate for any new registrations on the peer set.
@@ -456,7 +459,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// main loop. handle incoming messages.
 	for {
-		if err := pm.handleMsg(p); err != nil {
+		err := pm.handleMsg(p)
+		if pm.msgTime != nil {
+			pm.msgTime.Stop()
+		}
+		if err != nil {
 			p.Log().Info("Truechain message handling failed", "RemoteAddr", p.RemoteAddr(), "err", err)
 			return err
 		}
@@ -476,6 +483,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	defer msg.Discard()
 	now := time.Now()
+
 	// Handle the message depending on its contents
 	switch {
 	case msg.Code == StatusMsg:

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -603,7 +602,7 @@ func (cs *ConsensusState) handleMsg(mi msgInfo) {
 	case *VoteMessage:
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
-		log.Info("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
+		log.Debug("VoteMessage", "peerID", peerID, "round", msg.Vote.Round, "height", msg.Vote.Height, "type", msg.Vote.Type)
 		err := cs.tryAddVote(msg.Vote, peerID)
 		if err == ErrAddingVote {
 			// TODO: punish peer
@@ -1725,8 +1724,8 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		if err == nil {
 			return true
 		}
-		log.Info("switchVerify", "result", err,"info",sv)
-	} 
+		log.Info("switchVerify", "result", err, "info", sv)
+	}
 	return false
 }
 
@@ -1774,25 +1773,3 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 	return 0
 }
 
-//UpdateValidatorSet committee change
-func (cs *ConsensusState) UpdateValidatorSet(info *types.CommitteeInfo) (selfStop bool, remove []*types.CommitteeMember,
-	validator *ttypes.ValidatorSet) {
-	allMember := append(info.Members, info.BackMembers...)
-	validator = cs.GetRoundState().Validators
-	for _, v := range allMember {
-		if v.Flag == types.StateUsedFlag {
-			vTemp := ttypes.NewValidator(crypto.PubKeyTrue(*v.Publickey), 1)
-			b := validator.Add(vTemp)
-			log.Info("UpdateValidatorSet", "add", b)
-		}
-		if v.Flag == types.StateRemovedFlag {
-			if cs.state.GetPubKey().Equals(crypto.PubKeyTrue(*v.Publickey)) {
-				selfStop = true
-			}
-			remove = append(remove, v)
-			v, b := validator.RemoveForPK(*v.Publickey)
-			log.Info("UpdateValidatorSet", "va", v, "remove", b)
-		}
-	}
-	return
-}

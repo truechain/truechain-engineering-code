@@ -317,7 +317,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 						err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FullSync, fbNum, height)
 						if err != nil {
-							log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+							log.Error("ProtocolManager fast sync: ", "err", err)
 							return
 						}
 
@@ -334,7 +334,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 					break
 				}
 			}
-
+			atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done
+			atomic.StoreUint32(&pm.acceptFruits, 1) // Mark initial sync done on any fetcher import
 		}
 		return
 	}
@@ -371,7 +372,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		var err error
 		pivotNumber := fastHeight - dtype.FsMinFullBlocks
 		if pivotHeader, err = pm.fdownloader.FetchHeight(peer.id, pivotNumber); err != nil {
-			log.Info("pivotHeader>>>","err",err)
+			log.Error("pivotHeader>>>","err",err)
 			return
 		}else {
 			pm.downloader.SetHeader(pivotHeader)
@@ -382,7 +383,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pm.downloader.Mux.Post(downloader.StartEvent{})
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
-		log.Debug(">>>>>>>>>>>>>>>>>====<<<<<<<<<<<<<<<<<<<<<<", "err", err)
+		log.Error("ProtocolManager end", "err", err)
 		return
 	}
 
@@ -413,7 +414,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 							err = pm.fdownloader.Synchronise(peer.id, common.Hash{}, big.NewInt(0), fastdownloader.FastSync, fbNum, height)
 							if err != nil {
-								log.Debug("pm fast sync: ", "err>>>>>>>>>", err)
+								log.Error("ProtocolManager fast sync: ", "err", err)
 								return
 							}
 
@@ -443,7 +444,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 
-	log.Debug("sync exit")
 	atomic.StoreUint32(&pm.fastSync, 0)
 	atomic.StoreUint32(&pm.snapSync, 0)
 	atomic.StoreUint32(&pm.acceptTxs, 1)    // Mark initial sync done

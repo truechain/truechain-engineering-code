@@ -325,16 +325,6 @@ func (bc *BlockChain) loadLastState() error {
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
 
-	//headerTd := bc.GetTd(currentHeader.Hash(), currentHeader..UintNumber64())
-	//blockTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-	//fastTd := bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64())
-
-	//log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
-	//log.Info("Loaded most recent local full block", "number", currentBlock.Number(), "hash", currentBlock.Hash(), "td", blockTd)
-	//log.Info("Loaded most recent local fast block", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash(), "td", fastTd)
-
-	//log.Info("signblock ","number",bc.engine.GetElection().GetCommittee(big.NewInt(368314)) )
-
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
 	log.Info("Loaded most recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 	log.Info("Loaded most recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
@@ -426,12 +416,6 @@ func (bc *BlockChain) FastSyncCommitHead(hash common.Hash) error {
 	// Make sure that both the block as well at its state trie exists
 	block := bc.GetBlockByHash(hash)
 	if block == nil {
-		for _, key := range bc.hc.headerCache.Keys() {
-
-			log.Debug("FastSyncCommitHead=====err==", "key", key)
-
-		}
-
 		return fmt.Errorf("non existent block [%x…]", hash[:])
 	}
 	if _, err := trie.NewSecure(block.Root(), bc.stateCache.TrieDB(), 0); err != nil {
@@ -801,18 +785,6 @@ func (bc *BlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []*type
 	}
 	return
 }
-
-// GetUnclesInChain retrieves all the uncles from a given block backwards until
-// a specific distance is reached.
-//func (bc *BlockChain) GetUnclesInChain(block *types.Block, length int) []*types.FastHeader {
-//	uncles := []*types.Header{}
-//	for i := 0; block != nil && i < length; i++ {
-//		//uncles = append(uncles, block.Uncles()...)
-//
-//		block = bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-//	}
-//	return uncles
-//}
 
 // TrieNode retrieves a blob of data associated with a trie node (or code hash)
 // either from ephemeral in-memory cache, or from persistent storage.
