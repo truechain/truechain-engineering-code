@@ -165,6 +165,7 @@ type CommitteeInfo struct {
 func (c *CommitteeInfo) String() string {
 	if c.Members != nil {
 		memStrings := make([]string, len(c.Members))
+		backMemStrings := make([]string, len(c.BackMembers))
 		for i, m := range c.Members {
 			if m == nil {
 				memStrings[i] = "nil-Member"
@@ -172,7 +173,15 @@ func (c *CommitteeInfo) String() string {
 				memStrings[i] = m.String()
 			}
 		}
-		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s}}", c.Id, c.StartHeight, strings.Join(memStrings, "\n  "))
+		for i, m := range c.BackMembers {
+			if m == nil {
+				backMemStrings[i] = "nil-Member"
+			} else {
+				backMemStrings[i] = m.String()
+			}
+		}
+		return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s,M:{%s},BM:{%s}}", c.Id, c.StartHeight,
+			strings.Join(memStrings, "\n  "), strings.Join(backMemStrings, "\n  "))
 	}
 	return fmt.Sprintf("CommitteeInfo{ID:%s,SH:%s}", c.Id, c.StartHeight)
 }
@@ -207,11 +216,13 @@ func RlpHash(x interface{}) (h common.Hash) {
 	hw.Sum(h[:0])
 	return h
 }
+
 // SwitchEnter is the enter inserted in block when committee member changed
 type SwitchEnter struct {
 	Pk   []byte
 	Flag uint32
 }
+
 // Hash return SwitchInfos hash bytes
 func (infos *SwitchInfos) Hash() common.Hash {
 	return rlpHash(infos)
@@ -230,10 +241,10 @@ func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return bytes.Equal(s.Pk,other.Pk) && s.Flag == other.Flag
+	return bytes.Equal(s.Pk, other.Pk) && s.Flag == other.Flag
 }
 
-type SwitchEnters []*SwitchEnter 
+type SwitchEnters []*SwitchEnter
 
 // Equal will equal not require item index
 func (s SwitchEnters) Equal(other SwitchEnters) bool {
@@ -247,12 +258,12 @@ func (s SwitchEnters) Equal(other SwitchEnters) bool {
 		return false
 	}
 
-	for _,v1 := range s {
+	for _, v1 := range s {
 		equal := false
-		for _,v2 := range other {
+		for _, v2 := range other {
 			if v1.Equal(v2) {
 				equal = true
-			} 
+			}
 		}
 		if !equal {
 			return false
@@ -260,6 +271,7 @@ func (s SwitchEnters) Equal(other SwitchEnters) bool {
 	}
 	return true
 }
+
 // SwitchInfos is the infos inserted in block when committee member changed
 type SwitchInfos struct {
 	CID  uint64
