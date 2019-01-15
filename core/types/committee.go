@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"strings"
@@ -70,8 +71,8 @@ func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
 }
 
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("F:%d,C:%s,P:%s", c.Flag, common.ToHex(c.Coinbase[:]),
-		common.ToHex(crypto.FromECDSAPub(c.Publickey)))
+	return fmt.Sprintf("F:%d,T:%d,C:%s,P:%s", c.Flag, c.MType, hexutil.Encode(c.Coinbase[:]),
+		hexutil.Encode(crypto.FromECDSAPub(c.Publickey)))
 }
 
 func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
@@ -109,7 +110,7 @@ type CommitteeNode struct {
 
 func (c *CommitteeNode) String() string {
 	return fmt.Sprintf("NodeInfo:{IP:%s,P1:%v,P2:%v,Coinbase:%s,P:%s}", c.IP, c.Port, c.Port2,
-		common.ToHex(c.Coinbase[:]), common.ToHex(c.Publickey))
+		hexutil.Encode(c.Coinbase[:]), hexutil.Encode(c.Publickey))
 }
 
 type PbftSigns []*PbftSign
@@ -212,7 +213,9 @@ func (c *EncryptNodeMessage) Hash() common.Hash {
 
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
-	rlp.Encode(hw, x)
+	if e := rlp.Encode(hw, x); e != nil {
+		log.Warn("RlpHash", "error", e.Error())
+	}
 	hw.Sum(h[:0])
 	return h
 }
@@ -224,15 +227,15 @@ type SwitchEnter struct {
 }
 
 // Hash return SwitchInfos hash bytes
-func (infos *SwitchInfos) Hash() common.Hash {
-	return rlpHash(infos)
+func (s *SwitchInfos) Hash() common.Hash {
+	return rlpHash(s)
 }
 
 func (s *SwitchEnter) String() string {
 	if s == nil {
 		return "switchEnter-nil"
 	}
-	return fmt.Sprintf("p:%s,s:%d", common.ToHex(s.Pk), s.Flag)
+	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.Pk), s.Flag)
 }
 func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil && other == nil {
