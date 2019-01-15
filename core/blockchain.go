@@ -1836,18 +1836,17 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetFastHeightBySnailHeight(number uint64) *types.BlockReward {
+func (bc *BlockChain) GetFastHeightBySnailHeight(snumber uint64) *types.BlockReward {
 
-	if rewards, ok := bc.rewardCache.Get(number); ok {
+	if rewards, ok := bc.rewardCache.Get(snumber); ok {
 		return rewards.(*types.BlockReward)
 	}
-	rewards := rawdb.ReadBlockReward(bc.db, number)
+	rewards := rawdb.ReadBlockReward(bc.db, snumber)
 
 	if rewards == nil {
 		return nil
 	}
-	// Cache the found sign for next time and return
-	bc.rewardCache.Add(number, rewards)
+	bc.rewardCache.Add(snumber, rewards)
 	return rewards
 }
 
