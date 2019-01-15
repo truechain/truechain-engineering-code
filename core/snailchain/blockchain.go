@@ -1228,6 +1228,7 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		go func() {
 			for i, block := range newChain {
 				if i > 0 {
+					log.Info("reorg snail block", "number", block.Number(), "hash", block.Hash())
 					bc.chainFeed.Send(types.ChainSnailEvent{Block: block})
 				}
 			}
