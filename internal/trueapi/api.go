@@ -1487,7 +1487,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 }
 
 func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types.Transaction) (*types.Transaction, error) {
-	if payment == core.EmptyAddress {
+	if payment == params.EmptyAddress {
 		return tx, nil
 	}
 	account := accounts.Account{Address: payment}
@@ -1508,9 +1508,7 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
-	fmt.Printf("PublicTransactionPoolAPI Payment=%v\n", args.Payment)
-	fmt.Printf("PublicTransactionPoolAPI from=%v\n", args.From)
-
+	fmt.Printf("SendTransaction method recieved  from=%v\n ,Payment=%v", args.From, args.Payment)
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
@@ -1534,12 +1532,12 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	signedPaymentTx, err := s.signPayment(args.Payment, tx)
 	if err != nil {
 		log.Error("payment error", "error", err)
-		return common.Hash{}, err
+		return params.EmptyHash, err
 	}
 
 	signed, err := wallet.SignTx(account, signedPaymentTx, s.b.ChainConfig().ChainID)
 	if err != nil {
-		return common.Hash{}, err
+		return params.EmptyHash, err
 	}
 	fmt.Println("newTx2:", signedPaymentTx.Info())
 	return submitTransaction(ctx, s.b, signed)

@@ -43,8 +43,7 @@ const (
 )
 
 var (
-	EmptyAddress = common.Address{}
-	EmptyHash    = common.Hash{}
+
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
 
@@ -614,7 +613,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if payer != EmptyAddress {
+	if payer != params.EmptyAddress {
 		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
 			return ErrInsufficientFundsForPayer
 		}

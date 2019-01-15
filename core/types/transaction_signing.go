@@ -70,11 +70,11 @@ func PSender(signer Signer, tx *Transaction) (common.Address, error) {
 		}
 	}
 	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
-		return common.Address{}, nil
+		return params.EmptyAddress, nil
 	}
 	addr, err := signer.PSender(tx)
 	if err != nil {
-		return common.Address{}, err
+		return params.EmptyAddress, err
 	}
 	tx.payment.Store(sigCache_payment{signer: signer, payment: addr})
 	return addr, nil

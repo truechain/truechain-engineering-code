@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 // nonceHeap is a heap.Interface implementation over 64bit unsigned integers for
@@ -301,8 +302,7 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 		if err != nil {
 			return true
 		}
-		efrom := common.Address{}
-		if pfrom != efrom {
+		if pfrom != params.EmptyAddress {
 			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
 		} else {
 			return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit

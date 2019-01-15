@@ -190,7 +190,7 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	if st.msg.Payment() != EmptyAddress {
+	if st.msg.Payment() != params.EmptyAddress {
 		return st.buyGas_Payment()
 	} else {
 		return st.buyGas()
@@ -259,7 +259,7 @@ func (st *StateTransition) refundGas() {
 
 	// Return etrue for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	if st.msg.Payment() != EmptyAddress {
+	if st.msg.Payment() != params.EmptyAddress {
 		st.state.AddBalance(st.msg.Payment(), remaining)
 	} else {
 		st.state.AddBalance(st.msg.From(), remaining)
