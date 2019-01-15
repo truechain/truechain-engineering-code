@@ -66,6 +66,16 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 	return validator
 }
 
+//ValidateRewarded verify whether the block has been rewarded.
+func (v *BlockValidator) ValidateRewarded(number uint64) error {
+	if br := v.fastchain.GetFastHeightBySnailHeight(number); br != nil {
+		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "fast number", br.FastNumber, "fast hash", br.FastHash)
+		return ErrRewardedBlock
+	}
+	return nil
+}
+
+//
 // ValidateBody validates the given block's uncles and verifies the the block
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
@@ -73,11 +83,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	// Check whether the block's known, and if not, that it's linkable.
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
-	}
-
-	// If this height exists a rewarded block,so discard this new one.
-	if v.fastchain.GetFastHeightBySnailHeight(block.NumberU64()) != nil {
-		return ErrRewardedBlock
 	}
 
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {

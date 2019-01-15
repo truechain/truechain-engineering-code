@@ -17,16 +17,12 @@
 package minerva
 
 import (
-	"bufio"
 	crand "crypto/rand"
-	"fmt"
 	"math"
 	"math/big"
 	"math/rand"
-	"os"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -310,7 +306,7 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 }
 
 func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []uint64, string) {
-	const offsetCnst = 0x1f
+	const offsetCnst = 0x7
 	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
@@ -343,10 +339,10 @@ func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []ui
 			return false, nil, ""
 		}
 		val := header.Hash().Bytes()
-		offset[i*4] = (int(val[0]) & offsetCnst) - 16
-		offset[i*4+1] = (int(val[1]) & offsetCnst) - 16
-		offset[i*4+2] = (int(val[2]) & offsetCnst) - 16
-		offset[i*4+3] = (int(val[3]) & offsetCnst) - 16
+		offset[i*4] = (int(val[0]) & offsetCnst) - 4
+		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
+		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
+		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
 		cont += header.Hash().String()
 	}
 
@@ -365,10 +361,6 @@ func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []ui
 	}
 
 	ds := m.UpdateTBL(offset, skip, plookupTbl)
-
-	// verify table, will remove
-	WriteTBL(offset, skip)
-
 	return true, ds, cont
 }
 
@@ -387,61 +379,24 @@ func (m *Minerva) UpdateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, pl
 			pos := offset[idx] + x
 			sk := skip[idx]
 			y := pos - sk*PMTSIZE/2
+			c := 0
 			for i := 0; i < PMTSIZE; i++ {
 				if y >= 0 && y < SKIP_CYCLE_LEN {
 					vI := uint32(y / 64)
 					vR := uint32(y % 64)
 					plookupTbl[plkt+vI] |= 1 << vR
+					c = c + 1
+
 				}
+				y = y + sk
+			}
+			if c == 0 {
+				vI := uint32(x / 64)
+				vR := uint32(x % 64)
+				plookupTbl[plkt+vI] |= 1 << vR
 			}
 			plkt += lktWz
 		}
 	}
 	return plookupTbl
-}
-
-// WriteTBL Save Update dataset information
-func WriteTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int) {
-
-	// Create a file and use bufio.NewWriter.
-	log.Info("write TBL ")
-	currentTime := time.Now()
-	filename := fmt.Sprintf("tbl%s.dat", currentTime.Format("2000.01.01"))
-	fmt.Println(filename)
-	f, _ := os.Create(filename)
-	w := bufio.NewWriter(f)
-
-	lktWz := uint32(4)
-	lktSz := uint32(DATALENGTH) * lktWz
-	fmt.Fprintf(w, "{\n")
-	for k := 0; k < TBLSIZE; k++ {
-
-		fmt.Fprintf(w, "\t{\n")
-		plkt := uint32(k) * lktSz
-
-		for x := 0; x < DATALENGTH; x++ {
-			idx := k*DATALENGTH + x
-			pos := offset[idx] + x
-			sk := skip[idx]
-			y := pos - sk*PMTSIZE/2
-			if x%64 == 0 {
-				fmt.Fprintf(w, "\n\t\t")
-
-			}
-			for i := 0; i < PMTSIZE; i++ {
-				if y >= 0 && y < SKIP_CYCLE_LEN {
-					fmt.Fprintf(w, "0x%03x,\t", y)
-				} else {
-					fmt.Fprintf(w, "0xfff,\t")
-				}
-				y += sk
-			}
-
-			plkt += lktWz
-		}
-		fmt.Fprintf(w, "\n\t}\n")
-	}
-	fmt.Fprintf(w, "}\n")
-	fmt.Fprintf(w, "\n")
-	w.Flush()
 }
