@@ -1465,7 +1465,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		log.Error("", "from", from.String())
 		return common.Hash{}, err
 	}
-	payemnt, err := types.PSender(signer, tx)
+	payemnt, err := types.Payer(signer, tx)
 	if err != nil {
 		log.Error("", "payemnt", payemnt.String())
 		return common.Hash{}, err
@@ -1661,7 +1661,7 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 		wantSigHash := signer.Hash(matchTx)
 
 		if pFrom, err := types.Sender(signer, p); err == nil && pFrom == sendArgs.From && signer.Hash(p) == wantSigHash {
-			if payment, err := types.PSender(signer, p); err != nil || payment != sendArgs.Payment {
+			if pPayment, err := types.Payer(signer, p); err != nil || pPayment != sendArgs.Payment {
 				log.Error("PSender error ", "from", sendArgs.From, "to", sendArgs.To, "payment", sendArgs.Payment)
 				continue
 			}

@@ -248,7 +248,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		return msg, err
 	}
 
-	msg.payment, err = PSender(s, tx)
+	msg.payment, err = Payer(s, tx)
 	return msg, err
 }
 

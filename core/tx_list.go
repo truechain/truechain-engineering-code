@@ -298,7 +298,7 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 	// Filter out all the transactions above the account's funds
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
 		// Make sure the transaction is psigned properly
-		pfrom, err := types.PSender(signer, tx)
+		pfrom, err := types.Payer(signer, tx)
 		if err != nil {
 			return true
 		}

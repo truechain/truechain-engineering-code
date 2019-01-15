@@ -597,7 +597,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInvalidSender
 	}
 	// Make sure the transaction is psigned properly
-	payer, err := types.PSender(pool.signer, tx)
+	payer, err := types.Payer(pool.signer, tx)
 	if err != nil {
 		log.Error("validateTx method get address", "pfrom", payer)
 		return ErrInvalidPayer
