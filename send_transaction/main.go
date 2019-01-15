@@ -143,7 +143,7 @@ func send(count int, ip string) {
 
 	// get balance
 	var result string
-	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
+	err = client.Call(&result, "etrue_getBalance", gensisAccount1, "latest")
 	if err != nil {
 		fmt.Println("etrue_getBalance Error:", err)
 		msg <- false
@@ -153,7 +153,7 @@ func send(count int, ip string) {
 	balance := getBalanceValue(result)
 
 	//main unlock account
-	_, err = unlockAccount(client, account[from], "admin", 90000, "main")
+	_, err = unlockAccount(client, gensisAccount1, "admin", 90000, "main")
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
 		msg <- false
