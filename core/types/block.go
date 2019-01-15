@@ -804,6 +804,13 @@ func (b *SnailBlock) ToElect() bool {
 
 }
 
+func (b *SnailBlock) MaxFruitNumber() *big.Int {
+	if len(b.Fruits()) > 0 {
+		return b.Fruits()[len(b.fruits)-1].FastNumber()
+	}
+	return nil
+}
+
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }
 func (b *SnailBlock) Body() *SnailBody { return &SnailBody{b.fruits, b.signs} }

@@ -557,16 +557,16 @@ type blockStats struct {
 
 // blockStats is the information to report about individual blocks.
 type snailBlockStats struct {
-	Number     *big.Int    `json:"number"`
-	Hash       common.Hash `json:"hash"`
-	ParentHash common.Hash `json:"parentHash"`
-	Timestamp  *big.Int    `json:"timestamp"`
-
+	Number      *big.Int        `json:"number"`
+	Hash        common.Hash     `json:"hash"`
+	ParentHash  common.Hash     `json:"parentHash"`
+	Timestamp   *big.Int        `json:"timestamp"`
 	Miner       common.Address  `json:"miner"`
 	Diff        string          `json:"difficulty"`
 	TotalDiff   string          `json:"totalDifficulty"`
 	Uncles      snailUncleStats `json:"uncles"`
 	FruitNumber *big.Int        `json:"fruits"`
+	LastFruit   *big.Int        `json:"lastFruit"`
 	//Specific properties of fruit
 	//signs types.PbftSigns
 }
@@ -712,6 +712,7 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		TotalDiff:   td.String(),
 		Uncles:      nil,
 		FruitNumber: fruitNumber,
+		LastFruit:   block.MaxFruitNumber(),
 	}
 }
 

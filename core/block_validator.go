@@ -51,7 +51,7 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // validated at this point.
 func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) error {
 	// Check whether the block's known, and if not, that it's linkable
-	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
+	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) && fv.bc.CurrentBlock().NumberU64() >= block.NumberU64() {
 		return ErrKnownBlock
 	}
 	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
@@ -66,12 +66,10 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
 		snailNumber := block.SnailNumber().Uint64()
 		blockReward := fv.bc.GetFastHeightBySnailHeight(snailNumber)
-		if blockReward != nil {
-			if fv.bc.CurrentBlock().NumberU64() < snailNumber {
-				log.Error("validateRewardError", "snailNumber", snailNumber,
-					"currentNumber", fv.bc.CurrentBlock().NumberU64(), "err", ErrSnailBlockRewarded)
-				return ErrSnailBlockRewarded
-			}
+		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
+			log.Error("validateRewardError", "snailNumber", snailNumber,
+				"currentNumber", fv.bc.CurrentBlock().NumberU64(), "err", ErrSnailBlockRewarded)
+			return ErrSnailBlockRewarded
 		} else {
 			currentRewardedNumber := fv.bc.NextSnailNumberReward()
 			if currentRewardedNumber.Uint64() != snailNumber {

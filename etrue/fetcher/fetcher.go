@@ -956,7 +956,7 @@ func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*
 		height := block.Number()
 		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, block.SwitchInfos())
 		find := f.insert(peer, inBlock, signHashs)
-		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
+		log.Debug("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
 
 		propSignOutTimer.Mark(int64(len(signs)))
 		//f.broadcastSigns(signs)

@@ -47,6 +47,7 @@ func IDCacheInit() {
 	IDCache["Agent3"] = big.NewInt(1)
 	IDCache["Agent4"] = big.NewInt(1)
 	IDCache["Agent5"] = big.NewInt(1)
+	IDCache["Agent5"] = Tbft5Start
 }
 
 var lock *sync.Mutex
@@ -62,6 +63,10 @@ func IDAdd(agent string) {
 	defer lock.Unlock()
 	tmp := new(big.Int).Set(IDCache[agent])
 	IDCache[agent] = new(big.Int).Add(tmp, big.NewInt(1))
+	if agent == "Agent3" {
+		IDCache["Agent4"] = new(big.Int).Add(tmp, big.NewInt(1))
+		IDCache["Agent5"] = new(big.Int).Add(tmp, big.NewInt(1))
+	}
 }
 
 func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
@@ -752,7 +757,7 @@ func TestRunPbft1(t *testing.T) {
 		c1.Members[3].Flag = types.StateRemovedFlag
 		c1.Members[3].MType = types.TypeWorked
 		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = big.NewInt(111111111)
+		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 		n1.UpdateCommittee(c1)
 	}
 	<-start
@@ -827,7 +832,7 @@ func TestRunPbft2(t *testing.T) {
 		c1.Members[3].Flag = types.StateRemovedFlag
 		c1.Members[3].MType = types.TypeWorked
 		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = big.NewInt(111111111)
+		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 		n2.UpdateCommittee(c1)
 	}
 	<-start
@@ -902,7 +907,7 @@ func TestRunPbft3(t *testing.T) {
 		c1.Members[3].Flag = types.StateRemovedFlag
 		c1.Members[3].MType = types.TypeWorked
 		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = big.NewInt(111111111)
+		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 		n3.UpdateCommittee(c1)
 	}
 	<-start
@@ -977,7 +982,7 @@ func TestRunPbft4(t *testing.T) {
 		c1.Members[3].Flag = types.StateRemovedFlag
 		c1.Members[3].MType = types.TypeWorked
 		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = big.NewInt(111111111)
+		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 		n4.UpdateCommittee(c1)
 	}
 	<-start
