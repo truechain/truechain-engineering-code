@@ -39,6 +39,9 @@ const SLEEPTIME = 120
 // SLEEPTX The interval between send son address
 const SLEEPTX = 5
 
+var gensisAccount1 = "0x7c357530174275dd30e46319b89f71186256e4f7"
+var gensisAccount2 = "0x4cf807958b9f6d9fd9331397d7a89a079ef43288"
+
 // get par
 func main() {
 	if len(os.Args) < 4 {
@@ -213,7 +216,7 @@ func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
 		}
 	}
 
-	result, err := sendRawTransaction(client, from, address, "0x21")
+	result, err := sendRawTransaction(client, from, address, "0x2100")
 	if err != nil {
 		fmt.Println("sendRawTransaction", "result ", result, " error", err)
 	}
@@ -230,7 +233,6 @@ func sendRawTransaction(client *rpc.Client, from string, to string, value string
 	mapData["from"] = from
 	mapData["to"] = to
 	mapData["value"] = value
-	mapData["payment"] = "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a"
 
 	var result string
 	err := client.Call(&result, "etrue_sendTransaction", mapData)
@@ -264,7 +266,8 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	var result string
 	find := false
 	getBalance := true
-	average := main.Div(main, big.NewInt(int64(len(account)*2)))
+	//average := main.Div(main, big.NewInt(int64(len(account)*4)))
+	average := big.NewInt(int64(10000000000000000000)) // eath for 10 true
 	value := "0x" + fmt.Sprintf("%x", average)
 	fmt.Println("createCountNewAccount ", " average ", average, " hex ", value)
 
