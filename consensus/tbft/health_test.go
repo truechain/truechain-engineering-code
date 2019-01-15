@@ -281,11 +281,11 @@ func TestRunPbftChange1(t *testing.T) {
 	n1.Notify(c1.Id, Start)
 
 	//for {
-	time.Sleep(time.Minute * 5)
+	time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
-	c1.StartHeight = getIDForCache("Agent3")
+	c1.StartHeight = getIDForCache("Agent1")
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n1.UpdateCommittee(c1)
 	//}
@@ -366,11 +366,11 @@ func TestRunPbftChange2(t *testing.T) {
 	n2.PutNodes(common.Big1, cn)
 
 	//for {
-	time.Sleep(time.Minute * 5)
+	time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
-	c1.StartHeight = getIDForCache("Agent3")
+	c1.StartHeight = getIDForCache("Agent2")
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n2.UpdateCommittee(c1)
 	//}
@@ -451,7 +451,7 @@ func TestRunPbftChange3(t *testing.T) {
 	n3.PutNodes(common.Big1, cn)
 
 	//for {
-	time.Sleep(time.Minute * 5)
+	time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
@@ -536,7 +536,7 @@ func TestRunPbftChange4(t *testing.T) {
 	n4.PutNodes(common.Big1, cn)
 
 	//for {
-	time.Sleep(time.Minute * 5)
+	time.Sleep(time.Second * 220)
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
@@ -546,6 +546,8 @@ func TestRunPbftChange4(t *testing.T) {
 	//}
 	<-start
 }
+
+var Tbft5Start = big.NewInt(9)
 
 func TestRunPbftChange5(t *testing.T) {
 	log.OpenLogDebug(3)
@@ -615,8 +617,6 @@ func TestRunPbftChange5(t *testing.T) {
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28896, Port2: 28897, Coinbase: m4.Coinbase, Publickey: crypto.FromECDSAPub(m4.Publickey)})
 	cn = append(cn, &types.CommitteeNode{IP: "127.0.0.1", Port: 28898, Port2: 28899, Coinbase: m5.Coinbase, Publickey: crypto.FromECDSAPub(m5.Publickey)})
 
-	time.Sleep(time.Minute * 5)
-
 	n4.Start()
 	n4.PutCommittee(c1)
 	n4.Notify(c1.Id, Start)
@@ -626,7 +626,7 @@ func TestRunPbftChange5(t *testing.T) {
 	c1.Members[3].Flag = types.StateRemovedFlag
 	c1.Members[3].MType = types.TypeWorked
 	c1.BackMembers[0].Flag = types.StateUsedFlag
-	c1.StartHeight = getIDForCache("Agent3")
+	c1.StartHeight = Tbft5Start
 	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
 	n4.UpdateCommittee(c1)
 	//}

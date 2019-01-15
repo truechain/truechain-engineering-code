@@ -47,6 +47,7 @@ func IDCacheInit() {
 	IDCache["Agent3"] = big.NewInt(1)
 	IDCache["Agent4"] = big.NewInt(1)
 	IDCache["Agent5"] = big.NewInt(1)
+	IDCache["Agent5"] = Tbft5Start
 }
 
 var lock *sync.Mutex
