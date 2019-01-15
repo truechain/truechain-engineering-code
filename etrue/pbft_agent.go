@@ -672,6 +672,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 		feeAmount    = big.NewInt(0)
 		tstamp       = time.Now().Unix()
 	)
+
 	//validate newBlock number exceed endNumber
 	if endNumber := agent.endFastNumber[committeeID]; endNumber != nil && endNumber.Cmp(parent.Number()) != 1 {
 		log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)
@@ -768,6 +769,13 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 		return nil
 	}
 	snailBlock := agent.snailChain.CurrentBlock()
+	if snailBlock.NumberU64() == 0 {
+		space := new(big.Int).Sub(header.Number, common.Big0).Int64()
+		if space >= params.FastToFruitSpace.Int64() {
+			log.Warn("snailBlockNumber equals zero", "currentFastNumber", header.Number)
+			return types.ErrSnailBlockTooSlow
+		}
+	}
 	blockFruits := snailBlock.Body().Fruits
 	if blockFruits != nil && len(blockFruits) > 0 {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()

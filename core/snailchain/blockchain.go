@@ -257,6 +257,11 @@ func (bc *SnailBlockChain) loadLastState() error {
 func (bc *SnailBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
 
+	err := bc.Validator().ValidateRewarded(head + 1)
+	if err != nil {
+		log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
+		return err
+	}
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
@@ -268,6 +273,7 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 			rawdb.DeleteFtLookupEntry(db, ft.FastHash())
 		}
 	}
+
 	bc.hc.SetHead(head, delFn)
 	currentHeader := bc.hc.CurrentHeader()
 
@@ -298,6 +304,14 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
+
+	// Append a single chain head event if we've progressed the chain
+	lastCanon := bc.GetBlockByNumber(head)
+	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
+		events := make([]interface{}, 0, 1)
+		events = append(events, types.ChainSnailHeadEvent{lastCanon})
+		bc.PostChainEvents(events)
+	}
 
 	return bc.loadLastState()
 
@@ -961,17 +975,19 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			bc.reportBlock(block, ErrBlacklistedHash)
 			return i, events, ErrBlacklistedHash
 		}
+
+		log.Debug("insert snail block ..", "number", block.Number(), "hash", block.Hash())
 		// Wait for the block's verification to complete
 		bstart := time.Now()
 
 		err := <-results
 		if err == nil {
 			err = bc.Validator().ValidateBody(block)
+			if err == nil {
+				err = bc.Validator().ValidateRewarded(block.NumberU64())
+			}
 		}
 		switch {
-		case err == ErrRewardedBlock:
-			stats.ignored++
-			continue
 		case err == ErrKnownBlock:
 			// Block and state both already known. However if the current block is below
 			// this number we did a rollback and we should reimport it nonetheless.
