@@ -8,12 +8,21 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
+	"encoding/hex"
+	"crypto/ecdsa"
 	"path/filepath"
 	"testing"
 	"time"
+	//"github.com/golang/mock/gomock"
 )
+type hItem struct {
+	mb 		*types.CommitteeMember
+	addr	[]byte
+	id 		tp2p.ID
+}
 
 func makeBlock() *types.Block {
 	header := new(types.Header)
@@ -25,6 +34,108 @@ func makeBlock() *types.Block {
 
 func makePartSet(block *types.Block) (*ttypes.PartSet, error) {
 	return ttypes.MakePartSet(ttypes.BlockPartSizeBytes, block)
+}
+func makeCommitteeInfo(cc,cid int) *types.CommitteeInfo {
+	committeeCount := cc
+	privs := make([]*ecdsa.PrivateKey,committeeCount)
+	cinfo := new(types.CommitteeInfo)
+	work := make([]*types.CommitteeMember,committeeCount)
+	for i:=0;i<committeeCount;i++ {
+		privs[i] = getPrivateKey(i)
+		work[i] = &types.CommitteeMember{
+			Publickey:		GetPub(privs[i]),
+			Flag:			types.StateUsedFlag,
+			Coinbase:		common.Address{0},
+			MType:			types.TypeWorked,
+		}
+	}
+	cinfo.Members = work
+	cinfo.Id = big.NewInt(int64(cid))
+	cinfo.StartHeight,cinfo.EndHeight = big.NewInt(1),big.NewInt(10000)
+	return cinfo
+}
+func makeValidatorSet(info *types.CommitteeInfo) *ttypes.ValidatorSet {
+	return MakeValidators(info)
+}
+func makeHealthMgr(cid,committeeCount int) (*ttypes.HealthMgr,[]*hItem) {
+	h := make([]*hItem,committeeCount)
+	mgr := ttypes.NewHealthMgr(uint64(cid))
+	info := makeCommitteeInfo(committeeCount,cid)
+	vset := makeValidatorSet(info)
+	for i,v := range info.Members {
+		id := pkToP2pID(v.Publickey)
+		address,_ := hex.DecodeString(string(id))
+		h[i] = &hItem{
+			mb:			v,
+			addr:		address,
+			id:			id,
+		}
+		_,val := vset.GetByAddress(address)
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
+		mgr.PutWorkHealth(health)
+	}
+	return mgr,h
+}
+func TestSwitchItem(t *testing.T) {
+	
+	start := make(chan int)
+	cid,committeeCount := 1,4
+	mgr,hh := makeHealthMgr(cid,committeeCount)
+	mgr.Start()
+	out := make(chan *ttypes.SwitchValidator)
+	updateFunc := func(pos int) {
+		if pos > 0 && pos < 4 {
+			for {
+				for i,v := range hh {
+					if i != pos && v.mb.Flag == types.StateUsedFlag {
+						mgr.Update(v.id)
+					}
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}
+	}
+	removePos := 2
+	go updateFunc(removePos)
+
+	sResHandle := func() {
+		for {
+			select {
+			case sv := <- mgr.ChanTo():
+				fmt.Println("get sv:",sv)
+				if err := mgr.VerifySwitch(sv); err== nil {
+					go func() {
+						select {
+						case mgr.ChanFrom() <- sv:
+						default:
+						}
+						out<-sv
+					}()
+				} else {
+					fmt.Println("verify sv failed,err:",err,"sv:",sv)
+				}			
+			}
+		}
+	}
+	go sResHandle()
+	go checkResult(mgr,out)
+
+	<-start
+	mgr.Stop()
+}
+
+func checkResult(mgr *ttypes.HealthMgr, out <-chan *ttypes.SwitchValidator) {
+	rsv := <- out
+	pos := 1
+	for {
+		fmt.Println("check the sv Result.....[",pos,"]")
+		if rsv.Remove.State == types.StateRemovedFlag {
+			fmt.Print("check Remove the SV success,sv:",rsv)
+			return
+		}
+		time.Sleep(1 * time.Second)	
+		pos++
+	}
 }
 
 func TestBlock(t *testing.T) {
@@ -46,6 +157,19 @@ func TestBlock(t *testing.T) {
 	log.Debug("Receive", "msg", msg2)
 	msg3 := msg2.(*BlockPartMessage)
 	fmt.Println(msg3)
+	sv := block.SwitchInfos()
+	if sv == nil {
+		fmt.Println("sv is nil ")
+	}
+	signs := block.Signs()
+	if signs == nil {
+		fmt.Println("signs is nil ")
+	}
+	body := block.Body()
+	if body == nil {
+		fmt.Println("body is nil ")
+	}
+	fmt.Println("finish ")
 }
 
 func TestRlpBlock(t *testing.T) {
