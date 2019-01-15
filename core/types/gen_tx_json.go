@@ -51,7 +51,10 @@ func (t *txdata) UnmarshalJSON(input []byte) error {
 		V            *hexutil.Big    `json:"v" gencodec:"required"`
 		R            *hexutil.Big    `json:"r" gencodec:"required"`
 		S            *hexutil.Big    `json:"s" gencodec:"required"`
-		Hash         *common.Hash    `json:"hash" rlp:"-"`
+		/*PV           *hexutil.Big    `json:"pv" gencodec:"required"`
+		PR           *hexutil.Big    `json:"pr" gencodec:"required"`
+		PS           *hexutil.Big    `json:"ps" gencodec:"required"`*/
+		Hash *common.Hash `json:"hash" rlp:"-"`
 	}
 	var dec txdata
 	if err := json.Unmarshal(input, &dec); err != nil {

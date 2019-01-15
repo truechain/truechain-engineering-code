@@ -38,6 +38,11 @@ type sigCache struct {
 	from   common.Address
 }
 
+type sigCache_payment struct {
+	signer  Signer
+	payment common.Address
+}
+
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	signer := NewEIP155Signer(config.ChainID)
@@ -57,11 +62,13 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 // PSender returns the address derived from the signature (PV, PR, PS) using secp256k1
 // elliptic curve and an error if it failed deriving or upon an incorrect
 // signature.
-//
-// Sender may cache the address, allowing it to be used regardless of
-// signing method. The cache is invalidated if the cached signer does
-// not match the signer used in the current call.
 func PSender(signer Signer, tx *Transaction) (common.Address, error) {
+	if sc := tx.payment.Load(); sc != nil {
+		sigCache_payment := sc.(sigCache_payment)
+		if sigCache_payment.signer.Equal(signer) {
+			return sigCache_payment.payment, nil
+		}
+	}
 	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
 		return common.Address{}, nil
 	}
@@ -69,6 +76,7 @@ func PSender(signer Signer, tx *Transaction) (common.Address, error) {
 	if err != nil {
 		return common.Address{}, err
 	}
+	tx.payment.Store(sigCache_payment{signer: signer, payment: addr})
 	return addr, nil
 }
 

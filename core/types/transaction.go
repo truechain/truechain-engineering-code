@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,9 +39,10 @@ var (
 type Transaction struct {
 	data txdata
 	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
+	hash    atomic.Value
+	size    atomic.Value
+	from    atomic.Value
+	payment atomic.Value
 }
 
 type txdata struct {
@@ -57,9 +59,9 @@ type txdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 
 	// Paied Signature values
-	PV *big.Int `json:"pv" gencodec:"required"`
-	PR *big.Int `json:"pr" gencodec:"required"`
-	PS *big.Int `json:"ps" gencodec:"required"`
+	PV *big.Int `json:"pv" rlp:"nil"` // nil means donnot have payment
+	PR *big.Int `json:"pr" rlp:"nil"`
+	PS *big.Int `json:"ps" rlp:"nil"`
 
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
@@ -155,6 +157,15 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 	return data.MarshalJSON()
 }
 
+func (tx *Transaction) Info() string {
+	str := ""
+	if tx != nil {
+		str += fmt.Sprintf("nonce=%v,price =%v ,v=%v,r=%v,s=%v,Pv=%v,Pr=%v,Ps=%v,", tx.data.AccountNonce, tx.data.Price,
+			tx.data.V, tx.data.R, tx.data.S, tx.data.PV, tx.data.PR, tx.data.PS)
+	}
+	return str
+}
+
 // UnmarshalJSON decodes the web3 RPC transaction format.
 func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	var dec txdata
@@ -233,6 +244,11 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 
 	var err error
 	msg.from, err = Sender(s, tx)
+	if err != nil {
+		return msg, err
+	}
+
+	msg.payment, err = PSender(s, tx)
 	return msg, err
 }
 
@@ -407,6 +423,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 type Message struct {
 	to         *common.Address
 	from       common.Address
+	payment    common.Address
 	nonce      uint64
 	amount     *big.Int
 	gasLimit   uint64
@@ -428,11 +445,12 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
-func (m Message) From() common.Address { return m.from }
-func (m Message) To() *common.Address  { return m.to }
-func (m Message) GasPrice() *big.Int   { return m.gasPrice }
-func (m Message) Value() *big.Int      { return m.amount }
-func (m Message) Gas() uint64          { return m.gasLimit }
-func (m Message) Nonce() uint64        { return m.nonce }
-func (m Message) Data() []byte         { return m.data }
-func (m Message) CheckNonce() bool     { return m.checkNonce }
+func (m Message) From() common.Address    { return m.from }
+func (m Message) To() *common.Address     { return m.to }
+func (m Message) Payment() common.Address { return m.payment }
+func (m Message) GasPrice() *big.Int      { return m.gasPrice }
+func (m Message) Value() *big.Int         { return m.amount }
+func (m Message) Gas() uint64             { return m.gasLimit }
+func (m Message) Nonce() uint64           { return m.nonce }
+func (m Message) Data() []byte            { return m.data }
+func (m Message) CheckNonce() bool        { return m.checkNonce }

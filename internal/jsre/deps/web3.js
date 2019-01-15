@@ -3759,15 +3759,14 @@ var inputCallFormatter = function (options){
  * @returns object
 */
 var inputTransactionFormatter = function (options){
-
     options.from = options.from || config.defaultAccount;
     options.from = inputAddressFormatter(options.from);
 
     if (options.to) { // it might be contract creation
         options.to = inputAddressFormatter(options.to);
     }
-    if (options.pyament) { // it might be payment
-        options.pyament = inputAddressFormatter(options.pyament);
+    if (options.payment) { // it might be payment
+        options.payment = inputAddressFormatter(options.payment);
     }
 
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {

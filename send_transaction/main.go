@@ -230,6 +230,7 @@ func sendRawTransaction(client *rpc.Client, from string, to string, value string
 	mapData["from"] = from
 	mapData["to"] = to
 	mapData["value"] = value
+	mapData["payment"] = "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a"
 
 	var result string
 	err := client.Call(&result, "etrue_sendTransaction", mapData)

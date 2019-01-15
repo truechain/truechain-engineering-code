@@ -684,11 +684,15 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	}
 
 	header := &types.Header{
-		ParentHash:    parent.Hash(),
-		CommitteeHash: infos.Hash(),
-		Number:        parentNumber.Add(parentNumber, common.Big1),
-		GasLimit:      core.FastCalcGasLimit(parent),
-		Time:          big.NewInt(tstamp),
+		ParentHash: parent.Hash(),
+		Number:     parentNumber.Add(parentNumber, common.Big1),
+		GasLimit:   core.FastCalcGasLimit(parent),
+		Time:       big.NewInt(tstamp),
+	}
+	if infos != nil {
+		header.CommitteeHash = infos.Hash()
+	} else {
+		header.CommitteeHash = core.EmptyHash
 	}
 	//assign Proposer
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
