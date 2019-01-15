@@ -1224,6 +1224,16 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 		}()
 	}
 
+	if len(newChain) > 1 {
+		go func() {
+			for i, block := range newChain {
+				if i > 0 {
+					bc.chainFeed.Send(types.ChainSnailEvent{Block: block})
+				}
+			}
+		}()
+	}
+
 	return nil
 }
 
