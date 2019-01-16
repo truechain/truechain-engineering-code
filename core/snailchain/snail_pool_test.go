@@ -131,7 +131,6 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
 			Time:            big.NewInt(tstamp),
 			Coinbase:        coinbaseAddr,
-			Fruit:           isFruit,
 			FastNumber:      fastNumber,
 			Difficulty:      diff,
 			FruitDifficulty: fruitDiff,
@@ -270,7 +269,6 @@ func TestInvalidFruits(t *testing.T) {
 	var header *types.SnailHeader
 	header = &types.SnailHeader{
 		header.Hash(),
-		header.Hash(),
 		common.BytesToAddress([]byte{0}),
 		header.Hash(),
 		big.NewInt(0),
@@ -278,17 +276,14 @@ func TestInvalidFruits(t *testing.T) {
 		header.Hash(),
 		big.NewInt(182),
 		header.Hash(),
-		types.BytesToBloom([]byte{0}),
 		big.NewInt(0),
 		big.NewInt(2000),
-		nil,
+		big.NewInt(0),
 		[]byte{0},
-		false,
 		nil,
 		[]byte{0},
 		header.Hash(),
 		[8]byte{},
-		true,
 	}
 	var ft *types.SnailBlock
 	ft = types.NewSnailBlock(header, nil, nil, nil)
