@@ -335,7 +335,7 @@ func (w *worker) update() {
 				}
 			} else {
 				if atomic.LoadInt32(&w.mining) == 1 && !w.fruitOnly && len(w.current.Block.Fruits()) >= 60 {
-					log.Info("stop the mining and start a new mine", "need stop mining block number ", w.current.Block.Number())
+					log.Info("stop the mining and start a new mine", "need stop mining block number ", w.current.Block.Number(), "get block ev number", ev.Block.Number())
 					w.commitNewWork()
 				}
 			}

@@ -219,8 +219,9 @@ type TxPool struct {
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
 
-	newTxsCh chan []*types.Transaction
-	wg       sync.WaitGroup // for shutdown sync
+	newTxsCh  chan []*types.Transaction
+	wg        sync.WaitGroup // for shutdown sync
+	rpcTxslen *big.Int
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -261,6 +262,8 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	}
 	// Subscribe events from blockchain
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
+
+	pool.rpcTxslen = new(big.Int).SetInt64(0)
 
 	// Start the event loop and return
 	pool.wg.Add(1)
@@ -805,6 +808,10 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
+	pool.rpcTxslen = pool.rpcTxslen.Add(pool.rpcTxslen, common.Big1)
+	if pool.rpcTxslen.Uint64()%100 == 0 {
+		log.Info("----------all txs is", "pool.rpcTxslen", pool.rpcTxslen)
+	}
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 

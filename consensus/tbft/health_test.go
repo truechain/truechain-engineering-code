@@ -78,7 +78,7 @@ func makeHealthMgr(cid,committeeCount int) (*ttypes.HealthMgr,[]*hItem) {
 }
 func TestSwitchItem(t *testing.T) {
 	
-	start := make(chan int)
+	end := make(chan int)
 	cid,committeeCount := 1,4
 	mgr,hh := makeHealthMgr(cid,committeeCount)
 	mgr.Start()
@@ -118,19 +118,20 @@ func TestSwitchItem(t *testing.T) {
 		}
 	}
 	go sResHandle()
-	go checkResult(mgr,out)
+	go checkResult(end,out)
 
-	<-start
+	<-end
 	mgr.Stop()
 }
 
-func checkResult(mgr *ttypes.HealthMgr, out <-chan *ttypes.SwitchValidator) {
+func checkResult(end chan<-int, out <-chan *ttypes.SwitchValidator) {
 	rsv := <- out
 	pos := 1
 	for {
 		fmt.Println("check the sv Result.....[",pos,"]")
 		if rsv.Remove.State == types.StateRemovedFlag {
 			fmt.Print("check Remove the SV success,sv:",rsv)
+			go func() {	end <- 100 }()
 			return
 		}
 		time.Sleep(1 * time.Second)	
