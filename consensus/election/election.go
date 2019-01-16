@@ -32,7 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -169,7 +169,7 @@ type SnailBlockChain interface {
 
 	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 
-	GetDatabase() ethdb.Database
+	GetDatabase() etruedb.Database
 
 	GetFruitByFastHash(fastHash common.Hash) (*types.SnailBlock, uint64)
 
@@ -206,7 +206,7 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
 	}
 	if !election.singleNode && len(election.genesisCommittee) < 4 {
-			log.Error("Election creation get insufficient genesis committee members")
+		log.Error("Election creation get insufficient genesis committee members")
 	}
 	for _, m := range election.genesisCommittee {
 		var member = *m

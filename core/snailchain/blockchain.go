@@ -39,7 +39,7 @@ import (
 	//"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -91,9 +91,9 @@ type SnailBlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db     ethdb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
+	db     etruedb.Database // Low level persistent database to store final content in
+	triegc *prque.Prque     // Priority queue mapping block numbers to tries to gc
+	gcproc time.Duration    // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	rmLogsFeed    event.Feed
@@ -136,7 +136,7 @@ type SnailBlockChain struct {
 // NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewSnailBlockChain(db ethdb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
+func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
 
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
@@ -782,7 +782,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 
 		stats.processed++
 
-		if batch.ValueSize() >= ethdb.IdealBatchSize {
+		if batch.ValueSize() >= etruedb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return 0, err
 			}
@@ -822,7 +822,7 @@ func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, rece
 var lastSnailWrite uint64
 
 // GetDatabase Get lowlevel persistence database
-func (bc *SnailBlockChain) GetDatabase() ethdb.Database {
+func (bc *SnailBlockChain) GetDatabase() etruedb.Database {
 	return bc.db
 }
 

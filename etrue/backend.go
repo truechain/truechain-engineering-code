@@ -44,10 +44,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/miner"
@@ -87,7 +87,7 @@ type Truechain struct {
 	lesServer       LesServer
 
 	// DB interfaces
-	chainDb ethdb.Database // Block chain database
+	chainDb etruedb.Database // Block chain database
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
@@ -264,12 +264,12 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateDB creates the chain database.
-func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Database, error) {
+func CreateDB(ctx *node.ServiceContext, config *Config, name string) (etruedb.Database, error) {
 	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles)
 	if err != nil {
 		return nil, err
 	}
-	if db, ok := db.(*ethdb.LDBDatabase); ok {
+	if db, ok := db.(*etruedb.LDBDatabase); ok {
 		db.Meter("etrue/db/chaindata/")
 	}
 	return db, nil
@@ -277,7 +277,7 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Truechain service
 func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig,
-	db ethdb.Database) consensus.Engine {
+	db etruedb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	// snail chain not need clique
 	/*
@@ -460,7 +460,7 @@ func (s *Truechain) SnailPool() *chain.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }
-func (s *Truechain) ChainDb() ethdb.Database            { return s.chainDb }
+func (s *Truechain) ChainDb() etruedb.Database          { return s.chainDb }
 func (s *Truechain) IsListening() bool                  { return true } // Always listening
 func (s *Truechain) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
 func (s *Truechain) NetVersion() uint64                 { return s.networkID }

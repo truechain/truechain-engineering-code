@@ -23,13 +23,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
 type Backend interface {
-	ChainDb() ethdb.Database
+	ChainDb() etruedb.Database
 	EventMux() *event.TypeMux
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
 	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
@@ -48,7 +48,7 @@ type Backend interface {
 type Filter struct {
 	backend Backend
 
-	db         ethdb.Database
+	db         etruedb.Database
 	begin, end int64
 	addresses  []common.Address
 	topics     [][]common.Hash

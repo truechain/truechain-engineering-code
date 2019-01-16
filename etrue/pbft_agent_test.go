@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"testing"
 )
 
@@ -112,7 +112,7 @@ func validateSign(fb *types.Block, prikey *ecdsa.PrivateKey) bool {
 }
 
 func generateFastBlock() *types.Block {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{

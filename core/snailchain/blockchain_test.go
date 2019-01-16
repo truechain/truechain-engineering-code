@@ -25,7 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"math/rand"
@@ -42,9 +42,9 @@ var (
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *SnailBlockChain, *core.BlockChain, error) {
+func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *SnailBlockChain, *core.BlockChain, error) {
 	var (
-		db            = ethdb.NewMemDatabase()
+		db            = etruedb.NewMemDatabase()
 		commonGenesis = core.DefaultGenesisBlock()
 		_             = commonGenesis.MustSnailCommit(db)
 		fastGenesis   = commonGenesis.MustFastCommit(db)
@@ -617,7 +617,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 /*func TestFastVsFullChains(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		gendb   = ethdb.NewMemDatabase()
+		gendb   = etruedb.NewMemDatabase()
 		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = crypto.PubkeyToAddress(key.PublicKey)
 		//funds   = big.NewInt(1000000000)
@@ -647,7 +647,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 		}
 	})
 	// Import the chain as an archive node for the comparison baseline
-	archiveDb := ethdb.NewMemDatabase()
+	archiveDb := etruedb.NewMemDatabase()
 	gspec.MustCommit(archiveDb)
 	archive, _ := NewSnailBlockChain(archiveDb, gspec.Config, minerva.NewFaker(), vm.Config{})
 	defer archive.Stop()
@@ -656,7 +656,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 		t.Fatalf("failed to process block %d: %v", n, err)
 	}
 	// Fast import the chain as a non-archive node to test
-	fastDb := ethdb.NewMemDatabase()
+	fastDb := etruedb.NewMemDatabase()
 	gspec.MustCommit(fastDb)
 	fast, _ := NewSnailBlockChain(fastDb, gspec.Config, minerva.NewFaker(), vm.Config{})
 	defer fast.Stop()
@@ -706,7 +706,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 /*func TestLightVsFastVsFullChainHeads(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		gendb   = ethdb.NewMemDatabase()
+		gendb   = etruedb.NewMemDatabase()
 		//key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		//address = crypto.PubkeyToAddress(key.PublicKey)
 		//funds   = big.NewInt(1000000000)
@@ -736,7 +736,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 		}
 	}
 	// Import the chain as an archive node and ensure all pointers are updated
-	archiveDb := ethdb.NewMemDatabase()
+	archiveDb := etruedb.NewMemDatabase()
 	gspec.MustCommit(archiveDb)
 
 	archive, _ := NewSnailBlockChain(archiveDb, gspec.Config, minerva.NewFaker(), vm.Config{})
@@ -750,7 +750,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 	assert(t, "archive", archive, height/2, height/2, height/2)
 
 	// Import the chain as a non-archive node and ensure all pointers are updated
-	fastDb := ethdb.NewMemDatabase()
+	fastDb := etruedb.NewMemDatabase()
 	gspec.MustCommit(fastDb)
 	fast, _ := NewSnailBlockChain(fastDb, gspec.Config, minerva.NewFaker(), vm.Config{})
 	defer fast.Stop()
@@ -768,7 +768,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 	assert(t, "fast", fast, height/2, height/2, 0)
 
 	// Import the chain as a light node and ensure all pointers are updated
-	lightDb := ethdb.NewMemDatabase()
+	lightDb := etruedb.NewMemDatabase()
 	gspec.MustCommit(lightDb)
 
 	light, _ := NewSnailBlockChain(lightDb, gspec.Config, minerva.NewFaker(), vm.Config{})
@@ -791,7 +791,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
-		db      = ethdb.NewMemDatabase()
+		db      = etruedb.NewMemDatabase()
 		gspec   = &Genesis{
 			Config:   params.TestChainConfig,
 			GasLimit: 3141592,
@@ -900,7 +900,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 
 /*func TestReorgSideEvent(t *testing.T) {
 	var (
-		db      = ethdb.NewMemDatabase()
+		db      = etruedb.NewMemDatabase()
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		gspec   = &Genesis{
@@ -1028,7 +1028,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 /*func TestEIP155Transition(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		db         = ethdb.NewMemDatabase()
+		db         = etruedb.NewMemDatabase()
 		key, _     = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address    = crypto.PubkeyToAddress(key.PublicKey)
 		//funds      = big.NewInt(1000000000)
@@ -1131,7 +1131,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 /*func TestEIP161AccountRemoval(t *testing.T) {
 	// Configure and generate a sample block chain
 	var (
-		db      = ethdb.NewMemDatabase()
+		db      = etruedb.NewMemDatabase()
 		key, _  = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 		address = crypto.PubkeyToAddress(key.PublicKey)
 		//funds   = big.NewInt(1000000000)
@@ -1200,7 +1200,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
 	engine := minerva.NewFaker()
 
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
@@ -1217,7 +1217,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 	}
 	// Import the canonical and fork chain side by side, verifying the current block
 	// and current header consistency
-	diskdb := ethdb.NewMemDatabase()
+	diskdb := etruedb.NewMemDatabase()
 	new(core.Genesis).MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{})
@@ -1246,7 +1246,7 @@ func TestTrieForkGC(t *testing.T) {
 	// Generate a canonical chain to act as the main dataset
 	engine := minerva.NewFaker()
 
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
@@ -1262,7 +1262,7 @@ func TestTrieForkGC(t *testing.T) {
 		forks[i] = fork[0]
 	}
 	// Import the canonical and fork chain side by side, forcing the trie cache to cache both
-	diskdb := ethdb.NewMemDatabase()
+	diskdb := etruedb.NewMemDatabase()
 	new(core.Genesis).MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{})
@@ -1285,7 +1285,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	// Generate the original common chain segment and the two competing forks
 	engine := minerva.NewFaker()
 
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
 
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
@@ -1294,7 +1294,7 @@ func TestLargeReorgTrieGC(t *testing.T) {
 	competitor := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
 
 	// Import the shared chain and the original canonical one
-	diskdb := ethdb.NewMemDatabase()
+	diskdb := etruedb.NewMemDatabase()
 	new(core.Genesis).MustSnailCommit(diskdb)
 
 	chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{})
@@ -1342,7 +1342,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 	)
 	// Generate the original common chain segment and the two competing forks
 	engine := minerva.NewFaker()
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	genesis := gspec.MustSnailCommit(db)
 
 	blockGenerator := func(i int, block *BlockGen) {
@@ -1364,7 +1364,7 @@ func benchmarkLargeNumberOfValueToNonexisting(b *testing.B, numTxs, numBlocks in
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Import the shared chain and the original canonical one
-		diskdb := ethdb.NewMemDatabase()
+		diskdb := etruedb.NewMemDatabase()
 		gspec.MustSnailCommit(diskdb)
 
 		chain, err := NewSnailBlockChain(diskdb, params.TestChainConfig, engine, vm.Config{})

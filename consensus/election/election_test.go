@@ -22,11 +22,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -35,7 +35,7 @@ var (
 )
 
 func makeTestBlock() *types.Block {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{
@@ -102,7 +102,7 @@ func committeeEqual(left, right []*types.CommitteeMember) bool {
 
 func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// var (
-	// 	testdb  = ethdb.NewMemDatabase()
+	// 	testdb  = etruedb.NewMemDatabase()
 	// 	genesis = core.DefaultGenesisBlock()
 	// 	engine  = minerva.NewFaker()
 	// )
@@ -115,19 +115,19 @@ func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// snail, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 	// blocks := makeSnail(snail, fastchain, snailGenesis, n, engine, testdb, canonicalSeed)
 	// snail.InsertChain(blocks)
-	snail, fastchain := snailchain.MakeChain(n * params.MinimumFruits, n)
+	snail, fastchain := snailchain.MakeChain(n*params.MinimumFruits, n)
 
 	return snail, fastchain
 }
 
-func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
-	blocks , _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n * params.MinimumFruits,
+func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
+	blocks, _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n*params.MinimumFruits,
 		parent.PublicKey(), parent.Coinbase(), true, big.NewInt(20000))
 	return blocks
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
 	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})

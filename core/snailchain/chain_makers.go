@@ -27,7 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 	//"github.com/truechain/truechain-engineering-code/etrue"
 )
@@ -119,7 +119,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
+func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parent *types.SnailBlock, engine consensus.Engine, db etruedb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
 	if config == nil {
 		config = params.TestChainConfig
 	}
@@ -185,7 +185,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailHeader {
+func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailHeader {
 	blocks := makeBlockChain(fastChain, types.NewSnailBlockWithHeader(parent), n, engine, db, seed)
 	headers := make([]*types.SnailHeader, len(blocks))
 	for i, block := range blocks {
@@ -195,7 +195,7 @@ func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n in
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
+func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
 	if fastChain.CurrentBlock().NumberU64() == 0 {
 		fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastChain.CurrentBlock(), engine, db, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
 			b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
@@ -424,14 +424,14 @@ func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.B
 
 func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	var (
-		testdb       = ethdb.NewMemDatabase()
+		testdb       = etruedb.NewMemDatabase()
 		genesis      = core.DefaultGenesisBlock()
 		engine       = minerva.NewFaker()
 		fruitnumbers int
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {

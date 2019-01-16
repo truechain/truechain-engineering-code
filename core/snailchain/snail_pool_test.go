@@ -30,7 +30,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -41,12 +41,12 @@ var fastchain *core.BlockChain
 var snailblockchain *SnailBlockChain
 var engine consensus.Engine
 var chainConfig *params.ChainConfig
-var peerDb ethdb.Database // Database of the peers containing all data
+var peerDb etruedb.Database // Database of the peers containing all data
 var genesis *core.Genesis
 var snailGenesis *types.SnailBlock
 
 func init() {
-	peerDb = ethdb.NewMemDatabase()
+	peerDb = etruedb.NewMemDatabase()
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""

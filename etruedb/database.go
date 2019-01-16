@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package ethdb
+package etruedb
 
 import (
 	"fmt"
@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/truechain/truechain-engineering-code/metrics"
 )
 
 const (

@@ -32,7 +32,7 @@ import (
 	//"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	chain "github.com/truechain/truechain-engineering-code/core/snailchain"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"gopkg.in/fatih/set.v0"
@@ -124,7 +124,7 @@ type worker struct {
 	chain     *chain.SnailBlockChain
 	fastchain *core.BlockChain
 	proc      core.SnailValidator
-	chainDb   ethdb.Database
+	chainDb   etruedb.Database
 
 	coinbase  common.Address
 	extra     []byte

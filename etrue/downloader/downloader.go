@@ -30,9 +30,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/fastdownloader"
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -99,7 +99,7 @@ type Downloader struct {
 	genesis uint64         // Genesis block number to limit sync to (e.g. light client CHT)
 	queue   *queue         // Scheduler for selecting the hashes to download
 	peers   *etrue.PeerSet // Set of active peers from which download can proceed
-	stateDB ethdb.Database
+	stateDB etruedb.Database
 
 	rttEstimate   uint64 // Round trip time to target for download requests
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
@@ -199,7 +199,7 @@ type BlockChain interface {
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
-func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn, fdown *fastdownloader.Downloader) *Downloader {
+func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain BlockChain, lightchain LightChain, dropPeer etrue.PeerDropFn, fdown *fastdownloader.Downloader) *Downloader {
 	if lightchain == nil {
 		lightchain = chain
 	}
