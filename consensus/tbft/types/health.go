@@ -17,7 +17,7 @@ import (
 
 const (
 	//HealthOut peer time out
-	HealthOut = 60 * 60 * 24 * 7 //* 10
+	HealthOut = 60*3600 
 	//MixValidator min committee count
 	MixValidator   = 2
 	BlackDoorCount = 4
@@ -168,6 +168,10 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 	return h
 }
 
+// Sum invoke in the testing, after mgr start
+func (h *HealthMgr) Sum() int {
+	return len(h.Work) + len(h.Back) + len(h.seed)
+}
 //PutWorkHealth add a *health to work
 func (h *HealthMgr) PutWorkHealth(he *Health) {
 	h.Work[he.ID] = he
