@@ -23,6 +23,14 @@ type hItem struct {
 	addr	[]byte
 	id 		tp2p.ID
 }
+type hUpdateItem struct {
+	mgr 		*ttypes.HealthMgr
+	hh     		[]*hItem
+	repos		[]int
+}
+var (
+	quit = false
+)
 
 func makeBlock() *types.Block {
 	header := new(types.Header)
@@ -83,47 +91,66 @@ func TestSwitchItem(t *testing.T) {
 	mgr,hh := makeHealthMgr(cid,committeeCount)
 	mgr.Start()
 	out := make(chan *ttypes.SwitchValidator)
-	updateFunc := func(pos int) {
-		if pos > 0 && pos < 4 {
-			for {
-				for i,v := range hh {
-					if i != pos && v.mb.Flag == types.StateUsedFlag {
-						mgr.Update(v.id)
-					}
-				}
-				time.Sleep(1 * time.Second)
-			}
+	chanmgr := make(chan *hUpdateItem)
+	go func(){
+		chanmgr <- &hUpdateItem{
+			mgr:		mgr,
+			hh:			hh,
+			repos:		[]int{2},
 		}
-	}
-	removePos := 2
-	go updateFunc(removePos)
-
-	sResHandle := func() {
-		for {
-			select {
-			case sv := <- mgr.ChanTo():
-				fmt.Println("get sv:",sv)
-				if err := mgr.VerifySwitch(sv); err== nil {
-					go func() {
-						select {
-						case mgr.ChanFrom() <- sv:
-						default:
-						}
-						out<-sv
-					}()
-				} else {
-					fmt.Println("verify sv failed,err:",err,"sv:",sv)
-				}			
-			}
-		}
-	}
-	go sResHandle()
+	}()
+	go healthUpdate(chanmgr)
+	go svHandle(mgr,1,out)
 	go checkResult(end,out)
 
 	<-end
 	mgr.Stop()
 }
-
+func healthUpdate(recv <-chan *hUpdateItem) {
+	item := <- recv 
+	sum := item.mgr.Sum()
+	if sum == 0 {
+		fmt.Println("healthUpdate func is quit,cause sum is 0")
+		return 
+	}
+	// once update 
+	for {
+		if quit { return }
+		for _,pos := range item.repos {
+			if pos > 0 && pos < sum {
+				for i,v := range item.hh {
+					if i != pos {
+						item.mgr.Update(v.id)
+					}
+				}
+			}
+			time.Sleep(100*time.Millisecond)
+		}
+		time.Sleep(1*time.Second)
+	}
+}
+func svHandle(mgr *ttypes.HealthMgr,times int,out chan<-*ttypes.SwitchValidator) {
+	for {
+		select {
+		case sv := <- mgr.ChanTo():
+			fmt.Println("get sv:",sv)
+			if err := mgr.VerifySwitch(sv); err== nil {
+				go func() {
+					select {
+					case mgr.ChanFrom() <- sv:
+					default:
+					}
+					out<-sv
+				}()
+			} else {
+				fmt.Println("verify sv failed,err:",err,"sv:",sv)
+			}			
+		}
+		if times--; times <= 0 {
+			return 
+		}
+	}
+}
 func checkResult(end chan<-int, out <-chan *ttypes.SwitchValidator) {
 	rsv := <- out
 	pos := 1
