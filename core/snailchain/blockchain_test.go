@@ -161,7 +161,7 @@ func printChain(bc *SnailBlockChain) {
 func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) error {
 	for _, block := range chain {
 		// Try and process the block
-		err := blockchain.engine.VerifySnailHeader(blockchain, nil, block.Header(), true)
+		err := blockchain.engine.VerifySnailHeader(blockchain, nil, block.Header(), true, false)
 		if err == nil {
 			err = blockchain.validator.ValidateBody(block)
 		}
@@ -184,7 +184,7 @@ func testBlockChainImport(chain types.SnailBlocks, blockchain *SnailBlockChain) 
 func testHeaderChainImport(chain []*types.SnailHeader, blockchain *SnailBlockChain) error {
 	for _, header := range chain {
 		// Try and validate the header
-		if err := blockchain.engine.VerifySnailHeader(blockchain, nil, header, false); err != nil {
+		if err := blockchain.engine.VerifySnailHeader(blockchain, nil, header, false, false); err != nil {
 			return err
 		}
 		// Manually insert the header into the database, but don't reorganise (allows subsequent testing)
