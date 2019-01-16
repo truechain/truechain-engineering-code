@@ -69,7 +69,8 @@ func Payer(signer Signer, tx *Transaction) (common.Address, error) {
 			return sigCache_payment.payment, nil
 		}
 	}
-	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
+	if (tx.data.PR == nil && tx.data.PV == nil && tx.data.PS == nil) ||
+		(tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0) {
 		return params.EmptyAddress, nil
 	}
 	addr, err := signer.Payer(tx)
