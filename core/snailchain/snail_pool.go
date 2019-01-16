@@ -19,6 +19,7 @@ package snailchain
 import (
 	"errors"
 	"math"
+	mrand "math/rand"
 	"sync"
 	"time"
 
@@ -264,7 +265,11 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 			log.Trace("addFruit fruit failed,difficulty is lower", "give Difficulty", fruit.Difficulty(), "having Difficulty", f.Difficulty())
 			return nil
 		} else if rst == 0 {
-			if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
+			/*if fruit.Hash().Big().Cmp(f.Hash().Big()) >= 0 {
+				log.Trace("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
+				return nil
+			}*/
+			if mrand.Float64() < 0.5 {
 				log.Trace("addFruit fruit failed,Hash is big", "give Hash", fruit.Hash(), "having Hash", f.Hash())
 				return nil
 			}
