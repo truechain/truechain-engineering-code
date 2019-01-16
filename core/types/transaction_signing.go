@@ -72,7 +72,7 @@ func Payer(signer Signer, tx *Transaction) (common.Address, error) {
 	if tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0 {
 		return params.EmptyAddress, nil
 	}
-	addr, err := signer.PSender(tx)
+	addr, err := signer.Payer(tx)
 	if err != nil {
 		return params.EmptyAddress, err
 	}
@@ -112,7 +112,7 @@ type Signer interface {
 	// Sender returns the sender address of the transaction.
 	Sender(tx *Transaction) (common.Address, error)
 	// PSender returns the paid address of the transaction.
-	PSender(tx *Transaction) (common.Address, error)
+	Payer(tx *Transaction) (common.Address, error)
 	// SignatureValues returns the raw R, S, V values corresponding to the
 	// given signature.
 	SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error)
@@ -156,9 +156,9 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
 }
 
-func (s EIP155Signer) PSender(tx *Transaction) (common.Address, error) {
+func (s EIP155Signer) Payer(tx *Transaction) (common.Address, error) {
 	if !tx.Protected() {
-		return HomesteadSigner{}.PSender(tx)
+		return HomesteadSigner{}.Payer(tx)
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
@@ -215,7 +215,7 @@ func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(hs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, true)
 }
 
-func (hs HomesteadSigner) PSender(tx *Transaction) (common.Address, error) {
+func (hs HomesteadSigner) Payer(tx *Transaction) (common.Address, error) {
 	return recoverPlain(hs.Hash(tx), tx.data.PR, tx.data.PS, tx.data.PV, true)
 }
 
@@ -255,7 +255,7 @@ func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(fs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
 }
 
-func (fs FrontierSigner) PSender(tx *Transaction) (common.Address, error) {
+func (fs FrontierSigner) Payer(tx *Transaction) (common.Address, error) {
 	return recoverPlain(fs.Hash(tx), tx.data.PR, tx.data.PS, tx.data.PV, false)
 }
 

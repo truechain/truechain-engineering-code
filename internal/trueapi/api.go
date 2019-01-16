@@ -1465,12 +1465,12 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		log.Error("submitTransaction", "from", from.String())
 		return common.Hash{}, err
 	}
-	payemnt, err := types.Payer(signer, tx)
+	payment, err := types.Payer(signer, tx)
 	if err != nil {
-		log.Error("submitTransaction signature", "payemnt", payemnt.String())
+		log.Error("submitTransaction signature", "payemnt", payment.String())
 		return common.Hash{}, err
 	}
-	fmt.Printf("submitTransaction:", "from=%v,payemnt=%v\n", from, payemnt)
+	fmt.Printf("submitTransaction:", "from=%v,payemnt=%v\n", from, payment)
 	//end
 	if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
