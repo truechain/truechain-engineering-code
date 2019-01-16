@@ -64,7 +64,7 @@ func init() {
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis = genesis.MustSnailCommit(peerDb)
-	snailblockchain, _ = NewSnailBlockChain(peerDb, nil, params.TestChainConfig, engine, vm.Config{})
+	snailblockchain, _ = NewSnailBlockChain(peerDb, params.TestChainConfig, engine, vm.Config{})
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
