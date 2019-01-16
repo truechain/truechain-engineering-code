@@ -1470,7 +1470,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		log.Error("submitTransaction signature", "payemnt", payment.String())
 		return common.Hash{}, err
 	}
-	fmt.Printf("submitTransaction:", "from=%v,payemnt=%v\n", from, payment)
+	//fmt.Printf("submitTransaction:", "from=%v,payemnt=%v\n", from, payment)
 	//end
 	if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
@@ -1479,9 +1479,9 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 			return common.Hash{}, err
 		}
 		addr := crypto.CreateAddress(from, tx.Nonce())
-		log.Info("Submitted contract creation", "fullhash", tx.Hash().Hex(), "contract", addr.Hex())
+		log.Debug("Submitted contract creation", "fullhash", tx.Hash().Hex(), "contract", addr.Hex())
 	} else {
-		log.Info("Submitted transaction", "fullhash", tx.Hash().Hex(), "recipient", tx.To())
+		log.Debug("Submitted transaction", "fullhash", tx.Hash().Hex(), "recipient", tx.To())
 	}
 	return tx.Hash(), nil
 }
@@ -1508,7 +1508,7 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
-	fmt.Printf("SendTransaction API recieved  from=%v\n ,Payment=%v", args.From, args.Payment)
+	//fmt.Printf("SendTransaction API recieved  from=%v\n ,Payment=%v", args.From, args.Payment)
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
