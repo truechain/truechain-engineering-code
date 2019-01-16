@@ -313,8 +313,8 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				}
 			}
 
-			fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
-			if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
+			fmt.Println(i, " sendRawTransaction main address ", gensisAccount1, " son address ", account[i], " value ", value)
+			if result, err := sendRawTransaction(client, gensisAccount1, account[i], value); err != nil {
 				fmt.Println("sendRawTransaction son address error ", result, " err ", err)
 				return false
 			}
