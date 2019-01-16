@@ -84,47 +84,63 @@ func makeHealthMgr(cid,committeeCount int) (*ttypes.HealthMgr,[]*hItem) {
 	}
 	return mgr,h
 }
-func TestSwitchItem(t *testing.T) {
+func TestSwitchItemInCommittee(t *testing.T) {
 	
 	end := make(chan int)
+	chanmgr := make(chan *hUpdateItem)
+	go healthUpdate(chanmgr,end)
+
 	cid,committeeCount := 1,4
 	mgr,hh := makeHealthMgr(cid,committeeCount)
 	mgr.Start()
 	out := make(chan *ttypes.SwitchValidator)
-	chanmgr := make(chan *hUpdateItem)
-	go func(){
-		chanmgr <- &hUpdateItem{
-			mgr:		mgr,
-			hh:			hh,
-			repos:		[]int{2},
-		}
-	}()
-	go healthUpdate(chanmgr)
-	go svHandle(mgr,1,out)
-	go checkResult(end,out)
 
-	<-end
+	for i:=0;i<10;i++ {
+		go func(){
+			chanmgr <- &hUpdateItem{
+				mgr:		mgr,
+				hh:			hh,
+				repos:		[]int{i+2},
+			}
+		}()
+		go svHandle(mgr,1,out)
+		go checkResult(end,out)
+	
+		<-end
+	}
+
 	mgr.Stop()
 }
-func healthUpdate(recv <-chan *hUpdateItem) {
-	item := <- recv 
-	sum := item.mgr.Sum()
-	if sum == 0 {
-		fmt.Println("healthUpdate func is quit,cause sum is 0")
-		return 
-	}
+func healthUpdate(recv <-chan *hUpdateItem,end chan<-int) {
 	// once update 
 	for {
 		if quit { return }
-		for _,pos := range item.repos {
-			if pos > 0 && pos < sum {
-				for i,v := range item.hh {
-					if i != pos {
-						item.mgr.Update(v.id)
-					}
-				}
+		var item *hUpdateItem
+		func() {
+			select{
+			case item =<-recv:
+			default:
 			}
-			time.Sleep(100*time.Millisecond)
+		}()
+		if item != nil {
+			sum := item.mgr.Sum()
+			if sum > 0 {
+				for _,pos := range item.repos {
+					if pos > 0 && pos < sum {
+						for i,v := range item.hh {
+							if i != pos {
+								item.mgr.Update(v.id)
+							}
+						}
+					} else {
+						go func() {	end <- 100 }()
+					}
+					time.Sleep(5*time.Millisecond)
+				}	 
+			} else {
+				fmt.Println("healthUpdate func is quit,cause sum is 0")
+				go func() {	end <- 100 }()
+			}
 		}
 		time.Sleep(1*time.Second)
 	}
