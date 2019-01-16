@@ -41,9 +41,9 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(10000),
-			MinimumFruitDifficulty: big.NewInt(100),
-			DurationLimit:          big.NewInt(60),
+			MinimumDifficulty:      big.NewInt(2000000),
+			MinimumFruitDifficulty: big.NewInt(2000),
+			DurationLimit:          big.NewInt(600),
 		}),
 	}
 
@@ -59,11 +59,11 @@ var (
 
 	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
 	DevnetChainConfig = &ChainConfig{
-		ChainID: big.NewInt(1),
+		ChainID: big.NewInt(10),
 		Minerva: &(MinervaConfig{
 			MinimumDifficulty:      big.NewInt(10000),
 			MinimumFruitDifficulty: big.NewInt(100),
-			DurationLimit:          big.NewInt(120),
+			DurationLimit:          big.NewInt(150),
 		}),
 	}
 
