@@ -222,7 +222,7 @@ func NewFakeElection() *Election {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
 
-	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
+	for i := 0; i < params.MinimumCommitteeNumber; i++ {
 		priKey, err := crypto.GenerateKey()
 		priKeys = append(priKeys, priKey)
 		if err != nil {
@@ -833,13 +833,12 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
-		log.Error("can't get election candidates, retain default committee")
+		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
 		members := e.elect(candidates, seed)
-		// TODO: define the members count to const value
-		if len(members) > 12 {
-			committee.Members = members[:12]
-			committee.Backups = members[12:]
+		if len(members) > params.MinimumCommitteeNumber {
+			committee.Members = members[:params.MinimumCommitteeNumber]
+			committee.Backups = members[params.MinimumCommitteeNumber:]
 		} else {
 			committee.Members = members
 		}
@@ -855,8 +854,9 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	if len(committee.Members) >= 4 {
 		committee.Backups = append(committee.Backups, e.defaultMembers...)
 	} else {
-		log.Error("can't get new committee, use default committee")
+		// PBFT need a minimum 3f+1 members
 		// Use genesis committee as default committee
+		log.Warn("can't elect new committee, use default committee", "count", len(committee.Members), "begin", snailBeginNumber, "end", snailEndNumber)
 		committee.Members = e.genesisCommittee
 	}
 

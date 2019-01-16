@@ -56,7 +56,7 @@ func TestElectionTestMode(t *testing.T) {
 	// by local node
 	election := NewFakeElection()
 	members := election.GetCommittee(common.Big1)
-	if int64(len(members)) != params.MinimumCommitteeNumber.Int64() {
+	if len(members) != params.MinimumCommitteeNumber {
 		t.Errorf("Commit members count error %v", len(members))
 	}
 }

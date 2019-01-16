@@ -107,6 +107,6 @@ var (
 
 	ElectionFruitsThreshold uint64 = 100 // fruit size threshold for committee election
 
-	MaximumCommitteeNumber = big.NewInt(30)
-	MinimumCommitteeNumber = big.NewInt(4)
+	MaximumCommitteeNumber = big.NewInt(50)
+	MinimumCommitteeNumber = 4
 )

@@ -553,7 +553,7 @@ func newFakeElection() *fakeElection {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
 
-	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
+	for i := 0; i < params.MinimumCommitteeNumber; i++ {
 		priKey, err := crypto.GenerateKey()
 		priKeys = append(priKeys, priKey)
 		if err != nil {
