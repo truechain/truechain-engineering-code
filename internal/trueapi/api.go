@@ -1595,15 +1595,24 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return nil, err
 	}
-	tx, err := s.sign(args.From, args.toTransaction())
+
+	tx := args.toTransaction()
+	//sign payment
+	signedPaymentTx, err := s.signPayment(args.Payment, tx)
+	if err != nil {
+		log.Error("SignTransaction signPayment error", "error", err)
+		return nil, err
+	}
+
+	signed, err := s.sign(args.From, signedPaymentTx)
 	if err != nil {
 		return nil, err
 	}
-	data, err := rlp.EncodeToBytes(tx)
+	data, err := rlp.EncodeToBytes(signed)
 	if err != nil {
 		return nil, err
 	}
-	return &SignTransactionResult{data, tx}, nil
+	return &SignTransactionResult{data, signed}, nil
 }
 
 // PendingTransactions returns the transactions that are in the transaction pool
