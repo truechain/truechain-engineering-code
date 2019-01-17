@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/big"
 	"sync"
 	"time"
@@ -373,7 +374,7 @@ func (agent *PbftAgent) loop() {
 				}
 				agent.setCommitteeInfo(currentCommittee, agent.nextCommitteeInfo)
 				if agent.IsCommitteeMember(agent.currentCommitteeInfo) {
-					go agent.server.Notify(committeeID, int(ch.Option))
+					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 			case types.CommitteeStop:
 				committeeID := copyCommitteeID(ch.CommitteeID)
@@ -381,7 +382,7 @@ func (agent *PbftAgent) loop() {
 					continue
 				}
 				if agent.IsCommitteeMember(agent.currentCommitteeInfo) {
-					go agent.server.Notify(committeeID, int(ch.Option))
+					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 				agent.stopSend()
 			case types.CommitteeSwitchover:
@@ -402,8 +403,8 @@ func (agent *PbftAgent) loop() {
 
 				if agent.IsCommitteeMember(receivedCommitteeInfo) {
 					agent.startSend(receivedCommitteeInfo, true)
-					agent.server.PutCommittee(receivedCommitteeInfo)
-					agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode})
+					help.CheckAndPrintError(agent.server.PutCommittee(receivedCommitteeInfo))
+					help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
 				}
@@ -416,13 +417,13 @@ func (agent *PbftAgent) loop() {
 					BackMembers: ch.BackupMembers,
 				}
 				if agent.IsCommitteeMember(receivedCommitteeInfo) {
-					agent.server.UpdateCommittee(receivedCommitteeInfo)
+					help.CheckAndPrintError(agent.server.UpdateCommittee(receivedCommitteeInfo))
 				}
 			case types.CommitteeOver:
 				log.Debug("CommitteeOver...", "CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
 				committeeID := copyCommitteeID(ch.CommitteeID)
 				agent.endFastNumber[committeeID] = ch.EndFastNumber
-				agent.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64())
+				help.CheckAndPrintError(agent.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64()))
 			default:
 				log.Warn("unknown election option:", "option", ch.Option)
 			}
@@ -641,7 +642,7 @@ func (agent *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
 	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
 	if committeeNode != nil {
-		agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode})
+		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
 }
 
