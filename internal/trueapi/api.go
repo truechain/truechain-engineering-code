@@ -25,7 +25,6 @@ import (
 	"strings"
 	"time"
 
-	"encoding/hex"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -1471,7 +1470,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		log.Error("submitTransaction signature", "payemnt", payment.String())
 		return common.Hash{}, err
 	}
-	fmt.Printf("submitTransaction:", "from=%v,payemnt=%v\n", from.String(), payment.String())
+	fmt.Printf("submitTransaction:from=%v,payemnt=%v\n", from.String(), payment.String())
 	//end
 	if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
@@ -1546,6 +1545,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
+	fmt.Println("api method SendRawTransaction received :", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
@@ -1599,7 +1599,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 
 	tx := args.toTransaction()
 	//sign payment
-	fmt.Println("args.Payment", args.Payment.String())
+	fmt.Println("api method signTransaction received payment", args.Payment.String())
 	signedPaymentTx, err := s.signPayment(args.Payment, tx)
 	if err != nil {
 		log.Error("SignTransaction signPayment error", "error", err)
@@ -1614,8 +1614,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("data", hex.EncodeToString(data))
-	fmt.Println("signed", signed.Info())
+	fmt.Println("api method signTransaction signed", signed.Info())
 	return &SignTransactionResult{data, signed}, nil
 }
 
