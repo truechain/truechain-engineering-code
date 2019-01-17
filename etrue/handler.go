@@ -131,6 +131,8 @@ type ProtocolManager struct {
 	syncWg   *sync.Cond
 	lock     *sync.Mutex
 	msgTime  *time.Timer // check msg deal timeout
+
+	synchronising int32
 }
 
 // NewProtocolManager returns a new Truechain sub protocol manager. The Truechain sub protocol manages peers capable
@@ -966,6 +968,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.blockchain.CurrentBlock()
 			if currentBlock.Number().Cmp(new(big.Int).Sub(height, common.Big256)) < 0 {
+				log.Info("syncer NewFastBlockMsg")
 				go pm.synchronise(p)
 			}
 		}
@@ -1095,6 +1098,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			//fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
+				log.Info("syncer SnailBlockMsg")
 				go pm.synchronise(p)
 			}
 		}
