@@ -1490,12 +1490,7 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 	if payment == params.EmptyAddress {
 		return tx, nil
 	}
-	account := accounts.Account{Address: payment}
-	wallet, err := s.b.AccountManager().Find(account)
-	if err != nil {
-		return nil, err
-	}
-	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
+	signed, err := s.sign(payment, tx)
 	if err != nil {
 		return nil, err
 	}
