@@ -66,6 +66,8 @@ var (
 	// is higher than the balance of the user's account.
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
 
+	//ErrInsufficientFundsForPayer is returned if the total gascost of executing a transaction
+	//is higher than the balance of the payer's account.
 	ErrInsufficientFundsForPayer = errors.New("insufficient funds for gas * price for payer")
 
 	ErrInsufficientFundsForSender = errors.New("insufficient funds for value for sender")
