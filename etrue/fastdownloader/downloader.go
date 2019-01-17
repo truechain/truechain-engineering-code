@@ -331,11 +331,10 @@ func (d *Downloader) UnregisterPeer(id string) error {
 
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
-func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
+func (d *Downloader) Synchronise(id string, head common.Hash, mode SyncMode, origin uint64, height uint64) error {
 	//defer d.Terminate()
 
-	err := d.synchronise(id, head, td, mode, origin, height)
-
+	err := d.synchronise(id, head, mode, origin, height)
 	switch err {
 	case nil:
 	case errBusy:
@@ -361,7 +360,7 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 // synchronise will select the peer and use it for synchronising. If an empty string is given
 // it will use the best peer possible and synchronize if its TD is higher than our own. If any of the
 // checks fail an error will be returned. This method is synchronous
-func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode SyncMode, origin uint64, height uint64) error {
+func (d *Downloader) synchronise(id string, hash common.Hash, mode SyncMode, origin uint64, height uint64) error {
 	// Mock out the synchronisation if testing
 	if d.synchroniseMock != nil {
 		return d.synchroniseMock(id, hash)
@@ -418,18 +417,18 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 		log.Debug("fast synchronise err", "id", id)
 		return errUnknownPeer
 	}
-	return d.syncWithPeer(p, hash, td, origin, height)
+	return d.syncWithPeer(p, hash, origin, height)
 }
 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
-func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int, origin uint64, height uint64) (err error) {
+func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, origin uint64, height uint64) (err error) {
 
 	if p.GetVersion() < 62 {
 		return errTooOld
 	}
 
-	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "td", td, "mode", d.mode, "origin", origin, "height", height)
+	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "mode", d.mode, "origin", origin, "height", height)
 	defer func(start time.Time) {
 		log.Debug("Fast Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
@@ -463,7 +462,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 	fetchers := []func() error{func() error { return d.fetchHeaders(p, origin+1, height_i, pivot) }}
 	fetchers = append(fetchers, func() error { return d.fetchBodies(origin + 1) })
 	fetchers = append(fetchers, func() error { return d.fetchReceipts(origin + 1) })
-	fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot, td) })
+	fetchers = append(fetchers, func() error { return d.processHeaders(origin+1, pivot) })
 
 	if d.mode == FastSync {
 		fetchers = append(fetchers, d.processFastSyncContent)
@@ -967,7 +966,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 // processHeaders takes batches of retrieved headers from an input channel and
 // keeps processing and scheduling them into the header chain and downloader's
 // queue until the stream ends or a failure occurs.
-func (d *Downloader) processHeaders(origin uint64, pivot uint64, td *big.Int) error {
+func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 	// Keep a count of uncertain headers to roll back
 	defer log.Debug("Fast processHeaders download terminated")
 
@@ -1155,11 +1154,10 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
-		log.Trace(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  fast block >>>>>>>>", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash())
+		log.Trace("importBlockResults fast block", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash(),"block signs:", result.Signs)
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
-		log.Trace("Fast downloader signs:", "block signs:", blocks[i].Signs())
 	}
-	log.Debug("Fast Downloaded>>>>", "CurrentBlock:", d.blockchain.CurrentBlock().NumberU64())
+
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
 		log.Error("Fast Downloaded item processing failed", "number", results[index].Fheader.Number, "hash", results[index].Fheader.Hash(), "err", err)
 		if err == types.ErrSnailHeightNotYet {
@@ -1199,9 +1197,7 @@ func (d *Downloader) processFastSyncContent() error {
 
 		if P != nil {
 			// If new pivot block found, cancel old state retrieval and restart
-
 			d.StateSync.Cancel()
-
 			stateSync := d.sDownloader.SyncStateFd(P.Fheader.Root)
 			defer stateSync.Cancel()
 			go func() {

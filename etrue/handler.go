@@ -583,7 +583,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return p.SendSnailBlockHeaders(headers)
 
 	case msg.Code == SnailBlockHeadersMsg:
-		log.Debug("SnailBlockHeadersMsg>>>>>>>>>>>>")
+		log.Debug("SnailBlockHeadersMsg")
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.SnailHeader
 		if err := msg.Decode(&headers); err != nil {
@@ -591,7 +591,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if len(headers) != 0 {
-			log.Debug("SnailBlockHeadersMsg>>", "headers:", len(headers), "headerNumber", headers[0].Number)
+			log.Debug("SnailBlockHeadersMsg", "headers:", len(headers), "headerNumber", headers[0].Number)
 		}
 		err := pm.downloader.DeliverHeaders(p.id, headers)
 		if err != nil {
@@ -600,7 +600,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetFastBlockHeadersMsg:
 
-		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>", "peer", p.id)
+		log.Debug("GetFastBlockHeadersMsg", "peer", p.id)
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -715,7 +715,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetFastBlockBodiesMsg:
-		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>", "peer", p.id)
+		log.Debug("GetFastBlockBodiesMsg", "peer", p.id)
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -778,7 +778,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
-		log.Debug("GetSnailBlockBodiesMsg>>>>>>>>>>>>", "peer", p.id)
+		log.Debug("GetSnailBlockBodiesMsg", "peer", p.id)
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -821,7 +821,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			fruits[i] = body.Fruits
 			signs[i] = body.Signs
 		}
-		log.Debug("SnailBlockBodiesMsg>>>>>>>>>>>>", "fruits", len(fruits))
+		log.Debug("SnailBlockBodiesMsg", "fruits", len(fruits))
 		err := pm.downloader.DeliverBodies(p.id, fruits, signs, nil)
 		if err != nil {
 			log.Debug("Failed to deliver bodies", "err", err)
@@ -1061,13 +1061,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
-		hash, td := p.Head()
+		hash, _ := p.Head()
 		fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
 
 		log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
 		if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
 			log.Debug("pm.fdownloader.Synchronise msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-			go pm.fdownloader.Synchronise(p.id, hash, td, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
+			go pm.fdownloader.Synchronise(p.id, hash, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
 		}
 
 		p.MarkSnailBlock(snailBlock.Hash())

@@ -200,7 +200,7 @@ func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uin
 	dl.lock.RUnlock()
 
 	// Synchronise with the chosen peer and ensure proper cleanup afterwards
-	err := dl.downloader.synchronise(id, hash, td, mode, origin, height)
+	err := dl.downloader.synchronise(id, hash, mode, origin, height)
 	select {
 	case <-dl.downloader.cancelCh:
 		// Ok, downloader fully cancelled after sync cycle
