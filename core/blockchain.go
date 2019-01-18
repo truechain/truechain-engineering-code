@@ -314,12 +314,10 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 	// Restore the last known currentReward
-
-	rewardHead := rawdb.ReadHeadRewardNumber(bc.db)
-	if rewardHead != 0 {
-		reward := rawdb.ReadBlockReward(bc.db, rewardHead)
-		//reward := bc.GetFastHeightBySnailHeight(rewardHead)
-		bc.currentReward.Store(reward)
+	rewardHead := bc.GetLastRowByFastCurrentBlock()
+	if rewardHead != nil {
+		bc.currentReward.Store(rewardHead)
+		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
 	}
 
 	// Issue a status log for the user
@@ -349,6 +347,24 @@ func (bc *BlockChain) GetLastRow() *types.BlockReward {
 	}
 	return nil
 }
+
+func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
+	block := bc.CurrentBlock()
+
+	for i:= block.NumberU64() ;i>0 ;i--{
+		if block.SnailNumber().Uint64() !=0  {
+			return &types.BlockReward{
+				SnailNumber:block.SnailNumber(),
+				SnailHash:block.SnailHash(),
+				FastNumber:block.Number(),
+				FastHash:block.Hash(),
+			}
+		}
+		block =bc.GetBlockByNumber(i)
+	}
+	return nil
+}
+
 
 // SetHead rewinds the local chain to a new head. In the case of headers, everything
 // above the new head will be deleted and the new one set. In the case of blocks
@@ -406,6 +422,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	currentFastBlock := bc.CurrentFastBlock()
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
+	rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
 
 	return bc.loadLastState()
 }
