@@ -340,7 +340,7 @@ func (bc *BlockChain) GetLastRow() *types.BlockReward {
 		if sBlock == nil {
 			continue
 		}
-		reward := bc.GetFastHeightBySnailHeight(sBlock.NumberU64())
+		reward := bc.GetBlockReward(sBlock.NumberU64())
 		if reward != nil {
 			return reward
 		}
@@ -1853,18 +1853,24 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetFastHeightBySnailHeight(snumber uint64) *types.BlockReward {
+func (bc *BlockChain) GetBlockReward(snumber uint64) (rewards *types.BlockReward) {
 
-	if rewards, ok := bc.rewardCache.Get(snumber); ok {
-		return rewards.(*types.BlockReward)
-	}
-	rewards := rawdb.ReadBlockReward(bc.db, snumber)
-
-	if rewards == nil {
+	if rewards_, ok := bc.rewardCache.Get(snumber); ok{
+		rewards = rewards_.(*types.BlockReward)
+		if bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
+			return rewards
+		}
 		return nil
 	}
-	bc.rewardCache.Add(snumber, rewards)
-	return rewards
+
+	rewards = rawdb.ReadBlockReward(bc.db, snumber)
+
+	if rewards != nil && bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
+		bc.rewardCache.Add(snumber, rewards)
+		return rewards
+	}
+
+	return nil
 }
 
 func (bc *BlockChain) GetBlockNumber() uint64 {

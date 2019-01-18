@@ -201,7 +201,7 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	if number < 0 {
 		return b.etrue.blockchain.CurrentReward()
 	}
-	return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
+	return b.etrue.blockchain.GetBlockReward(uint64(number))
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
