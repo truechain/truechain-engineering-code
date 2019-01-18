@@ -67,8 +67,8 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		snailNumber := block.SnailNumber().Uint64()
 		blockReward := fv.bc.GetBlockReward(snailNumber)
 		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
-			log.Error("validateRewardError", "snailNumber", snailNumber,
-				"currentNumber", fv.bc.CurrentBlock().NumberU64(), "err", ErrSnailBlockRewarded)
+			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
+				"currentNumber", block.NumberU64(), "err", ErrSnailBlockRewarded)
 			return ErrSnailBlockRewarded
 		} else {
 			currentRewardedNumber := fv.bc.NextSnailNumberReward()
