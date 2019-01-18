@@ -196,11 +196,11 @@ var (
 	}
 	BftKeyFileFlag = cli.StringFlag{
 		Name:  "bftkey",
-		Usage: "committee generate privatekey",
+		Usage: "committee generate bft_privatekey",
 	}
 	BftKeyHexFlag = cli.StringFlag{
 		Name:  "bftkeyhex",
-		Usage: "committee generate privatekey as hex (for testing)",
+		Usage: "committee generate bft_privatekey as hex (for testing)",
 	}
 	OldTbftFlag = cli.BoolFlag{
 		Name:  "oldtbft",
