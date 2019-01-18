@@ -1853,17 +1853,17 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetBlockReward(snumber uint64) (rewards *types.BlockReward) {
+func (bc *BlockChain) GetBlockReward(snumber uint64) (*types.BlockReward) {
 
 	if rewards_, ok := bc.rewardCache.Get(snumber); ok{
-		rewards = rewards_.(*types.BlockReward)
+		rewards := rewards_.(*types.BlockReward)
 		if bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
 			return rewards
 		}
 		return nil
 	}
 
-	rewards = rawdb.ReadBlockReward(bc.db, snumber)
+	rewards := rawdb.ReadBlockReward(bc.db, snumber)
 
 	if rewards != nil && bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
 		bc.rewardCache.Add(snumber, rewards)
