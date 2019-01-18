@@ -17,11 +17,13 @@
 package core
 
 import (
+	//"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	//"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 
 	"math/big"
@@ -37,8 +39,14 @@ type StateProcessor struct {
 	engine consensus.Engine    // Consensus engine used for block rewards
 }
 
+/*var (
+journal    *txJournal
+addressmap map[common.Address]*big.Int
+)*/
+
 // NewStateProcessor initialises a new StateProcessor.
 func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
+	//journal = newTxJournal("reservetxs")
 	return &StateProcessor{
 		config: config,
 		bc:     bc,
@@ -91,6 +99,13 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	if err != nil {
 		return nil, 0, err
 	}
+	/*if addressmap[msg.From()] == nil {
+		amount := statedb.GetBalance(msg.From())
+		addressmap[msg.From()] = amount
+	}
+	if err := journal.insert(tx); err != nil {
+		log.Warn("Failed to journal fruit", "err", err)
+	}*/
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc)
 	// Create a new environment which holds all relevant information
