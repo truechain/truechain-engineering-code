@@ -1012,10 +1012,10 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 			stats.queued++
 			continue
 
-		//case err == ErrInvalidFast:
-		//	bc.futureBlocks.Add(block.Hash(), block)
-		//	stats.queued++
-		//	continue
+			//case err == ErrInvalidFast:
+			//	bc.futureBlocks.Add(block.Hash(), block)
+			//	stats.queued++
+			//	continue
 
 		case err == consensus.ErrPrunedAncestor:
 			// Block competing with the canonical chain, store in the db, but don't process
@@ -1242,11 +1242,9 @@ func (bc *SnailBlockChain) reorg(oldBlock, newBlock *types.SnailBlock) error {
 
 	if len(newChain) > 1 {
 		go func() {
-			for i, block := range newChain {
-				if i > 0 {
-					log.Info("reorg snail block", "number", block.Number(), "hash", block.Hash())
-					bc.chainFeed.Send(types.ChainSnailEvent{Block: block})
-				}
+			for i := len(newChain) - 1; i > 0; i-- {
+				log.Info("reorg snail block", "number", newChain[i].Number(), "hash", newChain[i].Hash())
+				bc.chainFeed.Send(types.ChainSnailEvent{Block: newChain[i]})
 			}
 		}()
 	}
