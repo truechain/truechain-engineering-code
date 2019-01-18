@@ -1030,7 +1030,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 				// R: Nothing to give
 				if d.mode != LightSync && d.mode != SnapShotSync {
 					head := d.blockchain.CurrentBlock()
-					if !gotHeaders && d.remoteHeader.Number.Uint64() > head.NumberU64() {
+					if !gotHeaders && (origin+pivot) > head.NumberU64() {
 						return errStallingPeer
 					}
 				}
