@@ -1029,9 +1029,16 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 				// L: Request new headers up from 11 (R's TD was higher, it must have something)
 				// R: Nothing to give
 				if d.mode != LightSync && d.mode != SnapShotSync {
-					//head := d.blockchain.CurrentBlock()
-					//&& td.Cmp(d.blockchain.GetTd(head.Hash(), head.NumberU64())) > 0
-					if !gotHeaders {
+					head := d.blockchain.CurrentBlock()
+					if !gotHeaders && d.remoteHeader.Number.Uint64() > head.NumberU64() {
+						return errStallingPeer
+					}
+				}
+
+
+				if d.mode == FastSync || d.mode == LightSync || d.mode == SnapShotSync {
+					head := d.lightchain.CurrentHeader()
+					if d.remoteHeader.Number.Uint64() > head.Number.Uint64() {
 						return errStallingPeer
 					}
 				}
