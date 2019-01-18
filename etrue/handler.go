@@ -1064,14 +1064,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
 
-		hash, _ := p.Head()
-		fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
-
-		log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-		if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
-			log.Debug("pm.fdownloader.Synchronise msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-			go pm.fdownloader.Synchronise(p.id, hash, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
-		}
+		//hash, _ := p.Head()
+		//fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
+		//
+		//log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
+		//if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
+		//	log.Debug("pm.fdownloader.Synchronise msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
+		//	go pm.fdownloader.Synchronise(p.id, hash, fastdownloader.FullSync, fbNum-1, uint64(len(snailBlock.Fruits())))
+		//}
 
 		p.MarkSnailBlock(snailBlock.Hash())
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
