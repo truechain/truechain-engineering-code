@@ -167,7 +167,6 @@ func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, en
 	if err != nil {
 		return nil, err
 	}
-	//TODO 20180805
 
 	bc.genesisBlock = bc.GetBlockByNumber(0)
 	if bc.genesisBlock == nil {
