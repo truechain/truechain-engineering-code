@@ -127,7 +127,7 @@ type SnailPool struct {
 
 // NewSnailPool creates a new fruit pool to gather, sort and filter inbound
 // fruits from the network.
-func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain core.SnailChain, engine consensus.Engine, sv core.SnailValidator) *SnailPool {
+func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain core.SnailChain, engine consensus.Engine) *SnailPool {
 
 	//config SnailPoolConfig
 	config = (&config).sanitize()
@@ -139,7 +139,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 		chain:     chain,
 		engine:    engine,
 
-		validator: sv,
+		validator: chain.Validator(),
 
 		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),

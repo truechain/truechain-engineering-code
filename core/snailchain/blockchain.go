@@ -130,13 +130,15 @@ type SnailBlockChain struct {
 	validator core.SnailValidator // block and state validator interface
 	vmConfig  vm.Config
 
+	blockchain *core.BlockChain
+
 	badBlocks *lru.Cache // Bad block cache
 }
 
 // NewSnailBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config) (*SnailBlockChain, error) {
+func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, blockchain *core.BlockChain) (*SnailBlockChain, error) {
 
 	bodyCache, _ := lru.New(bodyCacheLimit)
 	bodyRLPCache, _ := lru.New(bodyCacheLimit)
@@ -156,8 +158,9 @@ func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, en
 		engine:       engine,
 		vmConfig:     vmConfig,
 		badBlocks:    badBlocks,
+		blockchain:   blockchain,
 	}
-	//bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
+	bc.SetValidator(NewBlockValidator(chainConfig, blockchain, bc, engine))
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)

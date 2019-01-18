@@ -1360,7 +1360,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 
 	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
-	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, vmcfg)
+	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, vmcfg, fchain)
 
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
