@@ -19,7 +19,6 @@ package etruestats
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -30,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/log"
@@ -557,16 +557,16 @@ type blockStats struct {
 
 // blockStats is the information to report about individual blocks.
 type snailBlockStats struct {
-	Number      *big.Int        `json:"number"`
-	Hash        common.Hash     `json:"hash"`
-	ParentHash  common.Hash     `json:"parentHash"`
-	Timestamp   *big.Int        `json:"timestamp"`
-	Miner       common.Address  `json:"miner"`
-	Diff        string          `json:"difficulty"`
-	TotalDiff   string          `json:"totalDifficulty"`
-	Uncles      snailUncleStats `json:"uncles"`
-	FruitNumber *big.Int        `json:"fruits"`
-	LastFruit   *big.Int        `json:"lastFruit"`
+	Number     *big.Int       `json:"number"`
+	Hash       common.Hash    `json:"hash"`
+	ParentHash common.Hash    `json:"parentHash"`
+	Timestamp  *big.Int       `json:"timestamp"`
+	Miner      common.Address `json:"miner"`
+	Diff       string         `json:"difficulty"`
+	TotalDiff  string         `json:"totalDifficulty"`
+	//Uncles      snailUncleStats `json:"uncles"`
+	FruitNumber *big.Int `json:"fruits"`
+	LastFruit   *big.Int `json:"lastFruit"`
 	//Specific properties of fruit
 	//signs types.PbftSigns
 }
@@ -578,14 +578,6 @@ type txStats struct {
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
 // empty arrays instead of returning null for them.
-/*type uncleStats []*types.Header
-
-func (s uncleStats) MarshalJSON() ([]byte, error) {
-	if uncles := ([]*types.Header)(s); len(uncles) > 0 {
-		return json.Marshal(uncles)
-	}
-	return []byte("[]"), nil
-}*/
 
 type snailUncleStats []*types.SnailHeader
 
@@ -703,14 +695,14 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 	// Assemble and return the block stats
 	author, _ := s.engine.AuthorSnail(header)
 	return &snailBlockStats{
-		Number:      header.Number,
-		Hash:        header.Hash(),
-		ParentHash:  header.ParentHash,
-		Timestamp:   header.Time,
-		Miner:       author,
-		Diff:        block.Difficulty().String(),
-		TotalDiff:   td.String(),
-		Uncles:      nil,
+		Number:     header.Number,
+		Hash:       header.Hash(),
+		ParentHash: header.ParentHash,
+		Timestamp:  header.Time,
+		Miner:      author,
+		Diff:       block.Difficulty().String(),
+		TotalDiff:  td.String(),
+		//Uncles:      nil,
 		FruitNumber: fruitNumber,
 		LastFruit:   block.MaxFruitNumber(),
 	}
