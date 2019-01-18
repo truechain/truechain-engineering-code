@@ -26,7 +26,7 @@ const (
 	SwitchPartBack = 1
 	SwitchPartSeed = 2
 
-	EnableHealthMgr = true
+	EnableHealthMgr = false
 )
 
 //Health struct
@@ -295,6 +295,7 @@ func (h *HealthMgr) work(sshift bool) {
 func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 	if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 		val := atomic.AddInt32(&v.Tick, 1)
+		log.Info("Health", v.ID, val)
 		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 			if sv0 := h.getCurSV(); sv0 == nil {
 				log.Info("Health", "Change", true)
