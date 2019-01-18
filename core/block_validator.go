@@ -82,12 +82,6 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	//if err := fv.engine.VerifyUncles(fv.bc, block); err != nil {
-	//	return err
-	//}
-	//if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-	//return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-	//}
 
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
