@@ -10,14 +10,14 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"sync/atomic"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
 	//HealthOut peer time out
-	HealthOut = 60*3600 
+	HealthOut = 120
 	//MixValidator min committee count
 	MixValidator   = 2
 	BlackDoorCount = 4
@@ -26,7 +26,7 @@ const (
 	SwitchPartBack = 1
 	SwitchPartSeed = 2
 
-	EnableHealthMgr = false
+	EnableHealthMgr = true
 )
 
 //Health struct
@@ -87,7 +87,7 @@ type SwitchValidator struct {
 	Resion    string
 	From      int // 0-- add ,1-- resore
 	DoorCount int
-	Round 	  int 		// -1 not exc,no lock
+	Round     int // -1 not exc,no lock
 	ID        uint64
 }
 
@@ -96,7 +96,7 @@ func (s *SwitchValidator) String() string {
 		return "switch-validator-nil"
 	}
 	return fmt.Sprintf("switch-validator:[ID:%v,Round:%d,From:%d,Door:%d,Resion:%s,R:%s,A:%s,Info:%s]",
-		s.ID,s.Round, s.From, s.DoorCount, s.Resion, s.Remove, s.Add, s.Infos)
+		s.ID, s.Round, s.From, s.DoorCount, s.Resion, s.Remove, s.Add, s.Infos)
 }
 
 // Equal return true they are same id or both nil otherwise return false
@@ -107,10 +107,11 @@ func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return s.ID == other.ID && s.Remove.Equal(other.Remove) && 
-			s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
+	return s.ID == other.ID && s.Remove.Equal(other.Remove) &&
+		s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
 }
-// EqualWithoutID return true they are same id or both nil otherwise return false 
+
+// EqualWithoutID return true they are same id or both nil otherwise return false
 func (s *SwitchValidator) EqualWithoutID(other *SwitchValidator) bool {
 	if s == nil && other == nil {
 		return true
@@ -121,7 +122,7 @@ func (s *SwitchValidator) EqualWithoutID(other *SwitchValidator) bool {
 	return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
 }
 
-// EqualWithRemove return true they are same id or both nil otherwise return false 
+// EqualWithRemove return true they are same id or both nil otherwise return false
 func (s *SwitchValidator) EqualWithRemove(other *SwitchValidator) bool {
 	if s == nil && other == nil {
 		return true
@@ -131,6 +132,7 @@ func (s *SwitchValidator) EqualWithRemove(other *SwitchValidator) bool {
 	}
 	return s.Remove.Equal(other.Remove)
 }
+
 //HealthMgr struct
 type HealthMgr struct {
 	help.BaseService
@@ -143,8 +145,8 @@ type HealthMgr struct {
 	curSwitch      []*SwitchValidator
 	switchBuffer   []*SwitchValidator
 	cid            uint64
-	uid 		   uint64
-	lock 		   *sync.Mutex
+	uid            uint64
+	lock           *sync.Mutex
 }
 
 //NewHealthMgr func
@@ -158,13 +160,13 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 		switchChanTo:   make(chan *SwitchValidator),
 		switchChanFrom: make(chan *SwitchValidator),
 		cid:            cid,
-		lock: 			new(sync.Mutex),
+		lock:           new(sync.Mutex),
 		healthTick:     nil,
 	}
 	h.BaseService = *help.NewBaseService("HealthMgr", h)
-	hi,lo := cid << 32,uint64(100)
+	hi, lo := cid<<32, uint64(100)
 	h.uid = hi | lo
-	log.Info("HealthMgr init","cid",cid,"hi",hi,"lo",lo,"uid",h.uid)	
+	log.Info("HealthMgr init", "cid", cid, "hi", hi, "lo", lo, "uid", h.uid)
 	return h
 }
 
@@ -172,6 +174,7 @@ func NewHealthMgr(cid uint64) *HealthMgr {
 func (h *HealthMgr) Sum() int {
 	return len(h.Work) + len(h.Back) + len(h.seed)
 }
+
 //PutWorkHealth add a *health to work
 func (h *HealthMgr) PutWorkHealth(he *Health) {
 	h.Work[he.ID] = he
@@ -223,7 +226,7 @@ func (h *HealthMgr) OnStop() {
 	}
 	help.CheckAndPrintError(h.Stop())
 }
-func (h *HealthMgr) getCurSV() *SwitchValidator{
+func (h *HealthMgr) getCurSV() *SwitchValidator {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	if len(h.curSwitch) > 0 {
@@ -235,7 +238,7 @@ func (h *HealthMgr) setCurSV(sv *SwitchValidator) {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 	if len(h.curSwitch) == 0 && sv != nil {
-		h.curSwitch = append(h.curSwitch,sv)
+		h.curSwitch = append(h.curSwitch, sv)
 	}
 }
 func (h *HealthMgr) removeCurSV() {
@@ -258,14 +261,14 @@ func (h *HealthMgr) Switch(s *SwitchValidator) {
 	}
 }
 func (h *HealthMgr) healthGoroutine() {
-	sshift,islog,cnt := true,true,0
+	sshift, islog, cnt := true, true, 0
 	for {
 		select {
 		case <-h.healthTick.C:
-			sshift,cnt = h.isShiftSV()
+			sshift, cnt = h.isShiftSV()
 			h.work(sshift)
 			if !sshift && islog {
-				log.Info("Stop Shift Switch Validator, because minimum SV","Count",cnt,"CID",h.cid)
+				log.Info("Stop Shift Switch Validator, because minimum SV", "Count", cnt, "CID", h.cid)
 				islog = false
 			}
 		case s := <-h.ChanFrom():
@@ -277,17 +280,19 @@ func (h *HealthMgr) healthGoroutine() {
 	}
 }
 func (h *HealthMgr) work(sshift bool) {
-	if !EnableHealthMgr { return }
+	if !EnableHealthMgr {
+		return
+	}
 
 	for _, v := range h.Work {
-		h.checkSwitchValidator(v,sshift)
+		h.checkSwitchValidator(v, sshift)
 	}
 	for _, v := range h.Back {
-		h.checkSwitchValidator(v,sshift)
+		h.checkSwitchValidator(v, sshift)
 	}
 }
 
-func (h *HealthMgr) checkSwitchValidator(v *Health,sshift bool) {
+func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 	if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 		val := atomic.AddInt32(&v.Tick, 1)
 		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
@@ -295,19 +300,19 @@ func (h *HealthMgr) checkSwitchValidator(v *Health,sshift bool) {
 				log.Info("Health", "Change", true)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
-				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))	
+				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
 				h.setCurSV(cur)
 				log.Info("CheckSwitchValidator(remove,add)", "info:", cur)
 				go h.Switch(cur)
 			}
-		}	
+		}
 
-		if sv0 := h.getCurSV(); sv0 != nil {	
+		if sv0 := h.getCurSV(); sv0 != nil {
 			val0 := atomic.LoadInt32(&sv0.Remove.Tick)
 			if val0 < HealthOut && sv0.From == 0 {
 				sv1 := *sv0
 				sv1.From = 1
-				log.Info("Restore SwitchValidator","info",sv1)
+				log.Info("Restore SwitchValidator", "info", sv1)
 				go h.Switch(&sv1)
 			}
 		}
@@ -356,12 +361,12 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		DoorCount: 0,
 		Remove:    remove,
 		Add:       add,
-		Round:	   -1,
+		Round:     -1,
 		ID:        uid, // for tmp
 	}
 }
 
-func (h *HealthMgr) isShiftSV() (bool,int) {
+func (h *HealthMgr) isShiftSV() (bool, int) {
 	cnt := 0
 	for _, v := range h.Work {
 		if v.State == ctypes.StateUsedFlag {
@@ -378,13 +383,15 @@ func (h *HealthMgr) isShiftSV() (bool,int) {
 			cnt++
 		}
 	}
-	return cnt > MixValidator,cnt
+	return cnt > MixValidator, cnt
 }
 
-//switchResult handle the sv after consensus and the result removed from self 
+//switchResult handle the sv after consensus and the result removed from self
 func (h *HealthMgr) switchResult(res *SwitchValidator) {
-	if !EnableHealthMgr { return }
-	
+	if !EnableHealthMgr {
+		return
+	}
+
 	// remove sv in curSwitch if can
 	if cur := h.getCurSV(); cur != nil {
 		if (res.From == 1 && cur.Equal(res)) || cur.EqualWithoutID(res) || cur.EqualWithRemove(res) {
@@ -410,12 +417,12 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 			if remove != nil {
 				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
-				atomic.StoreInt32(&remove.Tick,0)	// issues for the sv was in another proposal queue
+				atomic.StoreInt32(&remove.Tick, 0) // issues for the sv was in another proposal queue
 				ss = "Success"
 			}
 			if add != nil {
 				atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
-				atomic.StoreInt32(&add.Tick,0)
+				atomic.StoreInt32(&add.Tick, 0)
 			}
 		}
 	}
@@ -494,16 +501,16 @@ func (h *HealthMgr) GetHealth(pk []byte) *Health {
 func (h *HealthMgr) VerifySwitch(sv *SwitchValidator) error {
 	if !EnableHealthMgr {
 		err := fmt.Errorf("healthMgr not enable")
-		log.Error("VerifySwitch","err",err) 
+		log.Error("VerifySwitch", "err", err)
 		return err
 	}
 	if sv0 := h.getCurSV(); sv0 != nil {
 		if sv0.Equal(sv) {
-			log.Info("HealthMgr verify:sv equal sv0","info",sv)
-			return nil 	// proposal is self?
-		}	
+			log.Info("HealthMgr verify:sv equal sv0", "info", sv)
+			return nil // proposal is self?
+		}
 	}
-	return h.verifySwitchEnter(sv.Remove,sv.Add)
+	return h.verifySwitchEnter(sv.Remove, sv.Add)
 }
 
 func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
