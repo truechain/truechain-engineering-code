@@ -66,6 +66,7 @@ type SnailValidator interface {
 	ValidateRewarded(number uint64) error
 }
 
+// SnailChain is an interface which defines the standard for snail block.
 type SnailChain interface {
 	// Config retrieves the blockchain's chain configuration.
 	Config() *params.ChainConfig
