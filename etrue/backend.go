@@ -187,12 +187,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
-	// TODO: rewind snail if case of incompatible config
-	// if compat, ok := snailErr.(*params.ConfigCompatError); ok {
-	// 	log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-	// 	etrue.snailblockchain.SetHead(compat.RewindTo)
-	// 	rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
-	// }
+	//  rewind snail if case of incompatible config
+	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding snail chain to upgrade configuration", "err", compat)
+		etrue.snailblockchain.SetHead(compat.RewindTo)
+		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+	}
 
 	etrue.bloomIndexer.Start(etrue.blockchain)
 
