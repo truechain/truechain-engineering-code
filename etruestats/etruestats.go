@@ -869,13 +869,14 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 
 // nodeStats is the information to report about the local node.
 type nodeStats struct {
-	Active   bool `json:"active"`
-	Syncing  bool `json:"syncing"`
-	Mining   bool `json:"mining"`
-	Hashrate int  `json:"hashrate"`
-	Peers    int  `json:"peers"`
-	GasPrice int  `json:"gasPrice"`
-	Uptime   int  `json:"uptime"`
+	Active            bool `json:"active"`
+	Syncing           bool `json:"syncing"`
+	Mining            bool `json:"mining"`
+	isCommitteeMember bool `json:"isCommitteeMember"`
+	Hashrate          int  `json:"hashrate"`
+	Peers             int  `json:"peers"`
+	GasPrice          int  `json:"gasPrice"`
+	Uptime            int  `json:"uptime"`
 }
 
 // reportPending retrieves various stats about the node at the networking and
@@ -883,10 +884,11 @@ type nodeStats struct {
 func (s *Service) reportStats(conn *websocket.Conn) error {
 	// Gather the syncing and mining infos from the local miner instance
 	var (
-		mining   bool
-		hashrate int
-		syncing  bool
-		gasprice int
+		mining            bool
+		isCommitteeMember bool
+		hashrate          int
+		syncing           bool
+		gasprice          int
 	)
 	if s.etrue != nil {
 		mining = s.etrue.Miner().Mining()
@@ -897,6 +899,8 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 
 		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
+
+		isCommitteeMember = s.etrue.PbftAgent().IsCommitteeMember()
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
@@ -907,13 +911,14 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 	stats := map[string]interface{}{
 		"id": s.node,
 		"stats": &nodeStats{
-			Active:   true,
-			Mining:   mining,
-			Hashrate: hashrate,
-			Peers:    s.server.PeerCount(),
-			GasPrice: gasprice,
-			Syncing:  syncing,
-			Uptime:   100,
+			Active:            true,
+			Mining:            mining,
+			Hashrate:          hashrate,
+			Peers:             s.server.PeerCount(),
+			GasPrice:          gasprice,
+			Syncing:           syncing,
+			Uptime:            100,
+			isCommitteeMember: isCommitteeMember,
 		},
 	}
 	report := map[string][]interface{}{
