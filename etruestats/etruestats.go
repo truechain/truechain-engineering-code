@@ -900,7 +900,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
 
-		isCommitteeMember = s.etrue.PbftAgent().IsCommitteeMember()
+		isCommitteeMember = s.etrue.PbftAgent().IsCurrentCommitteeMember()
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock

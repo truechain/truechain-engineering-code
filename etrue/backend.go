@@ -219,8 +219,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	etrue.engine.SetSnailChainReader(etrue.snailblockchain)
 	etrue.election.SetEngine(etrue.engine)
 
-	coinbase, _ := etrue.Etherbase()
-	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, coinbase)
+	//coinbase, _ := etrue.Etherbase()
+	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election)
 	if etrue.protocolManager, err = NewProtocolManager(
 		etrue.chainConfig, config.SyncMode, config.NetworkId,
 		etrue.eventMux, etrue.txPool, etrue.snailPool, etrue.engine,
@@ -445,10 +445,10 @@ func (s *Truechain) StartMining(local bool) error {
 	return nil
 }
 
-func (s *Truechain) StopMining()         { s.miner.Stop() }
-func (s *Truechain) IsMining() bool      { return s.miner.Mining() }
-func (s *Truechain) Miner() *miner.Miner { return s.miner }
-
+func (s *Truechain) StopMining()                       { s.miner.Stop() }
+func (s *Truechain) IsMining() bool                    { return s.miner.Mining() }
+func (s *Truechain) Miner() *miner.Miner               { return s.miner }
+func (s *Truechain) PbftAgent() *PbftAgent             { return s.agent }
 func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
 func (s *Truechain) Config() *Config                   { return s.config }

@@ -25,7 +25,7 @@ const (
 	CommitteeSwitchover
 	// CommitteeUpdate update committee members and backups
 	CommitteeUpdate
-	// CommitteeOver notify current pbft committee end block
+	// CommitteeOver notify current pbft committee end fastBlock
 	CommitteeOver
 
 	StateUnusedFlag    = 0xa0
