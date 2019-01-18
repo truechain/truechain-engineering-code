@@ -17,9 +17,12 @@
 package core
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/params"
 )
 
 // Validator is an interface which defines the standard for block validation. It
@@ -61,4 +64,37 @@ type SnailValidator interface {
 
 	// ValidateRewarded validates the given block if rewarded
 	ValidateRewarded(number uint64) error
+}
+
+type SnailChain interface {
+	// Config retrieves the blockchain's chain configuration.
+	Config() *params.ChainConfig
+
+	// CurrentHeader retrieves the current header from the local chain.
+	CurrentHeader() *types.SnailHeader
+
+	// GetHeader retrieves a block header from the database by hash and number.
+	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
+
+	// GetHeaderByNumber retrieves a block header from the database by number.
+	GetHeaderByNumber(number uint64) *types.SnailHeader
+
+	// GetHeaderByHash retrieves a block header from the database by its hash.
+	GetHeaderByHash(hash common.Hash) *types.SnailHeader
+
+	// CurrentBlock retrieves the current block from the local chain.
+	CurrentBlock() *types.SnailBlock
+
+	// GetBlock retrieves a block from the database by hash and number.
+	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
+
+	// GetBlockByNumber retrieves a snail block from the database by number.
+	GetBlockByNumber(number uint64) *types.SnailBlock
+
+	// GetBlockByHash retrieves a snail block from the database by its hash.
+	GetBlockByHash(hash common.Hash) *types.SnailBlock
+
+	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
+
+	Validator() SnailValidator
 }
