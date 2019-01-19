@@ -1147,12 +1147,18 @@ func (agent *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) ev
 
 //IsCommitteeMember  whether agent in  committee member
 func (agent *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
-	return agent.election.IsCommitteeMember(committeeInfo.Members, agent.committeeNode.Publickey)
+	var members []*types.CommitteeMember
+	members = append(members, committeeInfo.Members...)
+	members = append(members, committeeInfo.BackMembers...)
+	return agent.election.IsCommitteeMember(members, agent.committeeNode.Publickey)
 }
 
 //IsCommitteeMember  whether agent in  committee member
 func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.CommitteeInfo) int32 {
-	members := committeeInfo.Members
+	var members []*types.CommitteeMember
+	members = append(members, committeeInfo.Members...)
+	members = append(members, committeeInfo.BackMembers...)
+
 	publickey := agent.committeeNode.Publickey
 	if len(members) == 0 {
 		log.Error("getMemberFlagFromCommittee method len(members)= 0")
