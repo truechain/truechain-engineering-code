@@ -257,7 +257,7 @@ func (d *Downloader) SetSD(Sdownloader SDownloader) {
 // In addition, during the state download phase of fast synchronisation the number
 // of processed and the total number of known states are also returned. Otherwise
 // these are zero.
-func (d *Downloader) Progress() ethereum.SyncProgress {
+func (d *Downloader) Progress() truechain.SyncProgress {
 	// Lock the current stats and return the progress
 	d.syncStatsLock.RLock()
 	defer d.syncStatsLock.RUnlock()
@@ -273,7 +273,7 @@ func (d *Downloader) Progress() ethereum.SyncProgress {
 	case SnapShotSync:
 		current = d.lightchain.CurrentHeader().Number.Uint64()
 	}
-	return ethereum.SyncProgress{
+	return truechain.SyncProgress{
 		StartingBlock: d.syncStatsChainOrigin,
 		CurrentBlock:  current,
 		HighestBlock:  d.syncStatsChainHeight,
@@ -1035,7 +1035,6 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 					}
 				}
 
-
 				if d.mode == FastSync || d.mode == LightSync || d.mode == SnapShotSync {
 					head := d.lightchain.CurrentHeader()
 					if d.remoteHeader.Number.Uint64() > head.Number.Uint64() {
@@ -1161,7 +1160,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	)
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
-		log.Trace("importBlockResults fast block", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash(),"block signs:", result.Signs)
+		log.Trace("importBlockResults fast block", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash(), "block signs:", result.Signs)
 		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
 	}
 

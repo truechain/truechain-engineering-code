@@ -66,7 +66,7 @@ var (
 	fsHeaderSafetyNet = 2048            // Number of headers to discard in case a chain violation is detected
 	fsHeaderContCheck = 3 * time.Second // Time interval to check for header continuations during state download
 
-	maxheight 		  = uint64(600)
+	maxheight = uint64(600)
 )
 
 var (
@@ -248,14 +248,14 @@ func (d *Downloader) SetHeader(remote *types.Header) {
 // In addition, during the state download phase of fast synchronisation the number
 // of processed and the total number of known states are also returned. Otherwise
 // these are zero.
-func (d *Downloader) Progress() ethereum.SyncProgress {
+func (d *Downloader) Progress() truechain.SyncProgress {
 	// Lock the current stats and return the progress
 	d.syncStatsLock.RLock()
 	defer d.syncStatsLock.RUnlock()
 
 	current := d.blockchain.CurrentBlock().NumberU64()
 
-	return ethereum.SyncProgress{
+	return truechain.SyncProgress{
 		StartingBlock: d.syncStatsChainOrigin,
 		CurrentBlock:  current,
 		HighestBlock:  d.syncStatsChainHeight,
@@ -408,7 +408,6 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *big.Int) (err error) {
-
 
 	if p.GetVersion() < 62 {
 		return errTooOld
@@ -1414,15 +1413,13 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 			fbNumber := result.Fruits[0].FastNumber().Uint64()
 			fbLastNumber := result.Fruits[fruitLen-1].FastNumber().Uint64()
 
-
 			if fbLastNumber < fbNumber || fbNumber < 1 {
 				return errFruits
 			}
-			log.Debug("importBlockResults ", "fbNumber", fbNumber,  "fbLastNumber", fbLastNumber)
-			if err:=d.SyncFast(p.GetID(),hash,fbLastNumber,d.mode);err != nil{
+			log.Debug("importBlockResults ", "fbNumber", fbNumber, "fbLastNumber", fbLastNumber)
+			if err := d.SyncFast(p.GetID(), hash, fbLastNumber, d.mode); err != nil {
 				return err
 			}
-
 
 		} else {
 			log.Debug("Snail importBlockResults", "blocks", blocks[0], "fruits", result.Fruits)
@@ -1442,9 +1439,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 
 }
 
-
-func (d * Downloader) SyncFast(peer string,head common.Hash,fbLastNumber uint64,mode SyncMode) (err error) {
-
+func (d *Downloader) SyncFast(peer string, head common.Hash, fbLastNumber uint64, mode SyncMode) (err error) {
 
 	currentNumber := d.fastDown.GetBlockChain().CurrentBlock().NumberU64()
 	if mode == FastSync {
@@ -1495,7 +1490,6 @@ func (d * Downloader) SyncFast(peer string,head common.Hash,fbLastNumber uint64,
 	}
 	return nil
 }
-
 
 // DeliverHeaders injects a new batch of block headers received from a remote
 // node into the download schedule.
