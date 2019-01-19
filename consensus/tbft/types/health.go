@@ -295,10 +295,10 @@ func (h *HealthMgr) work(sshift bool) {
 func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 	if v.State == ctypes.StateUsedFlag && v.HType != ctypes.TypeFixed && !v.Self {
 		val := atomic.AddInt32(&v.Tick, 1)
-		log.Info("Health", v.ID, val)
+		log.Info("Health", "id", v.ID, "val", val)
 		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 			if sv0 := h.getCurSV(); sv0 == nil {
-				log.Warn("Health", "Change", true, v.ID, val)
+				log.Warn("Health", "id", v.ID, "val", val)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
