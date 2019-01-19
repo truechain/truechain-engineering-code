@@ -13,14 +13,14 @@ import (
 	"time"
 
 	"github.com/elastic/gosigar"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/console"
-	"github.com/truechain/truechain-engineering-code/etrueclient"
 	"github.com/truechain/truechain-engineering-code/etrue"
+	"github.com/truechain/truechain-engineering-code/etrueclient"
 	"github.com/truechain/truechain-engineering-code/internal/debug"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/node"
 	"gopkg.in/urfave/cli.v1"
@@ -34,7 +34,7 @@ var (
 	// Git SHA1 commit hash of the release (set via linker flags)
 	gitCommit = ""
 	// The app that holds all commands and flags.
-	app = utils.NewApp(gitCommit, "the go-ethereum command line interface")
+	app = utils.NewApp(gitCommit, "the truechain command line interface")
 	// flags that configure the node
 	nodeFlags = []cli.Flag{
 		utils.IdentityFlag,
@@ -147,7 +147,7 @@ func init() {
 	// Initialize the CLI app and start Getrue
 	app.Action = getrue
 	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2013-2018 The getrue Authors"
+	app.Copyright = "Copyright 2018-2019 The getrue Authors"
 	app.Commands = []cli.Command{
 		// See chaincmd.go:
 		initCommand,
