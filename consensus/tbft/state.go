@@ -1271,6 +1271,8 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	// NOTE The block.AppHash wont reflect these txs until the next block.
 	var err error
 	block.SetSign(signs)
+
+	cs.swithResult(block)
 	err = cs.state.ConsensusCommit(block)
 	if err != nil {
 		log.Error("Error on ApplyBlock. Did the application crash? Please restart getrue", "err", err)
@@ -1292,7 +1294,6 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
 
-	cs.swithResult(block)
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 
