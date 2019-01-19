@@ -619,6 +619,7 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		info["memberCount"] = len(e.genesisCommittee)
 		info["members"] = membersDisplay(e.genesisCommittee)
 		info["beginNumber"] = 1
+		info["endNumber"] = nil
 		if currentCommittee.id.Cmp(id) == 0 {
 			// Committee end fast number may not be available when current snail lower than commiteeId * period
 			if currentCommittee.endFastNumber != nil && currentCommittee.endFastNumber.Uint64() > 0 {
@@ -638,15 +639,16 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		beginElectionNumber = new(big.Int).Set(common.Big1)
 	}
 
-	// members = e.electCommittee(beginElectionNumber, endElectionNumber)
-	members = e.getElectionMembers(beginElectionNumber, endElectionNumber).Members
-	if members != nil {
+	elected := e.electCommittee(beginElectionNumber, endElectionNumber)
+	if elected != nil {
 		info["id"] = id.Uint64()
 		info["memberCount"] = len(members)
 		info["beginSnailNumber"] = beginElectionNumber.Uint64()
 		info["endSnailNumber"] = endElectionNumber.Uint64()
-		info["members"] = membersDisplay(members)
+		info["members"] = membersDisplay(elected.Members)
+		info["backups"] = membersDisplay(elected.Backups)
 		info["beginNumber"] = new(big.Int).Add(e.getLastNumber(beginElectionNumber, endElectionNumber), common.Big1).Uint64()
+		info["endNumber"] = nil
 		// Committee end fast number may be nil if current committee is working on
 		if currentCommittee.id.Cmp(id) == 0 {
 			// Committee end fast number may not be available when current snail lower than commiteeId * period
@@ -670,6 +672,8 @@ func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 		attrs = append(attrs, map[string]interface{}{
 			"coinbase": member.Coinbase,
 			"PKey":     hex.EncodeToString(crypto.FromECDSAPub(member.Publickey)),
+			"flag":     member.Flag,
+			"type":     member.MType,
 		})
 	}
 	return attrs
