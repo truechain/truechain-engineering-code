@@ -932,14 +932,11 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		"number":     (*hexutil.Big)(head.Number),
 		"hash":       b.Hash(),
 		"parentHash": head.ParentHash,
-		//"mixHash":          head.MixDigest,
-		//"sha3Uncles":       head.UncleHash,
+		"CommitteeHash": head.CommitteeHash,
 		"logsBloom":   head.Bloom,
 		"stateRoot":   head.Root,
 		"SnailHash":   head.SnailHash,
 		"SnailNumber": head.SnailNumber,
-		//"miner":            head.Coinbase,
-		//"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
@@ -950,14 +947,12 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	}
 
 	formatSign := func(sign *types.PbftSign) (map[string]interface{}, error) {
-
 		signmap := map[string]interface{}{
 			"fastHeight": (*hexutil.Big)(sign.FastHeight),
 			"fastHash":   sign.FastHash,
 			"sign":       hexutil.Bytes(sign.Sign),
 			"result":     sign.Result,
 		}
-
 		return signmap, nil
 	}
 
@@ -971,6 +966,29 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	}
 
 	fields["signs"] = signs
+	formatSwitchEnter := func(witch *types.SwitchEnter) (map[string]interface{}, error) {
+		SwitchEntermap := map[string]interface{}{
+			"PK": hexutil.Bytes(witch.Pk),
+			"Flag":hexutil.Uint(witch.Flag),
+		}
+		return SwitchEntermap, nil
+	}
+
+	sw := b.SwitchInfos()
+	sw_vals := make([]interface{}, len(sw.Vals))
+	for i, sw_val := range sw.Vals {
+		if sw_vals[i], err = formatSwitchEnter(sw_val); err != nil {
+			return nil, err
+		}
+	}
+
+	sws := map[string]interface{}{
+		"CID" : hexutil.Uint(sw.CID),
+		"vals": sw_vals,
+	}
+
+	fields["switchInfos"] = sws
+
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
