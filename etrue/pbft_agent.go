@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"bytes"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -423,9 +424,12 @@ func (agent *PbftAgent) loop() {
 					help.CheckAndPrintError(agent.server.PutCommittee(receivedCommitteeInfo))
 					help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
 				} else {
+					//unused : send nodeInfo
 					agent.startSend(receivedCommitteeInfo, false)
 				}
+
 			case types.CommitteeUpdate:
+				committeeID := copyCommitteeID(ch.CommitteeID)
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:          ch.CommitteeID,
 					StartHeight: ch.BeginFastNumber,
@@ -433,8 +437,16 @@ func (agent *PbftAgent) loop() {
 					Members:     ch.CommitteeMembers,
 					BackMembers: ch.BackupMembers,
 				}
-				if agent.IsCommitteeMember(receivedCommitteeInfo) {
-					help.CheckAndPrintError(agent.server.UpdateCommittee(receivedCommitteeInfo))
+				flag := agent.getMemberFlagFromCommittee(receivedCommitteeInfo)
+				if flag > 0 {
+					//help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
+					// used start  removed  stop
+					if flag == types.StateRemovedFlag {
+						help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
+					} else if flag == types.StateUsedFlag {
+						help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStart)))
+						help.CheckAndPrintError(agent.server.UpdateCommittee(receivedCommitteeInfo))
+					}
 				}
 			case types.CommitteeOver:
 				log.Debug("CommitteeOver...", "CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
@@ -1136,6 +1148,22 @@ func (agent *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) ev
 //IsCommitteeMember  whether agent in  committee member
 func (agent *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
 	return agent.election.IsCommitteeMember(committeeInfo.Members, agent.committeeNode.Publickey)
+}
+
+//IsCommitteeMember  whether agent in  committee member
+func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.CommitteeInfo) int32 {
+	members := committeeInfo.Members
+	publickey := agent.committeeNode.Publickey
+	if len(members) == 0 {
+		log.Error("getMemberFlagFromCommittee method len(members)= 0")
+		return 0
+	}
+	for _, member := range members {
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return member.Flag
+		}
+	}
+	return 0
 }
 
 // VerifyCommitteeSign verify sign of node is in committee
