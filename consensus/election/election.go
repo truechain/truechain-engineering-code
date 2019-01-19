@@ -567,19 +567,33 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 			for _, s := range b.SwitchInfos().Vals {
 				switch s.Flag {
 				case types.StateAppendFlag:
-					states[string(s.Pk)] = types.StateAppendFlag
+					states[hex.EncodeToString(s.Pk)] = types.StateAppendFlag
 				case types.StateRemovedFlag:
-					states[string(s.Pk)] = types.StateRemovedFlag
+					states[hex.EncodeToString(s.Pk)] = types.StateRemovedFlag
 				}
 			}
 		}
 	} else {
 		// TODO: support committee states infos for abitrary block number
 		log.Error("No support for committee switchinfos", "fast", fastNumber)
+		for _, num := range committee.switches {
+			if num >= fastNumber.Uint64() {
+				break
+			}
+			b := e.fastchain.GetBlockByNumber(num)
+			for _, s := range b.SwitchInfos().Vals {
+				switch s.Flag {
+				case types.StateAppendFlag:
+					states[hex.EncodeToString(s.Pk)] = types.StateAppendFlag
+				case types.StateRemovedFlag:
+					states[hex.EncodeToString(s.Pk)] = types.StateRemovedFlag
+				}
+			}
+		}
 	}
 
 	for _, m := range committee.Members() {
-		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
 			if flag != types.StateRemovedFlag {
 				members = append(members, m)
 			}
@@ -588,7 +602,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		}
 	}
 	for _, m := range committee.BackupMembers() {
-		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
 			if flag == types.StateAppendFlag {
 				members = append(members, m)
 			}
@@ -908,6 +922,12 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 				switched.Flag = types.StateUsedFlag
 				backups[i] = &switched
 			}
+			if flag == types.StateRemovedFlag {
+				// Update the committee member state
+				var switched = *m
+				switched.Flag = types.StateRemovedFlag
+				members[i] = &switched
+			}
 		}
 	}
 	return
@@ -1183,5 +1203,9 @@ func printCommittee(c *committee) {
 	for _, member := range c.members {
 		key := crypto.FromECDSAPub(member.Publickey)
 		log.Info("Committee member: ", "coinbase", member.Coinbase, "PKey", hex.EncodeToString(key))
+	}
+	for _, member := range c.backupMembers {
+		key := crypto.FromECDSAPub(member.Publickey)
+		log.Info("Committee backup member: ", "coinbase", member.Coinbase, "PKey", hex.EncodeToString(key))
 	}
 }
