@@ -1242,7 +1242,6 @@ func (pm *ProtocolManager) BroadcastTxs(txs types.Transactions) {
 		}
 		log.Trace("BroadcastTxs", "hash", tx.Hash(), "recipients", len(peers), "nonce", tx.Nonce(), "size", tx.Size())
 	}
-	log.Info("----peer tx len", "is", len(txs))
 	// FIXME include this again: peers = peers[:int(math.Sqrt(float64(len(peers))))]
 	for peer, txs := range txset {
 		peer.AsyncSendTransactions(txs)

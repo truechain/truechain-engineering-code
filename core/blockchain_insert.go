@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // insertStats tracks and reports on block insertion.
@@ -71,7 +70,7 @@ func (st *insertStats) report(chain []*types.Block, index int, cache common.Stor
 		if st.ignored > 0 {
 			context = append(context, []interface{}{"ignored", st.ignored}...)
 		}
-		log.Info("Imported new fast chain segment", context...)
+		//log.Info("Imported new fast chain segment", context...)
 
 		// Bump the stats reported to the next section
 		*st = insertStats{startTime: now, lastIndex: index + 1}
@@ -108,7 +107,7 @@ func (it *insertIterator) next() (*types.Block, error) {
 	if err := <-it.results; err != nil {
 		return it.chain[it.index], err
 	}
-	return it.chain[it.index], it.validator.ValidateBody(it.chain[it.index],true)
+	return it.chain[it.index], it.validator.ValidateBody(it.chain[it.index], true)
 }
 
 // current returns the current block that's being processed.

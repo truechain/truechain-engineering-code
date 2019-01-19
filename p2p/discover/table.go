@@ -277,7 +277,7 @@ func (tab *Table) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 		tab.mutex.Lock()
 		// generate initial result set
 		result = tab.closest(target, bucketSize)
-		log.Debug("lookup", "result", result, "target", target, "targetID", targetID)
+		log.Trace("lookup", "result", result, "target", target, "targetID", targetID)
 		tab.mutex.Unlock()
 		if len(result.entries) > 0 || !refreshIfEmpty {
 			break
