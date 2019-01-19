@@ -1161,7 +1161,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	for i, result := range results {
 		log.Trace("importBlockResults fast block", "Number", result.Fheader.Number, "Phash", result.Fheader.ParentHash, "hash", result.Fheader.Hash(), "block signs:", result.Signs)
-		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Infos)
 	}
 
 	if index, err := d.blockchain.InsertChain(blocks); err != nil {
@@ -1255,7 +1255,7 @@ func splitAroundPivot(pivot uint64, results []*etrue.FetchResult) (p *etrue.Fetc
 }
 
 func (d *Downloader) commitPivotBlock(result *etrue.FetchResult) error {
-	block := types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+	block := types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Infos)
 	log.Debug("Committing fast sync pivot as new head", "number", block.Number(), "hash", block.Hash())
 	if _, err := d.blockchain.InsertReceiptChain([]*types.Block{block}, []types.Receipts{result.Receipts}); err != nil {
 		return err
@@ -1286,7 +1286,7 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 	blocks := make([]*types.Block, len(results))
 	receipts := make([]types.Receipts, len(results))
 	for i, result := range results {
-		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, nil)
+		blocks[i] = types.NewBlockWithHeader(result.Fheader).WithBody(result.Transactions, result.Signs, result.Infos)
 		receipts[i] = result.Receipts
 	}
 	if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
