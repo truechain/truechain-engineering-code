@@ -196,7 +196,7 @@ func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte
 	enter := h.GetHealth(pk)
 	if enter != nil && enter.ID != "" {
 		enter.ID, enter.IP, enter.Port = id, ip, port
-		log.Info("UpdataHealthInfo", "info", enter)
+		log.Debug("UpdataHealthInfo", "info", enter)
 	}
 }
 

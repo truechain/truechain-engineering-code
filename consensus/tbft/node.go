@@ -173,7 +173,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
-			log.Info("Enter NodeInfo", "id", id, "addr", addr)
+			log.Debug("Enter NodeInfo", "id", id, "addr", addr)
 			v.Adrress, v.IP, v.Port = addr, node.IP, port
 			update = true
 		}
