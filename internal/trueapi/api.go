@@ -929,14 +929,14 @@ func FormatLogs(logs []vm.StructLog) []StructLogRes {
 func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]interface{}, error) {
 	head := b.Header() // copies the header once
 	fields := map[string]interface{}{
-		"number":     (*hexutil.Big)(head.Number),
-		"hash":       b.Hash(),
-		"parentHash": head.ParentHash,
-		"CommitteeHash": head.CommitteeHash,
-		"logsBloom":   head.Bloom,
-		"stateRoot":   head.Root,
-		"SnailHash":   head.SnailHash,
-		"SnailNumber": head.SnailNumber,
+		"number":           (*hexutil.Big)(head.Number),
+		"hash":             b.Hash(),
+		"parentHash":       head.ParentHash,
+		"CommitteeHash":    head.CommitteeHash,
+		"logsBloom":        head.Bloom,
+		"stateRoot":        head.Root,
+		"SnailHash":        head.SnailHash,
+		"SnailNumber":      head.SnailNumber,
 		"extraData":        hexutil.Bytes(head.Extra),
 		"size":             hexutil.Uint64(b.Size()),
 		"gasLimit":         hexutil.Uint64(head.GasLimit),
@@ -968,8 +968,8 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	fields["signs"] = signs
 	formatSwitchEnter := func(witch *types.SwitchEnter) (map[string]interface{}, error) {
 		SwitchEntermap := map[string]interface{}{
-			"PK": hexutil.Bytes(witch.Pk),
-			"Flag":hexutil.Uint(witch.Flag),
+			"PK":   hexutil.Bytes(witch.Pk),
+			"Flag": hexutil.Uint(witch.Flag),
 		}
 		return SwitchEntermap, nil
 	}
@@ -983,12 +983,11 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	}
 
 	sws := map[string]interface{}{
-		"CID" : hexutil.Uint(sw.CID),
+		"CID":  sw.CID,
 		"vals": sw_vals,
 	}
 
 	fields["switchInfos"] = sws
-
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
