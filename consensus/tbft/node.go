@@ -85,6 +85,10 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	//	return err
 	//}
 	// Create & add listener
+	if s.sw.IsRunning() {
+		log.Warn("service is running")
+	}
+
 	lstr := node.config.P2P.ListenAddress2
 	if cid.Uint64()%2 == 0 {
 		lstr = node.config.P2P.ListenAddress1
@@ -468,6 +472,8 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 
 // UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	log.Info("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator
