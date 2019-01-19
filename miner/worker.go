@@ -166,14 +166,15 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		chainDb:          etrue.ChainDb(),
 		recv:             make(chan *Result, resultQueueSize),
 		//TODO need konw how to
-		chain:           etrue.SnailBlockChain(),
-		fastchain:       etrue.BlockChain(),
-		proc:            etrue.SnailBlockChain().Validator(),
-		possibleUncles:  make(map[common.Hash]*types.SnailBlock),
-		coinbase:        coinbase,
-		agents:          make(map[Agent]struct{}),
-		unconfirmed:     newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
-		fastBlockNumber: big.NewInt(0),
+		chain:             etrue.SnailBlockChain(),
+		fastchain:         etrue.BlockChain(),
+		proc:              etrue.SnailBlockChain().Validator(),
+		possibleUncles:    make(map[common.Hash]*types.SnailBlock),
+		coinbase:          coinbase,
+		agents:            make(map[Agent]struct{}),
+		unconfirmed:       newUnconfirmedBlocks(etrue.SnailBlockChain(), miningLogAtDepth),
+		fastBlockNumber:   big.NewInt(0),
+		atCommintNewWoker: false,
 	}
 	// Subscribe events for blockchain
 	worker.chainHeadSub = etrue.SnailBlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
@@ -334,6 +335,7 @@ func (w *worker) update() {
 					w.commitNewWork()
 				}
 			} else {
+
 				if atomic.LoadInt32(&w.mining) == 1 && !w.fruitOnly && len(w.current.Block.Fruits()) >= 60 {
 					log.Info("stop the mining and start a new mine", "need stop mining block number ", w.current.Block.Number(), "get block ev number", ev.Block.Number())
 					w.commitNewWork()

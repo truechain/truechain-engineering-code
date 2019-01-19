@@ -208,7 +208,12 @@ func (miner *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&miner.mining, 1)
 
 	miner.worker.start()
-	miner.worker.commitNewWork()
+	//miner.worker.commitNewWork()
+
+	var events []interface{}
+	events = append(events, types.NewMinedFruitEvent{Block: nil})
+	miner.worker.chain.PostChainEvents(events)
+
 }
 
 //Stop stop miner
