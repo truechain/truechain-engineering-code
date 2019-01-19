@@ -348,16 +348,12 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 		)
 		return block, nil
 
-	} else {
-		fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
-		if err != nil {
-			return nil, err
-		}
-		return fruit, nil
 	}
-
-	return nil, nil
-
+	fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
+	if err != nil {
+		return nil, err
+	}
+	return fruit, nil
 }
 
 func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
