@@ -169,7 +169,7 @@ var (
 		Name:  "light",
 		Usage: "Enable light client mode (replaced by --syncmode)",
 	}*/
-	//single node setting
+	//SingleNodeFlag is single node setting
 	SingleNodeFlag = cli.BoolFlag{
 		Name:  "singlenode",
 		Usage: "sing node model start",
