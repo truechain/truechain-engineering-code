@@ -1687,7 +1687,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	}
 	sv = cs.pickSwitchValidator(sv, false)
 	cs.notifyHealthMgr(sv)
-	log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
+	log.Info("SwitchResultFinish", "EndHight", block.NumberU64())
 }
 func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 	go func() {
