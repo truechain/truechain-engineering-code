@@ -456,7 +456,6 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	var info *ctypes.SwitchInfos
 	if v != nil {
 		info = v.Infos
-		log.Info("MakeBlock", "val", info.Vals)
 	}
 	watch := newInWatch(3, "FetchFastBlock")
 	block, err := state.Agent.FetchFastBlock(committeeID, info)
