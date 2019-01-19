@@ -477,6 +477,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
+	log.Info("Handler start", "peer", p.id, "msg code", msg.Code)
 	if err != nil {
 		return err
 	}
@@ -1112,7 +1113,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return fmt.Errorf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr())
 	}
 
-	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
+	log.Info("Handler end", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
 	return nil
 }
 
