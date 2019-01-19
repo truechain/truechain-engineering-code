@@ -17,7 +17,7 @@ import (
 
 const (
 	//HealthOut peer time out
-	HealthOut = 120
+	HealthOut = 180
 	//MixValidator min committee count
 	MixValidator   = 2
 	BlackDoorCount = 4
@@ -26,7 +26,7 @@ const (
 	SwitchPartBack = 1
 	SwitchPartSeed = 2
 
-	EnableHealthMgr = false
+	EnableHealthMgr = true
 )
 
 //Health struct
@@ -298,7 +298,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 		log.Info("Health", v.ID, val)
 		if sshift && val > HealthOut && v.State == ctypes.StateUsedFlag && !v.Self {
 			if sv0 := h.getCurSV(); sv0 == nil {
-				log.Info("Health", "Change", true)
+				log.Warn("Health", "Change", true, v.ID, val)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
