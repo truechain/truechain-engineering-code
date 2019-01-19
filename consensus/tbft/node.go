@@ -87,6 +87,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	// Create & add listener
 	if s.sw.IsRunning() {
 		log.Warn("service is running")
+		return errors.New("service is running")
 	}
 
 	lstr := node.config.P2P.ListenAddress2
