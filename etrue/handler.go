@@ -477,10 +477,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	log.Info("Handler start", "peer", p.id, "msg code", msg.Code)
+
 	if err != nil {
+		log.Info("Handler start", "peer", p.id, "err", err, "msg code", msg.Code)
 		return err
 	}
+
+	log.Info("Handler start", "peer", p.id, "msg code", msg.Code)
 	if msg.Size > ProtocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
