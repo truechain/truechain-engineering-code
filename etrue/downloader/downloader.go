@@ -420,7 +420,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, td *
 
 	// Look up the sync boundaries: the common ancestor and the target block
 	latest, err := d.fetchHeight(p)
-	//latestNum = latest.Number.Uint64()
 	if err != nil {
 		return err
 	}
@@ -712,8 +711,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 			return 0, errTimeout
 
 		case <-d.bodyCh:
-			//case <-d.receiptCh:
-			// Out of bounds delivery, ignore
+		// Out of bounds delivery, ignore
 		}
 	}
 	// If the head fetch already found an ancestor, return
@@ -782,8 +780,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				return 0, errTimeout
 
 			case <-d.bodyCh:
-				//case <-d.receiptCh:
-				// Out of bounds delivery, ignore
+			// Out of bounds delivery, ignore
 			}
 		}
 	}
@@ -1140,8 +1137,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
-							peer.GetLog().Info("drop snail fast fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
-
+							peer.GetLog().Warn("drop peer snail fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
 							d.dropPeer(pid)
 						}
 					}
@@ -1398,10 +1394,8 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
 
-	//fbNum := uint64(0)
-	//fbHeight := uint64(0)
+
 	for _, result := range results {
-		//blocks := make([]*types.SnailBlock, len(results))
 		blocks := make([]*types.SnailBlock, 1)
 		blocks[0] = types.NewSnailBlockWithHeader(result.Sheader).WithBody(result.Fruits, result.Signs, nil)
 		log.Trace("importBlockResults  snail block ", "snailNumber", result.Sheader.Number, "Phash", result.Sheader.ParentHash, "hash", result.Sheader.Hash())

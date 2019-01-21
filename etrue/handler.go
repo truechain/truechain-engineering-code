@@ -285,8 +285,10 @@ func (pm *ProtocolManager) removePeer(id string) {
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
+
 	// Hard disconnect at the networking layer
 	if peer != nil {
+		log.Info("Removing peer  Disconnect", "peer", id, "RemoteAddr", peer.RemoteAddr())
 		peer.Peer.Disconnect(p2p.DiscUselessPeer)
 	}
 }
@@ -477,10 +479,13 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	log.Info("Handler start", "peer", p.id, "msg code", msg.Code)
+
 	if err != nil {
+		log.Info("Handler start", "peer", p.id, "err", err, "msg code", msg.Code)
 		return err
 	}
+
+	log.Info("Handler start", "peer", p.id, "msg code", msg.Code)
 	if msg.Size > ProtocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
@@ -492,7 +497,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
-
 		// Block header query, collect the requested headers and reply
 
 	case msg.Code == GetSnailBlockHeadersMsg:
@@ -1064,16 +1068,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "snailBlock  is nil")
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
-
-		//hash, _ := p.Head()
-		//fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
-		//
-		//log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-		//if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
-		//	log.Debug("pm.fdownloader.Synchronise msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-		//	go pm.fdownloader.Synchronise(p.id, hash, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
-		//}
-
 		p.MarkSnailBlock(snailBlock.Hash())
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
@@ -1095,8 +1089,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// a singe block (as the true TD is below the propagated block), however this
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
-			//tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			//fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				log.Info("syncer SnailBlockMsg")

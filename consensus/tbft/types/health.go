@@ -541,7 +541,7 @@ func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
 	if rRes && aRes {
 		return nil
 	}
-	return errors.New("Wrang state:" + res + "Remove:" + remove.String() + ",add:" + add.String())
+	return errors.New("Wrong state:" + res + "Remove:" + remove.String() + ",add:" + add.String())
 }
 
 //UpdateFromCommittee agent put member and back, update flag

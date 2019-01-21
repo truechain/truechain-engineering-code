@@ -574,8 +574,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 			}
 		}
 	} else {
-		// TODO: support committee states infos for abitrary block number
-		log.Error("No support for committee switchinfos", "fast", fastNumber)
+		log.Warn("Committe receive rollback block switchinfos", "number", fastNumber, "latest", committee.switches[len(committee.switches)-1])
 		for _, num := range committee.switches {
 			if num >= fastNumber.Uint64() {
 				break

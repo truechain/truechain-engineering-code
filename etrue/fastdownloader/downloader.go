@@ -332,9 +332,10 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, mode SyncMode, origin uint64, height uint64) error {
-	//defer d.Terminate()
+
 
 	err := d.synchronise(id, head, mode, origin, height)
+	defer log.Debug("fast Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -894,7 +895,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
-							peer.GetLog().Info("drop peer fast fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
+							peer.GetLog().Warn("drop peer fast fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
 							d.dropPeer(pid)
 						}
 					}
