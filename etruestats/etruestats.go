@@ -388,6 +388,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 		return "continue" // Etruestats sometime sends invalid history requests, ignore those
 	}
 	list, ok := request["list"].([]interface{})
+	log.Warn(" stats history block list", "list", command, "command", request["list"])
 	if !ok {
 		log.Warn("Invalid stats history block list", "list", request["list"])
 		return "error"
@@ -899,20 +900,21 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 	}
 	// Assemble the node stats and send it to the server
 	log.Trace("Sending node details to etruestats")
-
-	stats := map[string]interface{}{
-		"id": s.node,
-		"stats": &nodeStats{
-			Active:            true,
-			Mining:            mining,
-			Hashrate:          hashrate,
-			Peers:             s.server.PeerCount(),
-			GasPrice:          gasprice,
-			Syncing:           syncing,
-			Uptime:            100,
-			isCommitteeMember: isCommitteeMember,
-		},
+	nodeStats := &nodeStats{
+		Active:            true,
+		Mining:            mining,
+		Hashrate:          hashrate,
+		Peers:             s.server.PeerCount(),
+		GasPrice:          gasprice,
+		Syncing:           syncing,
+		Uptime:            100,
+		isCommitteeMember: isCommitteeMember,
 	}
+	stats := map[string]interface{}{
+		"id":    s.node,
+		"stats": nodeStats,
+	}
+	log.Warn("nodeStats", "nodeStats", nodeStats)
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}
