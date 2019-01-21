@@ -100,6 +100,7 @@ func main() {
 		}
 	}
 	fmt.Println("send Transaction num is:", num)
+
 }
 
 //send transaction init
@@ -125,9 +126,9 @@ func send(count int, ip string) {
 		fmt.Println("no account")
 		return
 	}
-	fmt.Println("account:", account)
+	fmt.Println("----alread have accounts is:", len(account))
 
-	for i := len(account); i < count; i++ {
+	for i := len(account); i < count*2; i++ {
 		//new account
 		var address string
 		err = client.Call(&address, "personal_newAccount", "admin")
@@ -167,7 +168,7 @@ func send(count int, ip string) {
 	fmt.Println("unlock ", count, " son account ", unlockCountNewAccount(client, count))
 
 	// send
-	fmt.Println("Start sendTransactions from ", count, " account to other new account")
+	fmt.Println("---------------------------Start sendTransactions from ", count, " account to other new account")
 	waitMain := &sync.WaitGroup{}
 	for {
 		waitMain.Add(1)
@@ -178,14 +179,14 @@ func send(count int, ip string) {
 		}
 		time.Sleep(interval)
 		// get balance
-		err = client.Call(&result, "etrue_getBalance", account[from], "latest")
+		/*err = client.Call(&result, "etrue_getBalance", account[from], "latest")
 		if err != nil {
 			fmt.Println("etrue_getBalance Error:", err)
 			msg <- false
 			return
 		}
 
-		fmt.Println("etrue_getBalance Ok:", getBalanceValue(result), result)
+		fmt.Println("etrue_getBalance Ok:", getBalanceValue(result), result)*/
 	}
 	waitMain.Wait()
 	msg <- true
@@ -195,14 +196,16 @@ func send(count int, ip string) {
 func sendTransactions(client *rpc.Client, account []string, count int, wait *sync.WaitGroup) {
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
+	time := time.Now()
 
 	for i := 0; i < count; i++ {
 		waitGroup.Add(1)
-		go sendTransaction(client, account[i], waitGroup)
+		//go sendTransaction(client, account[i], waitGroup)
+		go sendTransaction_to(client, account[i], account[i+count], waitGroup)
 	}
-	fmt.Println("Send in go Complete", count)
+	//fmt.Println("Send in go Complete", count)
 	waitGroup.Wait()
-	fmt.Println("Complete", Count)
+	fmt.Println("Complete", Count, "time", time)
 }
 
 //send one transaction
@@ -217,6 +220,27 @@ func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
 	}
 
 	result, err := sendRawTransaction(client, from, address, "0x2100")
+	if err != nil {
+		fmt.Println("sendRawTransaction", "result ", result, " error", err)
+	}
+
+	if result != "" {
+		Count++
+	}
+}
+
+//send one transaction
+func sendTransaction_to(client *rpc.Client, from string, to string, wait *sync.WaitGroup) {
+	defer wait.Done()
+
+	/*address := genAddress()
+	if to == 1 {
+		if account[to] != "" {
+			address = account[to]
+		}
+	}*/
+
+	result, err := sendRawTransaction(client, from, to, "0x2100")
 	if err != nil {
 		fmt.Println("sendRawTransaction", "result ", result, " error", err)
 	}
