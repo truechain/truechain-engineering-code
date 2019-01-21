@@ -652,7 +652,7 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		beginElectionNumber = new(big.Int).Set(common.Big1)
 	}
 
-	elected := e.electCommittee(beginElectionNumber, endElectionNumber)
+	elected := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 	if elected != nil {
 		info["id"] = id.Uint64()
 		info["memberCount"] = len(members)
