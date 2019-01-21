@@ -894,7 +894,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 							// Timeouts can occur if e.g. compaction hits at the wrong time, and can be ignored
 							peer.GetLog().Warn("Fast Downloader wants to drop peer, but peerdrop-function is not set", "peer", pid)
 						} else {
-							peer.GetLog().Info("drop peer fast fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
+							peer.GetLog().Warn("drop peer fast fetchParts", "id", peer.GetID(), "type", kind, "fails", fails)
 							d.dropPeer(pid)
 						}
 					}

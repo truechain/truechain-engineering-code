@@ -492,7 +492,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
-
 		// Block header query, collect the requested headers and reply
 
 	case msg.Code == GetSnailBlockHeadersMsg:
@@ -1064,16 +1063,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "snailBlock  is nil")
 		}
 		log.Debug("enqueue SnailBlockMsg", "number", snailBlock.Number())
-
-		//hash, _ := p.Head()
-		//fbNum := snailBlock.Fruits()[0].FastNumber().Uint64()
-		//
-		//log.Debug("snail block msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-		//if pm.blockchain.CurrentBlock().NumberU64()+1 == fbNum {
-		//	log.Debug("pm.fdownloader.Synchronise msg ", "number", pm.blockchain.CurrentBlock().NumberU64(), "fbNum", fbNum)
-		//	go pm.fdownloader.Synchronise(p.id, hash, -1, fbNum-1, uint64(len(snailBlock.Fruits())))
-		//}
-
 		p.MarkSnailBlock(snailBlock.Hash())
 		pm.fetcherSnail.Enqueue(p.id, snailBlock)
 
@@ -1095,8 +1084,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// a singe block (as the true TD is below the propagated block), however this
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.snailchain.CurrentBlock()
-			//tdd := pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			//fmt.Println(tdd)
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
 				log.Info("syncer SnailBlockMsg")

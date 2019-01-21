@@ -40,7 +40,7 @@ var ProtocolName = "etrue"
 var ProtocolVersions = []uint{eth63, eth62}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{27, 8}
+var ProtocolLengths = []uint64{20, 8}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -62,16 +62,16 @@ const (
 	FruitMsg      = 0x0a
 	SnailBlockMsg = 0x0b
 	// Protocol messages belonging to eth/63
-	GetNodeDataMsg = 0x0d
-	NodeDataMsg    = 0x0e
-	GetReceiptsMsg = 0x0f
-	ReceiptsMsg    = 0x10
+	GetNodeDataMsg = 0x0c
+	NodeDataMsg    = 0x0d
+	GetReceiptsMsg = 0x0e
+	ReceiptsMsg    = 0x0f
 
 	//snail sync
-	GetSnailBlockHeadersMsg   = 0x11
-	SnailBlockHeadersMsg      = 0x12
-	GetSnailBlockBodiesMsg    = 0x13
-	SnailBlockBodiesMsg       = 0x14
+	GetSnailBlockHeadersMsg   = 0x10
+	SnailBlockHeadersMsg      = 0x11
+	GetSnailBlockBodiesMsg    = 0x12
+	SnailBlockBodiesMsg       = 0x13
 )
 
 type errCode int
