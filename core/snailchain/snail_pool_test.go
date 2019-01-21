@@ -218,8 +218,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 
 func setupSnailPool() *SnailPool {
 
-	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
-	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
+	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
 	return pool
 }
 
@@ -446,8 +445,7 @@ func testFruitJournaling(t *testing.T) {
 	// Terminate the old pool,create a new pool and ensure relevant fruit survive
 	pool.Stop()
 
-	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
 
 	pending, unverified = pool.Stats()
 	if unverified != 0 {
@@ -460,8 +458,7 @@ func testFruitJournaling(t *testing.T) {
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
-	sv = NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
 	pending, unverified = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending fruits mismatched: have %d, want %d", pending, 0)
