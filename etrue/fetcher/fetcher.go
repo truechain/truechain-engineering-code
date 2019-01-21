@@ -703,6 +703,7 @@ func (f *Fetcher) loop() {
 				if matched {
 					task.transactions = append(task.transactions[:i], task.transactions[i+1:]...)
 					task.signs = append(task.signs[:i], task.signs[i+1:]...)
+					task.infos = append(task.infos[:i], task.infos[i+1:]...)
 					i--
 					continue
 				}
