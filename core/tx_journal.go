@@ -22,9 +22,9 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // errNoActiveJournal is returned if a transaction is attempted to be inserted
@@ -164,6 +164,25 @@ func (journal *txJournal) rotate(all map[common.Address]types.Transactions) erro
 	}
 	journal.writer = sink
 	log.Info("Regenerated local transaction journal", "transactions", journaled, "accounts", len(all))
+
+	return nil
+}
+
+// reserve reserve the tx when insertchain,this method is just use for
+// export tx from on chain to another.
+func (journal *txJournal) reserve(tx *types.Transaction) error {
+	// append
+	insert, err := os.OpenFile(journal.path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		return err
+	}
+
+	if err = rlp.Encode(insert, tx); err != nil {
+		insert.Close()
+		return err
+	}
+	insert.Close()
+	log.Info("reserve transaction", "transaction", tx)
 
 	return nil
 }
