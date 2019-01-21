@@ -138,7 +138,7 @@ func send(count int, ip string) {
 			return
 		}
 		account = append(account, address)
-		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", len(account))
+		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", len(account), "address", address)
 	}
 	fmt.Println("personal_newAccount success ", len(account))
 
