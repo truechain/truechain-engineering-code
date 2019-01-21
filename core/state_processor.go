@@ -40,13 +40,13 @@ type StateProcessor struct {
 }
 
 /*var (
-journal    *txJournal
-addressmap map[common.Address]*big.Int
+	journal    = newTxJournal("reservetxs.rlp")
+	addressmap = make(map[common.Address]*big.Int)
 )*/
 
 // NewStateProcessor initialises a new StateProcessor.
 func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
-	//journal = newTxJournal("reservetxs")
+	//journal.writer = new(devNull)
 	return &StateProcessor{
 		config: config,
 		bc:     bc,
@@ -102,9 +102,10 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	/*if addressmap[msg.From()] == nil {
 		amount := statedb.GetBalance(msg.From())
 		addressmap[msg.From()] = amount
+		log.Warn("addressmap", "msg.From()", msg.From(), "amount", amount)
 	}
-	if err := journal.insert(tx); err != nil {
-		log.Warn("Failed to journal fruit", "err", err)
+	if err := journal.reserve(tx); err != nil {
+		log.Warn("Failed to journal tx", "err", err)
 	}*/
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc)
