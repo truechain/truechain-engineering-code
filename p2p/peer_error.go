@@ -19,6 +19,7 @@ package p2p
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 const (
@@ -100,6 +101,7 @@ func (d DiscReason) Error() string {
 }
 
 func discReasonForError(err error) DiscReason {
+	log.Info("discReasonForError>>>","err",err)
 	if reason, ok := err.(DiscReason); ok {
 		return reason
 	}
