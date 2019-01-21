@@ -124,6 +124,10 @@ func (tx *Transaction) Protected() bool {
 	return isProtectedV(tx.data.V)
 }
 
+func (tx *Transaction) Protected_Payment() bool {
+	return isProtectedV(tx.data.PV)
+}
+
 func isProtectedV(V *big.Int) bool {
 	if V.BitLen() <= 8 {
 		v := V.Uint64()
@@ -262,6 +266,16 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	}
 	cpy := &Transaction{data: tx.data}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
+	return cpy, nil
+}
+
+func (tx *Transaction) WithSignature_Payment(signer Signer, sig []byte) (*Transaction, error) {
+	pr, ps, pv, err := signer.SignatureValues(tx, sig)
+	if err != nil {
+		return nil, err
+	}
+	cpy := &Transaction{data: tx.data}
+	cpy.data.PR, cpy.data.PS, cpy.data.PV = pr, ps, pv
 	return cpy, nil
 }
 

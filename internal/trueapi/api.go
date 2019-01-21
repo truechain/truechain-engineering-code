@@ -1401,6 +1401,18 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 	return wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
 }
 
+func (s *PublicTransactionPoolAPI) sign_payment(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+	// Look up the wallet containing the requested signer
+	account := accounts.Account{Address: addr}
+
+	wallet, err := s.b.AccountManager().Find(account)
+	if err != nil {
+		return nil, err
+	}
+	// Request the wallet to sign the transaction
+	return wallet.SignTx_Payment(account, tx, s.b.ChainConfig().ChainID)
+}
+
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
 	Payment  common.Address  `json:"payment"`
@@ -1507,13 +1519,13 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 	if payment == params.EmptyAddress {
 		return tx, nil
 	}
-	signed, err := s.sign(payment, tx)
+	signed_payment, err := s.sign_payment(payment, tx)
 	if err != nil {
 		return nil, err
 	}
-	newTx := signed.CopyPaymentRSV()
+	//newTx := signed.CopyPaymentRSV()
 	//fmt.Println("newTx:", newTx.Info())
-	return newTx, nil
+	return signed_payment, nil
 }
 
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
@@ -1540,19 +1552,20 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
-	//sign payment
-	signedPaymentTx, err := s.signPayment(args.Payment, tx)
+	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
 	if err != nil {
-		log.Error("payment error", "error", err)
 		return params.EmptyHash, err
 	}
 
-	signed, err := wallet.SignTx(account, signedPaymentTx, s.b.ChainConfig().ChainID)
+	//sign payment
+	signed_payment, err := s.signPayment(args.Payment, signed)
 	if err != nil {
+		log.Error("signPayment error", "error", err)
 		return params.EmptyHash, err
 	}
+
 	//fmt.Println("newTx2:", signedPaymentTx.Info())
-	return submitTransaction(ctx, s.b, signed)
+	return submitTransaction(ctx, s.b, signed_payment)
 }
 
 // SendRawTransaction will add the signed transaction to the transaction pool.
