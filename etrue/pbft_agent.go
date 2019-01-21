@@ -176,10 +176,10 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 	//config *Config, coinbase common.Address
 	config := etrue.Config()
-	coinbase, err := etrue.Etherbase()
-	if err != nil {
+	coinbase, _ := etrue.Etherbase()
+	/*if err != nil {
 		log.Error("initNodeInfo", "err", err)
-	}
+	}*/
 	agent.initNodeWork()
 	agent.singleNode = config.NodeType
 	agent.privateKey = config.PrivateKey
