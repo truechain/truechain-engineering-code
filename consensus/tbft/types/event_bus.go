@@ -132,14 +132,6 @@ func (b *EventBus) PublishEventVote(event EventDataVote) error {
 // 	return nil
 // }
 
-func (b *EventBus) PublishEventProposalHeartbeat(event EventDataProposalHeartbeat) error {
-	if v,ok := b.subs[EventProposalHeartbeat];ok {
-		v.Send(event)
-		return nil
-	}
-	return errors.New(EventMsgNotFound)
-}
-
 //--- EventDataRoundState events
 
 func (b *EventBus) PublishEventNewRoundStep(event EventDataRoundState) error {

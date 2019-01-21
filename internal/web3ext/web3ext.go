@@ -22,7 +22,7 @@ var Modules = map[string]string{
 	"chequebook": Chequebook_JS,
 	"clique":     Clique_JS,
 	"debug":      Debug_JS,
-	"etrue":       Etrue_JS,
+	"etrue":      Etrue_JS,
 	"miner":      Miner_JS,
 	"net":        Net_JS,
 	"personal":   Personal_JS,
@@ -195,6 +195,11 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'setHead',
 			call: 'debug_setHead',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'setSnailHead',
+			call: 'debug_setSnailHead',
 			params: 1
 		}),
 		new web3._extend.Method({

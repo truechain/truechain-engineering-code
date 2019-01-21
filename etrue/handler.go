@@ -475,7 +475,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetSnailBlockHeadersMsg:
 
-		log.Debug("GetSnailBlockHeadersMsg>>>>>>>>>>>>", "peer>>>", p.id)
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -491,6 +490,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			headers []*types.SnailHeader
 			unknown bool
 		)
+		log.Debug("GetSnailBlockHeadersMsg", "number", query.Origin.Number, "hash", query.Origin.Hash, "peer", p.id)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
 			// Retrieve the next header satisfying the query
 			var origin *types.SnailHeader
@@ -560,7 +560,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug(" p.SendSnailBlockHeaders() ", "headers", len(headers))
+		log.Debug("Handle send snail block headers", "headers", len(headers), "time", time.Now().Sub(now), "peer", p.id)
 		return p.SendSnailBlockHeaders(headers)
 
 	case msg.Code == SnailBlockHeadersMsg:
@@ -579,7 +579,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 	case msg.Code == GetFastBlockHeadersMsg:
 
-		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>")
+		log.Debug("GetFastBlockHeadersMsg>>>>>>>>>>>>", "peer", p.id)
 		// Decode the complex header query
 		var query getBlockHeadersData
 		if err := msg.Decode(&query); err != nil {
@@ -612,7 +612,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
 			}
 			if origin == nil {
-				log.Error("GetFastBlockHeadersMsg", "hash", query.Origin.Hash, "peer", p.id)
+				log.Error("GetFastBlockHeadersMsg", "hash", query.Origin.Hash, "num", query.Origin.Number, "CurrentNumber", pm.blockchain.CurrentHeader().Number.Uint64(), "peer", p.id)
 				break
 			}
 			headers = append(headers, origin)
@@ -665,12 +665,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug(">>>>p.SendFastBlockHeaders", "headers:", len(headers))
+		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
 		return p.SendFastBlockHeaders(headers)
 
 	case msg.Code == GetFastOneBlockHeadersMsg:
 
-		log.Debug("GetFastOneBlockHeadersMsg>>>>>>>>>>>>")
+		log.Debug("GetFastOneBlockHeadersMsg>>>>>>>>>>>>", "peer", p.id)
 		// Decode the complex header query
 		// Gather headers until the fetch or network limits is reached
 		var (
@@ -679,8 +679,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		fheader := pm.blockchain.CurrentBlock().Header()
 		headers = append(headers, fheader)
-		log.Debug(">>>>p.GetFastOneBlockHeadersMsg", "headers:", len(headers))
 
+		log.Debug("Handle get fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
 		return p.SendOneFastBlockHeader(headers)
 
 	case msg.Code == FastBlockHeadersMsg:
@@ -727,7 +727,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		log.Debug("FastBlockHeadersMsg>>>>>>>>>>>>", "headers:", len(headers))
 
 	case msg.Code == GetFastBlockBodiesMsg:
-		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>")
+		log.Debug("GetFastBlockBodiesMsg>>>>>>>>>>>>", "peer", p.id)
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -753,7 +753,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-		log.Debug(">>>>p.SendFastBlockBodiesRLP", "bodies", len(bodies))
+		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
 		return p.SendFastBlockBodiesRLP(bodies)
 
 	case msg.Code == FastBlockBodiesMsg:
@@ -773,7 +773,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0
 		if len(signs) > 0 {
-			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHash, "len(transactions)", len(transactions))
+			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHeight, "len(transactions)", len(transactions))
 		}
 		if filter {
 			transactions, signs = pm.fetcherFast.FilterBodies(p.id, transactions, signs, time.Now())
@@ -788,7 +788,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
-		log.Debug("GetSnailBlockBodiesMsg>>>>>>>>>>>>")
+		log.Debug("GetSnailBlockBodiesMsg>>>>>>>>>>>>", "peer", p.id)
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -813,7 +813,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug(">>>>>>p.SendSnailBlockBodiesRLP()", "bodies", len(bodies))
+		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
 		return p.SendSnailBlockBodiesRLP(bodies)
 
 	case msg.Code == SnailBlockBodiesMsg:
@@ -862,6 +862,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(entry)
 			}
 		}
+		log.Debug("Handle send node data", "time", time.Now().Sub(now))
 		return p.SendNodeData(data)
 
 	case p.version >= eth63 && msg.Code == NodeDataMsg:
@@ -909,6 +910,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(encoded)
 			}
 		}
+		log.Debug("Handle send receipts rlp", "time", time.Now().Sub(now))
 		return p.SendReceiptsRLP(receipts)
 
 	case p.version >= eth63 && msg.Code == ReceiptsMsg:
@@ -989,7 +991,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkTransaction(tx.Hash())
 		}
-		//log.Debug("receive TxMsg", "from peer's id",p.id,"len(txs)",len(txs))
+		log.Trace("receive TxMsg", "peer", p.id, "len(txs)", len(txs), "ip", p.RemoteAddr())
 		pm.txpool.AddRemotes(txs)
 
 	case msg.Code == PbftNodeInfoMsg:
@@ -1110,7 +1112,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return fmt.Errorf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr())
 	}
 
-	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
+	log.Trace("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
 	return nil
 }
 

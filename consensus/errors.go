@@ -42,6 +42,8 @@ var (
 	//If the number of returned committees and the results are inconsistent, return ErrInvalidSignsLength
 	ErrInvalidSignsLength = errors.New("invalid signs length")
 
+	ErrValidSignsZero = errors.New("valid signs length equal zero in fruit")
+
 	ErrInvalidBlock = errors.New("invalid snail block")
 
 	ErrUnknownPointer = errors.New("unknown pointer hash")

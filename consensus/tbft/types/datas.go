@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	//"sync"
+	"sync"
 	//"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -246,32 +246,41 @@ type BlockMeta struct {
 	BlockID    *BlockID
 	BlockPacks *PartSet
 	SeenCommit *Commit
+	Proposal   *Proposal
 }
 type BlockStore struct {
-	blocks map[uint64]*BlockMeta
+	blocks 			map[uint64]*BlockMeta
+	blockLock 		*sync.Mutex
 }
 
 // warning all function not thread_safe
 func NewBlockStore() *BlockStore {
 	return &BlockStore{
-		blocks: make(map[uint64]*BlockMeta),
+		blocks: 	make(map[uint64]*BlockMeta),
+		blockLock: 	new(sync.Mutex),
 	}
 }
 func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+
 	if v, ok := b.blocks[height]; ok {
 		return v
 	}
 	return nil
 }
 func (b *BlockStore) LoadBlockPart(height uint64, index uint) *Part {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+	
 	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
 	return nil
 }
 func (b *BlockStore) MaxBlockHeight() uint64 {
-	// ss.blockLock.Lock()
-	// defer ss.blockLock.Unlock()
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
 	var cur uint64 = 0
 	//var fb *ctypes.Block = nil
 	for k, _ := range b.blocks {
@@ -284,7 +293,7 @@ func (b *BlockStore) MaxBlockHeight() uint64 {
 	}
 	return cur
 }
-func (b *BlockStore) MinBlockHeight() uint64 {
+func (b *BlockStore) minBlockHeight() uint64 {
 	var cur uint64 = 0
 	for k, _ := range b.blocks {
 		if cur == 0 {
@@ -297,14 +306,22 @@ func (b *BlockStore) MinBlockHeight() uint64 {
 	return cur
 }
 func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+
 	if v, ok := b.blocks[height]; ok {
 		return v.SeenCommit
 	}
 	return nil
 }
-func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit) {
+
+//SaveBlock save block to blockStore
+func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit,proposal *Proposal) {
+	b.blockLock.Lock()
+	defer b.blockLock.Unlock()
+
 	if len(b.blocks) >= MaxLimitBlockStore {
-		k := b.MinBlockHeight()
+		k := b.minBlockHeight()
 		if k <= 0 {
 			panic(errors.New("block height is 0"))
 		}
@@ -316,6 +333,7 @@ func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCom
 			BlockPacks: blockParts,
 			SeenCommit: seenCommit,
 			BlockID:    &seenCommit.BlockID,
+			Proposal:	proposal,
 		}
 	}
 }

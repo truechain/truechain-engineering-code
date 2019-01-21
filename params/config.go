@@ -57,14 +57,15 @@ var (
 		}),
 	}
 
-	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	// RinkebyChainConfig = &ChainConfig{
-	// 	ChainID: big.NewInt(100),
-	// 	Clique: &CliqueConfig{
-	// 		Period: 15,
-	// 		Epoch:  30000,
-	// 	},
-	// }
+	// DevnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
+	DevnetChainConfig = &ChainConfig{
+		ChainID: big.NewInt(10),
+		Minerva: &(MinervaConfig{
+			MinimumDifficulty:      big.NewInt(20000),
+			MinimumFruitDifficulty: big.NewInt(50),
+			DurationLimit:          big.NewInt(60),
+		}),
+	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.

@@ -17,17 +17,17 @@
 package miner
 
 import (
-	"errors"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"errors"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 type hashrate struct {
@@ -35,6 +35,7 @@ type hashrate struct {
 	rate uint64
 }
 
+// RemoteAgent for Remote mine
 type RemoteAgent struct {
 	mu sync.Mutex
 
@@ -54,19 +55,19 @@ type RemoteAgent struct {
 	running int32 // running indicates whether the agent is active. Call atomically
 }
 
+//NewRemoteAgent create remote agent object
 func NewRemoteAgent(chain consensus.ChainReader, snailchain consensus.SnailChainReader, engine consensus.Engine) *RemoteAgent {
 
 	return &RemoteAgent{
-		chain:    chain,
+		chain:      chain,
 		snailchain: snailchain,
-		engine:   engine,
-		work:     make(map[common.Hash]*Work),
-		hashrate: make(map[common.Hash]hashrate),
+		engine:     engine,
+		work:       make(map[common.Hash]*Work),
+		hashrate:   make(map[common.Hash]hashrate),
 	}
-
-	//return nil
 }
 
+//SubmitHashrate return the HashRate for remote agent
 func (a *RemoteAgent) SubmitHashrate(id common.Hash, rate uint64) {
 	a.hashrateMu.Lock()
 	defer a.hashrateMu.Unlock()
@@ -74,14 +75,17 @@ func (a *RemoteAgent) SubmitHashrate(id common.Hash, rate uint64) {
 	a.hashrate[id] = hashrate{time.Now(), rate}
 }
 
+// Work return a work chan
 func (a *RemoteAgent) Work() chan<- *Work {
 	return a.workCh
 }
 
+// SetReturnCh return a mine result for return chan
 func (a *RemoteAgent) SetReturnCh(returnCh chan<- *Result) {
 	a.returnCh = returnCh
 }
 
+//Start remote control the start mine
 func (a *RemoteAgent) Start() {
 	if !atomic.CompareAndSwapInt32(&a.running, 0, 1) {
 		return
@@ -91,6 +95,7 @@ func (a *RemoteAgent) Start() {
 	go a.loop(a.workCh, a.quitCh)
 }
 
+//Stop remote control the stop mine
 func (a *RemoteAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&a.running, 1, 0) {
 		return
@@ -111,6 +116,7 @@ func (a *RemoteAgent) GetHashRate() (tot int64) {
 	return
 }
 
+//GetWork return the current block hash without nonce
 func (a *RemoteAgent) GetWork() ([3]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -133,7 +139,7 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
-	return res, errors.New("No work available yet, don't panic.")
+	return res, errors.New("No work available yet, Don't panic.")
 }
 
 // SubmitWork tries to inject a pow solution into the remote agent, returning

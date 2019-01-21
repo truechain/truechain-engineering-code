@@ -17,8 +17,9 @@
 package types
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
@@ -31,11 +32,13 @@ type AddTxEvent struct{ Tx *Transaction }
 type RemoveTxEvent struct{ Hash common.Hash }
 
 //for fruit and record
+//NewFruitsEvent is posted when a fruit has been imported.
 type NewFruitsEvent struct{ Fruits []*SnailBlock }
 
-// NewMinedFruitEvent is posted when a block has been imported.
+// NewMinedFruitEvent is posted when a block has been Mined.
 type NewMinedFruitEvent struct{ Block *SnailBlock }
 
+// NewFastBlocksEvent is posted when a block has been imported.
 type NewFastBlocksEvent struct{ FastBlocks []*Block }
 
 // PendingLogsEvent is posted pre mining and notifies of pending logs.
@@ -66,6 +69,7 @@ type ChainSnailEvent struct {
 	Hash  common.Hash
 }
 
+// ChainSnailSideEvent is posted when a block in SideStatTy
 type ChainSnailSideEvent struct {
 	Block *SnailBlock
 }
@@ -78,6 +82,7 @@ type FastBlockEvent struct {
 }
 
 // for fruit event
+// FruitEvent for fruit event,seems not used
 type FruitEvent struct {
 	Block *Block
 	Hash  common.Hash

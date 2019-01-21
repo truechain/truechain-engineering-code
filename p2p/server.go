@@ -28,8 +28,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/truechain/truechain-engineering-code/p2p/discv5"
 	"github.com/truechain/truechain-engineering-code/p2p/nat"
@@ -49,7 +49,7 @@ const (
 	frameReadTimeout = 30 * time.Second
 
 	// Maximum amount of time allowed for writing a complete message.
-	frameWriteTimeout = 20 * time.Second
+	frameWriteTimeout = 30 * time.Second
 )
 
 var errServerStopped = errors.New("server stopped")

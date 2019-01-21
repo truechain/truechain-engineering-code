@@ -97,18 +97,6 @@ func CanonicalVote(chainID string, vote *Vote) CanonicalJSONVote {
 	}
 }
 
-func CanonicalHeartbeat(chainID string, heartbeat *Heartbeat) CanonicalJSONHeartbeat {
-	return CanonicalJSONHeartbeat{
-		ChainID:          chainID,
-		Type:             "heartbeat",
-		Height:           heartbeat.Height,
-		Round:            heartbeat.Round,
-		Sequence:         heartbeat.Sequence,
-		ValidatorAddress: heartbeat.ValidatorAddress,
-		ValidatorIndex:   heartbeat.ValidatorIndex,
-	}
-}
-
 func CanonicalTime(t time.Time) string {
 	// Note that sending time over amino resets it to
 	// local time, we need to force UTC here, so the

@@ -18,10 +18,11 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -54,13 +55,33 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		return ErrKnownBlock
 	}
 	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
-		log.Error("ValidateBody method","number",block.NumberU64()-1,
-			"hash",block.ParentHash())
+		log.Error("ValidateBody method", "number", block.NumberU64()-1,
+			"hash", block.ParentHash())
 		if !fv.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
 			return consensus.ErrUnknownAncestor
 		}
 		return consensus.ErrPrunedAncestor
 	}
+	//validate reward snailBlock
+	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
+		snailNumber := block.SnailNumber().Uint64()
+		blockReward := fv.bc.GetFastHeightBySnailHeight(snailNumber)
+		if blockReward != nil {
+			if fv.bc.CurrentBlock().NumberU64() < snailNumber {
+				log.Error("validateRewardError", "snailNumber", snailNumber,
+					"currentNumber", fv.bc.CurrentBlock().NumberU64(), "err", ErrSnailBlockRewarded)
+				return ErrSnailBlockRewarded
+			}
+		} else {
+			currentRewardedNumber := fv.bc.NextSnailNumberReward()
+			if currentRewardedNumber.Uint64() != snailNumber {
+				log.Error("validateRewardError", "snailNumber", snailNumber,
+					"currentRewardedNumber", currentRewardedNumber, "err", ErrSnailBlockRewarded)
+				return ErrSnailNumberReward
+			}
+		}
+	}
+
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
 	//if err := fv.engine.VerifyUncles(fv.bc, block); err != nil {

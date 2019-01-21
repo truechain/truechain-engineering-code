@@ -1,7 +1,8 @@
 {
   "config": {
     "chainId": 10,
-    "minerva":{"durationLimit" : "0x3c",
+    "minerva":{
+	  "durationLimit" : "0x3c",
       "minimumDifficulty":"0x7d0",
       "minimumFruitDifficulty":"0x32"
       }

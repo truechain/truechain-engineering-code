@@ -9,9 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/console"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
@@ -19,7 +20,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/trie"
 	"gopkg.in/urfave/cli.v1"
 

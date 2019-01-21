@@ -240,13 +240,6 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.header.Bloom = CreateBloom(receipts)
 	}
 
-	if len(receipts) == 0 {
-		b.header.ReceiptHash = EmptyRootHash
-	} else {
-		b.header.ReceiptHash = DeriveSha(Receipts(receipts))
-		b.header.Bloom = CreateBloom(receipts)
-	}
-
 	if len(signs) != 0 {
 		b.signs = make(PbftSigns, len(signs))
 		copy(b.signs, signs)
@@ -412,6 +405,13 @@ func (b *Block) WithSeal(header *Header) *Block {
 		header:       &cpy,
 		transactions: b.transactions,
 	}
+}
+
+func (b *Block) IsAward() bool {
+	if b.SnailHash() != *new(common.Hash) && b.SnailNumber() != nil {
+		return true
+	}
+	return false
 }
 
 // WithBody returns a new block with the given transaction contents.

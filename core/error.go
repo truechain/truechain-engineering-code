@@ -22,6 +22,10 @@ var (
 	// ErrKnownBlock is returned when a block to import is already known locally.
 	ErrKnownBlock = errors.New("block already known")
 
+	ErrSnailBlockRewarded = errors.New("snail block has been rewarded")
+
+	ErrSnailNumberReward = errors.New("snail block number reward error ")
+
 	// ErrGasLimitReached is returned by the gas pool if the amount of gas required
 	// by a transaction is higher than what's left in the block.
 	ErrGasLimitReached = errors.New("gas limit reached")
@@ -34,5 +38,5 @@ var (
 	ErrNonceTooHigh = errors.New("nonce too high")
 
 	//fetch number of newBlock exceed specified number
-	ErrExceedNumber = errors.New("numbere exceed specified number")
+	ErrExceedNumber = errors.New("number exceed specified number")
 )

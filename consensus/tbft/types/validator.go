@@ -3,21 +3,22 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
 // Volatile state for each Validator
 // NOTE: The Accum is not included in Validator.Hash();
 // make sure to update that method if changes are made here
 type Validator struct {
-	Address     help.Address       	`json:"address"`
-	PubKey      crypto.PubKey 		`json:"pub_key"`
-	VotingPower int64         		`json:"voting_power"`
-	Accum 		int64 				`json:"accum"`
+	Address     help.Address  `json:"address"`
+	PubKey      crypto.PubKey `json:"pub_key"`
+	VotingPower int64         `json:"voting_power"`
+	Accum       int64         `json:"accum"`
 }
 
+//add validator for pk
 func NewValidator(pubKey crypto.PubKey, votingPower int64) *Validator {
 	return &Validator{
 		Address:     pubKey.Address(),

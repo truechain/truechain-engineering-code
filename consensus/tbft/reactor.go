@@ -208,11 +208,6 @@ func (conR *ConsensusReactor) Receive(chID byte, src p2p.Peer, msgBytes []byte) 
 			} else {
 				src.TrySend(VoteSetBitsChannel, d1)
 			}
-		case *ProposalHeartbeatMessage:
-			hb := msg.Heartbeat
-			log.Debug("Received proposal heartbeat message",
-				"height", hb.Height, "round", hb.Round, "sequence", hb.Sequence,
-				"valIdx", hb.ValidatorIndex, "valAddr", hb.ValidatorAddress)
 		default:
 			log.Error(fmt.Sprintf("Unknown message type %v", reflect.TypeOf(msg)))
 		}
@@ -333,23 +328,11 @@ func (conR *ConsensusReactor) subscribeToBroadcastEvents() {
 		func(data ttypes.EventData) {
 			conR.broadcastHasVoteMessage(data.(*ttypes.Vote))
 		})
-
-	conR.conS.evsw.AddListenerForEvent(subscriber, ttypes.EventProposalHeartbeat,
-		func(data ttypes.EventData) {
-			conR.broadcastProposalHeartbeatMessage(data.(*ttypes.Heartbeat))
-		})
 }
 
 func (conR *ConsensusReactor) unsubscribeFromBroadcastEvents() {
 	const subscriber = "consensus-reactor"
 	conR.conS.evsw.RemoveListener(subscriber)
-}
-
-func (conR *ConsensusReactor) broadcastProposalHeartbeatMessage(hb *ttypes.Heartbeat) {
-	log.Debug("Broadcasting proposal heartbeat message",
-		"height", hb.Height, "round", hb.Round, "sequence", hb.Sequence)
-	msg := &ProposalHeartbeatMessage{hb}
-	conR.Switch.Broadcast(StateChannel, cdc.MustMarshalBinaryBare(msg))
 }
 
 func (conR *ConsensusReactor) broadcastNewRoundStepMessages(rs *ttypes.RoundState) {
@@ -436,16 +419,18 @@ OUTER_LOOP:
 		if rs.ProposalBlockParts != nil && rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartsHeader) {
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
 				part := rs.ProposalBlockParts.GetPart(index)
-				msg := &BlockPartMessage{
-					Height: rs.Height,      // This tells peer that this part applies to us.
-					Round:  uint(rs.Round), // This tells peer that this part applies to us.
-					Part:   part,
+				if part != nil {
+					msg := &BlockPartMessage{
+						Height: rs.Height,      // This tells peer that this part applies to us.
+						Round:  uint(rs.Round), // This tells peer that this part applies to us.
+						Part:   part,
+					}
+					log.Debug("Sending block part", "height", prs.Height, "round", prs.Round)
+					if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
+						ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
+					}
+					continue OUTER_LOOP
 				}
-				log.Debug("Sending block part", "height", prs.Height, "round", prs.Round)
-				if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
-					ps.SetHasProposalBlockPart(prs.Height, uint(prs.Round), index)
-				}
-				continue OUTER_LOOP
 			}
 		}
 
@@ -516,6 +501,19 @@ OUTER_LOOP:
 
 func (conR *ConsensusReactor) gossipDataForCatchup(rs *ttypes.RoundState,
 	prs *ttypes.PeerRoundState, ps *PeerState, peer p2p.Peer) {
+
+	if !prs.Proposal {
+		blockMeta := conR.conS.blockStore.LoadBlockMeta(prs.Height)
+		if blockMeta == nil || blockMeta.Proposal == nil {
+			log.Error("Failed to load block meta","Height", prs.Height, "maxHeight", conR.conS.blockStore.MaxBlockHeight())
+			return
+		}
+		msg := &ProposalMessage{Proposal: blockMeta.Proposal}
+		log.Debug("Sending proposal", "height", prs.Height, "round", prs.Round)
+		if peer.Send(DataChannel, cdc.MustMarshalBinaryBare(msg)) {
+			ps.SetHasProposal(blockMeta.Proposal)
+		}
+	}
 
 	if index, ok := prs.ProposalBlockParts.Not().PickRandom(); ok {
 		// Ensure that the peer's PartSetHeader is correct
@@ -794,7 +792,9 @@ func (conR *ConsensusReactor) StringIndented(indent string) string {
 //-----------------------------------------------------------------------------
 
 var (
+	// ErrPeerStateHeightRegression is Error peer state height regression
 	ErrPeerStateHeightRegression = errors.New("Error peer state height regression")
+	// ErrPeerStateInvalidStartTime is Error peer state invalid startTime
 	ErrPeerStateInvalidStartTime = errors.New("Error peer state invalid startTime")
 )
 
@@ -806,7 +806,7 @@ type PeerState struct {
 	peer   p2p.Peer
 	logger log.Logger
 
-	mtx   sync.Mutex            `json:"-"`           // NOTE: Modify below using setters, never directly.
+	mtx   sync.Mutex            //`json:"-"`           // NOTE: Modify below using setters, never directly.
 	PRS   ttypes.PeerRoundState `json:"round_state"` // Exposed.
 	Stats *peerStateStats       `json:"stats"`       // Exposed.
 }
@@ -1273,7 +1273,6 @@ func RegisterConsensusMessages(cdc *amino.Codec) {
 	cdc.RegisterConcrete(&HasVoteMessage{}, "true/HasVote", nil)
 	cdc.RegisterConcrete(&VoteSetMaj23Message{}, "true/VoteSetMaj23", nil)
 	cdc.RegisterConcrete(&VoteSetBitsMessage{}, "true/VoteSetBits", nil)
-	cdc.RegisterConcrete(&ProposalHeartbeatMessage{}, "true/ProposalHeartbeat", nil)
 }
 
 func decodeMsg(bz []byte) (msg ConsensusMessage, err error) {
@@ -1412,16 +1411,4 @@ type VoteSetBitsMessage struct {
 // String returns a string representation.
 func (m *VoteSetBitsMessage) String() string {
 	return fmt.Sprintf("[VSB %v/%02d/%v %v %v]", m.Height, m.Round, m.Type, m.BlockID, m.Votes)
-}
-
-//-------------------------------------
-
-// ProposalHeartbeatMessage is sent to signal that a node is alive and waiting for transactions for a proposal.
-type ProposalHeartbeatMessage struct {
-	Heartbeat *ttypes.Heartbeat
-}
-
-// String returns a string representation.
-func (m *ProposalHeartbeatMessage) String() string {
-	return fmt.Sprintf("[HEARTBEAT %v]", m.Heartbeat)
 }

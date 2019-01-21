@@ -20,9 +20,9 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/bloombits"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
@@ -71,6 +71,11 @@ func (b *TrueAPIBackend) CurrentBlock() *types.Block {
 func (b *TrueAPIBackend) SetHead(number uint64) {
 	b.etrue.protocolManager.downloader.Cancel()
 	b.etrue.blockchain.SetHead(number)
+}
+
+func (b *TrueAPIBackend) SetSnailHead(number uint64) {
+	b.etrue.protocolManager.downloader.Cancel()
+	b.etrue.snailblockchain.SetHead(number)
 }
 
 func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error) {

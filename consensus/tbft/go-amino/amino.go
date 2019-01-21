@@ -173,7 +173,7 @@ func (cdc *Codec) MarshalBinaryWriter(w io.Writer, o interface{}) (n int64, err 
 	return
 }
 
-// Panics if error.
+// MustMarshalBinary Panics if error.
 func (cdc *Codec) MustMarshalBinary(o interface{}) []byte {
 	bz, err := cdc.MarshalBinary(o)
 	if err != nil {
@@ -351,14 +351,14 @@ func (cdc *Codec) UnmarshalBinaryBare(bz []byte, ptr interface{}) error {
 	return nil
 }
 
-// Panics if error.
+// MustUnmarshalBinaryBare Panics if error.
 func (cdc *Codec) MustUnmarshalBinaryBare(bz []byte, ptr interface{}) {
 	err := cdc.UnmarshalBinaryBare(bz, ptr)
 	if err != nil {
 		panic(err)
 	}
 }
-
+// MarshalJSON implements the json.Marshaller interface.
 func (cdc *Codec) MarshalJSON(o interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(o)
 	if rv.Kind() == reflect.Invalid {
@@ -398,7 +398,7 @@ func (cdc *Codec) MarshalJSON(o interface{}) ([]byte, error) {
 	}
 	return w.Bytes(), nil
 }
-
+// UnmarshalJSON implements the json.Marshaller interface.
 func (cdc *Codec) UnmarshalJSON(bz []byte, ptr interface{}) error {
 	if len(bz) == 0 {
 		return errors.New("UnmarshalJSON cannot decode empty bytes")

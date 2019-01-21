@@ -22,10 +22,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -375,7 +375,6 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 	return a
 }
 
-
 type committeeMember struct {
 	Address common.Address
 	PubKey  []byte
@@ -387,7 +386,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee []*types.Committ
 	for i, member := range committee {
 		members[i] = &committeeMember{
 			Address: member.Coinbase,
-			PubKey: crypto.FromECDSAPub(member.Publickey),
+			PubKey:  crypto.FromECDSAPub(member.Publickey),
 		}
 	}
 	data, err := rlp.EncodeToBytes(members)
@@ -417,19 +416,19 @@ func ReadCommittee(db DatabaseReader, number uint64) []*types.CommitteeMember {
 	}
 	committee := make([]*types.CommitteeMember, len(members))
 	for i, member := range members {
-		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey);
+		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey)
 		if puberr != nil {
 			return nil
 		}
 		committee[i] = &types.CommitteeMember{
-			Coinbase: member.Address,
-			Publickey:pubkey,
+			Coinbase:  member.Address,
+			Publickey: pubkey,
 		}
 	}
 	return committee
 }
 
-// ReadCommittee read the Genesis committee
+// ReadGenesisCommittee read the Genesis committee
 func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
 	return ReadCommittee(db, 0)
 }

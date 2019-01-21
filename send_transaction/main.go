@@ -15,7 +15,7 @@ import (
 var Count int64
 
 //Transaction from to account id
-var from, frequency = 0, 1
+var from, to, frequency = 0, 0, 1
 
 //Two transmission intervals
 var interval = time.Millisecond * 0
@@ -35,7 +35,7 @@ const SLEEPTIME = 120
 // get par
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [\"ip:port\"]\n", os.Args[0])
+		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to] [\"ip:port\"]\n", os.Args[0])
 		return
 	}
 
@@ -64,15 +64,15 @@ func main() {
 		fmt.Println("from err default 0")
 	}
 
-	//to, err = strconv.Atoi(os.Args[5])
+	to, err = strconv.Atoi(os.Args[5])
 
 	if err != nil {
-		fmt.Println("from err default 1")
+		fmt.Println("to err 0：Local address 1: Generate address")
 	}
 
 	ip := "127.0.0.1:8888"
-	if len(os.Args) == 6 {
-		ip = os.Args[5]
+	if len(os.Args) == 7 {
+		ip = os.Args[6]
 	}
 	fmt.Println("==========================")
 
@@ -188,11 +188,11 @@ func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup)
 	mapData := make(map[string]interface{})
 	mapData["from"] = account[from]
 
-	priKey, _ := crypto.GenerateKey()
-	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //address
-	//address := hex.EncodeToString(coinbase[:])
-	//fmt.Println(coinbase.Hex())
-	mapData["to"] = coinbase.Hex()
+	address := genAddress()
+	if to == 0 {
+		address = account[to]
+	}
+	mapData["to"] = address
 
 	mapData["value"] = "0x2100"
 	var result string
@@ -200,4 +200,11 @@ func sendTransaction(client *rpc.Client, account []string, wait *sync.WaitGroup)
 	if result != "" {
 		Count++
 	}
+}
+
+// Genesis address
+func genAddress() string {
+	priKey, _ := crypto.GenerateKey()
+	address := crypto.PubkeyToAddress(priKey.PublicKey)
+	return address.Hex()
 }

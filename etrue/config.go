@@ -160,6 +160,10 @@ type Config struct {
 	RedisPort int
 	ChannelID int
 	Password  string
+
+	//true indicate only mine fruit
+	Mine bool `toml:",omitempty"`
+
 	//start for old pbft server
 	OldTbft bool `toml:",omitempty"`
 }

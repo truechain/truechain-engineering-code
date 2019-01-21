@@ -52,10 +52,8 @@ var MainnetBootnodes = []string{
 // DevnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the dev Truechain network.
 var DevnetBootnodes = []string{
-	"enode://5f857556d793b3cd22f08e9bd15902d531d95a32f8d2ed821c31918804592fc6162cb36d34016fff497765caebace7acaefd21d7bae12f86b30c9192d6a362ea@39.98.58.86:30313",
-	"enode://929a294dda7e0c389e388b88b7ec857cf9d7550d7e2d724d64caad062542dad813775e838c35297df6f5e97eefcd7b9166eb971f58f2e92c5a74f10715e59129@39.98.44.213:30313",
 	"enode://5b1e518049e36c975095efc54af7d351f8e7cc9a6f81a4db4ec87b105e4a5f6754dc7e417d61ff57732254b18a15000e8844bef6533a00f49442357f01423506@47.92.221.190:30313",
-	"enode://0cda8bf4e1cca06d44e3837895ac8375bd39a8ba1477aa1d5f8b0bff0d5c6b79118fcae946745a03a8343c38c73ae8e703cc7ceffb88fa68b41ecb490f6946e0@47.92.124.238:30313",
+	"enode://28d7353497c2bdc9d7fd5a3a1ff08a684cc6a9ef8f3553b6e48a6e49001fabfb7f0ff33b152deebe99d0017b3577b6e844f25e7dd6973cb933dae41fe449596b@47.92.124.238:30313",
 }
 
 // TestnetBootnodes are the enode URLs of the P2P bootstrap nodes running on the

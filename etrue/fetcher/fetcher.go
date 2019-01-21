@@ -422,7 +422,7 @@ func (f *Fetcher) loop() {
 					} else {
 						f.markBroadcastBlock(number, peer, block)
 						if len(f.blockConsensus[number]) > 0 {
-							signHashs := f.signMultiHash[number]
+							signHashs := f.blockConsensus[number]
 							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
@@ -987,8 +987,9 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 
 // GetPendingBlock gets a block that is not inserted locally
 func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.Block {
-	if f.getPendingBlock(hash) != nil {
-		return f.getPendingBlock(hash).block
+	inject := f.getPendingBlock(hash)
+	if inject != nil {
+		return inject.block
 	}
 	return nil
 }

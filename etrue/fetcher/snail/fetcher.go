@@ -24,9 +24,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/log"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -38,8 +38,6 @@ const (
 	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
 	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
 	blockLimit    = 64                     // Maximum number of unique blocks a peer may have delivered
-	signLimit     = 64                     // Maximum number of unique sign a peer may have delivered
-	maxChanelSign = 64                     // Maximum number of unique sign a peer may have cache
 )
 
 var (
@@ -197,10 +195,11 @@ func (f *Fetcher) loop() {
 					// Otherwise if fresh and still unknown, try and import
 					if number+maxUncleDist < height || f.getBlock(hash) != nil {
 						f.forgetBlock(hash)
+						finished = true
 						continue
 					}
 					f.verifyBlockBroadcast(peer, block, true)
-					log.Debug("insert SnailBlockMsg", "number", block.Number())
+					log.Info("Inserting snail block", "number", block.Number(), "hash", hash, "peer", peer)
 					if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
 						log.Warn("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
 						finished = true
@@ -238,6 +237,7 @@ func (f *Fetcher) loop() {
 // has not yet been seen.
 func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 	hash := block.Hash()
+	number := block.Number()
 
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
@@ -263,17 +263,12 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 		f.queued[hash] = op
 
 		opMulti := injectMulti{}
-		if blockHsahs, ok := f.blockMultiHash[block.Number()]; ok {
-			for _, hash := range blockHsahs {
-				op := f.queued[hash]
-				f.blockMultiHash[block.Number()] = append(f.blockMultiHash[block.Number()], hash)
-				opMulti.origins = append(opMulti.origins, op.origin)
-				opMulti.blocks = append(opMulti.blocks, op.block)
-			}
-		} else {
-			f.blockMultiHash[block.Number()] = append(f.blockMultiHash[block.Number()], hash)
-			opMulti.origins = append(opMulti.origins, op.origin)
-			opMulti.blocks = append(opMulti.blocks, op.block)
+		f.blockMultiHash[number] = append(f.blockMultiHash[number], hash)
+		// update queue cache far more block in same height
+		for _, hash := range f.blockMultiHash[number] {
+			opOld := f.queued[hash]
+			opMulti.origins = append(opMulti.origins, opOld.origin)
+			opMulti.blocks = append(opMulti.blocks, opOld.block)
 		}
 
 		f.queue.Push(opMulti, -float32(block.NumberU64()))
@@ -324,15 +319,6 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock, pro
 			}
 		}
 	}()
-}
-
-// GetPendingBlock gets a block that is not inserted locally
-func (f *Fetcher) GetPendingBlock(hash common.Hash) *types.SnailBlock {
-	if _, ok := f.queued[hash]; !ok {
-		return nil
-	} else {
-		return f.queued[hash].block
-	}
 }
 
 // forgetBlock removes all traces of a queued block from the fetcher's internal

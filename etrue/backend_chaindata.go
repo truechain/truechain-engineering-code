@@ -1,18 +1,18 @@
 package etrue
 
 import (
-	"os"
-	"fmt"
-	"io/ioutil"
-	"io"
 	"bytes"
 	"encoding/hex"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/node"
+	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"time"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/node"
+	"io"
+	"io/ioutil"
+	"os"
 	"strconv"
+	"time"
 )
 
 /**
@@ -28,7 +28,7 @@ var (
 		fullNode, err = etrue.NewChain(ctx, cfg, path, 1)
 		etrue.CutContent(path, 1)
 	}
- */
+*/
 
 func NewChain(ctx *node.ServiceContext, config *Config, path string, blockType int) (*Truechain, error) {
 	etrue, err := New(ctx, config)

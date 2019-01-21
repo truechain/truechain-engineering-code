@@ -21,8 +21,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -47,6 +47,7 @@ type Backend interface {
 
 	// BlockChain API
 	SetHead(number uint64)
+	SetSnailHead(number uint64)
 	HeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Header, error)
 	SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error)
 	BlockByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.Block, error)
