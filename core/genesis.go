@@ -543,10 +543,10 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 // DefaultDevGenesisBlock returns the Rinkeby network genesis block.
 func DefaultDevGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044b5d1cc3da303e860914a6f526b59aeccf76d28c57f37704df2dee5a9c0fa3e5f1d888e592ec8d1f3baca404b34e16d5612841e31a0240231d57381da3538531"))
-	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0471239944700e6fffb58033e4f508f484c712c960d403e9b87269542c06e016bc1b4110af6333bcfbe52c7aa04ae7269ca254d3ccc7363b98ea3996f0a9f77ef0"))
-	key3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04fc61bee6ee46231843e6f41d6460fb5961cb941bd902e8c1bfe85d91e31f708b5e03da57f51c2c972324c155085267aa306bb7b4e25ddc9d7ce399905a44da31"))
-	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044aa7cef6d282ec22e0ef6d55d36b17d607afee920668320430717552cd7d4905e07d92a0e939f96ef6d617174a136267ed6a4efcc14879abe6aa097965fb4740"))
+	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0488a25849abee5921fdb581ba34cd66adc8e02b108391c4153ca8da27722e16badf4fcd5ba7f557ae76d444ccf3638e4590a181805623de1cab67f31364c79736"))
+	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a9a1cedb8900d893b607c4dbc834abada3fe98f247b8bcb5ef44d3d3a246c4cf41d9d792527473c30ded81fa4b81afe7030a09e093dd92746b98c79e6a204c63"))
+	key3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x040d153624462927444a8212717e4ad41ec5f5739bc36598d093d114729e1dc782d55d322699705829cf9d69f201009db797ebe8ba952f10a26fe36c64356b111b"))
+	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a3474c26578fce00d241119758271f6a208cc987c6f37d1518dcea2a51257bafeebd93202ae499cb5a8986720d4b63a04043aadb4d03430194a81860c9ca0763"))
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
