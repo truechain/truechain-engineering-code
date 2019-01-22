@@ -254,11 +254,8 @@ func (h *HealthMgr) Switch(s *SwitchValidator) {
 	if s == nil {
 		return
 	}
-	select {
-	case h.ChanTo() <- s:
-	default:
-		log.Info("h.switchChanTo already close")
-	}
+
+	h.ChanTo() <- s
 }
 func (h *HealthMgr) healthGoroutine() {
 	sshift, islog, cnt := true, true, 0
