@@ -1146,15 +1146,18 @@ func (agent *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) ev
 
 //IsCommitteeMember  whether publickey in  committee member
 func (agent *PbftAgent) updateCommittee(receivedCommitteeInfo *types.CommitteeInfo) {
+	//update currentCommitteeInfo
 	if receivedCommitteeInfo.Id == agent.currentCommitteeInfo.Id {
 		agent.currentCommitteeInfo = receivedCommitteeInfo
 	} else {
 		log.Error("updateCommittee error ", "cId", agent.currentCommitteeInfo.Id, "nId", agent.nextCommitteeInfo.Id,
 			"receivedId", receivedCommitteeInfo.Id)
 	}
-	nodeWork := agent.getCurrentNodeWork()
-	if receivedCommitteeInfo.Id == nodeWork.committeeInfo.Id {
-		nodeWork.committeeInfo = receivedCommitteeInfo
+	//update nodeInfoWorks
+	if receivedCommitteeInfo.Id == agent.nodeInfoWorks[0].committeeInfo.Id {
+		agent.nodeInfoWorks[0].committeeInfo = receivedCommitteeInfo
+	} else if receivedCommitteeInfo.Id == agent.nodeInfoWorks[1].committeeInfo.Id {
+		agent.nodeInfoWorks[1].committeeInfo = receivedCommitteeInfo
 	} else {
 		log.Error("update nodeInfoWorks committeeInfo error ", "cId", agent.currentCommitteeInfo.Id, "nId", agent.nextCommitteeInfo.Id,
 			"receivedId", receivedCommitteeInfo.Id)
