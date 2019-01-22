@@ -378,6 +378,7 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 type committeeMember struct {
 	Address common.Address
 	PubKey  []byte
+	MType   uint32
 }
 
 type electionMembers struct{
@@ -392,6 +393,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionC
 		members[i] = &committeeMember{
 			Address: member.Coinbase,
 			PubKey: crypto.FromECDSAPub(member.Publickey),
+			MType: uint32(member.MType),
 		}
 	}
 	backups := make([]*committeeMember, len(committee.Backups))
@@ -399,6 +401,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionC
 		backups[i] = &committeeMember{
 			Address: member.Coinbase,
 			PubKey: crypto.FromECDSAPub(member.Publickey),
+			MType: uint32(member.MType),
 		}
 	}
 
@@ -438,6 +441,7 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 			Coinbase:   member.Address,
 			Publickey:  pubkey,
 			Flag:       types.StateUsedFlag,
+			MType:      int32(member.MType),
 		})
 	}
 
@@ -450,6 +454,7 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 			Coinbase:   member.Address,
 			Publickey:  pubkey,
 			Flag:       types.StateUnusedFlag,
+			MType:      int32(member.MType),
 		})
 	}
 

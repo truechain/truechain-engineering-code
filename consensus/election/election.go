@@ -613,8 +613,6 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 
 // GetComitteeById return committee info sepecified by Committee ID
 func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
-	var members []*types.CommitteeMember
-
 	e.mu.RLock()
 	currentCommittee := e.committee
 	e.mu.RUnlock()
@@ -655,7 +653,7 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 	elected := e.getElectionMembers(beginElectionNumber, endElectionNumber)
 	if elected != nil {
 		info["id"] = id.Uint64()
-		info["memberCount"] = len(members)
+		info["memberCount"] = len(elected.Members) + len(elected.Backups)
 		info["beginSnailNumber"] = beginElectionNumber.Uint64()
 		info["endSnailNumber"] = endElectionNumber.Uint64()
 		info["members"] = membersDisplay(elected.Members)
