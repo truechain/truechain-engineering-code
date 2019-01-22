@@ -24,6 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -78,13 +79,15 @@ func Payer(signer Signer, tx *Transaction) (common.Address, error) {
 			return sigCache_payment.payment, nil
 		}
 	}
-	if (tx.data.PR == nil || tx.data.PV == nil || tx.data.PS == nil) ||
-		(tx.data.PR.Uint64() == 0 && tx.data.PV.Uint64() == 0 && tx.data.PS.Uint64() == 0) {
+	if tx.data.Payer == nil {
 		return params.EmptyAddress, nil
 	}
 	addr, err := signer.Payer(tx)
 	if err != nil {
 		return params.EmptyAddress, err
+	}
+	if addr != *tx.data.Payer {
+		log.Error("Payer err,signed_addr !=tx.data.Payer ", "signed_payer", addr, "old_payer", *tx.data.Payer)
 	}
 	tx.payment.Store(sigCache_payment{signer: signer, payment: addr})
 	return addr, nil
