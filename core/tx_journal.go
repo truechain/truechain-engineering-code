@@ -172,16 +172,16 @@ func (journal *txJournal) rotate(all map[common.Address]types.Transactions) erro
 // export tx from on chain to another.
 func (journal *txJournal) reserve(tx *types.Transaction) error {
 	// append
-	insert, err := os.OpenFile(journal.path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	append, err := os.OpenFile(journal.path, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
 
-	if err = rlp.Encode(insert, tx); err != nil {
-		insert.Close()
+	if err = rlp.Encode(append, tx); err != nil {
+		append.Close()
 		return err
 	}
-	insert.Close()
+	append.Close()
 	log.Info("reserve transaction", "transaction", tx)
 
 	return nil
