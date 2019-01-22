@@ -56,7 +56,7 @@ type CommitteeElection interface {
 
 	SubscribeElectionEvent(ch chan<- types.ElectionEvent) event.Subscription
 
-	IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool
+	GetMemberFlag(members []*types.CommitteeMember, publickey []byte) int32
 }
 
 // Miner creates blocks and searches for proof-of-work values.
@@ -130,7 +130,7 @@ func (miner *Miner) loop() {
 			case types.CommitteeStart:
 				// alread to start mining need stop
 
-				if miner.election.IsCommitteeMember(ch.CommitteeMembers, miner.publickey) {
+				if flag := miner.election.GetMemberFlag(ch.CommitteeMembers, miner.publickey); flag == types.StateUsedFlag {
 					// i am committee
 					if miner.Mining() {
 						atomic.StoreInt32(&miner.commitFlag, 0)

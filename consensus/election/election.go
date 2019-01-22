@@ -299,17 +299,17 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 // IsCommitteeMember reports whether the provided public key is in committee
-func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+func (e *Election) GetMemberFlag(members []*types.CommitteeMember, publickey []byte) int32 {
 	if len(members) == 0 {
 		log.Error("IsCommitteeMember method len(members)= 0")
-		return false
+		return 0
 	}
 	for _, member := range members {
-		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) && (member.Flag == types.StateUsedFlag || member.Flag == types.StateUnusedFlag) {
-			return true
+		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+			return member.Flag
 		}
 	}
-	return false
+	return 0
 }
 
 // VerifyPublicKey get the committee member by public key
