@@ -304,9 +304,8 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 		}
 		if pfrom != params.EmptyAddress {
 			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
-		} else {
-			return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 		}
+		return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 	})
 
 	// If the list was strict, filter anything above the lowest nonce
