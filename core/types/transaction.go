@@ -52,6 +52,7 @@ type txdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
+	Payer        *common.Address `json:"payer"    rlp:"nil"`
 
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -79,20 +80,35 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	return NewTransaction_Payment(nonce, to, amount, gasLimit, gasPrice, data, common.Address{})
+}
+
+func NewTransaction_Payment(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
+	if payer == (common.Address{}) {
+		return newTransaction(nonce, &to, nil, amount, gasLimit, gasPrice, data)
+	}
+	return newTransaction(nonce, &to, &payer, amount, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return NewContractCreation_Payment(nonce, amount, gasLimit, gasPrice, data, common.Address{})
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewContractCreation_Payment(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
+	if payer == (common.Address{}) {
+		return newTransaction(nonce, nil, nil, amount, gasLimit, gasPrice, data)
+	}
+	return newTransaction(nonce, nil, &payer, amount, gasLimit, gasPrice, data)
+}
+
+func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 	d := txdata{
 		AccountNonce: nonce,
 		Recipient:    to,
+		Payer:        payer,
 		Payload:      data,
 		Amount:       new(big.Int),
 		GasLimit:     gasLimit,

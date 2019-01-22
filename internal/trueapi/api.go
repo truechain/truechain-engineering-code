@@ -1415,7 +1415,7 @@ func (s *PublicTransactionPoolAPI) sign_payment(addr common.Address, tx *types.T
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
-	Payment  common.Address  `json:"payment"`
+	Payment  common.Address  `json:"payer"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1477,9 +1477,9 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Input
 	}
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		return types.NewContractCreation_Payment(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	return types.NewTransaction_Payment(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
@@ -1630,22 +1630,23 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	tx := args.toTransaction()
 	//sign payment
 	fmt.Println("api method signTransaction received payment", args.Payment.String())
-	signedPaymentTx, err := s.signPayment(args.Payment, tx)
+	signed, err := s.sign(args.From, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	signed_payment, err := s.signPayment(args.Payment, signed)
 	if err != nil {
 		log.Error("SignTransaction signPayment error", "error", err)
 		return nil, err
 	}
 
-	signed, err := s.sign(args.From, signedPaymentTx)
-	if err != nil {
-		return nil, err
-	}
-	data, err := rlp.EncodeToBytes(signed)
+	data, err := rlp.EncodeToBytes(signed_payment)
 	if err != nil {
 		return nil, err
 	}
 	fmt.Println("api method signTransaction signed", signed.Info())
-	return &SignTransactionResult{data, signed}, nil
+	return &SignTransactionResult{data, signed_payment}, nil
 }
 
 // PendingTransactions returns the transactions that are in the transaction pool
