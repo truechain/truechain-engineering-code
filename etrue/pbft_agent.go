@@ -391,7 +391,8 @@ func (agent *PbftAgent) loop() {
 					continue
 				}
 				agent.setCommitteeInfo(currentCommittee, agent.nextCommitteeInfo)
-				if agent.IsCommitteeMember(agent.currentCommitteeInfo) {
+				flag := agent.getMemberFlagFromCommittee(agent.currentCommitteeInfo)
+				if flag == types.StateUsedFlag {
 					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 			case types.CommitteeStop:
