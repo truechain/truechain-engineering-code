@@ -152,7 +152,6 @@ func (s *dialstate) addStatic(n *discover.Node) {
 }
 
 func (s *dialstate) removeStatic(n *discover.Node) {
-	log.Info("(s *dialstate) removeStatic ")
 	// This removes a task so future attempts to connect will not be made.
 	delete(s.static, n.ID)
 	// This removes a previous dial timestamp so that application

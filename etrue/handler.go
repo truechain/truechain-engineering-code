@@ -481,11 +481,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	msg, err := p.rw.ReadMsg()
 
 	if err != nil {
-		log.Info("Handler start", "peer", p.id, "err", err, "msg code", msg.Code)
+		log.Error("Handler start", "peer", p.id, "err", err, "msg code", msg.Code)
 		return err
 	}
 
-	log.Info("Handler start", "peer", p.id, "msg code", msg.Code)
+	log.Debug("Handler start", "peer", p.id, "msg code", msg.Code)
 	if msg.Size > ProtocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
@@ -1076,7 +1076,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		trueHead := request.Block.ParentHash()
 		diff := request.Block.Difficulty()
 		if diff == nil {
-			log.Info("get request block diff failed.")
+			log.Error("get request block diff failed.")
 			return errResp(ErrDecode, "snail block diff is nil")
 		}
 		trueTD := new(big.Int).Sub(request.TD, request.Block.Difficulty())
@@ -1101,11 +1101,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 	timeString := time.Now().Sub(now).String()
 	if strings.Contains(timeString, "h") {
-		log.Info("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
+		log.Debug("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
 		return fmt.Errorf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr())
 	}
 
-	log.Info("Handler end", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
+	log.Debug("Handler end", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
 	return nil
 }
 
