@@ -19,7 +19,8 @@ package params
 import "math/big"
 
 var (
-	TargetGasLimit = GenesisGasLimit // The artificial target
+	// TargetGasLimit is the artificial target
+	TargetGasLimit = GenesisGasLimit
 )
 
 const (
