@@ -440,8 +440,8 @@ func (g *Genesis) MustSnailCommit(db etruedb.Database) *types.SnailBlock {
 // DefaultGenesisBlock returns the Truechain main net snail block.
 func DefaultGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044af9a092489fdb309e05032699d0647b80794c6c5e9edab77bad4408e281526e809e7ff913a4d5f41d798f6b18ec41c8a33ae6f5016c5ecc8c4fe8e52b9fe94a"))
-	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0427572d5f27be1066e1d840f2ea395ea08e8ca82de2638a2085ba9eae96a1e48f7317d41294dfa6f85068de8eabe337a7d5450c058e1ffa1414e73dc2b83358c1"))
+	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0488a25849abee5921fdb581ba34cd66adc8e02b108391c4153ca8da27722e16badf4fcd5ba7f557ae76d444ccf3638e4590a181805623de1cab67f31364c79736"))
+	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a9a1cedb8900d893b607c4dbc834abada3fe98f247b8bcb5ef44d3d3a246c4cf41d9d792527473c30ded81fa4b81afe7030a09e093dd92746b98c79e6a204c63"))
 	key3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x040d153624462927444a8212717e4ad41ec5f5739bc36598d093d114729e1dc782d55d322699705829cf9d69f201009db797ebe8ba952f10a26fe36c64356b111b"))
 	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a3474c26578fce00d241119758271f6a208cc987c6f37d1518dcea2a51257bafeebd93202ae499cb5a8986720d4b63a04043aadb4d03430194a81860c9ca0763"))
 
@@ -534,7 +534,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 			common.BytesToAddress([]byte{6}): {Balance: big.NewInt(1)}, // ECAdd
 			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
 			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
-			faucet: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
+			faucet:                           {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
 		},
 	}
 	return &genesis
@@ -608,8 +608,8 @@ func DefaultTestnetGenesisBlock() *Genesis {
 		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		ParentHash: common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		Alloc:      map[common.Address]types.GenesisAccount{
-		// common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: amount},
-		// common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: amount},
+			// common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: amount},
+			// common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: amount},
 		},
 		Committee: []*types.CommitteeMember{
 			&types.CommitteeMember{Coinbase: coinbase, Publickey: seedkey1},
