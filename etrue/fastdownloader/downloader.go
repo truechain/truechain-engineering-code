@@ -1036,14 +1036,13 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 					}
 				}
 
-				if d.mode == FastSync || d.mode == LightSync || d.mode == SnapShotSync {
-					head := d.lightchain.CurrentHeader()
-					if d.remoteHeader.Number.Uint64() > head.Number.Uint64() {
-						log.Warn("errStallingPeer","remoteHeader",d.remoteHeader.Number.Uint64(),"Number",head.Number.Uint64())
-						return errStallingPeer
-					}
-				}
-
+				//if d.mode == FastSync || d.mode == LightSync || d.mode == SnapShotSync {
+				//	head := d.lightchain.CurrentHeader()
+				//	if d.remoteHeader.Number.Uint64() > head.Number.Uint64() {
+				//		log.Warn("errStallingPeer","remoteHeader",d.remoteHeader.Number.Uint64(),"Number",head.Number.Uint64())
+				//		return errStallingPeer
+				//	}
+				//}
 				// Disable any rollback and return
 				rollback = nil
 				return nil
