@@ -165,7 +165,7 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) buyGas_Payment() error {
+func (st *StateTransition) buyGasPayment() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.Payment()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
@@ -191,7 +191,7 @@ func (st *StateTransition) preCheck() error {
 		}
 	}
 	if st.msg.Payment() != params.EmptyAddress {
-		return st.buyGas_Payment()
+		return st.buyGasPayment()
 	} else {
 		return st.buyGas()
 	}
