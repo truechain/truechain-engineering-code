@@ -1750,7 +1750,7 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	if len(block.SwitchInfos().Vals) == 0 {
 		res = true
 	}
-	log.Info("validateBlock", "res", res)
+	log.Info("validateBlock", "res", res, "info", block.SwitchInfos())
 	return cs.state.ValidateBlock(block, res)
 }
 
@@ -1773,4 +1773,3 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 	}
 	return 0
 }
-
