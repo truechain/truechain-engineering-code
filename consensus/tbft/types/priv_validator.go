@@ -558,25 +558,25 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// }
 }
 
-type inWatch struct {
+type TWatch struct {
 	begin  time.Time
 	end    time.Time
 	expect float64
 	str    string
 }
 
-func newInWatch(e float64, s string) *inWatch {
-	return &inWatch{
+func newInWatch(e float64, s string) *TWatch {
+	return &TWatch{
 		begin:  time.Now(),
 		end:    time.Now(),
 		expect: e,
 		str:    s,
 	}
 }
-func (in *inWatch) EndWatch() {
+func (in *TWatch) EndWatch() {
 	in.end = time.Now()
 }
-func (in *inWatch) Finish(comment interface{}) {
+func (in *TWatch) Finish(comment interface{}) {
 	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
 		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
 	}
