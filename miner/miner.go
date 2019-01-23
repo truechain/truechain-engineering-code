@@ -127,9 +127,11 @@ func (miner *Miner) loop() {
 		select {
 		case ch := <-miner.electionCh:
 			switch ch.Option {
-			case types.CommitteeStart:
-				// alread to start mining need stop
-
+			case types.CommitteeStart, types.CommitteeUpdate:
+				// already to start mining need stop
+				var members []*types.CommitteeMember
+				members = append(members, ch.CommitteeMembers...)
+				members = append(members, ch.BackupMembers...)
 				if miner.election.IsCommitteeMember(ch.CommitteeMembers, miner.publickey) {
 					// i am committee
 					if miner.Mining() {
@@ -139,7 +141,6 @@ func (miner *Miner) loop() {
 					atomic.StoreInt32(&miner.commitFlag, 0)
 				} else {
 					log.Debug("not in commiteer munber so start to miner")
-
 					atomic.StoreInt32(&miner.commitFlag, 1)
 					miner.Start(miner.coinbase)
 
