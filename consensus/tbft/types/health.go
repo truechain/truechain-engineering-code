@@ -345,6 +345,14 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 			})
 		}
 	}
+	for _, v := range h.seed {
+		if !v.Equal(remove) && !v.Equal(add) && v.State == ctypes.StateUsedFlag {
+			vals = append(vals, &ctypes.SwitchEnter{
+				Pk:   v.Val.PubKey.Bytes(),
+				Flag: uint32(atomic.LoadInt32(&v.State)),
+			})
+		}
+	}
 	// will need check vals with validatorSet
 	infos := &ctypes.SwitchInfos{
 		CID:  h.cid,
