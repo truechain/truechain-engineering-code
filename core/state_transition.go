@@ -192,10 +192,8 @@ func (st *StateTransition) preCheck() error {
 	}
 	if st.msg.Payment() != params.EmptyAddress {
 		return st.buyGasPayment()
-	} else {
-		return st.buyGas()
 	}
-
+	return st.buyGas()
 }
 
 // TransitionDb will transition the state by applying the current message and
