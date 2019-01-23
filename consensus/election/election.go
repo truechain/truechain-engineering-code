@@ -312,6 +312,11 @@ func (e *Election) GetMemberFlag(members []*types.CommitteeMember, publickey []b
 	return 0
 }
 
+func (e *Election) IsCommitteeMember(members []*types.CommitteeMember, publickey []byte) bool {
+	flag := e.GetMemberFlag(members, publickey)
+	return flag == types.StateUsedFlag
+}
+
 // VerifyPublicKey get the committee member by public key
 func (e *Election) VerifyPublicKey(fastHeight *big.Int, pubKeyByte []byte) (*types.CommitteeMember, error) {
 	members := e.GetCommittee(fastHeight)

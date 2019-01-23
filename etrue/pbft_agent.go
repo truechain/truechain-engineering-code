@@ -386,8 +386,7 @@ func (agent *PbftAgent) loop() {
 					continue
 				}
 				agent.setCommitteeInfo(currentCommittee, agent.nextCommitteeInfo)
-				flag := agent.getMemberFlagFromCommittee(agent.currentCommitteeInfo)
-				if flag == types.StateUsedFlag {
+				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
 					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 			case types.CommitteeStop:
@@ -395,8 +394,7 @@ func (agent *PbftAgent) loop() {
 				if !agent.verifyCommitteeID(ch.Option, committeeID) {
 					continue
 				}
-				flag := agent.getMemberFlagFromCommittee(agent.currentCommitteeInfo)
-				if flag == types.StateUsedFlag {
+				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
 					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 				agent.stopSend()
@@ -416,7 +414,7 @@ func (agent *PbftAgent) loop() {
 				}
 				agent.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 
-				if agent.IsCommitteeMember(receivedCommitteeInfo, agent.committeeNode.Publickey) {
+				if agent.IsUsedOrUnusedMember(receivedCommitteeInfo, agent.committeeNode.Publickey) {
 					agent.startSend(receivedCommitteeInfo, true)
 					help.CheckAndPrintError(agent.server.PutCommittee(receivedCommitteeInfo))
 					help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
@@ -596,11 +594,11 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
 
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
-		agent.IsCommitteeMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
+		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0]
 	}
 	if committeeID2 != nil && committeeID2.Cmp(encryptNode.CommitteeID) == 0 &&
-		agent.IsCommitteeMember(agent.nodeInfoWorks[1].committeeInfo, pubKeyByte) {
+		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[1].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[1]
 	}
 	return false, nil
@@ -1165,7 +1163,7 @@ func (agent *PbftAgent) updateCommittee(receivedCommitteeInfo *types.CommitteeIn
 }
 
 //IsCommitteeMember  whether publickey in  committee member
-func (agent *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo, publickey []byte) bool {
+func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo, publickey []byte) bool {
 	var members []*types.CommitteeMember
 	members = append(members, committeeInfo.Members...)
 	members = append(members, committeeInfo.BackMembers...)
@@ -1183,6 +1181,12 @@ func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.Committe
 	members = append(members, committeeInfo.Members...)
 	members = append(members, committeeInfo.BackMembers...)
 	return agent.election.GetMemberFlag(members, agent.committeeNode.Publickey)
+}
+
+//IsCommitteeMember  whether agent in  committee member
+func (agent *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
+	flag := agent.getMemberFlagFromCommittee(committeeInfo)
+	return flag == types.StateUsedFlag
 }
 
 // VerifyCommitteeSign verify sign of node is in committee
@@ -1255,8 +1259,7 @@ func PrintNode(str string, node *types.CommitteeNode) {
 //AcquireCommitteeAuth determine whether the node pubKey  is in the specified committee
 func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	committeeMembers := agent.election.GetCommittee(fastHeight)
-	flag := agent.election.GetMemberFlag(committeeMembers, agent.committeeNode.Publickey)
-	return flag == types.StateUsedFlag
+	return agent.election.IsCommitteeMember(committeeMembers, agent.committeeNode.Publickey)
 }
 
 //func GetSigns(committees []*types.CommitteeMember,fb *types.Block) []
