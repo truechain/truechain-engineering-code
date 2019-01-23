@@ -1628,13 +1628,13 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	}
 
 	tx := args.toTransaction()
-	//sign payment
 	fmt.Println("api method signTransaction received payment", args.Payment.String())
+	//sign from
 	signed, err := s.sign(args.From, tx)
 	if err != nil {
 		return nil, err
 	}
-
+	//sign payment
 	signed_payment, err := s.signPayment(args.Payment, signed)
 	if err != nil {
 		log.Error("SignTransaction signPayment error", "error", err)
@@ -1645,7 +1645,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("api method signTransaction signed", signed.Info())
+	//fmt.Println("api method signTransaction signed", signed.Info())
 	return &SignTransactionResult{data, signed_payment}, nil
 }
 
