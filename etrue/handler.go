@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math"
 	"math/big"
 	"strings"
@@ -463,7 +464,10 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// main loop. handle incoming messages.
 	for {
+		watch := help.NewTWatch(3, "handler.go handleMsg")
 		err := pm.handleMsg(p)
+		watch.EndWatch()
+		watch.Finish("finish")
 		if pm.msgTime != nil {
 			pm.msgTime.Stop()
 		}
