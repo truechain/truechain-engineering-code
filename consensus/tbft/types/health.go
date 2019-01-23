@@ -561,13 +561,23 @@ func (h *HealthMgr) UpdateFromCommittee(member, backMember ctypes.CommitteeMembe
 		}
 	}
 	for _, v := range backMember {
-		for k, v2 := range h.Back {
-			pk := crypto.PubKeyTrue(*v.Publickey)
-			if bytes.Equal(pk.Address(), v2.Val.Address) {
-				atomic.StoreInt32(&h.Back[k].State, v.Flag)
-				break
+		if v.MType == TypeBack {
+			for k, v2 := range h.Back {
+				pk := crypto.PubKeyTrue(*v.Publickey)
+				if bytes.Equal(pk.Address(), v2.Val.Address) {
+					atomic.StoreInt32(&h.Back[k].State, v.Flag)
+					break
+				}
 			}
-		}
+		} else if v.MType == TypeFixed {
+			for k, v2 := range h.seed {
+				pk := crypto.PubKeyTrue(*v.Publickey)
+				if bytes.Equal(pk.Address(), v2.Val.Address) {
+					atomic.StoreInt32(&h.seed[k].State, v.Flag)
+					break
+				}
+			}
+		}			
 	}
 }
 
