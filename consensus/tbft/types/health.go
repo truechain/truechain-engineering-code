@@ -561,7 +561,7 @@ func (h *HealthMgr) UpdateFromCommittee(member, backMember ctypes.CommitteeMembe
 		}
 	}
 	for _, v := range backMember {
-		if v.MType == TypeBack {
+		if v.MType == ctypes.TypeBack {
 			for k, v2 := range h.Back {
 				pk := crypto.PubKeyTrue(*v.Publickey)
 				if bytes.Equal(pk.Address(), v2.Val.Address) {
@@ -569,7 +569,7 @@ func (h *HealthMgr) UpdateFromCommittee(member, backMember ctypes.CommitteeMembe
 					break
 				}
 			}
-		} else if v.MType == TypeFixed {
+		} else if v.MType == ctypes.TypeFixed {
 			for k, v2 := range h.seed {
 				pk := crypto.PubKeyTrue(*v.Publickey)
 				if bytes.Equal(pk.Address(), v2.Val.Address) {
@@ -577,7 +577,7 @@ func (h *HealthMgr) UpdateFromCommittee(member, backMember ctypes.CommitteeMembe
 					break
 				}
 			}
-		}			
+		}
 	}
 }
 
