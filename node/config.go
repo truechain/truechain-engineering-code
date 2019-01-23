@@ -25,12 +25,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/truechain/truechain-engineering-code/accounts"
-	"github.com/truechain/truechain-engineering-code/accounts/keystore"
-	"github.com/truechain/truechain-engineering-code/accounts/usbwallet"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/accounts/keystore"
+	"github.com/truechain/truechain-engineering-code/accounts/usbwallet"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
 )
@@ -41,7 +41,7 @@ const (
 	datadirDefaultKeyStore = "keystore"           // Path within the datadir to the keystore
 	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list
 	datadirTrustedNodes    = "trusted-nodes.json" // Path within the datadir to the trusted node list
-	datadirNodeDatabase    = "nodes"              // Path within the datadir to store the node infos
+	datadirNodeDatabase    = "truenodes"          // Path within the datadir to store the node infos
 )
 
 // Config represents a small collection of configuration values to fine tune the
@@ -436,7 +436,6 @@ func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 	}
 	return accounts.NewManager(backends...), ephemeral, nil
 }
-
 
 func (c *Config) BftCommitteeKey() *ecdsa.PrivateKey {
 	// Generate ephemeral key if no datadir is being used.
