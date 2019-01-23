@@ -63,7 +63,7 @@ var (
 		Minerva: &(MinervaConfig{
 			MinimumDifficulty:      big.NewInt(10000),
 			MinimumFruitDifficulty: big.NewInt(100),
-			DurationLimit:          big.NewInt(150),
+			DurationLimit:          big.NewInt(60),
 		}),
 	}
 
