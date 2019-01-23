@@ -1415,7 +1415,7 @@ func (s *PublicTransactionPoolAPI) sign_payment(addr common.Address, tx *types.T
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
-	Payment  common.Address  `json:"payer"`
+	Payment  common.Address  `json:"payment"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
