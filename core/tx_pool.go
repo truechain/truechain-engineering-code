@@ -621,6 +621,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// cost == V + GP * GL
 	if payer != params.EmptyAddress && payer != from {
 		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
+			log.Error("insufficientFundsForPayer", "balance", pool.currentState.GetBalance(payer), "gasCost", tx.GasCost())
 			return ErrInsufficientFundsForPayer
 		}
 		if pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
