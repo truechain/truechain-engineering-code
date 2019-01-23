@@ -464,10 +464,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	// main loop. handle incoming messages.
 	for {
-		watch := help.NewTWatch(3, "handler.go handleMsg")
 		err := pm.handleMsg(p)
-		watch.EndWatch()
-		watch.Finish("finish")
 		if pm.msgTime != nil {
 			pm.msgTime.Stop()
 		}
@@ -483,7 +480,11 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg code:%s", msg.Code))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	if err != nil {
 		log.Error("Handler start", "peer", p.id, "err", err, "msg code", msg.Code)
 		return err
