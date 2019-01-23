@@ -457,7 +457,7 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	if v != nil {
 		info = v.Infos
 	}
-	watch := newInWatch(3, "FetchFastBlock")
+	watch := NewTWatch(3, "FetchFastBlock")
 	block, err := state.Agent.FetchFastBlock(committeeID, info)
 	if err != nil {
 		return nil, err
@@ -478,7 +478,7 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
-	watch := newInWatch(3, "BroadcastConsensus")
+	watch := NewTWatch(3, "BroadcastConsensus")
 	err := state.Agent.BroadcastConsensus(block)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
@@ -499,7 +499,7 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	if state.BeginHeight > block.NumberU64() {
 		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
-	watch := newInWatch(3, "VerifyFastBlock")
+	watch := NewTWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)
 	log.Info("VerifyFastBlockResult", "sign", sign, "result", sign.Result, "err", err)
 	watch.EndWatch()
@@ -558,6 +558,7 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// }
 }
 
+// TWatch watch and output the cost time for exec
 type TWatch struct {
 	begin  time.Time
 	end    time.Time
@@ -565,7 +566,8 @@ type TWatch struct {
 	str    string
 }
 
-func newInWatch(e float64, s string) *TWatch {
+// NewTWatch make the new watch
+func NewTWatch(e float64, s string) *TWatch {
 	return &TWatch{
 		begin:  time.Now(),
 		end:    time.Now(),
@@ -573,9 +575,11 @@ func newInWatch(e float64, s string) *TWatch {
 		str:    s,
 	}
 }
+// EndWatch end the watch
 func (in *TWatch) EndWatch() {
 	in.end = time.Now()
 }
+// Finish count the cost time in watch
 func (in *TWatch) Finish(comment interface{}) {
 	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
 		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
