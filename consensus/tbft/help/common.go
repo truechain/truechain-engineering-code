@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 type HexBytes []byte
@@ -269,31 +268,3 @@ type PeerInValidators interface {
 	HasPeerID(id string) error
 }
 
-//-----------------------------------------------------------------------------
-// TWatch watch and output the cost time for exec
-type TWatch struct {
-	begin  time.Time
-	end    time.Time
-	expect float64
-	str    string
-}
-
-// NewTWatch make the new watch
-func NewTWatch(e float64, s string) *TWatch {
-	return &TWatch{
-		begin:  time.Now(),
-		end:    time.Now(),
-		expect: e,
-		str:    s,
-	}
-}
-// EndWatch end the watch
-func (in *TWatch) EndWatch() {
-	in.end = time.Now()
-}
-// Finish count the cost time in watch
-func (in *TWatch) Finish(comment interface{}) {
-	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
-		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
-	}
-}
