@@ -476,10 +476,6 @@ web3._extend({
 			inputFormatter: [null]
 		}),
 		new web3._extend.Method({
-			name: 'stopFruit',
-			call: 'miner_stopFruit'
-		}),
-		new web3._extend.Method({
 			name: 'setEtherbase',
 			call: 'miner_setEtherbase',
 			params: 1,

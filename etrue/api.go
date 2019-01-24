@@ -176,6 +176,7 @@ func (api *PrivateMinerAPI) Stop() bool {
 	if th, ok := api.e.engine.(threaded); ok {
 		th.SetThreads(-1)
 	}
+	api.e.miner.SetFruitOnly(false)
 	api.e.StopMining()
 	return true
 }
@@ -206,19 +207,6 @@ func (api *PrivateMinerAPI) StartFruit(threads *int) error {
 		return api.e.StartMining(true)
 	}
 	return nil
-}
-
-// Stop the miner
-func (api *PrivateMinerAPI) StopFruit() bool {
-	type threaded interface {
-		SetThreads(threads int)
-	}
-	if th, ok := api.e.engine.(threaded); ok {
-		th.SetThreads(-1)
-	}
-	api.e.miner.SetFruitOnly(false)
-	api.e.StopMining()
-	return true
 }
 
 // SetExtra sets the extra data string that is included when this miner mines a block.
