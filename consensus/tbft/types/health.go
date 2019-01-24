@@ -300,7 +300,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
 				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
 				h.setCurSV(cur)
-				log.Info("CheckSwitchValidator(remove,add)", "info:", cur)
+				log.Info("CheckSwitchValidator(remove,add)", "info:", cur,"cid",h.cid)
 				go h.Switch(cur)
 			}
 		}
@@ -310,7 +310,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 			if val0 > HealthOut && sv0.From == 0 {
 				sv1 := *sv0
 				sv1.From = 1
-				log.Info("Restore SwitchValidator", "info", sv1)
+				log.Info("Restore SwitchValidator", "info", sv1,"cid",h.cid)
 				go h.Switch(&sv1)
 			}
 		}
@@ -419,7 +419,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 				remove = h.GetHealth(enter1.Pk)
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
-				log.Error("switchResult item not match", "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
+				log.Error("switchResult item not match","cid",h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
 			}
 			if remove != nil {
 				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
@@ -432,7 +432,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			}
 		}
 	}
-	log.Info("switchResult", "result:", ss, "res", res)
+	log.Info("switchResult", "result:", ss, "res", res,"cid",h.cid)
 }
 
 //pickUnuseValidator get a back committee
