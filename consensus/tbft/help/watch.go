@@ -77,7 +77,7 @@ func (in *TWatch) getEndFlag() bool {
 // Finish count the cost time in watch
 func (in *TWatch) Finish(comment interface{}) {
 	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
-		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
+		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment,"id",in.ID)
 	}
 }
 
@@ -169,12 +169,12 @@ func (w *WatchMgr) watchLoop() {
 			end := watch.getEndFlag()
 			if !end && d.Seconds() > float64(MaxLockTime) && d.Seconds() > watch.expect * 10 {
 				go watch.EndWatch()
-				log.Warn("cost long time or forget endwatch","function",watch.str, "time", d.Seconds())
+				log.Warn("cost long time or forget endwatch","function",watch.str, "time", d.Seconds(),"id",watch.ID,"index",i)
 			}
 			if end {
 				w.remove(i)
 				continue
-			}			
+			}
 		}
 	}
 }
