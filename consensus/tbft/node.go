@@ -288,6 +288,7 @@ func NewNode(config *cfg.TbftConfig, chainID string, priv *ecdsa.PrivateKey,
 // OnStart starts the Node. It implements help.Service.
 func (n *Node) OnStart() error {
 	n.nodeinfo = n.makeNodeInfo()
+	help.BeginWatchMgr()
 	return nil
 }
 
@@ -300,6 +301,7 @@ func (n *Node) OnStop() {
 		help.CheckAndPrintError(v.stop())
 		log.Info("end stop tbft server ", "id", i)
 	}
+	help.EndWatchMgr()
 	// first stop the non-reactor services
 	// now stop the reactors
 	// TODO: gracefully disconnect from peers.

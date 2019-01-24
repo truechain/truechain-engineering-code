@@ -103,6 +103,7 @@ func (w *WatchMgr) getNewNum() uint64 {
 }
 func (w *WatchMgr) start() {
 	w.quit = false
+	go w.work()
 }
 func (w *WatchMgr) stop() {
 	w.quit = true
