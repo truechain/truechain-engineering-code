@@ -17,7 +17,9 @@ var (
 	// WatchFinishTime used to handle the end event in every watch
 	WatchFinishTime = 10
 	// MaxLockTime	used to judge the watch is locked
-	MaxLockTime = 30
+	MaxLockTime = 60
+	// MaxWatchInChan
+	MaxWatchInChan = 20000
 )
 
 func BeginWatchMgr() {
@@ -91,7 +93,7 @@ func newWatchMgr() *WatchMgr {
 		watchID:	0,
 		watchs:		make(map[uint64]*TWatch,0),
 		lock:		new(sync.Mutex),
-		resFinish:	make(chan uint64,10000),
+		resFinish:	make(chan uint64,MaxWatchInChan),
 		quit:		true,
 	}
 	return w
