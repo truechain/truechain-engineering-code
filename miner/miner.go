@@ -87,7 +87,7 @@ type Miner struct {
 
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
-	election CommitteeElection, mineFruit bool, singleNode bool, mineEnableFlag bool) *Miner {
+	election CommitteeElection, mineFruit bool, singleNode bool) *Miner {
 	miner := &Miner{
 		truechain:  truechain,
 		mux:        mux,
@@ -98,12 +98,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		electionCh: make(chan types.ElectionEvent, txChanSize),
 		worker:     newWorker(config, engine, common.Address{}, truechain, mux),
 		commitFlag: 1,
-	}
-
-	if mineEnableFlag || mineFruit {
-		miner.canStart = 1
-	} else {
-		miner.canStart = 0
+		canStart:   1,
 	}
 
 	miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
@@ -142,7 +137,11 @@ func (miner *Miner) loop() {
 				} else {
 					log.Debug("not in commiteer munber so start to miner")
 					atomic.StoreInt32(&miner.commitFlag, 1)
-					miner.Start(miner.coinbase)
+					shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
+					atomic.StoreInt32(&miner.shouldStart, 0)
+					if shouldStart {
+						miner.Start(miner.coinbase)
+					}
 
 				}
 				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
@@ -150,7 +149,11 @@ func (miner *Miner) loop() {
 
 				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 				atomic.StoreInt32(&miner.commitFlag, 1)
-				miner.Start(miner.coinbase)
+				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
+				atomic.StoreInt32(&miner.shouldStart, 0)
+				if shouldStart {
+					miner.Start(miner.coinbase)
+				}
 			}
 		case <-miner.electionSub.Err():
 			return
