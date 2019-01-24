@@ -801,7 +801,11 @@ func (e *Election) getLastNumber(beginSnail, endSnail *big.Int) *big.Int {
 func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*types.CommitteeMember {
 	var addrs = make(map[common.Address]uint)
 	var members []*types.CommitteeMember
+	var defaults = make(map[common.Address]*types.CommitteeMember)
 
+	for _, g := range e.defaultMembers {
+		defaults[crypto.PubkeyToAddress(*g.Publickey)] = g
+	}
 	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
 	round := new(big.Int).Set(common.Big1)
 	for {
@@ -819,6 +823,10 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 			}
 
 			log.Trace("get member", "seed", hash, "member", cm.address, "prop", prop)
+			if _, ok := defaults[cm.address]; ok {
+				// No need to select default committee member
+				break
+			}
 			if _, ok := addrs[cm.address]; ok {
 				break
 			}
