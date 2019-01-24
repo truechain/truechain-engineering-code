@@ -1060,6 +1060,7 @@ func (e *Election) Start() error {
 				Option:           types.CommitteeOver,
 				CommitteeID:      e.committee.id,
 				CommitteeMembers: e.committee.Members(),
+				BackupMembers:    e.committee.BackupMembers(),
 				BeginFastNumber:  e.committee.beginFastNumber,
 				EndFastNumber:    e.committee.endFastNumber,
 			})
@@ -1068,6 +1069,7 @@ func (e *Election) Start() error {
 				Option:           types.CommitteeSwitchover,
 				CommitteeID:      e.nextCommittee.id,
 				CommitteeMembers: e.nextCommittee.Members(),
+				BackupMembers:    e.nextCommittee.BackupMembers(),
 				BeginFastNumber:  e.nextCommittee.beginFastNumber,
 			})
 		}
@@ -1143,6 +1145,7 @@ func (e *Election) loop() {
 						Option:           types.CommitteeSwitchover,
 						CommitteeID:      e.nextCommittee.id,
 						CommitteeMembers: e.nextCommittee.Members(),
+						BackupMembers:    e.nextCommittee.BackupMembers(),
 						BeginFastNumber:  e.nextCommittee.beginFastNumber,
 					})
 				}
@@ -1164,6 +1167,7 @@ func (e *Election) loop() {
 							Option:           types.CommitteeStop,
 							CommitteeID:      e.committee.id,
 							CommitteeMembers: e.committee.Members(),
+							BackupMembers:    e.committee.BackupMembers(),
 							BeginFastNumber:  e.committee.beginFastNumber,
 							EndFastNumber:    e.committee.endFastNumber,
 						})
@@ -1181,6 +1185,7 @@ func (e *Election) loop() {
 							Option:           types.CommitteeStart,
 							CommitteeID:      e.committee.id,
 							CommitteeMembers: e.committee.Members(),
+							BackupMembers:    e.committee.BackupMembers(),
 							BeginFastNumber:  e.committee.beginFastNumber,
 						})
 					}
