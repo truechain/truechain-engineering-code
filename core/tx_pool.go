@@ -675,12 +675,12 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			return false, ErrUnderpriced
 		}
 		proctime := time.Since(start)
-		log.Info("deal with Underpriced", "proctime", proctime)
+		log.Trace("deal with Underpriced", "proctime", proctime)
 		// New transaction is better than our worse ones, make room for it
 		start = time.Now()
 		drop := pool.priced.Discard(pool.all.Count()-int(pool.config.GlobalSlots+pool.config.GlobalQueue-1), pool.locals)
 		proctime = time.Since(start)
-		log.Info("deal with Discard", "proctime", proctime)
+		log.Trace("deal with Discard", "proctime", proctime)
 		start = time.Now()
 		for _, tx := range drop {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
@@ -688,7 +688,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			pool.removeTx(tx.Hash(), false)
 		}
 		proctime = time.Since(start)
-		log.Info("deal with drop", "proctime", proctime, "drop.Len()", drop.Len())
+		log.Trace("deal with drop", "proctime", proctime, "drop.Len()", drop.Len())
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated
