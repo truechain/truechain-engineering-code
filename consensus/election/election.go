@@ -907,15 +907,22 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 		for _, s := range b.SwitchInfos().Vals {
 			switch s.Flag {
 			case types.StateAppendFlag:
-				states[string(s.Pk)] = types.StateAppendFlag
+				states[hex.EncodeToString(s.Pk)] = types.StateAppendFlag
 			case types.StateRemovedFlag:
-				states[string(s.Pk)] = types.StateRemovedFlag
+				states[hex.EncodeToString(s.Pk)] = types.StateRemovedFlag
 			}
 		}
 	}
+	for k, flag := range states {
+		enums := map[int32]string{
+			types.StateAppendFlag: "add",
+			types.StateRemovedFlag: "drop",
+		}
+		log.Info("Committee switch info transition", "bftkey", k, "state", enums[flag], "committee", c.id)
+	}
 
 	for i, m := range members {
-		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
 			if flag == types.StateRemovedFlag {
 				// Update the committee member state
 				var switched = *m
@@ -925,7 +932,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 		}
 	}
 	for i, m := range backups {
-		if flag, ok := states[string(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
 			if flag == types.StateAppendFlag {
 				// Update the committee member state
 				var switched = *m
@@ -936,7 +943,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 				// Update the committee member state
 				var switched = *m
 				switched.Flag = types.StateRemovedFlag
-				members[i] = &switched
+				backups[i] = &switched
 			}
 		}
 	}
@@ -1217,10 +1224,10 @@ func printCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
 	for _, member := range c.members {
 		key := crypto.FromECDSAPub(member.Publickey)
-		log.Info("Committee member: ", "coinbase", member.Coinbase, "PKey", hex.EncodeToString(key))
+		log.Info("Committee member: ", "PKey", hex.EncodeToString(key), "coinbase", member.Coinbase)
 	}
 	for _, member := range c.backupMembers {
 		key := crypto.FromECDSAPub(member.Publickey)
-		log.Info("Committee backup member: ", "coinbase", member.Coinbase, "PKey", hex.EncodeToString(key))
+		log.Info("Committee backup member: ", "PKey", hex.EncodeToString(key), "coinbase", member.Coinbase)
 	}
 }
