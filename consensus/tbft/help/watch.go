@@ -140,6 +140,15 @@ func (w *WatchMgr) count() uint64 {
 func (w *WatchMgr) getRes() chan<-uint64 {
 	return w.resFinish
 }
+func (w *WatchMgr) getLastWatchs() []*TWatch {
+	ws := make([]*TWatch,0,0)
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	for _,v := range w.watchs {
+		ws = append(ws,v)
+	}
+	return ws
+}
 func (w *WatchMgr) watchFinish() {
 	count := 0
 	for {
@@ -158,23 +167,20 @@ func (w *WatchMgr) watchFinish() {
 	}
 }
 func (w *WatchMgr) watchLoop() {
-	max := atomic.LoadUint64(&w.watchID)
-	count := w.count()
+	ws := w.getLastWatchs()
 	now := time.Now()
 
-	for i:=max;count>0;count-- {
+	for _,watch:= range ws {
 		if w.quit { return }
-		if watch := w.getWatch(i); watch != nil {
-			d := now.Sub(watch.begin)
-			end := watch.getEndFlag()
-			if !end && d.Seconds() > float64(MaxLockTime) && d.Seconds() > watch.expect * 10 {
-				go watch.EndWatch()
-				log.Warn("cost long time or forget endwatch","function",watch.str, "time", d.Seconds(),"id",watch.ID,"index",i)
-			}
-			if end {
-				w.remove(i)
-				continue
-			}
+		d := now.Sub(watch.begin)
+		end := watch.getEndFlag()
+		if !end && d.Seconds() > float64(MaxLockTime) && d.Seconds() > watch.expect * 10 {
+			go watch.EndWatch()
+			log.Warn("cost long time or forget endwatch","function",watch.str, "time", d.Seconds(),"id",watch.ID)
+		}
+		if end {
+			w.remove(watch.ID)
+			continue
 		}
 	}
 }
