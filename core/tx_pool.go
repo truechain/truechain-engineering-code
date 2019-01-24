@@ -711,7 +711,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
 		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(1)))
-		log.Info("pending send", "allSendCount", allSendCount)
+		log.Trace("pending send", "allSendCount", allSendCount)
 		// We've directly injected a replacement transaction, notify subsystems
 		go pool.txFeed.Send(types.NewTxsEvent{types.Transactions{tx}})
 
@@ -1033,7 +1033,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	// Notify subsystem for new promoted transactions.
 	if len(promoted) > 0 {
 		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(len(promoted))))
-		log.Info("pending send", "allSendCount", allSendCount)
+		log.Trace("pending send", "allSendCount", allSendCount)
 		go pool.txFeed.Send(types.NewTxsEvent{promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
