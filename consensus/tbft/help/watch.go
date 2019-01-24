@@ -34,7 +34,9 @@ func EndWatchMgr() {
 		log.Info("end watchMgr")
 	}
 }
-
+func WatchsCountInMgr() uint64 {
+	return watchs.count()
+}
 //-----------------------------------------------------------------------------
 // TWatch watch and output the cost time for exec
 type TWatch struct {

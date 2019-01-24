@@ -189,7 +189,7 @@ func TestWatch(t *testing.T) {
 	help.BeginWatchMgr()
 	defer help.EndWatchMgr()
 	defer fmt.Println("End WatchMgr...")
-	start := make(chan bool)
+
 	wg := sync.WaitGroup{}
 	
 	normal := func(){
@@ -211,7 +211,9 @@ func TestWatch(t *testing.T) {
 	go normal()
 
 	wg.Wait()
-	<-start
+	
+	<-time.After(130*time.Second)
+	fmt.Println("cur watchs count",help.WatchsCountInMgr())
 } 
 func TestBlock(t *testing.T) {
 	block := makeBlock()
