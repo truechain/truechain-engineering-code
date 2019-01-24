@@ -57,6 +57,7 @@ func NewTWatch(e float64, s string) *TWatch {
 		endFlag:	0,
 	}
 	w.ID = watchs.getNewNum()
+	watchs.setWatch(w)
 	return w
 }
 // EndWatch end the watch
