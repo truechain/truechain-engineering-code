@@ -124,7 +124,7 @@ func send(count int, ip string) {
 		msg <- false
 		return
 	}
-	if len(account) == 0 {
+	if len(accountCanOpen) == 0 {
 		fmt.Println("no account")
 		return
 	}
