@@ -978,7 +978,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			// scenario should easily be covered by the fetcher.
 			currentBlock := pm.blockchain.CurrentBlock()
 			if currentBlock.Number().Cmp(new(big.Int).Sub(height, common.Big256)) < 0 {
-				log.Info("syncer NewFastBlockMsg")
 				go pm.synchronise(p)
 			}
 		}
@@ -1096,7 +1095,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			currentBlock := pm.snailchain.CurrentBlock()
 			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
 				// TODO: fix the issue
-				log.Info("syncer SnailBlockMsg")
 				go pm.synchronise(p)
 			}
 		}
