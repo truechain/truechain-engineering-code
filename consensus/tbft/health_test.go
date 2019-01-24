@@ -9,6 +9,7 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	config "github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	"sync"
 	//"github.com/golang/mock/gomock"
 )
 type hItem struct {
@@ -182,6 +184,35 @@ func checkResult(end chan<-int, out <-chan *ttypes.SwitchValidator) {
 	}
 }
 
+func TestWatch(t *testing.T) {
+	log.OpenLogDebug(3)
+	help.BeginWatchMgr()
+	defer help.EndWatchMgr()
+	defer fmt.Println("End WatchMgr...")
+	start := make(chan bool)
+	wg := sync.WaitGroup{}
+	
+	normal := func(){
+		wg.Add(1)
+		ws := make([]*help.TWatch,0,0)
+		for i:=0;i<200;i++ {
+			w := help.NewTWatch(2,fmt.Sprintf("normal,index:%d",i))
+			ws = append(ws,w)			
+		}
+		time.Sleep(2 * time.Second)
+		for i:=0;i<100;i++ {
+			w := ws[i]
+			w.EndWatch()
+			w.Finish(nil)
+		}
+		wg.Done()
+	}
+
+	go normal()
+
+	wg.Wait()
+	<-start
+} 
 func TestBlock(t *testing.T) {
 	block := makeBlock()
 	partset, _ := makePartSet(block)
