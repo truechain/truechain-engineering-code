@@ -464,6 +464,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	return snailChain, fastchain
 }
 
+//MakeChain return snailChain and fastchain by given snailBlockNumbers and a default fastBlockNumbers(60)
 func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers)
 }
