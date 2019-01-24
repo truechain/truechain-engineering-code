@@ -307,7 +307,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 
 		if sv0 := h.getCurSV(); sv0 != nil {
 			val0 := atomic.LoadInt32(&sv0.Remove.Tick)
-			if val0 < HealthOut && sv0.From == 0 {
+			if val0 > HealthOut && sv0.From == 0 {
 				sv1 := *sv0
 				sv1.From = 1
 				log.Info("Restore SwitchValidator", "info", sv1)
