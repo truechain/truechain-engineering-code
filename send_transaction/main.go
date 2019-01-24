@@ -24,6 +24,8 @@ var interval = time.Millisecond * 0
 //get all account
 var account []string
 
+var accountCanOpen []string
+
 //get all account
 var noBalance []int
 
@@ -109,7 +111,6 @@ func send(count int, ip string) {
 	client, err := rpc.Dial("http://" + ip)
 
 	defer client.Close()
-	var accountCanOpen []string
 
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
@@ -117,7 +118,7 @@ func send(count int, ip string) {
 		return
 	}
 
-	err = client.Call(&account, "etrue_accounts")
+	err = client.Call(&accountCanOpen, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
 		msg <- false
@@ -130,14 +131,14 @@ func send(count int, ip string) {
 	fmt.Println("----alread have accounts is in the chain:", len(account))
 
 	//know how to
-	for i := 0; i < len(account); i++ {
-		_, err1 := unlockAccount(client, account[i], "admin", 90000, "son address")
+	for i := 0; i < len(accountCanOpen); i++ {
+		_, err1 := unlockAccount(client, accountCanOpen[i], "admin", 90000, "son address")
 		if err1 == nil {
-			accountCanOpen = append(accountCanOpen, account[i])
+			account = append(account, accountCanOpen[i])
 		}
 	}
 
-	fmt.Println("----alread have accounts is in the local:", len(accountCanOpen))
+	fmt.Println("---------alread have accounts is in the local:", len(accountCanOpen))
 
 	for i := len(account); i < count*2; i++ {
 		//new account
