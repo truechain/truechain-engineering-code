@@ -470,6 +470,16 @@ web3._extend({
 			call: 'miner_stop'
 		}),
 		new web3._extend.Method({
+			name: 'startFruit',
+			call: 'miner_startFruit',
+			params: 1,
+			inputFormatter: [null]
+		}),
+		new web3._extend.Method({
+			name: 'stopFruit',
+			call: 'miner_stopFruit'
+		}),
+		new web3._extend.Method({
 			name: 'setEtherbase',
 			call: 'miner_setEtherbase',
 			params: 1,
