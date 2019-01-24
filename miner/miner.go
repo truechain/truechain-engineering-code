@@ -100,7 +100,7 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		commitFlag: 1,
 	}
 
-	if mineEnableFlag {
+	if mineEnableFlag || mineFruit {
 		miner.canStart = 1
 	} else {
 		miner.canStart = 0
