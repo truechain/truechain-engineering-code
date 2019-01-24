@@ -109,6 +109,7 @@ func send(count int, ip string) {
 	client, err := rpc.Dial("http://" + ip)
 
 	defer client.Close()
+	var accountCanOpen []string
 
 	if err != nil {
 		fmt.Println("Dail:", ip, err.Error())
@@ -126,7 +127,17 @@ func send(count int, ip string) {
 		fmt.Println("no account")
 		return
 	}
-	fmt.Println("----alread have accounts is:", len(account))
+	fmt.Println("----alread have accounts is in the chain:", len(account))
+
+	//know how to
+	for i := 0; i < len(account); i++ {
+		_, err1 := unlockAccount(client, account[i], "admin", 90000, "son address")
+		if err1 == nil {
+			accountCanOpen = append(accountCanOpen, account[i])
+		}
+	}
+
+	fmt.Println("----alread have accounts is in the local:", len(accountCanOpen))
 
 	for i := len(account); i < count*2; i++ {
 		//new account
@@ -361,7 +372,7 @@ func unlockCountNewAccount(client *rpc.Client, count int) bool {
 		fmt.Println(i, " unlockAccount main address ", " son address ", account[i])
 		_, err := unlockAccount(client, account[i], "admin", 90000, "son address")
 		if err != nil {
-			fmt.Println("personal_unlockAccount Error:", err.Error())
+			fmt.Println("personal_unlockAccount Error:", err.Error(), "addr", account[i])
 			msg <- false
 			return false
 		}
