@@ -356,6 +356,7 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 	return fruit, nil
 }
 
+//MakeSnailBlockFruits return fruits or blocks by given params
 func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
 	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
 	var blocks types.SnailBlocks
