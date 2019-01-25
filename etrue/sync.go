@@ -266,7 +266,12 @@ func (pm *ProtocolManager) syncer() {
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg synchronise", peer.id))
+	var watch *help.TWatch
+	if peer == nil {
+		watch = help.NewTWatch(3, fmt.Sprintf("peer: , handleMsg synchronise"))
+	} else {
+		watch = help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg synchronise", peer.id))
+	}
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
