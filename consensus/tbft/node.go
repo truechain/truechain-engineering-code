@@ -423,6 +423,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 }
 
 func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo) {
+
 	for _, v := range c.Members {
 		id := pkToP2pID(v.Publickey)
 		//exclude self
