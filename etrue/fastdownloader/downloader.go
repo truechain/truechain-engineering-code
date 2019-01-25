@@ -20,6 +20,7 @@ package fastdownloader
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -332,7 +333,6 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, mode SyncMode, origin uint64, height uint64) error {
-
 
 	err := d.synchronise(id, head, mode, origin, height)
 	defer log.Debug("fast Synchronise exit")
@@ -1300,11 +1300,23 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 // DeliverHeaders injects a new batch of block headers received from a remote
 // node into the download schedule.
 func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err error) {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, deliver headers:%d", id, len(headers)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
+
 	return d.deliver(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
 func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos) (err error) {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, deliver bodies:%d", id, len(infos)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
+
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs, infos}, bodyInMeter, bodyDropMeter)
 }
 

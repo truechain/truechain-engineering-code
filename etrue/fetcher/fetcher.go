@@ -19,6 +19,8 @@ package fetcher
 
 import (
 	"errors"
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/rand"
 	"time"
 
@@ -312,6 +314,12 @@ func (f *Fetcher) EnqueueSign(peer string, signs []*types.PbftSign) error {
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
 	log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers))
 
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, filtering fast headers: %d", peer, len(headers)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
+
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
 
@@ -339,6 +347,12 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, []*types.SwitchInfos) {
 	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
+
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, filtering fast bodies: %d", peer, len(transactions)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)

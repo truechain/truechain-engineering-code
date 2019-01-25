@@ -480,7 +480,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg code:%d", msg.Code))
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg code:%d", p.id, msg.Code))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
