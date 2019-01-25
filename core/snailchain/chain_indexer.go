@@ -55,6 +55,8 @@ type ChainIndexerChain interface {
 	// SubscribeChainEvent subscribes to new head header notifications.
 	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 }
+
+// SnailChainIndexerChain interface is used for connecting the indexer to a snail blockchain
 type SnailChainIndexerChain interface {
 	// CurrentHeader retrieves the latest locally known header.
 	CurrentHeader() *types.SnailHeader
