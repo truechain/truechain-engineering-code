@@ -117,6 +117,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	s.consensusState.SetPrivValidator(privValidator)
 	s.sa.SetPrivValidator(privValidator)
 	// Start the switch (the P2P server).
+	help.CheckAndPrintError(s.healthMgr.OnStart())
 	err := s.sw.Start()
 	if err != nil {
 		return err
@@ -401,7 +402,6 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 
 	n.AddHealthForCommittee(service.healthMgr, committeeInfo)
 
-	help.CheckAndPrintError(service.healthMgr.OnStart())
 	service.consensusState.SetHealthMgr(service.healthMgr)
 	nodeInfo := makeCommitteeMembers(service, committeeInfo)
 

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	config "github.com/truechain/truechain-engineering-code/params"
@@ -1207,4 +1208,13 @@ func TestPutNodes(t *testing.T) {
 	n1.Notify(c1.Id, Start)
 
 	<-start
+}
+
+func TestWatch(t *testing.T) {
+	log.OpenLogDebug(5)
+	help.BeginWatchMgr()
+	w := help.NewTWatch(3, "111")
+	time.Sleep(time.Second * 70)
+	w.EndWatch()
+	w.Finish("end")
 }
