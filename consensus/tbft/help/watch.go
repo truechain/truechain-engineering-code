@@ -96,8 +96,10 @@ func (in *TWatch) Finish(comment interface{}) {
 type WatchMgr struct {
 	watchID   uint64
 	watchs    map[uint64]*TWatch
+	tmpWatchs []*TWatch
 	quit      bool
 	lock      *sync.Mutex
+	tlock     *sync.Mutex
 	resFinish chan uint64
 }
 
@@ -105,7 +107,9 @@ func newWatchMgr() *WatchMgr {
 	w := &WatchMgr{
 		watchID:   0,
 		watchs:    make(map[uint64]*TWatch, 0),
+		tmpWatchs: make([]*TWatch, 0, 0),
 		lock:      new(sync.Mutex),
+		tlock:     new(sync.Mutex),
 		resFinish: make(chan uint64, MaxWatchInChan),
 		quit:      true,
 	}
@@ -125,10 +129,30 @@ func (w *WatchMgr) stop() {
 	time.Sleep(2 * time.Second)
 }
 func (w *WatchMgr) setWatch(watch *TWatch) {
+	w.tlock.Lock()
+	defer w.tlock.Unlock()
+	w.tmpWatchs = append(w.tmpWatchs, watch)
+}
+
+func (w *WatchMgr) getUnsetWatchs() []*TWatch {
+	w.tlock.Lock()
+	defer w.tlock.Unlock()
+	wss := w.tmpWatchs
+	w.tmpWatchs = make([]*TWatch, 0, 0)
+	return wss
+}
+
+func (w *WatchMgr) setWatchs() {
+	wss := w.getUnsetWatchs()
+	if len(wss) == 0 {
+		return
+	}
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	if _, ok := w.watchs[watch.ID]; !ok {
-		w.watchs[watch.ID] = watch
+	for _, watch := range wss {
+		if _, ok := w.watchs[watch.ID]; !ok {
+			w.watchs[watch.ID] = watch
+		}
 	}
 }
 func (w *WatchMgr) getWatch(id uint64) *TWatch {
@@ -217,12 +241,14 @@ func (w *WatchMgr) watchLoop() {
 func (w *WatchMgr) work() {
 
 	for {
-
 		if w.quit {
 			return
 		}
+
+		w.setWatchs()
 		w.watchFinish()
 		w.watchLoop()
+
 		time.Sleep(100 * time.Millisecond)
 	}
 }
