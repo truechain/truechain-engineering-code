@@ -397,15 +397,15 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	if !EnableHealthMgr {
 		return
 	}
-
+	ss := "failed"
 	// remove sv in curSwitch if can
 	if cur := h.getCurSV(); cur != nil {
 		if (res.From == 1 && cur.Equal(res)) || cur.EqualWithoutID(res) || cur.EqualWithRemove(res) {
 			h.removeCurSV()
+			ss = "restore "
 		}
 	}
 
-	ss := "failed"
 	if res.From == 0 {
 		if len(res.Infos.Vals) > 2 {
 			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
@@ -424,7 +424,7 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			if remove != nil {
 				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
 				atomic.StoreInt32(&remove.Tick, 0) // issues for the sv was in another proposal queue
-				ss = "Success"
+				ss += "Success"
 			}
 			if add != nil {
 				atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
