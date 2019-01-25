@@ -141,6 +141,8 @@ func (c *ChainIndexer) Start(chain IndexerChain) {
 
 	go c.eventLoop(chain.CurrentHeader(), events, sub)
 }
+
+//StartSnail start snail chain,not use now
 func (c *ChainIndexer) StartSnail(chain IndexerChain) {
 	//events := make(chan SnailChainEvent, 10)
 	//sub := chain.SubscribeSnailChainEvent(events)
