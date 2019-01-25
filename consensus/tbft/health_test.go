@@ -1,35 +1,38 @@
 package tbft
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
+	"math/big"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	config "github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"encoding/hex"
-	"crypto/ecdsa"
-	"path/filepath"
-	"testing"
-	"time"
-	"sync"
 	//"github.com/golang/mock/gomock"
 )
+
 type hItem struct {
-	mb 		*types.CommitteeMember
-	addr	[]byte
-	id 		tp2p.ID
+	mb   *types.CommitteeMember
+	addr []byte
+	id   tp2p.ID
 }
 type hUpdateItem struct {
-	mgr 		*ttypes.HealthMgr
-	hh     		[]*hItem
-	repos		[]int
+	mgr   *ttypes.HealthMgr
+	hh    []*hItem
+	repos []int
 }
+
 var (
 	quit = false
 )
@@ -45,162 +48,164 @@ func makeBlock() *types.Block {
 func makePartSet(block *types.Block) (*ttypes.PartSet, error) {
 	return ttypes.MakePartSet(ttypes.BlockPartSizeBytes, block)
 }
-func makeCommitteeInfo(cc,cid int) *types.CommitteeInfo {
+func makeCommitteeInfo(cc, cid int) *types.CommitteeInfo {
 	committeeCount := cc
-	privs := make([]*ecdsa.PrivateKey,committeeCount)
+	privs := make([]*ecdsa.PrivateKey, committeeCount)
 	cinfo := new(types.CommitteeInfo)
-	work := make([]*types.CommitteeMember,committeeCount)
-	for i:=0;i<committeeCount;i++ {
+	work := make([]*types.CommitteeMember, committeeCount)
+	for i := 0; i < committeeCount; i++ {
 		privs[i] = getPrivateKey(i)
 		work[i] = &types.CommitteeMember{
-			Publickey:		GetPub(privs[i]),
-			Flag:			types.StateUsedFlag,
-			Coinbase:		common.Address{0},
-			MType:			types.TypeWorked,
+			Publickey: GetPub(privs[i]),
+			Flag:      types.StateUsedFlag,
+			Coinbase:  common.Address{0},
+			MType:     types.TypeWorked,
 		}
 	}
 	cinfo.Members = work
 	cinfo.Id = big.NewInt(int64(cid))
-	cinfo.StartHeight,cinfo.EndHeight = big.NewInt(1),big.NewInt(10000)
+	cinfo.StartHeight, cinfo.EndHeight = big.NewInt(1), big.NewInt(10000)
 	return cinfo
 }
 func makeValidatorSet(info *types.CommitteeInfo) *ttypes.ValidatorSet {
 	return MakeValidators(info)
 }
-func makeHealthMgr(cid,committeeCount int) (*ttypes.HealthMgr,[]*hItem) {
-	h := make([]*hItem,committeeCount)
+func makeHealthMgr(cid, committeeCount int) (*ttypes.HealthMgr, []*hItem) {
+	h := make([]*hItem, committeeCount)
 	mgr := ttypes.NewHealthMgr(uint64(cid))
-	info := makeCommitteeInfo(committeeCount,cid)
+	info := makeCommitteeInfo(committeeCount, cid)
 	vset := makeValidatorSet(info)
-	for i,v := range info.Members {
+	for i, v := range info.Members {
 		id := pkToP2pID(v.Publickey)
-		address,_ := hex.DecodeString(string(id))
+		address, _ := hex.DecodeString(string(id))
 		h[i] = &hItem{
-			mb:			v,
-			addr:		address,
-			id:			id,
+			mb:   v,
+			addr: address,
+			id:   id,
 		}
-		_,val := vset.GetByAddress(address)
+		_, val := vset.GetByAddress(address)
 		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
 		mgr.PutWorkHealth(health)
 	}
-	return mgr,h
+	return mgr, h
 }
 func TestSwitchItemInCommittee(t *testing.T) {
-	
+
 	end := make(chan int)
 	chanmgr := make(chan *hUpdateItem)
-	go healthUpdate(chanmgr,end)
+	go healthUpdate(chanmgr, end)
 
-	cid,committeeCount := 1,4
-	mgr,hh := makeHealthMgr(cid,committeeCount)
+	cid, committeeCount := 1, 4
+	mgr, hh := makeHealthMgr(cid, committeeCount)
 	mgr.Start()
 	out := make(chan *ttypes.SwitchValidator)
 
-	for i:=0;i<10;i++ {
-		go func(){
+	for i := 0; i < 10; i++ {
+		go func() {
 			chanmgr <- &hUpdateItem{
-				mgr:		mgr,
-				hh:			hh,
-				repos:		[]int{i+2},
+				mgr:   mgr,
+				hh:    hh,
+				repos: []int{i + 2},
 			}
 		}()
-		go svHandle(mgr,1,out)
-		go checkResult(end,out)
-	
+		go svHandle(mgr, 1, out)
+		go checkResult(end, out)
+
 		<-end
 	}
 
 	mgr.Stop()
 }
-func healthUpdate(recv <-chan *hUpdateItem,end chan<-int) {
-	// once update 
+func healthUpdate(recv <-chan *hUpdateItem, end chan<- int) {
+	// once update
 	for {
-		if quit { return }
+		if quit {
+			return
+		}
 		var item *hUpdateItem
 		func() {
-			select{
-			case item =<-recv:
+			select {
+			case item = <-recv:
 			default:
 			}
 		}()
 		if item != nil {
 			sum := item.mgr.Sum()
 			if sum > 0 {
-				for _,pos := range item.repos {
+				for _, pos := range item.repos {
 					if pos > 0 && pos < sum {
-						for i,v := range item.hh {
+						for i, v := range item.hh {
 							if i != pos {
 								item.mgr.Update(v.id)
 							}
 						}
 					} else {
-						go func() {	end <- 100 }()
+						go func() { end <- 100 }()
 					}
-					time.Sleep(5*time.Millisecond)
-				}	 
+					time.Sleep(5 * time.Millisecond)
+				}
 			} else {
 				fmt.Println("healthUpdate func is quit,cause sum is 0")
-				go func() {	end <- 100 }()
+				go func() { end <- 100 }()
 			}
 		}
-		time.Sleep(1*time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
-func svHandle(mgr *ttypes.HealthMgr,times int,out chan<-*ttypes.SwitchValidator) {
+func svHandle(mgr *ttypes.HealthMgr, times int, out chan<- *ttypes.SwitchValidator) {
 	for {
 		select {
-		case sv := <- mgr.ChanTo():
-			fmt.Println("get sv:",sv)
-			if err := mgr.VerifySwitch(sv); err== nil {
+		case sv := <-mgr.ChanTo():
+			fmt.Println("get sv:", sv)
+			if err := mgr.VerifySwitch(sv); err == nil {
 				go func() {
 					select {
 					case mgr.ChanFrom() <- sv:
 					default:
 					}
-					out<-sv
+					out <- sv
 				}()
 			} else {
-				fmt.Println("verify sv failed,err:",err,"sv:",sv)
-			}			
+				fmt.Println("verify sv failed,err:", err, "sv:", sv)
+			}
 		}
 		if times--; times <= 0 {
-			return 
+			return
 		}
 	}
 }
-func checkResult(end chan<-int, out <-chan *ttypes.SwitchValidator) {
-	rsv := <- out
+func checkResult(end chan<- int, out <-chan *ttypes.SwitchValidator) {
+	rsv := <-out
 	pos := 1
 	for {
-		fmt.Println("check the sv Result.....[",pos,"]")
+		fmt.Println("check the sv Result.....[", pos, "]")
 		if rsv.Remove.State == types.StateRemovedFlag {
-			fmt.Print("check Remove the SV success,sv:",rsv)
-			go func() {	end <- 100 }()
+			fmt.Print("check Remove the SV success,sv:", rsv)
+			go func() { end <- 100 }()
 			return
 		}
-		time.Sleep(1 * time.Second)	
+		time.Sleep(1 * time.Second)
 		pos++
 	}
 }
 
-func TestWatch(t *testing.T) {
+func TestWatch2(t *testing.T) {
 	log.OpenLogDebug(3)
 	help.BeginWatchMgr()
 	defer help.EndWatchMgr()
 	defer fmt.Println("End WatchMgr...")
 
 	wg := sync.WaitGroup{}
-	
-	normal := func(){
+
+	normal := func() {
 		wg.Add(1)
-		ws := make([]*help.TWatch,0,0)
-		for i:=0;i<200;i++ {
-			w := help.NewTWatch(2,fmt.Sprintf("normal,index:%d",i))
-			ws = append(ws,w)			
+		ws := make([]*help.TWatch, 0, 0)
+		for i := 0; i < 200; i++ {
+			w := help.NewTWatch(2, fmt.Sprintf("normal,index:%d", i))
+			ws = append(ws, w)
 		}
 		time.Sleep(2 * time.Second)
-		for i:=0;i<100;i++ {
+		for i := 0; i < 100; i++ {
 			w := ws[i]
 			w.EndWatch()
 			w.Finish(nil)
@@ -211,10 +216,69 @@ func TestWatch(t *testing.T) {
 	go normal()
 
 	wg.Wait()
-	
-	<-time.After(130*time.Second)
-	fmt.Println("cur watchs count",help.WatchsCountInMgr())
-} 
+
+	<-time.After(130 * time.Second)
+	fmt.Println("cur watchs count", help.WatchsCountInMgr())
+}
+func TestWatchFinishCount(t *testing.T) {
+	log.OpenLogDebug(3)
+	help.BeginWatchMgr()
+	defer help.EndWatchMgr()
+	defer fmt.Println("End WatchMgr...")
+
+	begin := time.Now()
+	wg := sync.WaitGroup{}
+	wss := make([]*help.TWatch, 0, 0)
+
+	normal := func(watchs []*help.TWatch, cnt int) {
+		wg.Add(1)
+		ws := watchs
+		finish := false
+		if ws == nil {
+			ws = make([]*help.TWatch, 0, 0)
+			finish = true
+		}
+		for i := 0; i < cnt; i++ {
+			w := help.NewTWatch(2, fmt.Sprintf("normal,index:%d", i))
+			ws = append(ws, w)
+		}
+		time.Sleep(2 * time.Second)
+
+		if finish {
+			for i := 0; i < cnt; i++ {
+				w := ws[i]
+				w.EndWatch()
+				// w.Finish(nil)
+			}
+		} else {
+			wss = ws
+		}
+		wg.Done()
+	}
+	go normal(wss, 100)
+	go normal(nil, 500000)
+	go normal(nil, 500000)
+	go normal(nil, 500000)
+	go normal(nil, 500000)
+
+	wg.Wait()
+	<-time.After(130 * time.Second)
+	fmt.Println("cur watchs count", help.WatchsCountInMgr())
+	for i := 0; i < 100; i++ {
+		w := wss[i]
+		w.EndWatch()
+		w.Finish(nil)
+	}
+	fmt.Println("wait for finish all watchs....")
+	for {
+		if 0 == help.WatchsCountInMgr() {
+			break
+		}
+		fmt.Println("cur watchs count", help.WatchsCountInMgr())
+		time.Sleep(2 * time.Second)
+	}
+	fmt.Println("finish test,cost time=", time.Now().Sub(begin).Seconds())
+}
 func TestBlock(t *testing.T) {
 	block := makeBlock()
 	partset, _ := makePartSet(block)
