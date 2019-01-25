@@ -144,6 +144,9 @@ func (w *WatchMgr) remove(id uint64) {
 	delete(w.watchs, id)
 }
 func (w *WatchMgr) removeByIDs(ids []uint64) {
+	if len(ids) == 0 {
+		return
+	}
 	w.lock.Lock()
 	defer w.lock.Unlock()
 	for _, v := range ids {
@@ -199,11 +202,13 @@ func (w *WatchMgr) watchLoop() {
 			return
 		}
 		d := now.Sub(watch.begin)
-		end := watch.getEndFlag()
-		if !end && d.Seconds() > float64(MaxLockTime) && d.Seconds() > watch.expect*10 {
-			watch.endWatchNoNotify()
+
+		if d.Seconds() > float64(MaxLockTime) && d.Seconds() > watch.expect*10 {
+			if end := watch.getEndFlag(); !end {
+				watch.endWatchNoNotify()
+				log.Warn("cost long time or forget endwatch", "function", watch.str, "time", d.Seconds(), "id", watch.ID)
+			}
 			ids = append(ids, watch.ID)
-			log.Warn("cost long time or forget endwatch", "function", watch.str, "time", d.Seconds(), "id", watch.ID)
 		}
 	}
 }
