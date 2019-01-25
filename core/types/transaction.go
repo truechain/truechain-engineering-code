@@ -295,13 +295,6 @@ func (tx *Transaction) WithSignature_Payment(signer Signer, sig []byte) (*Transa
 	return cpy, nil
 }
 
-func (tx *Transaction) CopyPaymentRSV() *Transaction {
-	cpy := &Transaction{data: tx.data}
-	cpy.data.PR, cpy.data.PS, cpy.data.PV = tx.data.R, tx.data.S, tx.data.V
-	tx.data.R, tx.data.S, tx.data.V = new(big.Int), new(big.Int), new(big.Int)
-	return cpy
-}
-
 // Cost returns amount + gasprice * gaslimit.
 func (tx *Transaction) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))

@@ -1523,7 +1523,6 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 	if err != nil {
 		return nil, err
 	}
-	//newTx := signed.CopyPaymentRSV()
 	//fmt.Println("newTx:", newTx.Info())
 	return signed_payment, nil
 }
