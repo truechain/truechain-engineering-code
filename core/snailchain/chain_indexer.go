@@ -56,8 +56,8 @@ type ChainIndexerChain interface {
 	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 }
 
-// SnailChainIndexerChain interface is used for connecting the indexer to a snail blockchain
-type SnailChainIndexerChain interface {
+// IndexerChain interface is used for connecting the indexer to a snail blockchain
+type IndexerChain interface {
 	// CurrentHeader retrieves the latest locally known header.
 	CurrentHeader() *types.SnailHeader
 
@@ -135,13 +135,13 @@ func (c *ChainIndexer) AddKnownSectionHead(section uint64, shead common.Hash) {
 // Start creates a goroutine to feed chain head events into the indexer for
 // cascading background processing. Children do not need to be started, they
 // are notified about new events by their parents.
-func (c *ChainIndexer) Start(chain SnailChainIndexerChain) {
+func (c *ChainIndexer) Start(chain IndexerChain) {
 	events := make(chan types.ChainSnailEvent, 10)
 	sub := chain.SubscribeChainEvent(events)
 
 	go c.eventLoop(chain.CurrentHeader(), events, sub)
 }
-func (c *ChainIndexer) StartSnail(chain SnailChainIndexerChain) {
+func (c *ChainIndexer) StartSnail(chain IndexerChain) {
 	//events := make(chan SnailChainEvent, 10)
 	//sub := chain.SubscribeSnailChainEvent(events)
 
