@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync/atomic"
+	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -127,7 +128,7 @@ func (miner *Miner) loop() {
 				var members []*types.CommitteeMember
 				members = append(members, ch.CommitteeMembers...)
 				members = append(members, ch.BackupMembers...)
-				if miner.election.IsCommitteeMember(ch.CommitteeMembers, miner.publickey) {
+				if miner.election.IsCommitteeMember(members, miner.publickey) {
 					// i am committee
 					if miner.Mining() {
 						atomic.StoreInt32(&miner.commitFlag, 0)
@@ -313,17 +314,15 @@ func (miner *Miner) SetElection(toElect bool, pubkey []byte) {
 		return
 	}
 	miner.toElect = toElect
+	miner.publickey = make([]byte, len(pubkey))
+	copy(miner.publickey, pubkey)
 
 	if toElect {
-
-		miner.publickey = make([]byte, len(pubkey))
-
-		copy(miner.publickey, pubkey)
 		miner.worker.setElection(toElect, pubkey)
-		log.Info("--------------------set publickey ------", "pubkey", miner.publickey)
+		log.Info("Set worker publickey", "pubkey", hex.EncodeToString(miner.publickey))
 	}
 
-	log.Info("Set election success", "len pubkey", len(miner.publickey))
+	log.Info("Set election success", "pubkey", hex.EncodeToString(miner.publickey))
 }
 
 // SetFruitOnly allow the mine only mined fruit
