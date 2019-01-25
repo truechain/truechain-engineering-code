@@ -62,6 +62,7 @@ func NewTWatch(e float64, s string) *TWatch {
 	}
 	w.ID = watchs.getNewNum()
 	watchs.setWatch(w)
+	w.begin = time.Now()
 	return w
 }
 
