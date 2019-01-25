@@ -17,6 +17,8 @@
 package etrue
 
 import (
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -263,6 +265,13 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
+
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg synchronise", peer.id))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
+
 	if !atomic.CompareAndSwapInt32(&pm.synchronising, 0, 1) {
 		log.Debug("synchronise busy")
 		return
@@ -275,7 +284,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		log.Debug("synchronise peer nil")
 		return
 	}
-	var err error;
+	var err error
 	defer func() {
 		// reset on error
 		if err != nil {
@@ -291,15 +300,15 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
-	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td,"fastHead",peer.fastHead,"fastHeight",fastHeight)
+	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
 
 	if pTd.Cmp(td) <= 0 {
 		pm.downloader.Mux.Post(downloader.StartEvent{})
 		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
-		log.Debug("Fast FetchHeight start ", "header", fastHeight, "currentBlockNumber", currentNumber,"&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
+		log.Debug("Fast FetchHeight start ", "header", fastHeight, "currentBlockNumber", currentNumber, "&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
 
 		if fastHeight > currentNumber {
-			if err:=pm.downloader.SyncFast(peer.id,pHead,fastHeight,downloader.FullSync);err != nil{
+			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FullSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
@@ -316,7 +325,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		mode = downloader.FastSync
 	} else if atomic.LoadUint32(&pm.snapSync) == 1 {
 		mode = downloader.SnapShotSync
-	}else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+	} else if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
 		// The database  seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
@@ -326,7 +335,6 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		mode = downloader.FastSync
 
 	}
-
 
 	if mode == downloader.FastSync || mode == downloader.SnapShotSync {
 		var pivotHeader *types.Header
@@ -339,14 +347,13 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		var err error
 		pivotNumber := fastHeight - dtype.FsMinFullBlocks
 		if pivotHeader, err = pm.fdownloader.FetchHeight(peer.id, pivotNumber); err != nil {
-			log.Error("FetchHeight pivotHeader","err",err)
+			log.Error("FetchHeight pivotHeader", "err", err)
 			return
 		}
 		pm.downloader.SetHeader(pivotHeader)
 		pm.fdownloader.SetHeader(pivotHeader)
 
 	}
-
 
 	pm.downloader.Mux.Post(downloader.StartEvent{})
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
@@ -355,17 +362,15 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 
-
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		if pm.blockchain.CurrentBlock().NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
-			if err:=pm.downloader.SyncFast(peer.id,pHead,fastHeight,downloader.FastSync);err != nil{
+			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FastSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
 			}
 		}
 
 	}
-
 
 	atomic.StoreUint32(&pm.fastSync, 0)
 	atomic.StoreUint32(&pm.snapSync, 0)
