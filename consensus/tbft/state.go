@@ -1648,6 +1648,7 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 			round := int(cs.Round)
 			if round > s.Round || s.Round == -1 {
 				v := cs.pickSwitchValidator(s, true)
+				v.From = 1
 				cs.notifyHealthMgr(v)
 			}
 		}
