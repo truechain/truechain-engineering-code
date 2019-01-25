@@ -127,7 +127,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 			select {
 			case update := <-s.updateChan:
 				if update {
-					s.updateNodes()
+					go s.updateNodes()
 				} else {
 					return // exit
 				}
