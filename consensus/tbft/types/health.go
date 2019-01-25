@@ -606,7 +606,7 @@ func (h *HealthMgr) checkSaveSwitchValidator(members ctypes.CommitteeMembers) {
 			}
 		}
 		if !(rOK && aOk) {
-			h.curSwitch = append(h.curSwitch[:i], h.curSwitch[i:]...)
+			h.curSwitch = append(h.curSwitch[:i], h.curSwitch[i+1:]...)
 		}
 	}
 }
