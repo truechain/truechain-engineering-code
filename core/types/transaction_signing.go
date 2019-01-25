@@ -221,6 +221,7 @@ func (s EIP155Signer) Hash_Payment(tx *Transaction) common.Hash {
 		tx.data.Recipient,
 		tx.data.Amount,
 		tx.data.Payload,
+		tx.data.Payer,
 		tx.data.V,
 		tx.data.R,
 		tx.data.S,
