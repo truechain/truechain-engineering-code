@@ -1267,8 +1267,6 @@ func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	return agent.election.IsCommitteeMember(committeeMembers, agent.committeeNode.Publickey)
 }
 
-//func GetSigns(committees []*types.CommitteeMember,fb *types.Block) []
-
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")
 	// sleep a minute to wait election module start and other nodes' connection
