@@ -123,6 +123,9 @@ type PbftAgent struct {
 	singleNode bool
 
 	nodeInfoWorks []*nodeInfoWork
+
+	gasFloor uint64
+	gasCeil  uint64
 }
 
 // AgentWork is the leader current environment and holds
@@ -143,7 +146,7 @@ type AgentWork struct {
 }
 
 // NewPbftAgent creates a new pbftAgent ,receive events from election and communicate with pbftServer
-func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election) *PbftAgent {
+func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election, gasFloor, gasCeil uint64) *PbftAgent {
 	agent := &PbftAgent{
 		config:               config,
 		engine:               engine,
@@ -163,11 +166,14 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		cacheBlockMu:         new(sync.Mutex),
 		cacheBlock:           make(map[*big.Int]*types.Block),
 		vmConfig:             vm.Config{EnablePreimageRecording: etrue.Config().EnablePreimageRecording},
+		gasFloor:             gasFloor,
+		gasCeil:              gasCeil,
 	}
 	agent.initNodeInfo(etrue)
 	if !agent.singleNode {
 		agent.subScribeEvent()
 	}
+	log.Info("new pbftAgent", "gasFloor", gasFloor, "gasCeil", gasCeil)
 	return agent
 }
 
@@ -714,7 +720,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parentNumber.Add(parentNumber, common.Big1),
-		GasLimit:   core.FastCalcGasLimit(parent),
+		GasLimit:   core.FastCalcGasLimit(parent, agent.gasFloor, agent.gasCeil),
 		Time:       big.NewInt(tstamp),
 	}
 	if infos != nil {

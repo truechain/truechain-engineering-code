@@ -141,6 +141,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
 
+	if config.Genesis != nil {
+		config.MinerGasFloor = config.Genesis.GasLimit * 9 / 10
+		config.MinerGasCeil = config.Genesis.GasLimit * 11 / 10
+	} else {
+		log.Error("config.Genesis.GasLimit", "GasLimit", config.Genesis)
+	}
+
 	etrue := &Truechain{
 		config:         config,
 		chainDb:        chainDb,
@@ -221,7 +228,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	etrue.election.SetEngine(etrue.engine)
 
 	//coinbase, _ := etrue.Etherbase()
-	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election)
+	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, config.MinerGasFloor, config.MinerGasCeil)
 	if etrue.protocolManager, err = NewProtocolManager(
 		etrue.chainConfig, config.SyncMode, config.NetworkId,
 		etrue.eventMux, etrue.txPool, etrue.snailPool, etrue.engine,
