@@ -66,6 +66,9 @@ func (b *LesApiBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNum
 
 	return b.etrue.blockchain.GetHeaderByNumberOdr(ctx, uint64(blockNr))
 }
+func (b *LesApiBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return b.etrue.blockchain.GetHeaderByHash(hash), nil
+}
 
 // TODO: fixed lightchain func.
 func (b *LesApiBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
