@@ -74,6 +74,9 @@ func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNu
 	}
 	return b.etrue.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
 }
+func (b *TrueAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return b.etrue.blockchain.GetHeaderByHash(hash), nil
+}
 
 func (b *TrueAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
 	// Pending block is only known by the miner
