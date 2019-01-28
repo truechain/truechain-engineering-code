@@ -1145,20 +1145,25 @@ func (agent *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) ev
 //IsCommitteeMember  whether publickey in  committee member
 func (agent *PbftAgent) updateCommittee(receivedCommitteeInfo *types.CommitteeInfo) {
 	//update currentCommitteeInfo
-	if receivedCommitteeInfo.Id.Uint64() == agent.currentCommitteeInfo.Id.Uint64() {
+	receivedId := receivedCommitteeInfo.Id
+	if receivedId == nil {
+		log.Error("updateCommittee receivedId is nil")
+		return
+	}
+	if receivedId.Uint64() == agent.currentCommitteeInfo.Id.Uint64() {
 		agent.currentCommitteeInfo = receivedCommitteeInfo
 	} else {
-		log.Error("updateCommittee error ", "cId", agent.currentCommitteeInfo.Id, "nId", agent.nextCommitteeInfo.Id,
+		log.Error("updateCommittee error ", "cId", receivedId, "nId", agent.nextCommitteeInfo.Id,
 			"receivedId", receivedCommitteeInfo.Id)
 	}
 	//update nodeInfoWorks
-	if receivedCommitteeInfo.Id.Uint64() == agent.nodeInfoWorks[0].committeeInfo.Id.Uint64() {
+	if agent.nodeInfoWorks[0].committeeInfo.Id != nil && receivedId.Uint64() == agent.nodeInfoWorks[0].committeeInfo.Id.Uint64() {
 		agent.nodeInfoWorks[0].committeeInfo = receivedCommitteeInfo
-	} else if receivedCommitteeInfo.Id.Uint64() == agent.nodeInfoWorks[1].committeeInfo.Id.Uint64() {
+	} else if agent.nodeInfoWorks[1].committeeInfo.Id != nil && receivedId.Uint64() == agent.nodeInfoWorks[1].committeeInfo.Id.Uint64() {
 		agent.nodeInfoWorks[1].committeeInfo = receivedCommitteeInfo
 	} else {
 		log.Error("update nodeInfoWorks committeeInfo error ", "cId", agent.currentCommitteeInfo.Id, "nId", agent.nextCommitteeInfo.Id,
-			"receivedId", receivedCommitteeInfo.Id)
+			"receivedId", receivedId)
 	}
 }
 
