@@ -3,6 +3,7 @@ package help
 import (
 	// "fmt"
 	// "bytes"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -68,13 +69,14 @@ func NewTWatch(e float64, s string) *TWatch {
 
 // EndWatch end the watch
 func (in *TWatch) EndWatch() {
-	in.end = time.Now()
-	atomic.AddUint32(&in.endFlag, 1)
-	select {
-	case watchs.getRes() <- in.ID:
-	default:
-		// go func() { watchs.getRes() <- in.ID }()
-	}
+	in.endWatchNoNotify()
+	// in.end = time.Now()
+	// atomic.AddUint32(&in.endFlag, 1)
+	// select {
+	// case watchs.getRes() <- in.ID:
+	// default:
+	// 	// go func() { watchs.getRes() <- in.ID }()
+	// }
 }
 func (in *TWatch) endWatchNoNotify() {
 	in.end = time.Now()
@@ -197,8 +199,13 @@ func (w *WatchMgr) getLastWatchs() []*TWatch {
 }
 func (w *WatchMgr) watchFinish() {
 	ids := make([]uint64, 0, 0)
+	begin := time.Now()
 	defer func() {
+		n := len(ids)
 		w.removeByIDs(ids)
+		d := time.Now().Sub(begin)
+		fmt.Println("watchFinish:", d.Seconds(), "count:", n)
+
 	}()
 
 	for {
@@ -227,12 +234,12 @@ func (w *WatchMgr) watchLoop() {
 			return
 		}
 		d := now.Sub(watch.begin)
-
-		if d.Seconds() > float64(MaxLockTime) && d.Seconds() > watch.expect*10 {
-			if end := watch.getEndFlag(); !end {
-				watch.endWatchNoNotify()
-				log.Warn("cost long time or forget endwatch", "function", watch.str, "time", d.Seconds(), "id", watch.ID)
-			}
+		end := watch.getEndFlag()
+		if end {
+			ids = append(ids, watch.ID)
+		} else if d.Seconds() > float64(MaxLockTime) {
+			watch.endWatchNoNotify()
+			log.Warn("cost long time or forget endwatch", "function", watch.str, "time", d.Seconds(), "id", watch.ID)
 			ids = append(ids, watch.ID)
 		}
 	}
@@ -244,11 +251,18 @@ func (w *WatchMgr) work() {
 		if w.quit {
 			return
 		}
+		begin := time.Now()
 
 		w.setWatchs()
-		w.watchFinish()
+		n := w.count()
+		// w.watchFinish()
 		w.watchLoop()
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
+		d := time.Now().Sub(begin)
+		log.Info("watch work cost time:", d.Seconds(), "count:", n)
+		// if d.Seconds() > 5 {
+		// 	log.Info("watch work cost time:", d.Seconds(), "count:", n)
+		// }
 	}
 }
