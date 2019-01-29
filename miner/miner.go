@@ -18,10 +18,10 @@
 package miner
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
-	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -130,11 +130,13 @@ func (miner *Miner) loop() {
 				members = append(members, ch.BackupMembers...)
 				if miner.election.IsCommitteeMember(members, miner.publickey) {
 					// i am committee
-					if miner.Mining() {
-						atomic.StoreInt32(&miner.commitFlag, 0)
-						miner.Stop()
-					}
 					atomic.StoreInt32(&miner.commitFlag, 0)
+					if miner.Mining() {
+						miner.Stop()
+						atomic.StoreInt32(&miner.shouldStart, 1)
+						log.Info("Mining aborted due to CommitteeUpdate")
+					}
+
 				} else {
 					log.Debug("not in commiteer munber so start to miner")
 					atomic.StoreInt32(&miner.commitFlag, 1)
@@ -205,7 +207,7 @@ func (miner *Miner) Start(coinbase common.Address) {
 
 	miner.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&miner.canStart) == 0 || atomic.LoadInt32(&miner.commitFlag) == 0 {
+	if atomic.LoadInt32(&miner.canStart) == 0 && atomic.LoadInt32(&miner.commitFlag) == 0 {
 		log.Info("start to miner", "canstart", miner.canStart, "commitflag", miner.commitFlag)
 		return
 	}
