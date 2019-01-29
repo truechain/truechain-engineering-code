@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -283,6 +284,27 @@ func TestWatchFinishCount(t *testing.T) {
 		time.Sleep(2 * time.Second)
 	}
 	fmt.Println("finish test,cost time=", time.Now().Sub(begin).Seconds())
+}
+func TestAtomic(t *testing.T) {
+	single := int32(0)
+
+	for i := 0; i < 100; i++ {
+		if s := atomic.CompareAndSwapInt32(&single, 0, 1); s {
+			swap := atomic.LoadInt32(&single)
+			fmt.Println("i:", i, "[swap1:", swap)
+		}
+		go atomic.StoreInt32(&single, 0)
+		if i%2 == 0 {
+			time.Sleep(0)
+		} else {
+			time.Sleep(10 * time.Microsecond)
+		}
+		if s := atomic.CompareAndSwapInt32(&single, 1, 0); s {
+			swap := atomic.LoadInt32(&single)
+			fmt.Println("i:", i, "[swap2:", swap)
+		}
+	}
+	fmt.Println("finish")
 }
 func TestBlock(t *testing.T) {
 	block := makeBlock()
