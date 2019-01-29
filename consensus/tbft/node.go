@@ -5,6 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
@@ -14,10 +20,6 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 type service struct {
@@ -32,6 +34,7 @@ type service struct {
 	addrBook         pex.AddrBook     // known peers
 	healthMgr        *ttypes.HealthMgr
 	selfID           tp2p.ID
+	singleCon        int32
 }
 
 type nodeInfo struct {
@@ -65,6 +68,7 @@ func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *tt
 		// Note we currently use the addrBook regardless at least for AddOurAddress
 		addrBook:  pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
 		healthMgr: ttypes.NewHealthMgr(cid),
+		singleCon: 0,
 	}
 }
 
@@ -127,7 +131,9 @@ func (s *service) start(cid *big.Int, node *Node) error {
 			select {
 			case update := <-s.updateChan:
 				if update {
-					go s.updateNodes()
+					if swap := atomic.CompareAndSwapInt32(&s.singleCon, 0, 1); swap {
+						go s.updateNodes()
+					}
 				} else {
 					return // exit
 				}
@@ -182,7 +188,10 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 	}
 	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
 	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
-		go func() { s.updateChan <- true }()
+		select {
+		case s.updateChan <- true:
+		default:
+		}
 	}
 }
 
@@ -200,6 +209,8 @@ func pkToP2pID(pk *ecdsa.PublicKey) tp2p.ID {
 func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	defer atomic.StoreInt32(&s.singleCon, 0)
+
 	for _, v := range s.nodeTable {
 		if v != nil {
 			if s.canConn(v) {
