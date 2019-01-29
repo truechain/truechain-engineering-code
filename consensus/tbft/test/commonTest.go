@@ -96,9 +96,9 @@ func TestReader(t *testing.T) {
 	var re []*types.Receipt
 	var si []*types.PbftSign
 
-	bTmp := types.NewBlock(header, tr, re, si,nil)
+	bTmp := types.NewBlock(header, tr, re, si, nil)
 
-	ps,_ := types2.MakePartSet(64*1024, bTmp)
+	ps, _ := types2.MakePartSet(64*1024, bTmp)
 	pe := types2.NewPartSetFromHeader(ps.Header())
 
 	header2 := &types.Header{}
