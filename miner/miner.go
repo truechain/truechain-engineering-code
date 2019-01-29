@@ -207,7 +207,7 @@ func (miner *Miner) Start(coinbase common.Address) {
 
 	miner.SetEtherbase(coinbase)
 
-	if atomic.LoadInt32(&miner.canStart) == 0 && atomic.LoadInt32(&miner.commitFlag) == 0 {
+	if atomic.LoadInt32(&miner.canStart) == 0 || atomic.LoadInt32(&miner.commitFlag) == 0 {
 		log.Info("start to miner", "canstart", miner.canStart, "commitflag", miner.commitFlag)
 		return
 	}
