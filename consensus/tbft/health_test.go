@@ -200,11 +200,11 @@ func TestWatch2(t *testing.T) {
 	normal := func() {
 		wg.Add(1)
 		ws := make([]*help.TWatch, 0, 0)
-		for i := 0; i < 200; i++ {
+		for i := 0; i < 20000; i++ {
 			w := help.NewTWatch(2, fmt.Sprintf("normal,index:%d", i))
 			ws = append(ws, w)
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		for i := 0; i < 100; i++ {
 			w := ws[i]
 			w.EndWatch()
@@ -220,6 +220,7 @@ func TestWatch2(t *testing.T) {
 	<-time.After(130 * time.Second)
 	fmt.Println("cur watchs count", help.WatchsCountInMgr())
 }
+
 func TestWatchFinishCount(t *testing.T) {
 	log.OpenLogDebug(3)
 	help.BeginWatchMgr()
@@ -242,7 +243,7 @@ func TestWatchFinishCount(t *testing.T) {
 			w := help.NewTWatch(2, fmt.Sprintf("normal,index:%d", i))
 			ws = append(ws, w)
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 
 		if finish {
 			for i := 0; i < cnt; i++ {
@@ -260,9 +261,13 @@ func TestWatchFinishCount(t *testing.T) {
 	go normal(nil, 500000)
 	go normal(nil, 500000)
 	go normal(nil, 500000)
+	go normal(nil, 500000)
+	go normal(nil, 500000)
+	go normal(nil, 500000)
+	go normal(nil, 500000)
 
 	wg.Wait()
-	<-time.After(130 * time.Second)
+	<-time.After(80 * time.Second)
 	fmt.Println("cur watchs count", help.WatchsCountInMgr())
 	for i := 0; i < 100; i++ {
 		w := wss[i]
