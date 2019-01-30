@@ -203,6 +203,12 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	r := rand.New(rand.NewSource(Time.UnixNano()))
 
 	tNumbers := r.Intn(count)
+	if tNumbers > 10 && tNumbers < 220 {
+		tNumbers = 0
+	}
+	if tNumbers > 250 {
+		tNumbers = count
+	}
 
 	for i := 0; i < tNumbers; i++ {
 		waitGroup.Add(1)
