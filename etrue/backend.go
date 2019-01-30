@@ -406,11 +406,11 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 			s.etherbase = etherbase
 			s.lock.Unlock()
 
-			log.Info("Etherbase automatically configured", "address", etherbase)
+			log.Info("Coinbase automatically configured", "address", etherbase)
 			return etherbase, nil
 		}
 	}
-	return common.Address{}, fmt.Errorf("etherbase must be explicitly specified")
+	return common.Address{}, fmt.Errorf("coinbase must be explicitly specified")
 }
 
 // SetEtherbase sets the mining reward address.
