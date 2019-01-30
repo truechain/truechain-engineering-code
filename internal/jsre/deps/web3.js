@@ -5441,6 +5441,13 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var sendRawPayerTransaction = new Method({
+        name: 'sendRawPayerTransaction',
+        call: 'etrue_sendRawPayerTransaction',
+        params: 1,
+        inputFormatter: [null]
+    });
+
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'etrue_sendTransaction',
@@ -5541,6 +5548,7 @@ var methods = function () {
         call,
         estimateGas,
         sendRawTransaction,
+        sendRawPayerTransaction,
         signTransaction,
         sendTransaction,
         sign,
