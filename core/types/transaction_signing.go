@@ -201,7 +201,7 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
-	fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
+	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
 	if tx.data.Payer == nil || *tx.data.Payer == (common.Address{}) {
 		return rlpHash([]interface{}{
 			tx.data.AccountNonce,
