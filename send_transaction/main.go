@@ -118,27 +118,17 @@ func send(count int, ip string) {
 		return
 	}
 
-	err = client.Call(&accountCanOpen, "etrue_accounts")
+	err = client.Call(&account, "etrue_accounts")
 	if err != nil {
 		fmt.Println("etrue_accounts Error", err.Error())
 		msg <- false
 		return
 	}
-	if len(accountCanOpen) == 0 {
+	if len(account) == 0 {
 		fmt.Println("no account")
 		return
 	}
 	fmt.Println("----alread have accounts is in the chain:", len(account))
-
-	//know how to
-	for i := 0; i < len(accountCanOpen); i++ {
-		_, err1 := unlockAccount(client, accountCanOpen[i], "admin", 90000, "son address")
-		if err1 == nil {
-			account = append(account, accountCanOpen[i])
-		}
-	}
-
-	fmt.Println("---------alread have accounts is in the local:", len(accountCanOpen))
 
 	for i := len(account); i < count*2; i++ {
 		//new account
