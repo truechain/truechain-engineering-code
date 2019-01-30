@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -198,16 +199,22 @@ func send(count int, ip string) {
 func sendTransactions(client *rpc.Client, account []string, count int, wait *sync.WaitGroup) {
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
-	time := time.Now()
+	Time := time.Now()
+	r := rand.New(rand.NewSource(Time.UnixNano()))
 
-	for i := 0; i < count; i++ {
+	tNumbers := r.Intn(count * 2)
+	if tNumbers > count {
+		tNumbers = count
+	}
+
+	for i := 0; i < tNumbers; i++ {
 		waitGroup.Add(1)
 		//go sendTransaction(client, account[i], waitGroup)
 		go sendTransaction_to(client, account[i], account[i+count], waitGroup)
 	}
 	//fmt.Println("Send in go Complete", count)
 	waitGroup.Wait()
-	fmt.Println("Complete", Count, "time", time)
+	fmt.Println("Complete", Count, "time", Time, "tNumbers", tNumbers)
 }
 
 //send one transaction
