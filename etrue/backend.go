@@ -426,8 +426,8 @@ func (s *Truechain) SetEtherbase(etherbase common.Address) {
 func (s *Truechain) StartMining(local bool) error {
 	eb, err := s.Etherbase()
 	if err != nil {
-		log.Error("Cannot start mining without etherbase", "err", err)
-		return fmt.Errorf("etherbase missing: %v", err)
+		log.Error("Cannot start mining without coinbase", "err", err)
+		return fmt.Errorf("coinbase missing: %v", err)
 	}
 
 	// snail chain not need clique
