@@ -45,6 +45,14 @@ type Transaction struct {
 	payment atomic.Value
 }
 
+type RawTransaction struct {
+	data raw_txdata
+	// caches
+	hash atomic.Value
+	size atomic.Value
+	from atomic.Value
+}
+
 type txdata struct {
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
@@ -66,6 +74,40 @@ type txdata struct {
 
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
+}
+
+type raw_txdata struct {
+	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
+	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
+	GasLimit     uint64          `json:"gas"      gencodec:"required"`
+	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
+	Amount       *big.Int        `json:"value"    gencodec:"required"`
+	Payload      []byte          `json:"input"    gencodec:"required"`
+
+	// Signature values
+	V *big.Int `json:"v" gencodec:"required"`
+	R *big.Int `json:"r" gencodec:"required"`
+	S *big.Int `json:"s" gencodec:"required"`
+
+	// This is only used when marshaling to JSON.
+	Hash *common.Hash `json:"hash" rlp:"-"`
+}
+
+func (rawTransaction *RawTransaction) ConvertTransaction() *Transaction {
+	cpy := &RawTransaction{data: rawTransaction.data}
+	cpy_data := cpy.data
+
+	tx := new(Transaction)
+	fmt.Println("data.Recipient", cpy_data.Recipient)
+	if cpy_data.Recipient == nil {
+		tx = NewContractCreation(cpy_data.AccountNonce, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	} else {
+		tx = NewTransaction(cpy_data.AccountNonce, *cpy_data.Recipient, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	}
+	tx.data.V = cpy_data.V
+	tx.data.R = cpy_data.R
+	tx.data.S = cpy_data.S
+	return tx
 }
 
 type txdataMarshaling struct {
@@ -186,6 +228,40 @@ func (tx *Transaction) Info() string {
 	}
 	return str
 }
+
+func (tx *RawTransaction) Info() string {
+	str := ""
+	if tx != nil {
+		str += fmt.Sprintf("nonce=%v,price=%v gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v v=%v,r=%v,s=%v,",
+			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, tx.data.Recipient, tx.data.Amount, tx.data.Payload,
+			tx.data.V, tx.data.R, tx.data.S)
+	}
+	return str
+}
+
+// EncodeRLP implements rlp.Encoder
+func (tx *RawTransaction) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, &tx.data)
+}
+
+// DecodeRLP implements rlp.Decoder
+func (tx *RawTransaction) DecodeRLP(s *rlp.Stream) error {
+	_, size, _ := s.Kind()
+	err := s.Decode(&tx.data)
+	if err == nil {
+		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+	}
+
+	return err
+}
+
+// MarshalJSON encodes the web3 RPC transaction format.
+/*func (tx *RawTransaction) MarshalJSON() ([]byte, error) {
+	hash := tx.Hash()
+	data := tx.data
+	data.Hash = &hash
+	return data.MarshalJSON()
+}*/
 
 // UnmarshalJSON decodes the web3 RPC transaction format.
 func (tx *Transaction) UnmarshalJSON(input []byte) error {

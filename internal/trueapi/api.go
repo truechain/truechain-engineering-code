@@ -1550,19 +1550,17 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	}
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
-
+	//sign sender
 	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
 	if err != nil {
 		return params.EmptyHash, err
 	}
-
 	//sign payment
 	signed_payment, err := s.signPayment(args.Payment, signed)
 	if err != nil {
 		log.Error("signPayment error", "error", err)
 		return params.EmptyHash, err
 	}
-
 	//fmt.Println("newTx2:", signedPaymentTx.Info())
 	return submitTransaction(ctx, s.b, signed_payment)
 }
@@ -1570,11 +1568,22 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	raw_tx := new(types.RawTransaction)
+	if err := rlp.DecodeBytes(encodedTx, raw_tx); err != nil {
+		fmt.Println("api method SendRawTransaction received :", raw_tx.Info())
+		return common.Hash{}, err
+	}
+	tx := raw_tx.ConvertTransaction()
+	fmt.Println("api method SendRawTransaction2 received :", tx.Info())
+	return submitTransaction(ctx, s.b, tx)
+}
+
+func (s *PublicTransactionPoolAPI) SendRawPayerTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	fmt.Println("api method SendRawTransaction received :", tx.Info())
+	fmt.Println("api method SendPayerRawTransaction received :", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
