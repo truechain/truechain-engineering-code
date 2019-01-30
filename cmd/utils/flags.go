@@ -203,8 +203,8 @@ var (
 		Usage: "committee generate bft_privatekey as hex (for testing)",
 	}
 	OldTbftFlag = cli.BoolFlag{
-		Name:  "oldtbft",
-		Usage: "run tbft use http",
+		Name:  "oldbft",
+		Usage: "run bft use http",
 	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode

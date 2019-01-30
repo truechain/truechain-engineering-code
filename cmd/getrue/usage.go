@@ -67,12 +67,12 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.LightKDFFlag,
 		},
 	},
-	{Name: "DEVELOPER CHAIN",
-		Flags: []cli.Flag{
-			utils.DeveloperFlag,
-			utils.DeveloperPeriodFlag,
-		},
-	},
+	//{Name: "DEVELOPER CHAIN",
+	//	Flags: []cli.Flag{
+	//		utils.DeveloperFlag,
+	//		utils.DeveloperPeriodFlag,
+	//	},
+	//},
 	//{
 	//	Name: "DASHBOARD",
 	//	Flags: []cli.Flag{
@@ -93,7 +93,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.EnableElectionFlag,
 		},
 	},
-	{Name: "BPFT COMMITTEE",
+	{Name: "PBFT COMMITTEE",
 		Flags: []cli.Flag{
 			utils.BFTIPFlag,
 			utils.BFTPortFlag,
