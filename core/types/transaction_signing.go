@@ -201,6 +201,18 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
+	fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
+	if tx.data.Payer == nil {
+		return rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			s.chainId, uint(0), uint(0),
+		})
+	}
 	return rlpHash([]interface{}{
 		tx.data.AccountNonce,
 		tx.data.Price,
@@ -274,6 +286,16 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
+	if tx.data.Payer == nil {
+		return rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+		})
+	}
 	return rlpHash([]interface{}{
 		tx.data.AccountNonce,
 		tx.data.Price,
