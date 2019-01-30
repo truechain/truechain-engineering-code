@@ -98,7 +98,7 @@ func (rawTransaction *RawTransaction) ConvertTransaction() *Transaction {
 	cpy_data := cpy.data
 
 	tx := new(Transaction)
-	fmt.Println("data.Recipient", cpy_data.Recipient)
+	//fmt.Println("data.Recipient", cpy_data.Recipient)
 	if cpy_data.Recipient == nil {
 		tx = NewContractCreation(cpy_data.AccountNonce, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
 	} else {
@@ -108,6 +108,23 @@ func (rawTransaction *RawTransaction) ConvertTransaction() *Transaction {
 	tx.data.R = cpy_data.R
 	tx.data.S = cpy_data.S
 	return tx
+}
+
+func (tx *Transaction) ConvertRawTransaction() *RawTransaction {
+	cpy := &Transaction{data: tx.data}
+	cpy_data := cpy.data
+
+	raw_tx := new(RawTransaction)
+	//fmt.Println("data.Recipient", cpy_data.Recipient)
+	if cpy_data.Recipient == nil {
+		raw_tx = NewRawTransactionContract(cpy_data.AccountNonce, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	} else {
+		raw_tx = NewRawTransaction(cpy_data.AccountNonce, *cpy_data.Recipient, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	}
+	raw_tx.data.V = cpy_data.V
+	raw_tx.data.R = cpy_data.R
+	raw_tx.data.S = cpy_data.S
+	return raw_tx
 }
 
 type txdataMarshaling struct {
@@ -172,6 +189,38 @@ func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amo
 	return &Transaction{data: d}
 }
 
+func NewRawTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *RawTransaction {
+	return newRawTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+}
+
+func NewRawTransactionContract(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *RawTransaction {
+	return newRawTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+}
+
+func newRawTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *RawTransaction {
+	if len(data) > 0 {
+		data = common.CopyBytes(data)
+	}
+	d := raw_txdata{
+		AccountNonce: nonce,
+		Recipient:    to,
+		Payload:      data,
+		Amount:       new(big.Int),
+		GasLimit:     gasLimit,
+		Price:        new(big.Int),
+		V:            new(big.Int),
+		R:            new(big.Int),
+		S:            new(big.Int),
+	}
+	if amount != nil {
+		d.Amount.Set(amount)
+	}
+	if gasPrice != nil {
+		d.Price.Set(gasPrice)
+	}
+	return &RawTransaction{data: d}
+}
+
 // ChainId returns which chain id this transaction was signed for (if at all)
 func (tx *Transaction) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)
@@ -233,7 +282,7 @@ func (tx *RawTransaction) Info() string {
 	str := ""
 	if tx != nil {
 		str += fmt.Sprintf("nonce=%v,price=%v gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v v=%v,r=%v,s=%v,",
-			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, tx.data.Recipient, tx.data.Amount, tx.data.Payload,
+			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, tx.data.Recipient.String(), tx.data.Amount, tx.data.Payload,
 			tx.data.V, tx.data.R, tx.data.S)
 	}
 	return str

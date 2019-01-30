@@ -1482,6 +1482,19 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTransaction_Payment(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
 }
 
+func (args *SendTxArgs) toRawTransaction() *types.RawTransaction {
+	var input []byte
+	if args.Data != nil {
+		input = *args.Data
+	} else if args.Input != nil {
+		input = *args.Input
+	}
+	if args.To == nil {
+		return types.NewRawTransactionContract(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	}
+	return types.NewRawTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+}
+
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {
@@ -1547,6 +1560,15 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	// Set some sanity defaults and terminate on failure
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
+	}
+	if args.Payment == (common.Address{}) {
+		raw_tx := args.toRawTransaction()
+		tx := raw_tx.ConvertTransaction()
+		signed, err := s.sign(args.From, tx)
+		if err != nil {
+			return params.EmptyHash, err
+		}
+		return submitTransaction(ctx, s.b, signed)
 	}
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
@@ -1634,6 +1656,23 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return nil, err
 	}
+	if args.Payment == (common.Address{}) {
+		//fmt.Println("afsd")
+		raw_tx := args.toRawTransaction()
+		tx := raw_tx.ConvertTransaction()
+		signed, err := s.sign(args.From, tx)
+		raw_tx_signed := signed.ConvertRawTransaction()
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println("signed", signed.Info())
+		data, err := rlp.EncodeToBytes(raw_tx_signed)
+		if err != nil {
+			return nil, err
+		}
+		//fmt.Println("api method signTransaction signed", signed.Info())
+		return &SignTransactionResult{data, signed}, nil
+	}
 
 	tx := args.toTransaction()
 	fmt.Println("api method signTransaction received payment", args.Payment.String())
@@ -1655,6 +1694,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	}
 	//fmt.Println("api method signTransaction signed", signed.Info())
 	return &SignTransactionResult{data, signed_payment}, nil
+
 }
 
 // PendingTransactions returns the transactions that are in the transaction pool
