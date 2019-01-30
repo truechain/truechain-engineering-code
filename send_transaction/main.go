@@ -157,7 +157,7 @@ func send(count int, ip string) {
 	balance := getBalanceValue(result)
 
 	//main unlock account
-	_, err = unlockAccount(client, gensisAccount1, "admin", 90000, "main")
+	_, err = unlockAccount(client, gensisAccount1, "admin", 9000000, "main")
 	if err != nil {
 		fmt.Println("personal_unlockAccount Error:", err.Error())
 		msg <- false
@@ -368,7 +368,7 @@ func unlockCountNewAccount(client *rpc.Client, count int) bool {
 			continue
 		}
 		fmt.Println(i, " unlockAccount main address ", " son address ", account[i])
-		_, err := unlockAccount(client, account[i], "admin", 90000, "son address")
+		_, err := unlockAccount(client, account[i], "admin", 9000000, "son address")
 		if err != nil {
 			fmt.Println("personal_unlockAccount Error:", err.Error(), "addr", account[i])
 			msg <- false
