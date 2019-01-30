@@ -145,7 +145,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		config.MinerGasFloor = config.Genesis.GasLimit * 9 / 10
 		config.MinerGasCeil = config.Genesis.GasLimit * 11 / 10
 	} else {
-		log.Error("config.Genesis.GasLimit", "GasLimit", config.Genesis)
+		//log.Info("config.Genesis.GasLimit", "GasLimit", config.Genesis)
 	}
 
 	etrue := &Truechain{
