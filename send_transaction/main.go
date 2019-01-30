@@ -204,15 +204,18 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 
 	tNumbers := r.Intn(count)
 
-	if tNumbers > 280 {
+	if tNumbers >= 280 {
 		tNumbers = count
 	} else {
-		if tNumbers > 141 && tNumbers < 280 {
-			tNumbers = 0
-		} else if tNumbers < 100 {
-			tNumbers = tNumbers / 3
+		if tNumbers >= 260 && tNumbers < 280 {
+			tNumbers = tNumbers / 2
+		} else {
+			if tNumbers > 30 && tNumbers < 260 {
+				tNumbers = 0
+			}
 		}
 	}
+
 	for i := 0; i < tNumbers; i++ {
 		waitGroup.Add(1)
 		//go sendTransaction(client, account[i], waitGroup)
