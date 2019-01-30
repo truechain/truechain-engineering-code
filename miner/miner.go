@@ -131,15 +131,17 @@ func (miner *Miner) loop() {
 				if miner.election.IsCommitteeMember(members, miner.publickey) {
 					// i am committee
 					atomic.StoreInt32(&miner.commitFlag, 0)
+					atomic.StoreInt32(&miner.shouldStart, 1)
 					if miner.Mining() {
 						miner.Stop()
-						atomic.StoreInt32(&miner.shouldStart, 1)
+						//atomic.StoreInt32(&miner.shouldStart, 1)
 						log.Info("Mining aborted due to CommitteeUpdate")
 					}
 
 				} else {
 					log.Debug("not in commiteer munber so start to miner")
 					atomic.StoreInt32(&miner.commitFlag, 1)
+
 					shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 					atomic.StoreInt32(&miner.shouldStart, 0)
 					if shouldStart {
@@ -189,7 +191,9 @@ out:
 			shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
 			atomic.StoreInt32(&miner.canStart, 1)
-			atomic.StoreInt32(&miner.shouldStart, 0)
+			if shouldStart && atomic.LoadInt32(&miner.commitFlag) == 1 {
+				atomic.StoreInt32(&miner.shouldStart, 0)
+			}
 			if shouldStart {
 				miner.Start(miner.coinbase)
 			}
