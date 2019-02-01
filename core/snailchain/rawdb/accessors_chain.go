@@ -272,50 +272,6 @@ func DeleteTd(db DatabaseDeleter, hash common.Hash, number uint64) {
 	}
 }
 
-// ReadReceipts retrieves all the transaction receipts belonging to a block.
-func ReadReceipts(db DatabaseReader, hash common.Hash, number uint64) types.Receipts {
-	// Retrieve the flattened receipt slice
-	data, _ := db.Get(blockReceiptsKey(number, hash))
-	if len(data) == 0 {
-		return nil
-	}
-	// Convert the revceipts from their storage form to their internal representation
-	storageReceipts := []*types.ReceiptForStorage{}
-	if err := rlp.DecodeBytes(data, &storageReceipts); err != nil {
-		log.Error("Invalid receipt array RLP", "hash", hash, "err", err)
-		return nil
-	}
-	receipts := make(types.Receipts, len(storageReceipts))
-	for i, receipt := range storageReceipts {
-		receipts[i] = (*types.Receipt)(receipt)
-	}
-	return receipts
-}
-
-// WriteReceipts stores all the transaction receipts belonging to a block.
-func WriteReceipts(db DatabaseWriter, hash common.Hash, number uint64, receipts types.Receipts) {
-	// Convert the receipts into their storage form and serialize them
-	storageReceipts := make([]*types.ReceiptForStorage, len(receipts))
-	for i, receipt := range receipts {
-		storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
-	}
-	bytes, err := rlp.EncodeToBytes(storageReceipts)
-	if err != nil {
-		log.Crit("Failed to encode block receipts", "err", err)
-	}
-	// Store the flattened receipt slice
-	if err := db.Put(blockReceiptsKey(number, hash), bytes); err != nil {
-		log.Crit("Failed to store block receipts", "err", err)
-	}
-}
-
-// DeleteReceipts removes all receipt data associated with a block hash.
-func DeleteReceipts(db DatabaseDeleter, hash common.Hash, number uint64) {
-	if err := db.Delete(blockReceiptsKey(number, hash)); err != nil {
-		log.Crit("Failed to delete block receipts", "err", err)
-	}
-}
-
 // ReadBlock retrieves an entire block corresponding to the hash, assembling it
 // back from the stored header and body. If either the header or body could not
 // be retrieved nil is returned.
@@ -342,7 +298,7 @@ func WriteBlock(db DatabaseWriter, block *types.SnailBlock) {
 
 // DeleteBlock removes all block data associated with a hash.
 func DeleteBlock(db DatabaseDeleter, hash common.Hash, number uint64) {
-	DeleteReceipts(db, hash, number)
+	//DeleteReceipts(db, hash, number)
 	DeleteHeader(db, hash, number)
 	DeleteBody(db, hash, number)
 	DeleteTd(db, hash, number)

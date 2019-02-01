@@ -257,60 +257,6 @@ func TestHeadStorage(t *testing.T) {
 	}
 }
 
-// Tests that receipts associated with a single block can be stored and retrieved.
-func TestBlockReceiptStorage(t *testing.T) {
-	db := etruedb.NewMemDatabase()
-
-	receipt1 := &types.Receipt{
-		Status:            types.ReceiptStatusFailed,
-		CumulativeGasUsed: 1,
-		Logs: []*types.Log{
-			{Address: common.BytesToAddress([]byte{0x11})},
-			{Address: common.BytesToAddress([]byte{0x01, 0x11})},
-		},
-		TxHash:          common.BytesToHash([]byte{0x11, 0x11}),
-		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
-		GasUsed:         111111,
-	}
-	receipt2 := &types.Receipt{
-		PostState:         common.Hash{2}.Bytes(),
-		CumulativeGasUsed: 2,
-		Logs: []*types.Log{
-			{Address: common.BytesToAddress([]byte{0x22})},
-			{Address: common.BytesToAddress([]byte{0x02, 0x22})},
-		},
-		TxHash:          common.BytesToHash([]byte{0x22, 0x22}),
-		ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
-		GasUsed:         222222,
-	}
-	receipts := []*types.Receipt{receipt1, receipt2}
-
-	// Check that no receipt entries are in a pristine database
-	hash := common.BytesToHash([]byte{0x03, 0x14})
-	if rs := ReadReceipts(db, hash, 0); len(rs) != 0 {
-		t.Fatalf("non existent receipts returned: %v", rs)
-	}
-	// Insert the receipt slice into the database and check presence
-	WriteReceipts(db, hash, 0, receipts)
-	if rs := ReadReceipts(db, hash, 0); len(rs) == 0 {
-		t.Fatalf("no receipts returned")
-	} else {
-		for i := 0; i < len(receipts); i++ {
-			rlpHave, _ := rlp.EncodeToBytes(rs[i])
-			rlpWant, _ := rlp.EncodeToBytes(receipts[i])
-
-			if !bytes.Equal(rlpHave, rlpWant) {
-				t.Fatalf("receipt #%d: receipt mismatch: have %v, want %v", i, rs[i], receipts[i])
-			}
-		}
-	}
-	// Delete the receipt slice and check purge
-	DeleteReceipts(db, hash, 0)
-	if rs := ReadReceipts(db, hash, 0); len(rs) != 0 {
-		t.Fatalf("deleted receipts returned: %v", rs)
-	}
-}
-
 func TestCommitteeStates(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 	states := []uint64{10, 12, 14}

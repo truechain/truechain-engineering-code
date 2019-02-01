@@ -412,7 +412,7 @@ func (g *Genesis) CommitSnail(db etruedb.Database) (*types.SnailBlock, error) {
 	}
 	snaildb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
 	snaildb.WriteBlock(db, block)
-	snaildb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
+	//snaildb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
 	snaildb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	snaildb.WriteHeadBlockHash(db, block.Hash())
 	snaildb.WriteHeadHeaderHash(db, block.Hash())
@@ -427,7 +427,7 @@ func (g *Genesis) CommitSnail(db etruedb.Database) (*types.SnailBlock, error) {
 	return block, nil
 }
 
-// MustCommit writes the genesis block and state to db, panicking on error.
+// MustSnailCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
 func (g *Genesis) MustSnailCommit(db etruedb.Database) *types.SnailBlock {
 	block, err := g.CommitSnail(db)
@@ -534,7 +534,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 			common.BytesToAddress([]byte{6}): {Balance: big.NewInt(1)}, // ECAdd
 			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
 			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
-			faucet:                           {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
+			faucet: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
 		},
 	}
 	return &genesis

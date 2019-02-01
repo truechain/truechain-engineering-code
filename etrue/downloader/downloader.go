@@ -195,9 +195,6 @@ type BlockChain interface {
 
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
-
-	// InsertReceiptChain inserts a batch of receipts into the local chain.
-	InsertReceiptChain(types.SnailBlocks, []types.Receipts) (int, error)
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -711,7 +708,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 			return 0, errTimeout
 
 		case <-d.bodyCh:
-		// Out of bounds delivery, ignore
+			// Out of bounds delivery, ignore
 		}
 	}
 	// If the head fetch already found an ancestor, return
@@ -780,7 +777,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				return 0, errTimeout
 
 			case <-d.bodyCh:
-			// Out of bounds delivery, ignore
+				// Out of bounds delivery, ignore
 			}
 		}
 	}
@@ -1393,7 +1390,6 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		"firstnum", first.Number, "firsthash", first.Hash(),
 		"lastnum", last.Number, "lasthash", last.Hash(),
 	)
-
 
 	for _, result := range results {
 		blocks := make([]*types.SnailBlock, 1)

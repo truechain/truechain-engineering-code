@@ -573,15 +573,6 @@ func (bc *SnailBlockChain) GetBlockByNumber(number uint64) *types.SnailBlock {
 	return bc.GetBlock(hash, number)
 }
 
-// GetReceiptsByHash retrieves the receipts for all transactions in a given block.
-func (bc *SnailBlockChain) GetReceiptsByHash(hash common.Hash) types.Receipts {
-	number := rawdb.ReadHeaderNumber(bc.db, hash)
-	if number == nil {
-		return nil
-	}
-	return rawdb.ReadReceipts(bc.db, hash, *number)
-}
-
 // GetBlocksFromHash returns the block corresponding to hash and up to n-1 ancestors.
 // [deprecated by eth/62]
 func (bc *SnailBlockChain) GetBlocksFromHash(hash common.Hash, n int) (blocks []*types.SnailBlock) {
@@ -733,92 +724,6 @@ func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receip
 	*/
 	return nil
 
-}
-
-// InsertReceiptChain attempts to complete an already existing header chain with
-// transaction and receipt data.
-func (bc *SnailBlockChain) InsertReceiptChain(blockChain types.SnailBlocks, receiptChain []types.Receipts) (int, error) {
-
-	bc.wg.Add(1)
-	defer bc.wg.Done()
-
-	// Do a sanity check that the provided chain is actually ordered and linked
-	for i := 1; i < len(blockChain); i++ {
-		if blockChain[i].NumberU64() != blockChain[i-1].NumberU64()+1 || blockChain[i].ParentHash() != blockChain[i-1].Hash() {
-			log.Error("Non contiguous receipt insert", "number", blockChain[i].Number(), "hash", blockChain[i].Hash(), "parent", blockChain[i].ParentHash(),
-				"prevnumber", blockChain[i-1].Number(), "prevhash", blockChain[i-1].Hash())
-			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, blockChain[i-1].NumberU64(),
-				blockChain[i-1].Hash().Bytes()[:4], i, blockChain[i].NumberU64(), blockChain[i].Hash().Bytes()[:4], blockChain[i].ParentHash().Bytes()[:4])
-		}
-	}
-
-	var (
-		stats = struct{ processed, ignored int32 }{}
-		start = time.Now()
-		bytes = 0
-		batch = bc.db.NewBatch()
-	)
-	for i, block := range blockChain {
-		receipts := receiptChain[i]
-		// Short circuit insertion if shutting down or processing failed
-		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
-			return 0, nil
-		}
-		// Short circuit if the owner header is unknown
-		if !bc.HasHeader(block.Hash(), block.NumberU64()) {
-			return i, fmt.Errorf("containing header #%d [%x…] unknown", block.Number(), block.Hash().Bytes()[:4])
-		}
-		// Skip if the entire data is already known
-		if bc.HasBlock(block.Hash(), block.NumberU64()) {
-			stats.ignored++
-			continue
-		}
-		// Compute all the non-consensus fields of the receipts
-		if err := SetReceiptsData(bc.chainConfig, block, receipts); err != nil {
-			return i, fmt.Errorf("failed to set receipts data: %v", err)
-		}
-		// Write all the data out into the database
-		rawdb.WriteBody(batch, block.Hash(), block.NumberU64(), block.Body())
-		rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receipts)
-		rawdb.WriteFtLookupEntries(batch, block)
-
-		stats.processed++
-
-		if batch.ValueSize() >= etruedb.IdealBatchSize {
-			if err := batch.Write(); err != nil {
-				return 0, err
-			}
-			bytes += batch.ValueSize()
-			batch.Reset()
-		}
-	}
-	if batch.ValueSize() > 0 {
-		bytes += batch.ValueSize()
-		if err := batch.Write(); err != nil {
-			return 0, err
-		}
-	}
-
-	// Update the head fast sync block if better
-	bc.mu.Lock()
-	head := blockChain[len(blockChain)-1]
-	if td := bc.GetTd(head.Hash(), head.NumberU64()); td != nil { // Rewind may have occurred, skip in that case
-		currentFastBlock := bc.CurrentFastBlock()
-		if bc.GetTd(currentFastBlock.Hash(), currentFastBlock.NumberU64()).Cmp(td) < 0 {
-			rawdb.WriteHeadFastBlockHash(bc.db, head.Hash())
-			bc.currentFastBlock.Store(head)
-		}
-	}
-	bc.mu.Unlock()
-
-	log.Info("Imported new block receipts",
-		"count", stats.processed,
-		"elapsed", common.PrettyDuration(time.Since(start)),
-		"number", head.Number(),
-		"hash", head.Hash(),
-		"size", common.StorageSize(bytes),
-		"ignored", stats.ignored)
-	return 0, nil
 }
 
 var lastSnailWrite uint64
