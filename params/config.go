@@ -67,16 +67,12 @@ var (
 		}),
 	}
 
-	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
-	// and accepted by the Ethereum core developers into the Ethash consensus.
-	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 	AllMinervaProtocolChanges = &ChainConfig{big.NewInt(1337), new(MinervaConfig)}
 
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	// AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
 	TestChainConfig = &ChainConfig{big.NewInt(1), &MinervaConfig{MinimumDifficulty, MinimumFruitDifficulty, DurationLimit}}
 )
@@ -177,17 +173,6 @@ func (c *MinervaConfig) String() string {
 		c.DurationLimit,
 	)
 }
-
-// CliqueConfig is the consensus engine configs for proof-of-authority based sealing.
-// type CliqueConfig struct {
-// 	Period uint64 `json:"period"` // Number of seconds between blocks to enforce
-// 	Epoch  uint64 `json:"epoch"`  // Epoch length to reset votes and checkpoint
-// }
-
-// // String implements the stringer interface, returning the consensus engine details.
-// func (c *CliqueConfig) String() string {
-// 	return "clique"
-// }
 
 // String implements the fmt.Stringer interface.
 func (c *ChainConfig) String() string {
