@@ -277,7 +277,6 @@ func (p *peerConnection) setIdle(started time.Time, delivered int, throughput *f
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.log.Debug("fast setIdle?>>>>>>>>>")
 	// If nothing was delivered (hard timeout / unavailable data), reduce throughput to minimum
 	if delivered == 0 {
 		*throughput = 0
