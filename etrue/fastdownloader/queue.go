@@ -315,7 +315,6 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 		}
 
 		if q.mode != SnapShotSync {
-			//log.Debug("Schedule", "header", header.Number.Uint64(), "pivot", pivot)
 			q.blockTaskPool[hash] = header
 			q.blockTaskQueue.Push(header, -int64(header.Number.Uint64()))
 
@@ -324,7 +323,6 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 				q.receiptTaskQueue.Push(header, -int64(header.Number.Uint64()))
 			}
 		}
-		//log.Info("---queue", "block test len", len(q.blockTaskPool), "recipt test len", len(q.receiptTaskPool))
 		inserts = append(inserts, header)
 		q.headerHead = hash
 		from++
@@ -372,9 +370,6 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		// Recalculate the result item weights to prevent memory exhaustion
 		for _, result := range results {
 			size := result.Fheader.Size()
-			//for _, uncle := range result.Uncles {
-			//	size += uncle.Size()
-			//}
 			for _, receipt := range result.Receipts {
 				size += receipt.Size()
 			}
@@ -442,9 +437,6 @@ func (q *queue) ReserveHeaders(p etrue.PeerConnection, count int) *etrue.FetchRe
 // returns a flag whether empty blocks were queued requiring processing.
 func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 	isNoop := func(header *types.Header) bool {
-		// TODO:
-		//return header.TxHash == types.EmptyRootHash && header.UncleHash == types.EmptyUncleHash
-		//return header.TxHash == types.EmptyRootHash
 		return false
 	}
 	q.lock.Lock()
@@ -459,7 +451,6 @@ func (q *queue) ReserveBodies(p etrue.PeerConnection, count int) (*etrue.FetchRe
 func (q *queue) ReserveReceipts(p etrue.PeerConnection, count int) (*etrue.FetchRequest, bool, error) {
 	isNoop := func(header *types.Header) bool {
 		return header.ReceiptHash == types.EmptyRootHash
-		//return false
 	}
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -515,7 +506,6 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 			}
 		}
 		// If this fetch task is a noop, skip this fetch operation
-		log.Trace("isNoop(header)>>>>>>>", ":", isNoop(header))
 		if isNoop(header) {
 			donePool[hash] = struct{}{}
 			delete(taskPool, hash)
