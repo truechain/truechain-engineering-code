@@ -489,7 +489,6 @@ func (q *queue) reserveHeaders(p etrue.PeerConnection, count int, taskPool map[c
 
 		// If we're the first to request this task, initialise the result container
 		index := int(header.Number.Int64() - int64(q.resultOffset))
-		log.Trace("index >= len(q.resultCache) || index < 0>>>>>>>>>>>", "index", index, "len(q.resultCache)", len(q.resultCache))
 		if index >= len(q.resultCache) || index < 0 {
 			common.Report("index allocation went beyond available resultCache space")
 			return nil, false, errInvalidChain
@@ -751,16 +750,13 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.Header, index int, result *etrue.FetchResult) error {
-		// TODO:
-		//if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash || types.CalcUncleHash(uncleLists[index]) != header.UncleHash {
 		if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
 			return errInvalidChain
 		}
 
 		for _, sign := range signs[index] {
-			//log.Debug("DeliverBodies>>>>", "sign.FastHeight", sign.FastHeight, "header", header.Number, "sign.FastHash()", sign.FastHash, "header.Hash()", header.Hash())
 			if sign.FastHeight.Cmp(header.Number) != 0 || sign.FastHash != header.Hash() {
-				log.Error("errInvalidBody>>>>>>>")
+				log.Error("errInvalidBody")
 				return errInvalidChain
 			}
 		}
