@@ -25,17 +25,14 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/ethereum/go-ethereum/log"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
-	"gopkg.in/fatih/set.v0"
 	"sync"
 )
 
@@ -77,7 +74,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
-// stock Ethereum m engine.
+// stock Truechain m engine.
 func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
@@ -329,40 +326,6 @@ func (m *Minerva) verifySnailHeaderWorker(chain consensus.SnailChainReader, head
 	parentHeaders := parents[:count]
 
 	return m.verifySnailHeader(chain, nil, headers[index], nil, parentHeaders, false, seals[index], false)
-}
-
-// VerifySnailUncles verifies that the given block's uncles conform to the consensus
-// rules of the stock Truechain minerva engine.
-func (m *Minerva) VerifySnailUncles(chain consensus.SnailChainReader, block *types.SnailBlock) error {
-
-	// If we're running a full engine faking, accept any input as valid
-	if m.config.PowMode == ModeFullFake {
-		return nil
-	}
-	// Verify that there are at most 2 uncles included in this block
-	//TODO snail chain not uncles
-
-	// Gather the set of past uncles and ancestors
-	uncles, ancestors := set.New(), make(map[common.Hash]*types.SnailHeader)
-
-	number, parent := block.NumberU64()-1, block.ParentHash()
-	for i := 0; i < 7; i++ {
-		ancestor := chain.GetBlock(parent, number)
-		if ancestor == nil {
-			break
-		}
-		ancestors[ancestor.Hash()] = ancestor.Header()
-		//TODO Snail chain not uncles
-
-		parent, number = ancestor.ParentHash(), number-1
-	}
-	ancestors[block.Hash()] = block.Header()
-	uncles.Add(block.Hash())
-
-	// Verify each of the uncles that it's recent, but not an ancestor
-	//TODO Snail chain not uncles
-
-	return nil
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules of the
@@ -801,24 +764,11 @@ func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, st
 		}
 	}
 
-	/*//test performance
-	sheader := m.sbc.GetHeaderByNumber(1)
-	if sheader != nil {
-		t1 := time.Now()
-		sBlock := m.sbc.GetBlock(sheader.Hash(), sheader.Number.Uint64())
-		err := accumulateRewardsFast(m.election, state, sBlock)
-		if err != nil {
-			log.Error("Finalize Error", "accumulateRewardsFast", err.Error())
-			return nil, err
-		}
-		log.Error("accumulateRewardsFast_test", "times:", time.Now().Sub(t1))
-	}*/
-
 	if err := m.finalizeFastGas(state, header.Number, header.Hash(), feeAmount); err != nil {
 		return nil, err
 	}
 	header.Root = state.IntermediateRoot(true)
-	return types.NewBlock(header, txs, receipts, nil, nil), nil //TODO remove signs
+	return types.NewBlock(header, txs, receipts, nil, nil), nil
 }
 
 // FinalizeSnail implements consensus.Engine, accumulating the block fruit and uncle rewards,
@@ -828,7 +778,6 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 
 	//header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	// Header seems complete, assemble into a block and return
-	//TODO need creat a snail block body,the teamper mather is fruits[1].Body()
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 

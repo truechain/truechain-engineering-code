@@ -256,9 +256,8 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 	//return item, lru.futureItem
 	if (epoch + 1) != lru.future {
 		return item, nil
-	} else {
-		return item, lru.futureItem
 	}
+	return item, lru.futureItem
 }
 
 // dataset wraps an truehash dataset with some metadata to allow easier concurrent use.

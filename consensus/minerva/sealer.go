@@ -165,7 +165,6 @@ mineloop:
 		case result = <-found:
 			// One of the threads found a block or fruit return it
 			send <- result
-			// TODO snail need a flag to distinguish furit and block
 
 			if block.Fruits() != nil {
 				if !result.IsFruit() {

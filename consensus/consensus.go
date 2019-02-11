@@ -105,10 +105,6 @@ type Engine interface {
 	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
-	// VerifyUncles verifies that the given block's uncles conform to the consensus
-	// rules of a given engine.
-	VerifySnailUncles(chain SnailChainReader, block *types.SnailBlock) error
-
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
 	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader, isFruit bool) error
