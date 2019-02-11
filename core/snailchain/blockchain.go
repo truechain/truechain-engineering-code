@@ -36,7 +36,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	//"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -460,7 +460,7 @@ func (bc *SnailBlockChain) insert(block *types.SnailBlock) {
 	// If the block is better than our head or is on a different chain, force update heads
 	if updateHeads {
 		bc.hc.SetCurrentHeader(block.Header())
-		//TODO write Fast Block Hash
+
 		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
 		bc.currentFastBlock.Store(block)
@@ -681,52 +681,6 @@ func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
 		}
 	}
 }
-
-// SetReceiptsData computes all the non-consensus fields of the receipts
-func SetReceiptsData(config *params.ChainConfig, block *types.SnailBlock, receipts types.Receipts) error {
-
-	//signer := types.MakeSigner(config, block.Number())
-
-	//TODO should add transaction for snail chain 20180804
-	//transactions, logIndex := block.Transactions(), uint(0)
-
-	/*
-		if len(transactions) != len(receipts) {
-			return errors.New("transaction and receipt count mismatch")
-		}
-
-		for j := 0; j < len(receipts); j++ {
-			// The transaction hash can be retrieved from the transaction itself
-			receipts[j].TxHash = transactions[j].Hash()
-
-			// The contract address can be derived from the transaction itself
-			if transactions[j].To() == nil {
-				// Deriving the signer is expensive, only do if it's actually needed
-				from, _ := types.Sender(signer, transactions[j])
-				receipts[j].ContractAddress = crypto.CreateAddress(from, transactions[j].Nonce())
-			}
-			// The used gas can be calculated based on previous receipts
-			if j == 0 {
-				receipts[j].GasUsed = receipts[j].CumulativeGasUsed
-			} else {
-				receipts[j].GasUsed = receipts[j].CumulativeGasUsed - receipts[j-1].CumulativeGasUsed
-			}
-			// The derived log fields can simply be set from the block and transaction
-			for k := 0; k < len(receipts[j].Logs); k++ {
-				receipts[j].Logs[k].BlockNumber = block.NumberU64()
-				receipts[j].Logs[k].BlockHash = block.Hash()
-				receipts[j].Logs[k].TxHash = receipts[j].TxHash
-				receipts[j].Logs[k].TxIndex = uint(j)
-				receipts[j].Logs[k].Index = logIndex
-				logIndex++
-			}
-		}
-	*/
-	return nil
-
-}
-
-var lastSnailWrite uint64
 
 // GetDatabase Get lowlevel persistence database
 func (bc *SnailBlockChain) GetDatabase() etruedb.Database {
