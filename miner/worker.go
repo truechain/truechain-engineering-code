@@ -158,14 +158,13 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		etrue:  etrue,
 		mux:    mux,
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
-		fruitCh:          make(chan types.NewFruitsEvent, txChanSize),
-		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
-		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
-		chainSideCh:      make(chan types.ChainSnailSideEvent, chainSideChanSize),
-		minedfruitCh:     make(chan types.NewMinedFruitEvent, txChanSize),
-		chainDb:          etrue.ChainDb(),
-		recv:             make(chan *Result, resultQueueSize),
-		//TODO need konw how to
+		fruitCh:           make(chan types.NewFruitsEvent, txChanSize),
+		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
+		chainHeadCh:       make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
+		chainSideCh:       make(chan types.ChainSnailSideEvent, chainSideChanSize),
+		minedfruitCh:      make(chan types.NewMinedFruitEvent, txChanSize),
+		chainDb:           etrue.ChainDb(),
+		recv:              make(chan *Result, resultQueueSize),
 		chain:             etrue.SnailBlockChain(),
 		fastchain:         etrue.BlockChain(),
 		proc:              etrue.SnailBlockChain().Validator(),
@@ -352,7 +351,6 @@ func (w *worker) update() {
 				}
 			}
 
-			//TODO　fruit event
 		case <-w.fruitCh:
 			// if only fruit only not need care about fruit event
 			if !w.atCommintNewWoker && !w.fruitOnly {
@@ -380,7 +378,6 @@ func (w *worker) update() {
 		case <-w.minedfruitSub.Err():
 			return
 
-			// TODO fast block event
 		case <-w.fastchainEventSub.Err():
 
 			return
@@ -521,7 +518,6 @@ func (w *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHeader
 	return nil
 }
 
-// TODO: if there are no fast blocks and fruits, can't mine a new snail block or fruit
 func (w *worker) commitNewWork() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -704,12 +700,10 @@ func (env *Work) commitFruit(fruit *types.SnailBlock, bc *chain.SnailBlockChain,
 	return nil
 }
 
-// TODO: check fruits continue with last snail block
-// find all fruits and start to the last parent fruits number and end continue fruit list
+// CommitFruits find all fruits and start to the last parent fruits number and end continue fruit list
 func (w *worker) CommitFruits(fruits []*types.SnailBlock, bc *chain.SnailBlockChain, engine consensus.Engine) {
 	var currentFastNumber *big.Int
 	var fruitset []*types.SnailBlock
-	//var fruits []*types.SnailBlock
 
 	parent := bc.CurrentBlock()
 	fs := parent.Fruits()

@@ -275,7 +275,6 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 	log.Info("Removing Truechain peer", "peer", id, "RemoteAddr", peer.RemoteAddr())
 
-	// TODO: downloader.UnregisterPeer
 	// Unregister the peer from the downloader and Truechain peer set
 	if err := pm.downloader.UnregisterPeer(id); err != nil {
 		log.Error("downloaderPeer removal failed", "peer", id, "err", err)

@@ -443,7 +443,7 @@ func (agent *PbftAgent) loop() {
 				// used start  removed  stop
 				if flag == types.StateRemovedFlag {
 					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
-					agent.stopSend() //TODO
+					agent.stopSend()
 				} else if flag == types.StateUsedFlag {
 					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStart)))
 					help.CheckAndPrintError(agent.server.UpdateCommittee(receivedCommitteeInfo))
