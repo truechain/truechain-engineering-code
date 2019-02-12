@@ -1127,7 +1127,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		if transferLen > len(peers) {
 			transferLen = len(peers)
 		}
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
+		transfer := peers[:transferLen]
 		for _, peer := range transfer {
 			peer.AsyncSendNewFastBlock(block)
 		}
