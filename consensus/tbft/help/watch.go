@@ -261,7 +261,7 @@ func (w *WatchMgr) work() {
 		time.Sleep(1 * time.Second)
 		d := time.Now().Sub(begin)
 		if d.Seconds() > 5 {
-			log.Info("watch work cost time:", d.Seconds(), "count:", n)
+			log.Info("watch work", " cost time:", d.Seconds(), "count:", n)
 		}
 	}
 }
