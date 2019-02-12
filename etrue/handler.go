@@ -441,7 +441,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 	defer pm.removePeer(p.id)
 
-	// TODO: downloader.RegisterPeer
 	//Register the peer in the downloader. If the downloader considers it banned, we disconnect
 	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
 		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
