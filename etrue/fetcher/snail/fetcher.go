@@ -19,8 +19,6 @@ package snailfetcher
 
 import (
 	"errors"
-	"time"
-
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -31,13 +29,9 @@ import (
 )
 
 const (
-	arriveTimeout = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
-	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
-	fetchTimeout  = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
-	maxUncleDist  = 0                      // Maximum allowed backward distance from the chain head
-	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
-	hashLimit     = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit    = 64                     // Maximum number of unique blocks a peer may have delivered
+	maxUncleDist = 0  // Maximum allowed backward distance from the chain head
+	maxQueueDist = 32 // Maximum allowed distance from the chain head to queue
+	blockLimit   = 64 // Maximum number of unique blocks a peer may have delivered
 )
 
 var (
@@ -46,12 +40,6 @@ var (
 
 // blockRetrievalFn is a callback type for retrieving a block from the local chain.
 type blockRetrievalFn func(common.Hash) *types.SnailBlock
-
-// headerRequesterFn is a callback type for sending a header retrieval request.
-type headerRequesterFn func(common.Hash) error
-
-// bodyRequesterFn is a callback type for sending a body retrieval request.
-type bodyRequesterFn func([]common.Hash) error
 
 // headerVerifierFn is a callback type to verify a block's header for fast propagation.
 type headerVerifierFn func(header *types.SnailHeader) error
@@ -72,12 +60,6 @@ type peerDropFn func(id string)
 type inject struct {
 	origin string
 	block  *types.SnailBlock
-}
-
-// injectMulti represents more schedules import operation.
-type injectMulti struct {
-	origins []string
-	blocks  []*types.SnailBlock
 }
 
 // Fetcher is responsible for accumulating block announcements from various peers
@@ -164,54 +146,40 @@ func (f *Fetcher) loop() {
 	// Iterate the block fetching until a quit is requested
 
 	for {
-		finished := false
 		// Import any queued blocks that could potentially fit
 		height := f.chainHeight()
 		for !f.queue.Empty() {
 
-			opMulti := f.queue.PopItem().(injectMulti)
-			blocks := opMulti.blocks
-			peers := opMulti.origins
+			op := f.queue.PopItem().(*inject)
+			block := op.block
+			peer := op.origin
+			hash := block.Hash()
 
-			if len(blocks) > 0 {
-				for i := 0; i < len(blocks); i++ {
-					block := blocks[i]
-					hash := block.Hash()
-					peer := peers[i]
-
-					if f.queueChangeHook != nil {
-						f.queueChangeHook(hash, false)
-					}
-					// If too high up the chain or phase, continue later
-					number := block.NumberU64()
-					if number > height+1 {
-						f.queue.Push(opMulti, -float32(number))
-						if f.queueChangeHook != nil {
-							f.queueChangeHook(hash, true)
-						}
-						finished = true
-						break
-					}
-					// Otherwise if fresh and still unknown, try and import
-					if number+maxUncleDist < height || f.getBlock(hash) != nil {
-						f.forgetBlock(hash)
-						finished = true
-						continue
-					}
-					f.verifyBlockBroadcast(peer, block, true)
-					log.Info("Inserting snail block", "number", block.Number(), "hash", hash, "peer", peer)
-					if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
-						log.Warn("Propagated block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-						finished = true
-						f.forgetBlock(hash)
-						break
-					}
-					f.verifyBlockBroadcast(peer, block, false)
-				}
+			if f.queueChangeHook != nil {
+				f.queueChangeHook(hash, false)
 			}
-			if finished {
+			// If too high up the chain or phase, continue later
+			number := block.NumberU64()
+			if number > height+1 {
+				f.queue.Push(op, -float32(number))
+				if f.queueChangeHook != nil {
+					f.queueChangeHook(hash, true)
+				}
 				break
 			}
+			// Otherwise if fresh and still unknown, try and import
+			if number+maxUncleDist < height || f.getBlock(hash) != nil {
+				f.forgetBlock(hash)
+				continue
+			}
+			f.verifyBlockBroadcast(peer, block, true)
+			log.Info("Inserting snail block", "number", block.Number(), "hash", hash, "peer", peer)
+			if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
+				log.Warn("Propagated snail block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
+				f.forgetBlock(hash)
+				break
+			}
+			f.verifyBlockBroadcast(peer, block, false)
 		}
 
 		// Wait for an outside event to occur
@@ -237,7 +205,6 @@ func (f *Fetcher) loop() {
 // has not yet been seen.
 func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 	hash := block.Hash()
-	number := block.Number()
 
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
@@ -261,21 +228,11 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 		}
 		f.queues[peer] = count
 		f.queued[hash] = op
-
-		opMulti := injectMulti{}
-		f.blockMultiHash[number] = append(f.blockMultiHash[number], hash)
-		// update queue cache far more block in same height
-		for _, hash := range f.blockMultiHash[number] {
-			opOld := f.queued[hash]
-			opMulti.origins = append(opMulti.origins, opOld.origin)
-			opMulti.blocks = append(opMulti.blocks, opOld.block)
-		}
-
-		f.queue.Push(opMulti, -float32(block.NumberU64()))
+		f.queue.Push(op, -float32(block.NumberU64()))
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
-		log.Debug("Queued propagated block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
+		log.Debug("Queued propagated snail block", "peer", peer, "number", block.Number(), "hash", hash, "queued", f.queue.Size())
 	}
 }
 
@@ -283,7 +240,7 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock, pro
 	hash := block.Hash()
 
 	// Run the import on a new thread
-	log.Debug("Importing propagated block", "peer", peer, "number", block.Number(), "hash", hash)
+	log.Debug("Importing propagated snail block", "peer", peer, "number", block.Number(), "propagate", propagate, "hash", hash)
 	go func() {
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
