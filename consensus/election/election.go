@@ -1012,6 +1012,15 @@ func (e *Election) Start() error {
 		log.Crit("Election faiiled to get committee on start")
 		return nil
 	}
+	// Rewind committee swtichinfo storage if blockchain rollbacks
+	for i := 0; i < len(currentCommittee.switches); i++ {
+		if currentCommittee.switches[i] > fastHeadNumber.Uint64() {
+			log.Info("Rewind committee switchinfo", "committee", currentCommittee.id, "current", fastHeadNumber)
+			currentCommittee.switches = currentCommittee.switches[:i]
+			rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), currentCommittee.id.Uint64(), currentCommittee.switches)
+			break
+		}
+	}
 
 	e.committee = currentCommittee
 
