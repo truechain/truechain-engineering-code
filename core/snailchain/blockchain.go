@@ -237,7 +237,6 @@ func (bc *SnailBlockChain) loadLastState() error {
 	}
 
 	// Issue a status log for the user
-	// TODO: get fastblock
 	currentFastBlock := bc.CurrentFastBlock()
 
 	headerTd := bc.GetTd(currentHeader.Hash(), currentHeader.Number.Uint64())
