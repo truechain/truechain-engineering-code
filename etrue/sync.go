@@ -17,8 +17,6 @@
 package etrue
 
 import (
-	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -265,17 +263,6 @@ func (pm *ProtocolManager) syncer() {
 // synchronise tries to sync up our local block chain with a remote peer.
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
-
-	var watch *help.TWatch
-	if peer == nil {
-		watch = help.NewTWatch(3, fmt.Sprintf("peer: , handleMsg synchronise"))
-	} else {
-		watch = help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg synchronise", peer.id))
-	}
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 
 	if !atomic.CompareAndSwapInt32(&pm.synchronising, 0, 1) {
 		log.Debug("synchronise busy")
