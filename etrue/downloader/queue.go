@@ -670,13 +670,14 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-
+		log.Debug("snail downloader " ,"id",id,"function","reconstruct")
 		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]
 		return nil
 	}
+	log.Debug("snail downloader " ,"id",id,"function","DeliverBodies")
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)
 }
 
