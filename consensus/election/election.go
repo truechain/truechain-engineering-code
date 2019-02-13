@@ -141,6 +141,8 @@ type Election struct {
 
 	fastChainEventCh  chan types.ChainFastEvent
 	fastChainEventSub event.Subscription
+	switchEventCh  chan types.ChainFastEvent
+	switchEventSub event.Subscription
 
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
@@ -186,6 +188,7 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 		fastchain:         fastBlockChain,
 		snailchain:        snailBlockChain,
 		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
+		switchEventCh:     make(chan types.ChainFastEvent, fastChainHeadSize),
 		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
 		singleNode:        config.GetNodeType(),
 		electionMode:      ElectModeEtrue,
@@ -198,6 +201,7 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	}
 
 	election.fastChainEventSub = election.fastchain.SubscribeChainEvent(election.fastChainEventCh)
+	election.switchEventSub = election.fastchain.SubscribeChainEvent(election.switchEventCh)
 	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
@@ -961,6 +965,9 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 		committee *committee
 		endfast   *big.Int
 	)
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if infos.CID == e.committee.id.Uint64() {
 		committee = e.committee
 	} else if infos.CID == e.nextCommittee.id.Uint64() {
@@ -972,18 +979,6 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 
 	committee.switches = append(committee.switches, fastNumber.Uint64())
 	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID, committee.switches)
-
-	// Update current committee members state
-	/*
-		for _, s := range infos.Vals {
-			switch s.Flag {
-			case types.StateAppendFlag:
-				committee.setMemberState(s.Pk, types.StateUsedFlag)
-			case types.StateRemovedFlag:
-				committee.setMemberState(s.Pk, types.StateUnusedFlag)
-			}
-		}
-	*/
 
 	// Update pbft server's committee info via pbft agent proxy
 	members, backups := e.filterWithSwitchInfo(committee)
@@ -1101,8 +1096,25 @@ func (e *Election) Start() error {
 
 	// Start the event loop and return
 	go e.loop()
+	go e.switchLoop()
 
 	return nil
+}
+
+// switchloop update committee members flag based on fast block chain event
+func(e *Election) switchLoop() {
+	for {
+		select {
+		case ev := <-e.switchEventCh:
+			if ev.Block != nil {
+				info := ev.Block.SwitchInfos()
+				if len(info.Vals) > 0 {
+					log.Info("Election receive committee switch info", "committee", info.CID)
+					e.updateMembers(ev.Block.Number(), info)
+				}
+			}
+		}
+	}
 }
 
 //Monitor both chains and trigger elections at the same time
@@ -1177,13 +1189,6 @@ func (e *Election) loop() {
 			// Make logical decisions based on the Number provided by the ChainheadEvent
 		case ev := <-e.fastChainEventCh:
 			if ev.Block != nil {
-				info := ev.Block.SwitchInfos()
-				// Update committee members flag based on block switchinfo
-				if len(info.Vals) > 0 {
-					log.Info("Election receive committee switch info", "committee", info.CID)
-					e.updateMembers(ev.Block.Number(), info)
-				}
-
 				if e.startSwitchover {
 					if e.committee.endFastNumber.Cmp(ev.Block.Number()) == 0 {
 						log.Info("Election stop committee..", "id", e.committee.id)
