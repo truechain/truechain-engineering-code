@@ -153,7 +153,6 @@ type Election struct {
 
 // SnailLightChain encapsulates functions required to synchronise a light chain.
 type SnailLightChain interface {
-
 	// CurrentHeader retrieves the head header from the local chain.
 	CurrentHeader() *types.SnailHeader
 }
@@ -431,7 +430,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 	endElectionNumber := new(big.Int).Set(switchCheckNumber)
 	beginElectionNumber := new(big.Int).Add(new(big.Int).Sub(endElectionNumber, params.ElectionPeriodNumber), common.Big1)
-	if beginElectionNumber.Cmp(common.Big0) <= 0 {
+	if beginElectionNumber.Cmp(common.Big0) < 1 {
 		beginElectionNumber = new(big.Int).Set(common.Big1)
 	}
 
@@ -442,7 +441,8 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 	}
 
 	log.Debug("check last fast block", "committee", committeeNumber, "last fast", lastFastNumber, "current", fastNumber)
-	if lastFastNumber.Cmp(fastNumber) >= 0 {
+	//genesis committee is long committee ,it's 180 snail block and 9600 fast black
+	if lastFastNumber.Cmp(fastNumber) > -1 {
 		if committeeNumber.Cmp(common.Big1) == 0 {
 			// still at genesis committee
 			log.Debug("get genesis committee")
@@ -460,7 +460,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		// get pre snail block to elect current committee
 		preEndElectionNumber := new(big.Int).Sub(switchCheckNumber, params.ElectionPeriodNumber)
 		preBeginElectionNumber := new(big.Int).Add(new(big.Int).Sub(preEndElectionNumber, params.ElectionPeriodNumber), common.Big1)
-		if preBeginElectionNumber.Cmp(common.Big0) <= 0 {
+		if preBeginElectionNumber.Cmp(common.Big0) < 1 {
 			preBeginElectionNumber = new(big.Int).Set(common.Big1)
 		}
 		preEndFast := e.getLastNumber(preBeginElectionNumber, preEndElectionNumber)
@@ -778,6 +778,7 @@ func (e *Election) getCandinates(snailBeginNumber *big.Int, snailEndNumber *big.
 	return crypto.Keccak256Hash(seed), candidates
 }
 
+//getLastNumber is the endSanil's last fruit's number add 9600
 func (e *Election) getLastNumber(beginSnail, endSnail *big.Int) *big.Int {
 
 	beginElectionBlock := e.snailchain.GetBlockByNumber(beginSnail.Uint64())
@@ -914,7 +915,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 	}
 	for k, flag := range states {
 		enums := map[int32]string{
-			types.StateAppendFlag: "add",
+			types.StateAppendFlag:  "add",
 			types.StateRemovedFlag: "drop",
 		}
 		log.Info("Committee switch info transition", "bftkey", k, "state", enums[flag], "committee", c.id)
