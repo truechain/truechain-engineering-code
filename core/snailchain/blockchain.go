@@ -999,7 +999,7 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 	// blocks to regenerate the required state
 	localTd := bc.GetTd(current.Hash(), current.NumberU64())
 	if localTd.Cmp(externTd) > 0 {
-		log.Info("Sidechain written to disk", "start", it.first().NumberU64(), "end", it.previous().NumberU64(), "sidetd", externTd, "localtd", localTd)
+		log.Debug("Sidechain written to disk", "start", it.first().NumberU64(), "end", it.previous().NumberU64(), "sidetd", externTd, "localtd", localTd)
 		return it.index, nil, err
 	}
 	// Gather all the sidechain hashes (full blocks may be memory heavy)
