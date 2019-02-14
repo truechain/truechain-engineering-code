@@ -147,12 +147,10 @@ func (f *Fetcher) loop() {
 
 	for {
 		// Import any queued blocks that could potentially fit
-		height := f.chainHeight()
 		for !f.queue.Empty() {
-
+			height := f.chainHeight()
 			op := f.queue.PopItem().(*inject)
 			block := op.block
-			peer := op.origin
 			hash := block.Hash()
 
 			if f.queueChangeHook != nil {
@@ -172,14 +170,8 @@ func (f *Fetcher) loop() {
 				f.forgetBlock(hash)
 				continue
 			}
-			f.verifyBlockBroadcast(peer, block, true)
-			log.Info("Inserting snail block", "number", block.Number(), "hash", hash, "peer", peer)
-			if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
-				log.Warn("Propagated snail block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-				f.forgetBlock(hash)
-				break
-			}
-			f.verifyBlockBroadcast(peer, block, false)
+
+			f.insert(op.origin, op.block)
 		}
 
 		// Wait for an outside event to occur
@@ -236,44 +228,51 @@ func (f *Fetcher) enqueue(peer string, block *types.SnailBlock) {
 	}
 }
 
-func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.SnailBlock, propagate bool) {
+// insert spawns a new goroutine to run a snail block insertion into the chain. If the
+// block's number is at the same height as the current import phase, it updates
+// the phase states accordingly.
+func (f *Fetcher) insert(peer string, block *types.SnailBlock) {
 	hash := block.Hash()
 
 	// Run the import on a new thread
-	log.Debug("Importing propagated snail block", "peer", peer, "number", block.Number(), "propagate", propagate, "hash", hash)
+	log.Debug("Importing propagated snail block", "peer", peer, "number", block.Number(), "hash", hash)
 	go func() {
+		defer func() { f.done <- hash }()
+
 		// If the parent's unknown, abort insertion
 		parent := f.getBlock(block.ParentHash())
 		if parent == nil {
-			log.Debug("Unknown parent of propagated block", "peer", peer, "number", block.Number(), "hash", hash, "parent", block.ParentHash())
-			f.done <- hash
+			log.Debug("Unknown parent of propagated snail block", "peer", peer, "number", block.Number(), "hash", hash, "parent", block.ParentHash())
 			return
 		}
-		if propagate {
-			// Quickly validate the header and propagate the block if it passes
-			switch err := f.verifyHeader(block.Header()); err {
-			case nil:
-				// All ok, quickly propagate to our peers
-				propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
-				go f.broadcastBlock(block, propagate)
+		// Quickly validate the header and propagate the block if it passes
+		switch err := f.verifyHeader(block.Header()); err {
+		case nil:
+			// All ok, quickly propagate to our peers
+			propBroadcastOutTimer.UpdateSince(block.ReceivedAt)
+			go f.broadcastBlock(block, true)
 
-			case consensus.ErrFutureBlock:
-				// Weird future block, don't fail, but neither propagate
+		case consensus.ErrFutureBlock:
+			// Weird future block, don't fail, but neither propagate
 
-			default:
-				// Something went very wrong, drop the peer
-				// log.Debug("Propagated block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
-				// f.done <- hash
-				return
-			}
-		} else {
-			// If import succeeded, broadcast the block
-			go f.broadcastBlock(block, propagate)
+		default:
+			// Something went very wrong, drop the peer
+			log.Debug("Propagated snail block verification failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
+			f.dropPeer(peer)
+			return
+		}
+		// Run the actual import and log any issues
+		log.Info("InsertChain snail block", "number", block.Number(), "hash", hash, "peer", peer)
+		if _, err := f.insertChain(types.SnailBlocks{block}); err != nil {
+			log.Debug("Propagated snail block import failed", "peer", peer, "number", block.Number(), "hash", hash, "err", err)
+			return
+		}
+		// If import succeeded, broadcast the block
+		go f.broadcastBlock(block, false)
 
-			// Invoke the testing hook if needed
-			if f.importedHook != nil {
-				f.importedHook(block)
-			}
+		// Invoke the testing hook if needed
+		if f.importedHook != nil {
+			f.importedHook(block)
 		}
 	}()
 }
