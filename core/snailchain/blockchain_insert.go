@@ -27,7 +27,7 @@ import (
 )
 
 // insertSnailStats tracks and reports on block insertion.
-type insertStats struct {
+type insertSnailStats struct {
 	queued, processed, ignored int
 	usedGas                    uint64
 	lastIndex                  int
@@ -36,11 +36,11 @@ type insertStats struct {
 
 // statsSnailReportLimit is the time limit during import after which we always print
 // out progress. This avoids the user wondering what's going on.
-const statsReportLimit = 8 * time.Second
+const statsSnailReportLimit = 8 * time.Second
 
 // report prints statistics if some number of blocks have been processed
 // or more than a few seconds have passed since the last message.
-func (st *insertStats) report(chain []*types.SnailBlock, index int) {
+func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
 	// Fetch the timings for the batch
 	var (
 		now     = mclock.Now()
@@ -64,7 +64,7 @@ func (st *insertStats) report(chain []*types.SnailBlock, index int) {
 		}
 		log.Info("Imported new snail chain segment", context...)
 
-		*st = insertStats{startTime: now, lastIndex: index + 1}
+		*st = insertSnailStats{startTime: now, lastIndex: index + 1}
 	}
 }
 
@@ -98,7 +98,7 @@ func (it *insertIterator) next() (*types.SnailBlock, error) {
 	if err := <-it.results; err != nil {
 		return it.chain[it.index], err
 	}
-	return it.chain[it.index], it.validator.ValidateBody(it.chain[it.index])
+	return it.chain[it.index], it.validator.ValidateRewarded(it.chain[it.index].NumberU64())
 }
 
 // current returns the current block that's being processed.

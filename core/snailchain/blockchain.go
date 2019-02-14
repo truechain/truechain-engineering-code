@@ -763,6 +763,18 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 	return status, nil
 }
 
+// addFutureBlock checks if the block is within the max allowed window to get
+// accepted for future processing, and returns an error if the block is too far
+// ahead and was not added.
+func (bc *SnailBlockChain) addFutureBlock(block *types.SnailBlock) error {
+	max := big.NewInt(time.Now().Unix() + maxTimeFutureBlocks)
+	if block.Time().Cmp(max) > 0 {
+		return fmt.Errorf("future block timestamp %v > allowed %v", block.Time(), max)
+	}
+	bc.futureBlocks.Add(block.Hash(), block)
+	return nil
+}
+
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
@@ -770,37 +782,45 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 //
 // After insertion is done, all accumulated events will be fired.
 func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
-	log.Debug("InsertChain...")
-	n, events, err := bc.insertChain(chain)
-	bc.PostChainEvents(events)
-	return n, err
-}
-
-// insertChain will execute the actual chain insertion and event aggregation. The
-// only reason this method exists as a separate one is to make locking cleaner
-// with deferred statements.
-func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interface{}, error) {
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
-		return 0, nil, nil
+		return 0, nil
 	}
 	// Do a sanity check that the provided chain is actually ordered and linked
 	for i := 1; i < len(chain); i++ {
 		if chain[i].NumberU64() != chain[i-1].NumberU64()+1 || chain[i].ParentHash() != chain[i-1].Hash() {
-			// Chain broke ancestry, log a messge (programming error) and skip insertion
+			// Chain broke ancestry, log a message (programming error) and skip insertion
 			log.Error("Non contiguous block insert", "number", chain[i].Number(), "hash", chain[i].Hash(),
 				"parent", chain[i].ParentHash(), "prevnumber", chain[i-1].Number(), "prevhash", chain[i-1].Hash())
 
-			return 0, nil, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
+			return 0, fmt.Errorf("non contiguous insert: item %d is #%d [%x…], item %d is #%d [%x…] (parent [%x…])", i-1, chain[i-1].NumberU64(),
 				chain[i-1].Hash().Bytes()[:4], i, chain[i].NumberU64(), chain[i].Hash().Bytes()[:4], chain[i].ParentHash().Bytes()[:4])
 		}
 	}
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
-	defer bc.wg.Done()
-
 	bc.chainmu.Lock()
-	defer bc.chainmu.Unlock()
+	n, events, err := bc.insertChain(chain, true)
+	bc.chainmu.Unlock()
+	bc.wg.Done()
+
+	bc.PostChainEvents(events)
+	return n, err
+}
+
+// insertChain is the internal implementation of insertChain, which assumes that
+// 1) chains are contiguous, and 2) The chain mutex is held.
+//
+// This method is split out so that import batches that require re-injecting
+// historical blocks can do so without releasing the lock, which could lead to
+// racey behaviour. If a sidechain import is in progress, and the historic state
+// is imported, but then new canon-head is added before the actual sidechain
+// completes, then the historic state could be pruned again
+func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool) (int, []interface{}, error) {
+	// If the chain is terminating, don't even bother starting u
+	if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+		return 0, nil, nil
+	}
 
 	// A queued approach to delivering events. This is generally
 	// faster than direct delivery and requires much less mutex
@@ -816,14 +836,58 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 
 	for i, block := range chain {
 		headers[i] = block.Header()
-		seals[i] = true
+		seals[i] = verifySeals
 	}
 	//bc.CurrentSnailHeader
 	abort, results := bc.engine.VerifySnailHeaders(bc, headers, seals)
 	defer close(abort)
 
-	// Iterate over the blocks and insert when the verifier permits
-	for i, block := range chain {
+	// Peek the error for the first block to decide the directing import logic
+	it := newInsertIterator(chain, results, bc.Validator())
+
+	block, err := it.next()
+	bstart := time.Now()
+	switch {
+	// First block is pruned, insert as sidechain and reorg only if TD grows enough
+	case err == consensus.ErrPrunedAncestor:
+		return bc.insertSidechain(block, it)
+
+		// First block is future, shove it (and all children) to the future queue (unknown ancestor)
+	case err == consensus.ErrFutureBlock || (err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(it.first().ParentHash())):
+		for block != nil && (it.index == 0 || err == consensus.ErrUnknownAncestor) {
+			if err := bc.addFutureBlock(block); err != nil {
+				return it.index, events, err
+			}
+			block, err = it.next()
+		}
+		stats.queued += it.processed()
+		stats.ignored += it.remaining()
+
+		// If there are any still remaining, mark as ignored
+		return it.index, events, err
+
+		// First block (and state) is known
+		//   1. We did a roll-back, and should now do a re-import
+		//   2. The block is stored as a sidechain, and is lying about it's stateroot, and passes a stateroot
+		// 	    from the canonical chain, which has not been verified.
+	case err == ErrKnownBlock:
+		// Skip all known blocks that behind us
+		current := bc.CurrentBlock().NumberU64()
+
+		for block != nil && err == ErrKnownBlock && current >= block.NumberU64() {
+			stats.ignored++
+			block, err = it.next()
+		}
+		// Falls through to the block import
+
+		// Some other error occurred, abort
+	case err != nil:
+		stats.ignored += len(it.chain)
+		bc.reportBlock(block, err)
+		return it.index, events, err
+	}
+	// No validation errors for the first block (or chain prefix skipped)
+	for ; block != nil && err == nil; block, err = it.next() {
 		// If the chain is terminating, stop processing blocks
 		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 			log.Debug("Premature abort during blocks processing")
@@ -832,86 +896,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		// If the header is a banned one, straight out abort
 		if BadHashes[block.Hash()] {
 			bc.reportBlock(block, ErrBlacklistedHash)
-			return i, events, ErrBlacklistedHash
-		}
-
-		log.Debug("insert snail block ..", "number", block.Number(), "hash", block.Hash())
-		// Wait for the block's verification to complete
-		bstart := time.Now()
-
-		err := <-results
-		if err == nil {
-			err = bc.Validator().ValidateBody(block)
-			if err == nil {
-				err = bc.Validator().ValidateRewarded(block.NumberU64())
-			}
-		}
-		switch {
-		case err == ErrKnownBlock:
-			// Block and state both already known. However if the current block is below
-			// this number we did a rollback and we should reimport it nonetheless.
-			if bc.CurrentBlock().NumberU64() >= block.NumberU64() {
-				stats.ignored++
-				continue
-			}
-
-		case err == consensus.ErrFutureBlock:
-			// Allow up to MaxFuture second in the future blocks. If this limit is exceeded
-			// the chain is discarded and processed at a later time if given.
-			max := big.NewInt(time.Now().Unix() + maxTimeFutureBlocks)
-			if block.Time().Cmp(max) > 0 {
-				return i, events, fmt.Errorf("future block: %v > %v", block.Time(), max)
-			}
-			bc.futureBlocks.Add(block.Hash(), block)
-			stats.queued++
-			continue
-
-		case err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(block.ParentHash()):
-			bc.futureBlocks.Add(block.Hash(), block)
-			stats.queued++
-			continue
-
-			//case err == ErrInvalidFast:
-			//	bc.futureBlocks.Add(block.Hash(), block)
-			//	stats.queued++
-			//	continue
-
-		case err == consensus.ErrPrunedAncestor:
-			// Block competing with the canonical chain, store in the db, but don't process
-			// until the competitor TD goes above the canonical TD
-			currentBlock := bc.CurrentBlock()
-			localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
-			externTd := new(big.Int).Add(bc.GetTd(block.ParentHash(), block.NumberU64()-1), block.Difficulty())
-			if localTd.Cmp(externTd) > 0 {
-				if err = bc.WriteBlock(block, externTd); err != nil {
-					return i, events, err
-				}
-				continue
-			}
-			// Competitor chain beat canonical, gather all blocks from the common ancestor
-			var winner []*types.SnailBlock
-
-			parent := bc.GetBlock(block.ParentHash(), block.NumberU64()-1)
-			for rawdb.ReadCanonicalHash(bc.db, parent.NumberU64()) != parent.Hash() {
-				winner = append(winner, parent)
-				parent = bc.GetBlock(parent.ParentHash(), parent.NumberU64()-1)
-			}
-			for j := 0; j < len(winner)/2; j++ {
-				winner[j], winner[len(winner)-1-j] = winner[len(winner)-1-j], winner[j]
-			}
-			// Import all the pruned blocks to make the state available
-			bc.chainmu.Unlock()
-			_, evs, err := bc.insertChain(winner)
-			bc.chainmu.Lock()
-			events = evs
-
-			if err != nil {
-				return i, events, err
-			}
-
-		case err != nil:
-			bc.reportBlock(block, err)
-			return i, events, err
+			return it.index, events, ErrBlacklistedHash
 		}
 		t0 := time.Now()
 		proctime := time.Since(bstart)
@@ -921,7 +906,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		t1 := time.Now()
 		if err != nil {
 			log.Info("Write new snail canonical block error", "number", block.Number(), "hash", block.Hash(), "err", err)
-			return i, events, err
+			return it.index, events, err
 		}
 		blockWriteTimer.Update(t1.Sub(t0))
 		switch status {
@@ -949,55 +934,123 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks) (int, []interfac
 		}
 		stats.processed++
 
-		stats.report(chain, i)
+		stats.report(chain, it.index)
 	}
+
+	// Any blocks remaining here? The only ones we care about are the future ones
+	if block != nil && err == consensus.ErrFutureBlock {
+		if err := bc.addFutureBlock(block); err != nil {
+			return it.index, events, err
+		}
+		block, err = it.next()
+
+		for ; block != nil && err == consensus.ErrUnknownAncestor; block, err = it.next() {
+			if err := bc.addFutureBlock(block); err != nil {
+				return it.index, events, err
+			}
+			stats.queued++
+		}
+	}
+	stats.ignored += it.remaining()
+
 	// Append a single chain head event if we've progressed the chain
 	if lastCanon != nil && bc.CurrentBlock().Hash() == lastCanon.Hash() {
 		events = append(events, types.ChainSnailHeadEvent{lastCanon})
 	}
-	return 0, events, nil
+	return it.index, events, err
 }
 
-// insertSnailStats tracks and reports on block insertion.
-type insertSnailStats struct {
-	queued, processed, ignored int
-	usedGas                    uint64
-	lastIndex                  int
-	startTime                  mclock.AbsTime
-}
-
-// statsSnailReportLimit is the time limit during import after which we always print
-// out progress. This avoids the user wondering what's going on.
-const statsSnailReportLimit = 8 * time.Second
-
-// report prints statistics if some number of blocks have been processed
-// or more than a few seconds have passed since the last message.
-func (st *insertSnailStats) report(chain []*types.SnailBlock, index int) {
-	// Fetch the timings for the batch
+// insertSidechain is called when an import batch hits upon a pruned ancestor
+// error, which happens when a sidechain with a sufficiently old fork-block is
+// found.
+//
+// The method writes all (header-and-body-valid) blocks to disk, then tries to
+// switch over to the new chain if the TD exceeded the current chain.
+func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIterator) (int, []interface{}, error) {
 	var (
-		now     = mclock.Now()
-		elapsed = time.Duration(now) - time.Duration(st.startTime)
+		externTd *big.Int
+		current  = bc.CurrentBlock()
 	)
-	// If we're at the last block of the batch or report period reached, log
-	if index == len(chain)-1 || elapsed >= statsSnailReportLimit {
-		var (
-			end = chain[index]
-			fts = countSnailFruits(chain[st.lastIndex : index+1])
-		)
-		context := []interface{}{
-			"blocks", st.processed, "fts", fts, "elapsed", common.PrettyDuration(elapsed),
-			"number", end.Number(), "hash", end.Hash(), "fruit", end.Fruits()[0].FastNumber(),
+	// The first sidechain block error is already verified to be ErrPrunedAncestor.
+	// Since we don't import them here, we expect ErrUnknownAncestor for the remaining
+	// ones. Any other errors means that the block is invalid, and should not be written
+	// to disk.
+	err := consensus.ErrPrunedAncestor
+	for ; block != nil && (err == consensus.ErrPrunedAncestor); block, err = it.next() {
+		if externTd == nil {
+			externTd = bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 		}
-		if st.queued > 0 {
-			context = append(context, []interface{}{"queued", st.queued}...)
-		}
-		if st.ignored > 0 {
-			context = append(context, []interface{}{"ignored", st.ignored}...)
-		}
-		log.Info("Imported new snail chain segment", context...)
+		externTd = new(big.Int).Add(externTd, block.Difficulty())
 
-		*st = insertSnailStats{startTime: now, lastIndex: index + 1}
+		if !bc.HasBlock(block.Hash(), block.NumberU64()) {
+			start := time.Now()
+			if err := bc.WriteBlock(block, externTd); err != nil {
+				return it.index, nil, err
+			}
+			log.Debug("Injected sidechain block", "number", block.Number(), "hash", block.Hash(),
+				"diff", block.Difficulty(), "elapsed", common.PrettyDuration(time.Since(start)))
+		}
 	}
+	// At this point, we've written all sidechain blocks to database. Loop ended
+	// either on some other error or all were processed. If there was some other
+	// error, we can ignore the rest of those blocks.
+	//
+	// If the externTd was larger than our local TD, we now need to reimport the previous
+	// blocks to regenerate the required state
+	localTd := bc.GetTd(current.Hash(), current.NumberU64())
+	if localTd.Cmp(externTd) > 0 {
+		log.Info("Sidechain written to disk", "start", it.first().NumberU64(), "end", it.previous().NumberU64(), "sidetd", externTd, "localtd", localTd)
+		return it.index, nil, err
+	}
+	// Gather all the sidechain hashes (full blocks may be memory heavy)
+	var (
+		hashes  []common.Hash
+		numbers []uint64
+	)
+	parent := bc.GetHeader(it.previous().Hash(), it.previous().NumberU64())
+	for parent != nil {
+		hashes = append(hashes, parent.Hash())
+		numbers = append(numbers, parent.Number.Uint64())
+
+		parent = bc.GetHeader(parent.ParentHash, parent.Number.Uint64()-1)
+	}
+	if parent == nil {
+		return it.index, nil, errors.New("missing parent")
+	}
+	// Import all the pruned blocks to make the state available
+	var (
+		blocks []*types.SnailBlock
+		memory common.StorageSize
+	)
+	for i := len(hashes) - 1; i >= 0; i-- {
+		// Append the next block to our batch
+		block := bc.GetBlock(hashes[i], numbers[i])
+
+		blocks = append(blocks, block)
+		memory += block.Size()
+
+		// If memory use grew too large, import and continue. Sadly we need to discard
+		// all raised events and logs from notifications since we're too heavy on the
+		// memory here.
+		if len(blocks) >= 2048 || memory > 64*1024*1024 {
+			log.Info("Importing heavy sidechain segment", "blocks", len(blocks), "start", blocks[0].NumberU64(), "end", block.NumberU64())
+			if _, _, err := bc.insertChain(blocks, false); err != nil {
+				return 0, nil, err
+			}
+			blocks, memory = blocks[:0], 0
+
+			// If the chain is terminating, stop processing blocks
+			if atomic.LoadInt32(&bc.procInterrupt) == 1 {
+				log.Debug("Premature abort during blocks processing")
+				return 0, nil, nil
+			}
+		}
+	}
+	if len(blocks) > 0 {
+		log.Info("Importing sidechain segment", "start", blocks[0].NumberU64(), "end", blocks[len(blocks)-1].NumberU64())
+		return bc.insertChain(blocks, false)
+	}
+	return 0, nil, nil
 }
 
 func countSnailFruits(chain []*types.SnailBlock) (c int) {
