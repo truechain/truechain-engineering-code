@@ -1416,7 +1416,7 @@ func (d *Downloader) importBlockResults(results []*etrue.FetchResult, p etrue.Pe
 		}
 
 		if index, err := d.blockchain.InsertChain(blocks); err != nil {
-			log.Error("Snail Downloaded item processing failed", "number", results[index].Sheader.Number, "hash", results[index].Sheader.Hash(), "err", err)
+			log.Error("Snail Downloaded item processing failed", "number", results[index-1].Sheader.Number, "hash", results[index-1].Sheader.Hash(), "err", err)
 			if err == types.ErrSnailHeightNotYet {
 				return err
 			}
