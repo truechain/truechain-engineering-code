@@ -231,7 +231,7 @@ loop:
 	}
 
 	close(p.closed)
-	log.Debug("ping loop end", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
+	log.Debug("ping loop end", "name", p.Name(), "running", len(p.running))
 	p.rw.close(reason)
 	log.Debug("RLPX end", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 	p.wg.Wait()
@@ -252,6 +252,7 @@ func (p *Peer) pingLoop() {
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
+			log.Debug("ping loop closed", "name", p.Name())
 			return
 		}
 	}
@@ -363,7 +364,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 				p.log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
 			}
 
-			log.Debug("Protocol end", "name", p.Name(), "err", err, "RemoteAddr", p.RemoteAddr())
+			log.Debug("Start protocols end", "name", p.Name(), "err", err, "RemoteAddr", p.RemoteAddr())
 
 			p.protoErr <- err
 			p.wg.Done()

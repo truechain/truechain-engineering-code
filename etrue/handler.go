@@ -273,7 +273,7 @@ func (pm *ProtocolManager) removePeer(id string) {
 	if peer == nil {
 		return
 	}
-	log.Info("Removing Truechain peer", "peer", id, "RemoteAddr", peer.RemoteAddr())
+	log.Info("Removing Truechain peer", "peer", id, "recipients", len(pm.peers.peers))
 
 	// Unregister the peer from the downloader and Truechain peer set
 	if err := pm.downloader.UnregisterPeer(id); err != nil {
