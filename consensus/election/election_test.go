@@ -17,6 +17,7 @@
 package election
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -41,7 +42,7 @@ func makeTestBlock() *types.Block {
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   core.FastCalcGasLimit(genesis),
+		GasLimit:   0, //core.FastCalcGasLimit(genesis),
 	}
 	fb := types.NewBlock(header, nil, nil, nil, nil)
 	return fb
@@ -200,4 +201,12 @@ func TestCommittee2Members(t *testing.T) {
 	if int64(len(members)) > params.MaximumCommitteeNumber.Int64() {
 		t.Errorf("Elected members exceed MAX member num")
 	}
+}
+
+func TestMiscellaneous(*testing.T) {
+	//test div for big int
+	a, b, c := big.NewInt(0), big.NewInt(180), big.NewInt(181)
+	fmt.Println(new(big.Int).Div(a, b), new(big.Int).Div(b, b), new(big.Int).Div(c, b))
+	//test negative number for big int
+	fmt.Println(new(big.Int).Add(new(big.Int).Sub(common.Big0, params.ElectionPeriodNumber), common.Big1))
 }

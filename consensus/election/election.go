@@ -1129,7 +1129,7 @@ func (e *Election) loop() {
 					e.committee.endFastNumber = new(big.Int).Set(lastFastNumber)
 
 					e.electionFeed.Send(types.ElectionEvent{
-						Option:           types.CommitteeOver,
+						Option:           types.CommitteeOver, //only update committee end fast black
 						CommitteeID:      e.committee.id,
 						CommitteeMembers: e.committee.Members(),
 						BeginFastNumber:  e.committee.beginFastNumber,
@@ -1166,7 +1166,7 @@ func (e *Election) loop() {
 					printCommittee(e.nextCommittee)
 
 					e.electionFeed.Send(types.ElectionEvent{
-						Option:           types.CommitteeSwitchover,
+						Option:           types.CommitteeSwitchover, //update next committee
 						CommitteeID:      e.nextCommittee.id,
 						CommitteeMembers: e.nextCommittee.Members(),
 						BackupMembers:    e.nextCommittee.BackupMembers(),
