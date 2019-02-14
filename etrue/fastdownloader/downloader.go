@@ -221,12 +221,12 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 		lightchain:    lightchain,
 		dropPeer:      dropPeer,
 		cancelCh:      make(chan struct{}),
-		headerCh:      make(chan etrue.DataPack, 1),
-		bodyCh:        make(chan etrue.DataPack, 1),
-		receiptCh:     make(chan etrue.DataPack, 1),
-		bodyWakeCh:    make(chan bool, 1),
-		receiptWakeCh: make(chan bool, 1),
-		headerProcCh:  make(chan []*types.Header, 1),
+		headerCh:      make(chan etrue.DataPack, 10),
+		bodyCh:        make(chan etrue.DataPack, 10),
+		receiptCh:     make(chan etrue.DataPack, 10),
+		bodyWakeCh:    make(chan bool, 10),
+		receiptWakeCh: make(chan bool, 10),
+		headerProcCh:  make(chan []*types.Header, 10),
 
 		quitCh: make(chan struct{}),
 	}
