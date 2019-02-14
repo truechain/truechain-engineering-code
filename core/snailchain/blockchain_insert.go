@@ -98,7 +98,11 @@ func (it *insertIterator) next() (*types.SnailBlock, error) {
 	if err := <-it.results; err != nil {
 		return it.chain[it.index], err
 	}
-	return it.chain[it.index], it.validator.ValidateRewarded(it.chain[it.index].NumberU64())
+	err := it.validator.ValidateBody(it.chain[it.index])
+	if err == nil {
+		err = it.validator.ValidateRewarded(it.chain[it.index].NumberU64())
+	}
+	return it.chain[it.index], err
 }
 
 // current returns the current block that's being processed.
