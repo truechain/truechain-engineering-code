@@ -1007,16 +1007,6 @@ func (bc *SnailBlockChain) insertSidechain(block *types.SnailBlock, it *insertIt
 		hashes  []common.Hash
 		numbers []uint64
 	)
-	parent := bc.GetHeader(it.previous().Hash(), it.previous().NumberU64())
-	for parent != nil {
-		hashes = append(hashes, parent.Hash())
-		numbers = append(numbers, parent.Number.Uint64())
-
-		parent = bc.GetHeader(parent.ParentHash, parent.Number.Uint64()-1)
-	}
-	if parent == nil {
-		return it.index, nil, errors.New("missing parent")
-	}
 	// Import all the pruned blocks to make the state available
 	var (
 		blocks []*types.SnailBlock
