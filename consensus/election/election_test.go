@@ -209,4 +209,22 @@ func TestMiscellaneous(*testing.T) {
 	fmt.Println(new(big.Int).Div(a, b), new(big.Int).Div(b, b), new(big.Int).Div(c, b))
 	//test negative number for big int
 	fmt.Println(new(big.Int).Add(new(big.Int).Sub(common.Big0, params.ElectionPeriodNumber), common.Big1))
+	//range testing
+	d := []int{1, 2, 3, 4, 5, 9, 8, 7, 6, 11, 23}
+	for _, v := range d {
+		fmt.Println(v)
+	}
+
+	fmt.Println("big:", findBigNumberSmall(3, d), findBigNumberSmall(10, d), findBigNumberSmall(0, d))
+}
+
+//findBigNumberSmall find a number in array less than or equal to the maximum number of incoming digits
+func findBigNumberSmall(a int, b []int) int {
+	d := -1
+	for _, v := range b {
+		if v <= a && a > d && v > d {
+			d = v
+		}
+	}
+	return d
 }
