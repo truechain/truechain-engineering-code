@@ -1610,7 +1610,10 @@ func (bc *BlockChain) update() {
 		case <-futureTimer.C:
 			if bc.cacheConfig.Deleted {
 				number := bc.cacheConfig.HeightGcState.Load().(uint64)
-				bc.stateGcBodyAndReceipt(number)
+				level := number / blockDeleteHeight
+				if bc.GetBlockNumber() > number+blockDeleteHeight*(level+1)+blockDeleteLimite {
+					go bc.stateGcBodyAndReceipt(number)
+				}
 			}
 			bc.procFutureBlocks()
 		case <-bc.quit:
@@ -1824,9 +1827,9 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetBlockReward(snumber uint64) (*types.BlockReward) {
+func (bc *BlockChain) GetBlockReward(snumber uint64) *types.BlockReward {
 
-	if rewards_, ok := bc.rewardCache.Get(snumber); ok{
+	if rewards_, ok := bc.rewardCache.Get(snumber); ok {
 		rewards := rewards_.(*types.BlockReward)
 		if bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
 			return rewards
