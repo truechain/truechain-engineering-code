@@ -1,23 +1,22 @@
-
 package main
 
 import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/truechain/truechain-engineering-code/accounts/keystore"
 	"github.com/truechain/truechain-engineering-code/cmd/utils"
 	"github.com/truechain/truechain-engineering-code/console"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"gopkg.in/urfave/cli.v1"
 )
 
 var (
 	walletCommand = cli.Command{
 		Name:      "wallet",
-		Usage:     "Manage Ethereum presale wallets",
+		Usage:     "Manage Truechain presale wallets",
 		ArgsUsage: "",
 		Category:  "ACCOUNT COMMANDS",
 		Description: `
@@ -30,7 +29,7 @@ passwordfile as argument containing the wallet password in plaintext.`,
 			{
 
 				Name:      "import",
-				Usage:     "Import Ethereum presale wallet",
+				Usage:     "Import Truechain presale wallet",
 				ArgsUsage: "<keyFile>",
 				Action:    utils.MigrateFlags(importWallet),
 				Category:  "ACCOUNT COMMANDS",
@@ -71,7 +70,7 @@ Note that exporting your key in unencrypted format is NOT supported.
 
 Keys are stored under <DATADIR>/keystore.
 It is safe to transfer the entire directory or the individual keys therein
-between ethereum nodes by simply copying.
+between truechain nodes by simply copying.
 
 Make sure you backup your keys regularly.`,
 		Subcommands: []cli.Command{
@@ -168,7 +167,7 @@ For non-interactive use the passphrase can be specified with the -password flag:
 	getrue account import [options] <keyfile>
 
 Note:
-As you can directly copy your encrypted accounts to another ethereum instance,
+As you can directly copy your encrypted accounts to another truechain instance,
 this import mechanism is not needed when you transfer an account between
 nodes.
 `,
