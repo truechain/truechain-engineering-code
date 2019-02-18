@@ -181,8 +181,11 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
 			log.Debug("Enter NodeInfo", "id", id, "addr", addr)
-			v.Adrress, v.IP, v.Port = addr, node.IP, port
-			update = true
+			v.Adrress = addr
+			if v.IP != node.IP || v.Port != port {
+				v.IP, v.Port = node.IP, port
+				update = true
+			}
 		}
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
