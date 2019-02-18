@@ -453,7 +453,11 @@ func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo
 	for _, v := range c.BackMembers {
 		id := pkToP2pID(v.Publickey)
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
+		self := false
+		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+			self = true
+		}
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
 		h.PutBackHealth(health)
 	}
 }
