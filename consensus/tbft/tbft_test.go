@@ -5,6 +5,14 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -13,13 +21,6 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	config "github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"sync"
-	"testing"
-	"time"
 )
 
 type PbftAgentProxyImp struct {
@@ -1217,4 +1218,65 @@ func TestWatch(t *testing.T) {
 	time.Sleep(time.Second * 70)
 	w.EndWatch()
 	w.Finish("end")
+}
+
+func TestValidatorSet(t *testing.T) {
+	IDCacheInit()
+	const privCount int = 4
+	var privs [privCount]*ecdsa.PrivateKey
+	vals := make([]*ttypes.Validator, 0, 0)
+	vPrivValidator := make([]ttypes.PrivValidator, 0, 0)
+	// make validatorset
+	for i := 0; i < privCount; i++ {
+		privs[i] = getPrivateKey(i)
+		pub := GetPub(privs[i])
+		vp := ttypes.NewPrivValidator(*privs[i])
+		vPrivValidator = append(vPrivValidator, vp)
+		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*pub), 1)
+		vals = append(vals, v)
+	}
+	vset := ttypes.NewValidatorSet(vals)
+
+	fmt.Println("vs:", vset.String(), " p:", vset.GetProposer())
+
+	vset = newRound(1, vset)
+	fmt.Println("p:", vset.GetProposer())
+	vset = newRound(0, vset)
+	fmt.Println("p:", vset.GetProposer())
+
+	vset = newRound(2, vset)
+	fmt.Println("p:", vset.GetProposer())
+	vset = newRound(0, vset)
+	fmt.Println("p:", vset.GetProposer())
+
+	vset = newRound(3, vset)
+	fmt.Println("p:", vset.GetProposer())
+	vset = newRound(0, vset)
+	fmt.Println("p:", vset.GetProposer())
+
+	vset = newRound(4, vset)
+	fmt.Println("p:", vset.GetProposer())
+	vset = newRound(0, vset)
+	fmt.Println("p:", vset.GetProposer())
+
+	vset = newRound(5, vset)
+	fmt.Println("p:", vset.GetProposer())
+	vset = newRound(0, vset)
+	fmt.Println("p:", vset.GetProposer())
+
+	vset = newRound(6, vset)
+	fmt.Println("p:", vset.GetProposer())
+	vset = newRound(0, vset)
+	fmt.Println("p:", vset.GetProposer())
+
+	fmt.Println("finish")
+}
+
+func newRound(round int, vs *ttypes.ValidatorSet) *ttypes.ValidatorSet {
+	validators := vs
+	if round > 0 {
+		validators = validators.Copy()
+		validators.IncrementAccum(uint(round))
+	}
+	return validators
 }
