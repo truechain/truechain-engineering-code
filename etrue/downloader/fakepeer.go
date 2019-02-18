@@ -139,11 +139,6 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 // RequestReceipts implements downloader.Peer, returning a batch of transaction
 // receipts corresponding to the specified block hashes.
 func (p *FakePeer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
-	//var receipts [][]*types.Receipt
-	//for _, hash := range hashes {
-	//	receipts = append(receipts, rawdb.ReadReceipts(p.db, hash, *p.hc.GetBlockNumber(hash)))
-	//}
-	//p.dl.DeliverReceipts(p.id, receipts)
 	return nil
 }
 
