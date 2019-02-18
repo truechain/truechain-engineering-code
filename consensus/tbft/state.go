@@ -492,7 +492,7 @@ func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate", "uHeight", msg.uHeight, "eHeight", msg.eHeight, "cHeight", cs.Height, "Round", cs.Round)
 	round, oldHeight := cs.Round, cs.Height
 
-	help.CheckAndPrintError(cs.state.UpdateValidator(msg.vset))
+	help.CheckAndPrintError(cs.state.UpdateValidator(msg.vset, true))
 	cs.updateToState(cs.state)
 	cs.state.PrivReset()
 	cs.state.SetEndHeight(msg.eHeight)
@@ -698,16 +698,13 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	if int(cs.Round) < round {
 		validators = validators.Copy()
 		validators.IncrementAccum(uint(round - int(cs.Round)))
-		log.Info("Validators change", "proposal", validators.GetProposer())
-	} else {
-		log.Info("newRound Validators", "proposal", validators.GetProposer())
 	}
-
 	// Setup new round
 	// we don't fire newStep for this step,
 	// but we fire an event, so update the round step first
 	cs.updateRoundStep(round, ttypes.RoundStepNewRound)
 	cs.Validators = validators
+	cs.state.UpdateValidator(cs.Validators, false)
 	if round == 0 {
 		// We've already reset these upon new height,
 		// and meanwhile we might have received a proposal

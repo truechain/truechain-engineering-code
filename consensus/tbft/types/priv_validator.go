@@ -5,15 +5,16 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
-	"sync"
-	"time"
 )
 
 const (
@@ -305,7 +306,7 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 // StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet
-	UpdateValidator(vset *ValidatorSet) error
+	UpdateValidator(vset *ValidatorSet, makeids bool) error
 	GetLastValidator() *ValidatorSet
 
 	GetLastBlockHeight() uint64
@@ -353,7 +354,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		CID:         cid,
 	}
 	state.ids = vals.MakeIDs()
-	log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",height,"end",state.EndHeight,"current",lh)
+	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", height, "end", state.EndHeight, "current", lh)
 	return state
 }
 
@@ -412,7 +413,7 @@ func (state *StateAgentImpl) HasPeerID(id string) error {
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
 	lh := state.Agent.GetCurrentHeight()
-	log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",state.BeginHeight,"end",state.EndHeight,"current",lh)
+	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 }
 
 // SetBeginHeight set height of block for the committee to begin. (begin,end]
@@ -420,7 +421,7 @@ func (state *StateAgentImpl) SetBeginHeight(h uint64) {
 	if state.EndHeight > 0 && h < state.EndHeight {
 		state.BeginHeight = h
 		lh := state.Agent.GetCurrentHeight()
-		log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",state.BeginHeight,"end",state.EndHeight,"current",lh)	
+		log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 	}
 }
 
@@ -436,12 +437,14 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 }
 
 //UpdateValidator set new Validators when committee member was changed
-func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet) error {
+func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet, makeids bool) error {
 	state.Validators = vset
-	ids := state.Validators.MakeIDs()
-	state.lock.Lock()
-	defer state.lock.Unlock()
-	state.ids = ids
+	if makeids {
+		ids := state.Validators.MakeIDs()
+		state.lock.Lock()
+		defer state.lock.Unlock()
+		state.ids = ids
+	}
 	return nil
 }
 
@@ -557,4 +560,3 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// 	state.Agent.BroadcastFastBlock(fb)
 	// }
 }
-
