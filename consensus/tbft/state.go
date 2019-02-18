@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"reflect"
+	"runtime/debug"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
-	"reflect"
-	"runtime/debug"
-	"sync"
-	"time"
 )
 
 //-----------------------------------------------------------------------------
@@ -697,6 +698,9 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	if int(cs.Round) < round {
 		validators = validators.Copy()
 		validators.IncrementAccum(uint(round - int(cs.Round)))
+		log.Info("Validators change", "proposal", validators.GetProposer())
+	} else {
+		log.Info("newRound Validators", "proposal", validators.GetProposer())
 	}
 
 	// Setup new round
