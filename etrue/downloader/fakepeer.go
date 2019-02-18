@@ -125,7 +125,6 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
 		fruits [][]*types.SnailBlock
 		signs  [][]*types.PbftSign
-		//uncles [][]*types.Header
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
@@ -133,7 +132,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 		signs = append(signs, block.Signs())
 
 	}
-	p.dl.DeliverBodies(p.id, fruits, signs, nil)
+	p.dl.DeliverBodies(p.id, fruits, signs)
 	return nil
 }
 
