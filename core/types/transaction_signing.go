@@ -364,7 +364,7 @@ func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
 }
 
 func (hs HomesteadSigner) Payer(tx *Transaction) (common.Address, error) {
-	return recoverPlain(hs.Hash_Payment(tx), tx.data.PR, tx.data.PS, tx.data.PV, true)
+	return common.Address{}, nil
 }
 
 type FrontierSigner struct{}
@@ -430,7 +430,7 @@ func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 }
 
 func (fs FrontierSigner) Payer(tx *Transaction) (common.Address, error) {
-	return recoverPlain(fs.Hash_Payment(tx), tx.data.PR, tx.data.PS, tx.data.PV, false)
+	return common.Address{}, nil
 }
 
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {

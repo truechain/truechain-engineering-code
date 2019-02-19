@@ -52,20 +52,17 @@ func (s *senderFromServer) Sender(tx *types.Transaction) (common.Address, error)
 }
 
 func (s *senderFromServer) Payer(tx *types.Transaction) (common.Address, error) {
-	if s.blockhash == (common.Hash{}) {
-		return common.Address{}, errNotCached
-	}
-	return s.addr, nil
+	return common.Address{}, nil
 }
 
 func (s *senderFromServer) Hash(tx *types.Transaction) common.Hash {
 	panic("can't sign with senderFromServer")
 }
 
-func (s *senderFromServer) Hash_Payment(tx *types.Transaction) common.Hash {
-	panic("can't sign with payerFromServer")
-}
-
 func (s *senderFromServer) SignatureValues(tx *types.Transaction, sig []byte) (R, S, V *big.Int, err error) {
 	panic("can't sign with senderFromServer")
+}
+
+func (s *senderFromServer) Hash_Payment(tx *types.Transaction) common.Hash {
+	panic("can't Hash_Payment with senderFromServer")
 }
