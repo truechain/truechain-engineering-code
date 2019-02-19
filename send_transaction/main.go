@@ -333,17 +333,25 @@ func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 }
 
 func unlockCountNewAccount(client *rpc.Client, count int) bool {
+	waitGroup := &sync.WaitGroup{}
 	for i := 0; i < count; i++ {
 		if from == i {
 			continue
 		}
-		fmt.Println(i, " unlockAccount main address ", " son address ", account[i])
-		_, err := unlockAccount(client, account[i], "admin", 9000000, "son address")
-		if err != nil {
-			fmt.Println("personal_unlockAccount Error:", err.Error(), "addr", account[i])
-			msg <- false
-			return false
-		}
+		waitGroup.Add(1)
+		go unlockSonAccount(client, account[i], i, waitGroup)
 	}
+	waitGroup.Wait()
 	return true
+}
+
+// unlockSonAccount
+func unlockSonAccount(client *rpc.Client, account string, index int, wait *sync.WaitGroup) {
+	defer wait.Done()
+	fmt.Println("unlockAccount address index ", index, " son address ", account)
+	_, err := unlockAccount(client, account, "admin", 9000000, "son address")
+	if err != nil {
+		fmt.Println("personal_unlockAccount Error:", err.Error(), " index ", index, "addr", account)
+		msg <- false
+	}
 }
