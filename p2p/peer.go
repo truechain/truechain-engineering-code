@@ -235,7 +235,7 @@ loop:
 	p.rw.close(reason)
 	log.Debug("RLPX end", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 	p.wg.Wait()
-	log.Debug("WaitGroup end", "name", p.Name(), "err", err, "remoteRequested", remoteRequested, "RemoteAddr", p.RemoteAddr())
+	log.Info("WaitGroup end", "name", p.Name(), "err", err, "remoteRequested", remoteRequested, "RemoteAddr", p.RemoteAddr())
 	return remoteRequested, err
 }
 
