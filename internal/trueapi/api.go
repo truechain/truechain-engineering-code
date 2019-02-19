@@ -1504,12 +1504,12 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 	//print message
 	from, err := types.Sender(signer, tx)
 	if err != nil {
-		log.Error("submitTransaction", "from", from.String())
+		log.Error("submitTransaction error", "from", from.String())
 		return common.Hash{}, err
 	}
 	payment, err := types.Payer(signer, tx)
 	if err != nil {
-		log.Error("submitTransaction signature", "payemnt", payment.String())
+		log.Error("submitTransaction signature error", "payemnt", payment.String())
 		return common.Hash{}, err
 	}
 	//fmt.Printf("submitTransaction:from=%v,payemnt=%v\n", from.String(), payment.String())
@@ -1592,20 +1592,21 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	raw_tx := new(types.RawTransaction)
 	if err := rlp.DecodeBytes(encodedTx, raw_tx); err != nil {
-		fmt.Println("api method SendRawTransaction received :", raw_tx.Info())
+		log.Error("api method SendRawTransaction error", "raw_tx.info", raw_tx.Info(), "error", err)
 		return common.Hash{}, err
 	}
 	tx := raw_tx.ConvertTransaction()
-	fmt.Println("api method SendRawTransaction2 received :", tx.Info())
+	log.Info("api method SendRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
 func (s *PublicTransactionPoolAPI) SendRawPayerTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+		log.Error("api method SendRawPayerTransaction error", "tx.info", tx.Info(), "error", err)
 		return common.Hash{}, err
 	}
-	fmt.Println("api method SendPayerRawTransaction received :", tx.Info())
+	log.Info("api method SendRawPayerTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
@@ -1694,7 +1695,6 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	}
 	//fmt.Println("api method signTransaction signed", signed.Info())
 	return &SignTransactionResult{data, signed_payment}, nil
-
 }
 
 // PendingTransactions returns the transactions that are in the transaction pool
