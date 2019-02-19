@@ -88,11 +88,6 @@ type propFastEvent struct {
 	block *types.Block
 }
 
-// propEvent is a fruit propagation, waiting for its turn in the broadcast queue.
-type fruitEvent struct {
-	block *types.SnailBlock
-	td    *big.Int
-}
 
 // propEvent is a snailBlock propagation, waiting for its turn in the broadcast queue.
 type snailBlockEvent struct {
