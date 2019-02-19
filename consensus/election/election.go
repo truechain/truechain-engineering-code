@@ -861,19 +861,22 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	log.Info("elect new committee..", "begin", snailBeginNumber, "end", snailEndNumber,
 		"threshold", params.ElectionFruitsThreshold, "max", params.MaximumCommitteeNumber)
 
-	var committee types.ElectionCommittee
-
+	var (
+		committee   types.ElectionCommittee
+		members     []*types.CommitteeMember
+	)
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
 		log.Warn("can't get election candidates, retain default committee", "begin", snailBeginNumber, "end", snailEndNumber)
 	} else {
-		members := e.elect(candidates, seed)
-		if len(members) > params.MinimumCommitteeNumber {
-			committee.Members = members[:params.MinimumCommitteeNumber]
-			committee.Backups = members[params.MinimumCommitteeNumber:]
-		} else {
-			committee.Members = members
-		}
+		members = e.elect(candidates, seed)
+	}
+	// Select the first ProposalCommitteeNumber candidates to be working committee
+	if len(members) > params.ProposalCommitteeNumber {
+		committee.Members = members[:params.ProposalCommitteeNumber]
+		committee.Backups = members[params.ProposalCommitteeNumber:]
+	} else {
+		committee.Members = members
 	}
 
 	for _, member := range committee.Members {
@@ -883,13 +886,14 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 	for _, member := range committee.Backups {
 		member.MType = types.TypeBack
 	}
-	if len(committee.Members) >= 4 {
+
+	if len(committee.Members) >= params.MinimumCommitteeNumber {
 		committee.Backups = append(committee.Backups, e.defaultMembers...)
 	} else {
 		// PBFT need a minimum 3f+1 members
 		// Use genesis committee as default committee
-		log.Warn("can't elect new committee, use default committee", "count", len(committee.Members), "begin", snailBeginNumber, "end", snailEndNumber)
-		committee.Members = e.genesisCommittee
+		log.Warn("Append default committee members", "elected", len(committee.Members), "begin", snailBeginNumber, "end", snailEndNumber)
+		committee.Members = append(committee.Members, e.genesisCommittee...)
 	}
 
 	return &committee
