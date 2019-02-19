@@ -704,7 +704,7 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	// but we fire an event, so update the round step first
 	cs.updateRoundStep(round, ttypes.RoundStepNewRound)
 	cs.Validators = validators
-	cs.state.UpdateValidator(cs.Validators, false)
+	//cs.state.UpdateValidator(cs.Validators, false)
 	if round == 0 {
 		// We've already reset these upon new height,
 		// and meanwhile we might have received a proposal
