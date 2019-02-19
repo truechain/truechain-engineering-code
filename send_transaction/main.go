@@ -197,33 +197,20 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	defer wait.Done()
 	waitGroup := &sync.WaitGroup{}
 	Time := time.Now()
+
 	r := rand.New(rand.NewSource(Time.UnixNano()))
-
 	tNumbers := r.Intn(count)
-
-	if tNumbers >= 280 {
-		tNumbers = count
-	} else {
-		if tNumbers >= 260 && tNumbers < 280 {
-			tNumbers = tNumbers / 2
-		} else {
-			if tNumbers > 30 && tNumbers < 260 {
-				tNumbers = 0
-			}
-		}
-	}
 
 	for i := 0; i < tNumbers; i++ {
 		waitGroup.Add(1)
-		go sendTransaction(client, account[i], waitGroup)
-		//go sendTransaction_to(client, account[i], account[i+count], waitGroup)
+		go sendTransaction(client, account[i], i, waitGroup)
 	}
 	waitGroup.Wait()
 	fmt.Println("Complete", Count, "time", Time, "tNumbers", tNumbers)
 }
 
 //send one transaction
-func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
+func sendTransaction(client *rpc.Client, from string, index int, wait *sync.WaitGroup) {
 	defer wait.Done()
 
 	address := genAddress()
@@ -235,28 +222,7 @@ func sendTransaction(client *rpc.Client, from string, wait *sync.WaitGroup) {
 
 	result, err := sendRawTransaction(client, from, address, "0x2100")
 	if err != nil {
-		fmt.Println("sendRawTransaction", "result ", result, " error", err)
-	}
-
-	if result != "" {
-		Count++
-	}
-}
-
-//send one transaction
-func sendTransaction_to(client *rpc.Client, from string, to string, wait *sync.WaitGroup) {
-	defer wait.Done()
-
-	/*address := genAddress()
-	if to == 1 {
-		if account[to] != "" {
-			address = account[to]
-		}
-	}*/
-
-	result, err := sendRawTransaction(client, from, to, "0x2100")
-	if err != nil {
-		fmt.Println("sendRawTransaction", "result ", result, " error", err)
+		fmt.Println("sendRawTransaction", "result ", result, "index", index, " error", err)
 	}
 
 	if result != "" {
