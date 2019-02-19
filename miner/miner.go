@@ -86,6 +86,11 @@ type Miner struct {
 	commitFlag  int32
 }
 
+type CommitteeStartUpdate struct{}
+type CommitteeStop struct{}
+
+var committeemembers []*types.CommitteeMember
+
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
 	election CommitteeElection, mineFruit bool, singleNode bool) *Miner {
@@ -125,40 +130,15 @@ func (miner *Miner) loop() {
 			switch ch.Option {
 			case types.CommitteeStart, types.CommitteeUpdate:
 				// already to start mining need stop
-				var members []*types.CommitteeMember
-				members = append(members, ch.CommitteeMembers...)
-				members = append(members, ch.BackupMembers...)
-				if miner.election.IsCommitteeMember(members, miner.publickey) {
-					// i am committee
-					atomic.StoreInt32(&miner.commitFlag, 0)
-					atomic.StoreInt32(&miner.shouldStart, 1)
-					if miner.Mining() {
-						miner.Stop()
-						//atomic.StoreInt32(&miner.shouldStart, 1)
-						log.Info("Mining aborted due to CommitteeUpdate")
-					}
+				committeemembers = nil
+				committeemembers = append(committeemembers, ch.CommitteeMembers...)
+				committeemembers = append(committeemembers, ch.BackupMembers...)
 
-				} else {
-					log.Debug("not in commiteer munber so start to miner")
-					atomic.StoreInt32(&miner.commitFlag, 1)
-
-					shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
-					atomic.StoreInt32(&miner.shouldStart, 0)
-					if shouldStart {
-						miner.Start(miner.coinbase)
-					}
-
-				}
-				log.Debug("==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+				miner.mux.Post(CommitteeStartUpdate{})
+				log.Info("==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 			case types.CommitteeStop:
-
-				log.Debug("==================get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
-				atomic.StoreInt32(&miner.commitFlag, 1)
-				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
-				atomic.StoreInt32(&miner.shouldStart, 0)
-				if shouldStart {
-					miner.Start(miner.coinbase)
-				}
+				miner.mux.Post(CommitteeStop{})
+				log.Info("==================get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 			}
 		case <-miner.electionSub.Err():
 			return
@@ -173,36 +153,65 @@ func (miner *Miner) loop() {
 // the loop is exited. This to prevent a major security vuln where external parties can DOS you with blocks
 // and halt your mining operation for as long as the DOS continues.
 func (miner *Miner) update() {
-	//defer self.electionSub.Unsubscribe()
-	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, types.ElectionEvent{})
-out:
-	for ev := range events.Chan() {
-		switch ev.Data.(type) {
-		case downloader.StartEvent:
-			log.Info("-----------------get download info startEvent")
-			atomic.StoreInt32(&miner.canStart, 0)
-			if miner.Mining() {
-				miner.Stop()
+
+	events := miner.mux.Subscribe(downloader.StartEvent{}, downloader.DoneEvent{}, downloader.FailedEvent{}, CommitteeStartUpdate{}, CommitteeStop{})
+	defer events.Unsubscribe()
+	//out:
+	for {
+		select {
+		case ev := <-events.Chan():
+			if ev == nil {
+				return
+			}
+			switch ev.Data.(type) {
+			case downloader.StartEvent:
+				log.Info("-----------------get download info startEvent")
+				atomic.StoreInt32(&miner.canStart, 0)
+				if miner.Mining() {
+					miner.Stop()
+				}
 				atomic.StoreInt32(&miner.shouldStart, 1)
 				log.Info("Mining aborted due to sync")
-			}
-		case downloader.DoneEvent, downloader.FailedEvent:
-			log.Info("-----------------get download info DoneEvent,FailedEvent")
-			shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
-			atomic.StoreInt32(&miner.canStart, 1)
-			if shouldStart && atomic.LoadInt32(&miner.commitFlag) == 1 {
-				atomic.StoreInt32(&miner.shouldStart, 0)
+			case downloader.DoneEvent, downloader.FailedEvent:
+				log.Info("-----------------get download info DoneEvent,FailedEvent")
+				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
+
+				atomic.StoreInt32(&miner.canStart, 1)
+				if shouldStart {
+					miner.Start(miner.coinbase)
+				}
+
+			case CommitteeStartUpdate:
+				log.Info("--------------committee start update")
+
+				if miner.election.IsCommitteeMember(committeemembers, miner.publickey) {
+					// i am committee
+					atomic.StoreInt32(&miner.commitFlag, 0)
+
+					if miner.Mining() {
+						miner.Stop()
+						//atomic.StoreInt32(&miner.shouldStart, 1)
+						log.Info("Mining aborted due to CommitteeUpdate")
+					}
+
+				} else {
+					log.Info("not in commiteer munber so start to miner")
+					atomic.StoreInt32(&miner.commitFlag, 1)
+
+					miner.Start(miner.coinbase)
+
+				}
+				log.Info("2==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+
+			case CommitteeStop:
+				log.Info("--------------committee stop")
+				log.Info("2==================get  election  msg  1 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+
 			}
-			if shouldStart {
-				miner.Start(miner.coinbase)
-			}
-			// unsubscribe. we're only interested in this event once
-			events.Unsubscribe()
-			// stop immediately and ignore all further pending events
-			break out
 		}
 	}
+
 }
 
 //Start miner
