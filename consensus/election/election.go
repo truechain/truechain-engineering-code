@@ -1039,6 +1039,12 @@ func (e *Election) Start() error {
 			backupMembers:       members.Backups,
 			switches:            rawdb.ReadCommitteeStates(e.snailchain.GetDatabase(), new(big.Int).Add(currentCommittee.id, common.Big1).Uint64()),
 		}
+		// Reset next committee swtichinfo storage if blockchain rollback
+		if len(nextCommittee.switches) > 0 {
+			log.Info("Reset next committee switchinfo", "committee", nextCommittee.id, "current", fastHeadNumber)
+			rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), nextCommittee.id.Uint64(), nil)
+			nextCommittee.switches = []uint64{}
+		}
 		e.nextCommittee = nextCommittee
 		// start switchover
 		e.startSwitchover = true
