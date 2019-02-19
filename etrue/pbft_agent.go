@@ -1033,7 +1033,7 @@ func (agent *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) e
 	}
 	work := &AgentWork{
 		config:    agent.config,
-		signer:    types.NewEIP155Signer(agent.config.ChainID),
+		signer:    types.NewTIP1Signer(agent.config.ChainID),
 		state:     state,
 		header:    header,
 		createdAt: time.Now(),

@@ -626,7 +626,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			//Alloc:  GenesisAlloc{address: {Balance: funds}},
 		}
 		genesis = gspec.MustCommit(gendb)
-		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
+		signer  = types.NewTIP1Signer(gspec.Config.ChainID)
 	)
 	blocks := GenerateChain(gspec.Config, genesis, minerva.NewFaker(), gendb, 1024, func(i int, block *BlockGen) {
 		block.SetCoinbase(common.Address{0x00})
@@ -908,7 +908,7 @@ func testInsertNonceError(t *testing.T, full bool) {
 			//Alloc:  GenesisAlloc{addr1: {Balance: big.NewInt(10000000000000)}},
 		}
 		genesis = gspec.MustCommit(db)
-		signer  = types.NewEIP155Signer(gspec.Config.ChainID)
+		signer  = types.NewTIP1Signer(gspec.Config.ChainID)
 	)
 
 	blockchain, _ := NewSnailBlockChain(db, gspec.Config, minerva.NewFaker(), vm.Config{})
@@ -1065,7 +1065,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 			}
 			block.AddTx(tx)
 
-			tx, err = basicTx(types.NewEIP155Signer(gspec.Config.ChainID))
+			tx, err = basicTx(types.NewTIP1Signer(gspec.Config.ChainID))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1077,7 +1077,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 			}
 			block.AddTx(tx)
 
-			tx, err = basicTx(types.NewEIP155Signer(gspec.Config.ChainID))
+			tx, err = basicTx(types.NewTIP1Signer(gspec.Config.ChainID))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1115,7 +1115,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 			}
 		)
 		if i == 0 {
-			tx, err = basicTx(types.NewEIP155Signer(big.NewInt(2)))
+			tx, err = basicTx(types.NewTIP1Signer(big.NewInt(2)))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1151,7 +1151,7 @@ func TestCanonicalBlockRetrieval(t *testing.T) {
 		var (
 			tx     *types.Transaction
 			err    error
-			signer = types.NewEIP155Signer(gspec.Config.ChainID)
+			signer = types.NewTIP1Signer(gspec.Config.ChainID)
 		)
 		switch i {
 		case 0:

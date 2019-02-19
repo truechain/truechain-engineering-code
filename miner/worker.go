@@ -496,7 +496,7 @@ func (w *worker) push(work *Work) {
 func (w *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHeader) error {
 	work := &Work{
 		config:    w.config,
-		signer:    types.NewEIP155Signer(w.config.ChainID),
+		signer:    types.NewTIP1Signer(w.config.ChainID),
 		ancestors: set.New(),
 		family:    set.New(),
 		uncles:    set.New(),
