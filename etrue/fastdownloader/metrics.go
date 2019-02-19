@@ -28,10 +28,10 @@ var (
 	headerDropMeter    = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/drop", nil)
 	headerTimeoutMeter = metrics.NewRegisteredMeter("etrue/fastdownloader/headers/timeout", nil)
 
-	bodyInMeter      = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/in", nil)
-	bodyReqTimer     = metrics.NewRegisteredTimer("etrue/fastfastdownloader/bodies/req", nil)
-	bodyDropMeter    = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/drop", nil)
-	bodyTimeoutMeter = metrics.NewRegisteredMeter("etrue/fastfastdownloader/bodies/timeout", nil)
+	bodyInMeter      = metrics.NewRegisteredMeter("etrue/fastdownloader/bodies/in", nil)
+	bodyReqTimer     = metrics.NewRegisteredTimer("etrue/fastdownloader/bodies/req", nil)
+	bodyDropMeter    = metrics.NewRegisteredMeter("etrue/fastdownloader/bodies/drop", nil)
+	bodyTimeoutMeter = metrics.NewRegisteredMeter("etrue/fastdownloader/bodies/timeout", nil)
 
 	receiptInMeter      = metrics.NewRegisteredMeter("etrue/fastdownloader/receipts/in", nil)
 	receiptReqTimer     = metrics.NewRegisteredTimer("etrue/fastdownloader/receipts/req", nil)

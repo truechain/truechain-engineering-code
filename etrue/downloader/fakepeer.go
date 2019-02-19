@@ -145,12 +145,5 @@ func (p *FakePeer) RequestReceipts(hashes []common.Hash, isFastchain bool) error
 // RequestNodeData implements downloader.Peer, returning a batch of state trie
 // nodes corresponding to the specified trie hashes.
 func (p *FakePeer) RequestNodeData(hashes []common.Hash, isFastchain bool) error {
-	var data [][]byte
-	for _, hash := range hashes {
-		if entry, err := p.db.Get(hash.Bytes()); err == nil {
-			data = append(data, entry)
-		}
-	}
-	//p.dl.DeliverNodeData(p.id, data)
 	return nil
 }

@@ -618,7 +618,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 	defer p.GetLog().Debug("Fast Header download terminated")
 
 	// Create a timeout timer, and the associated header fetcher
-	//skeleton := false           // Skeleton assembly phase or finishing up
 	request := time.Now()       // time of the last skeleton fetch request
 	timeout := time.NewTimer(0) // timer to dump a non-responsive active peer
 	<-timeout.C                 // timeout channel should be initially empty
@@ -1007,7 +1006,6 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
-			//log.Debug("headers := <-d.headerProcCh:", "headers", headers)
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1036,13 +1034,6 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 					}
 				}
 
-				//if d.mode == FastSync || d.mode == LightSync || d.mode == SnapShotSync {
-				//	head := d.lightchain.CurrentHeader()
-				//	if d.remoteHeader.Number.Uint64() > head.Number.Uint64() {
-				//		log.Warn("errStallingPeer","remoteHeader",d.remoteHeader.Number.Uint64(),"Number",head.Number.Uint64())
-				//		return errStallingPeer
-				//	}
-				//}
 				// Disable any rollback and return
 				rollback = nil
 				return nil
@@ -1360,7 +1351,6 @@ func (d *Downloader) deliverOne(id string, destCh chan etrue.DataPack, packet et
 		}
 	}()
 	// Deliver or abort if the sync is canceled while queuing
-	//log.Debug("deliver <- packet ","packet",packet)
 	select {
 	case destCh <- packet:
 		return nil

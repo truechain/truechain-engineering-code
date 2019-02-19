@@ -18,7 +18,6 @@ package downloader
 
 import (
 	"fmt"
-
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
@@ -48,17 +47,8 @@ func (p *bodyPack) Items() int {
 	}
 	return len(p.fruit)
 }
+
 func (p *bodyPack) Stats() string { return fmt.Sprintf("%d:%d:%d", len(p.fruit), len(p.signs)) }
-
-// receiptPack is a batch of receipts returned by a peer.
-type receiptPack struct {
-	peerID   string
-	receipts [][]*types.Receipt
-}
-
-func (p *receiptPack) PeerId() string { return p.peerID }
-func (p *receiptPack) Items() int     { return len(p.receipts) }
-func (p *receiptPack) Stats() string  { return fmt.Sprintf("%d", len(p.receipts)) }
 
 // statePack is a batch of states returned by a peer.
 type statePack struct {
