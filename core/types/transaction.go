@@ -429,9 +429,10 @@ func (tx *Transaction) Cost() *big.Int {
 	return total
 }
 
-// AmountCost returns amount.
+// AmountCost returns amount+Fee.
 func (tx *Transaction) AmountCost() *big.Int {
-	return tx.data.Amount
+	total := tx.data.Amount
+	return total.Add(total, tx.data.Fee)
 }
 
 // GasCost returns gasprice * gaslimit.
