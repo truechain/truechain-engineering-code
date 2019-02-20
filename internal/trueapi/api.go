@@ -1561,7 +1561,7 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-	if args.Payment == (common.Address{}) {
+	/*if args.Payment == (common.Address{}) {
 		raw_tx := args.toRawTransaction()
 		tx := raw_tx.ConvertTransaction()
 		signed, err := s.sign(args.From, tx)
@@ -1569,13 +1569,17 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 			return params.EmptyHash, err
 		}
 		return submitTransaction(ctx, s.b, signed)
-	}
+	}*/
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 	//sign sender
 	signed, err := wallet.SignTx(account, tx, s.b.ChainConfig().ChainID)
 	if err != nil {
 		return params.EmptyHash, err
+	}
+	//normal transaction execution
+	if args.Payment == (common.Address{}) {
+		return submitTransaction(ctx, s.b, signed)
 	}
 	//sign payment
 	signed_payment, err := s.signPayment(args.Payment, signed)
