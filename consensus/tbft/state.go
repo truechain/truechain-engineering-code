@@ -307,6 +307,8 @@ func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight
 	go func() {
 		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight, eHeight}, ""}
 	}()
+	//clear svs
+	cs.svs = append(cs.svs[:0], cs.svs[1:]...)
 }
 
 // AddProposalBlockPart inputs a part of the proposal block. not used
