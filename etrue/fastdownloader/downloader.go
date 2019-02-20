@@ -1007,6 +1007,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
+			log.Info("fast headerProcCh " , "function", "deliver")
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
