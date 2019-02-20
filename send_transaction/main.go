@@ -331,7 +331,8 @@ func unlockCountNewAccount(client *rpc.Client, count int) bool {
 			continue
 		}
 		waitGroup.Add(1)
-		go unlockSonAccount(client, account[i], i, waitGroup)
+
+		unlockSonAccount(client, account[i], i, waitGroup)
 	}
 	waitGroup.Wait()
 	return true
