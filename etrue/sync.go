@@ -295,11 +295,12 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
 
 	if pTd.Cmp(td) <= 0 {
-		pm.downloader.Mux.Post(downloader.StartEvent{})
+
 		currentNumber := pm.blockchain.CurrentBlock().NumberU64()
 		log.Debug("Fast FetchHeight start ", "header", fastHeight, "currentBlockNumber", currentNumber, "&pm.fastSync", atomic.LoadUint32(&pm.fastSync))
 
 		if fastHeight > currentNumber {
+			pm.downloader.Mux.Post(downloader.StartEvent{})
 			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FullSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
