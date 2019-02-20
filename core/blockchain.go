@@ -592,7 +592,6 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 // Note, this function assumes that the `mu` mutex is held!
 func (bc *BlockChain) insert(block *types.Block) {
 	// If the block is on a side chain or an unknown one, force other heads onto it too
-	//updateHeads := rawdb.ReadCanonicalHash(bc.db, block.NumberU64()) != block.Hash()
 
 	// Add the block to the canonical chain number scheme and mark as the head
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
@@ -600,12 +599,10 @@ func (bc *BlockChain) insert(block *types.Block) {
 	bc.currentBlock.Store(block)
 
 	// If the block is better than our head or is on a different chain, force update heads
-	//if updateHeads {
 	bc.hc.SetCurrentHeader(block.Header())
 	rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
 	bc.currentFastBlock.Store(block)
-	//}
 }
 
 // Genesis retrieves the chain's genesis block.
@@ -1025,9 +1022,6 @@ func (bc *BlockChain) WriteBlockWithoutState(block *types.Block) (err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	//if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
-	//	return err
-	//}
 	rawdb.WriteBlock(bc.db, block)
 
 	return nil
@@ -1406,7 +1400,7 @@ func (bc *BlockChain) insertSidechain(it *insertIterator) (int, []interface{}, [
 			}
 			log.Debug("Inserted sidechain block", "number", block.Number(), "hash", block.Hash(),
 				"elapsed", common.PrettyDuration(time.Since(start)),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 		}
 	}
@@ -1592,7 +1586,6 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 		switch ev := event.(type) {
 		case types.ChainFastEvent:
 			bc.chainFeed.Send(ev)
-
 		case types.ChainFastHeadEvent:
 			bc.chainHeadFeed.Send(ev)
 		case types.ChainFastSideEvent:
