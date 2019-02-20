@@ -298,7 +298,7 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 				}
 				balance := getBalanceValue(result)
 				balanceTrue := new(big.Int).Set(balance)
-				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", " true ", balanceTrue.Div(balanceTrue, big.NewInt(1000000000000000000)))
+				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", balanceTrue.Div(balanceTrue, big.NewInt(1000000000000000000)))
 				if balance.Cmp(average) >= 0 {
 					if i == count-1 && len(noBalance) == 0 {
 						find = true
