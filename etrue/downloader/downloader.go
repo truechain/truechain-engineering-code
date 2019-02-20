@@ -214,10 +214,10 @@ func New(mode SyncMode, stateDb etruedb.Database, mux *event.TypeMux, chain Bloc
 		blockchain:     chain,
 		lightchain:     lightchain,
 		dropPeer:       dropPeer,
-		headerCh:       make(chan etrue.DataPack, 10),
-		bodyCh:         make(chan etrue.DataPack, 10),
-		bodyWakeCh:     make(chan bool, 10),
-		headerProcCh:   make(chan []*types.SnailHeader, 10),
+		headerCh:       make(chan etrue.DataPack, 1),
+		bodyCh:         make(chan etrue.DataPack, 1),
+		bodyWakeCh:     make(chan bool, 1),
+		headerProcCh:   make(chan []*types.SnailHeader, 1),
 		quitCh:         make(chan struct{}),
 		fastDown:       fdown,
 		stateCh:        make(chan etrue.DataPack),
@@ -1061,7 +1061,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 		case packet := <-deliveryCh:
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
-			log.Debug("snail downloader " ,"id",packet.PeerId(),"function","fetchParts")
+			log.Debug("snail downloader ", "id", packet.PeerId(), "function", "fetchParts")
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
 				// Deliver the received chunk of data and check chain validity
 				accepted, err := deliver(packet)
@@ -1499,7 +1499,7 @@ func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
-	log.Debug("snail downloader " ,"id",id,"function","deliver")
+	log.Debug("snail downloader ", "id", id, "function", "deliver")
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
 		if err != nil {
