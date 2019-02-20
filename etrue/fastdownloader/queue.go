@@ -750,6 +750,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.Header, index int, result *etrue.FetchResult) error {
+		log.Info("fast downloader " ,"id",id,"function","reconstruct")
 		if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
 			return errInvalidChain
 		}
@@ -766,6 +767,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 		result.Infos = infos[index]
 		return nil
 	}
+	log.Info("fast downloader " ,"id",id,"function","DeliverBodies")
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(txLists), reconstruct)
 }
 
