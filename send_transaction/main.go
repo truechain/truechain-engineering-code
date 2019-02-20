@@ -254,7 +254,8 @@ func getBalanceValue(hex string) *big.Int {
 		hex = strings.TrimPrefix(hex, "0x")
 	}
 	value, _ := new(big.Int).SetString(hex, 16)
-	fmt.Println("etrue_getBalance Ok:", " true ", value.Div(value, big.NewInt(1000000000000000000)), " value ", value, " hex ", hex)
+	balance := new(big.Int).Set(value)
+	fmt.Println("etrue_getBalance Ok:", " true ", balance.Div(balance, big.NewInt(1000000000000000000)), " value ", value, " hex ", hex)
 	return value
 }
 
@@ -264,7 +265,8 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	getBalance := true
 	average := main.Div(main, big.NewInt(int64(len(account)*2)))
 	value := "0x" + fmt.Sprintf("%x", average)
-	fmt.Println("sendBalanceNewAccount ", " true ", average.Div(average, big.NewInt(1000000000000000000)), " average ", average, " hex ", value)
+	averageTrue := new(big.Int).Set(average)
+	fmt.Println("sendBalanceNewAccount ", " true ", averageTrue.Div(averageTrue, big.NewInt(1000000000000000000)), " average ", average, " hex ", value)
 
 	for {
 		for i := 0; i < count; i++ {
@@ -295,8 +297,8 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 					return false
 				}
 				balance := getBalanceValue(result)
-
-				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", " true ", balance.Div(balance, big.NewInt(1000000000000000000)))
+				balanceTrue := new(big.Int).Set(balance)
+				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", " true ", balanceTrue.Div(balanceTrue, big.NewInt(1000000000000000000)))
 				if balance.Cmp(average) >= 0 {
 					if i == count-1 && len(noBalance) == 0 {
 						find = true
