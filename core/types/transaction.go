@@ -425,6 +425,7 @@ func (tx *Transaction) WithSignature_Payment(signer Signer, sig []byte) (*Transa
 func (tx *Transaction) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
 	total.Add(total, tx.data.Amount)
+	total.Add(total, tx.data.Fee)
 	return total
 }
 
