@@ -23,9 +23,11 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -551,7 +553,11 @@ func (pool *SnailPool) Stop() {
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
-
+	watch := help.NewTWatch(3, fmt.Sprintf("AddRemoteFruits"))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
@@ -639,6 +645,11 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) ev
 }
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("validateFruit"))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
