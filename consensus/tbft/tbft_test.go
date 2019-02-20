@@ -71,14 +71,23 @@ func IDAdd(agent string) {
 	}
 }
 
+var ccc bool
+
 func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	fmt.Println(pap.Name, header.Number)
 	header.Time = big.NewInt(time.Now().Unix())
 	println("[AGENT]", pap.Name, "++++++++", "FetchFastBlock", "Number:", header.Number.Uint64())
-	//time.Sleep(time.Second * 5)
+	if !ccc {
+		ccc = true
+		time.Sleep(time.Second * 5)
+	}
 	return types.NewBlock(header, nil, nil, nil, infos), nil
+}
+
+func (agent *PbftAgentProxyImp) GetFastLastProposer() common.Address {
+	return getAddr()
 }
 
 func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
@@ -266,7 +275,7 @@ func TestPbftRunFor2(t *testing.T) {
 }
 
 func TestPbftRunFor4(t *testing.T) {
-	//log.OpenLogDebug(4)
+	log.OpenLogDebug(4)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -536,6 +545,15 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	<-start
 }
 
+func TestPpk(t *testing.T) {
+	IDCacheInit()
+	pr1 := getPrivateKey(0)
+	ePK := *GetPub(pr1)
+	cPK := tcrypto.PubKeyTrue(ePK)
+	dPk := ecdsa.PublicKey(cPK)
+	fmt.Println(dPk)
+}
+
 func TestPbftRunFor5(t *testing.T) {
 	//log.OpenLogDebug(4)
 	IDCacheInit()
@@ -691,7 +709,7 @@ func TestPbftRunFor5(t *testing.T) {
 }
 
 func TestRunPbft1(t *testing.T) {
-	log.OpenLogDebug(3)
+	//log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -754,19 +772,19 @@ func TestRunPbft1(t *testing.T) {
 	n1.PutNodes(common.Big1, cn)
 	n1.Notify(c1.Id, Start)
 
-	for {
-		time.Sleep(time.Minute * 5)
-		c1.Members[3].Flag = types.StateRemovedFlag
-		c1.Members[3].MType = types.TypeWorked
-		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-		n1.UpdateCommittee(c1)
-	}
+	//for {
+	//	time.Sleep(time.Minute * 5)
+	//	c1.Members[3].Flag = types.StateRemovedFlag
+	//	c1.Members[3].MType = types.TypeWorked
+	//	c1.StartHeight = getIDForCache("Agent3")
+	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	//	n1.UpdateCommittee(c1)
+	//}
 	<-start
 }
 
 func TestRunPbft2(t *testing.T) {
-	log.OpenLogDebug(3)
+	//log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -829,15 +847,21 @@ func TestRunPbft2(t *testing.T) {
 
 	n2.PutNodes(common.Big1, cn)
 
-	for {
-		time.Sleep(time.Minute * 5)
-		c1.Members[3].Flag = types.StateRemovedFlag
-		c1.Members[3].MType = types.TypeWorked
-		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-		n2.UpdateCommittee(c1)
-	}
+	//for {
+	//	time.Sleep(time.Minute * 5)
+	//	c1.Members[3].Flag = types.StateRemovedFlag
+	//	c1.Members[3].MType = types.TypeWorked
+	//	c1.StartHeight = getIDForCache("Agent3")
+	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	//	n2.UpdateCommittee(c1)
+	//}
 	<-start
+}
+
+func getAddr() common.Address {
+	pr1 := getPrivateKey(0)
+	pub := GetPub(pr1)
+	return crypto.PubkeyToAddress(*pub)
 }
 
 func TestRunPbft3(t *testing.T) {
@@ -904,19 +928,19 @@ func TestRunPbft3(t *testing.T) {
 
 	n3.PutNodes(common.Big1, cn)
 
-	for {
-		time.Sleep(time.Minute * 5)
-		c1.Members[3].Flag = types.StateRemovedFlag
-		c1.Members[3].MType = types.TypeWorked
-		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-		n3.UpdateCommittee(c1)
-	}
+	//for {
+	//	time.Sleep(time.Minute * 5)
+	//	c1.Members[3].Flag = types.StateRemovedFlag
+	//	c1.Members[3].MType = types.TypeWorked
+	//	c1.StartHeight = getIDForCache("Agent3")
+	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	//	n3.UpdateCommittee(c1)
+	//}
 	<-start
 }
 
 func TestRunPbft4(t *testing.T) {
-	log.OpenLogDebug(3)
+	//log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)
@@ -979,14 +1003,14 @@ func TestRunPbft4(t *testing.T) {
 
 	n4.PutNodes(common.Big1, cn)
 
-	for {
-		time.Sleep(time.Minute * 5)
-		c1.Members[3].Flag = types.StateRemovedFlag
-		c1.Members[3].MType = types.TypeWorked
-		c1.StartHeight = getIDForCache("Agent3")
-		c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
-		n4.UpdateCommittee(c1)
-	}
+	//for {
+	//	time.Sleep(time.Minute * 5)
+	//	c1.Members[3].Flag = types.StateRemovedFlag
+	//	c1.Members[3].MType = types.TypeWorked
+	//	c1.StartHeight = getIDForCache("Agent3")
+	//	c1.EndHeight = new(big.Int).Add(c1.StartHeight, big.NewInt(20))
+	//	n4.UpdateCommittee(c1)
+	//}
 	<-start
 }
 
@@ -1130,25 +1154,25 @@ func TestPrivKey(t *testing.T) {
 	//d0c3b151031a8a90841dc18463d838cc8db29a10e7889b6991be0a3088702ca7
 	//c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95
 
-	priv1, _ := crypto.HexToECDSA("fd968dcf075e182c5fc29aa7654f10221e63fd5d0996a42b0fd3250677cfc0c9")
+	priv1, _ := crypto.HexToECDSA("0577aa0d8e070dccfffc5add7ea64ab8a167a3a8badb4ce18e336838e4ce3757")
 	tPriv1 := tcrypto.PrivKeyTrue(*priv1)
 	addr1 := tPriv1.PubKey().Address()
 	id1 := hex.EncodeToString(addr1[:])
 	fmt.Println("id1", id1)
 
-	priv2, _ := crypto.HexToECDSA("d0c3b151031a8a90841dc18463d838cc8db29a10e7889b6991be0a3088702ca7")
+	priv2, _ := crypto.HexToECDSA("77b635c48aa8ef386a3cee1094de7ea90f58a634ddb821206e0381f06b860f0f")
 	tPriv2 := tcrypto.PrivKeyTrue(*priv2)
 	addr2 := tPriv2.PubKey().Address()
 	id2 := hex.EncodeToString(addr2[:])
 	fmt.Println("id2", id2)
 
-	priv3, _ := crypto.HexToECDSA("c007a7302da54279edc472174a140b0093580d7d73cdbbb205654ea79f606c95")
+	priv3, _ := crypto.HexToECDSA("14deff62bd0a4b7968cb9fe7d08e41e48d0535ea791d01b5a6d590f265b1ae1c")
 	tPriv3 := tcrypto.PrivKeyTrue(*priv3)
 	addr3 := tPriv3.PubKey().Address()
 	id3 := hex.EncodeToString(addr3[:])
 	fmt.Println("id3", id3)
 
-	priv4, _ := crypto.HexToECDSA("9177485bfecacf47d2f9f63a0c29cc0eae299c955283ce1fbb2060fee041c040")
+	priv4, _ := crypto.HexToECDSA("20cd359032ba766bcb1468466cf17af81952e6a6be6c8968ed3b18b856950e04")
 	tPriv4 := tcrypto.PrivKeyTrue(*priv4)
 	addr4 := tPriv4.PubKey().Address()
 	id4 := hex.EncodeToString(addr4[:])
@@ -1221,6 +1245,7 @@ func TestWatch(t *testing.T) {
 }
 
 func TestValidatorSet(t *testing.T) {
+
 	IDCacheInit()
 	const privCount int = 4
 	var privs [privCount]*ecdsa.PrivateKey
