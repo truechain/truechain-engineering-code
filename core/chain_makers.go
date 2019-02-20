@@ -57,7 +57,6 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 		}
 		panic("coinbase can only be set once")
 	}
-	//b.header.Coinbase = addr
 	b.gasPool = new(GasPool).AddGas(b.header.GasLimit)
 }
 
@@ -150,7 +149,6 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	//b.header.Difficulty = b.engine.CalcDifficulty(b.chainReader, b.header.Time.Uint64(), b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -185,7 +183,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			//fmt.Println("====================================================")
 			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
@@ -226,8 +223,6 @@ func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine 
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
 
-		//defer blockchain.Stop()
-
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
 		// Execute any user modifications to the block and finalize it
@@ -236,7 +231,6 @@ func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine 
 		}
 
 		if b.engine != nil {
-			//fmt.Println("====================================================")
 			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)

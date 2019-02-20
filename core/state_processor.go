@@ -39,14 +39,10 @@ type StateProcessor struct {
 	engine consensus.Engine    // Consensus engine used for block rewards
 }
 
-/*var (
-	journal    = newTxJournal("reservetxs.rlp")
-	addressmap = make(map[common.Address]*big.Int)
-)*/
+
 
 // NewStateProcessor initialises a new StateProcessor.
 func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
-	//journal.writer = new(devNull)
 	return &StateProcessor{
 		config: config,
 		bc:     bc,
