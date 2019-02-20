@@ -693,6 +693,10 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 	return nil
 }
 
+func (agent *PbftAgent) GetFastLastProposer() common.Address {
+	return agent.fastChain.CurrentBlock().Proposer()
+}
+
 //FetchFastBlock  generate fastBlock as leader
 func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
 	log.Info("into GenerateFastBlock...", "committeeId", committeeID)

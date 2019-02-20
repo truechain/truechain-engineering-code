@@ -308,6 +308,7 @@ type StateAgent interface {
 	GetValidator() *ValidatorSet
 	UpdateValidator(vset *ValidatorSet, makeids bool) error
 	GetLastValidator() *ValidatorSet
+	GetLastValidatorAddress() common.Address
 
 	GetLastBlockHeight() uint64
 	SetEndHeight(h uint64)
@@ -525,6 +526,10 @@ func (state *StateAgentImpl) GetValidator() *ValidatorSet {
 //GetLastValidator is get state's Validators
 func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
+}
+
+func (state *StateAgentImpl) GetLastValidatorAddress() common.Address {
+	return state.Agent.GetFastLastProposer()
 }
 
 //GetLastBlockHeight is get fast block height for agent

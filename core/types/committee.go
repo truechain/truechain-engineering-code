@@ -129,6 +129,7 @@ type PbftAgentProxy interface {
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
 	GetSeedMember() []*CommitteeMember
+	GetFastLastProposer() common.Address
 }
 
 type PbftServerProxy interface {

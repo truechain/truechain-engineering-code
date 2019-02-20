@@ -706,6 +706,8 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 	cs.Validators = validators
 	//cs.state.UpdateValidator(cs.Validators, false)
 	if round == 0 {
+		addr := cs.state.GetLastValidatorAddress()
+		cs.Validators.FindValidatorSetProposer(addr)
 		// We've already reset these upon new height,
 		// and meanwhile we might have received a proposal
 		// for round 0.
