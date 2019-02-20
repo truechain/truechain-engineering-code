@@ -553,7 +553,7 @@ func (pool *SnailPool) Stop() {
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
-	watch := help.NewTWatch(3, fmt.Sprintf("AddRemoteFruits"))
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemoteFruits"))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
@@ -645,7 +645,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) ev
 }
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
-	watch := help.NewTWatch(3, fmt.Sprintf("validateFruit"))
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg validateFruit"))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
