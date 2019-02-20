@@ -99,14 +99,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	if err != nil {
 		return nil, 0, err
 	}
-	/*if addressmap[msg.From()] == nil {
-		amount := statedb.GetBalance(msg.From())
-		addressmap[msg.From()] = amount
-		log.Warn("addressmap", "msg.From()", msg.From(), "amount", amount)
-	}
-	if err := journal.reserve(tx); err != nil {
-		log.Warn("Failed to journal tx", "err", err)
-	}*/
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc)
 	// Create a new environment which holds all relevant information
