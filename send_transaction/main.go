@@ -46,7 +46,7 @@ var gensisAccount2 = "0x4cf807958b9f6d9fd9331397d7a89a079ef43288"
 // get par
 func main() {
 	if len(os.Args) < 4 {
-		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to] [\"ip:port\"]\n", os.Args[0])
+		fmt.Printf("invalid args : %s [count] [frequency] [interval] [from] [to] [\"port\"]\n", os.Args[0])
 		return
 	}
 
@@ -81,11 +81,12 @@ func main() {
 		fmt.Println("to 0：Local address 1: Generate address")
 	}
 
-	ip := "127.0.0.1:8888"
+	ip := "127.0.0.1:"
 	if len(os.Args) == 7 {
-		ip = os.Args[6]
+		ip = ip + os.Args[6]
+	} else {
+		ip = ip + "8888"
 	}
-	fmt.Println("==========================")
 
 	go send(count, ip)
 
@@ -162,7 +163,7 @@ func send(count int, ip string) {
 	}
 
 	//send main to son address
-	fmt.Println("create ", count, " new account ", createCountNewAccount(client, count, balance))
+	fmt.Println("send balance to ", count, "  new account ", sendBalanceNewAccount(client, count, balance))
 
 	//son address unlock account
 	fmt.Println("unlock ", count, " son account ", unlockCountNewAccount(client, count))
@@ -266,13 +267,13 @@ func getBalanceValue(hex string) *big.Int {
 	return value
 }
 
-func createCountNewAccount(client *rpc.Client, count int, main *big.Int) bool {
+func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	var result string
 	find := false
 	getBalance := true
 	average := main.Div(main, big.NewInt(int64(len(account)*2)))
 	value := "0x" + fmt.Sprintf("%x", average)
-	fmt.Println("createCountNewAccount ", " average ", average, " hex ", value)
+	fmt.Println("sendBalanceNewAccount ", " average ", average, " hex ", value)
 
 	for {
 		for i := 0; i < count; i++ {
