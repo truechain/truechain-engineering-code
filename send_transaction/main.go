@@ -214,7 +214,7 @@ func sendTransaction(client *rpc.Client, from string, index int, wait *sync.Wait
 
 	result, err := sendRawTransaction(client, from, address, "0x2100")
 	if err != nil {
-		fmt.Println("sendRawTransaction", "result ", result, "index", index, " error", err)
+		fmt.Println("sendRawTransaction", "result ", result, "index", index, " error", err, " address ", address)
 	}
 
 	if result != "" {
