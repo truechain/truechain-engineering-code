@@ -198,6 +198,7 @@ type Block struct {
 	header       *Header
 	transactions Transactions
 
+	uncles []*Header // reserved for compile
 
 	signs PbftSigns
 	infos *SwitchInfos
@@ -339,6 +340,7 @@ func (b *Block) EncodeRLP(w io.Writer) error {
 	})
 }
 
+func (b *Block) Uncles() []*Header          { return b.uncles }
 func (b *Block) Transactions() Transactions { return b.transactions }
 func (b *Block) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header, b.transactions}) }
 func (b *Block) Transaction(hash common.Hash) *Transaction {
