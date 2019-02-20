@@ -1661,7 +1661,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return nil, err
 	}
-	if args.Payment == (common.Address{}) {
+	/*if args.Payment == (common.Address{}) {
 		//fmt.Println("afsd")
 		raw_tx := args.toRawTransaction()
 		tx := raw_tx.ConvertTransaction()
@@ -1677,7 +1677,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 		}
 		//fmt.Println("api method signTransaction signed", signed.Info())
 		return &SignTransactionResult{data, signed}, nil
-	}
+	}*/
 
 	tx := args.toTransaction()
 	fmt.Println("api method signTransaction received payment", args.Payment.String())
@@ -1686,6 +1686,19 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return nil, err
 	}
+	//normal transaction execution
+	if args.Payment == (common.Address{}) {
+		raw_tx_signed := signed.ConvertRawTransaction()
+		if err != nil {
+			return nil, err
+		}
+		data, err := rlp.EncodeToBytes(raw_tx_signed)
+		if err != nil {
+			return nil, err
+		}
+		return &SignTransactionResult{data, signed}, nil
+	}
+
 	//sign payment
 	signed_payment, err := s.signPayment(args.Payment, signed)
 	if err != nil {
