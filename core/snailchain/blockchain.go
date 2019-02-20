@@ -218,6 +218,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 	remove := make(types.Fruits, 0, len(currentBlock.Fruits()))
 	maxFruitNumber := currentBlock.Fruits()[len(currentBlock.Fruits())-1].FastNumber()
 	for maxFruitNumber != nil && maxFruitNumber.Cmp(bc.blockchain.CurrentBlock().Number()) > 0 {
+		log.Info("rollback snailBlock", "snailBlock number", currentBlock.Number(), "maxFruitNumber", maxFruitNumber, "current fastblock number", bc.blockchain.CurrentBlock().Number())
 		parentHash := currentBlock.ParentHash()
 		for _, ft := range currentBlock.Fruits() {
 			remove = append(remove, ft)
