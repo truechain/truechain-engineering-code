@@ -215,14 +215,23 @@ func (bc *SnailBlockChain) loadLastState() error {
 		log.Warn("Head block missing, resetting chain", "hash", head)
 		return bc.Reset()
 	}
+	remove := make(types.Fruits, 0, len(currentBlock.Fruits()))
 	maxFruitNumber := currentBlock.Fruits()[len(currentBlock.Fruits())-1].FastNumber()
 	for maxFruitNumber != nil && maxFruitNumber.Cmp(bc.blockchain.CurrentBlock().Number()) > 0 {
 		parentHash := currentBlock.ParentHash()
+		for _, ft := range currentBlock.Fruits() {
+			remove = append(remove, ft)
+		}
 		rawdb.DeleteCanonicalHash(bc.db, currentBlock.NumberU64())
 		currentBlock = bc.GetBlockByHash(parentHash)
 		maxFruitNumber = currentBlock.Fruits()[len(currentBlock.Fruits())-1].FastNumber()
 	}
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
+	batch := bc.db.NewBatch()
+	for _, ft := range remove {
+		rawdb.DeleteFtLookupEntry(batch, ft.FastHash())
+	}
+	batch.Write()
 	// Everything seems to be fine, set as the head block
 	bc.currentBlock.Store(currentBlock)
 
