@@ -440,6 +440,9 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		s.nonceLock.LockAddr(args.From)
 		defer s.nonceLock.UnlockAddr(args.From)
 	}
+	if args.Payment != (common.Address{}) { //personal.SendTransaction should not contain payment
+		return common.Hash{}, fmt.Errorf("payment should not assigned")
+	}
 	signed, err := s.signTransaction(ctx, args, passwd)
 	if err != nil {
 		return common.Hash{}, err
@@ -463,15 +466,31 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 	if args.Nonce == nil {
 		return nil, fmt.Errorf("nonce not specified")
 	}
+	if args.Payment != (common.Address{}) { //personal.SignTransaction should not contain payment
+		return nil, fmt.Errorf("payment should not assigned")
+	}
 	signed, err := s.signTransaction(ctx, args, passwd)
 	if err != nil {
 		return nil, err
 	}
-	data, err := rlp.EncodeToBytes(signed)
-	if err != nil {
-		return nil, err
+
+	if args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+		raw_tx_signed := signed.ConvertRawTransaction()
+		if err != nil {
+			return nil, err
+		}
+		data, err := rlp.EncodeToBytes(raw_tx_signed)
+		if err != nil {
+			return nil, err
+		}
+		return &SignTransactionResult{data, signed}, nil
+	} else { //fee not nil
+		data, err := rlp.EncodeToBytes(signed)
+		if err != nil {
+			return nil, err
+		}
+		return &SignTransactionResult{data, signed}, nil
 	}
-	return &SignTransactionResult{data, signed}, nil
 }
 
 // signHash is a helper function that calculates a hash for the given message that can be
