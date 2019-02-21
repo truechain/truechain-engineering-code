@@ -655,11 +655,6 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) ev
 }
 
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg validateFruit"))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
 	if fruit.Header().SignHash != getSignHash {
