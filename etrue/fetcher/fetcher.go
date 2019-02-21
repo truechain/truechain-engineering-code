@@ -293,6 +293,7 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 		watch.EndWatch()
 		watch.Finish("end")
 	}()
+	log.Debug("Enqueue fast block", "peer", peer, "number", block.Number(), "hash", block.Hash().String())
 	op := &inject{
 		origin: peer,
 		block:  block,
@@ -356,9 +357,9 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, []*types.SwitchInfos) {
-	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
+	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
 
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d", peer, len(transactions)))
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", peer, len(transactions), signs[0][0].FastHeight))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
@@ -872,7 +873,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	hash := block.Hash()
 	number := block.NumberU64()
 
-	log.Debug("Enqueue fast block", "peer", peer, "number", number, "hash", hash)
+	log.Debug("Enqueue inner fast block", "peer", peer, "number", number, "hash", hash)
 
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
