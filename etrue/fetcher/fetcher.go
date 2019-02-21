@@ -422,7 +422,7 @@ func (f *Fetcher) loop() {
 					}
 					// If too high up the chain or phase, continue later
 					number := block.NumberU64()
-					log.Trace("Loop", "number", number, "height", height, "same block", len(blocks), "peer", peer)
+					log.Trace("Loop check", "number", number, "height", height, "same block", len(blocks), "peer", peer)
 					if number > height+1 {
 						f.queue.Push(opMulti, -float32(number))
 						if f.queueChangeHook != nil {
@@ -449,10 +449,11 @@ func (f *Fetcher) loop() {
 						f.markBroadcastBlock(number, peer, block)
 						if len(f.blockConsensus[number]) > 0 {
 							signHashs := f.blockConsensus[number]
-							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
+							log.Debug("Loop consensus", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
 									index = i
+									break
 								}
 							} else {
 								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
@@ -870,6 +871,8 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	hash := block.Hash()
 	number := block.NumberU64()
+
+	log.Debug("Enqueue fast block", "peer", peer, "number", number, "hash", hash)
 
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
