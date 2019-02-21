@@ -424,6 +424,11 @@ func (pool *SnailPool) removeWithLock(fruits []*types.SnailBlock) {
 // reset retrieves the current state of the blockchain and ensures the content
 // of the fruit pool is valid with regard to the chain state.
 func (pool *SnailPool) reset(oldHead, newHead *types.SnailBlock) {
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg reset"))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	var reinject []*types.SnailBlock
 
 	if oldHead != nil && oldHead.Hash() != newHead.ParentHash() {
