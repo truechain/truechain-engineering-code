@@ -26,6 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/params"
 
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
 
@@ -38,8 +39,6 @@ type StateProcessor struct {
 	bc     *BlockChain         // Canonical block chain
 	engine consensus.Engine    // Consensus engine used for block rewards
 }
-
-
 
 // NewStateProcessor initialises a new StateProcessor.
 func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consensus.Engine) *StateProcessor {
@@ -112,8 +111,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	statedb.Finalise(true)
 
 	*usedGas += gas
-	fee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
-	feeAmount.Add(fee, feeAmount)
+	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	feeAmount.Add(gasFee, feeAmount)
+	if msg.Fee() != nil && msg.Fee() != common.Big0 {
+		feeAmount.Add(msg.Fee(), feeAmount) //add fee
+	}
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.

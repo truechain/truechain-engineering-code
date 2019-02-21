@@ -341,6 +341,7 @@ func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Pay
 func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Fee() *big.Int      { return new(big.Int).Set(tx.data.Fee) }
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
@@ -383,12 +384,19 @@ func (tx *Transaction) Size() common.StorageSize {
 //
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
+	/*var amount = big.NewInt(0)
+	if tx.data.Fee != nil && tx.data.Fee != common.Big0 {
+		amount = amount.Add(tx.data.Amount, tx.data.Fee)
+	} else {
+		amount = tx.data.Amount
+	}*/
 	msg := Message{
 		nonce:      tx.data.AccountNonce,
 		gasLimit:   tx.data.GasLimit,
 		gasPrice:   new(big.Int).Set(tx.data.Price),
 		to:         tx.data.Recipient,
 		amount:     tx.data.Amount,
+		fee:        tx.data.Fee,
 		data:       tx.data.Payload,
 		checkNonce: true,
 	}
@@ -398,7 +406,6 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	if err != nil {
 		return msg, err
 	}
-
 	msg.payment, err = Payer(s, tx)
 	return msg, err
 }
@@ -583,6 +590,7 @@ type Message struct {
 	payment    common.Address
 	nonce      uint64
 	amount     *big.Int
+	fee        *big.Int
 	gasLimit   uint64
 	gasPrice   *big.Int
 	data       []byte
@@ -607,6 +615,7 @@ func (m Message) To() *common.Address     { return m.to }
 func (m Message) Payment() common.Address { return m.payment }
 func (m Message) GasPrice() *big.Int      { return m.gasPrice }
 func (m Message) Value() *big.Int         { return m.amount }
+func (m Message) Fee() *big.Int           { return m.fee }
 func (m Message) Gas() uint64             { return m.gasLimit }
 func (m Message) Nonce() uint64           { return m.nonce }
 func (m Message) Data() []byte            { return m.data }

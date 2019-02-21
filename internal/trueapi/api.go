@@ -434,14 +434,14 @@ func (s *PrivateAccountAPI) signTransaction(ctx context.Context, args SendTxArgs
 // tries to sign it with the key associated with args.To. If the given passwd isn't
 // able to decrypt the key it fails.
 func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs, passwd string) (common.Hash, error) {
+	if args.Payment != (common.Address{}) { //personal.SendTransaction should not contain payment
+		return common.Hash{}, fmt.Errorf("payment should not assigned")
+	}
 	if args.Nonce == nil {
 		// Hold the addresse's mutex around signing to prevent concurrent assignment of
 		// the same nonce to multiple accounts.
 		s.nonceLock.LockAddr(args.From)
 		defer s.nonceLock.UnlockAddr(args.From)
-	}
-	if args.Payment != (common.Address{}) { //personal.SendTransaction should not contain payment
-		return common.Hash{}, fmt.Errorf("payment should not assigned")
 	}
 	signed, err := s.signTransaction(ctx, args, passwd)
 	if err != nil {

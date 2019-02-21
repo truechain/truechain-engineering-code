@@ -135,7 +135,7 @@ func (evm *EVM) Cancel() {
 // parameters. It also handles any necessary value transfer required and takes
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
-func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int, fee *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -144,9 +144,18 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
+
 	// Fail if we're trying to transfer more than the available balance
-	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
-		return nil, gas, ErrInsufficientBalance
+	if fee != nil && fee != common.Big0 {
+		amount := big.NewInt(0)
+		amount = amount.Add(value, fee)
+		if !evm.CanTransfer(evm.StateDB, caller.Address(), amount) {
+			return nil, gas, ErrInsufficientBalanceForAll
+		}
+	} else {
+		if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
+			return nil, gas, ErrInsufficientBalance
+		}
 	}
 
 	var (
@@ -166,7 +175,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		evm.StateDB.CreateAccount(addr)
 	}
 	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
-
+	if fee != nil && fee != common.Big0 {
+		evm.StateDB.SubBalance(caller.Address(), fee)
+	}
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
@@ -314,15 +325,23 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 }
 
 // Create creates a new contract using code as deployment code.
-func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-
+func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int, fee *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	// Depth check execution. Fail if we're trying to execute above the
 	// limit.
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, common.Address{}, gas, ErrDepth
 	}
-	if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
-		return nil, common.Address{}, gas, ErrInsufficientBalance
+
+	if fee != nil && fee != common.Big0 {
+		amount := big.NewInt(0)
+		amount = amount.Add(value, fee)
+		if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), amount) {
+			return nil, common.Address{}, gas, ErrInsufficientBalanceForAll
+		}
+	} else {
+		if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+			return nil, common.Address{}, gas, ErrInsufficientBalance
+		}
 	}
 	// Ensure there's no existing contract already at the designated address
 	nonce := evm.StateDB.GetNonce(caller.Address())
@@ -340,7 +359,9 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	evm.StateDB.SetNonce(contractAddr, 1)
 
 	evm.Transfer(evm.StateDB, caller.Address(), contractAddr, value)
-
+	if fee != nil && fee != common.Big0 {
+		evm.StateDB.SubBalance(caller.Address(), fee)
+	}
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
