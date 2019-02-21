@@ -307,8 +307,7 @@ func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight
 	go func() {
 		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight, eHeight}, ""}
 	}()
-	//clear svs
-	cs.svs = append(cs.svs[:0], cs.svs[1:]...)
+
 }
 
 // AddProposalBlockPart inputs a part of the proposal block. not used
@@ -493,7 +492,10 @@ func (cs *ConsensusState) newStep() {
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate", "uHeight", msg.uHeight, "eHeight", msg.eHeight, "cHeight", cs.Height, "Round", cs.Round)
 	round, oldHeight := cs.Round, cs.Height
-
+	//clear svs
+	if len(cs.svs) > 0 {
+		cs.svs = append(cs.svs[:0], cs.svs[1:]...)
+	}
 	help.CheckAndPrintError(cs.state.UpdateValidator(msg.vset, true))
 	cs.updateToState(cs.state)
 	cs.state.PrivReset()
