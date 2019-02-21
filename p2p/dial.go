@@ -171,6 +171,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 			return false
 		}
 		s.dialing[n.ID] = flag
+		log.Debug("NewTasks", "dest", n.IP, "flag", flag.String())
 		newtasks = append(newtasks, &dialTask{flags: flag, dest: n})
 		return true
 	}
