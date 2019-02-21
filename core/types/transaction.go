@@ -140,28 +140,28 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return NewTransaction_Payment(nonce, to, amount, gasLimit, gasPrice, data, common.Address{})
+	return NewTransaction_Payment(nonce, to, amount, common.Big0, gasLimit, gasPrice, data, common.Address{})
 }
 
-func NewTransaction_Payment(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
+func NewTransaction_Payment(nonce uint64, to common.Address, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
 	if payer == (common.Address{}) {
-		return newTransaction(nonce, &to, nil, amount, gasLimit, gasPrice, data)
+		return newTransaction(nonce, &to, nil, amount, fee, gasLimit, gasPrice, data)
 	}
-	return newTransaction(nonce, &to, &payer, amount, gasLimit, gasPrice, data)
+	return newTransaction(nonce, &to, &payer, amount, fee, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return NewContractCreation_Payment(nonce, amount, gasLimit, gasPrice, data, common.Address{})
+	return NewContractCreation_Payment(nonce, amount, common.Big0, gasLimit, gasPrice, data, common.Address{})
 }
 
-func NewContractCreation_Payment(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
+func NewContractCreation_Payment(nonce uint64, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
 	if payer == (common.Address{}) {
-		return newTransaction(nonce, nil, nil, amount, gasLimit, gasPrice, data)
+		return newTransaction(nonce, nil, nil, amount, fee, gasLimit, gasPrice, data)
 	}
-	return newTransaction(nonce, nil, &payer, amount, gasLimit, gasPrice, data)
+	return newTransaction(nonce, nil, &payer, amount, fee, gasLimit, gasPrice, data)
 }
 
-func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -171,6 +171,7 @@ func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amo
 		Payer:        payer,
 		Payload:      data,
 		Amount:       new(big.Int),
+		Fee:          new(big.Int),
 		GasLimit:     gasLimit,
 		Price:        new(big.Int),
 		V:            new(big.Int),
@@ -182,6 +183,9 @@ func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amo
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
+	}
+	if fee != nil {
+		d.Fee.Set(fee)
 	}
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)

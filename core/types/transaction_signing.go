@@ -201,8 +201,11 @@ func (s TIP1Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.I
 // It does not uniquely identify the transaction.
 func (s TIP1Signer) Hash(tx *Transaction) common.Hash {
 	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
-	if tx.data.Payer == nil || *tx.data.Payer == (common.Address{}) {
-		return rlpHash([]interface{}{
+	var hash common.Hash
+	//payer and fee is nil or default value
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
+		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
+		hash = rlpHash([]interface{}{
 			tx.data.AccountNonce,
 			tx.data.Price,
 			tx.data.GasLimit,
@@ -211,17 +214,20 @@ func (s TIP1Signer) Hash(tx *Transaction) common.Hash {
 			tx.data.Payload,
 			s.chainId, uint(0), uint(0),
 		})
+	} else { //payer is not nil
+		hash = rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			tx.data.Payer,
+			tx.data.Fee,
+			s.chainId, uint(0), uint(0),
+		})
 	}
-	return rlpHash([]interface{}{
-		tx.data.AccountNonce,
-		tx.data.Price,
-		tx.data.GasLimit,
-		tx.data.Recipient,
-		tx.data.Amount,
-		tx.data.Payload,
-		tx.data.Payer,
-		s.chainId, uint(0), uint(0),
-	})
+	return hash
 }
 
 func (s TIP1Signer) Hash_Payment(tx *Transaction) common.Hash {
@@ -233,6 +239,7 @@ func (s TIP1Signer) Hash_Payment(tx *Transaction) common.Hash {
 		tx.data.Amount,
 		tx.data.Payload,
 		tx.data.Payer,
+		tx.data.Fee,
 		tx.data.V,
 		tx.data.R,
 		tx.data.S,
@@ -389,7 +396,8 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
-	if tx.data.Payer == nil || *tx.data.Payer == (common.Address{}) {
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
+		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
 		return rlpHash([]interface{}{
 			tx.data.AccountNonce,
 			tx.data.Price,
@@ -407,6 +415,7 @@ func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 		tx.data.Amount,
 		tx.data.Payload,
 		tx.data.Payer,
+		tx.data.Fee,
 	})
 }
 
@@ -419,6 +428,7 @@ func (fs FrontierSigner) Hash_Payment(tx *Transaction) common.Hash {
 		tx.data.Amount,
 		tx.data.Payload,
 		tx.data.Payer,
+		tx.data.Fee,
 		tx.data.V,
 		tx.data.R,
 		tx.data.S,

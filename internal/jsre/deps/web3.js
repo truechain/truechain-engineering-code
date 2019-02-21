@@ -3768,6 +3768,10 @@ var inputTransactionFormatter = function (options){
     if (options.payment) { // it might be payment
         options.payment = inputAddressFormatter(options.payment);
     }
+    if (options.fee) { // tx has fee
+        //options.fee = toBigNumber(options.fee);
+        options.fee = utils.fromDecimal(options.fee)
+    }
 
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
@@ -5441,9 +5445,9 @@ var methods = function () {
         inputFormatter: [null]
     });
 
-    var sendRawPayerTransaction = new Method({
-        name: 'sendRawPayerTransaction',
-        call: 'etrue_sendRawPayerTransaction',
+    var sendNewRawTransaction = new Method({
+        name: 'sendNewRawTransaction',
+        call: 'etrue_sendNewRawTransaction',
         params: 1,
         inputFormatter: [null]
     });
@@ -5548,7 +5552,7 @@ var methods = function () {
         call,
         estimateGas,
         sendRawTransaction,
-        sendRawPayerTransaction,
+        sendNewRawTransaction,
         signTransaction,
         sendTransaction,
         sign,

@@ -1396,6 +1396,7 @@ func (s *PublicTransactionPoolAPI) sign_payment(addr common.Address, tx *types.T
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
 type SendTxArgs struct {
 	Payment  common.Address  `json:"payment"`
+	Fee      *hexutil.Big    `json:"fee"`
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
 	Gas      *hexutil.Uint64 `json:"gas"`
@@ -1423,6 +1424,9 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
+	}
+	if args.Fee == nil {
+		args.Fee = (*hexutil.Big)(common.Big0)
 	}
 	if args.Nonce == nil {
 		nonce, err := b.GetPoolNonce(ctx, args.From)
@@ -1457,9 +1461,9 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Input
 	}
 	if args.To == nil {
-		return types.NewContractCreation_Payment(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
+		return types.NewContractCreation_Payment(uint64(*args.Nonce), (*big.Int)(args.Value), (*big.Int)(args.Fee), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
 	}
-	return types.NewTransaction_Payment(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
+	return types.NewTransaction_Payment(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Fee), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.Payment)
 }
 
 func (args *SendTxArgs) toRawTransaction() *types.RawTransaction {
@@ -1584,7 +1588,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	return submitTransaction(ctx, s.b, tx)
 }
 
-func (s *PublicTransactionPoolAPI) SendRawPayerTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendNewRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		log.Error("api method SendRawPayerTransaction error", "tx.info", tx.Info(), "error", err)
@@ -1666,8 +1670,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return nil, err
 	}
-	//normal transaction execution
-	if args.Payment == (common.Address{}) {
+	if args.Payment == (common.Address{}) && args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
 			return nil, err
@@ -1676,6 +1679,13 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 		if err != nil {
 			return nil, err
 		}
+		return &SignTransactionResult{data, signed}, nil
+	} else if args.Payment == (common.Address{}) { //pay is nil
+		data, err := rlp.EncodeToBytes(signed)
+		if err != nil {
+			return nil, err
+		}
+		//fmt.Println("api method signTransaction signed", signed.Info())
 		return &SignTransactionResult{data, signed}, nil
 	}
 
