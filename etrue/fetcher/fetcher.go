@@ -262,6 +262,11 @@ func (f *Fetcher) Stop() {
 // the network.
 func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *types.PbftSign, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg notify number:%d", peer, number))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	block := &announce{
 		hash:        hash,
 		number:      number,
@@ -283,6 +288,11 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *typ
 
 // Enqueue tries to fill gaps the the fetcher's future import queue.
 func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg enqueue number:%d", peer, block.NumberU64()))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	op := &inject{
 		origin: peer,
 		block:  block,
