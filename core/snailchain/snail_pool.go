@@ -120,7 +120,7 @@ type SnailPool struct {
 	allFruits    map[common.Hash]*types.SnailBlock
 	fruitPending map[common.Hash]*types.SnailBlock
 
-	newFruitCh chan *types.SnailBlock
+	newFruitCh chan []*types.SnailBlock
 
 	//header *types.Block
 	header *types.SnailBlock
@@ -146,7 +146,7 @@ func NewSnailPool(config SnailPoolConfig, fastBlockChain *core.BlockChain, chain
 		chainHeadCh:      make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		fastchainEventCh: make(chan types.ChainFastEvent, fastchainHeadChanSize),
 
-		newFruitCh:   make(chan *types.SnailBlock, fruitChanSize),
+		newFruitCh:   make(chan []*types.SnailBlock, fruitChanSize),
 		allFruits:    make(map[common.Hash]*types.SnailBlock),
 		fruitPending: make(map[common.Hash]*types.SnailBlock),
 	}
@@ -353,9 +353,11 @@ func (pool *SnailPool) loop() {
 				}
 			}
 
-		case fruit := <-pool.newFruitCh:
-			if fruit != nil {
-				pool.addFruit(fruit)
+		case fruits := <-pool.newFruitCh:
+			if fruits != nil {
+				for _, fruit := range fruits {
+					pool.addFruit(fruit)
+				}
 			}
 
 			// Be unsubscribed due to system stopped
@@ -568,6 +570,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 		watch.EndWatch()
 		watch.Finish("end")
 	}()
+	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
@@ -575,14 +578,12 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 			errs[i] = err
 			continue
 		}
-
-		f := types.CopyFruit(fruit)
-		pool.newFruitCh <- f
+		addFruits = append(addFruits, types.CopyFruit(fruit))
 		if local {
 			pool.journalFruit(fruit)
 		}
 	}
-
+	pool.newFruitCh <- addFruits
 	return errs
 }
 
@@ -590,7 +591,7 @@ func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) [
 func (pool *SnailPool) addLocalFruits(fruits []*types.SnailBlock) []error {
 
 	errs := make([]error, len(fruits))
-
+	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
 		log.Trace("addLocalFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
 		if err := pool.validateFruit(fruit); err != nil {
@@ -598,11 +599,9 @@ func (pool *SnailPool) addLocalFruits(fruits []*types.SnailBlock) []error {
 			errs[i] = err
 			continue
 		}
-
-		f := types.CopyFruit(fruit)
-		pool.newFruitCh <- f
+		addFruits = append(addFruits, types.CopyFruit(fruit))
 	}
-
+	pool.newFruitCh <- addFruits
 	return errs
 }
 
