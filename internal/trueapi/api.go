@@ -474,7 +474,8 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 		return nil, err
 	}
 
-	if args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Fee == nil || args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+		log.Info("into fee")
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
 			return nil, err
