@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"testing"
 )
 
@@ -46,7 +47,10 @@ func NewPbftAgetTest() *PbftAgent {
 func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
 	priKey := agent.privateKey
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	committeeMember := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+	committeeMember := &types.CommitteeMember{
+		coinbase,
+		&priKey.PublicKey, 0, 0}
+
 	return committeeMember
 }
 
@@ -63,7 +67,7 @@ func InitCommitteeInfo() (*types.CommitteeInfo, []*ecdsa.PrivateKey) {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, 0, 0}
 		committeeInfo.Members = append(committeeInfo.Members, m)
 	}
 	return committeeInfo, priKeys
@@ -118,9 +122,9 @@ func generateFastBlock() *types.Block {
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   core.FastCalcGasLimit(genesis),
+		GasLimit:   core.FastCalcGasLimit(genesis, params.GenesisGasLimit, params.GenesisGasLimit),
 	}
-	fb := types.NewBlock(header, nil, nil, nil)
+	fb := types.NewBlock(header, nil, nil, nil, nil)
 	return fb
 }
 
