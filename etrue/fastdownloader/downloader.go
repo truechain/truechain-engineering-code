@@ -702,14 +702,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				}
 			}
 
-
-			select {
-			case d.headerProcCh <- nil:
-				return nil
-			case <-d.cancelCh:
-				return errCancelHeaderFetch
-			}
-
 		case <-timeout.C:
 			if d.dropPeer == nil {
 				// The dropPeer method is nil when `--copydb` is used for a local copy.
@@ -1051,7 +1043,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 				return nil
 			}
 			// Otherwise split the chunk of headers into batches and process them
-			gotHeaders = true
+			//gotHeaders = true
 
 			for len(headers) > 0 {
 				// Terminate if something failed in between processing chunks
@@ -1122,14 +1114,15 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 			// Signal the content downloaders of the availablility of new tasks
 			for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 				select {
-				case ch <- true:
+				case ch <- false:
 				default:
 				}
 			}
-
-
+			log.Info("fast downloader " , "function", "processHeaders end")
+			rollback = nil
+			return nil
 		}
-		log.Info("fast downloader " , "function", "processHeaders end")
+
 	}
 }
 
