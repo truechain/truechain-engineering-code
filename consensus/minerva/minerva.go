@@ -548,6 +548,15 @@ func SeedHash(block uint64) []byte {
 	return seedHash(block)
 }
 
+func (m *Minerva) DataSetHash(block uint64) common.Hash {
+	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
+	currentI, _ := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	return current.datasetHash
+
+}
+
 type fakeElection struct {
 	privates []*ecdsa.PrivateKey
 	members  []*types.CommitteeMember
