@@ -5512,9 +5512,9 @@ var methods = function () {
         params: 3
     });
 
-    var getWork = new Method({
-        name: 'getWork',
-        call: 'etrue_getWork',
+    var getDataset = new Method({
+        name: 'getDataset',
+        call: 'etrue_getDataset',
         params: 0
     });
 
@@ -5531,6 +5531,12 @@ var methods = function () {
         call: 'etrue_getCurrentState',
         params: 0
         // outputFormatter: formatters.outputSnailFormatter
+    });
+
+    var getWork = new Method({
+        name: 'getWork',
+        call: 'etrue_getWork',
+        params: 0
     });
 
     return [
@@ -5562,7 +5568,8 @@ var methods = function () {
         submitWork,
         getWork,
         getCommittee,
-        getCurrentState
+        getCurrentState,
+        getDataset
     ];
 };
 
