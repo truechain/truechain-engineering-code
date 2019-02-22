@@ -201,8 +201,8 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
 		for i := 0; i < DATASETHEADLENGH; i++ {
 			header := a.snailchain.GetHeaderByNumber(uint64(i) + st_block_num)
 			if header == nil {
-				log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
-				return res, errors.New("No work available yet, Don't panic.")
+				//log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
+				return res, errors.New("GetDataset get heard fial")
 			}
 			res[i] = header.Hash().Bytes()
 		}
