@@ -534,7 +534,8 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		go p.GetPeer().RequestHeadersByHash(common.Hash{}, 0, 1, false, true)
 	}
 
-	timeout := time.After(time.Duration(10 * time.Second))
+	ttl := d.requestTTL()
+	timeout := time.After(ttl)
 	for {
 		select {
 
