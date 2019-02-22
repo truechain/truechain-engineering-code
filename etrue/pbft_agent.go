@@ -62,6 +62,12 @@ const (
 var (
 	tpsMetrics           = metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
 	pbftConsensusCounter = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
+
+	repeatReceivedMetrics                             = metrics.NewRegisteredMeter("etrue/pbftAgent/nodes", nil)
+	nodeSendMetrics                                   = metrics.NewRegisteredMeter("etrue/pbftAgent/nodes", nil)
+	nodeHandleMetrics                                 = metrics.NewRegisteredMeter("etrue/pbftAgent/nodes", nil)
+	handleTimes, sendTimes, repeatReceivedTimes int64 = 0, 0, 0
+	receivedNodeInfo                                  = make(map[common.Hash]struct{})
 )
 
 var (
@@ -428,7 +434,7 @@ func (agent *PbftAgent) loop() {
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
 				}
-
+				receivedNodeInfo = make(map[common.Hash]struct{})
 			case types.CommitteeUpdate:
 				committeeID := copyCommitteeID(ch.CommitteeID)
 				receivedCommitteeInfo := &types.CommitteeInfo{
@@ -459,12 +465,23 @@ func (agent *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
+			if receivedNodeInfo[cryNodeInfo.Hash()] != (struct{}{}) {
+				log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedTimes)
+				repeatReceivedTimes += 1
+				repeatReceivedMetrics.Mark(repeatReceivedTimes)
+				continue
+			}
+			receivedNodeInfo[cryNodeInfo.Hash()] = struct{}{}
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID)
+				sendTimes += 1
+				nodeSendMetrics.Mark(sendTimes)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
+					handleTimes += 1
+					nodeHandleMetrics.Mark(handleTimes)
 					agent.handlePbftNode(cryNodeInfo, nodeWork)
 				}
+				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", sendTimes, "handleTimes", handleTimes)
 			}
 		case ch := <-agent.chainHeadCh:
 			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
