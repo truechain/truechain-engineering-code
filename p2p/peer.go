@@ -418,7 +418,7 @@ func (rw *protoRW) ReadMsg() (Msg, error) {
 		msg.Code -= rw.offset
 		return msg, nil
 	case <-rw.closed:
-		return Msg{}, ErrShuttingDown
+		return Msg{}, errors.New("remote shutting down")
 	}
 }
 
