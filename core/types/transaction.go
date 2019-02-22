@@ -383,12 +383,6 @@ func (tx *Transaction) Size() common.StorageSize {
 //
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
-	/*var amount = big.NewInt(0)
-	if tx.data.Fee != nil && tx.data.Fee != common.Big0 {
-		amount = amount.Add(tx.data.Amount, tx.data.Fee)
-	} else {
-		amount = tx.data.Amount
-	}*/
 	msg := Message{
 		nonce:      tx.data.AccountNonce,
 		gasLimit:   tx.data.GasLimit,
@@ -596,7 +590,7 @@ type Message struct {
 	checkNonce bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
+func NewMessage(from common.Address, to *common.Address, payment common.Address, nonce uint64, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
 	return Message{
 		from:       from,
 		to:         to,
@@ -606,6 +600,8 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		gasPrice:   gasPrice,
 		data:       data,
 		checkNonce: checkNonce,
+		payment:    payment,
+		fee:        fee,
 	}
 }
 
