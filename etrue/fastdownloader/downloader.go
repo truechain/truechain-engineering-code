@@ -728,9 +728,6 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			}
 			return errBadPeer
 
-		case <-d.bodyCh:
-		case <-d.receiptCh:
-			// Out of bounds delivery, ignore
 		}
 		log.Info("fast downloader " ,"id",p.GetID(),"function","fetchHeaders end")
 	}
