@@ -697,6 +697,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				p.GetLog().Debug("d.headerProcCh <- headers ，Fast Scheduling new headers", "count", len(headers), "from", from)
 				select {
 				case d.headerProcCh <- headers:
+					return nil
 				case <-d.cancelCh:
 					return errCancelHeaderFetch
 				}
