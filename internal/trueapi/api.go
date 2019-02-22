@@ -475,7 +475,7 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 	}
 
 	if args.Fee == nil || args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
-		fmt.Println("into no fee")
+		//fmt.Println("into no fee")
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
 			return nil, err
@@ -486,7 +486,7 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 		}
 		return &SignTransactionResult{data, signed}, nil
 	} else { //fee not nil
-		fmt.Println("into not nil of fee")
+		//fmt.Println("into not nil of fee")
 		data, err := rlp.EncodeToBytes(signed)
 		if err != nil {
 			return nil, err

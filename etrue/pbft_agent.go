@@ -50,6 +50,7 @@ const (
 const (
 	chainHeadSize       = 256
 	electionChanSize    = 64
+	nodeSize            = 10
 	committeeIdChanSize = 3
 	sendNodeTime        = 30 * time.Second
 	//subSignStr       = 24
@@ -159,7 +160,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		endFastNumber:        make(map[*big.Int]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan types.ChainFastHeadEvent, chainHeadSize),
-		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage),
+		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage, nodeSize),
 		election:             election,
 		mux:                  new(event.TypeMux),
 		mu:                   new(sync.Mutex),
