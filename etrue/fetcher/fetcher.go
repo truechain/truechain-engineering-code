@@ -636,7 +636,6 @@ func (f *Fetcher) loop() {
 			// Headers arrived from a remote peer. Extract those that were explicitly
 			// requested by the fetcher, and return everything else so it's delivered
 			// to other parts of the system.
-			log.Debug("Loop headerFilter", "fetching", len(f.fetching))
 			var task *headerFilterTask
 			select {
 			case task = <-filter:
@@ -645,6 +644,7 @@ func (f *Fetcher) loop() {
 			}
 			headerFilterInMeter.Mark(int64(len(task.headers)))
 
+			log.Debug("Loop headerFilter", "headers", len(task.headers), "number", task.headers[0].Number, "peer", task.peer)
 			// Split the batch of headers into unknown ones (to return to the caller),
 			// known incomplete ones (requiring body retrievals) and completed blocks.
 			unknown, incomplete := []*types.Header{}, []*announce{}
@@ -688,6 +688,7 @@ func (f *Fetcher) loop() {
 				if _, ok := f.completing[hash]; ok {
 					continue
 				}
+				log.Debug("Loop header incomplete", "unknown", len(unknown), "fetched[hash]", len(f.fetched[hash]), "number", announce.number, "peer", task.peer)
 				f.fetched[hash] = append(f.fetched[hash], announce)
 				if len(f.fetched) == 1 {
 					f.rescheduleComplete(completeTimer)
@@ -695,7 +696,6 @@ func (f *Fetcher) loop() {
 			}
 
 		case filter := <-f.bodyFilter:
-			log.Debug("Loop bodyFilter", "fetching", len(f.fetching))
 			// Block bodies arrived, extract any explicitly requested blocks, return the rest
 			var task *bodyFilterTask
 			select {
@@ -705,6 +705,7 @@ func (f *Fetcher) loop() {
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
 
+			log.Debug("Loop bodyFilter", "transactions", len(task.transactions), "f.completing", len(f.completing))
 			blocks := []*types.Block{}
 			for i := 0; i < len(task.transactions) && i < len(task.signs); i++ {
 				// Match up a body to any possible completion request
@@ -747,6 +748,7 @@ func (f *Fetcher) loop() {
 			}
 			// Schedule the retrieved blocks for ordered import
 			for _, block := range blocks {
+				log.Debug("Loop filter end", "transactions", len(task.transactions), "blocks", len(blocks), "number", block.Number())
 				if announce := f.completing[block.Hash()]; announce != nil {
 					f.enqueue(announce.origin, block)
 				}
