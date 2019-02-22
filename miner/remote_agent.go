@@ -35,8 +35,6 @@ type hashrate struct {
 }
 
 const UPDATABLOCKLENGTH = 12000 //12000  3000
-const OFF_CYCLE_LEN = 8192      //8192  2080
-const SKIP_CYCLE_LEN = 2048     //2048 520
 const DATASETHEADLENGH = 10240
 
 // RemoteAgent for Remote mine
@@ -192,24 +190,25 @@ func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
 	defer a.mu.Unlock()
 
 	var res [DATASETHEADLENGH][]byte
+	if a.currentWork != nil {
+		block := a.currentWork.Block
+		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
+		if epoch == 0 {
+			return res, nil
+		}
+		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
 
-	block := a.currentWork.Block
-	epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
-	if epoch == 0 {
+		for i := 0; i < DATASETHEADLENGH; i++ {
+			header := a.snailchain.GetHeaderByNumber(uint64(i) + st_block_num)
+			if header == nil {
+				log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
+				return res, errors.New("No work available yet, Don't panic.")
+			}
+			res[i] = header.Hash().Bytes()
+		}
 		return res, nil
 	}
-	st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
-
-	for i := 0; i < DATASETHEADLENGH; i++ {
-		header := a.snailchain.GetHeaderByNumber(uint64(i) + st_block_num)
-		if header == nil {
-			log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
-			return res, errors.New("No work available yet, Don't panic.")
-		}
-		res[i] = header.Hash().Bytes()
-	}
-
-	return res, nil
+	return res, errors.New("No work available yet, Don't panic.")
 }
 
 // loop monitors mining events on the work and quit channels, updating the internal
