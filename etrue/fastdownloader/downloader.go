@@ -539,6 +539,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		select {
 
 		case packet := <-d.headerCh:
+			log.Info("fast headerCh " ,"id",p.GetID(),"function","fetchHeight")
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
