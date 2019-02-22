@@ -61,10 +61,6 @@ const (
 	minBroadcastPeers = 4
 )
 
-var (
-	handleMsgTimeout = 30 * time.Second // Time allowance for a node to handle message
-)
-
 // errIncompatibleConfig is returned if the requested protocols and configs are
 // not compatible (low protocol version restrictions and high requirements).
 var errIncompatibleConfig = errors.New("incompatible configuration")
@@ -131,7 +127,6 @@ type ProtocolManager struct {
 	syncLock uint32
 	syncWg   *sync.Cond
 	lock     *sync.Mutex
-	msgTime  *time.Timer // check msg deal timeout
 
 	synchronising int32
 }
@@ -355,13 +350,6 @@ func (pm *ProtocolManager) Stop() {
 	// Quit fetcher, txsyncLoop.
 	close(pm.quitSync)
 
-	if pm.msgTime != nil {
-		if !pm.msgTime.Stop() {
-			<-pm.msgTime.C
-		}
-		pm.msgTime = nil
-	}
-
 	// Disconnect existing sessions.
 	// This also closes the gate for any new registrations on the peer set.
 	// sessions which are already established but not added to pm.peers yet
@@ -460,9 +448,6 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	// main loop. handle incoming messages.
 	for {
 		err := pm.handleMsg(p)
-		if pm.msgTime != nil {
-			pm.msgTime.Stop()
-		}
 		if err != nil {
 			p.Log().Info("Truechain message handling failed", "RemoteAddr", p.RemoteAddr(), "err", err)
 			return err
@@ -484,7 +469,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return err
 	}
 
-	log.Debug("Handler start", "peer", p.id, "msg code", msg.Code)
 	if msg.Size > ProtocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
@@ -1096,12 +1080,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	default:
 		return errResp(ErrInvalidMsgCode, "%v", msg.Code)
 	}
-	timeString := time.Now().Sub(now).String()
-	if strings.Contains(timeString, "h") {
-		log.Debug("Handler", "peer", p.id, "msg code", msg.Code, "time", timeString)
-		return fmt.Errorf("msg code = %d, ip = %s", msg.Code, p.RemoteAddr())
-	}
 
+	timeString := time.Now().Sub(now).String()
 	log.Debug("Handler end", "peer", p.id, "msg code", msg.Code, "time", timeString, "acceptTxs", atomic.LoadUint32(&pm.acceptTxs))
 	return nil
 }
