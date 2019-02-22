@@ -609,7 +609,7 @@ func (srv *Server) run(dialstate dialer) {
 		i := 0
 		for ; len(runningTasks) < maxActiveDialTasks && i < len(ts); i++ {
 			t := ts[i]
-			srv.log.Trace("New dial task", "task", t)
+			srv.log.Trace("New dial task", "task", t, "ts", len(ts))
 			go func() { t.Do(srv); taskdone <- t }()
 			runningTasks = append(runningTasks, t)
 		}
@@ -620,7 +620,7 @@ func (srv *Server) run(dialstate dialer) {
 		queuedTasks = append(queuedTasks[:0], startTasks(queuedTasks)...)
 		// Query dialer for new tasks and start as many as possible now.
 		if len(runningTasks) < maxActiveDialTasks {
-			log.Debug("Server run", "runningTasks", len(runningTasks), "queuedTasks", len(queuedTasks))
+			log.Debug("Server run", "runningTasks", len(runningTasks), "queuedTasks", len(queuedTasks), "peers", len(peers))
 			nt := dialstate.newTasks(len(runningTasks)+len(queuedTasks), peers, time.Now())
 			queuedTasks = append(queuedTasks, startTasks(nt)...)
 		}
