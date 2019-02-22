@@ -60,7 +60,7 @@ type txdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
-	Fee          *big.Int        `json:"fee"   gencodec:"required"`
+	Fee          *big.Int        `json:"fee"   rlp:"nil"`
 	Payer        *common.Address `json:"payer"    rlp:"nil"`
 
 	// Signature values
@@ -116,7 +116,6 @@ func (tx *Transaction) ConvertRawTransaction() *RawTransaction {
 	cpy_data := cpy.data
 
 	raw_tx := new(RawTransaction)
-	//fmt.Println("data.Recipient", cpy_data.Recipient)
 	if cpy_data.Recipient == nil {
 		raw_tx = NewRawTransactionContract(cpy_data.AccountNonce, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
 	} else {
