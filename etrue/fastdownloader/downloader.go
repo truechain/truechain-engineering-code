@@ -564,6 +564,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		case <-d.receiptCh:
 			// Out of bounds delivery, ignore
 		}
+		log.Info("fast headerCh " ,"id",p.GetID(),"function","fetchHeight end")
 	}
 }
 
@@ -735,6 +736,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			}
 			return errBadPeer
 		}
+		log.Info("fast downloader " ,"id",p.GetID(),"function","fetchHeaders end")
 	}
 }
 
@@ -858,7 +860,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			case update <- struct{}{}:
 			default:
 			}
-
+			log.Info("fast downloader ", "id",packet.PeerId(), "function", "fetchParts end")
 		case cont := <-wakeCh:
 			// The header fetcher sent a continuation flag, check if it's done
 			if !cont {
@@ -968,6 +970,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 				return errPeersUnavailable
 			}
 		}
+
 	}
 }
 
@@ -1014,7 +1017,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
-			log.Info("fast headerProcCh " , "function", "deliver")
+			log.Info("fast downloader " , "function", "processHeaders")
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1123,7 +1126,10 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 				default:
 				}
 			}
+
+
 		}
+		log.Info("fast downloader " , "function", "processHeaders end")
 	}
 }
 
