@@ -689,7 +689,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
 		filter := len(headers) == 1
 		if len(headers) > 0 {
-			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number)
+			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number)
 		}
 		if filter {
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
