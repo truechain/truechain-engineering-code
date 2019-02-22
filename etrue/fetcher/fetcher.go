@@ -323,9 +323,9 @@ func (f *Fetcher) EnqueueSign(peer string, signs []*types.PbftSign) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers))
+	log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
 
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers)))
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
@@ -396,6 +396,7 @@ func (f *Fetcher) loop() {
 	completeTimer := time.NewTimer(0)
 
 	for {
+		log.Debug("Loop start", "fetching", len(f.fetching))
 		// Clean up any expired block fetches
 		for hash, announce := range f.fetching {
 			if time.Since(announce.time) > fetchTimeout {
@@ -499,7 +500,7 @@ func (f *Fetcher) loop() {
 				break
 			}
 		}
-
+		log.Debug("Loop middle", "fetching", len(f.fetching))
 		// Wait for an outside event to occur
 		select {
 		case <-f.quit:
@@ -579,12 +580,12 @@ func (f *Fetcher) loop() {
 						request[announce.origin] = append(request[announce.origin], hash)
 						f.fetching[hash] = announce
 					}
-					log.Debug("Fetching headers fetchTimer", "count", len(request), "hash", hash, "peer", announce.origin)
+					log.Debug("Fetching headers fetchTimer", "count", len(request), "number", announce.number, "hash", hash, "peer", announce.origin)
 				}
 			}
 			// Send out all block header requests
 			for peer, hashes := range request {
-				log.Trace("Fetching scheduled fast headers", "peer", peer, "list", hashes)
+				log.Trace("Fetching scheduled fast headers", "number", f.fetching[hashes[0]].number, "peer", peer, "list", hashes)
 
 				// Create a closure of the fetch and schedule in on a new thread
 				fetchHeader, hashes := f.fetching[hashes[0]].fetchHeader, hashes
@@ -615,10 +616,11 @@ func (f *Fetcher) loop() {
 					request[announce.origin] = append(request[announce.origin], hash)
 					f.completing[hash] = announce
 				}
+				log.Debug("Fetching body completeTimer", "count", len(request), "number", announce.number, "hash", hash, "peer", announce.origin)
 			}
 			// Send out all block body requests
 			for peer, hashes := range request {
-				log.Trace("Fetching scheduled fast bodies", "peer", peer, "list", hashes)
+				log.Trace("Fetching scheduled fast bodies", "number", f.completing[hashes[0]].number, "peer", peer, "list", hashes)
 
 				// Create a closure of the fetch and schedule in on a new thread
 				if f.completingHook != nil {
@@ -634,6 +636,7 @@ func (f *Fetcher) loop() {
 			// Headers arrived from a remote peer. Extract those that were explicitly
 			// requested by the fetcher, and return everything else so it's delivered
 			// to other parts of the system.
+			log.Debug("Loop headerFilter", "fetching", len(f.fetching))
 			var task *headerFilterTask
 			select {
 			case task = <-filter:
@@ -692,6 +695,7 @@ func (f *Fetcher) loop() {
 			}
 
 		case filter := <-f.bodyFilter:
+			log.Debug("Loop bodyFilter", "fetching", len(f.fetching))
 			// Block bodies arrived, extract any explicitly requested blocks, return the rest
 			var task *bodyFilterTask
 			select {
