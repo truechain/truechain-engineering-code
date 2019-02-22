@@ -39,7 +39,7 @@ func (t txdata) MarshalJSON() ([]byte, error) {
 	enc.Amount = (*hexutil.Big)(t.Amount)
 	enc.Payload = t.Payload
 	enc.Payer = t.Payer
-	enc.Fee = t.Fee
+	enc.Fee = (*hexutil.Big)(t.Fee)
 	enc.V = (*hexutil.Big)(t.V)
 	enc.R = (*hexutil.Big)(t.R)
 	enc.S = (*hexutil.Big)(t.S)
