@@ -723,10 +723,14 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				}
 			}
 			select {
-			case d.headerProcCh <- nil:
-			case <-d.cancelCh:
+				case d.headerProcCh <- nil:
+				case <-d.cancelCh:
 			}
 			return errBadPeer
+
+		case <-d.bodyCh:
+		case <-d.receiptCh:
+			// Out of bounds delivery, ignore
 		}
 		log.Info("fast downloader " ,"id",p.GetID(),"function","fetchHeaders end")
 	}
