@@ -573,6 +573,10 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		// Apply all committee state switches for latest block
 		for _, num := range committee.switches {
 			b := e.fastchain.GetBlockByNumber(num)
+			if b == nil {
+				log.Warn("Switch block not exists", "number", num)
+				break
+			}
 			for _, s := range b.SwitchInfos().Vals {
 				switch s.Flag {
 				case types.StateAppendFlag:
@@ -588,6 +592,10 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 				break
 			}
 			b := e.fastchain.GetBlockByNumber(num)
+			if b == nil {
+				log.Warn("Switch block not exists", "number", num)
+				break
+			}
 			for _, s := range b.SwitchInfos().Vals {
 				switch s.Flag {
 				case types.StateAppendFlag:
