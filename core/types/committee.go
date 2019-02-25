@@ -208,6 +208,14 @@ func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	})
 }
 
+func (c *EncryptNodeMessage) HashWithSign() common.Hash {
+	return RlpHash([]interface{}{
+		c.Nodes,
+		c.CommitteeID,
+		c.Sign,
+	})
+}
+
 func (c *EncryptNodeMessage) Hash() common.Hash {
 	return RlpHash(c)
 }

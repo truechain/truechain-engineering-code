@@ -141,8 +141,8 @@ type Election struct {
 
 	fastChainEventCh  chan types.ChainFastEvent
 	fastChainEventSub event.Subscription
-	switchEventCh  chan types.ChainFastEvent
-	switchEventSub event.Subscription
+	switchEventCh     chan types.ChainFastEvent
+	switchEventSub    event.Subscription
 
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
@@ -305,7 +305,7 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 func (e *Election) GetMemberFlag(members []*types.CommitteeMember, publickey []byte) int32 {
 	if len(members) == 0 {
 		log.Error("IsCommitteeMember method len(members)= 0")
-		return 0
+		return -1
 	}
 	for _, member := range members {
 		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
@@ -870,8 +870,8 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 		"threshold", params.ElectionFruitsThreshold, "max", params.MaximumCommitteeNumber)
 
 	var (
-		committee   types.ElectionCommittee
-		members     []*types.CommitteeMember
+		committee types.ElectionCommittee
+		members   []*types.CommitteeMember
 	)
 	seed, candidates := e.getCandinates(snailBeginNumber, snailEndNumber)
 	if candidates == nil {
@@ -1120,7 +1120,7 @@ func (e *Election) Start() error {
 }
 
 // switchloop update committee members flag based on fast block chain event
-func(e *Election) switchLoop() {
+func (e *Election) switchLoop() {
 	for {
 		select {
 		case ev := <-e.switchEventCh:
