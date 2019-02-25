@@ -653,6 +653,7 @@ func (pool *SnailPool) SubscribeNewFruitEvent(ch chan<- types.NewFruitsEvent) ev
 	return pool.scope.Track(pool.fruitFeed.Subscribe(ch))
 }
 
+// validateFruit validate the sign hash
 func (pool *SnailPool) validateFruit(fruit *types.SnailBlock) error {
 	//check integrity
 	getSignHash := types.CalcSignHash(fruit.Signs())
