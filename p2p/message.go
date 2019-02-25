@@ -20,14 +20,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"io"
 	"io/ioutil"
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/p2p/discover"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Msg defines the structure of a p2p message.
@@ -90,7 +91,12 @@ type MsgReadWriter interface {
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
+	watch := help.NewTWatch(2, fmt.Sprintf("msgcode: %d, handleMsg Send", msgcode))
 	size, r, err := rlp.EncodeToReader(data)
+	defer func() {
+		watch.EndWatch()
+		watch.Finish(fmt.Sprintf("end  size: %d", msgcode))
+	}()
 	if err != nil {
 		return err
 	}
