@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"math/big"
 	"strings"
-	"time"
 )
 
 const (
@@ -195,14 +194,14 @@ type Sign []byte
 
 //EncryptNodeMessage  all information of the committee
 type EncryptNodeMessage struct {
-	CreatedAt   time.Time
+	CreatedAt   *big.Int
 	CommitteeID *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
 }
 
 func (c *EncryptNodeMessage) String() {
-	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt, "Nodes", rlpHash(c.Nodes).String(), "Sign", rlpHash(c.Sign).String())
+	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt.Uint64())
 }
 
 func (c *EncryptNodeMessage) HashWithOutNodes() common.Hash {
