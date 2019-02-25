@@ -201,9 +201,11 @@ type EncryptNodeMessage struct {
 	Sign        //sign msg
 }
 
-func (c *EncryptNodeMessage) HashWithCommitteeID() common.Hash {
+func (c *EncryptNodeMessage) HashWithOutNodes() common.Hash {
 	return RlpHash([]interface{}{
+		c.CreatedAt,
 		c.CommitteeID,
+		c.Sign,
 	})
 }
 
