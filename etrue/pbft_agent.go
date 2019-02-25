@@ -53,7 +53,7 @@ const (
 	electionChanSize    = 64
 	nodeSize            = 10
 	committeeIdChanSize = 3
-	sendNodeTime        = 30 * time.Second
+	sendNodeTime        = 1 * time.Minute
 	//subSignStr       = 24
 	maxKnownNodes  = 256
 	fetchBlockTime = 2
