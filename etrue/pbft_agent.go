@@ -469,7 +469,7 @@ func (agent *PbftAgent) loop() {
 			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				repeatReceivedMetrics.Inc(1)
-				log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
+				//log.Debug("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
 				continue
 			}
 			agent.MarkNodeInfo(cryNodeInfo.Hash())
@@ -480,7 +480,7 @@ func (agent *PbftAgent) loop() {
 					nodeHandleMetrics.Inc(1)
 					agent.handlePbftNode(cryNodeInfo, nodeWork)
 				}
-				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
+				//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
 			}
 		case ch := <-agent.chainHeadCh:
 			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
