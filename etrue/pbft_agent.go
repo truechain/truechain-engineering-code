@@ -468,13 +468,14 @@ func (agent *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
-			if agent.knownRecievedNodes.Has(cryNodeInfo.HashWithOutNodes()) {
+			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				repeatReceivedMetrics.Mark(1)
 				log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
 				continue
 			}
-			agent.MarkNodeInfo(cryNodeInfo.HashWithOutNodes())
+			cryNodeInfo.String()
+			agent.MarkNodeInfo(cryNodeInfo.Hash())
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				nodeSendMetrics.Mark(1)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})

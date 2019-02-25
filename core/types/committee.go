@@ -201,6 +201,10 @@ type EncryptNodeMessage struct {
 	Sign        //sign msg
 }
 
+func (c *EncryptNodeMessage) String() {
+	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt, "Nodes", rlpHash(c.Nodes).String(), "Sign", rlpHash(c.Sign).String())
+}
+
 func (c *EncryptNodeMessage) HashWithOutNodes() common.Hash {
 	return RlpHash([]interface{}{
 		c.CreatedAt,
