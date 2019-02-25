@@ -55,7 +55,7 @@ const (
 	committeeIdChanSize = 3
 	sendNodeTime        = 30 * time.Second
 	//subSignStr       = 24
-	maxKnownNodes  = 100
+	maxKnownNodes  = 256
 	fetchBlockTime = 2
 	blockInterval  = 20
 )
