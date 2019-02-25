@@ -56,6 +56,8 @@ const (
 	blockChanSize = 64
 	signChanSize  = 512
 	nodeChanSize  = 256
+	// fruitChanSize is the size of channel listening to NewFruitsEvent.
+	// The number is referenced from the size of snail pool.
 	fruitChanSize = 4096
 	// minimim number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
