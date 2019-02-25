@@ -63,11 +63,11 @@ var (
 	tpsMetrics           = metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
 	pbftConsensusCounter = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 
-	repeatReceivedMetrics                             = metrics.NewRegisteredMeter("etrue/pbftAgent/nodes", nil)
-	nodeSendMetrics                                   = metrics.NewRegisteredMeter("etrue/pbftAgent/nodes", nil)
-	nodeHandleMetrics                                 = metrics.NewRegisteredMeter("etrue/pbftAgent/nodes", nil)
-	handleTimes, sendTimes, repeatReceivedTimes int64 = 0, 0, 0
-	receivedNodeInfo                                  = make(map[common.Hash]struct{})
+	repeatReceivedMetrics = metrics.NewRegisteredCounter("etrue/pbftAgent/repeat", nil)
+	nodeSendMetrics       = metrics.NewRegisteredCounter("etrue/pbftAgent/send", nil)
+	nodeHandleMetrics     = metrics.NewRegisteredCounter("etrue/pbftAgent/handle", nil)
+
+	receivedNodeInfo = make(map[common.Hash]struct{})
 )
 
 var (
@@ -466,22 +466,19 @@ func (agent *PbftAgent) loop() {
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
 			if receivedNodeInfo[cryNodeInfo.Hash()] != (struct{}{}) {
-				log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedTimes)
-				repeatReceivedTimes += 1
-				repeatReceivedMetrics.Mark(repeatReceivedTimes)
+				repeatReceivedMetrics.Inc(1)
+				log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
 				continue
 			}
 			receivedNodeInfo[cryNodeInfo.Hash()] = struct{}{}
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				sendTimes += 1
-				nodeSendMetrics.Mark(sendTimes)
+				nodeSendMetrics.Inc(1)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
-					handleTimes += 1
-					nodeHandleMetrics.Mark(handleTimes)
+					nodeHandleMetrics.Inc(1)
 					agent.handlePbftNode(cryNodeInfo, nodeWork)
 				}
-				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", sendTimes, "handleTimes", handleTimes)
+				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
 			}
 		case ch := <-agent.chainHeadCh:
 			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
