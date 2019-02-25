@@ -42,8 +42,8 @@ const (
 	resultQueueSize  = 10
 	miningLogAtDepth = 5
 
-	// txChanSize is the size of channel listening to NewTxsEvent.
-	// The number is referenced from the size of tx pool.
+	// fruitChanSize is the size of channel listening to NewFruitsEvent.
+	// The number is referenced from the size of snail pool.
 	fruitChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 64
