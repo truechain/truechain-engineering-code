@@ -661,11 +661,11 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 	members = append(members, committeeInfo.Members...)
 	members = append(members, committeeInfo.BackMembers...)
 	for _, member := range members {
-		EncryptCommitteeNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
+		encryptNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
 		if err != nil {
 			log.Error("publickey encrypt node error ", "member.Publickey:", member.Publickey, "err", err)
 		}
-		encryptNodes = append(encryptNodes, EncryptCommitteeNode)
+		encryptNodes = append(encryptNodes, encryptNode)
 	}
 	cryNodeInfo.Nodes = encryptNodes
 
