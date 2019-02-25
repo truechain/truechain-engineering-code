@@ -265,11 +265,12 @@ type Node struct {
 	priv   *ecdsa.PrivateKey // local node's validator key
 
 	// services
-	services map[uint64]*service
-	nodekey  tp2p.NodeKey
-	nodeinfo tp2p.NodeInfo
-	chainID  string
-	lock     *sync.Mutex
+	services   map[uint64]*service
+	nodekey    tp2p.NodeKey
+	nodeinfo   tp2p.NodeInfo
+	chainID    string
+	lock       *sync.Mutex
+	servicePre uint64
 }
 
 // NewNode returns a new, ready to go, truechain Node.
@@ -365,6 +366,13 @@ func (n *Node) Notify(id *big.Int, action int) error {
 			if server.consensusState == nil {
 				panic(0)
 			}
+			//check and delete service
+			if n.servicePre != id.Uint64() {
+				if _, ok := n.services[n.servicePre]; ok {
+					delete(n.services, n.servicePre)
+				}
+				n.servicePre = id.Uint64()
+			}
 			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.start(id, n))
 			log.Info("End start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
@@ -376,7 +384,7 @@ func (n *Node) Notify(id *big.Int, action int) error {
 		if server, ok := n.services[id.Uint64()]; ok {
 			log.Info("Begin stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 			help.CheckAndPrintError(server.stop())
-			delete(n.services, id.Uint64())
+			//delete(n.services, id.Uint64())
 			log.Info("End stop committee", "id", id.Uint64(), "cur", server.consensusState.Height)
 		}
 		return nil
