@@ -27,9 +27,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/event"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/event"
 )
 
 // Reduce some of the parameters to make the tester faster.
@@ -39,11 +39,9 @@ func init() {
 	fsHeaderContCheck = 500 * time.Millisecond
 }
 
-
-
 // newTester creates a new downloader test mocker.
 func newTester() *DownloadTester {
-	testdb := ethdb.NewMemDatabase()
+	testdb := etruedb.NewMemDatabase()
 	genesis := core.GenesisFastBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 
 	tester := &DownloadTester{
@@ -53,22 +51,21 @@ func newTester() *DownloadTester {
 		ownHeaders:        map[common.Hash]*types.Header{genesis.Hash(): genesis.Header()},
 		ownBlocks:         map[common.Hash]*types.Block{genesis.Hash(): genesis},
 		ownReceipts:       map[common.Hash]types.Receipts{genesis.Hash(): nil},
-		ownChainNum:        map[common.Hash]*big.Int{genesis.Hash(): genesis.Number()},
+		ownChainNum:       map[common.Hash]*big.Int{genesis.Hash(): genesis.Number()},
 		peerHashes:        make(map[string][]common.Hash),
 		peerHeaders:       make(map[string]map[common.Hash]*types.Header),
 		peerBlocks:        make(map[string]map[common.Hash]*types.Block),
 		peerReceipts:      make(map[string]map[common.Hash]types.Receipts),
-		peerChainNums:      make(map[string]map[common.Hash]*big.Int),
+		peerChainNums:     make(map[string]map[common.Hash]*big.Int),
 		peerMissingStates: make(map[string]map[common.Hash]bool),
 	}
-	tester.stateDb = ethdb.NewMemDatabase()
+	tester.stateDb = etruedb.NewMemDatabase()
 	tester.stateDb.Put(genesis.Root().Bytes(), []byte{0x00})
 
 	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer)
 
 	return tester
 }
-
 
 // assertOwnChain checks if the local chain contains the correct number of items
 // of the various chain components.
@@ -151,12 +148,12 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	origin := Num
 	height := pNum - Num
 
-	if height <0 {
-		height=0
+	if height < 0 {
+		height = 0
 	}
 
 	// Synchronise with the peer and make sure all relevant data was retrieved
-	if err := tester.sync("peer", nil, mode,origin,height); err != nil {
+	if err := tester.sync("peer", nil, mode, origin, height); err != nil {
 		t.Fatalf("failed to synchronise blocks: %v", err)
 	}
 	assertOwnChain(t, tester, targetBlocks+1)
@@ -190,7 +187,7 @@ func testThrottling(t *testing.T, protocol int, mode SyncMode) {
 	// Start a synchronisation concurrently
 	errc := make(chan error)
 	go func() {
-		errc <- tester.sync("peer", nil, mode,uint64(0),0)
+		errc <- tester.sync("peer", nil, mode, uint64(0), 0)
 	}()
 	// Iteratively take some blocks, always checking the retrieval count
 	for {
@@ -1157,20 +1154,18 @@ func TestDeliverHeadersHang(t *testing.T) {
 	}
 }
 
-
-
 func (ftp *FloodingTestPeer) Head() (common.Hash, *big.Int) { return ftp.peer.Head() }
 func (ftp *FloodingTestPeer) RequestHeadersByHash(hash common.Hash, count int, skip int, reverse bool, isFastchain bool) error {
-	return ftp.peer.RequestHeadersByHash(hash, count, skip, reverse,isFastchain)
+	return ftp.peer.RequestHeadersByHash(hash, count, skip, reverse, isFastchain)
 }
 func (ftp *FloodingTestPeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
-	return ftp.peer.RequestBodies(hashes,isFastchain)
+	return ftp.peer.RequestBodies(hashes, isFastchain)
 }
 func (ftp *FloodingTestPeer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
-	return ftp.peer.RequestReceipts(hashes,isFastchain)
+	return ftp.peer.RequestReceipts(hashes, isFastchain)
 }
 func (ftp *FloodingTestPeer) RequestNodeData(hashes []common.Hash, isFastchain bool) error {
-	return ftp.peer.RequestNodeData(hashes,isFastchain)
+	return ftp.peer.RequestNodeData(hashes, isFastchain)
 }
 
 func (ftp *FloodingTestPeer) RequestHeadersByNumber(from uint64, count, skip int, reverse bool, isFastchain bool) error {
@@ -1186,7 +1181,7 @@ func (ftp *FloodingTestPeer) RequestHeadersByNumber(from uint64, count, skip int
 		}()
 	}
 	// Deliver the actual requested headers.
-	go ftp.peer.RequestHeadersByNumber(from, count, skip, reverse,isFastchain)
+	go ftp.peer.RequestHeadersByNumber(from, count, skip, reverse, isFastchain)
 	// None of the extra deliveries should block.
 	timeout := time.After(60 * time.Second)
 	for i := 0; i < cap(deliveriesDone); i++ {

@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/trie"
 
 	etrue "github.com/truechain/truechain-engineering-code/etrue/types"
@@ -40,7 +40,7 @@ type stateReq struct {
 	tasks    map[common.Hash]*stateTask // Download tasks to track previous attempts
 	timeout  time.Duration              // Maximum round trip time for this to complete
 	timer    *time.Timer                // Timer to fire when the RTT timeout expires
-	peer     etrue.PeerConnection            // Peer that we're requesting from
+	peer     etrue.PeerConnection       // Peer that we're requesting from
 	response [][]byte                   // Response data of the peer (nil for timeouts)
 	dropped  bool                       // Flag whether the peer dropped off early
 }
@@ -71,7 +71,7 @@ func (d *Downloader) SyncState(root common.Hash) *stateSync {
 	return s
 }
 
-func (d *Downloader) SyncStateFd(root common.Hash) etrue.StateSyncInter  {
+func (d *Downloader) SyncStateFd(root common.Hash) etrue.StateSyncInter {
 	s := newStateSync(d, root)
 	select {
 	case d.stateSyncStart <- s:
@@ -145,7 +145,7 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 
 			// Send the next finished request to the current sync:
 		case deliverReqCh <- deliverReq:
-			log.Debug("deliverReqCh ==== ","deliverReq",deliverReq.items[0])
+			log.Debug("deliverReqCh ==== ", "deliverReq", deliverReq.items[0])
 			// Shift out the first request, but also set the emptied slot to nil for GC
 			copy(finished, finished[1:])
 			finished[len(finished)-1] = nil
@@ -270,8 +270,8 @@ func (s *stateSync) run() {
 	close(s.done)
 }
 
-func NewStateSync()  {
-	
+func NewStateSync() {
+
 }
 
 // Wait blocks until the sync is done or canceled.
@@ -343,7 +343,7 @@ func (s *stateSync) loop() (err error) {
 }
 
 func (s *stateSync) commit(force bool) error {
-	if !force && s.bytesUncommitted < ethdb.IdealBatchSize {
+	if !force && s.bytesUncommitted < etruedb.IdealBatchSize {
 		return nil
 	}
 	start := time.Now()
@@ -502,10 +502,10 @@ func (s *stateSync) updateStats(written, duplicate, unexpected int, duration tim
 	}
 }
 
-func (s *stateSync) Done() <- chan struct{} {
+func (s *stateSync) Done() <-chan struct{} {
 	return s.done
 }
 
-func  (s *stateSync) Err() error  {
+func (s *stateSync) Err() error {
 	return s.err
 }

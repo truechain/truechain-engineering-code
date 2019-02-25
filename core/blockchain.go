@@ -26,19 +26,19 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -55,14 +55,14 @@ var (
 )
 
 const (
-	bodyCacheLimit      = 256
-	blockCacheLimit     = 256
-	receiptsCacheLimit  = 32
-	maxFutureBlocks     = 256
-	maxTimeFutureBlocks = 30
-	badBlockLimit       = 10
-	triesInMemory       = 128
-	triesInMemoryDownloader       = 16
+	bodyCacheLimit          = 256
+	blockCacheLimit         = 256
+	receiptsCacheLimit      = 32
+	maxFutureBlocks         = 256
+	maxTimeFutureBlocks     = 30
+	badBlockLimit           = 10
+	triesInMemory           = 128
+	triesInMemoryDownloader = 16
 
 	fastBlockStateInternal = 6
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
@@ -99,43 +99,13 @@ type CacheConfig struct {
 // canonical chain.
 // SnailChain defines a small collection of methods needed to access the local snail block chain.
 // Temporary interface for snail block chain
-type SnailChain interface {
-	// Config retrieves the blockchain's chain configuration.
-	Config() *params.ChainConfig
-
-	// CurrentHeader retrieves the current header from the local chain.
-	CurrentHeader() *types.SnailHeader
-
-	// GetHeader retrieves a block header from the database by hash and number.
-	GetHeader(hash common.Hash, number uint64) *types.SnailHeader
-
-	// GetHeaderByNumber retrieves a block header from the database by number.
-	GetHeaderByNumber(number uint64) *types.SnailHeader
-
-	// GetHeaderByHash retrieves a block header from the database by its hash.
-	GetHeaderByHash(hash common.Hash) *types.SnailHeader
-
-	// CurrentBlock retrieves the current block from the local chain.
-	CurrentBlock() *types.SnailBlock
-
-	// GetBlock retrieves a block from the database by hash and number.
-	GetBlock(hash common.Hash, number uint64) *types.SnailBlock
-
-	// GetBlockByNumber retrieves a snail block from the database by number.
-	GetBlockByNumber(number uint64) *types.SnailBlock
-
-	// GetBlockByHash retrieves a snail block from the database by its hash.
-	GetBlockByHash(hash common.Hash) *types.SnailBlock
-
-	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
-}
 type BlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	cacheConfig *CacheConfig        // Cache configuration for pruning
 
-	db     ethdb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque   // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration  // Accumulates canonical block processing for trie dumping
+	db     etruedb.Database // Low level persistent database to store final content in
+	triegc *prque.Prque     // Priority queue mapping block numbers to tries to gc
+	gcproc time.Duration    // Accumulates canonical block processing for trie dumping
 
 	hc               *HeaderChain
 	sc               SnailChain
@@ -183,7 +153,7 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
-func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig,
+func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 	chainConfig *params.ChainConfig, engine consensus.Engine,
 	vmConfig vm.Config) (*BlockChain, error) {
 
@@ -314,12 +284,10 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 	// Restore the last known currentReward
-
-	rewardHead := rawdb.ReadHeadRewardNumber(bc.db)
-	if rewardHead != 0 {
-		reward := rawdb.ReadBlockReward(bc.db, rewardHead)
-		//reward := bc.GetFastHeightBySnailHeight(rewardHead)
-		bc.currentReward.Store(reward)
+	rewardHead := bc.GetLastRowByFastCurrentBlock()
+	if rewardHead != nil {
+		bc.currentReward.Store(rewardHead)
+		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
 	}
 
 	// Issue a status log for the user
@@ -342,10 +310,27 @@ func (bc *BlockChain) GetLastRow() *types.BlockReward {
 		if sBlock == nil {
 			continue
 		}
-		reward := bc.GetFastHeightBySnailHeight(sBlock.NumberU64())
+		reward := bc.GetBlockReward(sBlock.NumberU64())
 		if reward != nil {
 			return reward
 		}
+	}
+	return nil
+}
+
+func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
+	block := bc.CurrentBlock()
+
+	for i := block.NumberU64(); i > 0; i-- {
+		if block.SnailNumber().Uint64() != 0 {
+			return &types.BlockReward{
+				SnailNumber: block.SnailNumber(),
+				SnailHash:   block.SnailHash(),
+				FastNumber:  block.Number(),
+				FastHash:    block.Hash(),
+			}
+		}
+		block = bc.GetBlockByNumber(i)
 	}
 	return nil
 }
@@ -373,6 +358,8 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.receiptsCache.Purge()
 	bc.blockCache.Purge()
 	bc.futureBlocks.Purge()
+	bc.signCache.Purge()
+	bc.rewardCache.Purge()
 
 	// Rewind the block chain, ensuring we don't end up with a stateless head block
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
@@ -406,6 +393,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	currentFastBlock := bc.CurrentFastBlock()
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
+	rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
 
 	return bc.loadLastState()
 }
@@ -604,7 +592,6 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 // Note, this function assumes that the `mu` mutex is held!
 func (bc *BlockChain) insert(block *types.Block) {
 	// If the block is on a side chain or an unknown one, force other heads onto it too
-	//updateHeads := rawdb.ReadCanonicalHash(bc.db, block.NumberU64()) != block.Hash()
 
 	// Add the block to the canonical chain number scheme and mark as the head
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
@@ -612,12 +599,10 @@ func (bc *BlockChain) insert(block *types.Block) {
 	bc.currentBlock.Store(block)
 
 	// If the block is better than our head or is on a different chain, force update heads
-	//if updateHeads {
 	bc.hc.SetCurrentHeader(block.Header())
 	rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
 	bc.currentFastBlock.Store(block)
-	//}
 }
 
 // Genesis retrieves the chain's genesis block.
@@ -813,7 +798,7 @@ func (bc *BlockChain) Stop() {
 	if !bc.cacheConfig.Disabled {
 		triedb := bc.stateCache.TrieDB()
 
-		for _, offset := range []uint64{0, 1, triesInMemoryDownloader -1, triesInMemory - 1} {
+		for _, offset := range []uint64{0, 1, triesInMemoryDownloader - 1, triesInMemory - 1} {
 			if number := bc.CurrentBlock().NumberU64(); number > offset {
 				recent := bc.GetBlockByNumber(number - offset)
 
@@ -988,7 +973,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 
 		stats.processed++
 
-		if batch.ValueSize() >= ethdb.IdealBatchSize {
+		if batch.ValueSize() >= etruedb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return 0, err
 			}
@@ -1037,9 +1022,6 @@ func (bc *BlockChain) WriteBlockWithoutState(block *types.Block) (err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
-	//if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), td); err != nil {
-	//	return err
-	//}
 	rawdb.WriteBlock(bc.db, block)
 
 	return nil
@@ -1089,7 +1071,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -int64(block.NumberU64()))
-
+		log.Debug("WriteBlockWithState", "current", block.NumberU64())
 		if current := block.NumberU64(); current > triesInMemory {
 			// If we exceeded our memory allowance, flush matured singleton nodes to disk
 			var (
@@ -1097,7 +1079,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 				limit       = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
 			)
 			if nodes > limit || imgs > 4*1024*1024 {
-				triedb.Cap(limit - ethdb.IdealBatchSize)
+				triedb.Cap(limit - etruedb.IdealBatchSize)
 			}
 			// Find the next state trie we need to commit
 			header := bc.GetHeaderByNumber(current - triesInMemory)
@@ -1248,7 +1230,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 	case err == consensus.ErrPrunedAncestor:
 		return bc.insertSidechain(it)
 
-	// First block is future, shove it (and all children) to the future queue (unknown ancestor)
+		// First block is future, shove it (and all children) to the future queue (unknown ancestor)
 	case err == consensus.ErrFutureBlock || (err == consensus.ErrUnknownAncestor && bc.futureBlocks.Contains(it.first().ParentHash())):
 		for block != nil && (it.index == 0 || err == consensus.ErrUnknownAncestor) {
 			if err := bc.addFutureBlock(block); err != nil {
@@ -1262,10 +1244,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		// If there are any still remaining, mark as ignored
 		return it.index, events, coalescedLogs, err
 
-	// First block (and state) is known
-	//   1. We did a roll-back, and should now do a re-import
-	//   2. The block is stored as a sidechain, and is lying about it's stateroot, and passes a stateroot
-	// 	    from the canonical chain, which has not been verified.
+		// First block (and state) is known
+		//   1. We did a roll-back, and should now do a re-import
+		//   2. The block is stored as a sidechain, and is lying about it's stateroot, and passes a stateroot
+		// 	    from the canonical chain, which has not been verified.
 	case err == ErrKnownBlock:
 		// Skip all known blocks that behind us
 		current := bc.CurrentBlock().NumberU64()
@@ -1276,7 +1258,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		}
 		// Falls through to the block import
 
-	// Some other error occurred, abort
+		// Some other error occurred, abort
 	case err != nil:
 		stats.ignored += len(it.chain)
 		bc.reportBlock(block, nil, err)
@@ -1418,7 +1400,7 @@ func (bc *BlockChain) insertSidechain(it *insertIterator) (int, []interface{}, [
 			}
 			log.Debug("Inserted sidechain block", "number", block.Number(), "hash", block.Hash(),
 				"elapsed", common.PrettyDuration(time.Since(start)),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "uncles", len(block.Uncles()),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(),
 				"root", block.Root())
 		}
 	}
@@ -1604,7 +1586,6 @@ func (bc *BlockChain) PostChainEvents(events []interface{}, logs []*types.Log) {
 		switch ev := event.(type) {
 		case types.ChainFastEvent:
 			bc.chainFeed.Send(ev)
-
 		case types.ChainFastHeadEvent:
 			bc.chainHeadFeed.Send(ev)
 		case types.ChainFastSideEvent:
@@ -1622,7 +1603,10 @@ func (bc *BlockChain) update() {
 		case <-futureTimer.C:
 			if bc.cacheConfig.Deleted {
 				number := bc.cacheConfig.HeightGcState.Load().(uint64)
-				bc.stateGcBodyAndReceipt(number)
+				level := number / blockDeleteHeight
+				if bc.GetBlockNumber() > number+blockDeleteHeight*(level+1)+blockDeleteLimite {
+					go bc.stateGcBodyAndReceipt(number)
+				}
 			}
 			bc.procFutureBlocks()
 		case <-bc.quit:
@@ -1836,18 +1820,24 @@ func (bc *BlockChain) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscript
 	return bc.scope.Track(bc.logsFeed.Subscribe(ch))
 }
 
-func (bc *BlockChain) GetFastHeightBySnailHeight(snumber uint64) *types.BlockReward {
+func (bc *BlockChain) GetBlockReward(snumber uint64) *types.BlockReward {
 
-	if rewards, ok := bc.rewardCache.Get(snumber); ok {
-		return rewards.(*types.BlockReward)
-	}
-	rewards := rawdb.ReadBlockReward(bc.db, snumber)
-
-	if rewards == nil {
+	if rewards_, ok := bc.rewardCache.Get(snumber); ok {
+		rewards := rewards_.(*types.BlockReward)
+		if bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
+			return rewards
+		}
 		return nil
 	}
-	bc.rewardCache.Add(snumber, rewards)
-	return rewards
+
+	rewards := rawdb.ReadBlockReward(bc.db, snumber)
+
+	if rewards != nil && bc.CurrentBlock().NumberU64() >= rewards.FastNumber.Uint64() {
+		bc.rewardCache.Add(snumber, rewards)
+		return rewards
+	}
+
+	return nil
 }
 
 func (bc *BlockChain) GetBlockNumber() uint64 {

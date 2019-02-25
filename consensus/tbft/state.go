@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"reflect"
+	"runtime/debug"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
-	"reflect"
-	"runtime/debug"
-	"sync"
-	"time"
 )
 
 //-----------------------------------------------------------------------------
@@ -306,6 +307,7 @@ func (cs *ConsensusState) UpdateValidatorsSet(vset *ttypes.ValidatorSet, uHeight
 	go func() {
 		cs.internalMsgQueue <- msgInfo{&ValidatorUpdateMessage{vset, uHeight, eHeight}, ""}
 	}()
+
 }
 
 // AddProposalBlockPart inputs a part of the proposal block. not used
@@ -490,8 +492,11 @@ func (cs *ConsensusState) newStep() {
 func (cs *ConsensusState) validatorUpdate(msg *ValidatorUpdateMessage) {
 	log.Info("ValidatorUpdate", "uHeight", msg.uHeight, "eHeight", msg.eHeight, "cHeight", cs.Height, "Round", cs.Round)
 	round, oldHeight := cs.Round, cs.Height
-
-	help.CheckAndPrintError(cs.state.UpdateValidator(msg.vset))
+	//clear svs
+	if len(cs.svs) > 0 {
+		cs.svs = append(cs.svs[:0], cs.svs[1:]...)
+	}
+	help.CheckAndPrintError(cs.state.UpdateValidator(msg.vset, true))
 	cs.updateToState(cs.state)
 	cs.state.PrivReset()
 	cs.state.SetEndHeight(msg.eHeight)
@@ -698,13 +703,15 @@ func (cs *ConsensusState) enterNewRound(height uint64, round int) {
 		validators = validators.Copy()
 		validators.IncrementAccum(uint(round - int(cs.Round)))
 	}
-
 	// Setup new round
 	// we don't fire newStep for this step,
 	// but we fire an event, so update the round step first
 	cs.updateRoundStep(round, ttypes.RoundStepNewRound)
 	cs.Validators = validators
+	//cs.state.UpdateValidator(cs.Validators, false)
 	if round == 0 {
+		addr := cs.state.GetLastValidatorAddress()
+		cs.Validators.FindValidatorSetProposer(addr)
 		// We've already reset these upon new height,
 		// and meanwhile we might have received a proposal
 		// for round 0.
@@ -1271,6 +1278,8 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 	// NOTE The block.AppHash wont reflect these txs until the next block.
 	var err error
 	block.SetSign(signs)
+
+	cs.swithResult(block)
 	err = cs.state.ConsensusCommit(block)
 	if err != nil {
 		log.Error("Error on ApplyBlock. Did the application crash? Please restart getrue", "err", err)
@@ -1292,7 +1301,6 @@ func (cs *ConsensusState) finalizeCommit(height uint64) {
 		log.Info("Calling finalizeCommit on already stored block", "height", block.NumberU64())
 	}
 
-	cs.swithResult(block)
 	// NewHeightStep!
 	cs.updateToState(cs.state)
 
@@ -1647,6 +1655,7 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 			round := int(cs.Round)
 			if round > s.Round || s.Round == -1 {
 				v := cs.pickSwitchValidator(s, true)
+				v.From = 1
 				cs.notifyHealthMgr(v)
 			}
 		}
@@ -1686,7 +1695,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	}
 	sv = cs.pickSwitchValidator(sv, false)
 	cs.notifyHealthMgr(sv)
-	log.Info("Switch Result,SetEndHeight", "EndHight", block.NumberU64())
+	log.Info("SwitchResultFinish", "EndHight", block.NumberU64())
 }
 func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 	go func() {
@@ -1749,7 +1758,7 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	if len(block.SwitchInfos().Vals) == 0 {
 		res = true
 	}
-	log.Info("validateBlock", "res", res)
+	log.Info("validateBlock", "res", res, "info", block.SwitchInfos())
 	return cs.state.ValidateBlock(block, res)
 }
 
@@ -1772,4 +1781,3 @@ func CompareHRS(h1 uint64, r1 uint, s1 ttypes.RoundStepType, h2 uint64, r2 uint,
 	}
 	return 0
 }
-

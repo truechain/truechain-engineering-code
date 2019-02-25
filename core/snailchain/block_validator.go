@@ -68,7 +68,7 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 
 //ValidateRewarded verify whether the block has been rewarded.
 func (v *BlockValidator) ValidateRewarded(number uint64) error {
-	if br := v.fastchain.GetFastHeightBySnailHeight(number); br != nil {
+	if br := v.fastchain.GetBlockReward(number); br != nil {
 		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "fast number", br.FastNumber, "fast hash", br.FastHash)
 		return ErrRewardedBlock
 	}
@@ -120,7 +120,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 			return ErrInvalidFruits
 		}
 		if err := v.ValidateFruit(fruit, block, false); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "err", err)
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
 			return err
 		}
 

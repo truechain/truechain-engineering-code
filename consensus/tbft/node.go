@@ -5,6 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
@@ -14,10 +20,6 @@ import (
 	ttypes "github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	cfg "github.com/truechain/truechain-engineering-code/params"
-	"math/big"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 type service struct {
@@ -32,6 +34,7 @@ type service struct {
 	addrBook         pex.AddrBook     // known peers
 	healthMgr        *ttypes.HealthMgr
 	selfID           tp2p.ID
+	singleCon        int32
 }
 
 type nodeInfo struct {
@@ -65,6 +68,7 @@ func newNodeService(p2pcfg *cfg.P2PConfig, cscfg *cfg.ConsensusConfig, state *tt
 		// Note we currently use the addrBook regardless at least for AddOurAddress
 		addrBook:  pex.NewAddrBook(p2pcfg.AddrBookFile(), p2pcfg.AddrBookStrict),
 		healthMgr: ttypes.NewHealthMgr(cid),
+		singleCon: 0,
 	}
 }
 
@@ -85,6 +89,11 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	//	return err
 	//}
 	// Create & add listener
+	if s.sw.IsRunning() {
+		log.Warn("service is running")
+		return errors.New("service is running")
+	}
+
 	lstr := node.config.P2P.ListenAddress2
 	if cid.Uint64()%2 == 0 {
 		lstr = node.config.P2P.ListenAddress1
@@ -112,6 +121,7 @@ func (s *service) start(cid *big.Int, node *Node) error {
 	s.consensusState.SetPrivValidator(privValidator)
 	s.sa.SetPrivValidator(privValidator)
 	// Start the switch (the P2P server).
+	help.CheckAndPrintError(s.healthMgr.OnStart())
 	err := s.sw.Start()
 	if err != nil {
 		return err
@@ -121,7 +131,9 @@ func (s *service) start(cid *big.Int, node *Node) error {
 			select {
 			case update := <-s.updateChan:
 				if update {
-					s.updateNodes()
+					if swap := atomic.CompareAndSwapInt32(&s.singleCon, 0, 1); swap {
+						go s.updateNodes()
+					}
 				} else {
 					return // exit
 				}
@@ -168,15 +180,21 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
-			log.Info("Enter NodeInfo", "id", id, "addr", addr)
-			v.Adrress, v.IP, v.Port = addr, node.IP, port
-			update = true
+			log.Debug("Enter NodeInfo", "id", id, "addr", addr)
+			v.Adrress = addr
+			if v.IP != node.IP || v.Port != port {
+				v.IP, v.Port = node.IP, port
+				update = true
+			}
 		}
 		s.healthMgr.UpdataHealthInfo(id, node.IP, port, node.Publickey)
 	}
 	log.Debug("PutNodes", "id", cid, "msg", strings.Join(nodeString, "\n"))
 	if update && s.nodesHaveSelf() { //} ((s.sa.Priv != nil && s.consensusState.Validators.HasAddress(s.sa.Priv.GetAddress())) || s.sa.Priv == nil) {
-		go func() { s.updateChan <- true }()
+		select {
+		case s.updateChan <- true:
+		default:
+		}
 	}
 }
 
@@ -194,6 +212,8 @@ func pkToP2pID(pk *ecdsa.PublicKey) tp2p.ID {
 func (s *service) updateNodes() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
+	defer atomic.StoreInt32(&s.singleCon, 0)
+
 	for _, v := range s.nodeTable {
 		if v != nil {
 			if s.canConn(v) {
@@ -245,11 +265,12 @@ type Node struct {
 	priv   *ecdsa.PrivateKey // local node's validator key
 
 	// services
-	services map[uint64]*service
-	nodekey  tp2p.NodeKey
-	nodeinfo tp2p.NodeInfo
-	chainID  string
-	lock     *sync.Mutex
+	services   map[uint64]*service
+	nodekey    tp2p.NodeKey
+	nodeinfo   tp2p.NodeInfo
+	chainID    string
+	lock       *sync.Mutex
+	servicePre uint64
 }
 
 // NewNode returns a new, ready to go, truechain Node.
@@ -283,6 +304,7 @@ func NewNode(config *cfg.TbftConfig, chainID string, priv *ecdsa.PrivateKey,
 // OnStart starts the Node. It implements help.Service.
 func (n *Node) OnStart() error {
 	n.nodeinfo = n.makeNodeInfo()
+	help.BeginWatchMgr()
 	return nil
 }
 
@@ -295,6 +317,7 @@ func (n *Node) OnStop() {
 		help.CheckAndPrintError(v.stop())
 		log.Info("end stop tbft server ", "id", i)
 	}
+	help.EndWatchMgr()
 	// first stop the non-reactor services
 	// now stop the reactors
 	// TODO: gracefully disconnect from peers.
@@ -342,6 +365,13 @@ func (n *Node) Notify(id *big.Int, action int) error {
 		if server, ok := n.services[id.Uint64()]; ok {
 			if server.consensusState == nil {
 				panic(0)
+			}
+			//check and delete service
+			if n.servicePre != id.Uint64() {
+				if _, ok := n.services[n.servicePre]; ok {
+					delete(n.services, n.servicePre)
+				}
+				n.servicePre = id.Uint64()
 			}
 			log.Info("Begin start committee", "id", id.Uint64(), "cur", server.consensusState.Height, "stop", server.sa.EndHeight)
 			help.CheckAndPrintError(server.start(id, n))
@@ -394,7 +424,6 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 
 	n.AddHealthForCommittee(service.healthMgr, committeeInfo)
 
-	help.CheckAndPrintError(service.healthMgr.OnStart())
 	service.consensusState.SetHealthMgr(service.healthMgr)
 	nodeInfo := makeCommitteeMembers(service, committeeInfo)
 
@@ -416,6 +445,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 }
 
 func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo) {
+
 	for _, v := range c.Members {
 		id := pkToP2pID(v.Publickey)
 		//exclude self
@@ -431,7 +461,11 @@ func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo
 	for _, v := range c.BackMembers {
 		id := pkToP2pID(v.Publickey)
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
-		health := ttypes.NewHealth(id, v.MType, v.Flag, val, false)
+		self := false
+		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+			self = true
+		}
+		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
 		h.PutBackHealth(health)
 	}
 }
@@ -468,6 +502,8 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 
 // UpdateCommittee update the committee info from agent when the members was changed
 func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	log.Info("UpdateCommittee", "info", info)
 	if service, ok := n.services[info.Id.Uint64()]; ok {
 		//update validator

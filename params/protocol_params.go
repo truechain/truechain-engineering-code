@@ -19,13 +19,16 @@ package params
 import "math/big"
 
 var (
-	TargetGasLimit = GenesisGasLimit // The artificial target
+	// TargetGasLimit is the artificial target
+	TargetGasLimit = GenesisGasLimit
 )
 
 const (
-	GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
-	MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
-	GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
+	//GasLimitBoundDivisor uint64 = 1024 // The bound divisor of the gas limit, used in update calculations.
+	GasLimitBoundDivisor uint64 = 100  // The bound divisor of the gas limit, used in update calculations.
+	MinGasLimit          uint64 = 5000 // Minimum the gas limit may ever be.
+	//GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
+	GenesisGasLimit uint64 = 10000000 // Gas limit of the Genesis block.
 
 	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
 	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.
@@ -108,5 +111,6 @@ var (
 	ElectionFruitsThreshold uint64 = 100 // fruit size threshold for committee election
 
 	MaximumCommitteeNumber = big.NewInt(50)
-	MinimumCommitteeNumber = 4
+	ProposalCommitteeNumber = 21
+	MinimumCommitteeNumber = 7
 )

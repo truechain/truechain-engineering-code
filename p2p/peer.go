@@ -26,10 +26,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/mclock"
-	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/p2p/discover"
 )
 
 var (
@@ -231,8 +231,11 @@ loop:
 	}
 
 	close(p.closed)
+	log.Debug("ping loop end", "name", p.Name(), "running", len(p.running))
 	p.rw.close(reason)
+	log.Debug("RLPX end", "name", p.Name(), "RemoteAddr", p.RemoteAddr())
 	p.wg.Wait()
+	log.Info("WaitGroup end", "name", p.Name(), "err", err, "remoteRequested", remoteRequested, "RemoteAddr", p.RemoteAddr())
 	return remoteRequested, err
 }
 
@@ -249,6 +252,7 @@ func (p *Peer) pingLoop() {
 			}
 			ping.Reset(pingInterval)
 		case <-p.closed:
+			log.Debug("ping loop closed", "name", p.Name())
 			return
 		}
 	}
@@ -259,11 +263,13 @@ func (p *Peer) readLoop(errc chan<- error) {
 	for {
 		msg, err := p.rw.ReadMsg()
 		if err != nil {
+			log.Debug("Read loop read msg", "name", p.Name(), "err", err)
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
 		if err = p.handle(msg); err != nil {
+			log.Debug("Read loop handle", "name", p.Name(), "err", err)
 			errc <- err
 			return
 		}
@@ -357,6 +363,9 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 			} else if err != io.EOF {
 				p.log.Trace(fmt.Sprintf("Protocol %s/%d failed", proto.Name, proto.Version), "err", err)
 			}
+
+			log.Debug("Start protocols end", "name", p.Name(), "err", err, "RemoteAddr", p.RemoteAddr())
+
 			p.protoErr <- err
 			p.wg.Done()
 		}()
@@ -409,7 +418,7 @@ func (rw *protoRW) ReadMsg() (Msg, error) {
 		msg.Code -= rw.offset
 		return msg, nil
 	case <-rw.closed:
-		return Msg{}, io.EOF
+		return Msg{}, errors.New("remote shutting down")
 	}
 }
 

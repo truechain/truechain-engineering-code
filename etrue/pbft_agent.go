@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/big"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
+	"gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -47,18 +49,24 @@ const (
 	nextCommittee           //next committee
 )
 const (
-	chainHeadSize    = 256
-	electionChanSize = 64
-	sendNodeTime     = 30 * time.Second
+	chainHeadSize       = 256
+	electionChanSize    = 64
+	nodeSize            = 10
+	committeeIdChanSize = 3
+	sendNodeTime        = 1 * time.Minute
 	//subSignStr       = 24
-
-	fetchBlockTime = 5
+	maxKnownNodes  = 256
+	fetchBlockTime = 2
 	blockInterval  = 20
 )
 
 var (
 	tpsMetrics           = metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
 	pbftConsensusCounter = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
+
+	repeatReceivedMetrics = metrics.NewRegisteredCounter("etrue/pbftAgent/repeat", nil)
+	nodeSendMetrics       = metrics.NewRegisteredCounter("etrue/pbftAgent/send", nil)
+	nodeHandleMetrics     = metrics.NewRegisteredCounter("etrue/pbftAgent/handle", nil)
 )
 
 var (
@@ -75,6 +83,7 @@ type Backend interface {
 	SnailBlockChain() *snailchain.SnailBlockChain
 	TxPool() *core.TxPool
 	Config() *Config
+	Etherbase() (etherbase common.Address, err error)
 }
 
 // PbftAgent receive events from election and communicate with pbftServer
@@ -119,7 +128,11 @@ type PbftAgent struct {
 	cacheBlock map[*big.Int]*types.Block //prevent receive same block
 	singleNode bool
 
-	nodeInfoWorks []*nodeInfoWork
+	nodeInfoWorks      []*nodeInfoWork
+	knownRecievedNodes *set.Set
+
+	gasFloor uint64
+	gasCeil  uint64
 }
 
 // AgentWork is the leader current environment and holds
@@ -140,36 +153,43 @@ type AgentWork struct {
 }
 
 // NewPbftAgent creates a new pbftAgent ,receive events from election and communicate with pbftServer
-func NewPbftAgent(eth Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election, coinbase common.Address) *PbftAgent {
+func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.Engine, election *elect.Election, gasFloor, gasCeil uint64) *PbftAgent {
 	agent := &PbftAgent{
 		config:               config,
 		engine:               engine,
-		eth:                  eth,
-		fastChain:            eth.BlockChain(),
-		snailChain:           eth.SnailBlockChain(),
+		eth:                  etrue,
+		fastChain:            etrue.BlockChain(),
+		snailChain:           etrue.SnailBlockChain(),
 		currentCommitteeInfo: new(types.CommitteeInfo),
 		nextCommitteeInfo:    new(types.CommitteeInfo),
-		committeeIds:         make([]*big.Int, 3),
+		committeeIds:         make([]*big.Int, committeeIdChanSize),
 		endFastNumber:        make(map[*big.Int]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan types.ChainFastHeadEvent, chainHeadSize),
-		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage),
+		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage, nodeSize),
 		election:             election,
 		mux:                  new(event.TypeMux),
 		mu:                   new(sync.Mutex),
 		cacheBlockMu:         new(sync.Mutex),
 		cacheBlock:           make(map[*big.Int]*types.Block),
-		vmConfig:             vm.Config{EnablePreimageRecording: eth.Config().EnablePreimageRecording},
+		vmConfig:             vm.Config{EnablePreimageRecording: etrue.Config().EnablePreimageRecording},
+		gasFloor:             gasFloor,
+		gasCeil:              gasCeil,
+		knownRecievedNodes:   set.New(),
 	}
-	agent.initNodeInfo(eth.Config(), coinbase)
+	agent.initNodeInfo(etrue)
 	if !agent.singleNode {
 		agent.subScribeEvent()
 	}
+	log.Info("new pbftAgent", "gasFloor", gasFloor, "gasCeil", gasCeil)
 	return agent
 }
 
 //initialize node info
-func (agent *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
+func (agent *PbftAgent) initNodeInfo(etrue Backend) {
+	//config *Config, coinbase common.Address
+	config := etrue.Config()
+	coinbase, _ := etrue.Etherbase()
 	agent.initNodeWork()
 	agent.singleNode = config.NodeType
 	agent.privateKey = config.PrivateKey
@@ -180,18 +200,18 @@ func (agent *PbftAgent) initNodeInfo(config *Config, coinbase common.Address) {
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&agent.privateKey.PublicKey),
 	}
-	//if singlenode start, node as committeeMember
+	//if singlenode start, self as committeeMember
 	if agent.singleNode {
 		committees := agent.election.GetGenesisCommittee()
 		if len(committees) != 1 {
-			log.Error("singlenode start,must assign genesis_single.json")
+			log.Error("singlenode start,must init genesis_single.json")
 		}
 		agent.committeeNode.Coinbase = committees[0].Coinbase
 		agent.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
 	}
 	log.Info("InitNodeInfo", "singleNode", agent.singleNode,
 		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
-		", coinbase", agent.committeeNode.Coinbase,
+		", coinbase", agent.committeeNode.Coinbase.String(),
 		",pubKey", hex.EncodeToString(agent.committeeNode.Publickey))
 }
 
@@ -210,6 +230,14 @@ func (agent *PbftAgent) initNodeWork() {
 		tag:           2,
 	}
 	agent.nodeInfoWorks = append(agent.nodeInfoWorks, nodeWork1, nodeWork2)
+}
+
+func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
+	if agent.nodeInfoWorks[0].isCurrent {
+		return agent.nodeInfoWorks[0].isCommitteeMember
+	} else {
+		return agent.nodeInfoWorks[1].isCommitteeMember
+	}
 }
 
 //Start means receive events from election and send pbftNode infomation
@@ -249,11 +277,11 @@ func (agent *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 		agent.nodeInfoWorks[0].isCurrent = false
 		agent.nodeInfoWorks[1].isCurrent = true
 		return agent.nodeInfoWorks[1]
+	} else {
+		agent.nodeInfoWorks[0].isCurrent = true
+		agent.nodeInfoWorks[1].isCurrent = false
+		return agent.nodeInfoWorks[0]
 	}
-	agent.nodeInfoWorks[0].isCurrent = true
-	agent.nodeInfoWorks[1].isCurrent = false
-	return agent.nodeInfoWorks[0]
-
 }
 
 func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
@@ -272,7 +300,7 @@ func (agent *PbftAgent) stopSend() {
 		log.Info("nodeWork ticker stop", "committeeId", nodeWork.committeeInfo.Id)
 		nodeWork.ticker.Stop() //stop ticker send nodeInfo
 	}
-	//clear nodeWork
+	//load nodeWork
 	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
 }
 
@@ -333,8 +361,8 @@ func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, no
 	agent.receivePbftNode(cryNodeInfo)
 }
 
-func (agent *PbftAgent) verifyCommitteeID(electionType uint, committeeID *big.Int) bool {
-	switch electionType {
+func (agent *PbftAgent) verifyCommitteeID(electionEventType uint, committeeID *big.Int) bool {
+	switch electionEventType {
 	case types.CommitteeStart:
 		log.Debug("CommitteeStart...", "Id", committeeID)
 		if agent.committeeIds[1] == committeeID {
@@ -372,16 +400,16 @@ func (agent *PbftAgent) loop() {
 					continue
 				}
 				agent.setCommitteeInfo(currentCommittee, agent.nextCommitteeInfo)
-				if agent.IsCommitteeMember(agent.currentCommitteeInfo) {
-					go agent.server.Notify(committeeID, int(ch.Option))
+				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 			case types.CommitteeStop:
 				committeeID := copyCommitteeID(ch.CommitteeID)
 				if !agent.verifyCommitteeID(ch.Option, committeeID) {
 					continue
 				}
-				if agent.IsCommitteeMember(agent.currentCommitteeInfo) {
-					go agent.server.Notify(committeeID, int(ch.Option))
+				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
 				}
 				agent.stopSend()
 			case types.CommitteeSwitchover:
@@ -400,14 +428,16 @@ func (agent *PbftAgent) loop() {
 				}
 				agent.setCommitteeInfo(nextCommittee, receivedCommitteeInfo)
 
-				if agent.IsCommitteeMember(receivedCommitteeInfo) {
+				if agent.IsUsedOrUnusedMember(receivedCommitteeInfo, agent.committeeNode.Publickey) {
 					agent.startSend(receivedCommitteeInfo, true)
-					agent.server.PutCommittee(receivedCommitteeInfo)
-					agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode})
+					help.CheckAndPrintError(agent.server.PutCommittee(receivedCommitteeInfo))
+					help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
 				}
+				//receivedNodeInfo = make(map[common.Hash]struct{})
 			case types.CommitteeUpdate:
+				committeeID := copyCommitteeID(ch.CommitteeID)
 				receivedCommitteeInfo := &types.CommitteeInfo{
 					Id:          ch.CommitteeID,
 					StartHeight: ch.BeginFastNumber,
@@ -415,25 +445,42 @@ func (agent *PbftAgent) loop() {
 					Members:     ch.CommitteeMembers,
 					BackMembers: ch.BackupMembers,
 				}
-				if agent.IsCommitteeMember(receivedCommitteeInfo) {
-					agent.server.UpdateCommittee(receivedCommitteeInfo)
+				agent.updateCommittee(receivedCommitteeInfo)
+				flag := agent.getMemberFlagFromCommittee(receivedCommitteeInfo)
+				//help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
+				// used start  removed  stop
+				if flag == types.StateRemovedFlag {
+					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
+					agent.stopSend()
+				} else if flag == types.StateUsedFlag {
+					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStart)))
+					help.CheckAndPrintError(agent.server.UpdateCommittee(receivedCommitteeInfo))
 				}
 			case types.CommitteeOver:
 				log.Debug("CommitteeOver...", "CommitteeID", ch.CommitteeID, "EndFastNumber", ch.EndFastNumber)
 				committeeID := copyCommitteeID(ch.CommitteeID)
 				agent.endFastNumber[committeeID] = ch.EndFastNumber
-				agent.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64())
+				help.CheckAndPrintError(agent.server.SetCommitteeStop(committeeID, ch.EndFastNumber.Uint64()))
 			default:
 				log.Warn("unknown election option:", "option", ch.Option)
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
+			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
+				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+				repeatReceivedMetrics.Inc(1)
+				//log.Debug("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
+				continue
+			}
+			agent.MarkNodeInfo(cryNodeInfo.Hash())
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID)
+				nodeSendMetrics.Inc(1)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
+					nodeHandleMetrics.Inc(1)
 					agent.handlePbftNode(cryNodeInfo, nodeWork)
 				}
+				//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
 			}
 		case ch := <-agent.chainHeadCh:
 			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
@@ -570,11 +617,11 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
 
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
-		agent.election.IsCommitteeMember(members1, pubKeyByte) {
+		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0]
 	}
 	if committeeID2 != nil && committeeID2.Cmp(encryptNode.CommitteeID) == 0 &&
-		agent.election.IsCommitteeMember(members2, pubKeyByte) {
+		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[1].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[1]
 	}
 	return false, nil
@@ -609,12 +656,15 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 		log.Error("EncodeToBytes error: ", "err", err)
 	}
 	var encryptNodes []types.EncryptCommitteeNode
-	for _, member := range committeeInfo.Members {
-		EncryptCommitteeNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
+	var members []*types.CommitteeMember
+	members = append(members, committeeInfo.Members...)
+	members = append(members, committeeInfo.BackMembers...)
+	for _, member := range members {
+		encryptNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
 		if err != nil {
 			log.Error("publickey encrypt node error ", "member.Publickey:", member.Publickey, "err", err)
 		}
-		encryptNodes = append(encryptNodes, EncryptCommitteeNode)
+		encryptNodes = append(encryptNodes, encryptNode)
 	}
 	cryNodeInfo.Nodes = encryptNodes
 
@@ -641,7 +691,7 @@ func (agent *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
 	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
 	if committeeNode != nil {
-		agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode})
+		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
 }
 
@@ -658,6 +708,10 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 		}
 	}
 	return nil
+}
+
+func (agent *PbftAgent) GetFastLastProposer() common.Address {
+	return agent.fastChain.CurrentBlock().Proposer()
 }
 
 //FetchFastBlock  generate fastBlock as leader
@@ -687,7 +741,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     parentNumber.Add(parentNumber, common.Big1),
-		GasLimit:   core.FastCalcGasLimit(parent),
+		GasLimit:   core.FastCalcGasLimit(parent, agent.gasFloor, agent.gasCeil),
 		Time:       big.NewInt(tstamp),
 	}
 	if infos != nil {
@@ -1000,7 +1054,7 @@ func (agent *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) e
 	}
 	work := &AgentWork{
 		config:    agent.config,
-		signer:    types.NewEIP155Signer(agent.config.ChainID),
+		signer:    types.NewTIP1Signer(agent.config.ChainID),
 		state:     state,
 		header:    header,
 		createdAt: time.Now(),
@@ -1115,9 +1169,56 @@ func (agent *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) ev
 	return agent.scope.Track(agent.nodeInfoFeed.Subscribe(ch))
 }
 
+//IsCommitteeMember  whether publickey in  committee member
+func (agent *PbftAgent) updateCommittee(receivedCommitteeInfo *types.CommitteeInfo) {
+	//update currentCommitteeInfo
+	receivedId := receivedCommitteeInfo.Id
+	if receivedId == nil {
+		log.Error("updateCommittee receivedId is nil")
+		return
+	}
+	if receivedId.Uint64() == agent.currentCommitteeInfo.Id.Uint64() {
+		agent.currentCommitteeInfo = receivedCommitteeInfo
+	} else {
+		log.Error("updateCommittee error ", "cId", receivedId, "nId", agent.nextCommitteeInfo.Id,
+			"receivedId", receivedCommitteeInfo.Id)
+	}
+	//update nodeInfoWorks
+	if agent.nodeInfoWorks[0].committeeInfo.Id != nil && receivedId.Uint64() == agent.nodeInfoWorks[0].committeeInfo.Id.Uint64() {
+		agent.nodeInfoWorks[0].committeeInfo = receivedCommitteeInfo
+	} else if agent.nodeInfoWorks[1].committeeInfo.Id != nil && receivedId.Uint64() == agent.nodeInfoWorks[1].committeeInfo.Id.Uint64() {
+		agent.nodeInfoWorks[1].committeeInfo = receivedCommitteeInfo
+	} else {
+		log.Error("update nodeInfoWorks committeeInfo error ", "cId", agent.currentCommitteeInfo.Id, "nId", agent.nextCommitteeInfo.Id,
+			"receivedId", receivedId)
+	}
+}
+
+//IsCommitteeMember  whether publickey in  committee member
+func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo, publickey []byte) bool {
+	var members []*types.CommitteeMember
+	members = append(members, committeeInfo.Members...)
+	members = append(members, committeeInfo.BackMembers...)
+	flag := agent.election.GetMemberFlag(members, publickey)
+	if flag == types.StateUsedFlag || flag == types.StateUnusedFlag {
+		return true
+	} else {
+		return false
+	}
+}
+
 //IsCommitteeMember  whether agent in  committee member
-func (agent *PbftAgent) IsCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
-	return agent.election.IsCommitteeMember(committeeInfo.Members, agent.committeeNode.Publickey)
+func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.CommitteeInfo) int32 {
+	var members []*types.CommitteeMember
+	members = append(members, committeeInfo.Members...)
+	members = append(members, committeeInfo.BackMembers...)
+	return agent.election.GetMemberFlag(members, agent.committeeNode.Publickey)
+}
+
+//IsCommitteeMember  whether agent in  committee member
+func (agent *PbftAgent) isCommitteeMember(committeeInfo *types.CommitteeInfo) bool {
+	flag := agent.getMemberFlagFromCommittee(committeeInfo)
+	return flag == types.StateUsedFlag
 }
 
 // VerifyCommitteeSign verify sign of node is in committee
@@ -1193,7 +1294,13 @@ func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	return agent.election.IsCommitteeMember(committeeMembers, agent.committeeNode.Publickey)
 }
 
-//func GetSigns(committees []*types.CommitteeMember,fb *types.Block) []
+func (agent *PbftAgent) MarkNodeInfo(hash common.Hash) {
+	// If we reached the memory allowance, drop a previously known transaction hash
+	for agent.knownRecievedNodes.Size() >= maxKnownNodes {
+		agent.knownRecievedNodes.Pop()
+	}
+	agent.knownRecievedNodes.Add(hash)
+}
 
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")

@@ -33,8 +33,8 @@ import (
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/trie"
@@ -58,8 +58,8 @@ type downloadTester struct {
 	fdownloader *fastdownloader.Downloader
 	ftester     *fastdownloader.DownloadTester
 	genesis     *types.SnailBlock // Genesis blocks used by the tester and peers
-	stateDb     ethdb.Database    // Database used by the tester for syncing from peers
-	peerDb      ethdb.Database    // Database of the peers containing all data
+	stateDb     etruedb.Database  // Database used by the tester for syncing from peers
+	peerDb      etruedb.Database  // Database of the peers containing all data
 
 	ownHashes  []common.Hash                      // Hash chain belonging to the tester
 	ownHeaders map[common.Hash]*types.SnailHeader // Headers belonging to the tester
@@ -80,7 +80,7 @@ type downloadTester struct {
 
 // newTester creates a new downloader test mocker.
 func newTester() *downloadTester {
-	testdb := ethdb.NewMemDatabase()
+	testdb := etruedb.NewMemDatabase()
 	genesis := core.GenesisSnailBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 
 	tester := &downloadTester{
@@ -98,7 +98,7 @@ func newTester() *downloadTester {
 		peerMissingStates: make(map[string]map[common.Hash]bool),
 	}
 
-	tester.stateDb = ethdb.NewMemDatabase()
+	tester.stateDb = etruedb.NewMemDatabase()
 
 	tester.ftester = fastdownloader.NewTester(testdb)
 	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer, tester.ftester.GetDownloader())

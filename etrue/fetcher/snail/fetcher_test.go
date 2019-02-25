@@ -31,7 +31,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -41,7 +41,7 @@ var (
 )
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
 	engine.SetElection(election.NewFakeElection())
 	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
@@ -56,7 +56,7 @@ func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Data
 // reassembly.
 func makeChain(n int) ([]*types.SnailBlock, *types.SnailBlock) {
 	var (
-		testdb  = ethdb.NewMemDatabase()
+		testdb  = etruedb.NewMemDatabase()
 		genesis = core.DefaultGenesisBlock()
 		engine  = minerva.NewFaker()
 		// genesis = new(core.Genesis).MustSnailCommit(testdb)
@@ -71,7 +71,7 @@ func makeChain(n int) ([]*types.SnailBlock, *types.SnailBlock) {
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{})
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
 
 	blocks1, _ := snailchain.MakeSnailBlockFruitsWithoutInsert(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, nil)
 

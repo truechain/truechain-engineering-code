@@ -253,6 +253,10 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		lru.futureItem = future
 	}
 
+	//return item, lru.futureItem
+	if (epoch + 1) != lru.future {
+		return item, nil
+	}
 	return item, lru.futureItem
 }
 
@@ -375,7 +379,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	// when change the algorithm before 12000*n
 	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
 		go func() {
-			log.Info("start to create a future dataset")
+			//log.Info("start to create a future dataset")
 			if futureI != nil {
 				future := futureI.(*dataset)
 				future.generate(m.datasets.future, m)
@@ -542,6 +546,15 @@ func (m *Minerva) APIs(chain consensus.ChainReader) []rpc.API {
 // dataset.
 func SeedHash(block uint64) []byte {
 	return seedHash(block)
+}
+
+func (m *Minerva) DataSetHash(block uint64) common.Hash {
+	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
+	currentI, _ := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	return current.datasetHash
+
 }
 
 type fakeElection struct {

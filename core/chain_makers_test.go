@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -36,7 +36,7 @@ func ExampleGenerateChain() {
 		addr1   = crypto.PubkeyToAddress(key1.PublicKey)
 		addr2   = crypto.PubkeyToAddress(key2.PublicKey)
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
-		db      = ethdb.NewMemDatabase()
+		db      = etruedb.NewMemDatabase()
 	)
 
 	// Ensure that key1 has some funds in the genesis block.
@@ -67,14 +67,14 @@ func ExampleGenerateChain() {
 			// Block 3 is empty but was mined by addr3.
 			gen.SetCoinbase(addr3)
 			gen.SetExtra([]byte("yeehaw"))
-		//case 3:
-		//	// Block 4 includes blocks 2 and 3 as uncle headers (with modified extra data).
-		//	b2 := gen.PrevBlock(1).Header()
-		//	b2.Extra = []byte("foo")
-		//	gen.AddUncle(b2)
-		//	b3 := gen.PrevBlock(2).Header()
-		//	b3.Extra = []byte("foo")
-		//	gen.AddUncle(b3)
+			//case 3:
+			//	// Block 4 includes blocks 2 and 3 as uncle headers (with modified extra data).
+			//	b2 := gen.PrevBlock(1).Header()
+			//	b2.Extra = []byte("foo")
+			//	gen.AddUncle(b2)
+			//	b3 := gen.PrevBlock(2).Header()
+			//	b3.Extra = []byte("foo")
+			//	gen.AddUncle(b3)
 		}
 	})
 

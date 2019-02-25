@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	ethereum "github.com/truechain/truechain-engineering-code"
-	"github.com/truechain/truechain-engineering-code/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/karalabe/hid"
+	ethereum "github.com/truechain/truechain-engineering-code"
+	"github.com/truechain/truechain-engineering-code/accounts"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // Maximum time between wallet health checks to detect USB unplugs.
@@ -545,6 +545,10 @@ func (w *wallet) SignTx(account accounts.Account, tx *types.Transaction, chainID
 		return nil, fmt.Errorf("signer mismatch: expected %s, got %s", account.Address.Hex(), sender.Hex())
 	}
 	return signed, nil
+}
+
+func (w *wallet) SignTx_Payment(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+	return nil, nil
 }
 
 // SignHashWithPassphrase implements accounts.Wallet, however signing arbitrary

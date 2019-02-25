@@ -293,7 +293,6 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 	defer q.lock.Unlock()
 	// Count the number of items available for processing
 	nproc := q.countProcessableItems()
-	//log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail ", "nproc", nproc)
 	for nproc == 0 && !q.closed {
 		if !block {
 			return nil
@@ -301,7 +300,6 @@ func (q *queue) Results(block bool) []*etrue.FetchResult {
 		q.active.Wait()
 		nproc = q.countProcessableItems()
 	}
-	//log.Debug("countProcessableItems  >>>>>>>>>>>>>>> snail exit ", "nproc", nproc)
 	// Since we have a batch limit, don't pull more into "dangling" memory
 	if nproc > maxResultsProcess {
 		nproc = maxResultsProcess
@@ -670,13 +668,14 @@ func (q *queue) DeliverBodies(id string, fruitsLists [][]*types.SnailBlock) (int
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.SnailHeader, index int, result *etrue.FetchResult) error {
-
+		log.Info("snail downloader " ,"id",id,"function","reconstruct")
 		if types.DeriveSha(types.Fruits(fruitsLists[index])) != header.FruitsHash {
 			return errInvalidChain
 		}
 		result.Fruits = fruitsLists[index]
 		return nil
 	}
+	log.Info("snail downloader " ,"id",id,"function","DeliverBodies")
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(fruitsLists), reconstruct)
 }
 

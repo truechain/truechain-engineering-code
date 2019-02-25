@@ -2,20 +2,19 @@ package conn
 
 import (
 	"bufio"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/tendermint/go-amino"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
 	"io"
 	"math"
 	"net"
 	"reflect"
 	"sync/atomic"
 	"time"
-
-	"crypto/elliptic"
-	"github.com/ethereum/go-ethereum/log"
-	amino "github.com/tendermint/go-amino"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
-	flow "github.com/truechain/truechain-engineering-code/consensus/tbft/help/flowrate"
 )
 
 const (

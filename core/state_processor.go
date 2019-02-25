@@ -17,13 +17,16 @@
 package core
 
 import (
+	//"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	//"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/params"
 
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
 
@@ -91,6 +94,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	if err != nil {
 		return nil, 0, err
 	}
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc)
 	// Create a new environment which holds all relevant information
@@ -107,8 +111,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	statedb.Finalise(true)
 
 	*usedGas += gas
-	fee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
-	feeAmount.Add(fee, feeAmount)
+	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
+	feeAmount.Add(gasFee, feeAmount)
+	if msg.Fee() != nil && msg.Fee() != common.Big0 {
+		feeAmount.Add(msg.Fee(), feeAmount) //add fee
+	}
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used by the tx
 	// based on the eip phase, we're passing wether the root touch-delete accounts.

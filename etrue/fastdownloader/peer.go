@@ -165,7 +165,6 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 		return errAlreadyFetching
 	}
 	p.headerStarted = time.Now()
-	log.Info("---------------------------- 44")
 	// Issue the header retrieval request (absolut upwards without gaps)
 	go p.peer.RequestHeadersByNumber(from, count, 0, false, true)
 
@@ -277,7 +276,6 @@ func (p *peerConnection) setIdle(started time.Time, delivered int, throughput *f
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.log.Debug("fast setIdle?>>>>>>>>>")
 	// If nothing was delivered (hard timeout / unavailable data), reduce throughput to minimum
 	if delivered == 0 {
 		*throughput = 0

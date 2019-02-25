@@ -6,18 +6,16 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"io"
-	"net"
-	"time"
-
-	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/curve25519"
-	"golang.org/x/crypto/nacl/box"
-
 	tcrypyo "github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/hkdf"
+	"golang.org/x/crypto/nacl/box"
+	"io"
+	"net"
+	"time"
 )
 
 // 4 + 1024 == 1028 total frame size

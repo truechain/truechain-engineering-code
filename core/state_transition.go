@@ -32,7 +32,7 @@ var (
 )
 
 /*
-The State Transitioning Model
+StateTransition ：The State Transitioning Model
 
 A state transition is a change made when a transaction is applied to the current world state
 The state transitioning model does all all the necessary work to work out a valid new state root.
@@ -70,6 +70,7 @@ type Message interface {
 	GasPrice() *big.Int
 	Gas() uint64
 	Value() *big.Int
+	Fee() *big.Int
 
 	Nonce() uint64
 	CheckNonce() bool
@@ -165,7 +166,7 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) buyGas_Payment() error {
+func (st *StateTransition) buyGasPayment() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.Payment()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
@@ -190,12 +191,11 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
+	//if transaction contains payer,payer address sub gas
 	if st.msg.Payment() != params.EmptyAddress {
-		return st.buyGas_Payment()
-	} else {
-		return st.buyGas()
+		return st.buyGasPayment()
 	}
-
+	return st.buyGas()
 }
 
 // TransitionDb will transition the state by applying the current message and
@@ -227,11 +227,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		vmerr error
 	)
 	if contractCreation {
-		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
+		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value, msg.Fee())
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value, msg.Fee())
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)

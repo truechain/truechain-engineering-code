@@ -19,6 +19,7 @@ package etrue
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/big"
 	"strings"
 	"sync"
@@ -86,12 +87,6 @@ type PeerInfo struct {
 // propEvent is a fast block propagation, waiting for its turn in the broadcast queue.
 type propFastEvent struct {
 	block *types.Block
-}
-
-// propEvent is a fruit propagation, waiting for its turn in the broadcast queue.
-type fruitEvent struct {
-	block *types.SnailBlock
-	td    *big.Int
 }
 
 // propEvent is a snailBlock propagation, waiting for its turn in the broadcast queue.
@@ -516,12 +511,23 @@ func (p *peer) SendFastBlockHeaders(headers []*types.Header) error {
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
 func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg sendFastBody", p.id))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
+
 	return p2p.Send(p.rw, FastBlockBodiesMsg, bodies)
 }
 
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
 func (p *peer) SendSnailBlockBodiesRLP(bodies []rlp.RawValue) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg sendSnailBody", p.id))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	return p2p.Send(p.rw, SnailBlockBodiesMsg, bodies)
 }
 

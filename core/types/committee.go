@@ -25,7 +25,7 @@ const (
 	CommitteeSwitchover
 	// CommitteeUpdate update committee members and backups
 	CommitteeUpdate
-	// CommitteeOver notify current pbft committee end block
+	// CommitteeOver notify current pbft committee end fastBlock
 	CommitteeOver
 
 	StateUnusedFlag    = 0xa0
@@ -129,6 +129,7 @@ type PbftAgentProxy interface {
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
 	GetSeedMember() []*CommitteeMember
+	GetFastLastProposer() common.Address
 }
 
 type PbftServerProxy interface {

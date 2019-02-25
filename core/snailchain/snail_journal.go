@@ -21,8 +21,10 @@ import (
 	"io"
 	"os"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
@@ -129,6 +131,11 @@ func (journal *snailJournal) insert(fruit *types.SnailBlock) error {
 // rotate regenerates the fruit journal based on the current contents of
 // the fruit pool.
 func (journal *snailJournal) rotate(all []*types.SnailBlock) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg rotate len(fruit):%d", len(all)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	// Close the current journal (if any is open)
 	if journal.writer != nil {
 		if err := journal.writer.Close(); err != nil {

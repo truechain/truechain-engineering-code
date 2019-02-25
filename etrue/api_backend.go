@@ -29,9 +29,9 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
@@ -73,6 +73,9 @@ func (b *TrueAPIBackend) HeaderByNumber(ctx context.Context, blockNr rpc.BlockNu
 		return b.etrue.blockchain.CurrentBlock().Header(), nil
 	}
 	return b.etrue.blockchain.GetHeaderByNumber(uint64(blockNr)), nil
+}
+func (b *TrueAPIBackend) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	return b.etrue.blockchain.GetHeaderByHash(hash), nil
 }
 
 func (b *TrueAPIBackend) SnailHeaderByNumber(ctx context.Context, blockNr rpc.BlockNumber) (*types.SnailHeader, error) {
@@ -201,7 +204,7 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 	if number < 0 {
 		return b.etrue.blockchain.CurrentReward()
 	}
-	return b.etrue.blockchain.GetFastHeightBySnailHeight(uint64(number))
+	return b.etrue.blockchain.GetBlockReward(uint64(number))
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
@@ -256,7 +259,7 @@ func (b *TrueAPIBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
-func (b *TrueAPIBackend) ChainDb() ethdb.Database {
+func (b *TrueAPIBackend) ChainDb() etruedb.Database {
 	return b.etrue.ChainDb()
 }
 

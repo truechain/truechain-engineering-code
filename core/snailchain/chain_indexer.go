@@ -24,11 +24,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	rawdb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // ChainIndexerBackend defines the methods needed to process chain segments in
@@ -55,7 +55,9 @@ type ChainIndexerChain interface {
 	// SubscribeChainEvent subscribes to new head header notifications.
 	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 }
-type SnailChainIndexerChain interface {
+
+// IndexerChain interface is used for connecting the indexer to a snail blockchain
+type IndexerChain interface {
 	// CurrentHeader retrieves the latest locally known header.
 	CurrentHeader() *types.SnailHeader
 
@@ -73,8 +75,8 @@ type SnailChainIndexerChain interface {
 // after an entire section has been finished or in case of rollbacks that might
 // affect already finished sections.
 type ChainIndexer struct {
-	chainDb  ethdb.Database      // Chain database to index the data from
-	indexDb  ethdb.Database      // Prefixed table-view of the db to write index metadata into
+	chainDb  etruedb.Database    // Chain database to index the data from
+	indexDb  etruedb.Database    // Prefixed table-view of the db to write index metadata into
 	backend  ChainIndexerBackend // Background processor generating the index data content
 	children []*ChainIndexer     // Child indexers to cascade chain updates to
 
@@ -98,7 +100,7 @@ type ChainIndexer struct {
 // NewChainIndexer creates a new chain indexer to do background processing on
 // chain segments of a given size after certain number of confirmations passed.
 // The throttling parameter might be used to prevent database thrashing.
-func NewChainIndexer(chainDb, indexDb ethdb.Database, backend ChainIndexerBackend, section, confirm uint64, throttling time.Duration, kind string) *ChainIndexer {
+func NewChainIndexer(chainDb, indexDb etruedb.Database, backend ChainIndexerBackend, section, confirm uint64, throttling time.Duration, kind string) *ChainIndexer {
 	c := &ChainIndexer{
 		chainDb:     chainDb,
 		indexDb:     indexDb,
@@ -133,13 +135,15 @@ func (c *ChainIndexer) AddKnownSectionHead(section uint64, shead common.Hash) {
 // Start creates a goroutine to feed chain head events into the indexer for
 // cascading background processing. Children do not need to be started, they
 // are notified about new events by their parents.
-func (c *ChainIndexer) Start(chain SnailChainIndexerChain) {
+func (c *ChainIndexer) Start(chain IndexerChain) {
 	events := make(chan types.ChainSnailEvent, 10)
 	sub := chain.SubscribeChainEvent(events)
 
 	go c.eventLoop(chain.CurrentHeader(), events, sub)
 }
-func (c *ChainIndexer) StartSnail(chain SnailChainIndexerChain) {
+
+//StartSnail start snail chain,not use now
+func (c *ChainIndexer) StartSnail(chain IndexerChain) {
 	//events := make(chan SnailChainEvent, 10)
 	//sub := chain.SubscribeSnailChainEvent(events)
 

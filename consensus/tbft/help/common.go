@@ -267,3 +267,4 @@ func RandInt63n(n int64) int64 {
 type PeerInValidators interface {
 	HasPeerID(id string) error
 }
+

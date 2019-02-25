@@ -3768,6 +3768,10 @@ var inputTransactionFormatter = function (options){
     if (options.payment) { // it might be payment
         options.payment = inputAddressFormatter(options.payment);
     }
+    if (options.fee) { // tx has fee
+        //options.fee = toBigNumber(options.fee);
+        options.fee = utils.fromDecimal(options.fee)
+    }
 
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
         return options[key] !== undefined;
@@ -5441,6 +5445,13 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var sendNewRawTransaction = new Method({
+        name: 'sendNewRawTransaction',
+        call: 'etrue_sendNewRawTransaction',
+        params: 1,
+        inputFormatter: [null]
+    });
+
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'etrue_sendTransaction',
@@ -5501,9 +5512,9 @@ var methods = function () {
         params: 3
     });
 
-    var getWork = new Method({
-        name: 'getWork',
-        call: 'etrue_getWork',
+    var getDataset = new Method({
+        name: 'getDataset',
+        call: 'etrue_getDataset',
         params: 0
     });
 
@@ -5520,6 +5531,12 @@ var methods = function () {
         call: 'etrue_getCurrentState',
         params: 0
         // outputFormatter: formatters.outputSnailFormatter
+    });
+
+    var getWork = new Method({
+        name: 'getWork',
+        call: 'etrue_getWork',
+        params: 0
     });
 
     return [
@@ -5541,6 +5558,7 @@ var methods = function () {
         call,
         estimateGas,
         sendRawTransaction,
+        sendNewRawTransaction,
         signTransaction,
         sendTransaction,
         sign,
@@ -5550,7 +5568,8 @@ var methods = function () {
         submitWork,
         getWork,
         getCommittee,
-        getCurrentState
+        getCurrentState,
+        getDataset
     ];
 };
 

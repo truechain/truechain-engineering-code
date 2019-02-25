@@ -5,15 +5,16 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
-	"sync"
-	"time"
 )
 
 const (
@@ -305,8 +306,9 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 // StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet
-	UpdateValidator(vset *ValidatorSet) error
+	UpdateValidator(vset *ValidatorSet, makeids bool) error
 	GetLastValidator() *ValidatorSet
+	GetLastValidatorAddress() common.Address
 
 	GetLastBlockHeight() uint64
 	SetEndHeight(h uint64)
@@ -353,7 +355,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		CID:         cid,
 	}
 	state.ids = vals.MakeIDs()
-	log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",height,"end",state.EndHeight,"current",lh)
+	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", height, "end", state.EndHeight, "current", lh)
 	return state
 }
 
@@ -412,7 +414,7 @@ func (state *StateAgentImpl) HasPeerID(id string) error {
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
 	lh := state.Agent.GetCurrentHeight()
-	log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",state.BeginHeight,"end",state.EndHeight,"current",lh)
+	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 }
 
 // SetBeginHeight set height of block for the committee to begin. (begin,end]
@@ -420,7 +422,7 @@ func (state *StateAgentImpl) SetBeginHeight(h uint64) {
 	if state.EndHeight > 0 && h < state.EndHeight {
 		state.BeginHeight = h
 		lh := state.Agent.GetCurrentHeight()
-		log.Info("SetBeginEnd in Committee","cid",state.CID,"begin",state.BeginHeight,"end",state.EndHeight,"current",lh)	
+		log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 	}
 }
 
@@ -436,12 +438,14 @@ func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 }
 
 //UpdateValidator set new Validators when committee member was changed
-func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet) error {
+func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet, makeids bool) error {
 	state.Validators = vset
-	ids := state.Validators.MakeIDs()
-	state.lock.Lock()
-	defer state.lock.Unlock()
-	state.ids = ids
+	if makeids {
+		ids := state.Validators.MakeIDs()
+		state.lock.Lock()
+		defer state.lock.Unlock()
+		state.ids = ids
+	}
 	return nil
 }
 
@@ -456,9 +460,8 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 	var info *ctypes.SwitchInfos
 	if v != nil {
 		info = v.Infos
-		log.Info("MakeBlock", "val", info.Vals)
 	}
-	watch := newInWatch(3, "FetchFastBlock")
+	watch := help.NewTWatch(3, "FetchFastBlock")
 	block, err := state.Agent.FetchFastBlock(committeeID, info)
 	if err != nil {
 		return nil, err
@@ -479,7 +482,7 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
-	watch := newInWatch(3, "BroadcastConsensus")
+	watch := help.NewTWatch(3, "BroadcastConsensus")
 	err := state.Agent.BroadcastConsensus(block)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
@@ -500,7 +503,7 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	if state.BeginHeight > block.NumberU64() {
 		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
-	watch := newInWatch(3, "VerifyFastBlock")
+	watch := help.NewTWatch(3, "VerifyFastBlock")
 	sign, err := state.Agent.VerifyFastBlock(block, result)
 	log.Info("VerifyFastBlockResult", "sign", sign, "result", sign.Result, "err", err)
 	watch.EndWatch()
@@ -523,6 +526,10 @@ func (state *StateAgentImpl) GetValidator() *ValidatorSet {
 //GetLastValidator is get state's Validators
 func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
+}
+
+func (state *StateAgentImpl) GetLastValidatorAddress() common.Address {
+	return state.Agent.GetFastLastProposer()
 }
 
 //GetLastBlockHeight is get fast block height for agent
@@ -557,28 +564,4 @@ func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {
 	// 	state.Agent.BroadcastFastBlock(fb)
 	// }
-}
-
-type inWatch struct {
-	begin  time.Time
-	end    time.Time
-	expect float64
-	str    string
-}
-
-func newInWatch(e float64, s string) *inWatch {
-	return &inWatch{
-		begin:  time.Now(),
-		end:    time.Now(),
-		expect: e,
-		str:    s,
-	}
-}
-func (in *inWatch) EndWatch() {
-	in.end = time.Now()
-}
-func (in *inWatch) Finish(comment interface{}) {
-	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
-		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
-	}
 }

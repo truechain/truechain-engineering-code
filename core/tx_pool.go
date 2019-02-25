@@ -38,12 +38,11 @@ import (
 const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
-	defaultGasPrice   = 1000000
+	defaultGasPrice   = 1
 	txChanSize        = 2048
 )
 
 var (
-
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
 
@@ -66,8 +65,12 @@ var (
 	// is higher than the balance of the user's account.
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
 
+	//ErrInsufficientFundsForPayer is returned if the total gascost of executing a transaction
+	//is higher than the balance of the payer's account.
 	ErrInsufficientFundsForPayer = errors.New("insufficient funds for gas * price for payer")
 
+	//ErrInsufficientFundsForSender is returned if the amount of executing a transaction
+	//is higher than the balance of the user's account.
 	ErrInsufficientFundsForSender = errors.New("insufficient funds for value for sender")
 
 	// ErrIntrinsicGas is returned if the transaction is specified to use less gas
@@ -92,6 +95,7 @@ var (
 	evictionInterval      = time.Minute     // Time interval to check for evictable transactions
 	statsReportInterval   = 8 * time.Second // Time interval to report transaction pool stats
 	remoteTxsDiscardCount *big.Int
+	allSendCount          *big.Int
 )
 
 var (
@@ -184,6 +188,26 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultTxPoolConfig.PriceBump)
 		conf.PriceBump = DefaultTxPoolConfig.PriceBump
 	}
+	if conf.AccountSlots < 1 {
+		log.Warn("Sanitizing invalid txpool account slots", "provided", conf.AccountSlots, "updated", DefaultTxPoolConfig.AccountSlots)
+		conf.AccountSlots = DefaultTxPoolConfig.AccountSlots
+	}
+	if conf.GlobalSlots < 1 {
+		log.Warn("Sanitizing invalid txpool global slots", "provided", conf.GlobalSlots, "updated", DefaultTxPoolConfig.GlobalSlots)
+		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
+	}
+	if conf.AccountQueue < 1 {
+		log.Warn("Sanitizing invalid txpool account queue", "provided", conf.AccountQueue, "updated", DefaultTxPoolConfig.AccountQueue)
+		conf.AccountQueue = DefaultTxPoolConfig.AccountQueue
+	}
+	if conf.GlobalQueue < 1 {
+		log.Warn("Sanitizing invalid txpool global queue", "provided", conf.GlobalQueue, "updated", DefaultTxPoolConfig.GlobalQueue)
+		conf.GlobalQueue = DefaultTxPoolConfig.GlobalQueue
+	}
+	if conf.Lifetime < 1 {
+		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultTxPoolConfig.Lifetime)
+		conf.Lifetime = DefaultTxPoolConfig.Lifetime
+	}
 	return conf
 }
 
@@ -235,7 +259,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		config:      config,
 		chainconfig: chainconfig,
 		chain:       chain,
-		signer:      types.NewEIP155Signer(chainconfig.ChainID),
+		signer:      types.NewTIP1Signer(chainconfig.ChainID),
 		pending:     make(map[common.Address]*txList),
 		queue:       make(map[common.Address]*txList),
 		beats:       make(map[common.Address]time.Time),
@@ -248,6 +272,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.priced = newTxPricedList(pool.all)
 	pool.reset(nil, chain.CurrentBlock().Header())
 	remoteTxsDiscardCount = new(big.Int).SetUint64(0)
+	allSendCount = new(big.Int).SetUint64(0)
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {
@@ -602,7 +627,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Make sure the transaction is psigned properly
 	payer, err := types.Payer(pool.signer, tx)
 	if err != nil {
-		log.Error("validateTx method get address", "pfrom", payer)
+		log.Error("validateTx method get address", "payer", payer)
 		return ErrInvalidPayer
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
@@ -616,8 +641,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if payer != params.EmptyAddress {
+	if payer != params.EmptyAddress && payer != from {
 		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
+			log.Error("insufficientFundsForPayer", "balance", pool.currentState.GetBalance(payer), "gasCost", tx.GasCost())
 			return ErrInsufficientFundsForPayer
 		}
 		if pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
@@ -669,12 +695,12 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			return false, ErrUnderpriced
 		}
 		proctime := time.Since(start)
-		log.Info("deal with Underpriced", "proctime", proctime)
+		log.Trace("deal with Underpriced", "proctime", proctime)
 		// New transaction is better than our worse ones, make room for it
 		start = time.Now()
 		drop := pool.priced.Discard(pool.all.Count()-int(pool.config.GlobalSlots+pool.config.GlobalQueue-1), pool.locals)
 		proctime = time.Since(start)
-		log.Info("deal with Discard", "proctime", proctime)
+		log.Trace("deal with Discard", "proctime", proctime)
 		start = time.Now()
 		for _, tx := range drop {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
@@ -682,7 +708,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 			pool.removeTx(tx.Hash(), false)
 		}
 		proctime = time.Since(start)
-		log.Info("deal with drop", "proctime", proctime, "drop.Len()", drop.Len())
+		log.Trace("deal with drop", "proctime", proctime, "drop.Len()", drop.Len())
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated
@@ -704,7 +730,8 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		pool.journalTx(from, tx)
 
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
-
+		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(1)))
+		log.Trace("pending send", "allSendCount", allSendCount)
 		// We've directly injected a replacement transaction, notify subsystems
 		go pool.txFeed.Send(types.NewTxsEvent{types.Transactions{tx}})
 
@@ -839,7 +866,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 		return nil
 	default:
 		remoteTxsDiscardCount = remoteTxsDiscardCount.Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
-		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount)
+		log.Debug("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
 		errs[0] = errors.New("newTxsCh is full")
 	}
 	return errs
@@ -1025,6 +1052,8 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	}
 	// Notify subsystem for new promoted transactions.
 	if len(promoted) > 0 {
+		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(len(promoted))))
+		log.Trace("pending send", "allSendCount", allSendCount)
 		go pool.txFeed.Send(types.NewTxsEvent{promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
@@ -1105,7 +1134,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	}
 	if queued > pool.config.GlobalQueue {
 		// Sort all accounts with queued transactions by heartbeat
-		addresses := make(addresssByHeartbeat, 0, len(pool.queue))
+		addresses := make(addressesByHeartbeat, 0, len(pool.queue))
 		for addr := range pool.queue {
 			if !pool.locals.contains(addr) { // don't drop locals
 				addresses = append(addresses, addressByHeartbeat{addr, pool.beats[addr]})
@@ -1191,11 +1220,11 @@ type addressByHeartbeat struct {
 	heartbeat time.Time
 }
 
-type addresssByHeartbeat []addressByHeartbeat
+type addressesByHeartbeat []addressByHeartbeat
 
-func (a addresssByHeartbeat) Len() int           { return len(a) }
-func (a addresssByHeartbeat) Less(i, j int) bool { return a[i].heartbeat.Before(a[j].heartbeat) }
-func (a addresssByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a addressesByHeartbeat) Len() int           { return len(a) }
+func (a addressesByHeartbeat) Less(i, j int) bool { return a[i].heartbeat.Before(a[j].heartbeat) }
+func (a addressesByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // accountSet is simply a set of addresses to check for existence, and a signer
 // capable of deriving addresses from transactions.

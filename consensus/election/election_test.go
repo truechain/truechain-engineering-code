@@ -17,16 +17,17 @@
 package election
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -35,13 +36,13 @@ var (
 )
 
 func makeTestBlock() *types.Block {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   core.FastCalcGasLimit(genesis),
+		GasLimit:   0, //core.FastCalcGasLimit(genesis),
 	}
 	fb := types.NewBlock(header, nil, nil, nil, nil)
 	return fb
@@ -102,7 +103,7 @@ func committeeEqual(left, right []*types.CommitteeMember) bool {
 
 func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// var (
-	// 	testdb  = ethdb.NewMemDatabase()
+	// 	testdb  = etruedb.NewMemDatabase()
 	// 	genesis = core.DefaultGenesisBlock()
 	// 	engine  = minerva.NewFaker()
 	// )
@@ -115,19 +116,19 @@ func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// snail, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 	// blocks := makeSnail(snail, fastchain, snailGenesis, n, engine, testdb, canonicalSeed)
 	// snail.InsertChain(blocks)
-	snail, fastchain := snailchain.MakeChain(n * params.MinimumFruits, n)
+	snail, fastchain := snailchain.MakeChain(n*params.MinimumFruits, n)
 
 	return snail, fastchain
 }
 
-func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
-	blocks , _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n * params.MinimumFruits,
+func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
+	blocks, _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n*params.MinimumFruits,
 		parent.PublicKey(), parent.Coinbase(), true, big.NewInt(20000))
 	return blocks
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
 	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
@@ -200,4 +201,30 @@ func TestCommittee2Members(t *testing.T) {
 	if int64(len(members)) > params.MaximumCommitteeNumber.Int64() {
 		t.Errorf("Elected members exceed MAX member num")
 	}
+}
+
+func TestMiscellaneous(*testing.T) {
+	//test div for big int
+	a, b, c := big.NewInt(0), big.NewInt(180), big.NewInt(181)
+	fmt.Println(new(big.Int).Div(a, b), new(big.Int).Div(b, b), new(big.Int).Div(c, b))
+	//test negative number for big int
+	fmt.Println(new(big.Int).Add(new(big.Int).Sub(common.Big0, params.ElectionPeriodNumber), common.Big1))
+	//range testing
+	d := []int{1, 2, 3, 4, 5, 9, 8, 7, 6, 11, 23}
+	for _, v := range d {
+		fmt.Println(v)
+	}
+
+	fmt.Println("big:", findBigNumberSmall(3, d), findBigNumberSmall(10, d), findBigNumberSmall(0, d))
+}
+
+//findBigNumberSmall find a number in array less than or equal to the maximum number of incoming digits
+func findBigNumberSmall(a int, b []int) int {
+	d := -1
+	for _, v := range b {
+		if v <= a && a > d && v > d {
+			d = v
+		}
+	}
+	return d
 }

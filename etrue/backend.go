@@ -44,10 +44,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/filters"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
 	"github.com/truechain/truechain-engineering-code/miner"
@@ -87,7 +87,7 @@ type Truechain struct {
 	lesServer       LesServer
 
 	// DB interfaces
-	chainDb ethdb.Database // Block chain database
+	chainDb etruedb.Database // Block chain database
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
@@ -120,10 +120,10 @@ func (s *Truechain) AddLesServer(ls LesServer) {
 // initialisation of the common Truechain object)
 func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	if config.SyncMode == downloader.LightSync {
-		return nil, errors.New("can't run etrue.Truechain in light sync mode, use les.LightEthereum")
+		return nil, errors.New("can't run etrue.Truechain in light sync mode, use les.LightTruechain")
 	}
 	//if config.SyncMode == downloader.SnapShotSync {
-	//	return nil, errors.New("can't run etrue.Truechain in SnapShotSync sync mode, use les.LightEthereum")
+	//	return nil, errors.New("can't run etrue.Truechain in SnapShotSync sync mode, use les.LightTruechain")
 	//}
 
 	if !config.SyncMode.IsValid() {
@@ -140,6 +140,13 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, genesisErr
 	}
 	log.Info("Initialised chain configuration", "config", chainConfig)
+
+	if config.Genesis != nil {
+		config.MinerGasFloor = config.Genesis.GasLimit * 9 / 10
+		config.MinerGasCeil = config.Genesis.GasLimit * 11 / 10
+	} else {
+		//log.Info("config.Genesis.GasLimit", "GasLimit", config.Genesis)
+	}
 
 	etrue := &Truechain{
 		config:         config,
@@ -170,12 +177,12 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		cacheConfig = &core.CacheConfig{Deleted: config.DeletedState, Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 
-	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, vmConfig)
+	etrue.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, etrue.chainConfig, etrue.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	etrue.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, etrue.chainConfig, etrue.engine, vmConfig)
+	etrue.snailblockchain, err = chain.NewSnailBlockChain(chainDb, etrue.chainConfig, etrue.engine, vmConfig, etrue.blockchain)
 	if err != nil {
 		return nil, err
 	}
@@ -187,17 +194,17 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
 	}
 
-	// TODO: rewind snail if case of incompatible config
-	// if compat, ok := snailErr.(*params.ConfigCompatError); ok {
-	// 	log.Warn("Rewinding chain to upgrade configuration", "err", compat)
-	// 	etrue.snailblockchain.SetHead(compat.RewindTo)
-	// 	rawdb.WriteChainConfig(chainDb, snailHash, snailConfig)
-	// }
+	//  rewind snail if case of incompatible config
+	if compat, ok := genesisErr.(*params.ConfigCompatError); ok {
+		log.Warn("Rewinding snail chain to upgrade configuration", "err", compat)
+		etrue.snailblockchain.SetHead(compat.RewindTo)
+		rawdb.WriteChainConfig(chainDb, genesisHash, chainConfig)
+	}
 
 	etrue.bloomIndexer.Start(etrue.blockchain)
 
-	sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
-	etrue.snailblockchain.SetValidator(sv)
+	//sv := chain.NewBlockValidator(etrue.chainConfig, etrue.blockchain, etrue.snailblockchain, etrue.engine)
+	//etrue.snailblockchain.SetValidator(sv)
 
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
@@ -209,7 +216,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 
 	etrue.txPool = core.NewTxPool(config.TxPool, etrue.chainConfig, etrue.blockchain)
 
-	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
+	//etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine, sv)
+	etrue.snailPool = chain.NewSnailPool(config.SnailPool, etrue.blockchain, etrue.snailblockchain, etrue.engine)
 
 	etrue.election = elect.NewElection(etrue.blockchain, etrue.snailblockchain, etrue.config)
 
@@ -219,8 +227,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 	etrue.engine.SetSnailChainReader(etrue.snailblockchain)
 	etrue.election.SetEngine(etrue.engine)
 
-	coinbase, _ := etrue.Etherbase()
-	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, coinbase)
+	//coinbase, _ := etrue.Etherbase()
+	etrue.agent = NewPbftAgent(etrue, etrue.chainConfig, etrue.engine, etrue.election, config.MinerGasFloor, config.MinerGasCeil)
 	if etrue.protocolManager, err = NewProtocolManager(
 		etrue.chainConfig, config.SyncMode, config.NetworkId,
 		etrue.eventMux, etrue.txPool, etrue.snailPool, etrue.engine,
@@ -229,7 +237,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		return nil, err
 	}
 
-	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election, etrue.Config().MineFruit, etrue.Config().NodeType, etrue.Config().Mine)
+	etrue.miner = miner.New(etrue, etrue.chainConfig, etrue.EventMux(), etrue.engine, etrue.election, etrue.Config().MineFruit, etrue.Config().NodeType)
 	etrue.miner.SetExtra(makeExtraData(config.ExtraData))
 
 	committeeKey, err := crypto.ToECDSA(etrue.config.CommitteeKey)
@@ -264,12 +272,12 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateDB creates the chain database.
-func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Database, error) {
+func CreateDB(ctx *node.ServiceContext, config *Config, name string) (etruedb.Database, error) {
 	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles)
 	if err != nil {
 		return nil, err
 	}
-	if db, ok := db.(*ethdb.LDBDatabase); ok {
+	if db, ok := db.(*etruedb.LDBDatabase); ok {
 		db.Meter("etrue/db/chaindata/")
 	}
 	return db, nil
@@ -277,7 +285,7 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Truechain service
 func CreateConsensusEngine(ctx *node.ServiceContext, config *ethash.Config, chainConfig *params.ChainConfig,
-	db ethdb.Database) consensus.Engine {
+	db etruedb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
 	// snail chain not need clique
 	/*
@@ -398,11 +406,11 @@ func (s *Truechain) Etherbase() (eb common.Address, err error) {
 			s.etherbase = etherbase
 			s.lock.Unlock()
 
-			log.Info("Etherbase automatically configured", "address", etherbase)
+			log.Info("Coinbase automatically configured", "address", etherbase)
 			return etherbase, nil
 		}
 	}
-	return common.Address{}, fmt.Errorf("etherbase must be explicitly specified")
+	return common.Address{}, fmt.Errorf("coinbase must be explicitly specified")
 }
 
 // SetEtherbase sets the mining reward address.
@@ -418,8 +426,8 @@ func (s *Truechain) SetEtherbase(etherbase common.Address) {
 func (s *Truechain) StartMining(local bool) error {
 	eb, err := s.Etherbase()
 	if err != nil {
-		log.Error("Cannot start mining without etherbase", "err", err)
-		return fmt.Errorf("etherbase missing: %v", err)
+		log.Error("Cannot start mining without coinbase", "err", err)
+		return fmt.Errorf("coinbase missing: %v", err)
 	}
 
 	// snail chain not need clique
@@ -445,10 +453,10 @@ func (s *Truechain) StartMining(local bool) error {
 	return nil
 }
 
-func (s *Truechain) StopMining()         { s.miner.Stop() }
-func (s *Truechain) IsMining() bool      { return s.miner.Mining() }
-func (s *Truechain) Miner() *miner.Miner { return s.miner }
-
+func (s *Truechain) StopMining()                       { s.miner.Stop() }
+func (s *Truechain) IsMining() bool                    { return s.miner.Mining() }
+func (s *Truechain) Miner() *miner.Miner               { return s.miner }
+func (s *Truechain) PbftAgent() *PbftAgent             { return s.agent }
 func (s *Truechain) AccountManager() *accounts.Manager { return s.accountManager }
 func (s *Truechain) BlockChain() *core.BlockChain      { return s.blockchain }
 func (s *Truechain) Config() *Config                   { return s.config }
@@ -460,7 +468,7 @@ func (s *Truechain) SnailPool() *chain.SnailPool { return s.snailPool }
 
 func (s *Truechain) EventMux() *event.TypeMux           { return s.eventMux }
 func (s *Truechain) Engine() consensus.Engine           { return s.engine }
-func (s *Truechain) ChainDb() ethdb.Database            { return s.chainDb }
+func (s *Truechain) ChainDb() etruedb.Database          { return s.chainDb }
 func (s *Truechain) IsListening() bool                  { return true } // Always listening
 func (s *Truechain) EthVersion() int                    { return int(s.protocolManager.SubProtocols[0].Version) }
 func (s *Truechain) NetVersion() uint64                 { return s.networkID }

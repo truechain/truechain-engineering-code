@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
@@ -73,6 +74,15 @@ func (valSet *ValidatorSet) IncrementAccum(times uint) {
 			valSet.Proposer = mostest
 		} else {
 			validatorsHeap.Update(mostest, accumComparable{mostest})
+		}
+	}
+}
+
+func (valSet *ValidatorSet) FindValidatorSetProposer(address common.Address) {
+	for _, val := range valSet.Validators {
+		if bytes.Compare(val.PubKey.Address(), address.Bytes()) == 0 {
+			valSet.Proposer = val
+			return
 		}
 	}
 }

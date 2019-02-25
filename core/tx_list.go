@@ -297,16 +297,20 @@ func (l *txList) Filter(costLimit *big.Int, gasLimit uint64, signer types.Signer
 	l.gascap = gasLimit
 	// Filter out all the transactions above the account's funds
 	removed := l.txs.Filter(func(tx *types.Transaction) bool {
+		// Make sure the transaction is signed properly
+		from, err := types.Sender(signer, tx)
+		if err != nil {
+			return true
+		}
 		// Make sure the transaction is psigned properly
 		pfrom, err := types.Payer(signer, tx)
 		if err != nil {
 			return true
 		}
-		if pfrom != params.EmptyAddress {
+		if pfrom != params.EmptyAddress && pfrom != from {
 			return tx.AmountCost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit || tx.GasCost().Cmp(currentState.GetBalance(pfrom)) > 0
-		} else {
-			return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 		}
+		return tx.Cost().Cmp(costLimit) > 0 || tx.Gas() > gasLimit
 	})
 
 	// If the list was strict, filter anything above the lowest nonce

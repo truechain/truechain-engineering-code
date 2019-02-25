@@ -171,6 +171,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 			return false
 		}
 		s.dialing[n.ID] = flag
+		log.Debug("NewTasks", "dest", n.IP, "flag", flag.String())
 		newtasks = append(newtasks, &dialTask{flags: flag, dest: n})
 		return true
 	}
@@ -203,6 +204,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 			newtasks = append(newtasks, t)
 		}
 	}
+	log.Debug("New tasks", "maxDynDials", s.maxDynDials, "needDynDials", needDynDials, "static", len(s.static), "task", len(newtasks), "bootnodes", len(s.bootnodes))
 	// If we don't have any peers whatsoever, try to dial a random bootnode. This
 	// scenario is useful for the testnet (and private networks) where the discovery
 	// table might be full of mostly bad peers, making it hard to find good ones.
@@ -220,6 +222,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 	randomCandidates := needDynDials / 2
 	if randomCandidates > 0 {
 		n := s.ntab.ReadRandomNodes(s.randomNodes)
+		log.Debug("New tasks random candidates", "n", n, "randomNodes", len(s.randomNodes), "randomCandidates", randomCandidates)
 		for i := 0; i < randomCandidates && i < n; i++ {
 			if addDial(dynDialedConn, s.randomNodes[i]) {
 				needDynDials--
@@ -240,7 +243,7 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 		s.lookupRunning = true
 		newtasks = append(newtasks, &discoverTask{})
 	}
-
+	log.Debug("New tasks discover", "newtasks", len(newtasks), "i", i, "lookupBuf", len(s.lookupBuf), "needDynDials", needDynDials)
 	// Launch a timer to wait for the next node to expire if all
 	// candidates have been tried and no task is currently active.
 	// This should prevent cases where the dialer logic is not ticked

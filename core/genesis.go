@@ -38,7 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -141,7 +141,7 @@ func (e *GenesisMismatchError) Error() string {
 // error is a *params.ConfigCompatError and the new, unwritten config is returned.
 //
 // The returned chain configuration is never nil.
-func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, common.Hash, error) {
+func SetupGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllMinervaProtocolChanges, common.Hash{}, common.Hash{}, errGenesisNoConfig
 	}
@@ -153,7 +153,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 
 }
 
-// SetupGenesisBlock writes or updates the genesis block in db.
+// setupFastGenesisBlock writes or updates the fast genesis block in db.
 // The block that will be used is:
 //
 //                          genesis == nil       genesis != nil
@@ -166,7 +166,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 // error is a *params.ConfigCompatError and the new, unwritten config is returned.
 //
 // The returned chain configuration is never nil.
-func setupFastGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+func setupFastGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
@@ -223,7 +223,7 @@ func setupFastGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainCo
 
 // CommitFast writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
-func (g *Genesis) CommitFast(db ethdb.Database) (*types.Block, error) {
+func (g *Genesis) CommitFast(db etruedb.Database) (*types.Block, error) {
 	block := g.ToFastBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
@@ -246,9 +246,9 @@ func (g *Genesis) CommitFast(db ethdb.Database) (*types.Block, error) {
 
 // ToFastBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
-func (g *Genesis) ToFastBlock(db ethdb.Database) *types.Block {
+func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 	if db == nil {
-		db = ethdb.NewMemDatabase()
+		db = etruedb.NewMemDatabase()
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 	for addr, account := range g.Alloc {
@@ -280,7 +280,7 @@ func (g *Genesis) ToFastBlock(db ethdb.Database) *types.Block {
 	committee := &types.SwitchInfos{CID: 0}
 	for _, member := range g.Committee {
 		committee.Vals = append(committee.Vals, &types.SwitchEnter{
-			Pk: crypto.FromECDSAPub(member.Publickey),
+			Pk:   crypto.FromECDSAPub(member.Publickey),
 			Flag: types.StateUsedFlag,
 		})
 	}
@@ -289,7 +289,7 @@ func (g *Genesis) ToFastBlock(db ethdb.Database) *types.Block {
 
 // MustFastCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
-func (g *Genesis) MustFastCommit(db ethdb.Database) *types.Block {
+func (g *Genesis) MustFastCommit(db etruedb.Database) *types.Block {
 	block, err := g.CommitFast(db)
 	if err != nil {
 		panic(err)
@@ -297,32 +297,7 @@ func (g *Genesis) MustFastCommit(db ethdb.Database) *types.Block {
 	return block
 }
 
-// DefaultGenesisBlock returns the TrueChain main net genesis block.
-// func DefaultFastGenesisBlock() *Genesis {
-// 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-// 	return &Genesis{
-// 		Config:     params.MainnetChainConfig,
-// 		Nonce:      928,
-// 		ExtraData:  nil,
-// 		GasLimit:   88080384,
-// 		Difficulty: big.NewInt(20000),
-// 		//	Alloc:      decodePrealloc(mainnetAllocData),
-// 		Alloc: map[common.Address]types.GenesisAccount{
-// 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
-// 			common.HexToAddress("0x4cf807958b9f6d9fd9331397d7a89a079ef43288"): {Balance: i},
-// 			common.HexToAddress("0x04d2252a3e0ca7c2aa81247ca33060855a34a808"): {Balance: i},
-// 			common.HexToAddress("0x05712ff78d08eaf3e0f1797aaf4421d9b24f8679"): {Balance: i},
-// 			common.HexToAddress("0x764727f61dd0717a48236842435e9aefab6723c3"): {Balance: i},
-// 			common.HexToAddress("0x764986534dba541d5061e04b9c561abe3f671178"): {Balance: i},
-// 			common.HexToAddress("0x0fd0bbff2e5b3ddb4f030ff35eb0fe06658646cf"): {Balance: i},
-// 			common.HexToAddress("0x40b3a743ba285a20eaeee770d37c093276166568"): {Balance: i},
-// 			common.HexToAddress("0x9d3c4a33d3bcbd2245a1bebd8e989b696e561eae"): {Balance: i},
-// 			common.HexToAddress("0x35c9d83c3de709bbd2cb4a8a42b89e0317abe6d4"): {Balance: i},
-// 		},
-// 	}
-// }
-
-// SetupGenesisBlock writes or updates the genesis block in db.
+// setupSnailGenesisBlock writes or updates the genesis snail block in db.
 // The block that will be used is:
 //
 //                          genesis == nil       genesis != nil
@@ -335,7 +310,7 @@ func (g *Genesis) MustFastCommit(db ethdb.Database) *types.Block {
 // error is a *params.ConfigCompatError and the new, unwritten config is returned.
 //
 // The returned chain configuration is never nil.
-func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+func setupSnailGenesisBlock(db etruedb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllMinervaProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
@@ -367,9 +342,9 @@ func setupSnailGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainC
 
 // ToSnailBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
-func (g *Genesis) ToSnailBlock(db ethdb.Database) *types.SnailBlock {
+func (g *Genesis) ToSnailBlock(db etruedb.Database) *types.SnailBlock {
 	if db == nil {
-		db = ethdb.NewMemDatabase()
+		db = etruedb.NewMemDatabase()
 	}
 
 	head := &types.SnailHeader{
@@ -389,14 +364,14 @@ func (g *Genesis) ToSnailBlock(db ethdb.Database) *types.SnailBlock {
 
 	fastBlock := g.ToFastBlock(db)
 	fruitHead := &types.SnailHeader{
-		Number:     new(big.Int).SetUint64(g.Number),
-		Nonce:      types.EncodeNonce(g.Nonce),
-		Time:       new(big.Int).SetUint64(g.Timestamp),
-		ParentHash: g.ParentHash,
-		FastNumber: fastBlock.Number(),
-		FastHash:   fastBlock.Hash(),
+		Number:          new(big.Int).SetUint64(g.Number),
+		Nonce:           types.EncodeNonce(g.Nonce),
+		Time:            new(big.Int).SetUint64(g.Timestamp),
+		ParentHash:      g.ParentHash,
+		FastNumber:      fastBlock.Number(),
+		FastHash:        fastBlock.Hash(),
 		FruitDifficulty: g.Difficulty,
-		Coinbase:   g.Coinbase,
+		Coinbase:        g.Coinbase,
 	}
 	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil)
 
@@ -405,14 +380,14 @@ func (g *Genesis) ToSnailBlock(db ethdb.Database) *types.SnailBlock {
 
 // CommitSnail writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
-func (g *Genesis) CommitSnail(db ethdb.Database) (*types.SnailBlock, error) {
+func (g *Genesis) CommitSnail(db etruedb.Database) (*types.SnailBlock, error) {
 	block := g.ToSnailBlock(db)
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
 	snaildb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
 	snaildb.WriteBlock(db, block)
-	snaildb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
+	//snaildb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
 	snaildb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	snaildb.WriteHeadBlockHash(db, block.Hash())
 	snaildb.WriteHeadHeaderHash(db, block.Hash())
@@ -427,9 +402,9 @@ func (g *Genesis) CommitSnail(db ethdb.Database) (*types.SnailBlock, error) {
 	return block, nil
 }
 
-// MustCommit writes the genesis block and state to db, panicking on error.
+// MustSnailCommit writes the genesis block and state to db, panicking on error.
 // The block is committed as the canonical head block.
-func (g *Genesis) MustSnailCommit(db ethdb.Database) *types.SnailBlock {
+func (g *Genesis) MustSnailCommit(db etruedb.Database) *types.SnailBlock {
 	block, err := g.CommitSnail(db)
 	if err != nil {
 		panic(err)
@@ -440,8 +415,8 @@ func (g *Genesis) MustSnailCommit(db ethdb.Database) *types.SnailBlock {
 // DefaultGenesisBlock returns the Truechain main net snail block.
 func DefaultGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044af9a092489fdb309e05032699d0647b80794c6c5e9edab77bad4408e281526e809e7ff913a4d5f41d798f6b18ec41c8a33ae6f5016c5ecc8c4fe8e52b9fe94a"))
-	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0427572d5f27be1066e1d840f2ea395ea08e8ca82de2638a2085ba9eae96a1e48f7317d41294dfa6f85068de8eabe337a7d5450c058e1ffa1414e73dc2b83358c1"))
+	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0488a25849abee5921fdb581ba34cd66adc8e02b108391c4153ca8da27722e16badf4fcd5ba7f557ae76d444ccf3638e4590a181805623de1cab67f31364c79736"))
+	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a9a1cedb8900d893b607c4dbc834abada3fe98f247b8bcb5ef44d3d3a246c4cf41d9d792527473c30ded81fa4b81afe7030a09e093dd92746b98c79e6a204c63"))
 	key3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x040d153624462927444a8212717e4ad41ec5f5739bc36598d093d114729e1dc782d55d322699705829cf9d69f201009db797ebe8ba952f10a26fe36c64356b111b"))
 	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a3474c26578fce00d241119758271f6a208cc987c6f37d1518dcea2a51257bafeebd93202ae499cb5a8986720d4b63a04043aadb4d03430194a81860c9ca0763"))
 
@@ -503,50 +478,24 @@ func decodePrealloc(data string) types.GenesisAlloc {
 }
 
 // GenesisFastBlockForTesting creates and writes a block in which addr has the given wei balance.
-func GenesisFastBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.Block {
+func GenesisFastBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.Block {
 	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
 	return g.MustFastCommit(db)
 }
 
 // GenesisSnailBlockForTesting creates and writes a block in which addr has the given wei balance.
-func GenesisSnailBlockForTesting(db ethdb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
+func GenesisSnailBlockForTesting(db etruedb.Database, addr common.Address, balance *big.Int) *types.SnailBlock {
 	g := Genesis{Alloc: types.GenesisAlloc{addr: {Balance: balance}}}
 	return g.MustSnailCommit(db)
-}
-
-// be seeded with the
-func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
-	// Override the default period to the user requested one
-	config := *params.AllMinervaProtocolChanges
-	//config.Clique.Period = period
-
-	genesis := Genesis{
-		Config:     &config,
-		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, 65)...),
-		GasLimit:   6283185,
-		Difficulty: big.NewInt(1),
-		Alloc: map[common.Address]types.GenesisAccount{
-			common.BytesToAddress([]byte{1}): {Balance: big.NewInt(1)}, // ECRecover
-			common.BytesToAddress([]byte{2}): {Balance: big.NewInt(1)}, // SHA256
-			common.BytesToAddress([]byte{3}): {Balance: big.NewInt(1)}, // RIPEMD
-			common.BytesToAddress([]byte{4}): {Balance: big.NewInt(1)}, // Identity
-			common.BytesToAddress([]byte{5}): {Balance: big.NewInt(1)}, // ModExp
-			common.BytesToAddress([]byte{6}): {Balance: big.NewInt(1)}, // ECAdd
-			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
-			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
-			faucet: {Balance: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(9))},
-		},
-	}
-	return &genesis
 }
 
 // DefaultDevGenesisBlock returns the Rinkeby network genesis block.
 func DefaultDevGenesisBlock() *Genesis {
 	i, _ := new(big.Int).SetString("90000000000000000000000", 10)
-	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044b5d1cc3da303e860914a6f526b59aeccf76d28c57f37704df2dee5a9c0fa3e5f1d888e592ec8d1f3baca404b34e16d5612841e31a0240231d57381da3538531"))
-	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0471239944700e6fffb58033e4f508f484c712c960d403e9b87269542c06e016bc1b4110af6333bcfbe52c7aa04ae7269ca254d3ccc7363b98ea3996f0a9f77ef0"))
-	key3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04fc61bee6ee46231843e6f41d6460fb5961cb941bd902e8c1bfe85d91e31f708b5e03da57f51c2c972324c155085267aa306bb7b4e25ddc9d7ce399905a44da31"))
-	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x044aa7cef6d282ec22e0ef6d55d36b17d607afee920668320430717552cd7d4905e07d92a0e939f96ef6d617174a136267ed6a4efcc14879abe6aa097965fb4740"))
+	key1, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x0488a25849abee5921fdb581ba34cd66adc8e02b108391c4153ca8da27722e16badf4fcd5ba7f557ae76d444ccf3638e4590a181805623de1cab67f31364c79736"))
+	key2, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a9a1cedb8900d893b607c4dbc834abada3fe98f247b8bcb5ef44d3d3a246c4cf41d9d792527473c30ded81fa4b81afe7030a09e093dd92746b98c79e6a204c63"))
+	key3, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x040d153624462927444a8212717e4ad41ec5f5739bc36598d093d114729e1dc782d55d322699705829cf9d69f201009db797ebe8ba952f10a26fe36c64356b111b"))
+	key4, _ := crypto.UnmarshalPubkey(hexutil.MustDecode("0x04a3474c26578fce00d241119758271f6a208cc987c6f37d1518dcea2a51257bafeebd93202ae499cb5a8986720d4b63a04043aadb4d03430194a81860c9ca0763"))
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,

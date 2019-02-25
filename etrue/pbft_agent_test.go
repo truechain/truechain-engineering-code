@@ -11,12 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/core"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"testing"
 )
 
 const (
 	sendNodeTimeTest = 30 * time.Second
+	memberNumber     = 16
+	backMemberNumber = 14
 )
 
 var agent *PbftAgent
@@ -46,31 +49,40 @@ func NewPbftAgetTest() *PbftAgent {
 func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
 	priKey := agent.privateKey
 	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	committeeMember := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+	committeeMember := &types.CommitteeMember{
+		coinbase,
+		&priKey.PublicKey, 0xa1, 0}
+
 	return committeeMember
 }
 
-func InitCommitteeInfo() (*types.CommitteeInfo, []*ecdsa.PrivateKey) {
+func generateMember() (*ecdsa.PrivateKey, *types.CommitteeMember) {
+	priKey, _ := crypto.GenerateKey()
+	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	m := &types.CommitteeMember{coinbase, &priKey.PublicKey, 0xa1, 0}
+	return priKey, m
+}
+
+func initCommitteeInfo() (*types.CommitteeInfo, []*ecdsa.PrivateKey) {
 	var priKeys []*ecdsa.PrivateKey
 	committeeInfo := &types.CommitteeInfo{
-		Id:      common.Big1,
-		Members: nil,
+		Id: common.Big1,
 	}
-	for i := 0; i < 4; i++ {
-		priKey, err := crypto.GenerateKey()
+	for i := 0; i < memberNumber; i++ {
+		priKey, committeMember := generateMember()
 		priKeys = append(priKeys, priKey)
-		if err != nil {
-			log.Error("initMembers", "error", err)
-		}
-		coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
-		committeeInfo.Members = append(committeeInfo.Members, m)
+		committeeInfo.Members = append(committeeInfo.Members, committeMember)
+	}
+	for i := 0; i < backMemberNumber; i++ {
+		priKey, backCommitteMember := generateMember()
+		priKeys = append(priKeys, priKey)
+		committeeInfo.BackMembers = append(committeeInfo.BackMembers, backCommitteMember)
 	}
 	return committeeInfo, priKeys
 }
 
 func initCommitteeInfoIncludeSelf() *types.CommitteeInfo {
-	committeeInfo, _ := InitCommitteeInfo()
+	committeeInfo, _ := initCommitteeInfo()
 	committeeMember := generateCommitteeMemberBySelfPriKey()
 	committeeInfo.Members = append(committeeInfo.Members, committeeMember)
 	return committeeInfo
@@ -80,12 +92,13 @@ func TestSendAndReceiveCommitteeNode(t *testing.T) {
 	committeeInfo := initCommitteeInfoIncludeSelf()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
+	t.Log(len(cryNodeInfo.Nodes))
 	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
 	t.Log(receivedCommitteeNode)
 }
 
 func TestSendAndReceiveCommitteeNode2(t *testing.T) {
-	committeeInfo, _ := InitCommitteeInfo()
+	committeeInfo, _ := initCommitteeInfo()
 	t.Log(agent.committeeNode)
 	cryNodeInfo := encryptNodeInfo(committeeInfo, agent.committeeNode, agent.privateKey)
 	receivedCommitteeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
@@ -112,15 +125,15 @@ func validateSign(fb *types.Block, prikey *ecdsa.PrivateKey) bool {
 }
 
 func generateFastBlock() *types.Block {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   core.FastCalcGasLimit(genesis),
+		GasLimit:   core.FastCalcGasLimit(genesis, params.GenesisGasLimit, params.GenesisGasLimit),
 	}
-	fb := types.NewBlock(header, nil, nil, nil)
+	fb := types.NewBlock(header, nil, nil, nil, nil)
 	return fb
 }
 

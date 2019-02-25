@@ -26,13 +26,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/hashicorp/golang-lru"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -50,7 +50,7 @@ const (
 type HeaderChain struct {
 	config *params.ChainConfig
 
-	chainDb       ethdb.Database
+	chainDb       etruedb.Database
 	genesisHeader *types.Header
 
 	currentHeader     atomic.Value // Current head of the header chain (may be above the block chain!)
@@ -70,7 +70,7 @@ type HeaderChain struct {
 //  getValidator should return the parent's validator
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
-func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
+func NewHeaderChain(chainDb etruedb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -137,60 +137,9 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 		hash   = header.Hash()
 		number = header.Number.Uint64()
 	)
-	// Calculate the total difficulty of the header
-	//ptd := fhc.GetTd(header.ParentHash, number-1)
-	//if ptd == nil {
-	//	return NonStatTy, consensus.ErrUnknownAncestor
-	//}
-	//localTd := fhc.GetTd(fhc.currentHeaderHash, fhc.CurrentHeader().Number.Uint64())
-	//externTd := new(big.Int).Add(header.Difficulty, ptd)
-
-	// Irrelevant of the canonical status, write the td and header to the database
-	//if err := fhc.WriteTd(hash, number, externTd); err != nil {
-	//	log.Crit("Failed to write header total difficulty", "err", err)
-	//}
 
 	rawdb.WriteHeader(hc.chainDb, header)
 
-	// If the total difficulty is higher than our known, add it to the canonical chain
-	// Second clause in the if statement reduces the vulnerability to selfish mining.
-	// Please refer to http://www.cs.cornell.edu/~ie53/publications/btcProcFC.pdf
-	//if externTd.Cmp(localTd) > 0 || (externTd.Cmp(localTd) == 0 && mrand.Float64() < 0.5) {
-	//	// Delete any canonical number assignments above the new head
-	//	batch := hc.chainDb.NewBatch()
-	//	for i := number + 1; ; i++ {
-	//		hash := rawdb.ReadCanonicalHash(hc.chainDb, i)
-	//		if hash == (common.Hash{}) {
-	//			break
-	//		}
-	//		rawdb.DeleteCanonicalHash(batch, i)
-	//	}
-	//	batch.Write()
-	//
-	//	// Overwrite any stale canonical number assignments
-	//	var (
-	//		headHash   = header.ParentHash
-	//		headNumber = header.Number.Uint64() - 1
-	//		headHeader = hc.GetHeader(headHash, headNumber)
-	//	)
-	//	for rawdb.ReadCanonicalHash(hc.chainDb, headNumber) != headHash {
-	//		rawdb.WriteCanonicalHash(hc.chainDb, headHash, headNumber)
-	//
-	//		headHash = headHeader.ParentHash
-	//		headNumber = headHeader.Number.Uint64() - 1
-	//		headHeader = hc.GetHeader(headHash, headNumber)
-	//	}
-	//	// Extend the canonical chain with the new header
-	//	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
-	//	rawdb.WriteHeadHeaderHash(hc.chainDb, hash)
-	//
-	//	hc.currentHeaderHash = hash
-	//	hc.currentHeader.Store(types.CopyHeader(header))
-	//
-	//	status = CanonStatTy
-	//} else {
-	//	status = SideStatTy
-	//}
 
 	// Extend the canonical chain with the new header
 	rawdb.WriteCanonicalHash(hc.chainDb, hash, number)
@@ -201,8 +150,7 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 
 	status = CanonStatTy
 
-
-	log.Debug("headerCache","hash",hash.String(),"number",number)
+	log.Debug("headerCache", "hash", hash.String(), "number", number)
 	hc.headerCache.Add(hash, header)
 	hc.numberCache.Add(hash, number)
 

@@ -19,7 +19,6 @@ package etruestats
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -30,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/log"
@@ -388,6 +388,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 		return "continue" // Etruestats sometime sends invalid history requests, ignore those
 	}
 	list, ok := request["list"].([]interface{})
+	log.Warn(" stats history block list", "list", command, "command", request["list"])
 	if !ok {
 		log.Warn("Invalid stats history block list", "list", request["list"])
 		return "error"
@@ -578,14 +579,6 @@ type txStats struct {
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
 // empty arrays instead of returning null for them.
-/*type uncleStats []*types.Header
-
-func (s uncleStats) MarshalJSON() ([]byte, error) {
-	if uncles := ([]*types.Header)(s); len(uncles) > 0 {
-		return json.Marshal(uncles)
-	}
-	return []byte("[]"), nil
-}*/
 
 type snailUncleStats []*types.SnailHeader
 
@@ -869,13 +862,14 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 
 // nodeStats is the information to report about the local node.
 type nodeStats struct {
-	Active   bool `json:"active"`
-	Syncing  bool `json:"syncing"`
-	Mining   bool `json:"mining"`
-	Hashrate int  `json:"hashrate"`
-	Peers    int  `json:"peers"`
-	GasPrice int  `json:"gasPrice"`
-	Uptime   int  `json:"uptime"`
+	Active            bool `json:"active"`
+	Syncing           bool `json:"syncing"`
+	Mining            bool `json:"mining"`
+	isCommitteeMember bool `json:"isCommitteeMember"`
+	Hashrate          int  `json:"hashrate"`
+	Peers             int  `json:"peers"`
+	GasPrice          int  `json:"gasPrice"`
+	Uptime            int  `json:"uptime"`
 }
 
 // reportPending retrieves various stats about the node at the networking and
@@ -883,10 +877,11 @@ type nodeStats struct {
 func (s *Service) reportStats(conn *websocket.Conn) error {
 	// Gather the syncing and mining infos from the local miner instance
 	var (
-		mining   bool
-		hashrate int
-		syncing  bool
-		gasprice int
+		mining            bool
+		isCommitteeMember bool
+		hashrate          int
+		syncing           bool
+		gasprice          int
 	)
 	if s.etrue != nil {
 		mining = s.etrue.Miner().Mining()
@@ -897,25 +892,29 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 
 		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
+
+		isCommitteeMember = s.etrue.PbftAgent().IsCurrentCommitteeMember()
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
 	}
 	// Assemble the node stats and send it to the server
 	log.Trace("Sending node details to etruestats")
-
-	stats := map[string]interface{}{
-		"id": s.node,
-		"stats": &nodeStats{
-			Active:   true,
-			Mining:   mining,
-			Hashrate: hashrate,
-			Peers:    s.server.PeerCount(),
-			GasPrice: gasprice,
-			Syncing:  syncing,
-			Uptime:   100,
-		},
+	nodeStats := &nodeStats{
+		Active:            true,
+		Mining:            mining,
+		Hashrate:          hashrate,
+		Peers:             s.server.PeerCount(),
+		GasPrice:          gasprice,
+		Syncing:           syncing,
+		Uptime:            100,
+		isCommitteeMember: isCommitteeMember,
 	}
+	stats := map[string]interface{}{
+		"id":    s.node,
+		"stats": nodeStats,
+	}
+	log.Warn("nodeStats", "nodeStats", nodeStats)
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}
