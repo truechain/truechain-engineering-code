@@ -25,9 +25,9 @@ const (
 	SwitchPartWork = 0
 	SwitchPartBack = 1
 	SwitchPartSeed = 2
-
-	EnableHealthMgr = true
 )
+
+var EnableHealthMgr = true
 
 //Health struct
 type Health struct {
@@ -212,6 +212,7 @@ func (h *HealthMgr) ChanTo() chan *SwitchValidator {
 
 //OnStart mgr start
 func (h *HealthMgr) OnStart() error {
+	EnableHealthMgr = true
 	if h.healthTick == nil {
 		h.healthTick = time.NewTicker(1 * time.Second)
 		go h.healthGoroutine()
@@ -221,6 +222,7 @@ func (h *HealthMgr) OnStart() error {
 
 //OnStop mgr stop
 func (h *HealthMgr) OnStop() {
+	EnableHealthMgr = false
 	if h.healthTick != nil {
 		h.healthTick.Stop()
 	}
@@ -280,7 +282,6 @@ func (h *HealthMgr) work(sshift bool) {
 	if !EnableHealthMgr {
 		return
 	}
-
 	for _, v := range h.Work {
 		h.checkSwitchValidator(v, sshift)
 	}
@@ -331,8 +332,10 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 	})
 	// will need check vals with validatorSet
 	infos := &ctypes.SwitchInfos{
-		CID:  h.cid,
-		Vals: vals,
+		CID:         h.cid,
+		Vals:        vals,
+		Members:     nil,
+		BackMembers: nil,
 	}
 	uid := h.uid
 	h.uid++

@@ -901,18 +901,11 @@ func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.
 
 	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
 		//make all committee
-		var ses types.SwitchEnters
-		mem := append(cs.cm.Members, cs.cm.BackMembers...)
-		for _, v := range mem {
-			se := &types.SwitchEnter{
-				CommitteeBase: v.CommitteeBase,
-				Flag:          uint32(v.Flag),
-			}
-			ses = append(ses, se)
-		}
 		info := &types.SwitchInfos{
-			CID:  cs.cm.Id.Uint64(),
-			Vals: ses,
+			CID:         cs.cm.Id.Uint64(),
+			Vals:        nil,
+			Members:     cs.cm.Members,
+			BackMembers: cs.cm.BackMembers,
 		}
 		v = &ttypes.SwitchValidator{
 			Infos: info,
