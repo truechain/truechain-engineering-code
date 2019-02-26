@@ -537,7 +537,7 @@ func (bc *SnailBlockChain) HasBlock(hash common.Hash, number uint64) bool {
 	return rawdb.HasBody(bc.db, hash, number)
 }
 
-// HasBlock checks if a block is fully present in the database or not.
+// HasConfirmedBlock checks if a block is fully present in the database or not.and number must bigger than currentBlockNumber
 func (bc *SnailBlockChain) HasConfirmedBlock(hash common.Hash, number uint64) bool {
 	if number > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
 		return false
