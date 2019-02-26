@@ -549,6 +549,10 @@ func (bc *SnailBlockChain) HasState(hash common.Hash) bool {
 // HasBlockAndState checks if a block and associated state trie is fully present
 // in the database or not, caching it if present.
 func (bc *SnailBlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
+	//if get number bigger than currentNumber return nil
+	if number > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
+		return false
+	}
 	// Check first that the block itself is known
 	block := bc.GetBlock(hash, number)
 	if block == nil {
