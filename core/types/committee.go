@@ -201,7 +201,7 @@ type EncryptNodeMessage struct {
 }
 
 func (c *EncryptNodeMessage) String() {
-	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt.Uint64())
+	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt.Uint64(), "hash", c.HashWithoutCreatedAt().String()[:20])
 }
 
 func (c *EncryptNodeMessage) HashWithOutNodes() common.Hash {
@@ -219,10 +219,10 @@ func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	})
 }
 
-func (c *EncryptNodeMessage) HashWithSign() common.Hash {
+func (c *EncryptNodeMessage) HashWithoutCreatedAt() common.Hash {
 	return RlpHash([]interface{}{
-		c.Nodes,
 		c.CommitteeID,
+		c.Nodes,
 		c.Sign,
 	})
 }
