@@ -256,6 +256,18 @@ func (c *EncryptNodeMessage) Hash() common.Hash {
 	return v
 }
 
+type CommitteeNodeTag struct {
+	committeeID *big.Int
+	pubKey      []byte
+}
+
+func (c *CommitteeNodeTag) Hash() common.Hash {
+	return RlpHash([]interface{}{
+		c.committeeID,
+		c.pubKey,
+	})
+}
+
 func RlpHash(x interface{}) (h common.Hash) {
 	hw := sha3.NewKeccak256()
 	if e := rlp.Encode(hw, x); e != nil {
