@@ -43,7 +43,7 @@ type nodeInfo struct {
 	IP      string
 	Port    uint
 	Enable  bool
-	Flag    int32
+	Flag    uint32
 }
 
 const (
@@ -447,22 +447,30 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo) {
 
 	for _, v := range c.Members {
-		id := pkToP2pID(v.Publickey)
+		pk,e:=crypto.UnmarshalPubkey(v.Publickey)
+		if e != nil{
+			log.Error("AddHealthForCommittee pk error","pk",v.Publickey)
+		}
+		id := pkToP2pID(pk)
 		//exclude self
 		self := false
-		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*pk)) {
 			self = true
 		}
-		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
+		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), 1)
 		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
 		h.PutWorkHealth(health)
 	}
 
 	for _, v := range c.BackMembers {
-		id := pkToP2pID(v.Publickey)
-		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*v.Publickey), 1)
+		pk,e:=crypto.UnmarshalPubkey(v.Publickey)
+		if e != nil{
+			log.Error("AddHealthForCommittee pk error","pk",v.Publickey)
+		}
+		id := pkToP2pID(pk)
+		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), 1)
 		self := false
-		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+		if n.nodekey.PubKey().Equals(tcrypto.PubKeyTrue(*pk)) {
 			self = true
 		}
 		health := ttypes.NewHealth(id, v.MType, v.Flag, val, self)
@@ -491,7 +499,11 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 	allMembers := append(info.Members, info.BackMembers...)
 	for _, v := range allMembers {
 		if v.Flag == types.StateRemovedFlag {
-			if service.consensusState.state.GetPubKey().Equals(tcrypto.PubKeyTrue(*v.Publickey)) {
+			pk,e:=crypto.UnmarshalPubkey(v.Publickey)
+			if e != nil{
+				log.Error("checkValidatorSet pk error","pk",v.Publickey)
+			}
+			if service.consensusState.state.GetPubKey().Equals(tcrypto.PubKeyTrue(*pk)) {
 				selfStop = true
 			}
 			remove = append(remove, v)
@@ -514,7 +526,11 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64(), info.EndHeight.Uint64())
 
 		for _, v := range member {
-			pID := pkToP2pID(v.Publickey)
+			pk,e:=crypto.UnmarshalPubkey(v.Publickey)
+			if e != nil{
+				log.Error("UpdateCommittee pk error","pk",v.Publickey)
+			}
+			pID := pkToP2pID(pk)
 			p := service.sw.GetPeerForID(string(pID))
 			if p != nil {
 				service.sw.StopPeerForError(p, nil)
@@ -565,7 +581,11 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 		} else {
 			power = 1
 		}
-		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*m.Publickey), power)
+		pk,e:=crypto.UnmarshalPubkey(m.Publickey)
+		if e != nil{
+			log.Error("MakeValidators pk error","pk",m.Publickey)
+		}
+		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), power)
 		vals = append(vals, v)
 	}
 	return ttypes.NewValidatorSet(vals)
@@ -577,9 +597,7 @@ func makeCommitteeMembers(ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*no
 	}
 	tab := make(map[tp2p.ID]*nodeInfo)
 	for i, m := range members {
-		tt := tcrypto.PubKeyTrue(*m.Publickey)
-		address := tt.Address()
-		id := tp2p.ID(hex.EncodeToString(address))
+		id := tp2p.ID(hex.EncodeToString(m.CommitteeBase.Bytes()))
 		tab[id] = &nodeInfo{
 			ID:   id,
 			Flag: m.Flag,

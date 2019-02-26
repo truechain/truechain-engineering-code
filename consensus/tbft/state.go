@@ -1676,12 +1676,12 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 	var add, remove *ttypes.Health
 	if aEnter.Flag == types.StateAppendFlag {
-		add = cs.hm.GetHealth(aEnter.Pk)
+		add = cs.hm.GetHealth(aEnter.CommitteeBase)
 		if rEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(rEnter.Pk)
+			remove = cs.hm.GetHealth(rEnter.CommitteeBase)
 		}
 	} else if aEnter.Flag == types.StateRemovedFlag {
-		remove = cs.hm.GetHealth(aEnter.Pk)
+		remove = cs.hm.GetHealth(aEnter.CommitteeBase)
 	}
 	if remove == nil {
 		log.Error("swithResult,remove is nil")
@@ -1712,12 +1712,12 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 		var add, remove *ttypes.Health
 		if aEnter.Flag == types.StateAppendFlag {
-			add = cs.hm.GetHealth(aEnter.Pk)
+			add = cs.hm.GetHealth(aEnter.CommitteeBase)
 			if rEnter.Flag == types.StateRemovedFlag {
-				remove = cs.hm.GetHealth(rEnter.Pk)
+				remove = cs.hm.GetHealth(rEnter.CommitteeBase)
 			}
 		} else if aEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(aEnter.Pk)
+			remove = cs.hm.GetHealth(aEnter.CommitteeBase)
 		}
 		if remove == nil {
 			log.Error("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
