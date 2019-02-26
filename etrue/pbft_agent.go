@@ -477,6 +477,8 @@ func (agent *PbftAgent) loop() {
 				if !bool {
 					warnReceivedMetrics.Mark(1)
 					log.Error("query committeeNodeTag by nodeTag has no savedTime", "nodeTag", nodeTag)
+					agent.committeeNodeTag.Delete(nodeTag)
+					continue
 				}
 				if savedTime.(*big.Int).Uint64() > cryNodeInfo.CreatedAt.Uint64() {
 					oldReceivedMetrics.Mark(1)
