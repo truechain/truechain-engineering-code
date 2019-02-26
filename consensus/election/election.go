@@ -98,9 +98,9 @@ func (c *committee) BackupMembers() []*types.CommitteeMember {
 	return members
 }
 
-func (c *committee) setMemberState(pubkey []byte, flag int32) {
+func (c *committee) setMemberState(pubkey []byte, flag uint32) {
 	for i, m := range c.members {
-		if bytes.Equal(crypto.FromECDSAPub(m.Publickey), pubkey) {
+		if bytes.Equal(m.Publickey, pubkey) {
 			c.members[i] = &types.CommitteeMember{
 				Coinbase:  m.Coinbase,
 				Publickey: m.Publickey,
@@ -110,7 +110,7 @@ func (c *committee) setMemberState(pubkey []byte, flag int32) {
 		}
 	}
 	for i, m := range c.backupMembers {
-		if bytes.Equal(crypto.FromECDSAPub(m.Publickey), pubkey) {
+		if bytes.Equal(m.Publickey, pubkey) {
 			c.backupMembers[i] = &types.CommitteeMember{
 				Coinbase:  m.Coinbase,
 				Publickey: m.Publickey,
@@ -166,8 +166,6 @@ type SnailBlockChain interface {
 	// CurrentBlock retrieves the head block from the local chain.
 	CurrentBlock() *types.SnailBlock
 
-	GetGenesisCommittee() []*types.CommitteeMember
-
 	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
 
 	GetDatabase() etruedb.Database
@@ -195,7 +193,7 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	}
 
 	// get genesis committee
-	election.genesisCommittee = election.snailchain.GetGenesisCommittee()
+	election.genesisCommittee = election.getGenesisCommittee()
 	if len(election.genesisCommittee) == 0 {
 		log.Error("Election creation get no genesis committee members")
 	}
@@ -206,7 +204,7 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
 	if election.singleNode {
-		election.genesisCommittee = election.snailchain.GetGenesisCommittee()[:1]
+		election.genesisCommittee = election.getGenesisCommittee()[:1]
 	}
 	if !election.singleNode && len(election.genesisCommittee) < 4 {
 		log.Error("Election creation get insufficient genesis committee members")
@@ -232,7 +230,7 @@ func NewFakeElection() *Election {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag, types.TypeFixed}
+		m := &types.CommitteeMember{coinbase, coinbase, crypto.FromECDSAPub(&priKey.PublicKey), types.StateUsedFlag, types.TypeFixed}
 		members = append(members, m)
 	}
 
@@ -294,7 +292,7 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 		return nil
 	}
 	for _, member := range members {
-		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+		if bytes.Equal(publickey, member.Publickey) {
 			return member
 		}
 	}
@@ -302,13 +300,13 @@ func (e *Election) GetMemberByPubkey(members []*types.CommitteeMember, publickey
 }
 
 // IsCommitteeMember reports whether the provided public key is in committee
-func (e *Election) GetMemberFlag(members []*types.CommitteeMember, publickey []byte) int32 {
+func (e *Election) GetMemberFlag(members []*types.CommitteeMember, publickey []byte) uint32 {
 	if len(members) == 0 {
 		log.Error("IsCommitteeMember method len(members)= 0")
-		return -1
+		return 0
 	}
 	for _, member := range members {
-		if bytes.Equal(publickey, crypto.FromECDSAPub(member.Publickey)) {
+		if bytes.Equal(publickey, member.Publickey) {
 			return member.Flag
 		}
 	}
@@ -377,6 +375,14 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 	return members, errs
 }
 
+func (e *Election) getGenesisCommittee() []*types.CommitteeMember {
+	block := e.fastchain.GetBlockByNumber(0)
+	if block != nil {
+		return block.SwitchInfos().Members
+	}
+	return nil
+}
+
 func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber *big.Int) *types.ElectionCommittee {
 	// Locate committee id by election snailblock interval
 	committeeNum := new(big.Int).Div(new(big.Int).Add(snailEndNumber, params.SnailConfirmInterval), params.ElectionPeriodNumber)
@@ -390,18 +396,20 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 		return committee
 	}
 
-	members := rawdb.ReadCommittee(e.snailchain.GetDatabase(), committeeNum.Uint64())
-	if members != nil {
+	blockNum := new(big.Int).Add(e.getLastNumber(snailBeginNumber, snailEndNumber), common.Big1).Uint64()
+	block := e.fastchain.GetBlockByNumber(blockNum)
+	if block != nil {
+		info := e.fastchain.GetBlockByNumber(blockNum).SwitchInfos()
+		members := types.ElectionCommittee{Members: info.Members, Backups: info.BackMembers}
 		e.commiteeCache.Add(committeeNum.Uint64(), members)
-		return members
+		return &members
 	}
 
 	// Elect members from snailblock
-	members = e.electCommittee(snailBeginNumber, snailEndNumber)
+	members := e.electCommittee(snailBeginNumber, snailEndNumber)
 
 	// Cache committee members for next access
 	e.commiteeCache.Add(committeeNum.Uint64(), members)
-	rawdb.WriteCommittee(e.snailchain.GetDatabase(), committeeNum.Uint64(), members)
 
 	return members
 }
@@ -434,7 +442,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 	endElectionNumber := new(big.Int).Set(switchCheckNumber)
 	beginElectionNumber := new(big.Int).Add(new(big.Int).Sub(endElectionNumber, params.ElectionPeriodNumber), common.Big1)
-	if beginElectionNumber.Cmp(common.Big0) < 1 {
+	if beginElectionNumber.Cmp(common.Big0) <= 0 {
 		beginElectionNumber = new(big.Int).Set(common.Big1)
 	}
 
@@ -446,7 +454,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 
 	log.Debug("check last fast block", "committee", committeeNumber, "last fast", lastFastNumber, "current", fastNumber)
 	//genesis committee is long committee ,it's 180 snail block and 9600 fast black
-	if lastFastNumber.Cmp(fastNumber) > -1 {
+	if lastFastNumber.Cmp(fastNumber) >= 0 {
 		if committeeNumber.Cmp(common.Big1) == 0 {
 			// still at genesis committee
 			log.Debug("get genesis committee")
@@ -568,7 +576,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		return committee.Members()
 	}
 
-	states := make(map[string]int32)
+	states := make(map[common.Address]uint32)
 	if fastNumber.Uint64() > committee.switches[len(committee.switches)-1] {
 		// Apply all committee state switches for latest block
 		for _, num := range committee.switches {
@@ -580,9 +588,9 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 			for _, s := range b.SwitchInfos().Vals {
 				switch s.Flag {
 				case types.StateAppendFlag:
-					states[hex.EncodeToString(s.Pk)] = types.StateAppendFlag
+					states[s.CommitteeBase] = types.StateAppendFlag
 				case types.StateRemovedFlag:
-					states[hex.EncodeToString(s.Pk)] = types.StateRemovedFlag
+					states[s.CommitteeBase] = types.StateRemovedFlag
 				}
 			}
 		}
@@ -599,16 +607,16 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 			for _, s := range b.SwitchInfos().Vals {
 				switch s.Flag {
 				case types.StateAppendFlag:
-					states[hex.EncodeToString(s.Pk)] = types.StateAppendFlag
+					states[s.CommitteeBase] = types.StateAppendFlag
 				case types.StateRemovedFlag:
-					states[hex.EncodeToString(s.Pk)] = types.StateRemovedFlag
+					states[s.CommitteeBase] = types.StateRemovedFlag
 				}
 			}
 		}
 	}
 
 	for _, m := range committee.Members() {
-		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[m.CommitteeBase]; ok {
 			if flag != types.StateRemovedFlag {
 				members = append(members, m)
 			}
@@ -617,7 +625,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 		}
 	}
 	for _, m := range committee.BackupMembers() {
-		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[m.CommitteeBase]; ok {
 			if flag == types.StateAppendFlag {
 				members = append(members, m)
 			}
@@ -698,7 +706,7 @@ func membersDisplay(members []*types.CommitteeMember) []map[string]interface{} {
 	for _, member := range members {
 		attrs = append(attrs, map[string]interface{}{
 			"coinbase": member.Coinbase,
-			"PKey":     hex.EncodeToString(crypto.FromECDSAPub(member.Publickey)),
+			"PKey":     hex.EncodeToString(member.Publickey),
 			"flag":     member.Flag,
 			"type":     member.MType,
 		})
@@ -816,7 +824,7 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 	var defaults = make(map[common.Address]*types.CommitteeMember)
 
 	for _, g := range e.defaultMembers {
-		defaults[crypto.PubkeyToAddress(*g.Publickey)] = g
+		defaults[g.CommitteeBase] = g
 	}
 	log.Debug("elect committee members ..", "count", len(candidates), "seed", seed)
 	round := new(big.Int).Set(common.Big1)
@@ -845,7 +853,8 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 			addrs[cm.address] = 1
 			member := &types.CommitteeMember{
 				Coinbase:  cm.coinbase,
-				Publickey: cm.publickey,
+				CommitteeBase: crypto.PubkeyToAddress(*cm.publickey),
+				Publickey: crypto.FromECDSAPub(cm.publickey),
 				Flag:      types.StateUnusedFlag,
 			}
 			members = append(members, member)
@@ -917,28 +926,28 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 	}
 
 	// Apply all committee state switches for latest block
-	states := make(map[string]int32)
+	states := make(map[common.Address]uint32)
 	for _, num := range c.switches {
 		b := e.fastchain.GetBlockByNumber(num)
 		for _, s := range b.SwitchInfos().Vals {
 			switch s.Flag {
 			case types.StateAppendFlag:
-				states[hex.EncodeToString(s.Pk)] = types.StateAppendFlag
+				states[s.CommitteeBase] = types.StateAppendFlag
 			case types.StateRemovedFlag:
-				states[hex.EncodeToString(s.Pk)] = types.StateRemovedFlag
+				states[s.CommitteeBase] = types.StateRemovedFlag
 			}
 		}
 	}
 	for k, flag := range states {
-		enums := map[int32]string{
+		enums := map[uint32]string{
 			types.StateAppendFlag:  "add",
 			types.StateRemovedFlag: "drop",
 		}
-		log.Info("Committee switch info transition", "bftkey", k, "state", enums[flag], "committee", c.id)
+		log.Info("Committee switch transition", "bftkey", k, "state", enums[flag], "committee", c.id)
 	}
 
 	for i, m := range members {
-		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[m.CommitteeBase]; ok {
 			if flag == types.StateRemovedFlag {
 				// Update the committee member state
 				var switched = *m
@@ -948,7 +957,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 		}
 	}
 	for i, m := range backups {
-		if flag, ok := states[hex.EncodeToString(crypto.FromECDSAPub(m.Publickey))]; ok {
+		if flag, ok := states[m.CommitteeBase]; ok {
 			if flag == types.StateAppendFlag {
 				// Update the committee member state
 				var switched = *m
@@ -1255,11 +1264,9 @@ func (e *Election) SetEngine(engine consensus.Engine) {
 func printCommittee(c *committee) {
 	log.Info("Committee Info", "ID", c.id, "count", len(c.members), "start", c.beginFastNumber)
 	for _, member := range c.members {
-		key := crypto.FromECDSAPub(member.Publickey)
-		log.Info("Committee member: ", "PKey", hex.EncodeToString(key), "coinbase", member.Coinbase)
+		log.Info("Committee member: ", "PKey", hex.EncodeToString(member.Publickey), "coinbase", member.Coinbase)
 	}
 	for _, member := range c.backupMembers {
-		key := crypto.FromECDSAPub(member.Publickey)
-		log.Info("Committee backup member: ", "PKey", hex.EncodeToString(key), "coinbase", member.Coinbase)
+		log.Info("Committee backup member: ", "PKey", hex.EncodeToString(member.Publickey), "coinbase", member.Coinbase)
 	}
 }

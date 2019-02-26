@@ -145,11 +145,11 @@ func CheckSign(etrue *Truechain) {
 		fmt.Println("signInfo", "Result", sign.Result)
 		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 		for _, member := range members {
-			isSelf := bytes.Equal(crypto.FromECDSAPub(member.Publickey), crypto.FromECDSAPub(pubkey))
+			isSelf := bytes.Equal(member.Publickey, crypto.FromECDSAPub(pubkey))
 			if isSelf {
 				t++
-				fmt.Println("pubKey: ", hex.EncodeToString(crypto.FromECDSAPub(member.Publickey)))
-				fmt.Println("pubKey: ", crypto.FromECDSAPub(member.Publickey))
+				fmt.Println("pubKey: ", hex.EncodeToString(member.Publickey))
+				fmt.Println("pubKey: ", member.Publickey)
 				fmt.Println("  verify true", strconv.Itoa(t))
 			}
 		}

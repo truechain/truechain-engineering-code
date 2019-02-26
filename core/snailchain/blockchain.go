@@ -1392,15 +1392,6 @@ func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
 	return fruit
 }
 
-// GetGenesisCommittee retrieves Genesis CommitteeMembers from the database
-func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
-	committee := rawdb.ReadGenesisCommittee(bc.db)
-	if committee == nil {
-		return nil
-	}
-	return committee
-}
-
 // Config retrieves the blockchain's chain configuration.
 func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 

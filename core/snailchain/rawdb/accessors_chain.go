@@ -22,7 +22,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -328,104 +327,6 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 		}
 	}
 	return a
-}
-
-type committeeMember struct {
-	Address common.Address
-	PubKey  []byte
-	MType   uint32
-}
-
-type electionMembers struct {
-	Members []*committeeMember
-	Backups []*committeeMember
-}
-
-// WriteCommittee stores the Committee of a block into the database.
-func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionCommittee) {
-	members := make([]*committeeMember, len(committee.Members))
-	for i, member := range committee.Members {
-		members[i] = &committeeMember{
-			Address: member.Coinbase,
-			PubKey:  member.Publickey,
-			MType:   uint32(member.MType),
-		}
-	}
-	backups := make([]*committeeMember, len(committee.Backups))
-	for i, member := range committee.Backups {
-		backups[i] = &committeeMember{
-			Address: member.Coinbase,
-			PubKey:  member.Publickey,
-			MType:   uint32(member.MType),
-		}
-	}
-
-	data, err := rlp.EncodeToBytes(&electionMembers{Members: members, Backups: backups})
-	if err != nil {
-		log.Crit("Failed to RLP encode committee", "err", err)
-	}
-
-	key := committeeKey(number)
-	if err := db.Put(key, data); err != nil {
-		log.Crit("Failed to store committee", "err", err)
-	}
-	log.Info("success to store committee")
-}
-
-// ReadCommittee read committee
-func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
-	key := committeeKey(number)
-	data, _ := db.Get(key)
-	if len(data) == 0 {
-		return nil
-	}
-	var (
-		election  electionMembers
-		committee types.ElectionCommittee
-	)
-	if err := rlp.Decode(bytes.NewReader(data), &election); err != nil {
-		log.Error("Invalid committee RLP", "err", err)
-		return nil
-	}
-	for _, member := range election.Members {
-		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey)
-		if puberr != nil {
-			return nil
-		}
-		committee.Members = append(committee.Members, &types.CommitteeMember{
-			Coinbase:  member.Address,
-			Publickey: crypto.FromECDSAPub(pubkey),
-			Flag:      types.StateUsedFlag,
-			MType:     member.MType,
-		})
-	}
-
-	for _, member := range election.Backups {
-		pubkey, puberr := crypto.UnmarshalPubkey(member.PubKey)
-		if puberr != nil {
-			return nil
-		}
-		committee.Backups = append(committee.Backups, &types.CommitteeMember{
-			Coinbase:  member.Address,
-			Publickey: crypto.FromECDSAPub(pubkey),
-			Flag:      types.StateUnusedFlag,
-			MType:     member.MType,
-		})
-	}
-
-	return &committee
-}
-
-// ReadGenesisCommittee read the Genesis committee
-func ReadGenesisCommittee(db DatabaseReader) []*types.CommitteeMember {
-	if committee := ReadCommittee(db, 0); committee != nil {
-		for _, m := range committee.Members {
-			m.Flag = types.StateUsedFlag
-			m.MType = types.TypeFixed
-		}
-		return committee.Members
-	}
-	return nil
 }
 
 // ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height

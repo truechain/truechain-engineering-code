@@ -677,7 +677,8 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 	members = append(members, committeeInfo.Members...)
 	members = append(members, committeeInfo.BackMembers...)
 	for _, member := range members {
-		encryptNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
+		pubkey, _ := crypto.UnmarshalPubkey(member.Publickey)
+		encryptNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubkey), nodeByte, nil, nil)
 		if err != nil {
 			log.Error("publickey encrypt node error ", "member.Publickey:", member.Publickey, "err", err)
 		}
@@ -1225,7 +1226,7 @@ func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo,
 }
 
 //IsCommitteeMember  whether agent in  committee member
-func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.CommitteeInfo) int32 {
+func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.CommitteeInfo) uint32 {
 	var members []*types.CommitteeMember
 	members = append(members, committeeInfo.Members...)
 	members = append(members, committeeInfo.BackMembers...)

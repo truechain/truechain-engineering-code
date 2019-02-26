@@ -21,24 +21,22 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"errors"
+	"math/big"
 
-	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/truechain/truechain-engineering-code/core/state"
-	"github.com/truechain/truechain-engineering-code/core/types"
-
-	"errors"
-
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
+	"github.com/truechain/truechain-engineering-code/core/rawdb"
+	snaildb "github.com/truechain/truechain-engineering-code/core/snailchain/rawdb"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -276,12 +274,11 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 	statedb.Database().TrieDB().Commit(root, true)
 
 	// All genesis committee members are included in switchinfo of block #0
-	committee := &types.SwitchInfos{CID: 0}
-	for _, member := range g.Committee {
-		committee.Vals = append(committee.Vals, &types.SwitchEnter{
-			CommitteeBase: member.CommitteeBase,
-			Flag:          types.StateUsedFlag,
-		})
+	committee := &types.SwitchInfos{CID: 0, Members: g.Committee}
+	for _, member := range committee.Members {
+		pubkey, _ := crypto.UnmarshalPubkey(member.Publickey)
+		member.Flag = types.StateUsedFlag
+		member.CommitteeBase = common.BytesToAddress(crypto.FromECDSAPub(pubkey))
 	}
 	return types.NewBlock(head, nil, nil, nil, committee)
 }
@@ -390,8 +387,6 @@ func (g *Genesis) CommitSnail(db etruedb.Database) (*types.SnailBlock, error) {
 	snaildb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	snaildb.WriteHeadBlockHash(db, block.Hash())
 	snaildb.WriteHeadHeaderHash(db, block.Hash())
-	// Write genesis election committeee
-	snaildb.WriteCommittee(db, block.NumberU64(), &types.ElectionCommittee{Members: g.Committee})
 
 	// config := g.Config
 	// if config == nil {
