@@ -125,6 +125,7 @@ type peer struct {
 	queuedFastAnns chan *types.Block // Queue of fastBlocks to announce to the peer
 	term           chan struct{}     // Termination channel to stop the broadcaster
 	dropTx         uint64
+	totalNode      uint64
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -149,6 +150,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
 		term:             make(chan struct{}),
 		dropTx:           0,
+		totalNode:        0,
 	}
 }
 
@@ -370,6 +372,10 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 // in its signs hash set for future reference.
 func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
+	p.totalNode += uint64(1)
+	if p.totalNode%100 == 0 {
+		log.Info("SendNodeInfo", nodeInfo.String, "total node", p.totalNode, "size", nodeInfo.Size())
+	}
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
 
@@ -399,7 +405,7 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 			p.knownFruits.Add(fruit.Hash())
 		}
 	default:
-		p.Log().Debug("Dropping fruits propagation", "count", len(fruits))
+		p.Log().Debug("Dropping fruits propagation", "size", fruits[0].Size(), "count", len(fruits))
 	}
 }
 
