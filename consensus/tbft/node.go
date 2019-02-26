@@ -146,9 +146,9 @@ func (s *service) stop() error {
 	if s.sw.IsRunning() {
 		s.updateChan <- false
 		s.healthMgr.OnStop()
+		help.CheckAndPrintError(s.sw.Stop())
 		//help.CheckAndPrintError(s.eventBus.Stop())
 	}
-	help.CheckAndPrintError(s.sw.Stop())
 	return nil
 }
 func (s *service) getStateAgent() *ttypes.StateAgentImpl {

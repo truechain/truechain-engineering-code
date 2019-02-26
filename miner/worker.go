@@ -42,9 +42,9 @@ const (
 	resultQueueSize  = 10
 	miningLogAtDepth = 5
 
-	// txChanSize is the size of channel listening to NewTxsEvent.
-	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
+	// fruitChanSize is the size of channel listening to NewFruitsEvent.
+	// The number is referenced from the size of snail pool.
+	fruitChanSize = 4096
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 64
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
@@ -158,11 +158,11 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		etrue:  etrue,
 		mux:    mux,
 		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
-		fruitCh:           make(chan types.NewFruitsEvent, txChanSize),
+		fruitCh:           make(chan types.NewFruitsEvent, fruitChanSize),
 		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
 		chainHeadCh:       make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
 		chainSideCh:       make(chan types.ChainSnailSideEvent, chainSideChanSize),
-		minedfruitCh:      make(chan types.NewMinedFruitEvent, txChanSize),
+		minedfruitCh:      make(chan types.NewMinedFruitEvent, fruitChanSize),
 		chainDb:           etrue.ChainDb(),
 		recv:              make(chan *Result, resultQueueSize),
 		chain:             etrue.SnailBlockChain(),

@@ -64,9 +64,9 @@ var (
 	tpsMetrics           = metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
 	pbftConsensusCounter = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 
-	repeatReceivedMetrics = metrics.NewRegisteredCounter("etrue/pbftAgent/repeat", nil)
-	nodeSendMetrics       = metrics.NewRegisteredCounter("etrue/pbftAgent/send", nil)
-	nodeHandleMetrics     = metrics.NewRegisteredCounter("etrue/pbftAgent/handle", nil)
+	repeatReceivedMetrics = metrics.NewRegisteredMeter("etrue/pbftAgent/repeat", nil)
+	nodeSendMetrics       = metrics.NewRegisteredMeter("etrue/pbftAgent/send", nil)
+	nodeHandleMetrics     = metrics.NewRegisteredMeter("etrue/pbftAgent/handle", nil)
 )
 
 var (
@@ -130,6 +130,7 @@ type PbftAgent struct {
 
 	nodeInfoWorks      []*nodeInfoWork
 	knownRecievedNodes *set.Set
+	encryptNode        map[common.Hash][]byte
 
 	gasFloor uint64
 	gasCeil  uint64
@@ -176,6 +177,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		gasFloor:             gasFloor,
 		gasCeil:              gasCeil,
 		knownRecievedNodes:   set.New(),
+		encryptNode:          make(map[common.Hash][]byte),
 	}
 	agent.initNodeInfo(etrue)
 	if !agent.singleNode {
@@ -435,7 +437,7 @@ func (agent *PbftAgent) loop() {
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
 				}
-				//receivedNodeInfo = make(map[common.Hash]struct{})
+				agent.encryptNode = make(map[common.Hash][]byte)
 			case types.CommitteeUpdate:
 				committeeID := copyCommitteeID(ch.CommitteeID)
 				receivedCommitteeInfo := &types.CommitteeInfo{
@@ -468,16 +470,17 @@ func (agent *PbftAgent) loop() {
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
 			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
-				repeatReceivedMetrics.Inc(1)
-				//log.Debug("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
+				repeatReceivedMetrics.Mark(1)
+				//log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
 				continue
 			}
+			cryNodeInfo.String()
 			agent.MarkNodeInfo(cryNodeInfo.Hash())
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				nodeSendMetrics.Inc(1)
+				nodeSendMetrics.Mark(1)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 				if nodeWork.isCommitteeMember {
-					nodeHandleMetrics.Inc(1)
+					nodeHandleMetrics.Mark(1)
 					agent.handlePbftNode(cryNodeInfo, nodeWork)
 				}
 				//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
@@ -607,15 +610,29 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 		log.Error("received cryNodeInfo committeeId1 and committeeId2 is nil")
 		return false, nil
 	}
+	/*var pubKeyByte []byte
+	if agent.encryptNode[encryptNode.HashWithSign()] != nil {
+		pubKeyByte = agent.encryptNode[encryptNode.HashWithoutSign()]
+	} else {
+		hashBytes := encryptNode.HashWithoutSign().Bytes()
+		pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
+		if err != nil {
+			log.Error("encryptoNode SigToPub error", "err", err)
+			return false, nil
+		}
+		pubKeyByte = crypto.FromECDSAPub(pubKey)
 
-	hash := encryptNode.HashWithoutSign().Bytes()
-	pubKey, err := crypto.SigToPub(hash, encryptNode.Sign)
+		agent.encryptNode[encryptNode.HashWithSign()] = pubKeyByte
+	}*/
+
+	hashBytes := encryptNode.HashWithoutSign().Bytes()
+	pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
 	if err != nil {
 		log.Error("encryptoNode SigToPub error", "err", err)
 		return false, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-
+	//log.Info("senderPubkey", "pubkey", crypto.PubkeyToAddress(*pubKey).String())
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
 		return true, agent.nodeInfoWorks[0]
@@ -646,7 +663,7 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 	var (
 		err         error
 		cryNodeInfo = &types.EncryptNodeMessage{
-			CreatedAt:   time.Now(),
+			CreatedAt:   big.NewInt(time.Now().Unix()),
 			CommitteeID: committeeInfo.Id,
 		}
 	)
