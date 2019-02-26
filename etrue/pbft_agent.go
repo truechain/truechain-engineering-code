@@ -474,7 +474,7 @@ func (agent *PbftAgent) loop() {
 				//log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
 				continue
 			}
-			cryNodeInfo.String()
+			//cryNodeInfo.String()
 			agent.MarkNodeInfo(cryNodeInfo.Hash())
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				nodeSendMetrics.Mark(1)
