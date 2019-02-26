@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/utils"
 	"math/big"
 	"sync"
 	"time"
@@ -41,7 +42,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -129,7 +129,7 @@ type PbftAgent struct {
 	singleNode bool
 
 	nodeInfoWorks      []*nodeInfoWork
-	knownRecievedNodes *set.Set
+	knownRecievedNodes *utils.OrderedMap
 	encryptNode        map[common.Hash][]byte
 
 	gasFloor uint64
@@ -176,7 +176,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		vmConfig:             vm.Config{EnablePreimageRecording: etrue.Config().EnablePreimageRecording},
 		gasFloor:             gasFloor,
 		gasCeil:              gasCeil,
-		knownRecievedNodes:   set.New(),
+		knownRecievedNodes:   utils.NewOrderedMap(),
 		encryptNode:          make(map[common.Hash][]byte),
 	}
 	agent.initNodeInfo(etrue)
@@ -475,7 +475,7 @@ func (agent *PbftAgent) loop() {
 				continue
 			}
 			//cryNodeInfo.String()
-			agent.MarkNodeInfo(cryNodeInfo.Hash())
+			agent.MarkNodeInfo(cryNodeInfo)
 			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 				nodeSendMetrics.Mark(1)
 				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
@@ -1311,12 +1311,12 @@ func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	return agent.election.IsCommitteeMember(committeeMembers, agent.committeeNode.Publickey)
 }
 
-func (agent *PbftAgent) MarkNodeInfo(hash common.Hash) {
+func (agent *PbftAgent) MarkNodeInfo(c *types.EncryptNodeMessage) {
 	// If we reached the memory allowance, drop a previously known transaction hash
 	for agent.knownRecievedNodes.Size() >= maxKnownNodes {
 		agent.knownRecievedNodes.Pop()
 	}
-	agent.knownRecievedNodes.Add(hash)
+	agent.knownRecievedNodes.Set(c.Hash(), c)
 }
 
 func (agent *PbftAgent) singleloop() {

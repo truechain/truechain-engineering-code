@@ -69,12 +69,6 @@
 			"revisionTime": "2015-01-22T07:26:53Z"
 		},
 		{
-			"checksumSHA1": "lNbf8o7K6gJYDjTvmX++UeL2MJg=",
-			"path": "github.com/cevaris/ordered_map",
-			"revision": "0efaee1733e3399a3cb88fc7d2ce340bf2e863d7",
-			"revisionTime": "2018-03-10T15:02:44Z"
-		},
-		{
 			"checksumSHA1": "dvabztWVQX8f6oMLRyv4dLH+TGY=",
 			"path": "github.com/davecgh/go-spew/spew",
 			"revision": "346938d642f2ec3594ed81d874461961cd0faa76",
