@@ -198,7 +198,6 @@ type Block struct {
 	header       *Header
 	transactions Transactions
 
-
 	signs PbftSigns
 	infos *SwitchInfos
 	// caches
@@ -252,6 +251,11 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.infos.CID = infos.CID
 		b.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
 		copy(b.infos.Vals, infos.Vals)
+		b.infos.Members = make([]*CommitteeMember, len(infos.Members))
+		copy(b.infos.Members, infos.Members)
+		b.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
+		copy(b.infos.BackMembers, infos.BackMembers)
+
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
 	return b

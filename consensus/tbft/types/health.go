@@ -2,12 +2,10 @@ package types
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
@@ -323,13 +321,13 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 	vals := make([]*ctypes.SwitchEnter, 0, 0)
 	if add != nil {
 		vals = append(vals, &ctypes.SwitchEnter{
-			//CommitteeBase: add.Val.Address
-			Flag: ctypes.StateAppendFlag,
+			CommitteeBase: common.BytesToAddress(add.Val.Address),
+			Flag:          ctypes.StateAppendFlag,
 		})
 	}
 	vals = append(vals, &ctypes.SwitchEnter{
-		//CommitteeBase: remove.Val.Address,
-		Flag: ctypes.StateRemovedFlag,
+		CommitteeBase: common.BytesToAddress(remove.Val.Address),
+		Flag:          ctypes.StateRemovedFlag,
 	})
 	// will need check vals with validatorSet
 	infos := &ctypes.SwitchInfos{
