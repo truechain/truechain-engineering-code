@@ -257,14 +257,14 @@ func (c *EncryptNodeMessage) Hash() common.Hash {
 }
 
 type CommitteeNodeTag struct {
-	committeeID *big.Int
-	pubKey      []byte
+	CommitteeID *big.Int
+	PubKey      []byte
 }
 
 func (c *CommitteeNodeTag) Hash() common.Hash {
 	return RlpHash([]interface{}{
-		c.committeeID,
-		c.pubKey,
+		c.CommitteeID,
+		c.PubKey,
 	})
 }
 
