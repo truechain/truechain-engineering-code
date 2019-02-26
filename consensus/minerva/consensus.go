@@ -27,7 +27,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -448,7 +447,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 		return consensus.ErrInvalidSign
 	}
 	for _, member := range members {
-		addr := crypto.PubkeyToAddress(*member.Publickey)
+		addr := member.CommitteeBase
 		ms[addr] = 0
 	}
 
@@ -473,15 +472,15 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 			log.Warn("VerifySigns error", "err", err)
 			return err
 		}
-		addr := crypto.PubkeyToAddress(*signMembers[i].Publickey)
+		addr := signMembers[i].CommitteeBase
 		if _, ok := ms[addr]; !ok {
 			// is not a committee member
-			log.Warn("VerifySigns member error", "signs", len(signs), "member", hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
+			log.Warn("VerifySigns member error", "signs", len(signs), "member", hex.EncodeToString(members[i].Publickey))
 			return consensus.ErrInvalidSign
 		}
 		if ms[addr] == 1 {
 			// the committee member's sign is already exist
-			log.Warn("VerifySigns member already exist", "signs", len(signs), "member", hex.EncodeToString(crypto.FromECDSAPub(members[i].Publickey)))
+			log.Warn("VerifySigns member already exist", "signs", len(signs), "member", hex.EncodeToString(members[i].Publickey))
 			return consensus.ErrInvalidSign
 		}
 		ms[addr] = 1
@@ -895,7 +894,7 @@ func accumulateRewardsFast(election consensus.CommitteeElection, stateDB *state.
 				if errs[i] != nil {
 					continue
 				}
-				cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
+				cmPubAddr := cm.CommitteeBase
 				if signs[i].Result == types.VoteAgree {
 					if _, ok := failAddr.Load(cmPubAddr); !ok {
 						fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
@@ -985,7 +984,7 @@ func accumulateRewardsFast_test(election consensus.CommitteeElection, stateDB *s
 				if errs[i] != nil {
 					continue
 				}
-				cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
+				cmPubAddr := cm.CommitteeBase
 				if signs[i].Result == types.VoteAgree {
 					if _, ok := failAddr[cmPubAddr]; !ok {
 						fruitOkAddr = append(fruitOkAddr, cm.Coinbase)
@@ -1033,7 +1032,7 @@ func rewardFruitCommitteeMember(state *state.StateDB, election consensus.Committ
 		if errs[i] != nil {
 			continue
 		}
-		cmPubAddr := crypto.PubkeyToAddress(*cm.Publickey)
+		cmPubAddr := cm.CommitteeBase
 		if signs[i].Result == types.VoteAgree {
 			if _, ok := failAddr[cmPubAddr]; !ok {
 				fruitOkAddr = append(fruitOkAddr, cm.Coinbase)

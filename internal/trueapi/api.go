@@ -971,8 +971,8 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	fields["signs"] = signs
 	formatSwitchEnter := func(witch *types.SwitchEnter) (map[string]interface{}, error) {
 		SwitchEntermap := map[string]interface{}{
-			"PK":   hexutil.Bytes(witch.Pk),
-			"Flag": hexutil.Uint(witch.Flag),
+			"CommitteeBase": witch.CommitteeBase,
+			"Flag":          hexutil.Uint(witch.Flag),
 		}
 		return SwitchEntermap, nil
 	}

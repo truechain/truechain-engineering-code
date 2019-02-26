@@ -77,10 +77,10 @@ func (ss *PbftServerMgr) Finish() error {
 func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	var update bool = false
 	for _, v := range ss.info {
-		if !bytes.Equal(v.Publickey, crypto.FromECDSAPub(mm.Publickey)) {
+		if !bytes.Equal(v.Publickey, mm.Publickey) {
 			ss.info = append(ss.info, &types.CommitteeNode{
 				Coinbase:  mm.Coinbase,
-				Publickey: crypto.FromECDSAPub(mm.Publickey),
+				Publickey: mm.Publickey,
 			})
 			update = true
 			break
@@ -89,7 +89,7 @@ func (ss *serverInfo) insertMember(mm *types.CommitteeMember) {
 	if !update {
 		ss.info = append(ss.info, &types.CommitteeNode{
 			Coinbase:  mm.Coinbase,
-			Publickey: crypto.FromECDSAPub(mm.Publickey),
+			Publickey: mm.Publickey,
 		})
 	}
 }
@@ -485,8 +485,9 @@ func (ss *PbftServerMgr) PutCommittee(committeeInfo *types.CommitteeInfo) error 
 	}
 	leader := members[0].Publickey
 	infos := make([]*types.CommitteeNode, 0)
+	lead, _ := crypto.UnmarshalPubkey(leader)
 	server := serverInfo{
-		leader: leader,
+		leader: lead,
 		nodeid: common.ToHex(crypto.FromECDSAPub(ss.pk)),
 		info:   infos,
 		Height: new(big.Int).Set(common.Big0),

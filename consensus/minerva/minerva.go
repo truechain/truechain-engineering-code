@@ -573,7 +573,7 @@ func newFakeElection() *fakeElection {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey, types.StateUsedFlag, types.TypeFixed}
+		m := &types.CommitteeMember{coinbase, crypto.PubkeyToAddress(priKey.PublicKey), crypto.FromECDSAPub(&priKey.PublicKey), types.StateUsedFlag, types.TypeFixed}
 		members = append(members, m)
 	}
 	return &fakeElection{privates: priKeys, members: members}
@@ -593,7 +593,7 @@ func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeM
 		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 		pubkeyByte := crypto.FromECDSAPub(pubkey)
 		for _, m := range e.members {
-			if bytes.Equal(pubkeyByte, crypto.FromECDSAPub(m.Publickey)) {
+			if bytes.Equal(pubkeyByte, m.Publickey) {
 				members[i] = m
 			}
 		}

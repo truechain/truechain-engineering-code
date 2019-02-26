@@ -347,7 +347,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionC
 	for i, member := range committee.Members {
 		members[i] = &committeeMember{
 			Address: member.Coinbase,
-			PubKey:  crypto.FromECDSAPub(member.Publickey),
+			PubKey:  member.Publickey,
 			MType:   uint32(member.MType),
 		}
 	}
@@ -355,7 +355,7 @@ func WriteCommittee(db DatabaseWriter, number uint64, committee *types.ElectionC
 	for i, member := range committee.Backups {
 		backups[i] = &committeeMember{
 			Address: member.Coinbase,
-			PubKey:  crypto.FromECDSAPub(member.Publickey),
+			PubKey:  member.Publickey,
 			MType:   uint32(member.MType),
 		}
 	}
@@ -394,9 +394,9 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 		}
 		committee.Members = append(committee.Members, &types.CommitteeMember{
 			Coinbase:  member.Address,
-			Publickey: pubkey,
+			Publickey: crypto.FromECDSAPub(pubkey),
 			Flag:      types.StateUsedFlag,
-			MType:     int32(member.MType),
+			MType:     member.MType,
 		})
 	}
 
@@ -407,9 +407,9 @@ func ReadCommittee(db DatabaseReader, number uint64) *types.ElectionCommittee {
 		}
 		committee.Backups = append(committee.Backups, &types.CommitteeMember{
 			Coinbase:  member.Address,
-			Publickey: pubkey,
+			Publickey: crypto.FromECDSAPub(pubkey),
 			Flag:      types.StateUnusedFlag,
-			MType:     int32(member.MType),
+			MType:     member.MType,
 		})
 	}
 
