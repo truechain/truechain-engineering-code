@@ -374,7 +374,7 @@ func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
 	p.totalNode += uint64(1)
 	if p.totalNode%100 == 0 {
-		log.Info("SendNodeInfo", "total node", p.totalNode, "size", nodeInfo.Size())
+		log.Info("SendNodeInfo", "total node", p.totalNode, "size", nodeInfo.Size(), "peer", p.id)
 	}
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
