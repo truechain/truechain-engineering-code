@@ -492,7 +492,7 @@ func (agent *PbftAgent) loop() {
 			} else {
 				if isCommittee, nodeWork, nodeTag := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 					savedTime, bool := agent.committeeNodeTag.Get(nodeTag.Hash())
-					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) >= 0 {
+					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) > 0 {
 						continue
 					}
 
