@@ -61,6 +61,16 @@ type ElectionCommittee struct {
 	Backups []*CommitteeMember
 }
 
+func NewCommitteeMember(coinBase common.Address, publicKey []byte, flag, mType uint32) *CommitteeMember {
+	return &CommitteeMember{
+		Coinbase:      coinBase,
+		Publickey:     publicKey,
+		CommitteeBase: common.BytesToAddress(crypto.Keccak256(publicKey[1:])[12:]),
+		Flag:          flag,
+		MType:         mType,
+	}
+}
+
 func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
 	if c.MType == d.MType && c.Coinbase.String() != d.Coinbase.String() &&
 		bytes.Compare(c.CommitteeBase.Bytes(), d.CommitteeBase.Bytes()) == 0 {

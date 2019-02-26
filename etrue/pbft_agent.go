@@ -209,7 +209,7 @@ func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 			log.Error("singlenode start,must init genesis_single.json")
 		}
 		agent.committeeNode.Coinbase = committees[0].Coinbase
-		agent.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
+		agent.committeeNode.Publickey = committees[0].Publickey
 	}
 	log.Info("InitNodeInfo", "singleNode", agent.singleNode,
 		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
