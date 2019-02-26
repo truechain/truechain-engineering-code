@@ -821,6 +821,7 @@ func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
+	log.Debug("InsertChain...", "start", chain[0].NumberU64(), "end", chain[len(chain)-1].NumberU64())
 	n, events, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
