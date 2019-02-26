@@ -55,7 +55,7 @@ const (
 	committeeIdChanSize = 3
 	sendNodeTime        = 1 * time.Minute
 	//subSignStr       = 24
-	maxKnownNodes  = 256
+	maxKnownNodes  = 512
 	fetchBlockTime = 2
 	blockInterval  = 20
 )
@@ -472,10 +472,10 @@ func (agent *PbftAgent) loop() {
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
 			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
-				nodeTag, _ := agent.knownRecievedNodes.Get(cryNodeInfo.Hash())
-				savedTime, bool := agent.committeeNodeTag.Get(nodeTag)
+				nodeTagHash, _ := agent.knownRecievedNodes.Get(cryNodeInfo.Hash())
+				savedTime, bool := agent.committeeNodeTag.Get(nodeTagHash)
 				if !bool {
-					agent.MarkNodeTag(nodeTag.(common.Hash), cryNodeInfo.CreatedAt)
+					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
 				} else {
 					if savedTime.(*big.Int).Uint64() > cryNodeInfo.CreatedAt.Uint64() {
 						oldReceivedMetrics.Mark(1)
@@ -485,25 +485,30 @@ func (agent *PbftAgent) loop() {
 					} else {
 						newReceivedMetrics.Mark(1)
 						go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
-						agent.MarkNodeTag(nodeTag.(common.Hash), cryNodeInfo.CreatedAt)
+						agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
 					}
 				}
-				//log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
+				//log.Info("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
 			} else {
-				//cryNodeInfo.String()
-				//agent.MarkNodeInfo(cryNodeInfo)
 				if isCommittee, nodeWork, nodeTag := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
+					savedTime, bool := agent.committeeNodeTag.Get(nodeTag.Hash())
+					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) >= 0 {
+						continue
+					}
+
 					agent.MarkNodeInfo(cryNodeInfo, nodeTag)
 					differentReceivedMetrics.Mark(1)
 
 					agent.MarkNodeTag(nodeTag.Hash(), cryNodeInfo.CreatedAt)
+					newReceivedMetrics.Mark(1)
+
 					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 					if nodeWork.isCommitteeMember {
 						nodeHandleMetrics.Mark(1)
 						agent.handlePbftNode(cryNodeInfo, nodeWork)
 					}
 
-					//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
+					//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "nodeM", nodeHandleMetrics.Count(), "diff", differentReceivedMetrics.Count())
 				}
 			}
 
