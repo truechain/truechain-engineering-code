@@ -328,30 +328,6 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 		CommitteeBase: remove.Val.Address,
 		Flag:          ctypes.StateRemovedFlag,
 	})
-	for _, v := range h.Work {
-		if !v.Equal(remove) && v.State == ctypes.StateUsedFlag {
-			vals = append(vals, &ctypes.SwitchEnter{
-				CommitteeBase: v.Val.Address,
-				Flag:          atomic.LoadUint32(&v.State),
-			})
-		}
-	}
-	for _, v := range h.Back {
-		if !v.Equal(remove) && !v.Equal(add) && v.State == ctypes.StateUsedFlag {
-			vals = append(vals, &ctypes.SwitchEnter{
-				CommitteeBase: v.Val.Address,
-				Flag:          atomic.LoadUint32(&v.State),
-			})
-		}
-	}
-	for _, v := range h.seed {
-		if !v.Equal(remove) && !v.Equal(add) && v.State == ctypes.StateUsedFlag {
-			vals = append(vals, &ctypes.SwitchEnter{
-				CommitteeBase: v.Val.Address,
-				Flag:          atomic.LoadUint32(&v.State),
-			})
-		}
-	}
 	// will need check vals with validatorSet
 	infos := &ctypes.SwitchInfos{
 		CID:  h.cid,
@@ -415,17 +391,20 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 					remove = h.GetHealth(enter2.CommitteeBase)
 				}
 			} else if enter1.Flag == ctypes.StateRemovedFlag {
+
 				remove = h.GetHealth(enter1.CommitteeBase)
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
 				log.Error("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
 			}
 			if remove != nil {
+
 				atomic.StoreUint32(&remove.State, ctypes.StateRemovedFlag)
 				atomic.StoreInt32(&remove.Tick, 0) // issues for the sv was in another proposal queue
 				ss += "Success"
 			}
 			if add != nil {
+
 				atomic.StoreUint32(&add.State, ctypes.StateUsedFlag)
 				atomic.StoreInt32(&add.Tick, 0)
 			}
@@ -437,11 +416,13 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 //pickUnuseValidator get a back committee
 func (h *HealthMgr) pickUnuseValidator() *Health {
 	for _, v := range h.Back {
+
 		if s := atomic.CompareAndSwapUint32(&v.State, ctypes.StateUnusedFlag, ctypes.StateSwitchingFlag); s {
 			return v
 		}
 	}
 	for _, v := range h.seed {
+
 		if swap := atomic.CompareAndSwapUint32(&v.State, ctypes.StateUnusedFlag, ctypes.StateSwitchingFlag); swap {
 			return v
 		}
@@ -470,18 +451,21 @@ func (h *HealthMgr) Update(id tp2p.ID) {
 func (h *HealthMgr) getHealthFromPart(address []byte, part int) *Health {
 	if part == SwitchPartBack { // back
 		for _, v := range h.Back {
+
 			if bytes.Equal(address, v.Val.Address) {
 				return v
 			}
 		}
 	} else if part == SwitchPartWork { // work
 		for _, v := range h.Work {
+
 			if bytes.Equal(address, v.Val.Address) {
 				return v
 			}
 		}
 	} else if part == SwitchPartSeed {
 		for _, v := range h.seed {
+
 			if bytes.Equal(address, v.Val.Address) {
 				return v
 			}
@@ -491,12 +475,15 @@ func (h *HealthMgr) getHealthFromPart(address []byte, part int) *Health {
 }
 
 //GetHealth get a Health for mgr
+
 func (h *HealthMgr) GetHealth(adress []byte) *Health {
 	enter := h.getHealthFromPart(adress, SwitchPartWork)
 	if enter == nil {
+
 		enter = h.getHealthFromPart(adress, SwitchPartBack)
 	}
 	if enter == nil {
+
 		enter = h.getHealthFromPart(adress, SwitchPartSeed)
 	}
 	return enter
@@ -526,6 +513,7 @@ func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
 	}
 
 	rTick := atomic.LoadInt32(&remove.Tick)
+
 	rState := atomic.LoadUint32(&remove.State)
 	if rState >= ctypes.StateUsedFlag && rState <= ctypes.StateSwitchingFlag && rTick >= HealthOut {
 		rRes = true

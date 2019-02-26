@@ -91,6 +91,7 @@ func (agent *PbftAgentProxyImp) GetFastLastProposer() common.Address {
 }
 
 func (pap *PbftAgentProxyImp) GetCurrentHeight() *big.Int {
+	//return big.NewInt(0)
 	return new(big.Int).Sub(getIDForCache(pap.Name), common.Big1)
 }
 
@@ -177,7 +178,7 @@ func getPrivateKey(id int) *ecdsa.PrivateKey {
 	return priv
 }
 
-func GetPub(priv *ecdsa.PrivateKey) []byte{
+func GetPub(priv *ecdsa.PrivateKey) []byte {
 	pub := ecdsa.PublicKey{
 		Curve: priv.Curve,
 		X:     new(big.Int).Set(priv.X),
@@ -186,7 +187,7 @@ func GetPub(priv *ecdsa.PrivateKey) []byte{
 	return crypto.FromECDSAPub(&pub)
 }
 
-func GetPubKey(priv *ecdsa.PrivateKey) *ecdsa.PublicKey{
+func GetPubKey(priv *ecdsa.PrivateKey) *ecdsa.PublicKey {
 	pub := ecdsa.PublicKey{
 		Curve: priv.Curve,
 		X:     new(big.Int).Set(priv.X),
@@ -194,7 +195,6 @@ func GetPubKey(priv *ecdsa.PrivateKey) *ecdsa.PublicKey{
 	}
 	return &pub
 }
-
 
 func TestPbftRunForOne(t *testing.T) {
 	//log.OpenLogDebug(4)
@@ -567,7 +567,6 @@ func TestPbftRunFor4AndChange(t *testing.T) {
 	<-start
 }
 
-
 func TestPbftRunFor5(t *testing.T) {
 	//log.OpenLogDebug(4)
 	IDCacheInit()
@@ -723,7 +722,7 @@ func TestPbftRunFor5(t *testing.T) {
 }
 
 func TestRunPbft1(t *testing.T) {
-	//log.OpenLogDebug(3)
+	log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)

@@ -104,6 +104,7 @@ type ConsensusState struct {
 	evsw ttypes.EventSwitch
 	svs  []*ttypes.SwitchValidator
 	hm   *ttypes.HealthMgr
+	cm   *types.CommitteeInfo
 }
 
 // CSOption sets an optional parameter on the ConsensusState.
@@ -163,6 +164,10 @@ func (cs *ConsensusState) SetEventBus(b *ttypes.EventBus) {
 //SetHealthMgr sets peer  health
 func (cs *ConsensusState) SetHealthMgr(h *ttypes.HealthMgr) {
 	cs.hm = h
+}
+
+func (cs *ConsensusState) SetCommitteeInfo(c *types.CommitteeInfo) {
+	cs.cm = c
 }
 
 // String returns a string.
@@ -893,19 +898,40 @@ func (cs *ConsensusState) isProposalComplete() bool {
 func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.PartSet, error) {
 	// remove commit in block
 	var v *ttypes.SwitchValidator
-	if len(cs.svs) > 0 {
-		tmp := cs.svs[0]
-		if tmp.DoorCount == 0 || tmp.DoorCount >= ttypes.BlackDoorCount {
-			if tmp.Round == -1 {
-				tmp.Round = round
+
+	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
+		//make all committee
+		var ses types.SwitchEnters
+		mem := append(cs.cm.Members, cs.cm.BackMembers...)
+		for _, v := range mem {
+			se := &types.SwitchEnter{
+				CommitteeBase: v.CommitteeBase.Bytes(),
+				Flag:          uint32(v.Flag),
 			}
-			v = tmp
-			log.Info("Make Proposal and move item", "item", v)
+			ses = append(ses, se)
 		}
-		if tmp.DoorCount >= ttypes.BlackDoorCount {
-			tmp.DoorCount = 1
-		} else {
-			tmp.DoorCount++
+		info := &types.SwitchInfos{
+			CID:  cs.cm.Id.Uint64(),
+			Vals: ses,
+		}
+		v = &ttypes.SwitchValidator{
+			Infos: info,
+		}
+	} else {
+		if len(cs.svs) > 0 {
+			tmp := cs.svs[0]
+			if tmp.DoorCount == 0 || tmp.DoorCount >= ttypes.BlackDoorCount {
+				if tmp.Round == -1 {
+					tmp.Round = round
+				}
+				v = tmp
+				log.Info("Make Proposal and move item", "item", v)
+			}
+			if tmp.DoorCount >= ttypes.BlackDoorCount {
+				tmp.DoorCount = 1
+			} else {
+				tmp.DoorCount++
+			}
 		}
 	}
 
@@ -1663,8 +1689,24 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 }
 
 func (cs *ConsensusState) swithResult(block *types.Block) {
-
 	sw := block.SwitchInfos()
+	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
+		mem := append(cs.cm.Members, cs.cm.BackMembers...)
+		for _, v := range sw.Vals {
+			have := false
+			for _, vm := range mem {
+				if bytes.Equal(v.CommitteeBase, vm.CommitteeBase.Bytes()) {
+					have = true
+					break
+				}
+			}
+			if !have {
+				log.Error("swithResult", string(v.CommitteeBase), "false")
+			}
+		}
+		return
+	}
+
 	log.Info("swithResult", "sw", sw)
 	if sw == nil || len(sw.Vals) < 2 {
 		return
@@ -1708,17 +1750,42 @@ func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	sw := block.SwitchInfos()
+
 	if sw != nil && len(sw.Vals) > 2 {
-		aEnter, rEnter := sw.Vals[0], sw.Vals[1]
-		var add, remove *ttypes.Health
-		if aEnter.Flag == types.StateAppendFlag {
-			add = cs.hm.GetHealth(aEnter.CommitteeBase)
-			if rEnter.Flag == types.StateRemovedFlag {
-				remove = cs.hm.GetHealth(rEnter.CommitteeBase)
+		mem := append(cs.cm.Members, cs.cm.BackMembers...)
+		for _, v := range sw.Vals {
+			have := false
+			for _, vm := range mem {
+				if bytes.Equal(v.CommitteeBase, vm.CommitteeBase.Bytes()) {
+					have = true
+					break
+				}
 			}
-		} else if aEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(aEnter.CommitteeBase)
+			if !have {
+				log.Error("switchVerify", string(v.CommitteeBase), "false")
+				return false
+			}
 		}
+		return true
+	}
+
+	if sw != nil && len(sw.Vals) > 0 {
+		var aEnter, rEnter *types.SwitchEnter
+		if len(sw.Vals) == 1 {
+			rEnter = sw.Vals[0]
+		}
+		if len(sw.Vals) == 2 {
+			aEnter, rEnter = sw.Vals[0], sw.Vals[1]
+		}
+
+		var add, remove *ttypes.Health
+		if aEnter != nil && aEnter.Flag == types.StateAppendFlag {
+			add = cs.hm.GetHealth(aEnter.CommitteeBase)
+		}
+		if rEnter.Flag == types.StateRemovedFlag {
+			remove = cs.hm.GetHealth(rEnter.CommitteeBase)
+		}
+
 		if remove == nil {
 			log.Error("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
 			return false

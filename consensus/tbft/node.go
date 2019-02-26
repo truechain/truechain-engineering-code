@@ -425,6 +425,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	n.AddHealthForCommittee(service.healthMgr, committeeInfo)
 
 	service.consensusState.SetHealthMgr(service.healthMgr)
+	service.consensusState.SetCommitteeInfo(committeeInfo)
 	nodeInfo := makeCommitteeMembers(service, committeeInfo)
 
 	if nodeInfo == nil {
@@ -447,9 +448,9 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo) {
 
 	for _, v := range c.Members {
-		pk,e:=crypto.UnmarshalPubkey(v.Publickey)
-		if e != nil{
-			log.Error("AddHealthForCommittee pk error","pk",v.Publickey)
+		pk, e := crypto.UnmarshalPubkey(v.Publickey)
+		if e != nil {
+			log.Error("AddHealthForCommittee pk error", "pk", v.Publickey)
 		}
 		id := pkToP2pID(pk)
 		//exclude self
@@ -463,9 +464,9 @@ func (n *Node) AddHealthForCommittee(h *ttypes.HealthMgr, c *types.CommitteeInfo
 	}
 
 	for _, v := range c.BackMembers {
-		pk,e:=crypto.UnmarshalPubkey(v.Publickey)
-		if e != nil{
-			log.Error("AddHealthForCommittee pk error","pk",v.Publickey)
+		pk, e := crypto.UnmarshalPubkey(v.Publickey)
+		if e != nil {
+			log.Error("AddHealthForCommittee pk error", "pk", v.Publickey)
 		}
 		id := pkToP2pID(pk)
 		val := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), 1)
@@ -499,9 +500,9 @@ func (n *Node) checkValidatorSet(service *service, info *types.CommitteeInfo) (s
 	allMembers := append(info.Members, info.BackMembers...)
 	for _, v := range allMembers {
 		if v.Flag == types.StateRemovedFlag {
-			pk,e:=crypto.UnmarshalPubkey(v.Publickey)
-			if e != nil{
-				log.Error("checkValidatorSet pk error","pk",v.Publickey)
+			pk, e := crypto.UnmarshalPubkey(v.Publickey)
+			if e != nil {
+				log.Error("checkValidatorSet pk error", "pk", v.Publickey)
 			}
 			if service.consensusState.state.GetPubKey().Equals(tcrypto.PubKeyTrue(*pk)) {
 				selfStop = true
@@ -526,9 +527,9 @@ func (n *Node) UpdateCommittee(info *types.CommitteeInfo) error {
 		service.consensusState.UpdateValidatorsSet(val, info.StartHeight.Uint64(), info.EndHeight.Uint64())
 
 		for _, v := range member {
-			pk,e:=crypto.UnmarshalPubkey(v.Publickey)
-			if e != nil{
-				log.Error("UpdateCommittee pk error","pk",v.Publickey)
+			pk, e := crypto.UnmarshalPubkey(v.Publickey)
+			if e != nil {
+				log.Error("UpdateCommittee pk error", "pk", v.Publickey)
 			}
 			pID := pkToP2pID(pk)
 			p := service.sw.GetPeerForID(string(pID))
@@ -581,9 +582,9 @@ func MakeValidators(cmm *types.CommitteeInfo) *ttypes.ValidatorSet {
 		} else {
 			power = 1
 		}
-		pk,e:=crypto.UnmarshalPubkey(m.Publickey)
-		if e != nil{
-			log.Error("MakeValidators pk error","pk",m.Publickey)
+		pk, e := crypto.UnmarshalPubkey(m.Publickey)
+		if e != nil {
+			log.Error("MakeValidators pk error", "pk", m.Publickey)
 		}
 		v := ttypes.NewValidator(tcrypto.PubKeyTrue(*pk), power)
 		vals = append(vals, v)
@@ -667,7 +668,7 @@ func (n *Node) verifyCommitteeInfo(cm *types.CommitteeInfo) error {
 	if cm.Id.Uint64() == 0 {
 		for _, v := range cm.Members {
 			if v.Flag != types.StateUsedFlag ||
-				v.MType != types.TypeFixed {
+				v.MType != types.StateRemovedFlag {
 				return errors.New("committee member error 0")
 			}
 		}

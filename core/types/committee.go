@@ -2,7 +2,6 @@ package types
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -34,9 +33,9 @@ const (
 	StateRemovedFlag   = 0xa3
 	StateAppendFlag    = 0xa4
 	// health enter type
-	TypeFixed  = 0xa5
-	TypeWorked = 0xa6
-	TypeBack   = 0xa7
+	TypeFixed  = 0xa1
+	TypeWorked = 0xa2
+	TypeBack   = 0xa3
 )
 
 const (
@@ -50,10 +49,11 @@ const (
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
-	Coinbase  common.Address
-	Publickey *ecdsa.PublicKey
-	Flag      int32
-	MType     int32
+	Coinbase      common.Address
+	CommitteeBase common.Address
+	Publickey     []byte
+	Flag          uint32
+	MType         uint32
 }
 
 // ElectionCommittee defines election members result
@@ -64,7 +64,7 @@ type ElectionCommittee struct {
 
 func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
 	if c.MType == d.MType && c.Coinbase.String() != d.Coinbase.String() &&
-		bytes.Compare(crypto.FromECDSAPub(c.Publickey), crypto.FromECDSAPub(d.Publickey)) == 0 {
+		bytes.Compare(c.CommitteeBase.Bytes(), d.CommitteeBase.Bytes()) == 0 {
 		return true
 	}
 	return false
@@ -72,14 +72,14 @@ func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
 
 func (c *CommitteeMember) String() string {
 	return fmt.Sprintf("F:%d,T:%d,C:%s,P:%s", c.Flag, c.MType, hexutil.Encode(c.Coinbase[:]),
-		hexutil.Encode(crypto.FromECDSAPub(c.Publickey)))
+		hexutil.Encode(c.Publickey))
 }
 
 func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
-		Flag    int32          `json:"flag,omitempty"`
+		Flag    uint32         `json:"flag,omitempty"`
 	}
 	var dec committee
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -91,7 +91,7 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 
 	var err error
 	if dec.PubKey != nil {
-		c.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
+		_, err = crypto.UnmarshalPubkey(*dec.PubKey)
 		if err != nil {
 			return err
 		}
@@ -223,8 +223,8 @@ func RlpHash(x interface{}) (h common.Hash) {
 
 // SwitchEnter is the enter inserted in block when committee member changed
 type SwitchEnter struct {
-	Pk   []byte
-	Flag uint32
+	CommitteeBase []byte
+	Flag          uint32
 }
 
 // Hash return SwitchInfos hash bytes
@@ -236,7 +236,7 @@ func (s *SwitchEnter) String() string {
 	if s == nil {
 		return "switchEnter-nil"
 	}
-	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.Pk), s.Flag)
+	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.CommitteeBase), s.Flag)
 }
 func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil && other == nil {
@@ -245,7 +245,7 @@ func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return bytes.Equal(s.Pk, other.Pk) && s.Flag == other.Flag
+	return bytes.Equal(s.CommitteeBase, other.CommitteeBase) && s.Flag == other.Flag
 }
 
 type SwitchEnters []*SwitchEnter
@@ -278,8 +278,10 @@ func (s SwitchEnters) Equal(other SwitchEnters) bool {
 
 // SwitchInfos is the infos inserted in block when committee member changed
 type SwitchInfos struct {
-	CID  uint64
-	Vals []*SwitchEnter
+	CID         uint64
+	Members     []*CommitteeMember
+	BackMembers []*CommitteeMember
+	Vals        []*SwitchEnter
 }
 
 func (s *SwitchInfos) String() string {

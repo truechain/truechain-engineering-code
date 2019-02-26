@@ -753,6 +753,7 @@ func TestRunPbftChange3(t *testing.T) {
 }
 
 func TestRunPbftChange4(t *testing.T) {
+
 	log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
