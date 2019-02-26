@@ -279,7 +279,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 	committee := &types.SwitchInfos{CID: 0}
 	for _, member := range g.Committee {
 		committee.Vals = append(committee.Vals, &types.SwitchEnter{
-			CommitteeBase: member.CommitteeBase.Bytes(),
+			CommitteeBase: member.CommitteeBase,
 			Flag:          types.StateUsedFlag,
 		})
 	}

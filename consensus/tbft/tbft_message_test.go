@@ -2,8 +2,11 @@ package tbft
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/types"
+	types2 "github.com/truechain/truechain-engineering-code/core/types"
 	"math/rand"
 	"testing"
 	"time"
@@ -89,4 +92,21 @@ func RandHexBytes32() [32]byte {
 		b[i] = RandUint() % 255
 	}
 	return b
+}
+
+func TestVoteRlpCommitteeMember(t *testing.T) {
+	var si types2.SwitchInfos
+	si.CID = 1
+	var m types2.CommitteeMember
+	m.CommitteeBase = common.Address{0}
+	m.Coinbase = common.Address{0}
+	m.Publickey = []byte{1, 2}
+	m.MType = 1
+	m.Flag = 1
+	si.Members = append(si.Members, &m)
+	si.BackMembers = append(si.Members, &m)
+
+	si.Vals = append(si.Vals, &types2.SwitchEnter{CommitteeBase: common.Address{0}, Flag: 1})
+	c, e := rlp.EncodeToBytes(si)
+	fmt.Println(c, e)
 }

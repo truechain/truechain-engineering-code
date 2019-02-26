@@ -905,7 +905,7 @@ func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.
 		mem := append(cs.cm.Members, cs.cm.BackMembers...)
 		for _, v := range mem {
 			se := &types.SwitchEnter{
-				CommitteeBase: v.CommitteeBase.Bytes(),
+				CommitteeBase: v.CommitteeBase,
 				Flag:          uint32(v.Flag),
 			}
 			ses = append(ses, se)
@@ -1695,13 +1695,13 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		for _, v := range sw.Vals {
 			have := false
 			for _, vm := range mem {
-				if bytes.Equal(v.CommitteeBase, vm.CommitteeBase.Bytes()) {
+				if bytes.Equal(v.CommitteeBase.Bytes(), vm.CommitteeBase.Bytes()) {
 					have = true
 					break
 				}
 			}
 			if !have {
-				log.Error("swithResult", string(v.CommitteeBase), "false")
+				log.Error("swithResult", v.CommitteeBase, "false")
 			}
 		}
 		return
@@ -1718,12 +1718,12 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
 	var add, remove *ttypes.Health
 	if aEnter.Flag == types.StateAppendFlag {
-		add = cs.hm.GetHealth(aEnter.CommitteeBase)
+		add = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 		if rEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(rEnter.CommitteeBase)
+			remove = cs.hm.GetHealth(rEnter.CommitteeBase.Bytes())
 		}
 	} else if aEnter.Flag == types.StateRemovedFlag {
-		remove = cs.hm.GetHealth(aEnter.CommitteeBase)
+		remove = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 	}
 	if remove == nil {
 		log.Error("swithResult,remove is nil")
@@ -1756,13 +1756,13 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		for _, v := range sw.Vals {
 			have := false
 			for _, vm := range mem {
-				if bytes.Equal(v.CommitteeBase, vm.CommitteeBase.Bytes()) {
+				if bytes.Equal(v.CommitteeBase.Bytes(), vm.CommitteeBase.Bytes()) {
 					have = true
 					break
 				}
 			}
 			if !have {
-				log.Error("switchVerify", string(v.CommitteeBase), "false")
+				log.Error("switchVerify", v.CommitteeBase, "false")
 				return false
 			}
 		}
@@ -1780,10 +1780,10 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 
 		var add, remove *ttypes.Health
 		if aEnter != nil && aEnter.Flag == types.StateAppendFlag {
-			add = cs.hm.GetHealth(aEnter.CommitteeBase)
+			add = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 		}
 		if rEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(rEnter.CommitteeBase)
+			remove = cs.hm.GetHealth(rEnter.CommitteeBase.Bytes())
 		}
 
 		if remove == nil {

@@ -2,9 +2,12 @@ package types
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
@@ -320,13 +323,13 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 	vals := make([]*ctypes.SwitchEnter, 0, 0)
 	if add != nil {
 		vals = append(vals, &ctypes.SwitchEnter{
-			CommitteeBase: add.Val.Address,
-			Flag:          ctypes.StateAppendFlag,
+			//CommitteeBase: add.Val.Address
+			Flag: ctypes.StateAppendFlag,
 		})
 	}
 	vals = append(vals, &ctypes.SwitchEnter{
-		CommitteeBase: remove.Val.Address,
-		Flag:          ctypes.StateRemovedFlag,
+		//CommitteeBase: remove.Val.Address,
+		Flag: ctypes.StateRemovedFlag,
 	})
 	// will need check vals with validatorSet
 	infos := &ctypes.SwitchInfos{
@@ -386,13 +389,13 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
 			var add, remove *Health
 			if enter1.Flag == ctypes.StateAppendFlag {
-				add = h.GetHealth(enter1.CommitteeBase)
+				add = h.GetHealth(enter1.CommitteeBase.Bytes())
 				if enter2.Flag == ctypes.StateRemovedFlag {
-					remove = h.GetHealth(enter2.CommitteeBase)
+					remove = h.GetHealth(enter2.CommitteeBase.Bytes())
 				}
 			} else if enter1.Flag == ctypes.StateRemovedFlag {
 
-				remove = h.GetHealth(enter1.CommitteeBase)
+				remove = h.GetHealth(enter1.CommitteeBase.Bytes())
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
 				log.Error("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)

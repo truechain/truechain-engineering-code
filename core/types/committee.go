@@ -223,7 +223,7 @@ func RlpHash(x interface{}) (h common.Hash) {
 
 // SwitchEnter is the enter inserted in block when committee member changed
 type SwitchEnter struct {
-	CommitteeBase []byte
+	CommitteeBase common.Address
 	Flag          uint32
 }
 
@@ -236,7 +236,7 @@ func (s *SwitchEnter) String() string {
 	if s == nil {
 		return "switchEnter-nil"
 	}
-	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.CommitteeBase), s.Flag)
+	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.CommitteeBase.Bytes()), s.Flag)
 }
 func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil && other == nil {
@@ -245,7 +245,7 @@ func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return bytes.Equal(s.CommitteeBase, other.CommitteeBase) && s.Flag == other.Flag
+	return bytes.Equal(s.CommitteeBase.Bytes(), other.CommitteeBase.Bytes()) && s.Flag == other.Flag
 }
 
 type SwitchEnters []*SwitchEnter
