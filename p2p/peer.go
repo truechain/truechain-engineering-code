@@ -405,7 +405,7 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 		// shutdown if the error is non-nil and unblock the next write
 		// otherwise. The calling protocol code should exit for errors
 		// as well but we don't want to rely on that.
-		rw.werr <- errors.New(fmt.Sprintf("msgcode: %d, error %s", msg.Code, err.Error()))
+		rw.werr <- err
 	case <-rw.closed:
 		err = ErrShuttingDown
 	}
