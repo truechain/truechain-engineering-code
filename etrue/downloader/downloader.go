@@ -195,6 +195,8 @@ type BlockChain interface {
 
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
+
+	HasConfirmedBlock(hash common.Hash, number uint64) bool
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -695,7 +697,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				h := headers[i].Hash()
 				n := headers[i].Number.Uint64()
 
-				if d.blockchain.HasBlock(h, n) {
+				if d.blockchain.HasConfirmedBlock(h, n) {
 					number, hash = n, h
 					break
 				}
@@ -758,7 +760,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				h := headers[0].Hash()
 				n := headers[0].Number.Uint64()
 
-				if !d.blockchain.HasBlock(h, n) {
+				if !d.blockchain.HasConfirmedBlock(h, n) {
 					end = check
 					break
 				}
