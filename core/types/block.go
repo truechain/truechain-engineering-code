@@ -438,6 +438,10 @@ func (b *Block) SetSwitchInfo(info *SwitchInfos) {
 	b.infos.CID = info.CID
 	b.infos.Vals = make([]*SwitchEnter, 0, len(info.Vals))
 	b.infos.Vals = append(b.infos.Vals, info.Vals...)
+	b.infos.Members = make([]*CommitteeMember, len(info.Members))
+	b.infos.Members = append(b.infos.Members, info.Members...)
+	b.infos.BackMembers = make([]*CommitteeMember, len(info.BackMembers))
+	b.infos.BackMembers = append(b.infos.BackMembers, info.BackMembers...)
 	b.header.CommitteeHash = rlpHash(b.infos)
 }
 
