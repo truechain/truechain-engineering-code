@@ -17,7 +17,7 @@ import (
 
 const (
 	//HealthOut peer time out
-	HealthOut = 180
+	HealthOut = 1200
 	//MixValidator min committee count
 	MixValidator   = 2
 	BlackDoorCount = 4

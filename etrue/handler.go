@@ -1120,7 +1120,7 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 		for _, peer := range peers {
 			peer.AsyncSendNewFastBlock(block)
 		}
-		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign() != nil, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block size", block.Size(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 

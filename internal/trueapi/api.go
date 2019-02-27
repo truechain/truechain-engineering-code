@@ -1550,8 +1550,8 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	log.Info("SendTransaction", "args", fmt.Sprintf("API recieved  from=%v\n ,Payment=%v", args.From.String(), args.Payment.String()))
 	// Look up the wallet containing the requested signer
-	//fmt.Printf("SendTransaction API recieved  from=%v\n ,Payment=%v", args.From.String(), args.Payment.String())
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
@@ -1568,15 +1568,6 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-	/*if args.Payment == (common.Address{}) {
-		raw_tx := args.toRawTransaction()
-		tx := raw_tx.ConvertTransaction()
-		signed, err := s.sign(args.From, tx)
-		if err != nil {
-			return params.EmptyHash, err
-		}
-		return submitTransaction(ctx, s.b, signed)
-	}*/
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 	//sign sender

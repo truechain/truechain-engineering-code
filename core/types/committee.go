@@ -10,8 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"io"
 	"math/big"
 	"strings"
+	"sync/atomic"
 )
 
 const (
@@ -208,18 +210,44 @@ type EncryptNodeMessage struct {
 	CommitteeID *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+}
+
+// "external" EncryptNode encoding. used for etrue protocol, etc.
+type extEncryptNode struct {
+	CreatedAt   *big.Int
+	CommitteeID *big.Int
+	Nodes       []EncryptCommitteeNode
+	Sign        //sign msg
+}
+
+// DecodeRLP decodes the truechain
+func (c *EncryptNodeMessage) DecodeRLP(s *rlp.Stream) error {
+	var ee extEncryptNode
+	_, size, _ := s.Kind()
+	if err := s.Decode(&ee); err != nil {
+		return err
+	}
+	c.CreatedAt, c.CommitteeID, c.Nodes, c.Sign = ee.CreatedAt, ee.CommitteeID, ee.Nodes, ee.Sign
+	c.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the truechain RLP block format.
+func (c *EncryptNodeMessage) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extEncryptNode{
+		CreatedAt:   c.CreatedAt,
+		CommitteeID: c.CommitteeID,
+		Nodes:       c.Nodes,
+		Sign:        c.Sign,
+	})
 }
 
 func (c *EncryptNodeMessage) String() {
 	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt.Uint64())
-}
-
-func (c *EncryptNodeMessage) HashWithOutNodes() common.Hash {
-	return RlpHash([]interface{}{
-		c.CreatedAt,
-		c.CommitteeID,
-		c.Sign,
-	})
 }
 
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
@@ -229,16 +257,25 @@ func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	})
 }
 
-func (c *EncryptNodeMessage) HashWithSign() common.Hash {
-	return RlpHash([]interface{}{
-		c.Nodes,
-		c.CommitteeID,
-		c.Sign,
-	})
+func (c *EncryptNodeMessage) Hash() common.Hash {
+	if hash := c.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := RlpHash(c)
+	c.hash.Store(v)
+	return v
 }
 
-func (c *EncryptNodeMessage) Hash() common.Hash {
-	return RlpHash(c)
+type CommitteeNodeTag struct {
+	CommitteeID *big.Int
+	PubKey      []byte
+}
+
+func (c *CommitteeNodeTag) Hash() common.Hash {
+	return RlpHash([]interface{}{
+		c.CommitteeID,
+		c.PubKey,
+	})
 }
 
 func RlpHash(x interface{}) (h common.Hash) {
@@ -248,6 +285,16 @@ func RlpHash(x interface{}) (h common.Hash) {
 	}
 	hw.Sum(h[:0])
 	return h
+}
+
+func (c *EncryptNodeMessage) Size() common.StorageSize {
+	if size := c.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	wc := writeCounter(0)
+	rlp.Encode(&wc, c)
+	c.size.Store(common.StorageSize(wc))
+	return common.StorageSize(wc)
 }
 
 // SwitchEnter is the enter inserted in block when committee member changed

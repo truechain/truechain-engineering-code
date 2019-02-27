@@ -98,7 +98,7 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 		watch.Finish(fmt.Sprintf("end  size: %d", size))
 	}()
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("msgcode: %d, error %s", msgcode, err.Error()))
 	}
 	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
 }

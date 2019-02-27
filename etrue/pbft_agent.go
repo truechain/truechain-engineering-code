@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"github.com/truechain/truechain-engineering-code/utils"
 	"math/big"
 	"sync"
 	"time"
@@ -41,7 +42,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"gopkg.in/fatih/set.v0"
 )
 
 const (
@@ -55,7 +55,7 @@ const (
 	committeeIdChanSize = 3
 	sendNodeTime        = 1 * time.Minute
 	//subSignStr       = 24
-	maxKnownNodes  = 256
+	maxKnownNodes  = 512
 	fetchBlockTime = 2
 	blockInterval  = 20
 )
@@ -64,9 +64,13 @@ var (
 	tpsMetrics           = metrics.NewRegisteredMeter("etrue/pbftAgent/tps", nil)
 	pbftConsensusCounter = metrics.NewRegisteredCounter("etrue/pbftAgent/pbftConsensus", nil)
 
-	repeatReceivedMetrics = metrics.NewRegisteredMeter("etrue/pbftAgent/repeat", nil)
-	nodeSendMetrics       = metrics.NewRegisteredMeter("etrue/pbftAgent/send", nil)
-	nodeHandleMetrics     = metrics.NewRegisteredMeter("etrue/pbftAgent/handle", nil)
+	oldReceivedMetrics       = metrics.NewRegisteredMeter("etrue/pbftAgent/old", nil)
+	repeatReceivedMetrics    = metrics.NewRegisteredMeter("etrue/pbftAgent/repeat", nil)
+	newReceivedMetrics       = metrics.NewRegisteredMeter("etrue/pbftAgent/new", nil)
+	differentReceivedMetrics = metrics.NewRegisteredMeter("etrue/pbftAgent/different", nil)
+	nodeHandleMetrics        = metrics.NewRegisteredMeter("etrue/pbftAgent/handle", nil)
+
+	warnReceivedMetrics = metrics.NewRegisteredMeter("etrue/pbftAgent/warn", nil)
 )
 
 var (
@@ -129,8 +133,8 @@ type PbftAgent struct {
 	singleNode bool
 
 	nodeInfoWorks      []*nodeInfoWork
-	knownRecievedNodes *set.Set
-	encryptNode        map[common.Hash][]byte
+	knownRecievedNodes *utils.OrderedMap
+	committeeNodeTag   *utils.OrderedMap
 
 	gasFloor uint64
 	gasCeil  uint64
@@ -176,8 +180,8 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		vmConfig:             vm.Config{EnablePreimageRecording: etrue.Config().EnablePreimageRecording},
 		gasFloor:             gasFloor,
 		gasCeil:              gasCeil,
-		knownRecievedNodes:   set.New(),
-		encryptNode:          make(map[common.Hash][]byte),
+		knownRecievedNodes:   utils.NewOrderedMap(),
+		committeeNodeTag:     utils.NewOrderedMap(),
 	}
 	agent.initNodeInfo(etrue)
 	if !agent.singleNode {
@@ -437,7 +441,6 @@ func (agent *PbftAgent) loop() {
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
 				}
-				agent.encryptNode = make(map[common.Hash][]byte)
 			case types.CommitteeUpdate:
 				committeeID := copyCommitteeID(ch.CommitteeID)
 				receivedCommitteeInfo := &types.CommitteeInfo{
@@ -469,22 +472,46 @@ func (agent *PbftAgent) loop() {
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
 			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
-				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
-				repeatReceivedMetrics.Mark(1)
-				//log.Info("received repeat nodeInfo", "repeatReceivedTimes", repeatReceivedMetrics.Count())
-				continue
-			}
-			cryNodeInfo.String()
-			agent.MarkNodeInfo(cryNodeInfo.Hash())
-			if isCommittee, nodeWork := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
-				nodeSendMetrics.Mark(1)
-				go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
-				if nodeWork.isCommitteeMember {
-					nodeHandleMetrics.Mark(1)
-					agent.handlePbftNode(cryNodeInfo, nodeWork)
+				nodeTagHash, _ := agent.knownRecievedNodes.Get(cryNodeInfo.Hash())
+				savedTime, bool := agent.committeeNodeTag.Get(nodeTagHash)
+				if !bool {
+					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
+				} else {
+					if savedTime.(*big.Int).Uint64() > cryNodeInfo.CreatedAt.Uint64() {
+						oldReceivedMetrics.Mark(1)
+					} else if savedTime.(*big.Int).Uint64() == cryNodeInfo.CreatedAt.Uint64() {
+						repeatReceivedMetrics.Mark(1)
+						go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					} else {
+						newReceivedMetrics.Mark(1)
+						go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+						agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
+					}
 				}
-				//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "sendTimes", nodeSendMetrics.Count(), "handleTimes", nodeHandleMetrics.Count())
+				//log.Info("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
+			} else {
+				if isCommittee, nodeWork, nodeTag := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
+					savedTime, bool := agent.committeeNodeTag.Get(nodeTag.Hash())
+					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) > 0 {
+						continue
+					}
+
+					agent.MarkNodeInfo(cryNodeInfo, nodeTag)
+					differentReceivedMetrics.Mark(1)
+
+					agent.MarkNodeTag(nodeTag.Hash(), cryNodeInfo.CreatedAt)
+					newReceivedMetrics.Mark(1)
+
+					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+					if nodeWork.isCommitteeMember {
+						nodeHandleMetrics.Mark(1)
+						agent.handlePbftNode(cryNodeInfo, nodeWork)
+					}
+
+					//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "nodeM", nodeHandleMetrics.Count(), "diff", differentReceivedMetrics.Count())
+				}
 			}
+
 		case ch := <-agent.chainHeadCh:
 			//log.Debug("ChainHeadCh putCacheIntoChain.", "Block", ch.Block.Number())
 			go agent.putCacheInsertChain(ch.Block)
@@ -597,18 +624,18 @@ func (agent *PbftAgent) sendSign(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMessage) (bool, *nodeInfoWork) {
+func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMessage) (bool, *nodeInfoWork, *types.CommitteeNodeTag) {
 	members1 := agent.nodeInfoWorks[0].committeeInfo.Members
 	members2 := agent.nodeInfoWorks[1].committeeInfo.Members
 	if len(members1) == 0 && len(members2) == 0 {
 		log.Error("received cryNodeInfo members = 0")
-		return false, nil
+		return false, nil, nil
 	}
 	committeeID1 := agent.nodeInfoWorks[0].committeeInfo.Id
 	committeeID2 := agent.nodeInfoWorks[1].committeeInfo.Id
 	if committeeID1 == nil && committeeID2 == nil {
 		log.Error("received cryNodeInfo committeeId1 and committeeId2 is nil")
-		return false, nil
+		return false, nil, nil
 	}
 	/*var pubKeyByte []byte
 	if agent.encryptNode[encryptNode.HashWithSign()] != nil {
@@ -629,19 +656,22 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 	pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
 	if err != nil {
 		log.Error("encryptoNode SigToPub error", "err", err)
-		return false, nil
+		return false, nil, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
+
+	//agent.MarkNodeInfo(encryptNode, pubKeyByte)
 	//log.Info("senderPubkey", "pubkey", crypto.PubkeyToAddress(*pubKey).String())
+	nodeTag := &types.CommitteeNodeTag{encryptNode.CommitteeID, pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
-		return true, agent.nodeInfoWorks[0]
+		return true, agent.nodeInfoWorks[0], nodeTag
 	}
 	if committeeID2 != nil && committeeID2.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[1].committeeInfo, pubKeyByte) {
-		return true, agent.nodeInfoWorks[1]
+		return true, agent.nodeInfoWorks[1], nodeTag
 	}
-	return false, nil
+	return false, nil, nil
 }
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
@@ -1312,12 +1342,28 @@ func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	return agent.election.IsCommitteeMember(committeeMembers, agent.committeeNode.Publickey)
 }
 
-func (agent *PbftAgent) MarkNodeInfo(hash common.Hash) {
+/*func (agent *PbftAgent) MarkNodeInfo(c *types.EncryptNodeMessage) {
 	// If we reached the memory allowance, drop a previously known transaction hash
 	for agent.knownRecievedNodes.Size() >= maxKnownNodes {
 		agent.knownRecievedNodes.Pop()
 	}
-	agent.knownRecievedNodes.Add(hash)
+	agent.knownRecievedNodes.Set(c.Hash(), c)
+}*/
+
+func (agent *PbftAgent) MarkNodeInfo(encryptNode *types.EncryptNodeMessage, nodeTag *types.CommitteeNodeTag) {
+	// If we reached the memory allowance, drop a previously known nodeInfo hash
+	for agent.knownRecievedNodes.Size() >= maxKnownNodes {
+		agent.knownRecievedNodes.Pop()
+	}
+	agent.knownRecievedNodes.Set(encryptNode.Hash(), nodeTag.Hash())
+}
+
+func (agent *PbftAgent) MarkNodeTag(nodeTag common.Hash, timestamp *big.Int) {
+
+	for agent.committeeNodeTag.Size() >= maxKnownNodes {
+		agent.committeeNodeTag.Pop()
+	}
+	agent.committeeNodeTag.Set(nodeTag, timestamp)
 }
 
 func (agent *PbftAgent) singleloop() {
