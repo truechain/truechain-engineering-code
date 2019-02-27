@@ -660,6 +660,7 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 		committee["nodes"] = s1.nodeTable
 		result["committee_next"] = committee
 	}
+	result["stat"] = help.PrintDurStat()
 	return result
 }
 

@@ -462,7 +462,9 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 		info = v.Infos
 	}
 	watch := help.NewTWatch(3, "FetchFastBlock")
+	help.AddStartStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	block, err := state.Agent.FetchFastBlock(committeeID, info)
+	help.AddEndStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +485,9 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 		return errors.New("error param")
 	}
 	watch := help.NewTWatch(3, "BroadcastConsensus")
+	help.AddStartStatTime("BroadcastConsensus", state.Agent.GetCurrentHeight().Uint64()+1)
 	err := state.Agent.BroadcastConsensus(block)
+	help.AddEndStatTime("BroadcastConsensus", state.Agent.GetCurrentHeight().Uint64()+1)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if err != nil {
@@ -504,7 +508,9 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
 	watch := help.NewTWatch(3, "VerifyFastBlock")
+	help.AddStartStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	sign, err := state.Agent.VerifyFastBlock(block, result)
+	help.AddEndStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	log.Info("VerifyFastBlockResult", "sign", sign, "result", sign.Result, "err", err)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
