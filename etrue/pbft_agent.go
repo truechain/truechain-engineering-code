@@ -461,7 +461,7 @@ func (agent *PbftAgent) loop() {
 				}
 				//log.Info("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
 			} else {
-				if isCommittee, nodeWork, nodeTagHash := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
+				if isCommittee, nodeWork, nodeTagHash := agent.cryNodeInfoIsCommittee(cryNodeInfo); isCommittee {
 					savedTime, bool := agent.committeeNodeTag.Get(nodeTagHash)
 					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) > 0 {
 						continue
@@ -593,7 +593,7 @@ func (agent *PbftAgent) sendSign(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMessage) (bool, *nodeInfoWork, common.Hash) {
+func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMessage) (bool, *nodeInfoWork, common.Hash) {
 	members1 := agent.nodeInfoWorks[0].committeeInfo.Members
 	members2 := agent.nodeInfoWorks[1].committeeInfo.Members
 	if len(members1) == 0 && len(members2) == 0 {
@@ -606,21 +606,6 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 		log.Error("received cryNodeInfo committeeId1 and committeeId2 is nil")
 		return false, nil, common.Hash{}
 	}
-	/*var pubKeyByte []byte
-	if agent.encryptNode[encryptNode.HashWithSign()] != nil {
-		pubKeyByte = agent.encryptNode[encryptNode.HashWithoutSign()]
-	} else {
-		hashBytes := encryptNode.HashWithoutSign().Bytes()
-		pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
-		if err != nil {
-			log.Error("encryptoNode SigToPub error", "err", err)
-			return false, nil
-		}
-		pubKeyByte = crypto.FromECDSAPub(pubKey)
-
-		agent.encryptNode[encryptNode.HashWithSign()] = pubKeyByte
-	}*/
-
 	hashBytes := encryptNode.Hash().Bytes()
 	pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
 	if err != nil {
@@ -628,9 +613,6 @@ func (agent *PbftAgent) encryptoNodeInCommittee(encryptNode *types.EncryptNodeMe
 		return false, nil, common.Hash{}
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
-
-	//agent.MarkNodeInfo(encryptNode, pubKeyByte)
-	//log.Info("senderPubkey", "pubkey", crypto.PubkeyToAddress(*pubKey).String())
 	nodeTag := &types.CommitteeNodeTag{encryptNode.CommitteeID, pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
@@ -650,28 +632,21 @@ func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 }
 
-func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode,
-	privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {
-	var (
-		err         error
-		cryNodeInfo = &types.EncryptNodeMessage{
-			CreatedAt:   big.NewInt(time.Now().Unix()),
-			CommitteeID: committeeInfo.Id,
-		}
-	)
+func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode, privateKey *ecdsa.PrivateKey) *types.EncryptNodeMessage {
+	cryNodeInfo := &types.EncryptNodeMessage{
+		CreatedAt:   big.NewInt(time.Now().Unix()),
+		CommitteeID: committeeInfo.Id,
+	}
 	PrintNode("send", committeeNode)
 	nodeByte, err := rlp.EncodeToBytes(committeeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
 	}
 	var encryptNodes []types.EncryptCommitteeNode
-	var members []*types.CommitteeMember
-	members = append(members, committeeInfo.Members...)
-	members = append(members, committeeInfo.BackMembers...)
-	for _, member := range members {
+	for _, member := range committeeInfo.GetAllMembers() {
 		encryptNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(member.Publickey), nodeByte, nil, nil)
 		if err != nil {
-			log.Error("publickey encrypt node error ", "member.Publickey:", member.Publickey, "err", err)
+			log.Error("publickey encrypt node error ", "member.Publickey", common.Bytes2Hex(crypto.FromECDSAPub(member.Publickey)), "err", err)
 		}
 		encryptNodes = append(encryptNodes, encryptNode)
 	}
@@ -1205,10 +1180,7 @@ func (agent *PbftAgent) updateCommittee(receivedCommitteeInfo *types.CommitteeIn
 
 //IsUsedOrUnusedMember  whether publickey in  committee member
 func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo, publickey []byte) bool {
-	var members []*types.CommitteeMember
-	members = append(members, committeeInfo.Members...)
-	members = append(members, committeeInfo.BackMembers...)
-	flag := agent.election.GetMemberFlag(members, publickey)
+	flag := agent.election.GetMemberFlag(committeeInfo.GetAllMembers(), publickey)
 	if flag == types.StateUsedFlag || flag == types.StateUnusedFlag {
 		return true
 	}
@@ -1217,10 +1189,7 @@ func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo,
 
 //IsCommitteeMember  whether agent in  committee member
 func (agent *PbftAgent) getMemberFlagFromCommittee(committeeInfo *types.CommitteeInfo) int32 {
-	var members []*types.CommitteeMember
-	members = append(members, committeeInfo.Members...)
-	members = append(members, committeeInfo.BackMembers...)
-	return agent.election.GetMemberFlag(members, agent.committeeNode.Publickey)
+	return agent.election.GetMemberFlag(committeeInfo.GetAllMembers(), agent.committeeNode.Publickey)
 }
 
 //IsCommitteeMember  whether agent in  committee member

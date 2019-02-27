@@ -165,6 +165,13 @@ type CommitteeInfo struct {
 	BackMembers []*CommitteeMember
 }
 
+func (c *CommitteeInfo) GetAllMembers() []*CommitteeMember {
+	var members []*CommitteeMember
+	members = append(members, c.Members...)
+	members = append(members, c.BackMembers...)
+	return members
+}
+
 func (c *CommitteeInfo) String() string {
 	if c.Members != nil {
 		memStrings := make([]string, len(c.Members))
