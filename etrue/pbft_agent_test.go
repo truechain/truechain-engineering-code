@@ -197,8 +197,7 @@ func StopNodeWork(t *testing.T) {
 func printNodeWork(t *testing.T, nodeWork *nodeInfoWork, str string) {
 	t.Log(str, " tag=", nodeWork.tag, ", isMember=", nodeWork.isCommitteeMember, ", isCurrent=", nodeWork.isCurrent,
 		", nodeWork1=", agent.nodeInfoWorks[0].isCurrent, ", nodeWork2=", agent.nodeInfoWorks[1].isCurrent,
-		", committeeId=", nodeWork.committeeInfo.Id, ", committeeInfoMembers=", len(nodeWork.committeeInfo.Members),
-		", cacheSignLen=", len(nodeWork.cacheSign))
+		", committeeId=", nodeWork.committeeInfo.Id, ", committeeInfoMembers=", len(nodeWork.committeeInfo.Members))
 }
 
 //////////////////////////////////////////////////////////////////////////////////

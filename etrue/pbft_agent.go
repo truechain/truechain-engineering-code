@@ -221,13 +221,11 @@ func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 //initialize nodeInfoWorks
 func (agent *PbftAgent) initNodeWork() {
 	nodeWork1 := &nodeInfoWork{
-		cacheSign:     make(map[string]types.Sign),
 		ticker:        time.NewTicker(sendNodeTime),
 		committeeInfo: new(types.CommitteeInfo),
 		tag:           1,
 	}
 	nodeWork2 := &nodeInfoWork{
-		cacheSign:     make(map[string]types.Sign),
 		ticker:        time.NewTicker(sendNodeTime),
 		committeeInfo: new(types.CommitteeInfo),
 		tag:           2,
@@ -267,8 +265,6 @@ func (agent *PbftAgent) stop() {
 type nodeInfoWork struct {
 	tag               int
 	committeeInfo     *types.CommitteeInfo
-	cryptoNode        *types.EncryptNodeMessage
-	cacheSign         map[string]types.Sign //prevent receive same sign
 	ticker            *time.Ticker
 	isCommitteeMember bool
 	isCurrent         bool
@@ -284,7 +280,6 @@ func (agent *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 	agent.nodeInfoWorks[0].isCurrent = true
 	agent.nodeInfoWorks[1].isCurrent = false
 	return agent.nodeInfoWorks[0]
-
 }
 
 func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
@@ -294,40 +289,20 @@ func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
 	return agent.nodeInfoWorks[1]
 }
 
-//stop send committeeNode
-func (agent *PbftAgent) stopSend() {
-	nodeWork := agent.getCurrentNodeWork()
-	agent.debugNodeInfoWork(nodeWork, "stopSend...")
-	//clear nodeWork
-	if nodeWork.isCommitteeMember {
-		log.Info("nodeWork ticker stop", "committeeId", nodeWork.committeeInfo.Id)
-		nodeWork.ticker.Stop() //stop ticker send nodeInfo
-	}
-	//load nodeWork
-	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
-}
-
 func (nodeWork *nodeInfoWork) loadNodeWork(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
 	nodeWork.committeeInfo = receivedCommitteeInfo
 	nodeWork.isCommitteeMember = isCommitteeMember
-	nodeWork.cacheSign = make(map[string]types.Sign)
-	nodeWork.cryptoNode = nil
 }
 
 func (agent *PbftAgent) debugNodeInfoWork(node *nodeInfoWork, str string) {
 	log.Debug(str, "tag", node.tag, "isMember", node.isCommitteeMember, "isCurrent", node.isCurrent,
 		"nodeWork1", agent.nodeInfoWorks[0].isCurrent, "nodeWork2", agent.nodeInfoWorks[1].isCurrent,
-		"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members),
-		"cacheSignLen", len(node.cacheSign))
-	if node.cryptoNode != nil {
-		log.Info(str, "len(cryptoNode.Nodes)", len(node.cryptoNode.Nodes))
-	}
+		"committeeId", node.committeeInfo.Id, "committeeInfoMembers", len(node.committeeInfo.Members))
 }
 
 //start send committeeNode
 func (agent *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, isCommitteeMember bool) {
 	nodeWork := agent.updateCurrentNodeWork()
-	//load nodeWork
 	nodeWork.loadNodeWork(receivedCommitteeInfo, isCommitteeMember)
 	if nodeWork.isCommitteeMember { //if node is current CommitteeMember
 		log.Info("node in pbft committee", "committeeId", receivedCommitteeInfo.Id)
@@ -346,9 +321,19 @@ func (agent *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, is
 	agent.debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
 
+//stop send committeeNode
+func (agent *PbftAgent) stopSend() {
+	nodeWork := agent.getCurrentNodeWork()
+	agent.debugNodeInfoWork(nodeWork, "stopSend...")
+	if nodeWork.isCommitteeMember {
+		log.Info("nodeWork ticker stop", "committeeId", nodeWork.committeeInfo.Id)
+		nodeWork.ticker.Stop() //stop ticker send nodeInfo
+	}
+	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
+}
+
 func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
-	log.Debug("into handlePbftNode...", "commiteeId", cryNodeInfo.CommitteeID)
-	agent.debugNodeInfoWork(nodeWork, "into handlePbftNode2...")
+	agent.debugNodeInfoWork(nodeWork, "into handlePbftNode")
 	agent.receivePbftNode(cryNodeInfo)
 }
 
@@ -462,12 +447,14 @@ func (agent *PbftAgent) loop() {
 					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
 					continue
 				}
-				if savedTime.(*big.Int).Uint64() > cryNodeInfo.CreatedAt.Uint64() {
+				result := savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt)
+				switch result {
+				case -1:
 					oldReceivedMetrics.Mark(1)
-				} else if savedTime.(*big.Int).Uint64() == cryNodeInfo.CreatedAt.Uint64() {
+				case 0:
 					repeatReceivedMetrics.Mark(1)
 					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
-				} else {
+				case 1:
 					newReceivedMetrics.Mark(1)
 					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
