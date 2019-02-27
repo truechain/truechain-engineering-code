@@ -449,12 +449,12 @@ func (agent *PbftAgent) loop() {
 				}
 				result := savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt)
 				switch result {
-				case -1:
+				case 1:
 					oldReceivedMetrics.Mark(1)
 				case 0:
 					repeatReceivedMetrics.Mark(1)
 					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
-				case 1:
+				case -1:
 					newReceivedMetrics.Mark(1)
 					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 					agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
