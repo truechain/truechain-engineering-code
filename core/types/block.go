@@ -483,6 +483,10 @@ func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, infos *
 		block.infos.CID = infos.CID
 		block.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
 		copy(block.infos.Vals, infos.Vals)
+		block.infos.Members = make([]*CommitteeMember, len(infos.Members))
+		copy(block.infos.Members, infos.Members)
+		block.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
+		copy(block.infos.BackMembers, infos.BackMembers)
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
 
