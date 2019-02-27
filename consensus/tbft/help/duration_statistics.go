@@ -30,11 +30,10 @@ func (t TbftTime) toString() string {
 	return s
 }
 
-func PrintDurStat() string {
-	s := ""
+func PrintDurStat() map[uint64]string {
+	s := make(map[uint64]string)
 	for k, v := range TbftTimeArray {
-		s += fmt.Sprintf(`round:%d:%s 
-`, k, v.toString())
+		s[k] = v.toString()
 	}
 	return s
 }
