@@ -606,7 +606,7 @@ func makeCommitteeMembers(ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*no
 		addr2 := crypto.PubkeyToAddress(*pub)
 		id2 := tp2p.ID(hex.EncodeToString(addr2[:]))
 		id := tp2p.ID(hex.EncodeToString(m.CommitteeBase.Bytes()))
-		log.Error("id", id, id2)
+		log.Error("id----------------------", id, id2, m.CommitteeBase, addr2)
 		tab[id] = &nodeInfo{
 			ID:   id,
 			Flag: m.Flag,
