@@ -472,6 +472,7 @@ func (agent *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
+
 			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
 				nodeTagHash, _ := agent.knownRecievedNodes.Get(cryNodeInfo.Hash())
 				savedTime, bool := agent.committeeNodeTag.Get(nodeTagHash)
@@ -489,7 +490,7 @@ func (agent *PbftAgent) loop() {
 						agent.MarkNodeTag(nodeTagHash.(common.Hash), cryNodeInfo.CreatedAt)
 					}
 				}
-				//log.Info("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
+				log.Info("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
 			} else {
 				if isCommittee, nodeWork, nodeTag := agent.encryptoNodeInCommittee(cryNodeInfo); isCommittee {
 					savedTime, bool := agent.committeeNodeTag.Get(nodeTag.Hash())
@@ -509,7 +510,7 @@ func (agent *PbftAgent) loop() {
 						agent.handlePbftNode(cryNodeInfo, nodeWork)
 					}
 
-					//log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "nodeM", nodeHandleMetrics.Count(), "diff", differentReceivedMetrics.Count())
+					log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "nodeM", nodeHandleMetrics.Count(), "diff", differentReceivedMetrics.Count())
 				}
 			}
 
