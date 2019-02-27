@@ -135,10 +135,10 @@ func (miner *Miner) loop() {
 				committeemembers = append(committeemembers, ch.BackupMembers...)
 
 				miner.mux.Post(CommitteeStartUpdate{})
-				log.Info("==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+				log.Info("get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 			case types.CommitteeStop:
 				miner.mux.Post(CommitteeStop{})
-				log.Info("==================get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+				log.Info("get  election  msg  3 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 			}
 		case <-miner.electionSub.Err():
 			return
@@ -165,7 +165,7 @@ func (miner *Miner) update() {
 			}
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
-				log.Info("-----------------get download info startEvent")
+				log.Info("Miner update get download info startEvent")
 				atomic.StoreInt32(&miner.canStart, 0)
 				if miner.Mining() {
 					miner.Stop()
@@ -174,7 +174,7 @@ func (miner *Miner) update() {
 				log.Info("Mining aborted due to sync")
 
 			case downloader.DoneEvent, downloader.FailedEvent:
-				log.Info("-----------------get download info DoneEvent,FailedEvent")
+				log.Info("Miner update get download info DoneEvent,FailedEvent")
 				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
 				atomic.StoreInt32(&miner.canStart, 1)
@@ -183,7 +183,7 @@ func (miner *Miner) update() {
 				}
 
 			case CommitteeStartUpdate:
-				log.Info("--------------committee start update")
+				log.Info("Miner update committee start update")
 
 				if miner.election.IsCommitteeMember(committeemembers, miner.publickey) {
 					// i am committee
@@ -196,18 +196,16 @@ func (miner *Miner) update() {
 					}
 
 				} else {
-					log.Info("not in commiteer munber so start to miner")
+					log.Info("Miner update not in commiteer munber so start to miner")
 					atomic.StoreInt32(&miner.commitFlag, 1)
 
 					miner.Start(miner.coinbase)
 
 				}
-				log.Info("2==================get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
 
 			case CommitteeStop:
-				log.Info("--------------committee stop")
-				log.Info("2==================get  election  msg  1 CommitteeStop", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
-
+				log.Info("Miner update committee stop")
 			}
 		}
 	}
@@ -238,7 +236,7 @@ func (miner *Miner) Start(coinbase common.Address) {
 
 //Stop stop miner
 func (miner *Miner) Stop() {
-	log.Debug(" miner   ---stop miner funtion")
+	log.Debug(" miner stop miner funtion")
 	miner.worker.stop()
 	atomic.StoreInt32(&miner.mining, 0)
 	atomic.StoreInt32(&miner.shouldStart, 0)

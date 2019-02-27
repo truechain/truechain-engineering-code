@@ -280,8 +280,8 @@ func newDataset(epoch uint64) interface{} {
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
-	//truehashTableInit(ds.evenDataset)
-	log.Info("--- create a new dateset ", "epoch is", epoch)
+	log.Info("create a new dateset", "epoch", epoch)
+
 	return ds
 }
 
@@ -401,21 +401,21 @@ func (d *dataset) generate(epoch uint64, m *Minerva) {
 	d.once.Do(func() {
 		if d.dateInit == 0 {
 			if epoch <= 0 {
-				log.Info("TableInit is start,:epoch is:  ", "------", epoch)
+				log.Info("TableInit is start", "epoch", epoch)
 				m.truehashTableInit(d.dataset)
 				d.datasetHash = d.Hash()
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start,:epoch is:  ", "------", epoch)
+				log.Info("updateLookupTBL is start", "epoch", epoch)
 				flag, _, cont := m.updateLookupTBL(epoch, d.dataset)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
 					d.datasetHash = d.Hash()
 
-					log.Info("updateLookupTBL change success", "epoch is:", epoch, "---consistent is:", d.consistent.String())
+					log.Info("updateLookupTBL change success", "epoch", epoch, "consistent", d.consistent.String())
 				} else {
-					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
+					log.Error("updateLookupTBL err", "epoch", epoch)
 				}
 			}
 			d.dateInit = 1
