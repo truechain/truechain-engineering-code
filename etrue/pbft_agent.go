@@ -686,6 +686,7 @@ func (agent *PbftAgent) sendPbftNode(nodeWork *nodeInfoWork) {
 	cryNodeInfo := encryptNodeInfo(nodeWork.committeeInfo, agent.committeeNode, agent.privateKey)
 	//nodeWork.cryptoNode = cryNodeInfo
 	agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
+	cryNodeInfo.String("send cryNodeInfo")
 }
 
 func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.CommitteeNode,
@@ -727,7 +728,7 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 //AddRemoteNodeInfo send cryNodeInfo of committeeNode to network
 // and recieved by other committeenode
 func (agent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
-	cryNodeInfo.String()
+	cryNodeInfo.String("AddRemoteNodeInfo")
 	if cryNodeInfo == nil {
 		log.Error("AddRemoteNodeInfo cryNodeInfo nil")
 		return errors.New("AddRemoteNodeInfo cryNodeInfo nil")

@@ -246,8 +246,8 @@ func (c *EncryptNodeMessage) EncodeRLP(w io.Writer) error {
 	})
 }
 
-func (c *EncryptNodeMessage) String() {
-	log.Info("EncryptNodeMessage.Info", "reatedAt", c.CreatedAt.Uint64())
+func (c *EncryptNodeMessage) String(str string) {
+	log.Info(str, "reatedAt", c.CreatedAt.Uint64(), "CommitteeID", c.CommitteeID)
 }
 
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
