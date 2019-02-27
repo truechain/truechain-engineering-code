@@ -177,7 +177,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 			port = node.Port
 		}
 		id := tp2p.ID(hex.EncodeToString(address[:]))
-		log.Info("putNodes", "id", id, "s.nodeTable", s.nodeTable)
+		log.Debug("putNodes", "id", id, "s.nodeTable", s.nodeTable)
 		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
@@ -599,14 +599,7 @@ func makeCommitteeMembers(ss *service, cmm *types.CommitteeInfo) map[tp2p.ID]*no
 	}
 	tab := make(map[tp2p.ID]*nodeInfo)
 	for i, m := range members {
-		pub, err := crypto.UnmarshalPubkey(m.Publickey)
-		if err != nil {
-			log.Error("makeCommitteeMembers:pk error", "pk", m.Publickey)
-		}
-		addr2 := crypto.PubkeyToAddress(*pub)
-		id2 := tp2p.ID(hex.EncodeToString(addr2[:]))
 		id := tp2p.ID(hex.EncodeToString(m.CommitteeBase.Bytes()))
-		log.Error("id----------------------", id, id2, m.CommitteeBase, addr2)
 		tab[id] = &nodeInfo{
 			ID:   id,
 			Flag: m.Flag,
