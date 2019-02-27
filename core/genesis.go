@@ -278,7 +278,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		pubkey, _ := crypto.UnmarshalPubkey(member.Publickey)
 		member.Flag = types.StateUsedFlag
 		member.MType = types.TypeFixed
-		member.CommitteeBase = common.BytesToAddress(crypto.Keccak256(crypto.FromECDSAPub(pubkey)[1:])[12:])
+		member.CommitteeBase = crypto.PubkeyToAddress(*pubkey)
 	}
 	return types.NewBlock(head, nil, nil, nil, committee)
 }
