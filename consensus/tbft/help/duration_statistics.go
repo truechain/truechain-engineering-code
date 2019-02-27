@@ -1,7 +1,6 @@
 package help
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -22,18 +21,18 @@ func (r RunTime) TimeDec() float64 {
 	return r.end.Sub(r.start).Seconds()
 }
 
-func (t TbftTime) toString() string {
-	s := ""
+func (t TbftTime) toMap() map[string]interface{} {
+	s := make(map[string]interface{})
 	for k, v := range t {
-		s += fmt.Sprintf("%s:%f ", k, v.TimeDec())
+		s[k] = v.TimeDec()
 	}
 	return s
 }
 
-func PrintDurStat() map[uint64]string {
-	s := make(map[uint64]string)
+func PrintDurStat() map[uint64]interface{} {
+	s := make(map[uint64]interface{})
 	for k, v := range TbftTimeArray {
-		s[k] = v.toString()
+		s[k] = v.toMap()
 	}
 	return s
 }
