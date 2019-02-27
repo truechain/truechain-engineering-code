@@ -109,6 +109,9 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	defer func() {
 		watch.EndWatch()
 		watch.Finish(fmt.Sprintf("end  size: %d %v", size, err))
+		if size == 1 && msgcode == 2 {
+			log.Info("Send", "code", msgcode, "original size", common.StorageSize(c), "size", size, "data", data)
+		}
 	}()
 	log.Debug("Send", "code", msgcode, "original size", common.StorageSize(c), "size", size)
 	if err != nil {
