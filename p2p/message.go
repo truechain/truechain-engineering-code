@@ -91,7 +91,7 @@ type MsgReadWriter interface {
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
-	watch := help.NewTWatch(3, fmt.Sprintf("msgcode: %d, handleMsg Send", msgcode))
+	watch := help.NewTWatch(5, fmt.Sprintf("msgcode: %d, tcp Send", msgcode))
 	size, r, err := rlp.EncodeToReader(data)
 	defer func() {
 		watch.EndWatch()
