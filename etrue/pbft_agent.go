@@ -472,7 +472,6 @@ func (agent *PbftAgent) loop() {
 			}
 			//receive nodeInfo
 		case cryNodeInfo := <-agent.cryNodeInfoCh:
-
 			if agent.knownRecievedNodes.Has(cryNodeInfo.Hash()) {
 				nodeTagHash, _ := agent.knownRecievedNodes.Get(cryNodeInfo.Hash())
 				savedTime, bool := agent.committeeNodeTag.Get(nodeTagHash)
@@ -509,7 +508,6 @@ func (agent *PbftAgent) loop() {
 						nodeHandleMetrics.Mark(1)
 						agent.handlePbftNode(cryNodeInfo, nodeWork)
 					}
-
 					log.Info("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "nodeM", nodeHandleMetrics.Count(), "diff", differentReceivedMetrics.Count())
 				}
 			}
@@ -729,10 +727,12 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 //AddRemoteNodeInfo send cryNodeInfo of committeeNode to network
 // and recieved by other committeenode
 func (agent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
+	cryNodeInfo.String()
 	if cryNodeInfo == nil {
 		log.Error("AddRemoteNodeInfo cryNodeInfo nil")
 		return errors.New("AddRemoteNodeInfo cryNodeInfo nil")
 	}
+
 	agent.cryNodeInfoCh <- cryNodeInfo
 	return nil
 }
