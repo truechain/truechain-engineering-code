@@ -25,6 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"io"
 	"io/ioutil"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -111,6 +112,7 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 		watch.Finish(fmt.Sprintf("end  size: %d %v", size, err))
 		if size == 1 && msgcode == 2 {
 			log.Info("Send", "code", msgcode, "original size", common.StorageSize(c), "size", size, "data", data)
+			debug.PrintStack()
 		}
 	}()
 	log.Debug("Send", "code", msgcode, "original size", common.StorageSize(c), "size", size)
