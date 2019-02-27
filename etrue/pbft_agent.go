@@ -52,7 +52,7 @@ const (
 	chainHeadSize       = 256
 	electionChanSize    = 64
 	nodeSize            = 10
-	committeeIdChanSize = 3
+	committeeIDChanSize = 3
 	sendNodeTime        = 1 * time.Minute
 	//subSignStr       = 24
 	maxKnownNodes  = 512
@@ -167,7 +167,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		snailChain:           etrue.SnailBlockChain(),
 		currentCommitteeInfo: new(types.CommitteeInfo),
 		nextCommitteeInfo:    new(types.CommitteeInfo),
-		committeeIds:         make([]*big.Int, committeeIdChanSize),
+		committeeIds:         make([]*big.Int, committeeIDChanSize),
 		endFastNumber:        make(map[*big.Int]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
 		chainHeadCh:          make(chan types.ChainFastHeadEvent, chainHeadSize),
@@ -238,12 +238,12 @@ func (agent *PbftAgent) initNodeWork() {
 	agent.nodeInfoWorks = append(agent.nodeInfoWorks, nodeWork1, nodeWork2)
 }
 
+//IsCurrentCommitteeMember get whether self is committee member or not
 func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
 	if agent.nodeInfoWorks[0].isCurrent {
 		return agent.nodeInfoWorks[0].isCommitteeMember
-	} else {
-		return agent.nodeInfoWorks[1].isCommitteeMember
 	}
+	return agent.nodeInfoWorks[1].isCommitteeMember
 }
 
 //Start means receive events from election and send pbftNode infomation
@@ -283,11 +283,11 @@ func (agent *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 		agent.nodeInfoWorks[0].isCurrent = false
 		agent.nodeInfoWorks[1].isCurrent = true
 		return agent.nodeInfoWorks[1]
-	} else {
-		agent.nodeInfoWorks[0].isCurrent = true
-		agent.nodeInfoWorks[1].isCurrent = false
-		return agent.nodeInfoWorks[0]
 	}
+	agent.nodeInfoWorks[0].isCurrent = true
+	agent.nodeInfoWorks[1].isCurrent = false
+	return agent.nodeInfoWorks[0]
+
 }
 
 func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
@@ -757,6 +757,7 @@ func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.Pr
 	return nil
 }
 
+//GetFastLastProposer get last proposer
 func (agent *PbftAgent) GetFastLastProposer() common.Address {
 	return agent.fastChain.CurrentBlock().Proposer()
 }
@@ -860,6 +861,7 @@ func (agent *PbftAgent) GetCurrentHeight() *big.Int {
 	return num
 }
 
+//GetSeedMember get seed member
 func (agent *PbftAgent) GetSeedMember() []*types.CommitteeMember {
 	return nil
 }
@@ -1219,29 +1221,29 @@ func (agent *PbftAgent) SubscribeNodeInfoEvent(ch chan<- types.NodeInfoEvent) ev
 //IsCommitteeMember  whether publickey in  committee member
 func (agent *PbftAgent) updateCommittee(receivedCommitteeInfo *types.CommitteeInfo) {
 	//update currentCommitteeInfo
-	receivedId := receivedCommitteeInfo.Id
-	if receivedId == nil {
+	receivedID := receivedCommitteeInfo.Id
+	if receivedID == nil {
 		log.Error("updateCommittee receivedId is nil")
 		return
 	}
-	if receivedId.Uint64() == agent.currentCommitteeInfo.Id.Uint64() {
+	if receivedID.Uint64() == agent.currentCommitteeInfo.Id.Uint64() {
 		agent.currentCommitteeInfo = receivedCommitteeInfo
 	} else {
-		log.Error("updateCommittee error ", "cId", receivedId, "nId", agent.nextCommitteeInfo.Id,
+		log.Error("updateCommittee error ", "cId", receivedID, "nId", agent.nextCommitteeInfo.Id,
 			"receivedId", receivedCommitteeInfo.Id)
 	}
 	//update nodeInfoWorks
-	if agent.nodeInfoWorks[0].committeeInfo.Id != nil && receivedId.Uint64() == agent.nodeInfoWorks[0].committeeInfo.Id.Uint64() {
+	if agent.nodeInfoWorks[0].committeeInfo.Id != nil && receivedID.Uint64() == agent.nodeInfoWorks[0].committeeInfo.Id.Uint64() {
 		agent.nodeInfoWorks[0].committeeInfo = receivedCommitteeInfo
-	} else if agent.nodeInfoWorks[1].committeeInfo.Id != nil && receivedId.Uint64() == agent.nodeInfoWorks[1].committeeInfo.Id.Uint64() {
+	} else if agent.nodeInfoWorks[1].committeeInfo.Id != nil && receivedID.Uint64() == agent.nodeInfoWorks[1].committeeInfo.Id.Uint64() {
 		agent.nodeInfoWorks[1].committeeInfo = receivedCommitteeInfo
 	} else {
 		log.Error("update nodeInfoWorks committeeInfo error ", "cId", agent.currentCommitteeInfo.Id, "nId", agent.nextCommitteeInfo.Id,
-			"receivedId", receivedId)
+			"receivedId", receivedID)
 	}
 }
 
-//IsCommitteeMember  whether publickey in  committee member
+//IsUsedOrUnusedMember  whether publickey in  committee member
 func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo, publickey []byte) bool {
 	var members []*types.CommitteeMember
 	members = append(members, committeeInfo.Members...)
@@ -1249,9 +1251,8 @@ func (agent *PbftAgent) IsUsedOrUnusedMember(committeeInfo *types.CommitteeInfo,
 	flag := agent.election.GetMemberFlag(members, publickey)
 	if flag == types.StateUsedFlag || flag == types.StateUnusedFlag {
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 //IsCommitteeMember  whether agent in  committee member
@@ -1349,6 +1350,7 @@ func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	agent.knownRecievedNodes.Set(c.Hash(), c)
 }*/
 
+//MarkNodeInfo Mark received NodeInfo
 func (agent *PbftAgent) MarkNodeInfo(encryptNode *types.EncryptNodeMessage, nodeTag *types.CommitteeNodeTag) {
 	// If we reached the memory allowance, drop a previously known nodeInfo hash
 	for agent.knownRecievedNodes.Size() >= maxKnownNodes {
@@ -1357,8 +1359,8 @@ func (agent *PbftAgent) MarkNodeInfo(encryptNode *types.EncryptNodeMessage, node
 	agent.knownRecievedNodes.Set(encryptNode.Hash(), nodeTag.Hash())
 }
 
+//MarkNodeTag Mark received nodeTag,avoid old node information
 func (agent *PbftAgent) MarkNodeTag(nodeTag common.Hash, timestamp *big.Int) {
-
 	for agent.committeeNodeTag.Size() >= maxKnownNodes {
 		agent.committeeNodeTag.Pop()
 	}
