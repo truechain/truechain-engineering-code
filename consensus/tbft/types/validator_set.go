@@ -79,9 +79,11 @@ func (valSet *ValidatorSet) IncrementAccum(times uint) {
 }
 
 func (valSet *ValidatorSet) FindValidatorSetProposer(address common.Address) {
+	log.Info("FindValidatorSetProposer", "addr", address, "vaalset", valSet)
 	for _, val := range valSet.Validators {
 		if bytes.Compare(val.PubKey.Address(), address.Bytes()) == 0 {
 			valSet.Proposer = val
+			log.Info("FindValidatorSetProposer", "val", val)
 			return
 		}
 	}
