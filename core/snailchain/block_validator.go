@@ -24,6 +24,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -137,6 +138,11 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 
 //ValidateFruit is to verify if the fruit is legal
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
+	watch := help.NewTWatch(1, fmt.Sprintf("handleMsg ValidateFruit"))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	//check number(fb)
 	//
 	currentNumber := v.fastchain.CurrentHeader().Number
