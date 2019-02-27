@@ -328,7 +328,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
-	if txs[0].Size() == 1 {
+	if len(txs) == 0 {
 		log.Warn("SendTransactions", "info", txs[0].Info(), "to", txs[0].To(), "peer", p.id)
 	}
 	return p2p.Send(p.rw, TxMsg, txs)
