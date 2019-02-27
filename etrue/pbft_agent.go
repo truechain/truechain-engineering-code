@@ -233,14 +233,6 @@ func (agent *PbftAgent) initNodeWork() {
 	agent.nodeInfoWorks = append(agent.nodeInfoWorks, nodeWork1, nodeWork2)
 }
 
-//IsCurrentCommitteeMember get whether self is committee member or not
-func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
-	if agent.nodeInfoWorks[0].isCurrent {
-		return agent.nodeInfoWorks[0].isCommitteeMember
-	}
-	return agent.nodeInfoWorks[1].isCommitteeMember
-}
-
 //Start means receive events from election and send pbftNode infomation
 func (agent *PbftAgent) Start() {
 	if agent.singleNode { //single node model start
@@ -250,16 +242,16 @@ func (agent *PbftAgent) Start() {
 	}
 }
 
-func (agent *PbftAgent) subScribeEvent() {
-	agent.electionSub = agent.election.SubscribeElectionEvent(agent.electionCh)
-	agent.chainHeadAgentSub = agent.fastChain.SubscribeChainHeadEvent(agent.chainHeadCh)
-}
-
 // Unsubscribe all subscriptions registered from agent
 func (agent *PbftAgent) stop() {
 	agent.electionSub.Unsubscribe()
 	agent.chainHeadAgentSub.Unsubscribe()
 	agent.scope.Close()
+}
+
+func (agent *PbftAgent) subScribeEvent() {
+	agent.electionSub = agent.election.SubscribeElectionEvent(agent.electionCh)
+	agent.chainHeadAgentSub = agent.fastChain.SubscribeChainHeadEvent(agent.chainHeadCh)
 }
 
 type nodeInfoWork struct {
@@ -280,6 +272,14 @@ func (agent *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 	agent.nodeInfoWorks[0].isCurrent = true
 	agent.nodeInfoWorks[1].isCurrent = false
 	return agent.nodeInfoWorks[0]
+}
+
+//IsCurrentCommitteeMember get whether self is committee member or not
+func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
+	if agent.nodeInfoWorks[0].isCurrent {
+		return agent.nodeInfoWorks[0].isCommitteeMember
+	}
+	return agent.nodeInfoWorks[1].isCommitteeMember
 }
 
 func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
@@ -305,7 +305,8 @@ func (agent *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, is
 	nodeWork := agent.updateCurrentNodeWork()
 	nodeWork.loadNodeWork(receivedCommitteeInfo, isCommitteeMember)
 	if nodeWork.isCommitteeMember { //if node is current CommitteeMember
-		log.Info("node in pbft committee", "committeeId", receivedCommitteeInfo.Id)
+		log.Info("node is committee member", "committeeId", receivedCommitteeInfo.Id)
+		agent.sendPbftNode(nodeWork)
 		nodeWork.ticker = time.NewTicker(sendNodeTime)
 		go func() {
 			for {
@@ -316,7 +317,7 @@ func (agent *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, is
 			}
 		}()
 	} else {
-		log.Info("node not in pbft committee", "committeeId", receivedCommitteeInfo.Id)
+		log.Info("node isnot committee member", "committeeId", receivedCommitteeInfo.Id)
 	}
 	agent.debugNodeInfoWork(nodeWork, "into startSend...After...")
 }
@@ -330,11 +331,6 @@ func (agent *PbftAgent) stopSend() {
 		nodeWork.ticker.Stop() //stop ticker send nodeInfo
 	}
 	nodeWork.loadNodeWork(new(types.CommitteeInfo), false)
-}
-
-func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
-	agent.debugNodeInfoWork(nodeWork, "into handlePbftNode")
-	agent.receivePbftNode(cryNodeInfo)
 }
 
 func (agent *PbftAgent) verifyCommitteeID(electionEventType uint, committeeID *big.Int) bool {
@@ -422,8 +418,7 @@ func (agent *PbftAgent) loop() {
 				}
 				agent.updateCommittee(receivedCommitteeInfo)
 				flag := agent.getMemberFlagFromCommittee(receivedCommitteeInfo)
-				//help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
-				// used start  removed  stop
+				// flag : used  start  removed  stop
 				if flag == types.StateRemovedFlag {
 					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
 					agent.stopSend()
@@ -659,6 +654,14 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 	return cryNodeInfo
 }
 
+func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
+	agent.debugNodeInfoWork(nodeWork, "into handlePbftNode")
+	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
+	if committeeNode != nil {
+		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
+	}
+}
+
 //AddRemoteNodeInfo send cryNodeInfo of committeeNode to network,and recieved by other committeenode
 func (agent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage) error {
 	if cryNodeInfo == nil {
@@ -667,14 +670,6 @@ func (agent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage)
 	}
 	agent.cryNodeInfoCh <- cryNodeInfo
 	return nil
-}
-
-func (agent *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
-	log.Debug("into ReceivePbftNode ...")
-	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
-	if committeeNode != nil {
-		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
-	}
 }
 
 func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.PrivateKey) *types.CommitteeNode {
@@ -1271,14 +1266,6 @@ func (agent *PbftAgent) AcquireCommitteeAuth(fastHeight *big.Int) bool {
 	return agent.election.IsCommitteeMember(committeeMembers, agent.committeeNode.Publickey)
 }
 
-/*func (agent *PbftAgent) MarkNodeInfo(c *types.EncryptNodeMessage) {
-	// If we reached the memory allowance, drop a previously known transaction hash
-	for agent.knownRecievedNodes.Size() >= maxKnownNodes {
-		agent.knownRecievedNodes.Pop()
-	}
-	agent.knownRecievedNodes.Set(c.Hash(), c)
-}*/
-
 //MarkNodeInfo Mark received NodeInfo
 func (agent *PbftAgent) MarkNodeInfo(encryptNode *types.EncryptNodeMessage, nodeTagHash common.Hash) {
 	// If we reached the memory allowance, drop a previously known nodeInfo hash
@@ -1296,6 +1283,7 @@ func (agent *PbftAgent) MarkNodeTag(nodeTag common.Hash, timestamp *big.Int) {
 	agent.committeeNodeTag.Set(nodeTag, timestamp)
 }
 
+//single node start
 func (agent *PbftAgent) singleloop() {
 	log.Info("singleloop start.")
 	// sleep a minute to wait election module start and other nodes' connection
