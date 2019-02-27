@@ -25,7 +25,7 @@ func (r RunTime) TimeDec() float64 {
 func (t TbftTime) toString() string {
 	s := ""
 	for k, v := range t {
-		s += fmt.Sprintf("%s:%d ", k, v.TimeDec())
+		s += fmt.Sprintf("%s:%f ", k, v.TimeDec())
 	}
 	return s
 }
