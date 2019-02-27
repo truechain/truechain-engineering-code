@@ -33,7 +33,8 @@ func (t TbftTime) toString() string {
 func PrintDurStat() string {
 	s := ""
 	for k, v := range TbftTimeArray {
-		s += fmt.Sprintf("round:%d:%s ", k, v.toString())
+		s += fmt.Sprintf(`round:%d:%s 
+`, k, v.toString())
 	}
 	return s
 }
