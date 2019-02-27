@@ -82,8 +82,8 @@ func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
 }
 
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("F:%d,T:%d,C:%s,P:%s", c.Flag, c.MType, hexutil.Encode(c.Coinbase[:]),
-		hexutil.Encode(c.Publickey))
+	return fmt.Sprintf("F:%d,T:%d,C:%s,P:%s,A:%s", c.Flag, c.MType, hexutil.Encode(c.Coinbase[:]),
+		hexutil.Encode(c.Publickey), hexutil.Encode(c.CommitteeBase[:]))
 }
 
 func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
