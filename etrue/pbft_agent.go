@@ -437,6 +437,7 @@ func (agent *PbftAgent) loop() {
 				if agent.IsUsedOrUnusedMember(receivedCommitteeInfo, agent.committeeNode.Publickey) {
 					agent.startSend(receivedCommitteeInfo, true)
 					help.CheckAndPrintError(agent.server.PutCommittee(receivedCommitteeInfo))
+					log.Info("putnodes ----------------------------------------")
 					help.CheckAndPrintError(agent.server.PutNodes(receivedCommitteeInfo.Id, []*types.CommitteeNode{agent.committeeNode}))
 				} else {
 					agent.startSend(receivedCommitteeInfo, false)
@@ -738,7 +739,9 @@ func (agent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage)
 func (agent *PbftAgent) receivePbftNode(cryNodeInfo *types.EncryptNodeMessage) {
 	log.Debug("into ReceivePbftNode ...")
 	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
+	log.Info("putnodes ----------------------------------------2")
 	if committeeNode != nil {
+		log.Info("putnodes ----------------------------------------3")
 		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
 }
