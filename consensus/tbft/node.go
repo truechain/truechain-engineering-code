@@ -155,10 +155,10 @@ func (s *service) getStateAgent() *ttypes.StateAgentImpl {
 	return s.sa
 }
 func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
+	log.Info("putNodes", "cid", cid, "nodes", nodes)
 	if nodes == nil {
 		return
 	}
-
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	update := false
@@ -177,6 +177,7 @@ func (s *service) putNodes(cid *big.Int, nodes []*types.CommitteeNode) {
 			port = node.Port
 		}
 		id := tp2p.ID(hex.EncodeToString(address[:]))
+		log.Info("putNodes", "id", id, "s.nodeTable", s.nodeTable)
 		addr, err := tp2p.NewNetAddressString(tp2p.IDAddressString(id,
 			fmt.Sprintf("%v:%v", node.IP, port)))
 		if v, ok := s.nodeTable[id]; ok {
@@ -427,7 +428,7 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	service.consensusState.SetHealthMgr(service.healthMgr)
 	service.consensusState.SetCommitteeInfo(committeeInfo)
 	nodeInfo := makeCommitteeMembers(service, committeeInfo)
-
+	log.Info("put committee", "nodeinfo", nodeInfo)
 	if nodeInfo == nil {
 		help.CheckAndPrintError(service.stop())
 		return errors.New("make the nil CommitteeMembers")
