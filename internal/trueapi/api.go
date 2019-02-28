@@ -458,6 +458,9 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs, passwd string) (*SignTransactionResult, error) {
 	// No need to obtain the noncelock mutex, since we won't be sending this
 	// tx into the transaction pool, but right back to the user
+	if args.Payment != (common.Address{}) { //personal.SignTransaction should not contain payment
+		return nil, fmt.Errorf("payment should not assigned")
+	}
 	if args.Gas == nil {
 		return nil, fmt.Errorf("gas not specified")
 	}
@@ -467,14 +470,11 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 	if args.Nonce == nil {
 		return nil, fmt.Errorf("nonce not specified")
 	}
-	if args.Payment != (common.Address{}) { //personal.SignTransaction should not contain payment
-		return nil, fmt.Errorf("payment should not assigned")
-	}
+
 	signed, err := s.signTransaction(ctx, args, passwd)
 	if err != nil {
 		return nil, err
 	}
-
 	if args.Fee == nil || args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
 		//fmt.Println("into no fee")
 		raw_tx_signed := signed.ConvertRawTransaction()
@@ -1579,7 +1579,8 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
-	log.Debug("SendTransaction", "args", fmt.Sprintf("API recieved  from=%v\n ,Payment=%v", args.From.String(), args.Payment.String()))
+	log.Debug("SendTransaction", "args",
+		fmt.Sprintf("API recieved  from=%v\n ,Payment=%v", args.From.String(), args.Payment.String()))
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
@@ -1783,6 +1784,9 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	if err := sendArgs.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
+	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != (*hexutil.Big)(common.Big0) {
+		log.Error("tx has payment or fee cannot use Resend api")
+	}
 	matchTx := sendArgs.toTransaction()
 	pending, err := s.b.GetPoolTransactions()
 	if err != nil {
@@ -1797,10 +1801,10 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 		wantSigHash := signer.Hash(matchTx)
 
 		if pFrom, err := types.Sender(signer, p); err == nil && pFrom == sendArgs.From && signer.Hash(p) == wantSigHash {
-			if pPayment, err := types.Payer(signer, p); err != nil || pPayment != sendArgs.Payment {
+			/*if pPayment, err := types.Payer(signer, p); err != nil || pPayment != sendArgs.Payment {
 				log.Error("pPayment error ", "from", sendArgs.From, "to", sendArgs.To, "payment", sendArgs.Payment)
 				continue
-			}
+			}*/
 			// Match. Re-sign and send the transaction.
 			if gasPrice != nil && (*big.Int)(gasPrice).Sign() != 0 {
 				sendArgs.GasPrice = gasPrice
