@@ -158,7 +158,30 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 func (p *peer) broadcast() {
 	for {
 		select {
-		case txs := <-p.queuedTxs:
+		case original := <-p.queuedTxs:
+			txs := []*types.Transaction{}
+			for _, tx := range original {
+				txs = append(txs, tx)
+			}
+
+			if len(p.queuedTxs) >= 5 {
+			loop:
+				for {
+					select {
+					case event := <-p.queuedTxs:
+						for _, tx := range event {
+							txs = append(txs, tx)
+						}
+						if len(p.queuedTxs) == 0 {
+							break loop
+						}
+					case <-p.term:
+						return
+					}
+					log.Info("Broadcast", "queuedTxs", len(p.queuedTxs), "original txs", len(original), "txs", len(txs))
+				}
+			}
+
 			if err := p.SendTransactions(txs); err != nil {
 				return
 			}
