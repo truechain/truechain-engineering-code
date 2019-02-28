@@ -125,7 +125,6 @@ type peer struct {
 	queuedFastAnns chan *types.Block // Queue of fastBlocks to announce to the peer
 	term           chan struct{}     // Termination channel to stop the broadcaster
 	dropTx         uint64
-	totalNode      uint64
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -150,7 +149,6 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
 		term:             make(chan struct{}),
 		dropTx:           0,
-		totalNode:        0,
 	}
 }
 
@@ -330,7 +328,6 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
 		p.knownTxs.Add(tx.Hash())
 	}
-	log.Debug("SendTransactions", "txs", len(txs), "size", txs[0].Size(), "peer", p.id)
 	return p2p.Send(p.rw, TxMsg, txs)
 }
 
@@ -372,10 +369,7 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 // in its signs hash set for future reference.
 func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
-	p.totalNode += uint64(1)
-	if p.totalNode%100 == 0 {
-		log.Info("SendNodeInfo", "total node", p.totalNode, "size", nodeInfo.Size(), "peer", p.id)
-	}
+	log.Info("SendNodeInfo", "size", nodeInfo.Size(), "peer", p.id)
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
 

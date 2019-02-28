@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"io"
 	"io/ioutil"
@@ -88,14 +89,25 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
+type writeCounter common.StorageSize
+
+func (c *writeCounter) Write(b []byte) (int, error) {
+	*c += writeCounter(len(b))
+	return len(b), nil
+}
+
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
-	watch := help.NewTWatch(5, fmt.Sprintf("msgcode: %d, tcp Send", msgcode))
+	watch := help.NewTWatch(3, fmt.Sprintf("msgcode: %d data: %t, tcp Send", msgcode, data != nil))
+
+	c := writeCounter(0)
+	_ = rlp.Encode(&c, data)
+
 	size, r, err := rlp.EncodeToReader(data)
 	defer func() {
 		watch.EndWatch()
-		watch.Finish(fmt.Sprintf("end  size: %d", size))
+		watch.Finish(fmt.Sprintf("end  size: %d original size %s err: %v", size, common.StorageSize(c), err))
 	}()
 	if err != nil {
 		return errors.New(fmt.Sprintf("msgcode: %d, error %s", msgcode, err.Error()))
