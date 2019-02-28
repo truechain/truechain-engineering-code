@@ -336,7 +336,9 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	select {
 	case p.queuedTxs <- txs:
-		log.Info("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
+		if len(p.queuedTxs) > 1 {
+			log.Info("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
+		}
 		for _, tx := range txs {
 			p.knownTxs.Add(tx.Hash())
 		}
