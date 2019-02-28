@@ -986,9 +986,36 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		}
 	}
 
+	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
+		members := map[string]interface{}{
+			"Coinbase" :  commit.Coinbase,
+			"CommitteeBase": commit.CommitteeBase,
+			"Publickey": commit.Publickey,
+			"Flag" : commit.Flag,
+			"MType" : commit.MType,
+		}
+		return members, nil
+	}
+	members := make([]interface{}, len(sw.Members))
+	for i, member := range sw.Members {
+		if members[i], err = formatMembers(member); err != nil {
+			return nil, err
+		}
+	}
+
+
+	backMembers := make([]interface{}, len(sw.BackMembers))
+	for i, backMember := range sw.BackMembers {
+		if members[i], err = formatMembers(backMember); err != nil {
+			return nil, err
+		}
+	}
+
 	sws := map[string]interface{}{
 		"CID":  sw.CID,
 		"vals": sw_vals,
+		"Members":members,
+		"BackMembers":backMembers,
 	}
 
 	fields["switchInfos"] = sws
