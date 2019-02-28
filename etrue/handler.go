@@ -1302,7 +1302,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 		case event := <-pm.txsCh:
 
 			txs := []*types.Transaction{}
-			if len(pm.txsCh) >= 10 {
+			if len(pm.txsCh) >= 5 {
 			loop:
 				for {
 					select {
@@ -1326,8 +1326,6 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			} else {
 				pm.BroadcastTxs(event.Txs)
 			}
-
-			time.Sleep(3 * time.Millisecond)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
