@@ -1327,6 +1327,8 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				pm.BroadcastTxs(event.Txs)
 			}
 
+			time.Sleep(time.Millisecond)
+
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
 			return
