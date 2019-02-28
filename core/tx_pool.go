@@ -27,6 +27,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -857,13 +858,18 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemotes len(txs):%d", len(txs)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	errs := make([]error, len(txs))
 	select {
 	case pool.newTxsCh <- txs:
 		return nil
 	default:
 		remoteTxsDiscardCount = remoteTxsDiscardCount.Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
-		log.Debug("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
+		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
 		errs[0] = errors.New("newTxsCh is full")
 	}
 	return errs

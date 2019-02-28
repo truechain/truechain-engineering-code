@@ -1299,8 +1299,35 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
-		case event := <-pm.txsCh:
-			pm.BroadcastTxs(event.Txs)
+		case eventTx := <-pm.txsCh:
+
+			txs := []*types.Transaction{}
+			for _, tx := range eventTx.Txs {
+				txs = append(txs, tx)
+			}
+
+			if len(pm.txsCh) >= 5 {
+			loop:
+				for {
+					select {
+					case event := <-pm.txsCh:
+						for _, tx := range event.Txs {
+							txs = append(txs, tx)
+						}
+						if len(pm.txsCh) == 0 {
+							break loop
+						}
+						// Err() channel will be closed when unsubscribing.
+					case <-pm.txsSub.Err():
+						return
+					}
+				}
+				log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+			}
+
+			pm.BroadcastTxs(txs)
+
+			time.Sleep(time.Millisecond)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():

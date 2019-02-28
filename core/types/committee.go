@@ -259,6 +259,7 @@ func (c *EncryptNodeMessage) String(str string) {
 
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	return RlpHash([]interface{}{
+		c.CreatedAt,
 		c.Nodes,
 		c.CommitteeID,
 	})

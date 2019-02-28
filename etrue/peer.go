@@ -336,6 +336,9 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	select {
 	case p.queuedTxs <- txs:
+		if len(p.queuedTxs) > 1 {
+			log.Info("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
+		}
 		for _, tx := range txs {
 			p.knownTxs.Add(tx.Hash())
 		}
@@ -361,7 +364,7 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 			p.knownSign.Add(sign.Hash())
 		}
 	default:
-		p.Log().Debug("Dropping sign propagation")
+		p.Log().Info("Dropping sign propagation")
 	}
 }
 
@@ -378,7 +381,7 @@ func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	case p.queuedNodeInfo <- nodeInfo:
 		p.knownNodeInfos.Add(nodeInfo.Hash())
 	default:
-		p.Log().Debug("Dropping node info propagation")
+		p.Log().Info("Dropping node info propagation")
 	}
 }
 
@@ -400,7 +403,7 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 			p.knownFruits.Add(fruit.Hash())
 		}
 	default:
-		p.Log().Debug("Dropping fruits propagation", "size", fruits[0].Size(), "count", len(fruits))
+		p.Log().Info("Dropping fruits propagation", "size", fruits[0].Size(), "count", len(fruits))
 	}
 }
 
@@ -427,7 +430,7 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.Block) {
 	case p.queuedFastAnns <- block:
 		p.knownFastBlocks.Add(block.Hash())
 	default:
-		p.Log().Debug("Dropping fast block announcement", "number", block.NumberU64(), "hash", block.Hash())
+		p.Log().Info("Dropping fast block announcement", "number", block.NumberU64(), "hash", block.Hash())
 	}
 }
 
@@ -445,7 +448,7 @@ func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
 	case p.queuedFastProps <- &propFastEvent{block: block}:
 		p.knownFastBlocks.Add(block.Hash())
 	default:
-		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
+		p.Log().Info("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash())
 	}
 }
 
@@ -462,7 +465,7 @@ func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int)
 	case p.queuedSnailBlock <- &snailBlockEvent{block: snailBlock, td: td}:
 		p.knownSnailBlocks.Add(snailBlock.Hash())
 	default:
-		p.Log().Debug("Dropping snailBlock propagation", "number", snailBlock.NumberU64(), "hash", snailBlock.Hash())
+		p.Log().Info("Dropping snailBlock propagation", "number", snailBlock.NumberU64(), "hash", snailBlock.Hash())
 	}
 }
 

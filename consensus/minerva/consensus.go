@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -439,6 +440,11 @@ func (m *Minerva) CalcFruitDifficulty(chain consensus.SnailChainReader, time uin
 
 // VerifySigns check the sings included in fast block or fruit
 func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error {
+	watch := help.NewTWatch(0.7, fmt.Sprintf("handleMsg VerifySigns"))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	// validate the signatures of this fruit
 	ms := make(map[common.Address]uint)
 	members := m.election.GetCommittee(fastnumber)
