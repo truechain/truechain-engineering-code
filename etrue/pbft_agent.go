@@ -210,7 +210,7 @@ func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 			log.Error("singlenode start,must init genesis_single.json")
 		}
 		agent.committeeNode.Coinbase = committees[0].Coinbase
-		agent.committeeNode.Publickey = crypto.FromECDSAPub(committees[0].Publickey)
+		agent.committeeNode.Publickey = committees[0].Publickey
 	}
 	log.Info("InitNodeInfo", "singleNode", agent.singleNode,
 		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
@@ -642,7 +642,7 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 		pubkey, _ := crypto.UnmarshalPubkey(member.Publickey)
 		encryptNode, err := ecies.Encrypt(rand.Reader, ecies.ImportECDSAPublic(pubkey), nodeByte, nil, nil)
 		if err != nil {
-			log.Error("publickey encrypt node error ", "member.Publickey", common.Bytes2Hex(crypto.FromECDSAPub(member.Publickey)), "err", err)
+			log.Error("publickey encrypt node error ", "member.Publickey", common.Bytes2Hex(member.Publickey), "err", err)
 		}
 		encryptNodes = append(encryptNodes, encryptNode)
 	}
