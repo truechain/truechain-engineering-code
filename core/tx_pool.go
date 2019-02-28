@@ -858,7 +858,7 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemotes len(txs):%d", len(txs)))
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemotes newTxsCh:%d,len(txs):%d", len(pool.newTxsCh), len(txs)))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
