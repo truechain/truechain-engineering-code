@@ -372,7 +372,7 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 // in its signs hash set for future reference.
 func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
-	log.Info("SendNodeInfo", "size", nodeInfo.Size(), "peer", p.id)
+	log.Trace("SendNodeInfo", "size", nodeInfo.Size(), "peer", p.id)
 	return p2p.Send(p.rw, PbftNodeInfoMsg, nodeInfo)
 }
 

@@ -107,7 +107,7 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	size, r, err := rlp.EncodeToReader(data)
 	defer func() {
 		watch.EndWatch()
-		watch.Finish(fmt.Sprintf("end  size: %d original size %s err: %v", size, common.StorageSize(c), err))
+		watch.Finish(fmt.Sprintf("end  size: %d original size %s  err: %v", size, common.StorageSize(c), err))
 	}()
 	if err != nil {
 		return errors.New(fmt.Sprintf("msgcode: %d, error %s", msgcode, err.Error()))

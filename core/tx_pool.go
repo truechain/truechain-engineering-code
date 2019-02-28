@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math"
 	"math/big"
 	"sort"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -304,7 +304,7 @@ func (pool *TxPool) addremote() {
 		// Handle new remote transactions
 		case txs := <-pool.newTxsCh:
 			if txs != nil {
-				pool.addTxs(txs, false)
+				pool.addTxs(txs, false, "remote")
 			}
 		}
 	}
@@ -851,18 +851,13 @@ func (pool *TxPool) AddRemote(tx *types.Transaction) error {
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
 func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
-	return pool.addTxs(txs, !pool.config.NoLocals)
+	return pool.addTxs(txs, !pool.config.NoLocals, "local")
 }
 
 // AddRemotes enqueues a batch of transactions into the pool if they are valid.
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemotes newTxsCh:%d,len(txs):%d", len(pool.newTxsCh), len(txs)))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	errs := make([]error, len(txs))
 	select {
 	case pool.newTxsCh <- txs:
@@ -893,7 +888,14 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 }
 
 // addTxs attempts to queue a batch of transactions if they are valid.
-func (pool *TxPool) addTxs(txs []*types.Transaction, local bool) []error {
+func (pool *TxPool) addTxs(txs []*types.Transaction, local bool, mark string) []error {
+
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg addTxs newTxsCh: %d txs: %d", len(pool.newTxsCh), len(txs)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish(fmt.Sprintf("end   mark: %s", mark))
+	}()
+
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
