@@ -27,6 +27,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
@@ -857,6 +858,11 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemotes len(txs):%d", len(txs)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	errs := make([]error, len(txs))
 	select {
 	case pool.newTxsCh <- txs:
