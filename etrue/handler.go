@@ -1300,8 +1300,34 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 	for {
 		select {
 		case event := <-pm.txsCh:
-			log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(event.Txs))
-			pm.BroadcastTxs(event.Txs)
+
+			txs := []*types.Transaction{}
+			if len(pm.txsCh) >= 10 {
+			loop:
+				for {
+					select {
+					case event := <-pm.txsCh:
+						for _, tx := range event.Txs {
+							txs = append(txs, tx)
+						}
+						if len(pm.txsCh) == 0 {
+							break loop
+						}
+						// Err() channel will be closed when unsubscribing.
+					case <-pm.txsSub.Err():
+						return
+					}
+				}
+				log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(event.Txs), "txs", len(txs))
+			}
+
+			if len(txs) > 0 {
+				pm.BroadcastTxs(txs)
+			} else {
+				pm.BroadcastTxs(event.Txs)
+			}
+
+			time.Sleep(3 * time.Millisecond)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
