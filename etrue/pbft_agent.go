@@ -601,7 +601,7 @@ func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMes
 		log.Error("received cryNodeInfo committeeId1 and committeeId2 is nil")
 		return false, nil, common.Hash{}
 	}
-	hashBytes := encryptNode.Hash().Bytes()
+	hashBytes := encryptNode.HashWithoutSign().Bytes()
 	pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
 	if err != nil {
 		log.Error("encryptoNode SigToPub error", "err", err)
@@ -646,7 +646,7 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 		encryptNodes = append(encryptNodes, encryptNode)
 	}
 	cryNodeInfo.Nodes = encryptNodes
-	hash := cryNodeInfo.Hash().Bytes()
+	hash := cryNodeInfo.HashWithoutSign().Bytes()
 	cryNodeInfo.Sign, err = crypto.Sign(hash, privateKey)
 	if err != nil {
 		log.Error("sign node error", "err", err)
