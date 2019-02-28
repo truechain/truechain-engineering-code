@@ -1011,7 +1011,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 //BroadcastConsensus  when More than 2/3 signs with agree,
 //  committee Member Reach a consensus  and insert the fastBlock into fastBlockChain
 func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Info("into BroadcastSign.", "fastHeight", fb.Number())
+	//log.Info("into BroadcastSign.", "fastHeight", fb.Number())
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	//insert bockchain
@@ -1023,7 +1023,7 @@ func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	consensusTime := time.Now().Unix() - fb.Header().Time.Int64()
 	pbftConsensusCounter.Clear()
 	pbftConsensusCounter.Inc(consensusTime)
-	log.Info("out BroadcastSign.", "fastHeight", fb.Number())
+	//log.Info("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
 

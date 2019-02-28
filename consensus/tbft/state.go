@@ -1700,7 +1700,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		return
 	}
 
-	log.Info("swithResult", "sw", sw)
+	log.Debug("swithResult", "sw", sw)
 	if sw == nil || len(sw.Vals) < 2 {
 		return
 	}
