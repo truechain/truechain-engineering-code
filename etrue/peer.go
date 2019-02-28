@@ -394,6 +394,7 @@ func (p *peer) SendFruits(fruits types.Fruits) error {
 	for _, fruit := range fruits {
 		p.knownFruits.Add(fruit.Hash())
 	}
+	log.Debug("SendFruits", "txs", len(fruits), "size", fruits[0].Size(), "peer", p.id)
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
@@ -439,6 +440,7 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.Block) {
 // SendNewFastBlock propagates an entire fast block to a remote peer.
 func (p *peer) SendNewFastBlock(block *types.Block) error {
 	p.knownFastBlocks.Add(block.Hash())
+	log.Debug("SendNewFastBlock", "size", block.Size(), "peer", p.id)
 	return p2p.Send(p.rw, NewFastBlockMsg, []interface{}{block})
 }
 
@@ -453,14 +455,9 @@ func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
 	}
 }
 
-// SendNewFruit propagates an entire fruit to a remote peer.
-func (p *peer) SendNewFruit(fruit *types.SnailBlock, td *big.Int) error {
-	p.knownFruits.Add(fruit.Hash())
-	return p2p.Send(p.rw, FruitMsg, []interface{}{fruit, td})
-}
-
 func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
 	p.knownSnailBlocks.Add(snailBlock.Hash())
+	log.Debug("SendNewSnailBlock", "size", snailBlock.Size(), "peer", p.id)
 	return p2p.Send(p.rw, SnailBlockMsg, []interface{}{snailBlock, td})
 }
 

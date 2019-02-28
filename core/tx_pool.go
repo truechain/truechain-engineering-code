@@ -836,9 +836,6 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // pricing constraints.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 	pool.rpcTxslen = pool.rpcTxslen.Add(pool.rpcTxslen, common.Big1)
-	if pool.rpcTxslen.Uint64()%100 == 0 {
-		log.Info("----------all txs is", "pool.rpcTxslen", pool.rpcTxslen)
-	}
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
