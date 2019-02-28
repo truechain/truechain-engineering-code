@@ -1110,10 +1110,10 @@ func signAddVote(privV ttypes.PrivValidator, vset *ttypes.ValidatorSet, voteset 
 			vote.ResultSign = make([]byte, len(keepsign.Sign))
 			copy(vote.ResultSign, keepsign.Sign)
 		}
-		fmt.Println("Signed and pushed vote", "height", height, "round", round, "vote", vote, "err", err)
+		log.Debug("Signed and pushed vote", "height", height, "round", round, "vote", vote, "err", err)
 		return vote
 	}
-	fmt.Println("Error signing vote", "height", height, "round", round, "vote", vote, "err", err)
+	log.Debug("Error signing vote", "height", height, "round", round, "vote", vote, "err", err)
 	return nil
 }
 

@@ -754,7 +754,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 			doing = false
 			log.Error(estr)
 		} else if !cs.isProposer() {
-			estr = fmt.Sprint(estr, "Not our turn to propose ", "proposer", hexutil.Encode(cs.Validators.GetProposer().Address), "privValidator", cs.privValidator)
+			estr = fmt.Sprint(estr, "Not our turn to propose ", "proposer", hexutil.Encode(cs.Validators.GetProposer().Address)) //, "privValidator", cs.privValidator)
 			doing = false
 			log.Info(estr)
 		}
@@ -1006,7 +1006,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	// Prevote cs.ProposalBlock
 	// NOTE: the proposal signature is validated when it is received,
 	// and the proposal block parts are validated as they are received (against the merkle hash in the proposal)
-	log.Info("enterPrevote: ProposalBlock is valid")
+	log.Debug("enterPrevote: ProposalBlock is valid")
 	tmp := cs.ProposalBlock.Hash()
 	cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.ProposalBlockParts.Header(), ksign)
 }
@@ -1368,7 +1368,7 @@ func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 
 	cs.Proposal = proposal
 	cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(proposal.BlockPartsHeader)
-	log.Info("Received proposal", "proposal", proposal)
+	log.Debug("Received proposal", "proposal", proposal)
 	return nil
 }
 
@@ -1700,7 +1700,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 		return
 	}
 
-	log.Info("swithResult", "sw", sw)
+	log.Debug("swithResult", "sw", sw)
 	if sw == nil || len(sw.Vals) < 2 {
 		return
 	}
@@ -1818,7 +1818,7 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 	if len(block.SwitchInfos().Vals) == 0 {
 		res = true
 	}
-	log.Info("validateBlock", "res", res, "info", block.SwitchInfos())
+	log.Debug("validateBlock", "res", res, "info", block.SwitchInfos())
 	return cs.state.ValidateBlock(block, res)
 }
 

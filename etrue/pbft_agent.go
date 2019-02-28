@@ -788,7 +788,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 //GetCurrentHeight return  current fastBlock number
 func (agent *PbftAgent) GetCurrentHeight() *big.Int {
 	num := new(big.Int).Set(agent.fastChain.CurrentBlock().Number())
-	log.Info("Server GetCurrentHeight", "height", num.Uint64())
+	log.Debug("Server GetCurrentHeight", "height", num.Uint64())
 	return num
 }
 
@@ -927,7 +927,7 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
 func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.PbftSign, error) {
-	log.Info("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
+	//log.Info("into VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 
 	// get current head
 	var (
@@ -977,7 +977,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		return voteSign, err
 	}
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
-	log.Info("Finalize: verifyFastBlock", "Height:", fb.Number())
+	log.Debug("Finalize: verifyFastBlock", "Height:", fb.Number())
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
 			log.Warn("verifyFastBlock :Snail height not yet", "currentFastNumber", fb.NumberU64(),
@@ -1004,14 +1004,14 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 	if signError != nil {
 		return nil, signError
 	}
-	log.Info("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
+	log.Debug("out VerifyFastBlock:", "hash:", fb.Hash(), "number:", fb.Number(), "parentHash:", fb.ParentHash())
 	return voteSign, nil
 }
 
 //BroadcastConsensus  when More than 2/3 signs with agree,
 //  committee Member Reach a consensus  and insert the fastBlock into fastBlockChain
 func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
-	log.Info("into BroadcastSign.", "fastHeight", fb.Number())
+	//log.Info("into BroadcastSign.", "fastHeight", fb.Number())
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
 	//insert bockchain
@@ -1023,7 +1023,7 @@ func (agent *PbftAgent) BroadcastConsensus(fb *types.Block) error {
 	consensusTime := time.Now().Unix() - fb.Header().Time.Int64()
 	pbftConsensusCounter.Clear()
 	pbftConsensusCounter.Inc(consensusTime)
-	log.Info("out BroadcastSign.", "fastHeight", fb.Number())
+	//log.Info("out BroadcastSign.", "fastHeight", fb.Number())
 	return nil
 }
 
