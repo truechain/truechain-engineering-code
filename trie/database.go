@@ -680,6 +680,7 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 		}
 		if batch.ValueSize() > etruedb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
+				db.lock.RUnlock()
 				return err
 			}
 			batch.Reset()
@@ -809,7 +810,7 @@ func (db *Database) verifyIntegrity() {
 		db.accumulate(child, reachable)
 	}
 	// Find any unreachable but cached nodes
-	unreachable := []string{}
+	var unreachable []string
 	for hash, node := range db.dirties {
 		if _, ok := reachable[hash]; !ok {
 			unreachable = append(unreachable, fmt.Sprintf("%x: {Node: %v, Parents: %d, Prev: %x, Next: %x}",
