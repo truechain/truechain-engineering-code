@@ -173,8 +173,8 @@ func (p *peer) broadcast() {
 						for _, tx := range event {
 							txs = append(txs, tx)
 						}
-						if len(p.queuedTxs) == 0 && len(txs) > txPackSize {
-							log.Info("txBroadcastLoop", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+						if len(p.queuedTxs) == 0 || len(txs) > txPackSize {
+							log.Info("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
 							break loop
 						}
 					case <-p.term:
