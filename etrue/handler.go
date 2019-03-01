@@ -61,6 +61,8 @@ const (
 	fruitChanSize = 4096
 	// minimim number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
+	txPackSize        = 10
+	fruitPackSize     = 3
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
@@ -1298,25 +1300,28 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 }
 func (pm *ProtocolManager) txBroadcastLoop() {
 	var (
-		txs     = make([]*types.Transaction, 0, 10)
-		maxSize = 10
+		txs     = make([]*types.Transaction, 0, txPackSize)
+		maxSize = txPackSize
 	)
 
 	for {
 		select {
 		case eventTx := <-pm.txsCh:
+
 			for _, tx := range eventTx.Txs {
 				txs = append(txs, tx)
 			}
 
-			if len(pm.txsCh) >= 5 && maxSize > 0 {
+			if len(pm.txsCh) >= txPackSize/2 && maxSize > 0 && len(txs) < txPackSize {
 				maxSize--
+				if maxSize%3 == 0 {
+					log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+				}
 				continue
 			}
 
-			log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 			pm.BroadcastTxs(txs)
-			maxSize = 10
+			maxSize = txPackSize
 			txs = append(txs[:0], txs[1:]...)
 
 			// Err() channel will be closed when unsubscribing.
@@ -1330,7 +1335,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	var (
 		fruits  = make([]*types.SnailBlock, 0, 10)
-		maxSize = 4
+		maxSize = fruitPackSize
 	)
 
 	for {
@@ -1340,14 +1345,16 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 				fruits = append(fruits, fruit)
 			}
 
-			if len(pm.txsCh) >= 5 && maxSize > 0 {
+			if len(pm.txsCh) >= fruitPackSize && maxSize > 0 && len(fruits) < fruitPackSize {
 				maxSize--
+				if maxSize%2 == 0 {
+					log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
+				}
 				continue
 			}
 
-			log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
 			pm.BroadcastFruits(fruitsEvent.Fruits)
-			maxSize = 10
+			maxSize = fruitPackSize
 			fruits = append(fruits[:0], fruits[1:]...)
 
 			// Err() channel will be closed when unsubscribing.
