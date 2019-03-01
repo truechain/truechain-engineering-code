@@ -395,7 +395,8 @@ func (p *peer) SendFruits(fruits types.Fruits) error {
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
-//for record;the same as transactions
+// AsyncSendFruits queues list of fruits propagation to a remote
+// peer. If the peer's broadcast queue is full, the event is silently dropped.
 func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {
 	case p.queuedFruits <- fruits:
