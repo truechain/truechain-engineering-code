@@ -304,7 +304,6 @@ func (tx *RawTransaction) DecodeRLP(s *rlp.Stream) error {
 	if err == nil {
 		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
 	}
-
 	return err
 }
 

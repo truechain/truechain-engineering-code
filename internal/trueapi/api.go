@@ -988,11 +988,11 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
 		members := map[string]interface{}{
-			"Coinbase" :  commit.Coinbase,
+			"Coinbase":      commit.Coinbase,
 			"CommitteeBase": commit.CommitteeBase,
-			"Publickey": commit.Publickey,
-			"Flag" : commit.Flag,
-			"MType" : commit.MType,
+			"Publickey":     commit.Publickey,
+			"Flag":          commit.Flag,
+			"MType":         commit.MType,
 		}
 		return members, nil
 	}
@@ -1003,7 +1003,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		}
 	}
 
-
 	backMembers := make([]interface{}, len(sw.BackMembers))
 	for i, backMember := range sw.BackMembers {
 		if members[i], err = formatMembers(backMember); err != nil {
@@ -1012,10 +1011,10 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	}
 
 	sws := map[string]interface{}{
-		"CID":  sw.CID,
-		"vals": sw_vals,
-		"Members":members,
-		"BackMembers":backMembers,
+		"CID":         sw.CID,
+		"vals":        sw_vals,
+		"Members":     members,
+		"BackMembers": backMembers,
 	}
 
 	fields["switchInfos"] = sws
@@ -1632,13 +1631,13 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	return submitTransaction(ctx, s.b, tx)
 }
 
-func (s *PublicTransactionPoolAPI) SendNewRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendTrueRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
-		log.Error("api method SendRawPayerTransaction error", "tx.info", tx.Info(), "error", err)
+		log.Error("api method SendTrueRawTransaction error", "tx.info", tx.Info(), "error", err)
 		return common.Hash{}, err
 	}
-	log.Info("api method SendRawPayerTransaction info", "tx.info", tx.Info())
+	log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
