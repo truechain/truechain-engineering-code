@@ -100,7 +100,7 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	if !cfg.JumpTable[STOP].valid {
 		switch {
 		default:
-			cfg.JumpTable = byzantiumInstructionSet
+			cfg.JumpTable = constantinopleInstructionSet
 		}
 		/*case evm.ChainConfig().IsConstantinople(evm.BlockNumber):
 			cfg.JumpTable = constantinopleInstructionSet
