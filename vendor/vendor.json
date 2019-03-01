@@ -51,6 +51,18 @@
 			"revisionTime": "2018-01-16T20:38:02Z"
 		},
 		{
+			"checksumSHA1": "8skJYOdQytXjimcDPLRW4tonX3A=",
+			"path": "github.com/allegro/bigcache",
+			"revision": "e24eb225f15679bbe54f91bfa7da3b00e59b9768",
+			"revisionTime": "2019-02-18T06:46:05Z"
+		},
+		{
+			"checksumSHA1": "vtT7NcYLatJmxVQQEeSESyrgVg0=",
+			"path": "github.com/allegro/bigcache/queue",
+			"revision": "e24eb225f15679bbe54f91bfa7da3b00e59b9768",
+			"revisionTime": "2019-02-18T06:46:05Z"
+		},
+		{
 			"checksumSHA1": "USkefO0g1U9mr+8hagv3fpSkrxg=",
 			"path": "github.com/aristanetworks/goarista/monotime",
 			"revision": "ea17b1a17847fb6e4c0a91de0b674704693469b0",
@@ -840,6 +852,16 @@
 			"path": "gopkg.in/urfave/cli.v1",
 			"revision": "cfb38830724cc34fedffe9a2a29fb54fa9169cd1",
 			"revisionTime": "2017-08-11T01:42:03Z"
+		},
+		{
+			"path": "https://github.com/allegro/bigcache",
+			"revision": "e24eb225f15679bbe54f91bfa7da3b00e59b9768",
+			"version": "e24eb225f15679bbe54f91bfa7da3b00e59b9768"
+		},
+		{
+			"path": "https://github.com/allegro/bigcache.git",
+			"revision": "e24eb225f15679bbe54f91bfa7da3b00e59b9768",
+			"version": "e24eb225f15679bbe54f91bfa7da3b00e59b9768"
 		}
 	],
 	"rootPath": "github.com/truechain/truechain-engineering-code"

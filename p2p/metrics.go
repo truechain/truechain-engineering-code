@@ -25,10 +25,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/p2p/enode"
 
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/metrics"
+	"github.com/truechain/truechain-engineering-code/metrics"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
