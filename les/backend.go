@@ -111,8 +111,12 @@ func New(ctx *node.ServiceContext, config *etrue.Config) (*LightEtrue, error) {
 		bloomTrieIndexer: light.NewBloomTrieIndexer(chainDb, true),
 	}
 
+	var trustedNodes []string
+	if leth.config.ULC != nil {
+		trustedNodes = leth.config.ULC.TrustedServers
+	}
 	leth.relay = NewLesTxRelay(peers, leth.reqDist)
-	leth.serverPool = newServerPool(chainDb, quitSync, &leth.wg)
+	leth.serverPool = newServerPool(chainDb, quitSync, &leth.wg, trustedNodes)
 	leth.retriever = newRetrieveManager(peers, leth.reqDist, leth.serverPool)
 	leth.odr = NewLesOdr(chainDb, leth.chtIndexer, leth.bloomTrieIndexer, leth.bloomIndexer, leth.retriever)
 	if leth.blockchain, err = light.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {

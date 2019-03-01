@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"sync"
 )
@@ -224,7 +224,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		fetching:      make(map[common.Hash]*announce),
 		fetched:       make(map[common.Hash][]*announce),
 		completing:    make(map[common.Hash]*announce),
-		queue:         prque.New(),
+		queue:         prque.New(nil),
 		queues:        make(map[string]int),
 		queued:        make(map[common.Hash]*inject),
 
@@ -426,7 +426,7 @@ func (f *Fetcher) loop() {
 					number := block.NumberU64()
 					log.Trace("Loop check", "number", number, "height", height, "same block", len(blocks), "peer", peer)
 					if number > height+1 {
-						f.queue.Push(opMulti, -float32(number))
+						f.queue.Push(opMulti, -int64(number))
 						if f.queueChangeHook != nil {
 							f.queueChangeHook(hash, true)
 						}
@@ -491,7 +491,7 @@ func (f *Fetcher) loop() {
 							index = -1
 						}
 					} else {
-						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
+						f.queue.Push(opMulti, -int64(blocks[0].NumberU64()))
 						finished = true
 					}
 				}
@@ -926,7 +926,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			opMulti.blocks = append(opMulti.blocks, opOld.block)
 		}
 
-		f.queue.Push(opMulti, -float32(block.NumberU64()))
+		f.queue.Push(opMulti, -int64(block.NumberU64()))
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
