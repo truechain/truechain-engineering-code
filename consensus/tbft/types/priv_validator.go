@@ -485,11 +485,12 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 		return errors.New("error param")
 	}
 	watch := help.NewTWatch(3, "BroadcastConsensus")
-	round := state.Agent.GetCurrentHeight().Uint64() + 1
-	help.DurationStat().AddStartStatTime("BroadcastConsensus", round)
+	height := state.Agent.GetCurrentHeight().Uint64() + 1
+	help.DurationStat().AddEndStatTime("ConsensusTime", height)
+	help.DurationStat().AddStartStatTime("BroadcastConsensus", height)
 	err := state.Agent.BroadcastConsensus(block)
-	help.DurationStat().AddEndStatTime("BroadcastConsensus", round)
-	help.DurationStat().AddOtherStat("Transactions", len(block.Transactions()), round)
+	help.DurationStat().AddEndStatTime("BroadcastConsensus", height)
+	help.DurationStat().AddOtherStat("Transactions", len(block.Transactions()), height)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if err != nil {
