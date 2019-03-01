@@ -91,6 +91,7 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
 		Flag    uint32         `json:"flag,omitempty"`
+		MType   uint32         `json:"mType,omitempty"`
 	}
 	var dec committee
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -99,14 +100,17 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 
 	c.Coinbase = dec.Address
 	c.Flag = dec.Flag
-
-	var err error
+	c.MType = dec.MType
+	if dec.PubKey != nil {
+		c.Publickey = *dec.PubKey
+	}
+	/*var err error
 	if dec.PubKey != nil {
 		_, err = crypto.UnmarshalPubkey(*dec.PubKey)
 		if err != nil {
 			return err
 		}
-	}
+	}*/
 	return nil
 }
 
