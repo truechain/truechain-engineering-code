@@ -87,7 +87,7 @@ func Payer(signer Signer, tx *Transaction) (common.Address, error) {
 		return params.EmptyAddress, err
 	}
 	if addr != *tx.data.Payer {
-		log.Error("Payer err,signed_addr !=tx.data.Payer ", "signed_payer", addr, "old_payer", *tx.data.Payer)
+		log.Error("Payer err,signed_addr !=tx.data.Payer ", "signed_payer", addr, "tx_payer", *tx.data.Payer)
 		return params.EmptyAddress, ErrPayersign
 	}
 	tx.payment.Store(sigCache_payment{signer: signer, payment: addr})

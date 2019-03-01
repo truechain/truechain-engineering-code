@@ -1297,37 +1297,27 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 	}
 }
 func (pm *ProtocolManager) txBroadcastLoop() {
+	var (
+		txs     = make([]*types.Transaction, 0, 10)
+		maxSize = 10
+	)
+
 	for {
 		select {
 		case eventTx := <-pm.txsCh:
-
-			txs := []*types.Transaction{}
 			for _, tx := range eventTx.Txs {
 				txs = append(txs, tx)
 			}
 
-			if len(pm.txsCh) >= 5 {
-			loop:
-				for {
-					select {
-					case event := <-pm.txsCh:
-						for _, tx := range event.Txs {
-							txs = append(txs, tx)
-						}
-						if len(pm.txsCh) == 0 {
-							break loop
-						}
-						// Err() channel will be closed when unsubscribing.
-					case <-pm.txsSub.Err():
-						return
-					}
-				}
-				log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+			if len(pm.txsCh) >= 5 && maxSize > 0 {
+				maxSize--
+				continue
 			}
 
+			log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 			pm.BroadcastTxs(txs)
-
-			time.Sleep(time.Millisecond)
+			maxSize = 10
+			txs = append(txs[:0], txs[1:]...)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
@@ -1338,10 +1328,27 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 
 //  fruits
 func (pm *ProtocolManager) fruitBroadcastLoop() {
+	var (
+		fruits  = make([]*types.SnailBlock, 0, 10)
+		maxSize = 4
+	)
+
 	for {
 		select {
 		case fruitsEvent := <-pm.fruitsch:
+			for _, fruit := range fruitsEvent.Fruits {
+				fruits = append(fruits, fruit)
+			}
+
+			if len(pm.txsCh) >= 5 && maxSize > 0 {
+				maxSize--
+				continue
+			}
+
+			log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
 			pm.BroadcastFruits(fruitsEvent.Fruits)
+			maxSize = 10
+			fruits = append(fruits[:0], fruits[1:]...)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():

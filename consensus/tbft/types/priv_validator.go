@@ -462,9 +462,9 @@ func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error
 		info = v.Infos
 	}
 	watch := help.NewTWatch(3, "FetchFastBlock")
-	help.AddStartStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	help.DurationStat().AddStartStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	block, err := state.Agent.FetchFastBlock(committeeID, info)
-	help.AddEndStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	help.DurationStat().AddEndStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	if err != nil {
 		return nil, err
 	}
@@ -486,9 +486,10 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	}
 	watch := help.NewTWatch(3, "BroadcastConsensus")
 	round := state.Agent.GetCurrentHeight().Uint64() + 1
-	help.AddStartStatTime("BroadcastConsensus", round)
+	help.DurationStat().AddStartStatTime("BroadcastConsensus", round)
 	err := state.Agent.BroadcastConsensus(block)
-	help.AddEndStatTime("BroadcastConsensus", round)
+	help.DurationStat().AddEndStatTime("BroadcastConsensus", round)
+	help.DurationStat().AddOtherStat("Transactions", len(block.Transactions()), round)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if err != nil {
@@ -509,9 +510,9 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
 	watch := help.NewTWatch(3, "VerifyFastBlock")
-	help.AddStartStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	help.DurationStat().AddStartStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	sign, err := state.Agent.VerifyFastBlock(block, result)
-	help.AddEndStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	help.DurationStat().AddEndStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
 	log.Debug("VerifyFastBlockResult", "height", sign.FastHeight, "result", sign.Result, "err", err)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
