@@ -1312,7 +1312,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				txs = append(txs, tx)
 			}
 
-			if len(pm.txsCh) >= txPackSize/2 && maxSize > 0 && len(txs) < txPackSize {
+			if len(pm.txsCh) > 0 && maxSize > 0 && len(txs) < txPackSize {
 				maxSize--
 				if maxSize%3 == 0 {
 					log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
@@ -1334,7 +1334,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 //  fruits
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	var (
-		fruits  = make([]*types.SnailBlock, 0, 10)
+		fruits  = make([]*types.SnailBlock, 0, fruitPackSize)
 		maxSize = fruitPackSize
 	)
 
@@ -1345,7 +1345,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 				fruits = append(fruits, fruit)
 			}
 
-			if len(pm.txsCh) >= fruitPackSize && maxSize > 0 && len(fruits) < fruitPackSize {
+			if len(pm.txsCh) > 0 && maxSize > 0 && len(fruits) < fruitPackSize {
 				maxSize--
 				if maxSize%2 == 0 {
 					log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))

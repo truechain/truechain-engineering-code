@@ -158,7 +158,31 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 func (p *peer) broadcast() {
 	for {
 		select {
-		case txs := <-p.queuedTxs:
+		case ctxs := <-p.queuedTxs:
+
+			txs := []*types.Transaction{}
+			for _, tx := range ctxs {
+				txs = append(txs, tx)
+			}
+
+			if len(p.queuedTxs) > 0 {
+			loop:
+				for {
+					select {
+					case event := <-p.queuedTxs:
+						for _, tx := range event {
+							txs = append(txs, tx)
+						}
+						if len(p.queuedTxs) == 0 && len(txs) > txPackSize {
+							log.Info("txBroadcastLoop", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+							break loop
+						}
+					case <-p.term:
+						return
+					}
+				}
+			}
+
 			if err := p.SendTransactions(txs); err != nil {
 				return
 			}
@@ -336,9 +360,6 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	select {
 	case p.queuedTxs <- txs:
-		if len(p.queuedTxs) > 1 {
-			log.Info("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
-		}
 		for _, tx := range txs {
 			p.knownTxs.Add(tx.Hash())
 		}
