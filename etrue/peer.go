@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
+	"github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -174,7 +174,9 @@ func (p *peer) broadcast() {
 							txs = append(txs, tx)
 						}
 						if len(p.queuedTxs) == 0 || len(txs) > txPackSize {
-							log.Info("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+							if len(txs)%2 == 0 {
+								log.Info("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+							}
 							break loop
 						}
 					case <-p.term:
