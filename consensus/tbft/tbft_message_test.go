@@ -9,7 +9,6 @@ import (
 	types2 "github.com/truechain/truechain-engineering-code/core/types"
 	"math/rand"
 	"testing"
-	"time"
 )
 
 func BinaryBareTest(o interface{}, o2 interface{}) {
@@ -74,8 +73,8 @@ func TestVoteSetMaj23Message(t *testing.T) {
 }
 
 func RandUint() uint8 {
-	random := rand.New(rand.NewSource(time.Now().Unix()))
-	return uint8(random.Intn(255))
+	//random := rand.New(rand.NewSource(time.Now().Unix()))
+	return uint8(rand.Intn(255))
 }
 
 func RandHexBytes() []byte {
