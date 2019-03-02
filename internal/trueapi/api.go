@@ -1005,7 +1005,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	backMembers := make([]interface{}, len(sw.BackMembers))
 	for i, backMember := range sw.BackMembers {
-		if members[i], err = formatMembers(backMember); err != nil {
+		if backMembers[i], err = formatMembers(backMember); err != nil {
 			return nil, err
 		}
 	}
