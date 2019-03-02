@@ -865,7 +865,7 @@ type nodeStats struct {
 	Active            bool `json:"active"`
 	Syncing           bool `json:"syncing"`
 	Mining            bool `json:"mining"`
-	isCommitteeMember bool `json:"isCommitteeMember"`
+	IsCommitteeMember bool `json:"isCommitteeMember"`
 	Hashrate          int  `json:"hashrate"`
 	Peers             int  `json:"peers"`
 	GasPrice          int  `json:"gasPrice"`
@@ -908,7 +908,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		GasPrice:          gasprice,
 		Syncing:           syncing,
 		Uptime:            100,
-		isCommitteeMember: isCommitteeMember,
+		IsCommitteeMember: isCommitteeMember,
 	}
 	stats := map[string]interface{}{
 		"id":    s.node,
