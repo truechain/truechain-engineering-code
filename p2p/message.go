@@ -122,9 +122,6 @@ func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 //    [e1, e2, e3]
 //
 func SendItems(w MsgWriter, msgcode uint64, elems ...interface{}) error {
-	fmt.Printf("msgcode: %d data: %t, tcp Send", msgcode, elems != nil)
-	b := elems != nil
-	fmt.Print(b)
 	return Send(w, msgcode, elems)
 }
 
