@@ -27,7 +27,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -99,11 +98,6 @@ func (t *rlpx) ReadMsg() (Msg, error) {
 }
 
 func (t *rlpx) WriteMsg(msg Msg) error {
-	watch := help.NewTWatch(3, fmt.Sprintf("msgcode: %d, tcp Send", msg.Code))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish(fmt.Sprintf("end  size: %d", msg.Size))
-	}()
 	t.wmu.Lock()
 	defer t.wmu.Unlock()
 	t.fd.SetWriteDeadline(time.Now().Add(frameWriteTimeout))

@@ -363,7 +363,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 		if p.events != nil {
 			rw = newMsgEventer(rw, p.events, p.ID(), proto.Name)
 		}
-		p.log.Info(fmt.Sprintf("Starting protocol %s/%d running %d", proto.Name, proto.Version, len(p.running)))
+		p.log.Debug(fmt.Sprintf("Starting protocol %s/%d running %d", proto.Name, proto.Version, len(p.running)))
 		go func() {
 			err := proto.Run(p, rw)
 			if err == nil {
@@ -410,11 +410,11 @@ func (rw *protoRW) WriteMsg(msg Msg) (err error) {
 	select {
 	case <-rw.wstart:
 		watch := help.NewTWatch(3, fmt.Sprintf("msgcode: %d, tcp Send", msg.Code))
-		defer func() {
-			watch.EndWatch()
-			watch.Finish(fmt.Sprintf("end  size: %d offset: %d ", msg.Size, rw.offset))
-		}()
+
 		err = rw.w.WriteMsg(msg)
+
+		watch.EndWatch()
+		watch.Finish(fmt.Sprintf("end  size: %d offset: %d ", msg.Size, rw.offset))
 		// Report write status back to Peer.run. It will initiate
 		// shutdown if the error is non-nil and unblock the next write
 		// otherwise. The calling protocol code should exit for errors
