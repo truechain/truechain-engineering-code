@@ -165,7 +165,7 @@ func (p *peer) broadcast() {
 				txs = append(txs, tx)
 			}
 
-			if len(p.queuedTxs) > 0 {
+			if len(p.queuedTxs) > 0 || len(txs) < txPackSize {
 			loop:
 				for {
 					select {
@@ -174,9 +174,7 @@ func (p *peer) broadcast() {
 							txs = append(txs, tx)
 						}
 						if len(p.queuedTxs) == 0 || len(txs) > txPackSize {
-							if len(txs)%3 == 0 {
-								log.Debug("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
-							}
+							log.Debug("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
 							break loop
 						}
 					case <-p.term:
@@ -362,6 +360,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	select {
 	case p.queuedTxs <- txs:
+		log.Debug("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
 		for _, tx := range txs {
 			p.knownTxs.Add(tx.Hash())
 		}

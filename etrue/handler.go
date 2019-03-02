@@ -61,8 +61,8 @@ const (
 	fruitChanSize = 4096
 	// minimim number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
-	txPackSize        = 10
-	fruitPackSize     = 3
+	txPackSize        = 5
+	fruitPackSize     = 2
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
