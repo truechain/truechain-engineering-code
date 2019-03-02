@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
+	errInsufficientBalanceForGas         = errors.New("insufficient balance to from for gas")
+	errInsufficientBalanceForPayerForGas = errors.New("insufficient balance to payer for gas")
 )
 
 /*
@@ -166,10 +167,10 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-func (st *StateTransition) buyGasPayment() error {
+func (st *StateTransition) buyGasForPayment() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.Payment()).Cmp(mgval) < 0 {
-		return errInsufficientBalanceForGas
+		return errInsufficientBalanceForPayerForGas
 	}
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
@@ -193,7 +194,7 @@ func (st *StateTransition) preCheck() error {
 	}
 	//if transaction contains payer,payer address sub gas
 	if st.msg.Payment() != params.EmptyAddress {
-		return st.buyGasPayment()
+		return st.buyGasForPayment()
 	}
 	return st.buyGas()
 }
