@@ -165,7 +165,7 @@ func (p *peer) broadcast() {
 				txs = append(txs, tx)
 			}
 
-			if len(p.queuedTxs) > 0 || len(txs) < txPackSize {
+			if len(p.queuedTxs) > 0 && len(txs) < txPackSize {
 			loop:
 				for {
 					select {

@@ -23,6 +23,7 @@ import (
 
 var (
 	propTxnInPacketsMeter     = metrics.NewRegisteredMeter("etrue/prop/txns/in/packets", nil)
+	propTxnInTxsMeter         = metrics.NewRegisteredMeter("etrue/prop/txns/in/txs", nil)
 	propTxnInTrafficMeter     = metrics.NewRegisteredMeter("etrue/prop/txns/in/traffic", nil)
 	propTxnOutPacketsMeter    = metrics.NewRegisteredMeter("etrue/prop/txns/out/packets", nil)
 	propTxnOutTrafficMeter    = metrics.NewRegisteredMeter("etrue/prop/txns/out/traffic", nil)
