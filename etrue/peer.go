@@ -174,7 +174,7 @@ func (p *peer) broadcast() {
 							txs = append(txs, tx)
 						}
 						if len(p.queuedTxs) == 0 || len(txs) > txPackSize {
-							if len(txs)%2 == 0 {
+							if len(txs)%3 == 0 {
 								log.Info("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
 							}
 							break loop
