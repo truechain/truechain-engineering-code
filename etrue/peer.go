@@ -165,21 +165,13 @@ func (p *peer) broadcast() {
 				txs = append(txs, tx)
 			}
 
-			if len(p.queuedTxs) > 0 && len(txs) < txPackSize {
-			loop:
-				for {
-					select {
-					case event := <-p.queuedTxs:
-						for _, tx := range event {
-							txs = append(txs, tx)
-						}
-						if len(p.queuedTxs) == 0 || len(txs) > txPackSize {
-							log.Debug("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
-							break loop
-						}
-					case <-p.term:
-						return
+			for len(p.queuedTxs) > 0 && len(txs) < txPackSize {
+				select {
+				case event := <-p.queuedTxs:
+					for _, tx := range event {
+						txs = append(txs, tx)
 					}
+					log.Debug("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
 				}
 			}
 
