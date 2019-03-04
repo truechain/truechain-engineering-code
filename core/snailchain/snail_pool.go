@@ -229,11 +229,6 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 
 // addFruit
 func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
-	watch := help.NewTWatch(1, fmt.Sprintf("handleMsg addFruit"))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	//if the new fruit's fbnumber less than,don't add
 	headSnailBlock := pool.chain.CurrentBlock()
 	if headSnailBlock.NumberU64() > 0 {
