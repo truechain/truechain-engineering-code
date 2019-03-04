@@ -154,6 +154,7 @@ type PbftServerProxy interface {
 	Notify(id *big.Int, action int) error
 	SetCommitteeStop(committeeId *big.Int, stop uint64) error
 	GetCommitteeStatus(committeeID *big.Int) map[string]interface{}
+	IsLeader(committeeID *big.Int) bool
 }
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
