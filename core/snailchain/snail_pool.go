@@ -295,11 +295,6 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 // journalFruit adds the specified fruit to the local disk journal
 func (pool *SnailPool) journalFruit(fruit *types.SnailBlock) {
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg journalFruit"))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	// Only journal if it's enabled
 	if pool.journal == nil {
 		return
