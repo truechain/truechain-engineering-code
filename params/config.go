@@ -41,8 +41,8 @@ var (
 	MainnetChainConfig = &ChainConfig{
 		ChainID: big.NewInt(1),
 		Minerva: &(MinervaConfig{
-			MinimumDifficulty:      big.NewInt(10000),
-			MinimumFruitDifficulty: big.NewInt(200),
+			MinimumDifficulty:      big.NewInt(300),
+			MinimumFruitDifficulty: big.NewInt(20),
 			DurationLimit:          big.NewInt(10),
 		}),
 	}
