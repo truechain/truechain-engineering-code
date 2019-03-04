@@ -248,14 +248,15 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		copy(b.signs, signs)
 	}
 	if infos != nil {
-		b.infos.CID = infos.CID
+		if b.infos.CID = new(big.Int); infos.CID != nil {
+			b.infos.CID.Set(infos.CID)
+		}
 		b.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
 		copy(b.infos.Vals, infos.Vals)
 		b.infos.Members = make([]*CommitteeMember, len(infos.Members))
 		copy(b.infos.Members, infos.Members)
 		b.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
 		copy(b.infos.BackMembers, infos.BackMembers)
-
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
 	return b
