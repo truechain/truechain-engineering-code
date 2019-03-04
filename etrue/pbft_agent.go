@@ -88,10 +88,11 @@ type PbftAgent struct {
 	signer     types.Signer
 	current    *AgentWork
 
-	currentCommitteeInfo *types.CommitteeInfo
-	nextCommitteeInfo    *types.CommitteeInfo
-	committeeIds         []*big.Int
-	endFastNumber        map[*big.Int]*big.Int
+	currentCommitteeInfo     *types.CommitteeInfo
+	nextCommitteeInfo        *types.CommitteeInfo
+	isCurrentCommitteeMember bool
+	committeeIds             []*big.Int
+	endFastNumber            map[*big.Int]*big.Int
 
 	server   types.PbftServerProxy
 	election *elect.Election
@@ -201,6 +202,7 @@ func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 		}
 		agent.committeeNode.Coinbase = committees[0].Coinbase
 		agent.committeeNode.Publickey = committees[0].Publickey
+		agent.isCurrentCommitteeMember = true
 	}
 	log.Info("InitNodeInfo", "singleNode", agent.singleNode,
 		", port", config.Port, ", standByPort", config.StandbyPort, ", Host", config.Host,
@@ -265,16 +267,8 @@ func (agent *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 }
 
 //IsCurrentCommitteeMember get whether self is committee member or not
-func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
-	currentID := agent.currentCommitteeInfo.Id
-	if currentID == nil {
-		currentID = big.NewInt(0)
-	}
-	c1 := agent.nodeInfoWorks[0].committeeInfo
-	if c1.Id != nil && c1.Id.Cmp(currentID) == 0 {
-		return agent.nodeInfoWorks[0].isCommitteeMember
-	}
-	return agent.nodeInfoWorks[1].isCommitteeMember
+func (agent *PbftAgent) IsCommitteeMember() bool {
+	return agent.isCurrentCommitteeMember
 }
 
 //IsLeader get current committee leader
@@ -362,7 +356,10 @@ func (agent *PbftAgent) loop() {
 				}
 				agent.setCommitteeInfo(currentCommittee, agent.nextCommitteeInfo)
 				if agent.isCommitteeMember(agent.currentCommitteeInfo) {
+					agent.isCurrentCommitteeMember = true
 					go help.CheckAndPrintError(agent.server.Notify(committeeID, int(ch.Option)))
+				} else {
+					agent.isCurrentCommitteeMember = false
 				}
 			case types.CommitteeStop:
 				committeeID := copyCommitteeID(ch.CommitteeID)
