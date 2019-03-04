@@ -330,12 +330,12 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.SnailHeader) *types.Snail
 }
 
 // ReadCommitteeStates returns the all committee members states flag sepecified with fastblock height
-func ReadCommitteeStates(db DatabaseReader, committee uint64) []uint64 {
+func ReadCommitteeStates(db DatabaseReader, committee uint64) []*big.Int {
 	data, _ := db.Get(committeeStateKey(committee))
 	if len(data) == 0 {
 		return nil
 	}
-	var changes []uint64
+	var changes []*big.Int
 	if err := rlp.Decode(bytes.NewReader(data), &changes); err != nil {
 		log.Error("Invalid committee states RLP", "hash", committee, "err", err)
 		return nil
@@ -352,7 +352,7 @@ func HasCommitteeStates(db DatabaseReader, committee uint64) bool {
 }
 
 // WriteCommitteeStates store the all committee members sepecified with fastblock height
-func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []uint64) {
+func WriteCommitteeStates(db DatabaseWriter, committee uint64, changes []*big.Int) {
 	data, err := rlp.EncodeToBytes(changes)
 	if err != nil {
 		log.Crit("Failed to RLP encode committee change numbers", "err", err)
