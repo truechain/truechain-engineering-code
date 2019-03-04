@@ -266,14 +266,6 @@ func (agent *PbftAgent) updateCurrentNodeWork() *nodeInfoWork {
 
 //IsCurrentCommitteeMember get whether self is committee member or not
 func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
-	if agent.nodeInfoWorks[0].isCurrent {
-		return agent.nodeInfoWorks[0].isCommitteeMember
-	}
-	return agent.nodeInfoWorks[1].isCommitteeMember
-}
-
-/*//IsCurrentCommitteeMember get whether self is committee member or not
-func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
 	currentID := agent.currentCommitteeInfo.Id
 	if currentID == nil {
 		currentID = big.NewInt(0)
@@ -288,7 +280,7 @@ func (agent *PbftAgent) IsCurrentCommitteeMember() bool {
 //IsLeader get current committee leader
 func (agent *PbftAgent) IsLeader() bool {
 	return agent.server.IsLeader(agent.currentCommitteeInfo.Id)
-}*/
+}
 
 func (agent *PbftAgent) getCurrentNodeWork() *nodeInfoWork {
 	if !agent.nodeInfoWorks[0].isCurrent {
