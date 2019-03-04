@@ -1301,22 +1301,11 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 // DeliverHeaders injects a new batch of block headers received from a remote
 // node into the download schedule.
 func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err error) {
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg deliver headers:%d", id, len(headers)))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
-
 	return d.deliver(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
 func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos) (err error) {
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg deliver bodies:%d", id, len(infos)))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs, infos}, bodyInMeter, bodyDropMeter)
 }
