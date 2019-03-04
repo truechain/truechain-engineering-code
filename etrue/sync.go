@@ -37,7 +37,6 @@ const (
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize    = 64 * 1024
 	fruitsyncPackSize = 50 * 1024
-	maxheight         = 600
 )
 
 type txsync struct {

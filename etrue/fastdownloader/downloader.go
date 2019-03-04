@@ -540,7 +540,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		select {
 
 		case packet := <-d.headerCh:
-			log.Info("fast headerCh " ,"id",p.GetID(),"function","fetchHeight")
+			log.Debug("fast headerCh " ,"id",p.GetID(),"function","fetchHeight")
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
@@ -564,7 +564,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		case <-d.receiptCh:
 			// Out of bounds delivery, ignore
 		}
-		log.Info("fast headerCh " ,"id",p.GetID(),"function","fetchHeight end")
+		log.Debug("fast headerCh " ,"id",p.GetID(),"function","fetchHeight end")
 	}
 }
 
@@ -646,7 +646,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			return errCancelHeaderFetch
 
 		case packet := <-d.headerCh:
-			log.Info("fast downloader " ,"id",p.GetID(),"function","fetchHeaders")
+			log.Debug("fast downloader " ,"id",p.GetID(),"function","fetchHeaders")
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Fast Received skeleton from incorrect peer", "peer", packet.PeerId())
@@ -730,7 +730,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			return errBadPeer
 
 		}
-		log.Info("fast downloader " ,"id",p.GetID(),"function","fetchHeaders end")
+		log.Debug("fast downloader " ,"id",p.GetID(),"function","fetchHeaders end")
 	}
 }
 
@@ -824,7 +824,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			return errCancel
 
 		case packet := <-deliveryCh:
-			log.Info("fast downloader ", "id", packet.PeerId(), "function", "fetchParts")
+			log.Debug("fast downloader ", "id", packet.PeerId(), "function", "fetchParts")
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
@@ -854,7 +854,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			case update <- struct{}{}:
 			default:
 			}
-			log.Info("fast downloader ", "id",packet.PeerId(), "function", "fetchParts end")
+			log.Debug("fast downloader ", "id",packet.PeerId(), "function", "fetchParts end")
 		case cont := <-wakeCh:
 			// The header fetcher sent a continuation flag, check if it's done
 			if !cont {
@@ -1011,7 +1011,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
-			log.Info("fast downloader " , "function", "processHeaders")
+			log.Debug("fast downloader " , "function", "processHeaders")
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1120,7 +1120,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 				default:
 				}
 			}
-			log.Info("fast downloader " , "function", "processHeaders end")
+			log.Debug("fast downloader " , "function", "processHeaders end")
 			rollback = nil
 			return nil
 		}
@@ -1329,7 +1329,7 @@ func (d *Downloader) DeliverReceipts(id string, receipts [][]*types.Receipt) (er
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
-	log.Info("fast downloader ", "id", id, "function", "deliver")
+	log.Debug("fast downloader ", "id", id, "function", "deliver")
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
 		if err != nil {
