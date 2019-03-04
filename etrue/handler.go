@@ -1319,6 +1319,10 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				continue
 			}
 
+			if len(txs) > txPackSize*2 {
+				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+			}
+
 			pm.BroadcastTxs(txs)
 			txs = append(txs[:0], txs[1:]...)
 
