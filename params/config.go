@@ -191,11 +191,53 @@ func (c *ChainConfig) String() string {
 	)
 }
 
+/*
+// IsHomestead returns whether num is either equal to the homestead block or greater.
+func (c *ChainConfig) IsHomestead(num *big.Int) bool {
+	return isForked(c.HomesteadBlock, num)
+}
+
+// IsDAOFork returns whether num is either equal to the DAO fork block or greater.
+func (c *ChainConfig) IsDAOFork(num *big.Int) bool {
+	return isForked(c.DAOForkBlock, num)
+}
+
+// IsEIP150 returns whether num is either equal to the EIP150 fork block or greater.
+func (c *ChainConfig) IsEIP150(num *big.Int) bool {
+	return isForked(c.EIP150Block, num)
+}
+
+// IsEIP155 returns whether num is either equal to the EIP155 fork block or greater.
+func (c *ChainConfig) IsEIP155(num *big.Int) bool {
+	return isForked(c.EIP155Block, num)
+}
+
+// IsEIP158 returns whether num is either equal to the EIP158 fork block or greater.
+func (c *ChainConfig) IsEIP158(num *big.Int) bool {
+	return isForked(c.EIP158Block, num)
+}
+
+// IsByzantium returns whether num is either equal to the Byzantium fork block or greater.
+func (c *ChainConfig) IsByzantium(num *big.Int) bool {
+	return isForked(c.ByzantiumBlock, num)
+}
+
+// IsConstantinople returns whether num is either equal to the Constantinople fork block or greater.
+func (c *ChainConfig) IsConstantinople(num *big.Int) bool {
+	return isForked(c.ConstantinopleBlock, num)
+}
+
+// IsEWASM returns whether num represents a block number after the EWASM fork
+func (c *ChainConfig) IsEWASM(num *big.Int) bool {
+	return isForked(c.EWASMBlock, num)
+}*/
+
 // GasTable returns the gas table corresponding to the current phase (homestead or homestead reprice).
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
 func (c *ChainConfig) GasTable(num *big.Int) GasTable {
-	return GasTableEIP158
+	return GasTableConstantinople
+
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported

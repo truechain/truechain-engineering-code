@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deckarep/golang-set"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"gopkg.in/fatih/set.v0"
 )
 
 var (
@@ -108,12 +108,12 @@ type peer struct {
 	fastHeight *big.Int
 	lock       sync.RWMutex
 
-	knownTxs         *set.Set                       // Set of transaction hashes known to be known by this peer
-	knownSign        *set.Set                       // Set of sign  known to be known by this peer
-	knownNodeInfos   *set.Set                       // Set of node info  known to be known by this peer
-	knownFruits      *set.Set                       // Set of fruits hashes known to be known by this peer
-	knownSnailBlocks *set.Set                       // Set of snailBlocks hashes known to be known by this peer
-	knownFastBlocks  *set.Set                       // Set of fast block hashes known to be known by this peer
+	knownTxs         mapset.Set                     // Set of transaction hashes known to be known by this peer
+	knownSign        mapset.Set                     // Set of sign  known to be known by this peer
+	knownNodeInfos   mapset.Set                     // Set of node info  known to be known by this peer
+	knownFruits      mapset.Set                     // Set of fruits hashes known to be known by this peer
+	knownSnailBlocks mapset.Set                     // Set of snailBlocks hashes known to be known by this peer
+	knownFastBlocks  mapset.Set                     // Set of fast block hashes known to be known by this peer
 	queuedTxs        chan []*types.Transaction      // Queue of transactions to broadcast to the peer
 	queuedSign       chan []*types.PbftSign         // Queue of sign to broadcast to the peer
 	queuedNodeInfo   chan *types.EncryptNodeMessage // a node info to broadcast to the peer
@@ -133,12 +133,12 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 		rw:               rw,
 		version:          version,
 		id:               fmt.Sprintf("%x", p.ID().Bytes()[:8]),
-		knownTxs:         set.New(),
-		knownSign:        set.New(),
-		knownNodeInfos:   set.New(),
-		knownFruits:      set.New(),
-		knownSnailBlocks: set.New(),
-		knownFastBlocks:  set.New(),
+		knownTxs:         mapset.NewSet(),
+		knownSign:        mapset.NewSet(),
+		knownNodeInfos:   mapset.NewSet(),
+		knownFruits:      mapset.NewSet(),
+		knownSnailBlocks: mapset.NewSet(),
+		knownFastBlocks:  mapset.NewSet(),
 		queuedTxs:        make(chan []*types.Transaction, maxQueuedTxs),
 		queuedSign:       make(chan []*types.PbftSign, maxQueuedSigns),
 		queuedNodeInfo:   make(chan *types.EncryptNodeMessage, maxQueuedNodeInfo),
@@ -158,7 +158,27 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
 func (p *peer) broadcast() {
 	for {
 		select {
-		case txs := <-p.queuedTxs:
+		case ctxs := <-p.queuedTxs:
+
+			txs := []*types.Transaction{}
+			for _, tx := range ctxs {
+				txs = append(txs, tx)
+			}
+
+			for len(p.queuedTxs) > 0 && len(txs) < txPackSize {
+				select {
+				case event := <-p.queuedTxs:
+					for _, tx := range event {
+						txs = append(txs, tx)
+					}
+					log.Debug("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+				}
+			}
+
+			if len(txs) > txPackSize*2 {
+				log.Warn("broadcast", "queuedTxs", len(p.queuedTxs), "Txs", len(ctxs), "txs", len(txs))
+			}
+
 			if err := p.SendTransactions(txs); err != nil {
 				return
 			}
@@ -266,7 +286,7 @@ func (p *peer) SetFastHeight(fastHeight *big.Int) {
 // never be propagated to this particular peer.
 func (p *peer) MarkFastBlock(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known block hash
-	for p.knownFastBlocks.Size() >= maxKnownFastBlocks {
+	for p.knownFastBlocks.Cardinality() >= maxKnownFastBlocks {
 		p.knownFastBlocks.Pop()
 	}
 	p.knownFastBlocks.Add(hash)
@@ -276,7 +296,7 @@ func (p *peer) MarkFastBlock(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkTransaction(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownTxs.Size() >= maxKnownTxs {
+	for p.knownTxs.Cardinality() >= maxKnownTxs {
 		p.knownTxs.Pop()
 	}
 	p.knownTxs.Add(hash)
@@ -286,7 +306,7 @@ func (p *peer) MarkTransaction(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkSign(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known sign hash
-	for p.knownSign.Size() >= maxKnownSigns {
+	for p.knownSign.Cardinality() >= maxKnownSigns {
 		p.knownSign.Pop()
 	}
 	p.knownSign.Add(hash)
@@ -296,7 +316,7 @@ func (p *peer) MarkSign(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkNodeInfo(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known node info hash
-	for p.knownNodeInfos.Size() >= maxKnownNodeInfo {
+	for p.knownNodeInfos.Cardinality() >= maxKnownNodeInfo {
 		p.knownNodeInfos.Pop()
 	}
 	p.knownNodeInfos.Add(hash)
@@ -306,7 +326,7 @@ func (p *peer) MarkNodeInfo(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkFruit(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownFruits.Size() >= maxKnownFruits {
+	for p.knownFruits.Cardinality() >= maxKnownFruits {
 		p.knownFruits.Pop()
 	}
 	p.knownFruits.Add(hash)
@@ -316,7 +336,7 @@ func (p *peer) MarkFruit(hash common.Hash) {
 // will never be propagated to this particular peer.
 func (p *peer) MarkSnailBlock(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
-	for p.knownSnailBlocks.Size() >= maxKnownSnailBlocks {
+	for p.knownSnailBlocks.Cardinality() >= maxKnownSnailBlocks {
 		p.knownSnailBlocks.Pop()
 	}
 	p.knownSnailBlocks.Add(hash)
@@ -336,9 +356,7 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	select {
 	case p.queuedTxs <- txs:
-		if len(p.queuedTxs) > 1 {
-			log.Info("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
-		}
+		log.Debug("AsyncSendTransactions", "queuedTxs", len(p.queuedTxs), "Txs", len(txs))
 		for _, tx := range txs {
 			p.knownTxs.Add(tx.Hash())
 		}
@@ -395,7 +413,8 @@ func (p *peer) SendFruits(fruits types.Fruits) error {
 	return p2p.Send(p.rw, FruitMsg, fruits)
 }
 
-//for record;the same as transactions
+// AsyncSendFruits queues list of fruits propagation to a remote
+// peer. If the peer's broadcast queue is full, the event is silently dropped.
 func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 	select {
 	case p.queuedFruits <- fruits:
@@ -741,7 +760,7 @@ func (ps *peerSet) PeersWithoutFastBlock(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownFastBlocks.Has(hash) {
+		if !p.knownFastBlocks.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -756,7 +775,7 @@ func (ps *peerSet) PeersWithoutSign(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownSign.Has(hash) {
+		if !p.knownSign.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -771,7 +790,7 @@ func (ps *peerSet) PeersWithoutNodeInfo(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownNodeInfos.Has(hash) {
+		if !p.knownNodeInfos.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -786,7 +805,7 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownTxs.Has(hash) {
+		if !p.knownTxs.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -801,7 +820,7 @@ func (ps *peerSet) PeersWithoutFruit(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownFruits.Has(hash) {
+		if !p.knownFruits.Contains(hash) {
 			list = append(list, p)
 		}
 	}
@@ -814,7 +833,7 @@ func (ps *peerSet) PeersWithoutSnailBlock(hash common.Hash) []*peer {
 
 	list := make([]*peer, 0, len(ps.peers))
 	for _, p := range ps.peers {
-		if !p.knownSnailBlocks.Has(hash) {
+		if !p.knownSnailBlocks.Contains(hash) {
 			list = append(list, p)
 		}
 	}

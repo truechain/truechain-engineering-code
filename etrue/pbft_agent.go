@@ -561,8 +561,9 @@ func (agent *PbftAgent) handleConsensusBlock(receiveBlock *types.Block) error {
 			log.Error("agent.fastChain.InsertChain error ", "err", err)
 			return err
 		}
-		//test tps
-		GetTps(receiveBlock)
+
+		//GetTps(receiveBlock)//test tps
+		tpsMetrics.Mark(int64((len(receiveBlock.Transactions())))) //tx metrics
 		if err := agent.sendSign(receiveBlock); err != nil {
 			return err
 		}
@@ -707,7 +708,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	)
 
 	//validate newBlock number exceed endNumber
-	if endNumber := agent.endFastNumber[committeeID]; endNumber != nil && endNumber.Cmp(parent.Number()) != 1 {
+	if endNumber := agent.endFastNumber[committeeID]; endNumber != nil && endNumber.Cmp(parentNumber) != 1 {
 		log.Error("FetchFastBlock error", "number:", endNumber, "err", core.ErrExceedNumber)
 		return fastBlock, core.ErrExceedNumber
 	}
@@ -716,10 +717,9 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) > 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
-
 	header := &types.Header{
 		ParentHash: parent.Hash(),
-		Number:     parentNumber.Add(parentNumber, common.Big1),
+		Number:     new(big.Int).Add(parentNumber, common.Big1),
 		GasLimit:   core.FastCalcGasLimit(parent, agent.gasFloor, agent.gasCeil),
 		Time:       big.NewInt(tstamp),
 	}
@@ -749,7 +749,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 	} else {
 		// Create the current work task and check any fork transitions needed
 		err := agent.makeCurrent(parent, header)
-
 		if err != nil {
 			log.Error("makeCurrent error", "err", err)
 			return fastBlock, err
@@ -759,12 +758,11 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 		if len(pending) != 0 {
 			log.Info("has transaction...")
 		}
-		txs := types.NewTransactionsByPriceAndNonce(agent.current.signer, pending)
+		txs := types.NewTransactionsByPriceAndNonce(work.signer, pending)
 		work.commitTransactions(agent.mux, txs, agent.fastChain, feeAmount)
 		//calculate snailBlock reward
 		agent.rewardSnailBlock(header)
-		// padding Header.Root, TxHash, ReceiptHash.
-		// Create the new block to seal with the consensus engine
+		//padding Header.Root, TxHash, ReceiptHash.  Create the new block to seal with the consensus engine
 		if fastBlock, err = agent.engine.Finalize(agent.fastChain, header, work.state, work.txs, work.receipts, feeAmount); err != nil {
 			log.Error("Failed to finalize block for sealing", "err", err)
 			return fastBlock, err
@@ -817,7 +815,7 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 		if space >= params.FastToFruitSpace.Int64() {
 			log.Info("validateBlockSpace method ", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
 				"currentFastNumber", header.Number)
-			log.Warn("fetchFastBlock validateBlockSpace error", "space", space)
+			log.Warn("fetchFastBlock validateBlockSpace warn", "space", space)
 			return types.ErrSnailBlockTooSlow
 		}
 	}
@@ -885,7 +883,7 @@ func GetTps(currentBlock *types.Block) float32 {
 	 if len(txSlice)== 1 && len(timeSlice) == 1 {
 		 tpsMetrics.Mark(int64(500))
 	 }*/
-	tpsMetrics.Mark(int64(txNum))
+	//tpsMetrics.Mark(int64(txNum))
 	return instantTps
 }
 

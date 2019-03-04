@@ -38,7 +38,6 @@ const (
 	fruitChanSize         = 1024
 	chainHeadChanSize     = 10
 	fastchainHeadChanSize = 1024
-	fastBlockChanSize     = 1024
 )
 
 var (

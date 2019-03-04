@@ -48,18 +48,20 @@ func NewPbftAgetTest() *PbftAgent {
 
 func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
 	priKey := agent.privateKey
-	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	committeeBase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	pubKeyBytes := crypto.FromECDSAPub(&priKey.PublicKey)
 	committeeMember := &types.CommitteeMember{
-		coinbase,
-		&priKey.PublicKey, 0xa1, 0}
+		common.Address{}, committeeBase,
+		pubKeyBytes, 0xa1, 0}
 
 	return committeeMember
 }
 
 func generateMember() (*ecdsa.PrivateKey, *types.CommitteeMember) {
 	priKey, _ := crypto.GenerateKey()
-	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	m := &types.CommitteeMember{coinbase, &priKey.PublicKey, 0xa1, 0}
+	committeeBase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	pubKeyBytes := crypto.FromECDSAPub(&priKey.PublicKey)
+	m := &types.CommitteeMember{common.Address{}, committeeBase, pubKeyBytes, 0xa1, 0}
 	return priKey, m
 }
 

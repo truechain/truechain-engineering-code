@@ -42,7 +42,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -61,6 +61,8 @@ const (
 	fruitChanSize = 4096
 	// minimim number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
+	txPackSize        = 5
+	fruitPackSize     = 2
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
@@ -199,7 +201,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			NodeInfo: func() interface{} {
 				return manager.NodeInfo()
 			},
-			PeerInfo: func(id discover.NodeID) interface{} {
+			PeerInfo: func(id enode.ID) interface{} {
 				if p := manager.peers.Peer(fmt.Sprintf("%x", id[:8])); p != nil {
 					return p.Info()
 				}
@@ -977,6 +979,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
+			propTxnInTxsMeter.Mark(1)
 			p.MarkTransaction(tx.Hash())
 		}
 		log.Trace("receive TxMsg", "peer", p.id, "len(txs)", len(txs), "ip", p.RemoteAddr())
@@ -1298,25 +1301,29 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 }
 func (pm *ProtocolManager) txBroadcastLoop() {
 	var (
-		txs     = make([]*types.Transaction, 0, 10)
-		maxSize = 10
+		txs = make([]*types.Transaction, 0, txPackSize)
 	)
 
 	for {
 		select {
 		case eventTx := <-pm.txsCh:
+
 			for _, tx := range eventTx.Txs {
 				txs = append(txs, tx)
 			}
 
-			if len(pm.txsCh) >= 5 && maxSize > 0 {
-				maxSize--
+			if len(pm.txsCh) > 0 && len(txs) < txPackSize {
+				if len(txs)%3 == 0 {
+					log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+				}
 				continue
 			}
 
-			log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+			if len(txs) > txPackSize*2 {
+				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+			}
+
 			pm.BroadcastTxs(txs)
-			maxSize = 10
 			txs = append(txs[:0], txs[1:]...)
 
 			// Err() channel will be closed when unsubscribing.
@@ -1329,8 +1336,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 //  fruits
 func (pm *ProtocolManager) fruitBroadcastLoop() {
 	var (
-		fruits  = make([]*types.SnailBlock, 0, 10)
-		maxSize = 4
+		fruits = make([]*types.SnailBlock, 0, fruitPackSize)
 	)
 
 	for {
@@ -1340,14 +1346,14 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 				fruits = append(fruits, fruit)
 			}
 
-			if len(pm.txsCh) >= 5 && maxSize > 0 {
-				maxSize--
+			if len(pm.txsCh) > 0 && len(fruits) < fruitPackSize {
+				if len(fruits)%2 == 0 {
+					log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
+				}
 				continue
 			}
 
-			log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
 			pm.BroadcastFruits(fruitsEvent.Fruits)
-			maxSize = 10
 			fruits = append(fruits[:0], fruits[1:]...)
 
 			// Err() channel will be closed when unsubscribing.
