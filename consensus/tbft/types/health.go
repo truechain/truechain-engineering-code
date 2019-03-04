@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
@@ -368,7 +369,7 @@ func (h *HealthMgr) isShiftSV() (bool, int) {
 			cnt++
 		}
 	}
-	return cnt > ctypes.MixValidator, cnt
+	return cnt > params.MinimumCommitteeNumber, cnt
 }
 
 //switchResult handle the sv after consensus and the result removed from self

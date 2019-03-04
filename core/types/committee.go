@@ -37,9 +37,6 @@ const (
 	TypeFixed  = 0xa1
 	TypeWorked = 0xa2
 	TypeBack   = 0xa3
-
-	//MixValidator is .minimum number of available committee nodes
-	MixValidator = 7
 )
 
 const (
