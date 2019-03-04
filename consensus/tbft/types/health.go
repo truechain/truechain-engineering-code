@@ -19,8 +19,7 @@ import (
 const (
 	//HealthOut peer time out
 	HealthOut = 1200
-	//MixValidator min committee count
-	MixValidator   = 2
+
 	BlackDoorCount = 4
 
 	SwitchPartWork = 0
@@ -369,7 +368,7 @@ func (h *HealthMgr) isShiftSV() (bool, int) {
 			cnt++
 		}
 	}
-	return cnt > MixValidator, cnt
+	return cnt > ctypes.MixValidator, cnt
 }
 
 //switchResult handle the sv after consensus and the result removed from self

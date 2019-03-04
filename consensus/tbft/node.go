@@ -419,8 +419,8 @@ func (n *Node) PutCommittee(committeeInfo *types.CommitteeInfo) error {
 	store := ttypes.NewBlockStore()
 	service := newNodeService(n.config.P2P, n.config.Consensus, state, store, cid)
 
-	if len(committeeInfo.Members) < ttypes.MixValidator {
-		return fmt.Errorf("members len is error :want big to %d get %d", ttypes.MixValidator, len(committeeInfo.Members))
+	if len(committeeInfo.Members) < types.MixValidator {
+		return fmt.Errorf("members len is error :want big to %d get %d", types.MixValidator, len(committeeInfo.Members))
 	}
 
 	n.AddHealthForCommittee(service.healthMgr, committeeInfo)

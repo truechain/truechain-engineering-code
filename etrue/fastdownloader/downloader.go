@@ -20,7 +20,6 @@ package fastdownloader
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -540,7 +539,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		select {
 
 		case packet := <-d.headerCh:
-			log.Debug("fast headerCh " ,"id",p.GetID(),"function","fetchHeight")
+			log.Debug("fast headerCh ", "id", p.GetID(), "function", "fetchHeight")
 			// Discard anything not from the origin peer
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Received headers from incorrect peer", "peer", packet.PeerId())
@@ -564,7 +563,7 @@ func (d *Downloader) fetchHeight(id string, number uint64) (*types.Header, error
 		case <-d.receiptCh:
 			// Out of bounds delivery, ignore
 		}
-		log.Debug("fast headerCh " ,"id",p.GetID(),"function","fetchHeight end")
+		log.Debug("fast headerCh ", "id", p.GetID(), "function", "fetchHeight end")
 	}
 }
 
@@ -646,7 +645,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			return errCancelHeaderFetch
 
 		case packet := <-d.headerCh:
-			log.Debug("fast downloader " ,"id",p.GetID(),"function","fetchHeaders")
+			log.Debug("fast downloader ", "id", p.GetID(), "function", "fetchHeaders")
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.GetID() {
 				log.Debug("Fast Received skeleton from incorrect peer", "peer", packet.PeerId())
@@ -724,13 +723,13 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 				}
 			}
 			select {
-				case d.headerProcCh <- nil:
-				case <-d.cancelCh:
+			case d.headerProcCh <- nil:
+			case <-d.cancelCh:
 			}
 			return errBadPeer
 
 		}
-		log.Debug("fast downloader " ,"id",p.GetID(),"function","fetchHeaders end")
+		log.Debug("fast downloader ", "id", p.GetID(), "function", "fetchHeaders end")
 	}
 }
 
@@ -854,7 +853,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 			case update <- struct{}{}:
 			default:
 			}
-			log.Debug("fast downloader ", "id",packet.PeerId(), "function", "fetchParts end")
+			log.Debug("fast downloader ", "id", packet.PeerId(), "function", "fetchParts end")
 		case cont := <-wakeCh:
 			// The header fetcher sent a continuation flag, check if it's done
 			if !cont {
@@ -1011,7 +1010,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 			return errCancelHeaderProcessing
 
 		case headers := <-d.headerProcCh:
-			log.Debug("fast downloader " , "function", "processHeaders")
+			log.Debug("fast downloader ", "function", "processHeaders")
 			// Terminate header processing if we synced up
 			if len(headers) == 0 {
 				// Notify everyone that headers are fully processed
@@ -1120,7 +1119,7 @@ func (d *Downloader) processHeaders(origin uint64, pivot uint64) error {
 				default:
 				}
 			}
-			log.Debug("fast downloader " , "function", "processHeaders end")
+			log.Debug("fast downloader ", "function", "processHeaders end")
 			rollback = nil
 			return nil
 		}
