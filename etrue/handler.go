@@ -1324,7 +1324,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			}
 
 			pm.BroadcastTxs(txs)
-			txs = append(txs[:0], txs[1:]...)
+			txs = append(txs[:0], txs[len(txs):]...)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
@@ -1354,7 +1354,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 			}
 
 			pm.BroadcastFruits(fruitsEvent.Fruits)
-			fruits = append(fruits[:0], fruits[1:]...)
+			fruits = append(fruits[:0], fruits[len(fruits):]...)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():
