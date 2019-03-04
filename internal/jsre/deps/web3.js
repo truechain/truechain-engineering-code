@@ -5581,6 +5581,18 @@ var properties = function () {
             getter: 'etrue_coinbase'
         }),
         new Property({
+            name: 'pubkey',
+            getter: 'etrue_pubkey'
+        }),
+        new Property({
+            name: 'committeeBase',
+            getter: 'etrue_committeeBase'
+        }),
+        new Property({
+            name: 'isCommitteeMember',
+            getter: 'etrue_isCommitteeMember'
+        }),
+        new Property({
             name: 'mining',
             getter: 'etrue_mining'
         }),
