@@ -10,6 +10,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -332,7 +333,7 @@ func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, fro
 	})
 	// will need check vals with validatorSet
 	infos := &ctypes.SwitchInfos{
-		CID:         h.cid,
+		CID:         new(big.Int).SetUint64(h.cid),
 		Vals:        vals,
 		Members:     nil,
 		BackMembers: nil,

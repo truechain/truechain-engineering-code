@@ -903,7 +903,7 @@ func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.
 	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
 		//make all committee
 		info := &types.SwitchInfos{
-			CID:         cs.cm.Id.Uint64(),
+			CID:         cs.cm.Id,
 			Vals:        nil,
 			Members:     cs.cm.Members,
 			BackMembers: cs.cm.BackMembers,

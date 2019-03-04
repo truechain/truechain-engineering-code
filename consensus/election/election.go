@@ -852,10 +852,10 @@ func (e *Election) elect(candidates []*candidateMember, seed common.Hash) []*typ
 			}
 			addrs[cm.address] = 1
 			member := &types.CommitteeMember{
-				Coinbase:  cm.coinbase,
+				Coinbase:      cm.coinbase,
 				CommitteeBase: crypto.PubkeyToAddress(*cm.publickey),
-				Publickey: crypto.FromECDSAPub(cm.publickey),
-				Flag:      types.StateUnusedFlag,
+				Publickey:     crypto.FromECDSAPub(cm.publickey),
+				Flag:          types.StateUnusedFlag,
 			}
 			members = append(members, member)
 
@@ -989,9 +989,9 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if infos.CID == e.committee.id.Uint64() {
+	if infos.CID.Uint64() == e.committee.id.Uint64() {
 		committee = e.committee
-	} else if infos.CID == e.nextCommittee.id.Uint64() {
+	} else if infos.CID.Uint64() == e.nextCommittee.id.Uint64() {
 		committee = e.nextCommittee
 	} else {
 		log.Warn("Election switchinfo not in current Committee", "committee", infos.CID)
@@ -999,7 +999,7 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 	}
 
 	committee.switches = append(committee.switches, fastNumber.Uint64())
-	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID, committee.switches)
+	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID.Uint64(), committee.switches)
 
 	// Update pbft server's committee info via pbft agent proxy
 	members, backups := e.filterWithSwitchInfo(committee)

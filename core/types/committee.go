@@ -367,7 +367,7 @@ func (s SwitchEnters) Equal(other SwitchEnters) bool {
 
 // SwitchInfos is the infos inserted in block when committee member changed
 type SwitchInfos struct {
-	CID         uint64
+	CID         *big.Int
 	Members     []*CommitteeMember
 	BackMembers []*CommitteeMember
 	Vals        []*SwitchEnter

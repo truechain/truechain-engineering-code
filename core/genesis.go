@@ -273,7 +273,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 	statedb.Database().TrieDB().Commit(root, true)
 
 	// All genesis committee members are included in switchinfo of block #0
-	committee := &types.SwitchInfos{CID: 0, Members: g.Committee, BackMembers: make([]*types.CommitteeMember, 0), Vals: make([]*types.SwitchEnter, 0)}
+	committee := &types.SwitchInfos{CID: common.Big0, Members: g.Committee, BackMembers: make([]*types.CommitteeMember, 0), Vals: make([]*types.SwitchEnter, 0)}
 	for _, member := range committee.Members {
 		pubkey, _ := crypto.UnmarshalPubkey(member.Publickey)
 		member.Flag = types.StateUsedFlag
