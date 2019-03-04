@@ -690,7 +690,7 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundSt
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *ConsensusState) enterNewRound(height uint64, round int) {
-	help.DurationStat().AddStartStatTime("ConsensusTime", height)
+	help.DurationStat().AddStartStatTime("ConsensusTime", height+1)
 	//logger := log.With("height", height, "round", round)
 	if cs.Height != height || round < int(cs.Round) || (int(cs.Round) == round && cs.Step != ttypes.RoundStepNewHeight) {
 		log.Debug(fmt.Sprintf("enterNewRound(%v/%v): Invalid args. Current step: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
