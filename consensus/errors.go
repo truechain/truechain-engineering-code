@@ -52,5 +52,7 @@ var (
 
 	ErrInvalidSign = errors.New("invalid sign")
 
+	ErrInvalidSwitchInfo = errors.New("invalid switch info")
+
 	ErrUnknownFast = errors.New("unknown fast block")
 )

@@ -602,6 +602,11 @@ func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeM
 	return members, errs
 }
 
+// VerifySwitchInfo verify committee members and it's state
+func (e *fakeElection) VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error {
+	return nil
+}
+
 func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error) {
 	var signs []*types.PbftSign
 	for _, privateKey := range e.privates {
