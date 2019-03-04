@@ -569,11 +569,6 @@ func (pool *SnailPool) Stop() {
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemoteFruits newFruitCh:%d, len(fruits): %d", len(pool.newFruitCh), len(fruits)))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())
