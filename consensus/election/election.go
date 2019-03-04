@@ -400,9 +400,9 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 	block := e.fastchain.GetBlockByNumber(blockNum)
 	if block != nil {
 		info := e.fastchain.GetBlockByNumber(blockNum).SwitchInfos()
-		members := types.ElectionCommittee{Members: info.Members, Backups: info.BackMembers}
+		members := &types.ElectionCommittee{Members: info.Members, Backups: info.BackMembers}
 		e.commiteeCache.Add(committeeNum.Uint64(), members)
-		return &members
+		return members
 	}
 
 	// Elect members from snailblock
