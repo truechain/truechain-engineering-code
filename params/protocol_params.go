@@ -107,17 +107,17 @@ var (
 
 	FruitFreshness = big.NewInt(17) // fruit freshness
 
-	MinimumFruits int = 60
-	MaximumFruits int = 600
+	MinimumFruits int = 30
+	MaximumFruits int = 300
 )
 
 var (
 	SnailConfirmInterval = big.NewInt(12)
 
-	FastToFruitSpace = big.NewInt(1200)
+	FastToFruitSpace = big.NewInt(600)
 
 	ElectionPeriodNumber     = big.NewInt(180) // snail block period number
-	ElectionSwitchoverNumber = big.NewInt(9600)
+	ElectionSwitchoverNumber = big.NewInt(4800)
 
 	ElectionFruitsThreshold uint64 = 100 // fruit size threshold for committee election
 

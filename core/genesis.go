@@ -419,7 +419,7 @@ func DefaultGenesisBlock() *Genesis {
 		Nonce:      928,
 		ExtraData:  nil,
 		GasLimit:   88080384,
-		Difficulty: big.NewInt(20000),
+		Difficulty: big.NewInt(10000),
 		//Alloc:      decodePrealloc(mainnetAllocData),
 		Alloc: map[common.Address]types.GenesisAccount{
 			common.HexToAddress("0x7c357530174275dd30e46319b89f71186256e4f7"): {Balance: i},
@@ -493,7 +493,7 @@ func DefaultDevGenesisBlock() *Genesis {
 
 	return &Genesis{
 		Config:     params.DevnetChainConfig,
-		Nonce:      928,
+		Nonce:      10,
 		ExtraData:  nil,
 		GasLimit:   88080384,
 		Difficulty: big.NewInt(20000),
