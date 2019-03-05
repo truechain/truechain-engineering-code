@@ -380,7 +380,7 @@ type FetchResult struct {
 	Fruits  types.SnailBlocks
 
 	Fheader      *types.Header
-	Infos        []*types.CommitteeMember
+	Infos        types.CommitteeMembers
 	Transactions types.Transactions
 	Receipts     types.Receipts
 }
