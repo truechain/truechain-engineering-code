@@ -117,8 +117,8 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 //CommitteeNode contains  main info of committee node
 type CommitteeNode struct {
 	IP        string
-	Port      uint
-	Port2     uint
+	Port      uint32
+	Port2     uint32
 	Coinbase  common.Address
 	Publickey []byte
 }
@@ -133,7 +133,7 @@ type PbftSigns []*PbftSign
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
-	Result     uint        // 0--against,1--agree
+	Result     uint32      // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
 }
 

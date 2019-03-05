@@ -134,7 +134,7 @@ type Header struct {
 	Root          common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash        common.Hash    `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash   common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-	CommitteeHash common.Hash    `json:"committeeRoot"     gencodec:"required"`
+	CommitteeHash common.Hash    `json:"committeeRoot"    gencodec:"required"`
 	Proposer      common.Address `json:"maker"            gencodec:"required"`
 	Bloom         Bloom          `json:"logsBloom"        gencodec:"required"`
 	SnailHash     common.Hash    `json:"snailHash"        gencodec:"required"`
@@ -199,7 +199,7 @@ type Block struct {
 	transactions Transactions
 
 	signs PbftSigns
-	infos []*CommitteeMember
+	infos CommitteeMembers
 	// caches
 	hash atomic.Value
 	size atomic.Value
