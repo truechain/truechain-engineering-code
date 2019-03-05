@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
-const CacheLen = 20
+const (
+	CacheLen  = 20
+	CacheOpen = false
+)
 
 var DurationStat = newDurationStat()
 
@@ -14,6 +17,7 @@ func newDurationStat() *durationStat {
 		StatTimeArray: make(map[uint64]statTime),
 		OtherStatInfo: make(map[uint64]map[string]interface{}),
 		StatMaxLen:    CacheLen,
+		Open:          CacheOpen,
 		lock:          new(sync.Mutex),
 	}
 }
@@ -24,6 +28,7 @@ type durationStat struct {
 	StatTimeArray map[uint64]statTime
 	OtherStatInfo map[uint64]map[string]interface{}
 	StatMaxLen    uint64
+	Open          bool
 	lock          *sync.Mutex //Being not
 }
 
@@ -84,14 +89,23 @@ func (d *durationStat) addStatTime(flag string, ifBegin bool, round uint64) {
 }
 
 func (d *durationStat) AddStartStatTime(flag string, height uint64) {
+	if !d.Open {
+		return
+	}
 	d.addStatTime(flag, true, height)
 }
 
 func (d *durationStat) AddEndStatTime(flag string, height uint64) {
+	if !d.Open {
+		return
+	}
 	d.addStatTime(flag, false, height)
 }
 
 func (d *durationStat) AddOtherStat(k string, v interface{}, height uint64) {
+	if !d.Open {
+		return
+	}
 	info := make(map[string]interface{})
 	if v, ok := d.OtherStatInfo[height]; ok {
 		info = v
