@@ -971,7 +971,25 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	fields["signs"] = signs
 
-	fields["switchInfos"] = b.SwitchInfos()
+
+	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
+		members := map[string]interface{}{
+			"Coinbase":      commit.Coinbase,
+			"CommitteeBase": commit.CommitteeBase,
+			"Publickey":     commit.Publickey,
+			"Flag":          commit.Flag,
+			"MType":         commit.MType,
+		}
+		return members, nil
+	}
+	switchInfos := make([]interface{}, len(b.SwitchInfos()))
+	for i, member := range b.SwitchInfos() {
+		if switchInfos[i], err = formatMembers(member); err != nil {
+			return nil, err
+		}
+	}
+
+	fields["switchInfos"] = switchInfos
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
@@ -992,14 +1010,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		}
 		fields["transactions"] = transactions
 	}
-
-	// remove nonexistent field: uncles
-	// uncles := b.Uncles()
-	// uncleHashes := make([]common.Hash, len(uncles))
-	// for i, uncle := range uncles {
-	// 	uncleHashes[i] = uncle.Hash()
-	// }
-	// fields["uncles"] = uncleHashes
 
 	return fields, nil
 }
