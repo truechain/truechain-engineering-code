@@ -61,6 +61,7 @@ var (
 var (
 	ErrCommittee     = errors.New("get committee failed")
 	ErrInvalidMember = errors.New("invalid committee member")
+	ErrInvalidSwitch = errors.New("invalid switch block info")
 )
 
 type candidateMember struct {
@@ -376,7 +377,30 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 }
 
 // VerifySwitchInfo verify committee members and it's state
-func (e *Election) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error {
+func (e *Election) VerifySwitchInfo(fastNumber *big.Int, info []*types.CommitteeMember) error {
+	committee := e.electedCommittee(fastNumber)
+	if committee == nil {
+		log.Error("Failed to fetch elected committee", "fast", fastNumber)
+		return ErrCommittee
+	}
+
+	// Committee begin block must include members info
+	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
+		members := committee.members
+		members = append(members, committee.backupMembers...)
+		if len(members) != len(info) {
+			log.Error("SwitchInfo members invalid", "num", fastNumber)
+			return ErrInvalidSwitch
+		}
+		for i := range info {
+			if !info[i].Compared(members[i]) {
+				log.Error("SwitchInfo members invalid", "num", fastNumber)
+				return ErrInvalidSwitch
+			}
+		}
+		return nil
+	}
+
 	return nil
 }
 

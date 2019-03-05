@@ -74,8 +74,7 @@ func NewCommitteeMember(coinBase common.Address, publicKey []byte, flag, mType u
 }
 
 func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
-	if c.MType == d.MType && c.Coinbase.String() != d.Coinbase.String() &&
-		bytes.Compare(c.CommitteeBase.Bytes(), d.CommitteeBase.Bytes()) == 0 {
+	if c.MType == d.MType && c.Coinbase == d.Coinbase && c.CommitteeBase == d.CommitteeBase && bytes.Equal(c.Publickey, d.Publickey) {
 		return true
 	}
 	return false
