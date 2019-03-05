@@ -388,6 +388,11 @@ func (s *SwitchInfos) String() string {
 	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}", s.CID, strings.Join(memStrings, "\n  "))
 }
 
+func (s *SwitchInfos) ToHash() common.Hash {
+	return rlpHash(s)
+}
+
+
 func (s *SwitchInfos) Equal(other *SwitchInfos) bool {
 	if s == nil && other == nil {
 		return true

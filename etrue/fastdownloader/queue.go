@@ -750,11 +750,15 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 	defer q.lock.Unlock()
 
 	reconstruct := func(header *types.Header, index int, result *etrue.FetchResult) error {
-		log.Info("fast downloader " ,"id",id,"function","reconstruct")
+		log.Debug("fast downloader " ,"id",id,"function","reconstruct")
 		if types.DeriveSha(types.Transactions(txLists[index])) != header.TxHash {
 			return errInvalidChain
 		}
 
+		if infos[index].ToHash() != header.CommitteeHash  {
+			return errInvalidChain
+		}
+		
 		for _, sign := range signs[index] {
 			if sign.FastHeight.Cmp(header.Number) != 0 || sign.FastHash != header.Hash() {
 				log.Error("errInvalidBody")
@@ -767,7 +771,7 @@ func (q *queue) DeliverBodies(id string, txLists [][]*types.Transaction, signs [
 		result.Infos = infos[index]
 		return nil
 	}
-	log.Info("fast downloader " ,"id",id,"function","DeliverBodies")
+	log.Debug("fast downloader " ,"id",id,"function","DeliverBodies")
 	return q.deliver(id, q.blockTaskPool, q.blockTaskQueue, q.blockPendPool, q.blockDonePool, bodyReqTimer, len(txLists), reconstruct)
 }
 
@@ -876,3 +880,4 @@ func (q *queue) Prepare(offset uint64, mode SyncMode) {
 	}
 	q.mode = mode
 }
+
