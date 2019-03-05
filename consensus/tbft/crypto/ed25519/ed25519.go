@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"fmt"
-	"io"
 	"github.com/agl/ed25519"
 	"github.com/agl/ed25519/extra25519"
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
+	"io"
 )
 
 //-------------------------------------
@@ -79,9 +79,8 @@ func (privKey PrivKeyEd25519) PubKey() crypto.PubKey {
 func (privKey PrivKeyEd25519) Equals(other crypto.PrivKey) bool {
 	if otherEd, ok := other.(PrivKeyEd25519); ok {
 		return subtle.ConstantTimeCompare(privKey[:], otherEd[:]) == 1
-	} else {
-		return false
 	}
+	return false
 }
 
 // ToCurve25519 takes a private key and returns its representation on
@@ -154,13 +153,13 @@ func (pubKey PubKeyEd25519) Bytes() []byte {
 	return bz
 }
 
-func (pubKey PubKeyEd25519) VerifyBytes(msg []byte, sig_ []byte) bool {
+func (pubKey PubKeyEd25519) VerifyBytes(msg []byte, sigB []byte) bool {
 	// make sure we use the same algorithm to sign
-	if len(sig_) != SignatureEd25519Size {
+	if len(sigB) != SignatureEd25519Size {
 		return false
 	}
 	sig := new([SignatureEd25519Size]byte)
-	copy(sig[:], sig_)
+	copy(sig[:], sigB)
 	pubKeyBytes := [PubKeyEd25519Size]byte(pubKey)
 	return ed25519.Verify(&pubKeyBytes, msg, sig)
 }
@@ -188,7 +187,6 @@ func (pubKey PubKeyEd25519) String() string {
 func (pubKey PubKeyEd25519) Equals(other crypto.PubKey) bool {
 	if otherEd, ok := other.(PubKeyEd25519); ok {
 		return bytes.Equal(pubKey[:], otherEd[:])
-	} else {
-		return false
 	}
+	return false
 }

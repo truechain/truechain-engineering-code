@@ -19,14 +19,16 @@ package fetcher
 
 import (
 	"errors"
+	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math/rand"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"sync"
 )
@@ -115,6 +117,7 @@ type bodyFilterTask struct {
 	peer         string                 // The source peer of block bodies
 	transactions [][]*types.Transaction // Collection of transactions per block bodies
 	signs        [][]*types.PbftSign    // Collection of sign per block bodies
+	infos        []*types.SwitchInfos   // committee change
 	time         time.Time              // Arrival time of the blocks' contents
 }
 
@@ -221,7 +224,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		fetching:      make(map[common.Hash]*announce),
 		fetched:       make(map[common.Hash][]*announce),
 		completing:    make(map[common.Hash]*announce),
-		queue:         prque.New(),
+		queue:         prque.New(nil),
 		queues:        make(map[string]int),
 		queued:        make(map[common.Hash]*inject),
 
@@ -259,6 +262,11 @@ func (f *Fetcher) Stop() {
 // the network.
 func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *types.PbftSign, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg notify number:%d", peer, number))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 	block := &announce{
 		hash:        hash,
 		number:      number,
@@ -280,6 +288,12 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *typ
 
 // Enqueue tries to fill gaps the the fetcher's future import queue.
 func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg enqueue number:%d", peer, block.NumberU64()))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
+	log.Debug("Enqueue fast block", "peer", peer, "number", block.Number(), "hash", block.Hash().String())
 	op := &inject{
 		origin: peer,
 		block:  block,
@@ -309,7 +323,13 @@ func (f *Fetcher) EnqueueSign(peer string, signs []*types.PbftSign) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers))
+	log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
+
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
@@ -336,8 +356,14 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign) {
-	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs))
+func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, []*types.SwitchInfos) {
+	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
+
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", peer, len(transactions), signs[0][0].FastHeight))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish("end")
+	}()
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -345,20 +371,20 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	select {
 	case f.bodyFilter <- filter:
 	case <-f.quit:
-		return nil, nil
+		return nil, nil, nil
 	}
 	// Request the filtering of the body list
 	select {
-	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, signs: signs, time: time}:
+	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, signs: signs, infos: infos, time: time}:
 	case <-f.quit:
-		return nil, nil
+		return nil, nil, nil
 	}
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
-		return task.transactions, task.signs
+		return task.transactions, task.signs, task.infos
 	case <-f.quit:
-		return nil, nil
+		return nil, nil, nil
 	}
 }
 
@@ -370,6 +396,7 @@ func (f *Fetcher) loop() {
 	completeTimer := time.NewTimer(0)
 
 	for {
+		log.Debug("Loop start", "fetching", len(f.fetching))
 		// Clean up any expired block fetches
 		for hash, announce := range f.fetching {
 			if time.Since(announce.time) > fetchTimeout {
@@ -397,8 +424,9 @@ func (f *Fetcher) loop() {
 					}
 					// If too high up the chain or phase, continue later
 					number := block.NumberU64()
+					log.Trace("Loop check", "number", number, "height", height, "same block", len(blocks), "peer", peer)
 					if number > height+1 {
-						f.queue.Push(opMulti, -float32(number))
+						f.queue.Push(opMulti, -int64(number))
 						if f.queueChangeHook != nil {
 							f.queueChangeHook(hash, true)
 						}
@@ -423,10 +451,11 @@ func (f *Fetcher) loop() {
 						f.markBroadcastBlock(number, peer, block)
 						if len(f.blockConsensus[number]) > 0 {
 							signHashs := f.blockConsensus[number]
-							log.Debug("Loop", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
+							log.Debug("Loop consensus", "number", number, "same block", len(blocks), "height", height, "sign count", len(signHashs))
 							if signInject, ok := f.queuedSign[signHashs[0]]; ok {
 								if signInject.sign.FastHash == hash {
 									index = i
+									break
 								}
 							} else {
 								log.Info("Queue sign pop", "num", number, "sign count", len(signHashs))
@@ -462,7 +491,7 @@ func (f *Fetcher) loop() {
 							index = -1
 						}
 					} else {
-						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
+						f.queue.Push(opMulti, -int64(blocks[0].NumberU64()))
 						finished = true
 					}
 				}
@@ -471,7 +500,7 @@ func (f *Fetcher) loop() {
 				break
 			}
 		}
-
+		log.Debug("Loop middle", "fetching", len(f.fetching))
 		// Wait for an outside event to occur
 		select {
 		case <-f.quit:
@@ -551,12 +580,12 @@ func (f *Fetcher) loop() {
 						request[announce.origin] = append(request[announce.origin], hash)
 						f.fetching[hash] = announce
 					}
-					log.Debug("Fetching headers fetchTimer", "count", len(request), "hash", hash, "peer", announce.origin)
+					log.Debug("Fetching headers fetchTimer", "count", len(request), "number", announce.number, "hash", hash, "peer", announce.origin)
 				}
 			}
 			// Send out all block header requests
 			for peer, hashes := range request {
-				log.Trace("Fetching scheduled fast headers", "peer", peer, "list", hashes)
+				log.Trace("Fetching scheduled fast headers", "number", f.fetching[hashes[0]].number, "peer", peer, "list", hashes)
 
 				// Create a closure of the fetch and schedule in on a new thread
 				fetchHeader, hashes := f.fetching[hashes[0]].fetchHeader, hashes
@@ -587,10 +616,11 @@ func (f *Fetcher) loop() {
 					request[announce.origin] = append(request[announce.origin], hash)
 					f.completing[hash] = announce
 				}
+				log.Debug("Fetching body completeTimer", "count", len(request), "number", announce.number, "hash", hash, "peer", announce.origin)
 			}
 			// Send out all block body requests
 			for peer, hashes := range request {
-				log.Trace("Fetching scheduled fast bodies", "peer", peer, "list", hashes)
+				log.Trace("Fetching scheduled fast bodies", "number", f.completing[hashes[0]].number, "peer", peer, "list", hashes)
 
 				// Create a closure of the fetch and schedule in on a new thread
 				if f.completingHook != nil {
@@ -614,6 +644,7 @@ func (f *Fetcher) loop() {
 			}
 			headerFilterInMeter.Mark(int64(len(task.headers)))
 
+			log.Debug("Loop headerFilter", "headers", len(task.headers), "number", task.headers[0].Number, "peer", task.peer)
 			// Split the batch of headers into unknown ones (to return to the caller),
 			// known incomplete ones (requiring body retrievals) and completed blocks.
 			unknown, incomplete := []*types.Header{}, []*announce{}
@@ -657,6 +688,7 @@ func (f *Fetcher) loop() {
 				if _, ok := f.completing[hash]; ok {
 					continue
 				}
+				log.Debug("Loop header incomplete", "unknown", len(unknown), "fetched[hash]", len(f.fetched[hash]), "number", announce.number, "peer", task.peer)
 				f.fetched[hash] = append(f.fetched[hash], announce)
 				if len(f.fetched) == 1 {
 					f.rescheduleComplete(completeTimer)
@@ -673,6 +705,7 @@ func (f *Fetcher) loop() {
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
 
+			log.Debug("Loop bodyFilter", "transactions", len(task.transactions), "f.completing", len(f.completing))
 			blocks := []*types.Block{}
 			for i := 0; i < len(task.transactions) && i < len(task.signs); i++ {
 				// Match up a body to any possible completion request
@@ -688,7 +721,7 @@ func (f *Fetcher) loop() {
 
 							if f.getBlock(hash) == nil {
 								// mecMark
-								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], nil)
+								block := types.NewBlockWithHeader(announce.header).WithBody(task.transactions[i], task.signs[i], task.infos[i])
 								block.ReceivedAt = task.time
 
 								blocks = append(blocks, block)
@@ -701,6 +734,7 @@ func (f *Fetcher) loop() {
 				if matched {
 					task.transactions = append(task.transactions[:i], task.transactions[i+1:]...)
 					task.signs = append(task.signs[:i], task.signs[i+1:]...)
+					task.infos = append(task.infos[:i], task.infos[i+1:]...)
 					i--
 					continue
 				}
@@ -714,6 +748,7 @@ func (f *Fetcher) loop() {
 			}
 			// Schedule the retrieved blocks for ordered import
 			for _, block := range blocks {
+				log.Debug("Loop filter end", "transactions", len(task.transactions), "blocks", len(blocks), "number", block.Number())
 				if announce := f.completing[block.Hash()]; announce != nil {
 					f.enqueue(announce.origin, block)
 				}
@@ -844,6 +879,8 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	hash := block.Hash()
 	number := block.NumberU64()
 
+	log.Debug("Enqueue inner fast block", "peer", peer, "number", number, "hash", hash)
+
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
 	if count > blockLimit {
@@ -860,7 +897,9 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 		return
 	}
 
-	f.enqueueSign(peer, block.Signs())
+	if len(f.blockConsensus[number]) == 0 {
+		f.enqueueSign(peer, block.Signs())
+	}
 
 	// Schedule the block for future importing
 	if f.getPendingBlock(hash) == nil {
@@ -887,7 +926,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			opMulti.blocks = append(opMulti.blocks, opOld.block)
 		}
 
-		f.queue.Push(opMulti, -float32(block.NumberU64()))
+		f.queue.Push(opMulti, -int64(block.NumberU64()))
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}
@@ -950,9 +989,9 @@ func (f *Fetcher) verifyBlockBroadcast(peer string, block *types.Block) {
 func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*types.PbftSign, signHashs []common.Hash) {
 	go func() {
 		height := block.Number()
-		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, nil)
+		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, block.SwitchInfos())
 		find := f.insert(peer, inBlock, signHashs)
-		log.Info("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
+		log.Debug("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
 
 		propSignOutTimer.Mark(int64(len(signs)))
 		//f.broadcastSigns(signs)

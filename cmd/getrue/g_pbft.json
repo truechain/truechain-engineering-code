@@ -1,9 +1,9 @@
 {
   "config": {
-    "chainId": 6688,
+    "chainId": 1,
     "minerva":{"durationLimit" : "0x258",
-    "minimumDifficulty":"0x10",
-    "minimumFruitDifficulty":"0x1"
+      "minimumDifficulty":"0x1e8480",
+      "minimumFruitDifficulty":"0x7d0"
     }
   },
   "alloc":{
@@ -37,7 +37,7 @@
   ]
 ,
   "coinbase"   : "0x0000000000000000000000000000000000000000",
-  "difficulty" : "0x10",
+  "difficulty" : "0x40000",
   "extraData"  : "",
   "gasLimit"   : "0x5400000",
   "nonce"      : "0x0000000000000042",

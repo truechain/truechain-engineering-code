@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math"
 	"math/big"
 	"sort"
@@ -38,11 +39,16 @@ import (
 const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
 	chainHeadChanSize = 10
+	defaultGasPrice   = 1
+	txChanSize        = 2048
 )
 
 var (
 	// ErrInvalidSender is returned if the transaction contains an invalid signature.
 	ErrInvalidSender = errors.New("invalid sender")
+
+	// ErrInvalidPayer is returned if the transaction contains an invalid payer's signature.
+	ErrInvalidPayer = errors.New("invalid payer")
 
 	// ErrNonceTooLow is returned if the nonce of a transaction is lower than the
 	// one present in the local chain.
@@ -59,6 +65,14 @@ var (
 	// ErrInsufficientFunds is returned if the total cost of executing a transaction
 	// is higher than the balance of the user's account.
 	ErrInsufficientFunds = errors.New("insufficient funds for gas * price + value")
+
+	//ErrInsufficientFundsForPayer is returned if the total gascost of executing a transaction
+	//is higher than the balance of the payer's account.
+	ErrInsufficientFundsForPayer = errors.New("insufficient funds for gas * price for payer")
+
+	//ErrInsufficientFundsForSender is returned if the amount of executing a transaction
+	//is higher than the balance of the user's account.
+	ErrInsufficientFundsForSender = errors.New("insufficient funds for value for sender")
 
 	// ErrIntrinsicGas is returned if the transaction is specified to use less gas
 	// than required to start the invocation.
@@ -79,8 +93,10 @@ var (
 )
 
 var (
-	evictionInterval    = time.Minute     // Time interval to check for evictable transactions
-	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
+	evictionInterval      = time.Minute     // Time interval to check for evictable transactions
+	statsReportInterval   = 8 * time.Second // Time interval to report transaction pool stats
+	remoteTxsDiscardCount *big.Int
+	allSendCount          *big.Int
 )
 
 var (
@@ -146,7 +162,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 	Journal:   "transactions.rlp",
 	Rejournal: time.Hour,
 
-	PriceLimit: 1,
+	PriceLimit: defaultGasPrice,
 	PriceBump:  10,
 
 	AccountSlots: 16 * 5,
@@ -165,13 +181,33 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
 	}
-	if conf.PriceLimit < 1 {
+	if conf.PriceLimit < defaultGasPrice {
 		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultTxPoolConfig.PriceLimit)
 		conf.PriceLimit = DefaultTxPoolConfig.PriceLimit
 	}
 	if conf.PriceBump < 1 {
 		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultTxPoolConfig.PriceBump)
 		conf.PriceBump = DefaultTxPoolConfig.PriceBump
+	}
+	if conf.AccountSlots < 1 {
+		log.Warn("Sanitizing invalid txpool account slots", "provided", conf.AccountSlots, "updated", DefaultTxPoolConfig.AccountSlots)
+		conf.AccountSlots = DefaultTxPoolConfig.AccountSlots
+	}
+	if conf.GlobalSlots < 1 {
+		log.Warn("Sanitizing invalid txpool global slots", "provided", conf.GlobalSlots, "updated", DefaultTxPoolConfig.GlobalSlots)
+		conf.GlobalSlots = DefaultTxPoolConfig.GlobalSlots
+	}
+	if conf.AccountQueue < 1 {
+		log.Warn("Sanitizing invalid txpool account queue", "provided", conf.AccountQueue, "updated", DefaultTxPoolConfig.AccountQueue)
+		conf.AccountQueue = DefaultTxPoolConfig.AccountQueue
+	}
+	if conf.GlobalQueue < 1 {
+		log.Warn("Sanitizing invalid txpool global queue", "provided", conf.GlobalQueue, "updated", DefaultTxPoolConfig.GlobalQueue)
+		conf.GlobalQueue = DefaultTxPoolConfig.GlobalQueue
+	}
+	if conf.Lifetime < 1 {
+		log.Warn("Sanitizing invalid txpool lifetime", "provided", conf.Lifetime, "updated", DefaultTxPoolConfig.Lifetime)
+		conf.Lifetime = DefaultTxPoolConfig.Lifetime
 	}
 	return conf
 }
@@ -208,7 +244,9 @@ type TxPool struct {
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
 
-	wg sync.WaitGroup // for shutdown sync
+	newTxsCh  chan []*types.Transaction
+	wg        sync.WaitGroup // for shutdown sync
+	rpcTxslen *big.Int
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -222,17 +260,20 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		config:      config,
 		chainconfig: chainconfig,
 		chain:       chain,
-		signer:      types.NewEIP155Signer(chainconfig.ChainID),
+		signer:      types.NewTIP1Signer(chainconfig.ChainID),
 		pending:     make(map[common.Address]*txList),
 		queue:       make(map[common.Address]*txList),
 		beats:       make(map[common.Address]time.Time),
 		all:         newTxLookup(),
 		chainHeadCh: make(chan types.ChainFastHeadEvent, chainHeadChanSize),
+		newTxsCh:    make(chan []*types.Transaction, txChanSize),
 		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
 	pool.locals = newAccountSet(pool.signer)
 	pool.priced = newTxPricedList(pool.all)
 	pool.reset(nil, chain.CurrentBlock().Header())
+	remoteTxsDiscardCount = new(big.Int).SetUint64(0)
+	allSendCount = new(big.Int).SetUint64(0)
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {
@@ -248,11 +289,25 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	// Subscribe events from blockchain
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
+	pool.rpcTxslen = new(big.Int).SetInt64(0)
+
 	// Start the event loop and return
 	pool.wg.Add(1)
 	go pool.loop()
-
+	go pool.addremote()
 	return pool
+}
+
+func (pool *TxPool) addremote() {
+	for {
+		select {
+		// Handle new remote transactions
+		case txs := <-pool.newTxsCh:
+			if txs != nil {
+				pool.addTxs(txs, false, "remote")
+			}
+		}
+	}
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -263,6 +318,7 @@ func (pool *TxPool) loop() {
 
 	// Start the stats reporting and transaction eviction tickers
 	var prevPending, prevQueued, prevStales int
+	var prevDiscardCount *big.Int
 
 	report := time.NewTicker(statsReportInterval)
 	defer report.Stop()
@@ -297,11 +353,12 @@ func (pool *TxPool) loop() {
 			pool.mu.RLock()
 			pending, queued := pool.stats()
 			stales := pool.priced.stales
+			DiscardCount := remoteTxsDiscardCount
 			pool.mu.RUnlock()
 
 			if pending != prevPending || queued != prevQueued || stales != prevStales {
-				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales)
-				prevPending, prevQueued, prevStales = pending, queued, stales
+				prevPending, prevQueued, prevStales, prevDiscardCount = pending, queued, stales, DiscardCount
+				log.Debug("Transaction pool status report", "executable", pending, "queued", queued, "stales", stales, "remoteTxsDiscardCount", prevDiscardCount)
 			}
 
 			// Handle inactive account transaction eviction
@@ -580,6 +637,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if err != nil {
 		return ErrInvalidSender
 	}
+	// Make sure the transaction is psigned properly
+	payer, err := types.Payer(pool.signer, tx)
+	if err != nil {
+		log.Error("validateTx method get address", "payer", payer)
+		return ErrInvalidPayer
+	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
@@ -591,8 +654,18 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
-	if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
-		return ErrInsufficientFunds
+	if payer != params.EmptyAddress && payer != from {
+		if pool.currentState.GetBalance(payer).Cmp(tx.GasCost()) < 0 {
+			log.Error("insufficientFundsForPayer", "balance", pool.currentState.GetBalance(payer), "gasCost", tx.GasCost())
+			return ErrInsufficientFundsForPayer
+		}
+		if pool.currentState.GetBalance(from).Cmp(tx.AmountCost()) < 0 {
+			return ErrInsufficientFundsForSender
+		}
+	} else {
+		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+			return ErrInsufficientFunds
+		}
 	}
 	intrGas, err := IntrinsicGas(tx.Data(), tx.To() == nil, true)
 	if err != nil {
@@ -627,19 +700,28 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	}
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(pool.all.Count()) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
+		start := time.Now()
 		// If the new transaction is underpriced, don't accept it
 		if !local && pool.priced.Underpriced(tx, pool.locals) {
 			log.Trace("Discarding underpriced transaction", "hash", hash, "price", tx.GasPrice())
 			underpricedTxCounter.Inc(1)
 			return false, ErrUnderpriced
 		}
+		proctime := time.Since(start)
+		log.Trace("deal with Underpriced", "proctime", proctime)
 		// New transaction is better than our worse ones, make room for it
+		start = time.Now()
 		drop := pool.priced.Discard(pool.all.Count()-int(pool.config.GlobalSlots+pool.config.GlobalQueue-1), pool.locals)
+		proctime = time.Since(start)
+		log.Trace("deal with Discard", "proctime", proctime)
+		start = time.Now()
 		for _, tx := range drop {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "price", tx.GasPrice())
 			underpricedTxCounter.Inc(1)
 			pool.removeTx(tx.Hash(), false)
 		}
+		proctime = time.Since(start)
+		log.Trace("deal with drop", "proctime", proctime, "drop.Len()", drop.Len())
 	}
 	// If the transaction is replacing an already pending one, do directly
 	from, _ := types.Sender(pool.signer, tx) // already validated
@@ -661,7 +743,8 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		pool.journalTx(from, tx)
 
 		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
-
+		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(1)))
+		log.Trace("pending send", "allSendCount", allSendCount)
 		// We've directly injected a replacement transaction, notify subsystems
 		go pool.txFeed.Send(types.NewTxsEvent{types.Transactions{tx}})
 
@@ -765,6 +848,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
+	pool.rpcTxslen = pool.rpcTxslen.Add(pool.rpcTxslen, common.Big1)
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -779,21 +863,29 @@ func (pool *TxPool) AddRemote(tx *types.Transaction) error {
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
 func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
-	return pool.addTxs(txs, !pool.config.NoLocals)
+	return pool.addTxs(txs, !pool.config.NoLocals, "local")
 }
 
 // AddRemotes enqueues a batch of transactions into the pool if they are valid.
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
-	return pool.addTxs(txs, false)
+	errs := make([]error, len(txs))
+	select {
+	case pool.newTxsCh <- txs:
+		return nil
+	default:
+		remoteTxsDiscardCount = remoteTxsDiscardCount.Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
+		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
+		errs[0] = errors.New("newTxsCh is full")
+	}
+	return errs
 }
 
 // addTx enqueues a single transaction into the pool if it is valid.
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-
 	// Try to inject the transaction and update any state
 	replace, err := pool.add(tx, local)
 	if err != nil {
@@ -808,7 +900,14 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 }
 
 // addTxs attempts to queue a batch of transactions if they are valid.
-func (pool *TxPool) addTxs(txs []*types.Transaction, local bool) []error {
+func (pool *TxPool) addTxs(txs []*types.Transaction, local bool, mark string) []error {
+
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg addTxs newTxsCh: %d txs: %d", len(pool.newTxsCh), len(txs)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish(fmt.Sprintf("end   mark: %s", mark))
+	}()
+
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
@@ -937,7 +1036,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable queued transaction", "hash", hash)
@@ -970,6 +1069,8 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	}
 	// Notify subsystem for new promoted transactions.
 	if len(promoted) > 0 {
+		allSendCount = allSendCount.Add(allSendCount, big.NewInt(int64(len(promoted))))
+		log.Trace("pending send", "allSendCount", allSendCount)
 		go pool.txFeed.Send(types.NewTxsEvent{promoted})
 	}
 	// If the pending limit is overflown, start equalizing allowances
@@ -1050,7 +1151,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 	}
 	if queued > pool.config.GlobalQueue {
 		// Sort all accounts with queued transactions by heartbeat
-		addresses := make(addresssByHeartbeat, 0, len(pool.queue))
+		addresses := make(addressesByHeartbeat, 0, len(pool.queue))
 		for addr := range pool.queue {
 			if !pool.locals.contains(addr) { // don't drop locals
 				addresses = append(addresses, addressByHeartbeat{addr, pool.beats[addr]})
@@ -1101,7 +1202,7 @@ func (pool *TxPool) demoteUnexecutables() {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas), and queue any invalids back for later
-		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, invalids := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas, pool.signer, pool.currentState)
 		for _, tx := range drops {
 			hash := tx.Hash()
 			log.Trace("Removed unpayable pending transaction", "hash", hash)
@@ -1136,11 +1237,11 @@ type addressByHeartbeat struct {
 	heartbeat time.Time
 }
 
-type addresssByHeartbeat []addressByHeartbeat
+type addressesByHeartbeat []addressByHeartbeat
 
-func (a addresssByHeartbeat) Len() int           { return len(a) }
-func (a addresssByHeartbeat) Less(i, j int) bool { return a[i].heartbeat.Before(a[j].heartbeat) }
-func (a addresssByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a addressesByHeartbeat) Len() int           { return len(a) }
+func (a addressesByHeartbeat) Less(i, j int) bool { return a[i].heartbeat.Before(a[j].heartbeat) }
+func (a addressesByHeartbeat) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // accountSet is simply a set of addresses to check for existence, and a signer
 // capable of deriving addresses from transactions.

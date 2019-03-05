@@ -24,6 +24,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -38,9 +39,14 @@ type sigCache struct {
 	from   common.Address
 }
 
+type sigCache_payment struct {
+	signer  Signer
+	payment common.Address
+}
+
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
-	signer := NewEIP155Signer(config.ChainID)
+	signer := NewTIP1Signer(config.ChainID)
 	return signer
 }
 
@@ -52,6 +58,40 @@ func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, err
 		return nil, err
 	}
 	return tx.WithSignature(s, sig)
+}
+
+func SignTx_Payment(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, error) {
+	h := s.Hash_Payment(tx)
+	sig, err := crypto.Sign(h[:], prv)
+	if err != nil {
+		return nil, err
+	}
+	return tx.WithSignature_Payment(s, sig)
+}
+
+// PSender returns the address derived from the signature (PV, PR, PS) using secp256k1
+// elliptic curve and an error if it failed deriving or upon an incorrect
+// signature.
+func Payer(signer Signer, tx *Transaction) (common.Address, error) {
+	if sc := tx.payment.Load(); sc != nil {
+		sigCache_payment := sc.(sigCache_payment)
+		if sigCache_payment.signer.Equal(signer) {
+			return sigCache_payment.payment, nil
+		}
+	}
+	if tx.data.Payer == nil {
+		return params.EmptyAddress, nil
+	}
+	addr, err := signer.Payer(tx)
+	if err != nil {
+		return params.EmptyAddress, err
+	}
+	if addr != *tx.data.Payer {
+		log.Error("Payer err,signed_addr !=tx.data.Payer ", "signed_payer", addr, "tx_payer", *tx.data.Payer)
+		return params.EmptyAddress, ErrPayersign
+	}
+	tx.payment.Store(sigCache_payment{signer: signer, payment: addr})
+	return addr, nil
 }
 
 // Sender returns the address derived from the signature (V, R, S) using secp256k1
@@ -85,15 +125,129 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 type Signer interface {
 	// Sender returns the sender address of the transaction.
 	Sender(tx *Transaction) (common.Address, error)
+	// PSender returns the paid address of the transaction.
+	Payer(tx *Transaction) (common.Address, error)
 	// SignatureValues returns the raw R, S, V values corresponding to the
 	// given signature.
 	SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error)
 	// Hash returns the hash to be signed.
 	Hash(tx *Transaction) common.Hash
+
+	Hash_Payment(tx *Transaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(Signer) bool
 }
 
+type TIP1Signer struct {
+	chainId, chainIdMul *big.Int
+}
+
+func NewTIP1Signer(chainId *big.Int) TIP1Signer {
+	if chainId == nil {
+		chainId = new(big.Int)
+	}
+	return TIP1Signer{
+		chainId:    chainId,
+		chainIdMul: new(big.Int).Mul(chainId, big.NewInt(2)),
+	}
+}
+
+func (s TIP1Signer) Equal(s2 Signer) bool {
+	tip155, ok := s2.(TIP1Signer)
+	return ok && tip155.chainId.Cmp(s.chainId) == 0
+}
+
+var big8 = big.NewInt(8)
+
+func (s TIP1Signer) Sender(tx *Transaction) (common.Address, error) {
+	if !tx.Protected() {
+		return HomesteadSigner{}.Sender(tx)
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	V.Sub(V, big8)
+	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
+}
+
+func (s TIP1Signer) Payer(tx *Transaction) (common.Address, error) {
+	if !tx.Protected_Payment() {
+		return HomesteadSigner{}.Payer(tx)
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	PV := new(big.Int).Sub(tx.data.PV, s.chainIdMul)
+	PV.Sub(PV, big8)
+	return recoverPlain(s.Hash_Payment(tx), tx.data.PR, tx.data.PS, PV, true)
+}
+
+// WithSignature returns a new transaction with the given signature. This signature
+// needs to be in the [R || S || V] format where V is 0 or 1.
+func (s TIP1Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
+	R, S, V, err = HomesteadSigner{}.SignatureValues(tx, sig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if s.chainId.Sign() != 0 {
+		V = big.NewInt(int64(sig[64] + 35))
+		V.Add(V, s.chainIdMul)
+	}
+	return R, S, V, nil
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (s TIP1Signer) Hash(tx *Transaction) common.Hash {
+	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
+	var hash common.Hash
+	//payer and fee is nil or default value
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
+		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
+		hash = rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			s.chainId, uint(0), uint(0),
+		})
+	} else { //payer is not nil
+		hash = rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			tx.data.Payer,
+			tx.data.Fee,
+			s.chainId, uint(0), uint(0),
+		})
+	}
+	return hash
+}
+
+func (s TIP1Signer) Hash_Payment(tx *Transaction) common.Hash {
+	return rlpHash([]interface{}{
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+		tx.data.Payer,
+		tx.data.Fee,
+		tx.data.V,
+		tx.data.R,
+		tx.data.S,
+		s.chainId, uint(0), uint(0),
+	})
+}
+
+/*
 // EIP155Transaction implements Signer using the EIP155 rules.
 type EIP155Signer struct {
 	chainId, chainIdMul *big.Int
@@ -128,6 +282,18 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
 }
 
+func (s EIP155Signer) Payer(tx *Transaction) (common.Address, error) {
+	if !tx.Protected_Payment() {
+		return HomesteadSigner{}.Payer(tx)
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	PV := new(big.Int).Sub(tx.data.PV, s.chainIdMul)
+	PV.Sub(PV, big8)
+	return recoverPlain(s.Hash_Payment(tx), tx.data.PR, tx.data.PS, PV, true)
+}
+
 // WithSignature returns a new transaction with the given signature. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
@@ -145,6 +311,18 @@ func (s EIP155Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
+	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
+	if tx.data.Payer == nil || *tx.data.Payer == (common.Address{}) {
+		return rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			s.chainId, uint(0), uint(0),
+		})
+	}
 	return rlpHash([]interface{}{
 		tx.data.AccountNonce,
 		tx.data.Price,
@@ -152,9 +330,26 @@ func (s EIP155Signer) Hash(tx *Transaction) common.Hash {
 		tx.data.Recipient,
 		tx.data.Amount,
 		tx.data.Payload,
+		tx.data.Payer,
 		s.chainId, uint(0), uint(0),
 	})
 }
+
+func (s EIP155Signer) Hash_Payment(tx *Transaction) common.Hash {
+	return rlpHash([]interface{}{
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+		tx.data.Payer,
+		tx.data.V,
+		tx.data.R,
+		tx.data.S,
+		s.chainId, uint(0), uint(0),
+	})
+}*/
 
 // HomesteadTransaction implements TransactionInterface using the
 // homestead rules.
@@ -173,6 +368,10 @@ func (hs HomesteadSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v 
 
 func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(hs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, true)
+}
+
+func (hs HomesteadSigner) Payer(tx *Transaction) (common.Address, error) {
+	return common.Address{}, nil
 }
 
 type FrontierSigner struct{}
@@ -197,6 +396,17 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
+		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
+		return rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+		})
+	}
 	return rlpHash([]interface{}{
 		tx.data.AccountNonce,
 		tx.data.Price,
@@ -204,11 +414,33 @@ func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
 		tx.data.Recipient,
 		tx.data.Amount,
 		tx.data.Payload,
+		tx.data.Payer,
+		tx.data.Fee,
+	})
+}
+
+func (fs FrontierSigner) Hash_Payment(tx *Transaction) common.Hash {
+	return rlpHash([]interface{}{
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+		tx.data.Payer,
+		tx.data.Fee,
+		tx.data.V,
+		tx.data.R,
+		tx.data.S,
 	})
 }
 
 func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
 	return recoverPlain(fs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
+}
+
+func (fs FrontierSigner) Payer(tx *Transaction) (common.Address, error) {
+	return common.Address{}, nil
 }
 
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {

@@ -1,10 +1,11 @@
 package crypto
 
 import (
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"crypto/sha256"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 )
 
+//PrivKey is private key interface
 type PrivKey interface {
 	Bytes() []byte
 	Sign(msg []byte) ([]byte, error)
@@ -12,10 +13,9 @@ type PrivKey interface {
 	Equals(PrivKey) bool
 }
 
-// An address is a []byte, but hex-encoded even in JSON.
+// PubKey An address is a []byte, but hex-encoded even in JSON.
 // []byte leaves us the option to change the address length.
 // Use an alias so Unmarshal methods (with ptr receivers) are available too.
-
 type PubKey interface {
 	Address() help.Address
 	Bytes() []byte
@@ -23,12 +23,14 @@ type PubKey interface {
 	Equals(PubKey) bool
 }
 
+//Symmetric is Keygen,Encrypt and Decrypt interface
 type Symmetric interface {
 	Keygen() []byte
 	Encrypt(plaintext []byte, secret []byte) (ciphertext []byte)
 	Decrypt(ciphertext []byte, secret []byte) (plaintext []byte, err error)
 }
 
+//Sha256 return new sha256
 func Sha256(bytes []byte) []byte {
 	hasher := sha256.New()
 	hasher.Write(bytes)

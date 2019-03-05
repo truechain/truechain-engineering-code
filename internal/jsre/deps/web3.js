@@ -3759,12 +3759,18 @@ var inputCallFormatter = function (options){
  * @returns object
 */
 var inputTransactionFormatter = function (options){
-
     options.from = options.from || config.defaultAccount;
     options.from = inputAddressFormatter(options.from);
 
     if (options.to) { // it might be contract creation
         options.to = inputAddressFormatter(options.to);
+    }
+    if (options.payment) { // it might be payment
+        options.payment = inputAddressFormatter(options.payment);
+    }
+    if (options.fee) { // tx has fee
+        //options.fee = toBigNumber(options.fee);
+        options.fee = utils.fromDecimal(options.fee)
     }
 
     ['gasPrice', 'gas', 'value', 'nonce'].filter(function (key) {
@@ -5439,6 +5445,13 @@ var methods = function () {
         inputFormatter: [null]
     });
 
+    var sendTrueRawTransaction = new Method({
+        name: 'sendTrueRawTransaction',
+        call: 'etrue_sendTrueRawTransaction',
+        params: 1,
+        inputFormatter: [null]
+    });
+
     var sendTransaction = new Method({
         name: 'sendTransaction',
         call: 'etrue_sendTransaction',
@@ -5499,9 +5512,9 @@ var methods = function () {
         params: 3
     });
 
-    var getWork = new Method({
-        name: 'getWork',
-        call: 'etrue_getWork',
+    var getDataset = new Method({
+        name: 'getDataset',
+        call: 'etrue_getDataset',
         params: 0
     });
 
@@ -5518,6 +5531,12 @@ var methods = function () {
         call: 'etrue_getCurrentState',
         params: 0
         // outputFormatter: formatters.outputSnailFormatter
+    });
+
+    var getWork = new Method({
+        name: 'getWork',
+        call: 'etrue_getWork',
+        params: 0
     });
 
     return [
@@ -5539,6 +5558,7 @@ var methods = function () {
         call,
         estimateGas,
         sendRawTransaction,
+        sendTrueRawTransaction,
         signTransaction,
         sendTransaction,
         sign,
@@ -5548,7 +5568,8 @@ var methods = function () {
         submitWork,
         getWork,
         getCommittee,
-        getCurrentState
+        getCurrentState,
+        getDataset
     ];
 };
 
@@ -5558,6 +5579,18 @@ var properties = function () {
         new Property({
             name: 'coinbase',
             getter: 'etrue_coinbase'
+        }),
+        new Property({
+            name: 'pubkey',
+            getter: 'etrue_pubkey'
+        }),
+        new Property({
+            name: 'committeeBase',
+            getter: 'etrue_committeeBase'
+        }),
+        new Property({
+            name: 'isCommitteeMember',
+            getter: 'etrue_isCommitteeMember'
         }),
         new Property({
             name: 'mining',

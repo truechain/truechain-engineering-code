@@ -23,7 +23,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 )
 
 // FakePeer is a mock downloader peer that operates on a local database instance
@@ -31,13 +31,13 @@ import (
 // sync commands from an existing local database.
 type FakePeer struct {
 	id string
-	db ethdb.Database
+	db etruedb.Database
 	hc *core.HeaderChain
 	dl *Downloader
 }
 
 // NewFakePeer creates a new mock downloader peer with the given data sources.
-func NewFakePeer(id string, db ethdb.Database, hc *core.HeaderChain, dl *Downloader) *FakePeer {
+func NewFakePeer(id string, db etruedb.Database, hc *core.HeaderChain, dl *Downloader) *FakePeer {
 	return &FakePeer{id: id, db: db, hc: hc, dl: dl}
 }
 
@@ -123,18 +123,18 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 // corresponding to the specified block hashes.
 func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
-		txs    [][]*types.Transaction
-		signs  [][]*types.PbftSign
-		//uncles [][]*types.Header
+		txs   [][]*types.Transaction
+		signs [][]*types.PbftSign
+		infos []*types.SwitchInfos
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
 		signs = append(signs, block.Signs())
 		txs = append(txs, block.Transactions())
-		//uncles = append(uncles, block.Uncles())
+		infos = append(infos, block.SwitchInfos())
 	}
 
-	p.dl.DeliverBodies(p.id, txs, signs)
+	p.dl.DeliverBodies(p.id, txs, signs, infos)
 	return nil
 }
 
@@ -158,6 +158,6 @@ func (p *FakePeer) RequestNodeData(hashes []common.Hash, isFastchain bool) error
 			data = append(data, entry)
 		}
 	}
-	p.dl.DeliverNodeData(p.id, data)
+	//p.dl.DeliverNodeData(p.id, data)
 	return nil
 }

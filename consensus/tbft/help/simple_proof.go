@@ -37,22 +37,21 @@ func SimpleProofsFromByteSlices(items [][]byte) (rootHash []byte, proofs []*Simp
 	return
 }
 
-
 // Verify that the SimpleProof proves the root hash.
 // Check sp.Index/sp.Total manually if needed
 func (sp *SimpleProof) Verify(rootHash []byte, leafHash []byte) error {
 	if sp.Total < 0 {
-		return errors.New("Proof total must be positive")
+		return errors.New("proof total must be positive")
 	}
 	if sp.Index < 0 {
-		return errors.New("Proof index cannot be negative")
+		return errors.New("proof index cannot be negative")
 	}
 	if !bytes.Equal(sp.LeafHash, leafHash) {
 		return fmt.Errorf("invalid leaf hash: wanted %X got %X", leafHash, sp.LeafHash)
 	}
 	computedHash := sp.ComputeRootHash()
 	if !bytes.Equal(computedHash, rootHash) {
-		fmt.Errorf("invalid root hash: wanted %X got %X", rootHash, computedHash)
+		return fmt.Errorf("invalid root hash: wanted %X got %X", rootHash, computedHash)
 	}
 	return nil
 }
@@ -155,7 +154,7 @@ func trailsFromByteSlices(items [][]byte) (trails []*SimpleProofNode, root *Simp
 	case 0:
 		return nil, nil
 	case 1:
-		hash:=RlpHash(items[0])
+		hash := RlpHash(items[0])
 		trail := &SimpleProofNode{hash[:], nil, nil, nil}
 		return []*SimpleProofNode{trail}, trail
 	default:
@@ -170,8 +169,9 @@ func trailsFromByteSlices(items [][]byte) (trails []*SimpleProofNode, root *Simp
 		return append(lefts, rights...), root
 	}
 }
+
 // simpleHashFromTwoHashes is the basic operation of the Merkle tree: Hash(left | right).
 func simpleHashFromTwoHashes(left, right []byte) []byte {
-	hash := RlpHash([][]byte{left,right})
+	hash := RlpHash([][]byte{left, right})
 	return hash[:]
 }

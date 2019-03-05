@@ -4,16 +4,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strings"
-	"sync"
-	//"time"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"strings"
+	"sync"
 )
 
 var (
+	//PeerStateKey is reactor key
 	PeerStateKey = "ConsensusReactor.peerState"
 )
 
@@ -128,10 +128,10 @@ func (commit *Commit) IsCommit() bool {
 // ValidateBasic performs basic validation that doesn't involve state data.
 func (commit *Commit) ValidateBasic() error {
 	if commit.BlockID.IsZero() {
-		return errors.New("Commit cannot be for nil block")
+		return errors.New("commit cannot be for nil block")
 	}
 	if len(commit.Precommits) == 0 {
-		return errors.New("No precommits in commit")
+		return errors.New("no precommits in commit")
 	}
 	height, round := commit.Height(), commit.Round()
 
@@ -143,17 +143,17 @@ func (commit *Commit) ValidateBasic() error {
 		}
 		// Ensure that all votes are precommits
 		if precommit.Type != VoteTypePrecommit {
-			return fmt.Errorf("Invalid commit vote. Expected precommit, got %v",
+			return fmt.Errorf("invalid commit vote. Expected precommit, got %v",
 				precommit.Type)
 		}
 		// Ensure that all heights are the same
 		if precommit.Height != height {
-			return fmt.Errorf("Invalid commit precommit height. Expected %v, got %v",
+			return fmt.Errorf("invalid commit precommit height. Expected %v, got %v",
 				height, precommit.Height)
 		}
 		// Ensure that all rounds are the same
 		if int(precommit.Round) != round {
-			return fmt.Errorf("Invalid commit precommit round. Expected %v, got %v",
+			return fmt.Errorf("invalid commit precommit round. Expected %v, got %v",
 				round, precommit.Round)
 		}
 	}
@@ -227,7 +227,7 @@ func (blockID BlockID) Key() string {
 	if err != nil {
 		panic(err)
 	}
-	return common.ToHex(blockID.Hash) + common.ToHex(bz)
+	return hexutil.Encode(blockID.Hash) + hexutil.Encode(bz)
 }
 
 // String returns a human readable string representation of the BlockID
@@ -241,6 +241,7 @@ const (
 	MaxBlockBytes      = 1048510 // lMB
 )
 
+//BlockMeta struct
 type BlockMeta struct {
 	Block      *ctypes.Block
 	BlockID    *BlockID
@@ -248,18 +249,22 @@ type BlockMeta struct {
 	SeenCommit *Commit
 	Proposal   *Proposal
 }
+
+//BlockStore struct
 type BlockStore struct {
-	blocks 			map[uint64]*BlockMeta
-	blockLock 		*sync.Mutex
+	blocks    map[uint64]*BlockMeta
+	blockLock *sync.Mutex
 }
 
-// warning all function not thread_safe
+// NewBlockStore warning all function not thread_safe
 func NewBlockStore() *BlockStore {
 	return &BlockStore{
-		blocks: 	make(map[uint64]*BlockMeta),
-		blockLock: 	new(sync.Mutex),
+		blocks:    make(map[uint64]*BlockMeta),
+		blockLock: new(sync.Mutex),
 	}
 }
+
+//LoadBlockMeta load BlockMeta with height
 func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
 	b.blockLock.Lock()
 	defer b.blockLock.Unlock()
@@ -269,21 +274,25 @@ func (b *BlockStore) LoadBlockMeta(height uint64) *BlockMeta {
 	}
 	return nil
 }
+
+//LoadBlockPart load block part with height and index
 func (b *BlockStore) LoadBlockPart(height uint64, index uint) *Part {
 	b.blockLock.Lock()
 	defer b.blockLock.Unlock()
-	
+
 	if v, ok := b.blocks[height]; ok {
 		return v.BlockPacks.GetPart(index)
 	}
 	return nil
 }
+
+//MaxBlockHeight get max fast block height
 func (b *BlockStore) MaxBlockHeight() uint64 {
 	b.blockLock.Lock()
 	defer b.blockLock.Unlock()
 	var cur uint64 = 0
 	//var fb *ctypes.Block = nil
-	for k, _ := range b.blocks {
+	for k := range b.blocks {
 		if cur == 0 {
 			cur = k
 		}
@@ -293,9 +302,11 @@ func (b *BlockStore) MaxBlockHeight() uint64 {
 	}
 	return cur
 }
-func (b *BlockStore) minBlockHeight() uint64 {
-	var cur uint64 = 0
-	for k, _ := range b.blocks {
+
+//MinBlockHeight get min fast block height
+func (b *BlockStore) MinBlockHeight() uint64 {
+	var cur uint64
+	for k := range b.blocks {
 		if cur == 0 {
 			cur = k
 		}
@@ -305,6 +316,8 @@ func (b *BlockStore) minBlockHeight() uint64 {
 	}
 	return cur
 }
+
+//LoadBlockCommit is load blocks commit vote
 func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
 	b.blockLock.Lock()
 	defer b.blockLock.Unlock()
@@ -316,12 +329,12 @@ func (b *BlockStore) LoadBlockCommit(height uint64) *Commit {
 }
 
 //SaveBlock save block to blockStore
-func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit,proposal *Proposal) {
+func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCommit *Commit, proposal *Proposal) {
 	b.blockLock.Lock()
 	defer b.blockLock.Unlock()
 
 	if len(b.blocks) >= MaxLimitBlockStore {
-		k := b.minBlockHeight()
+		k := b.MinBlockHeight()
 		if k <= 0 {
 			panic(errors.New("block height is 0"))
 		}
@@ -333,7 +346,7 @@ func (b *BlockStore) SaveBlock(block *ctypes.Block, blockParts *PartSet, seenCom
 			BlockPacks: blockParts,
 			SeenCommit: seenCommit,
 			BlockID:    &seenCommit.BlockID,
-			Proposal:	proposal,
+			Proposal:   proposal,
 		}
 	}
 }

@@ -1,4 +1,4 @@
-package tbft
+package main
 
 import (
 	"fmt"

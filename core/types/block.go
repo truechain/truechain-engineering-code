@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package types contains data types related to Ethereum consensus.
+// Package types contains data types related to truechain consensus.
 package types
 
 import (
@@ -130,19 +130,20 @@ func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) 
 
 // Header represents a block header in the true Fastblockchain.
 type Header struct {
-	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
-	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
-	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-	Proposer    common.Address `json:"maker"            gencodec:"required"`
-	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
-	SnailHash   common.Hash    `json:"snailHash"        gencodec:"required"`
-	SnailNumber *big.Int       `json:"snailNumber"      gencodec:"required"`
-	Number      *big.Int       `json:"number"           gencodec:"required"`
-	GasLimit    uint64         `json:"gasLimit"         gencodec:"required"`
-	GasUsed     uint64         `json:"gasUsed"          gencodec:"required"`
-	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
-	Extra       []byte         `json:"extraData"        gencodec:"required"`
+	ParentHash    common.Hash    `json:"parentHash"       gencodec:"required"`
+	Root          common.Hash    `json:"stateRoot"        gencodec:"required"`
+	TxHash        common.Hash    `json:"transactionsRoot" gencodec:"required"`
+	ReceiptHash   common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	CommitteeHash common.Hash    `json:"committeeRoot"     gencodec:"required"`
+	Proposer      common.Address `json:"maker"            gencodec:"required"`
+	Bloom         Bloom          `json:"logsBloom"        gencodec:"required"`
+	SnailHash     common.Hash    `json:"snailHash"        gencodec:"required"`
+	SnailNumber   *big.Int       `json:"snailNumber"      gencodec:"required"`
+	Number        *big.Int       `json:"number"           gencodec:"required"`
+	GasLimit      uint64         `json:"gasLimit"         gencodec:"required"`
+	GasUsed       uint64         `json:"gasUsed"          gencodec:"required"`
+	Time          *big.Int       `json:"timestamp"        gencodec:"required"`
+	Extra         []byte         `json:"extraData"        gencodec:"required"`
 }
 
 // field type overrides for gencodec
@@ -181,6 +182,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 type Body struct {
 	Transactions []*Transaction
 	Signs        []*PbftSign
+	Infos        *SwitchInfos
 }
 
 // BlockReward
@@ -191,15 +193,13 @@ type BlockReward struct {
 	SnailNumber *big.Int    `json:"SnailNumber"      gencodec:"required"`
 }
 
-// Block represents an entire block in the Ethereum blockchain.
+// Block represents an entire block in the truechain blockchain.
 type Block struct {
 	header       *Header
 	transactions Transactions
 
-	uncles []*Header // reserved for compile
-
 	signs PbftSigns
-
+	infos *SwitchInfos
 	// caches
 	hash atomic.Value
 	size atomic.Value
@@ -221,8 +221,11 @@ type Block struct {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign) *Block {
-	b := &Block{header: CopyHeader(header)}
+func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign, infos *SwitchInfos) *Block {
+	b := &Block{
+		header: CopyHeader(header),
+		infos:  &SwitchInfos{},
+	}
 
 	// TODO: panic if len(txs) != len(receipts)
 	if len(txs) == 0 {
@@ -244,21 +247,44 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.signs = make(PbftSigns, len(signs))
 		copy(b.signs, signs)
 	}
-
+	if infos != nil {
+		if b.infos.CID = new(big.Int); infos.CID != nil {
+			b.infos.CID.Set(infos.CID)
+		}
+		b.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
+		copy(b.infos.Vals, infos.Vals)
+		b.infos.Members = make([]*CommitteeMember, len(infos.Members))
+		copy(b.infos.Members, infos.Members)
+		b.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
+		copy(b.infos.BackMembers, infos.BackMembers)
+	}
+	b.header.CommitteeHash = rlpHash(b.infos)
 	return b
 }
 
+// SetLeaderSign keep the sign on the head for proposal
 func (b *Body) SetLeaderSign(sign *PbftSign) {
 	signP := *sign
 	b.Signs = []*PbftSign{}
 	b.Signs = append(b.Signs, &signP)
 }
 
+// GetLeaderSign get the sign for proposal
 func (b *Body) GetLeaderSign() *PbftSign {
 	if len(b.Signs) > 0 {
 		return b.Signs[0]
 	}
 	return nil
+}
+
+// GetSwitchInfo get info for shift committee
+func (b *Body) GetSwitchInfo() *SwitchInfos {
+	return b.Infos
+}
+
+// SetSwitchInfo set info for shift committee
+func (b *Body) SetSwitchInfo(infos *SwitchInfos) {
+	b.Infos = infos
 }
 
 // NewBlockWithHeader creates a fast block with the given header data. The
@@ -293,30 +319,31 @@ type extblock struct {
 	Header *Header
 	Txs    []*Transaction
 	Signs  []*PbftSign
+	Infos  *SwitchInfos
 }
 
-// DecodeRLP decodes the Ethereum
+// DecodeRLP decodes the truechain
 func (b *Block) DecodeRLP(s *rlp.Stream) error {
 	var eb extblock
 	_, size, _ := s.Kind()
 	if err := s.Decode(&eb); err != nil {
 		return err
 	}
-	b.header, b.transactions, b.signs = eb.Header, eb.Txs, eb.Signs
+	b.header, b.transactions, b.signs, b.infos = eb.Header, eb.Txs, eb.Signs, eb.Infos
 	b.size.Store(common.StorageSize(rlp.ListSize(size)))
 	return nil
 }
 
-// EncodeRLP serializes b into the Ethereum RLP block format.
+// EncodeRLP serializes b into the truechain RLP block format.
 func (b *Block) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, extblock{
 		Header: b.header,
 		Txs:    b.transactions,
 		Signs:  b.signs,
+		Infos:  b.infos,
 	})
 }
 
-func (b *Block) Uncles() []*Header          { return b.uncles }
 func (b *Block) Transactions() Transactions { return b.transactions }
 func (b *Block) SignedHash() common.Hash    { return rlpHash([]interface{}{b.header, b.transactions}) }
 func (b *Block) Transaction(hash common.Hash) *Transaction {
@@ -333,22 +360,24 @@ func (b *Block) GasUsed() uint64       { return b.header.GasUsed }
 func (b *Block) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
 func (b *Block) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
 
-func (b *Block) Proposer() common.Address { return b.header.Proposer }
-func (b *Block) NumberU64() uint64        { return b.header.Number.Uint64() }
-func (b *Block) SnailHash() common.Hash   { return b.header.SnailHash }
-func (b *Block) Bloom() Bloom             { return b.header.Bloom }
-func (b *Block) Coinbase() common.Address { return common.Address{} }
-func (b *Block) Root() common.Hash        { return b.header.Root }
-func (b *Block) ParentHash() common.Hash  { return b.header.ParentHash }
-func (b *Block) TxHash() common.Hash      { return b.header.TxHash }
-func (b *Block) ReceiptHash() common.Hash { return b.header.ReceiptHash }
-func (b *Block) UncleHash() common.Hash   { return common.Hash{} }
-func (b *Block) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
-func (b *Block) Signs() []*PbftSign       { return b.signs }
-func (b *Block) Header() *Header          { return CopyHeader(b.header) }
+func (b *Block) Proposer() common.Address   { return b.header.Proposer }
+func (b *Block) NumberU64() uint64          { return b.header.Number.Uint64() }
+func (b *Block) SnailHash() common.Hash     { return b.header.SnailHash }
+func (b *Block) Bloom() Bloom               { return b.header.Bloom }
+func (b *Block) Coinbase() common.Address   { return common.Address{} }
+func (b *Block) Root() common.Hash          { return b.header.Root }
+func (b *Block) ParentHash() common.Hash    { return b.header.ParentHash }
+func (b *Block) TxHash() common.Hash        { return b.header.TxHash }
+func (b *Block) ReceiptHash() common.Hash   { return b.header.ReceiptHash }
+func (b *Block) UncleHash() common.Hash     { return common.Hash{} }
+func (b *Block) Extra() []byte              { return common.CopyBytes(b.header.Extra) }
+func (b *Block) Signs() []*PbftSign         { return b.signs }
+func (b *Block) Header() *Header            { return CopyHeader(b.header) }
+func (b *Block) CommitteeHash() common.Hash { return b.header.CommitteeHash }
+func (b *Block) SwitchInfos() *SwitchInfos  { return b.infos }
 
 // Body returns the non-header content of the block.
-func (b *Block) Body() *Body { return &Body{b.transactions, b.signs} }
+func (b *Block) Body() *Body { return &Body{b.transactions, b.signs, b.infos} }
 
 func (b *Block) AppendSign(sign *PbftSign) {
 	signP := CopyPbftSign(sign)
@@ -384,6 +413,39 @@ func (b *Block) GetLeaderSign() *PbftSign {
 	return nil
 }
 
+func (b *Block) IsAward() bool {
+	if b.SnailHash() != *new(common.Hash) && b.SnailNumber() != nil {
+		return true
+	}
+	return false
+}
+
+func (b *Block) IsSwitch() bool {
+	if b.infos != nil && len(b.infos.Vals) > 0 {
+		return true
+	}
+	return false
+}
+
+//Condition when proposal block award or switch is not nil
+func (b *Block) IsProposal() bool {
+	if b.IsAward() || b.IsSwitch() {
+		return true
+	}
+	return false
+}
+
+func (b *Block) SetSwitchInfo(info *SwitchInfos) {
+	b.infos.CID = info.CID
+	b.infos.Vals = make([]*SwitchEnter, 0, len(info.Vals))
+	b.infos.Vals = append(b.infos.Vals, info.Vals...)
+	b.infos.Members = make([]*CommitteeMember, len(info.Members))
+	b.infos.Members = append(b.infos.Members, info.Members...)
+	b.infos.BackMembers = make([]*CommitteeMember, len(info.BackMembers))
+	b.infos.BackMembers = append(b.infos.BackMembers, info.BackMembers...)
+	b.header.CommitteeHash = rlpHash(b.infos)
+}
+
 // Size returns the true RLP encoded storage size of the block, either by encoding
 // and returning it, or returning a previsouly cached value.
 func (b *Block) Size() common.StorageSize {
@@ -397,7 +459,7 @@ func (b *Block) Size() common.StorageSize {
 }
 
 // WithSeal returns a new block with the data from b but the header replaced with
-// the sealed one.
+// the sealed one. fastchain not use
 func (b *Block) WithSeal(header *Header) *Block {
 	cpy := *header
 
@@ -407,27 +469,27 @@ func (b *Block) WithSeal(header *Header) *Block {
 	}
 }
 
-func (b *Block) IsAward() bool {
-	if b.SnailHash() != *new(common.Hash) && b.SnailNumber() != nil {
-		return true
-	}
-	return false
-}
-
 // WithBody returns a new block with the given transaction contents.
-func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, uncles []*Header) *Block {
+func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, infos *SwitchInfos) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),
 		signs:        make([]*PbftSign, len(signs)),
-		uncles:       make([]*Header, len(uncles)),
+		infos:        &SwitchInfos{},
 	}
+
 	copy(block.transactions, transactions)
 	copy(block.signs, signs)
-
-	for i := range uncles {
-		block.uncles[i] = CopyHeader(uncles[i])
+	if infos != nil {
+		block.infos.CID = infos.CID
+		block.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
+		copy(block.infos.Vals, infos.Vals)
+		block.infos.Members = make([]*CommitteeMember, len(infos.Members))
+		copy(block.infos.Members, infos.Members)
+		block.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
+		copy(block.infos.BackMembers, infos.BackMembers)
 	}
+	b.header.CommitteeHash = rlpHash(b.infos)
 
 	return block
 }
@@ -447,10 +509,9 @@ func (b *Block) Hash() common.Hash {
 
 //go:generate gencodec -type SnailHeader -field-override headerMarshaling -out gen_header_json.go
 
-// SnailHeader represents a block header in the Ethereum truechain.
+// SnailHeader represents a block header in the truechain truechain.
 type SnailHeader struct {
 	ParentHash      common.Hash    `json:"parentHash"       gencodec:"required"`
-	UncleHash       common.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase        common.Address `json:"miner"            gencodec:"required"`
 	PointerHash     common.Hash    `json:"pointerHash"      gencodec:"required"`
 	PointerNumber   *big.Int       `json:"pointerNumber"    gencodec:"required"`
@@ -458,18 +519,14 @@ type SnailHeader struct {
 	FastHash        common.Hash    `json:"fastHash"         gencodec:"required"`
 	FastNumber      *big.Int       `json:"fastNumber"       gencodec:"required"`
 	SignHash        common.Hash    `json:"signHash"  		gencodec:"required"`
-	Bloom           Bloom          `json:"logsBloom"        gencodec:"required"`
 	Difficulty      *big.Int       `json:"difficulty"       gencodec:"required"`
 	FruitDifficulty *big.Int       `json:"fruitDifficulty"	gencodec:"required"`
 	Number          *big.Int       `json:"number"           gencodec:"required"`
 	Publickey       []byte         `json:"publicKey"        gencodec:"required"`
-	ToElect         bool           `json:"toElect"          gencodec:"required"`
 	Time            *big.Int       `json:"timestamp"        gencodec:"required"`
 	Extra           []byte         `json:"extraData"        gencodec:"required"`
 	MixDigest       common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce           BlockNonce     `json:"nonce"            gencodec:"required"`
-
-	Fruit bool
 }
 
 type SnailBody struct {
@@ -482,8 +539,6 @@ type SnailBlock struct {
 	header *SnailHeader
 	fruits SnailBlocks
 	signs  PbftSigns
-
-	uncles []*SnailHeader
 
 	// caches
 	hash atomic.Value
@@ -551,19 +606,16 @@ func (h *SnailHeader) Hash() common.Hash {
 func (h *SnailHeader) HashNoNonce() common.Hash {
 	return rlpHash([]interface{}{
 		h.ParentHash,
-		h.UncleHash,
 		h.Coinbase,
 		h.PointerHash,
 		h.PointerNumber,
 		h.FruitsHash,
 		h.FastHash,
 		h.FastNumber,
-		h.Bloom,
 		h.Difficulty,
 		h.FruitDifficulty,
 		h.Number,
 		h.Publickey,
-		h.ToElect,
 		h.Time,
 		h.Extra,
 	})
@@ -603,8 +655,6 @@ func NewSnailBlock(header *SnailHeader, fruits []*SnailBlock, signs []*PbftSign,
 			b.fruits[i] = CopyFruit(fruits[i])
 		}
 	}
-
-	b.header.UncleHash = EmptyUncleHash
 
 	if len(signs) == 0 {
 		b.header.SignHash = EmptySignHash
@@ -728,22 +778,42 @@ func (b *SnailBlock) Time() *big.Int            { return new(big.Int).Set(b.head
 func (b *SnailBlock) NumberU64() uint64         { return b.header.Number.Uint64() }
 func (b *SnailBlock) MixDigest() common.Hash    { return b.header.MixDigest }
 func (b *SnailBlock) Nonce() uint64             { return binary.BigEndian.Uint64(b.header.Nonce[:]) }
-func (b *SnailBlock) Bloom() Bloom              { return b.header.Bloom }
 func (b *SnailBlock) Coinbase() common.Address  { return b.header.Coinbase }
 func (b *SnailBlock) ParentHash() common.Hash   { return b.header.ParentHash }
-func (b *SnailBlock) UncleHash() common.Hash    { return b.header.UncleHash }
-func (b *SnailBlock) PointerHash() common.Hash  { return b.header.PointerHash }
-func (b *SnailBlock) PointNumber() *big.Int     { return new(big.Int).Set(b.header.PointerNumber) }
-func (b *SnailBlock) FruitsHash() common.Hash   { return b.header.FruitsHash }
-func (b *SnailBlock) FastHash() common.Hash     { return b.header.FastHash }
-func (b *SnailBlock) FastNumber() *big.Int      { return new(big.Int).Set(b.header.FastNumber) }
-func (b *SnailBlock) ToElect() bool             { return b.header.ToElect }
-func (b *SnailBlock) Extra() []byte             { return common.CopyBytes(b.header.Extra) }
-func (b *SnailBlock) Header() *SnailHeader      { return CopySnailHeader(b.header) }
-func (b *SnailBlock) IsFruit() bool             { return b.header.Fruit }
-func (b *SnailBlock) Fruits() []*SnailBlock     { return b.fruits }
-func (b *SnailBlock) Signs() PbftSigns          { return b.signs }
-func (b *SnailBlock) Uncles() []*SnailHeader    { return b.uncles }
+
+func (b *SnailBlock) PointerHash() common.Hash { return b.header.PointerHash }
+func (b *SnailBlock) PointNumber() *big.Int    { return new(big.Int).Set(b.header.PointerNumber) }
+func (b *SnailBlock) FruitsHash() common.Hash  { return b.header.FruitsHash }
+func (b *SnailBlock) FastHash() common.Hash    { return b.header.FastHash }
+func (b *SnailBlock) FastNumber() *big.Int     { return new(big.Int).Set(b.header.FastNumber) }
+func (b *SnailBlock) Extra() []byte            { return common.CopyBytes(b.header.Extra) }
+func (b *SnailBlock) Header() *SnailHeader     { return CopySnailHeader(b.header) }
+func (b *SnailBlock) IsFruit() bool {
+	// params.MinimumFruits 60
+	if len(b.fruits) > 0 {
+		return false
+	} else {
+		return true
+	}
+}
+func (b *SnailBlock) Fruits() []*SnailBlock { return b.fruits }
+func (b *SnailBlock) Signs() PbftSigns      { return b.signs }
+
+func (b *SnailBlock) ToElect() bool {
+	if len(b.header.Publickey) > 0 {
+		return true
+	} else {
+		return false
+	}
+
+}
+
+func (b *SnailBlock) MaxFruitNumber() *big.Int {
+	if len(b.Fruits()) > 0 {
+		return b.Fruits()[len(b.fruits)-1].FastNumber()
+	}
+	return nil
+}
 
 // Body returns the non-header content of the snailblock.
 //func (b *SnailBlock) Body() *SnailBody { return b.body }
@@ -768,20 +838,30 @@ func (b *SnailBlock) Size() common.StorageSize {
 // the sealed one.
 func (b *SnailBlock) WithSeal(header *SnailHeader) *SnailBlock {
 	cpy := *header
-	if cpy.Fruit {
-		return &SnailBlock{
-			header: &cpy,
-			fruits: nil,
-			signs:  b.signs,
-		}
-	} else {
-		return &SnailBlock{
-			header: &cpy,
-			fruits: b.fruits,
-			signs:  nil,
-		}
-	}
 
+	return &SnailBlock{
+		header: &cpy,
+		fruits: b.fruits,
+		signs:  b.signs,
+	}
+}
+
+func (b *SnailBlock) SetSnailBlockFruits(fruits Fruits) {
+	if len(fruits) > 0 {
+		b.fruits = make([]*SnailBlock, len(fruits))
+		copy(b.fruits, fruits)
+	} else {
+		b.fruits = nil
+	}
+}
+
+func (b *SnailBlock) SetSnailBlockSigns(signs []*PbftSign) {
+	if len(signs) > 0 {
+		b.signs = make([]*PbftSign, len(signs))
+		copy(b.signs, signs)
+	} else {
+		b.signs = nil
+	}
 }
 
 // WithBody returns a new snailblock with the given transaction and uncle contents.
@@ -794,9 +874,6 @@ func (b *SnailBlock) WithBody(fruits []*SnailBlock, signs []*PbftSign, uncles []
 	}
 	copy(block.fruits, fruits)
 	copy(block.signs, signs)
-	for i := range uncles {
-		block.uncles[i] = CopySnailHeader(uncles[i])
-	}
 
 	return block
 }

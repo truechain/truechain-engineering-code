@@ -17,19 +17,17 @@
 package election
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/snailchain"
-	// "github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/ethdb"
-	// "github.com/truechain/truechain-engineering-code/etrue"
-	// "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -38,15 +36,15 @@ var (
 )
 
 func makeTestBlock() *types.Block {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	BaseGenesis := new(core.Genesis)
 	genesis := BaseGenesis.MustFastCommit(db)
 	header := &types.Header{
 		ParentHash: genesis.Hash(),
 		Number:     common.Big1,
-		GasLimit:   core.FastCalcGasLimit(genesis),
+		GasLimit:   0, //core.FastCalcGasLimit(genesis),
 	}
-	fb := types.NewBlock(header, nil, nil, nil)
+	fb := types.NewBlock(header, nil, nil, nil, nil)
 	return fb
 }
 
@@ -59,7 +57,7 @@ func TestElectionTestMode(t *testing.T) {
 	// by local node
 	election := NewFakeElection()
 	members := election.GetCommittee(common.Big1)
-	if int64(len(members)) != params.MinimumCommitteeNumber.Int64() {
+	if len(members) != params.MinimumCommitteeNumber {
 		t.Errorf("Commit members count error %v", len(members))
 	}
 }
@@ -105,7 +103,7 @@ func committeeEqual(left, right []*types.CommitteeMember) bool {
 
 func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// var (
-	// 	testdb  = ethdb.NewMemDatabase()
+	// 	testdb  = etruedb.NewMemDatabase()
 	// 	genesis = core.DefaultGenesisBlock()
 	// 	engine  = minerva.NewFaker()
 	// )
@@ -118,19 +116,19 @@ func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// snail, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 	// blocks := makeSnail(snail, fastchain, snailGenesis, n, engine, testdb, canonicalSeed)
 	// snail.InsertChain(blocks)
-	snail, fastchain := snailchain.MakeChain(n * params.MinimumFruits, n)
+	snail, fastchain := snailchain.MakeChain(n*params.MinimumFruits, n)
 
 	return snail, fastchain
 }
 
-func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
-	blocks , _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n * params.MinimumFruits,
+func makeSnail(snail *snailchain.SnailBlockChain, fastchain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
+	blocks, _ := snailchain.MakeSnailBlockFruits(snail, fastchain, 1, n, 1, n*params.MinimumFruits,
 		parent.PublicKey(), parent.Coinbase(), true, big.NewInt(20000))
 	return blocks
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeFast(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+func makeFast(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
 	blocks, _ := core.GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 	})
@@ -142,7 +140,7 @@ func TestGenesisCommittee(t *testing.T) {
 	nums := []int64{1, 2, 3, 168, 179, 180}
 	snail, fast := makeChain(180)
 	t.Logf("create snail chain %v", snail.CurrentBlock().Number())
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 
 	// Get Genesis Committee
 	for _, n := range nums {
@@ -155,9 +153,9 @@ func TestGenesisCommittee(t *testing.T) {
 
 func TestGetCommittee(t *testing.T) {
 	snail, fast := makeChain(540)
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 	last := election.getLastNumber(big.NewInt(1), big.NewInt(168))
-	members := election.electCommittee(big.NewInt(1), big.NewInt(168))
+	members := election.electCommittee(big.NewInt(1), big.NewInt(168)).Members
 
 	if !committeeEqual(election.GetCommittee(last), election.GetCommittee(big.NewInt(1))) {
 		t.Errorf("Get committee members error for genesis committee last fast block")
@@ -178,8 +176,8 @@ func TestGetCommittee(t *testing.T) {
 
 func TestCommitteeMembers(t *testing.T) {
 	snail, fast := makeChain(180)
-	election := NewElction(fast, snail, nodeType{})
-	members := election.electCommittee(big.NewInt(1), big.NewInt(144))
+	election := NewElection(fast, snail, nodeType{})
+	members := election.electCommittee(big.NewInt(1), big.NewInt(144)).Members
 	if len(members) == 0 {
 		t.Errorf("Committee election get none member")
 	}
@@ -190,17 +188,43 @@ func TestCommitteeMembers(t *testing.T) {
 
 func TestCommittee2Members(t *testing.T) {
 	snail, fast := makeChain(360)
-	election := NewElction(fast, snail, nodeType{})
+	election := NewElection(fast, snail, nodeType{})
 
 	end := new(big.Int).Mul(big.NewInt(2), params.ElectionPeriodNumber)
 	end.Sub(end, params.SnailConfirmInterval)
 	begin := new(big.Int).Add(new(big.Int).Sub(end, params.ElectionPeriodNumber), common.Big1)
 
-	members := election.electCommittee(begin, end)
+	members := election.electCommittee(begin, end).Members
 	if len(members) == 0 {
 		t.Errorf("Committee election get none member")
 	}
 	if int64(len(members)) > params.MaximumCommitteeNumber.Int64() {
 		t.Errorf("Elected members exceed MAX member num")
 	}
+}
+
+func TestMiscellaneous(*testing.T) {
+	//test div for big int
+	a, b, c := big.NewInt(0), big.NewInt(180), big.NewInt(181)
+	fmt.Println(new(big.Int).Div(a, b), new(big.Int).Div(b, b), new(big.Int).Div(c, b))
+	//test negative number for big int
+	fmt.Println(new(big.Int).Add(new(big.Int).Sub(common.Big0, params.ElectionPeriodNumber), common.Big1))
+	//range testing
+	d := []int{1, 2, 3, 4, 5, 9, 8, 7, 6, 11, 23}
+	for _, v := range d {
+		fmt.Println(v)
+	}
+
+	fmt.Println("big:", findBigNumberSmall(3, d), findBigNumberSmall(10, d), findBigNumberSmall(0, d))
+}
+
+//findBigNumberSmall find a number in array less than or equal to the maximum number of incoming digits
+func findBigNumberSmall(a int, b []int) int {
+	d := -1
+	for _, v := range b {
+		if v <= a && a > d && v > d {
+			d = v
+		}
+	}
+	return d
 }

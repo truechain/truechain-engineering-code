@@ -19,7 +19,6 @@ package etruestats
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -30,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/mclock"
 	"github.com/ethereum/go-ethereum/log"
@@ -79,10 +79,10 @@ type snailBlockChain interface {
 // Service implements an Truechain netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
 type Service struct {
-	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
-	etrue  *etrue.Truechain   // Full Truechain service if monitoring a full node
-	les    *les.LightEthereum // Light Truechain service if monitoring a light node
-	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
+	server *p2p.Server      // Peer-to-peer server to retrieve networking infos
+	etrue  *etrue.Truechain // Full Truechain service if monitoring a full node
+	les    *les.LightEtrue  // Light Truechain service if monitoring a light node
+	engine consensus.Engine // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
 	pass string // Password to authorize access to the monitoring page
@@ -94,7 +94,7 @@ type Service struct {
 }
 
 // New returns a monitoring service ready for stats reporting.
-func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEthereum) (*Service, error) {
+func New(url string, ethServ *etrue.Truechain, lesServ *les.LightEtrue) (*Service, error) {
 	// Parse the netstats connection url
 	re := regexp.MustCompile("([^:@]*)(:([^@]*))?@(.+)")
 	parts := re.FindStringSubmatch(url)
@@ -297,7 +297,7 @@ func (s *Service) loop() {
 				}
 			case list := <-s.snailHistCh:
 				if err = s.reportSnailHistory(conn, list); err != nil {
-					log.Warn("Requested history report failed", "err", err)
+					log.Warn("Requested snailHistory report failed", "err", err)
 				}
 			case head := <-headCh:
 				if err = s.reportBlock(conn, head); err != nil {
@@ -376,7 +376,10 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 	// Make sure the request is valid and doesn't crash us
 	request, ok := msg["emit"][1].(map[string]interface{})
 	if !ok {
-		log.Warn("Invalid stats history request", "msg", msg["emit"][1])
+		/*if request != nil {
+			log.Warn("Invalid stats history request", "msg[emit]", msg["emit"], "request", request, "command", command,
+				"msg", msg["emit"][1])
+		}*/
 		if command == "history" {
 			s.histCh <- nil
 		} else {
@@ -385,6 +388,7 @@ func handleHistCh(msg map[string][]interface{}, s *Service, command string) stri
 		return "continue" // Etruestats sometime sends invalid history requests, ignore those
 	}
 	list, ok := request["list"].([]interface{})
+	log.Warn(" stats history block list", "list", command, "command", request["list"])
 	if !ok {
 		log.Warn("Invalid stats history block list", "list", request["list"])
 		return "error"
@@ -554,16 +558,16 @@ type blockStats struct {
 
 // blockStats is the information to report about individual blocks.
 type snailBlockStats struct {
-	Number     *big.Int    `json:"number"`
-	Hash       common.Hash `json:"hash"`
-	ParentHash common.Hash `json:"parentHash"`
-	Timestamp  *big.Int    `json:"timestamp"`
-
+	Number      *big.Int        `json:"number"`
+	Hash        common.Hash     `json:"hash"`
+	ParentHash  common.Hash     `json:"parentHash"`
+	Timestamp   *big.Int        `json:"timestamp"`
 	Miner       common.Address  `json:"miner"`
 	Diff        string          `json:"difficulty"`
 	TotalDiff   string          `json:"totalDifficulty"`
 	Uncles      snailUncleStats `json:"uncles"`
 	FruitNumber *big.Int        `json:"fruits"`
+	LastFruit   *big.Int        `json:"lastFruit"`
 	//Specific properties of fruit
 	//signs types.PbftSigns
 }
@@ -575,14 +579,6 @@ type txStats struct {
 
 // uncleStats is a custom wrapper around an uncle array to force serializing
 // empty arrays instead of returning null for them.
-type uncleStats []*types.Header
-
-func (s uncleStats) MarshalJSON() ([]byte, error) {
-	if uncles := ([]*types.Header)(s); len(uncles) > 0 {
-		return json.Marshal(uncles)
-	}
-	return []byte("[]"), nil
-}
 
 type snailUncleStats []*types.SnailHeader
 
@@ -677,7 +673,6 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 	var (
 		header      *types.SnailHeader
 		td          *big.Int
-		uncles      []*types.SnailHeader
 		fruitNumber *big.Int
 	)
 	if s.etrue != nil {
@@ -687,7 +682,6 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		}
 		header = block.Header()
 		td = s.etrue.SnailBlockChain().GetTd(header.Hash(), header.Number.Uint64())
-		uncles = block.Uncles()
 		fruitNumber = big.NewInt(int64(len((block.Fruits()))))
 	} else {
 		// Light nodes would need on-demand lookups for transactions/uncles, skip
@@ -709,8 +703,9 @@ func (s *Service) assembleSnaiBlockStats(block *types.SnailBlock) *snailBlockSta
 		Miner:       author,
 		Diff:        block.Difficulty().String(),
 		TotalDiff:   td.String(),
-		Uncles:      uncles,
+		Uncles:      nil,
 		FruitNumber: fruitNumber,
+		LastFruit:   block.MaxFruitNumber(),
 	}
 }
 
@@ -738,6 +733,7 @@ func (s *Service) reportHistory(conn *websocket.Conn, list []uint64) error {
 			indexes = append(indexes, i)
 		}
 	}
+	//log.Info("reportHistory", "indexes", indexes)
 	// Gather the batch of blocks to report
 	history := make([]*blockStats, len(indexes))
 	for i, number := range indexes {
@@ -796,6 +792,7 @@ func (s *Service) reportSnailHistory(conn *websocket.Conn, list []uint64) error 
 			indexes = append(indexes, i)
 		}
 	}
+	//log.Info("reportSnailHistory", "indexes", indexes)
 	// Gather the batch of blocks to report
 	history := make([]*snailBlockStats, len(indexes))
 	for i, number := range indexes {
@@ -865,13 +862,14 @@ func (s *Service) reportPending(conn *websocket.Conn) error {
 
 // nodeStats is the information to report about the local node.
 type nodeStats struct {
-	Active   bool `json:"active"`
-	Syncing  bool `json:"syncing"`
-	Mining   bool `json:"mining"`
-	Hashrate int  `json:"hashrate"`
-	Peers    int  `json:"peers"`
-	GasPrice int  `json:"gasPrice"`
-	Uptime   int  `json:"uptime"`
+	Active            bool `json:"active"`
+	Syncing           bool `json:"syncing"`
+	Mining            bool `json:"mining"`
+	IsCommitteeMember bool `json:"isCommitteeMember"`
+	Hashrate          int  `json:"hashrate"`
+	Peers             int  `json:"peers"`
+	GasPrice          int  `json:"gasPrice"`
+	Uptime            int  `json:"uptime"`
 }
 
 // reportPending retrieves various stats about the node at the networking and
@@ -879,10 +877,11 @@ type nodeStats struct {
 func (s *Service) reportStats(conn *websocket.Conn) error {
 	// Gather the syncing and mining infos from the local miner instance
 	var (
-		mining   bool
-		hashrate int
-		syncing  bool
-		gasprice int
+		mining            bool
+		isCommitteeMember bool
+		hashrate          int
+		syncing           bool
+		gasprice          int
 	)
 	if s.etrue != nil {
 		mining = s.etrue.Miner().Mining()
@@ -893,25 +892,29 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 
 		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
+
+		isCommitteeMember = s.etrue.PbftAgent().IsCommitteeMember()
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
 	}
 	// Assemble the node stats and send it to the server
 	log.Trace("Sending node details to etruestats")
-
-	stats := map[string]interface{}{
-		"id": s.node,
-		"stats": &nodeStats{
-			Active:   true,
-			Mining:   mining,
-			Hashrate: hashrate,
-			Peers:    s.server.PeerCount(),
-			GasPrice: gasprice,
-			Syncing:  syncing,
-			Uptime:   100,
-		},
+	nodeStats := &nodeStats{
+		Active:            true,
+		Mining:            mining,
+		Hashrate:          hashrate,
+		Peers:             s.server.PeerCount(),
+		GasPrice:          gasprice,
+		Syncing:           syncing,
+		Uptime:            100,
+		IsCommitteeMember: isCommitteeMember,
 	}
+	stats := map[string]interface{}{
+		"id":    s.node,
+		"stats": nodeStats,
+	}
+	log.Warn("nodeStats", "nodeStats", nodeStats)
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}

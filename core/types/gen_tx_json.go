@@ -21,9 +21,14 @@ func (t txdata) MarshalJSON() ([]byte, error) {
 		Recipient    *common.Address `json:"to"       rlp:"nil"`
 		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
 		Payload      hexutil.Bytes   `json:"input"    gencodec:"required"`
+		Payer        *common.Address `json:"payer"    rlp:"nil"`
+		Fee          *hexutil.Big    `json:"fee"    	rlp:"nil"`
 		V            *hexutil.Big    `json:"v" gencodec:"required"`
 		R            *hexutil.Big    `json:"r" gencodec:"required"`
 		S            *hexutil.Big    `json:"s" gencodec:"required"`
+		PV           *hexutil.Big    `json:"pv" rlp:"nil"` // nil means donnot have payment
+		PR           *hexutil.Big    `json:"pr" rlp:"nil"`
+		PS           *hexutil.Big    `json:"ps" rlp:"nil"`
 		Hash         *common.Hash    `json:"hash" rlp:"-"`
 	}
 	var enc txdata
@@ -33,9 +38,14 @@ func (t txdata) MarshalJSON() ([]byte, error) {
 	enc.Recipient = t.Recipient
 	enc.Amount = (*hexutil.Big)(t.Amount)
 	enc.Payload = t.Payload
+	enc.Payer = t.Payer
+	enc.Fee = (*hexutil.Big)(t.Fee)
 	enc.V = (*hexutil.Big)(t.V)
 	enc.R = (*hexutil.Big)(t.R)
 	enc.S = (*hexutil.Big)(t.S)
+	enc.PV = (*hexutil.Big)(t.PV)
+	enc.PR = (*hexutil.Big)(t.PR)
+	enc.PS = (*hexutil.Big)(t.PS)
 	enc.Hash = t.Hash
 	return json.Marshal(&enc)
 }
@@ -48,10 +58,15 @@ func (t *txdata) UnmarshalJSON(input []byte) error {
 		Recipient    *common.Address `json:"to"       rlp:"nil"`
 		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
 		Payload      *hexutil.Bytes  `json:"input"    gencodec:"required"`
-		V            *hexutil.Big    `json:"v" gencodec:"required"`
-		R            *hexutil.Big    `json:"r" gencodec:"required"`
-		S            *hexutil.Big    `json:"s" gencodec:"required"`
-		Hash         *common.Hash    `json:"hash" rlp:"-"`
+		Payer        *common.Address `json:"payer"    rlp:"nil"`
+		Fee          *hexutil.Big    `json:"fee"    	rlp:"nil"`
+		V            *hexutil.Big    `json:"v" 		gencodec:"required"`
+		R            *hexutil.Big    `json:"r" 		gencodec:"required"`
+		S            *hexutil.Big    `json:"s" 		gencodec:"required"`
+		PV           *hexutil.Big    `json:"pv" 		rlp:"nil"`
+		PR           *hexutil.Big    `json:"pr" 		rlp:"nil"`
+		PS           *hexutil.Big    `json:"ps" 		rlp:"nil"`
+		Hash         *common.Hash    `json:"hash" 		rlp:"-"`
 	}
 	var dec txdata
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -76,10 +91,17 @@ func (t *txdata) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 'value' for txdata")
 	}
 	t.Amount = (*big.Int)(dec.Amount)
+	if dec.Fee != nil {
+		t.Fee = (*big.Int)(dec.Fee)
+	}
 	if dec.Payload == nil {
 		return errors.New("missing required field 'input' for txdata")
 	}
 	t.Payload = *dec.Payload
+
+	if dec.Payer != nil {
+		t.Payer = dec.Payer
+	}
 	if dec.V == nil {
 		return errors.New("missing required field 'v' for txdata")
 	}
@@ -92,6 +114,17 @@ func (t *txdata) UnmarshalJSON(input []byte) error {
 		return errors.New("missing required field 's' for txdata")
 	}
 	t.S = (*big.Int)(dec.S)
+
+	if dec.PV != nil {
+		t.PV = (*big.Int)(dec.PV)
+	}
+	if dec.PR != nil {
+		t.PR = (*big.Int)(dec.PR)
+	}
+	if dec.PS != nil {
+		t.PS = (*big.Int)(dec.PS)
+	}
+
 	if dec.Hash != nil {
 		t.Hash = dec.Hash
 	}

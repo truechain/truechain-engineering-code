@@ -21,9 +21,9 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/hashicorp/golang-lru"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/trie"
-	lru "github.com/hashicorp/golang-lru"
 )
 
 // Trie cache generation limit after which to evict trie nodes from memory.
@@ -68,17 +68,23 @@ type Trie interface {
 	Hash() common.Hash
 	NodeIterator(startKey []byte) trie.NodeIterator
 	GetKey([]byte) []byte // TODO(fjl): remove this when SecureTrie is removed
-	Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error
+	Prove(key []byte, fromLevel uint, proofDb etruedb.Putter) error
 }
 
 // NewDatabase creates a backing store for state. The returned database is safe for
-// concurrent use and retains cached trie nodes in memory. The pool is an optional
-// intermediate trie-node memory pool between the low level storage layer and the
-// high level trie abstraction.
-func NewDatabase(db ethdb.Database) Database {
+// concurrent use and retains a few recent expanded trie nodes in memory. To keep
+// more historical state in memory, use the NewDatabaseWithCache constructor.
+func NewDatabase(db etruedb.Database) Database {
+	return NewDatabaseWithCache(db, 0)
+}
+
+// NewDatabase creates a backing store for state. The returned database is safe for
+// concurrent use and retains both a few recent expanded trie nodes in memory, as
+// well as a lot of collapsed RLP trie nodes in a large memory cache.
+func NewDatabaseWithCache(db etruedb.Database, cache int) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &cachingDB{
-		db:            trie.NewDatabase(db),
+		db:            trie.NewDatabaseWithCache(db, cache),
 		codeSizeCache: csc,
 	}
 }
@@ -173,6 +179,6 @@ func (m cachedTrie) Commit(onleaf trie.LeafCallback) (common.Hash, error) {
 	return root, err
 }
 
-func (m cachedTrie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
+func (m cachedTrie) Prove(key []byte, fromLevel uint, proofDb etruedb.Putter) error {
 	return m.SecureTrie.Prove(key, fromLevel, proofDb)
 }

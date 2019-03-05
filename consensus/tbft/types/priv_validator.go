@@ -5,23 +5,25 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	tcrypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
-	"sync"
-	"time"
 )
 
 const (
-	stepNone           uint8 = 0 // Used to distinguish the initial state
-	stepPropose        uint8 = 1
-	stepPrevote        uint8 = 2
-	stepPrecommit      uint8 = 3
-	BlockPartSizeBytes uint  = 65536 // 64kB,
+	stepNone      uint8 = 0 // Used to distinguish the initial state
+	stepPropose   uint8 = 1
+	stepPrevote   uint8 = 2
+	stepPrecommit uint8 = 3
+	//BlockPartSizeBytes is part's size
+	BlockPartSizeBytes uint = 65536 // 64kB,
 )
 
 func voteToStep(vote *Vote) uint8 {
@@ -56,12 +58,15 @@ type privValidator struct {
 
 	mtx sync.Mutex
 }
+
+//KeepBlockSign is block's sign
 type KeepBlockSign struct {
 	Result uint
 	Sign   []byte
 	Hash   common.Hash
 }
 
+//NewPrivValidator return new private Validator
 func NewPrivValidator(priv ecdsa.PrivateKey) PrivValidator {
 	return &privValidator{
 		PrivKey:  tcrypto.PrivKeyTrue(priv),
@@ -102,7 +107,7 @@ func (Validator *privValidator) SignVote(chainID string, vote *Vote) error {
 	Validator.mtx.Lock()
 	defer Validator.mtx.Unlock()
 	if err := Validator.signVote(chainID, vote); err != nil {
-		return errors.New(fmt.Sprintf("Error signing vote: %v", err))
+		return fmt.Errorf("error signing vote: %v", err)
 	}
 	return nil
 }
@@ -131,7 +136,7 @@ func (Validator *privValidator) signVote(chainID string, vote *Vote) error {
 			vote.Timestamp = timestamp
 			vote.Signature = Validator.LastSignature
 		} else {
-			err = fmt.Errorf("Conflicting data")
+			err = fmt.Errorf("conflicting data")
 		}
 		return err
 	}
@@ -152,7 +157,7 @@ func (Validator *privValidator) SignProposal(chainID string, proposal *Proposal)
 	Validator.mtx.Lock()
 	defer Validator.mtx.Unlock()
 	if err := Validator.signProposal(chainID, proposal); err != nil {
-		return fmt.Errorf("Error signing proposal: %v", err)
+		return fmt.Errorf("error signing proposal: %v", err)
 	}
 	return nil
 }
@@ -181,7 +186,7 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 			proposal.Timestamp = timestamp
 			proposal.Signature = Validator.LastSignature
 		} else {
-			err = fmt.Errorf("Conflicting data")
+			err = fmt.Errorf("conflicting data")
 		}
 		return err
 	}
@@ -199,17 +204,17 @@ func (Validator *privValidator) signProposal(chainID string, proposal *Proposal)
 // returns error if HRS regression or no LastSignBytes. returns true if HRS is unchanged
 func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (bool, error) {
 	if Validator.LastHeight > height {
-		return false, errors.New("Height regression")
+		return false, errors.New("height regression")
 	}
 
 	if Validator.LastHeight == height {
 		if int(Validator.LastRound) > round {
-			return false, errors.New("Round regression")
+			return false, errors.New("round regression")
 		}
 
 		if int(Validator.LastRound) == round {
 			if Validator.LastStep > step {
-				return false, errors.New("Step regression")
+				return false, errors.New("step regression")
 			} else if Validator.LastStep == step {
 				if Validator.LastSignBytes != nil {
 					if Validator.LastSignature == nil {
@@ -217,7 +222,7 @@ func (Validator *privValidator) checkHRS(height uint64, round int, step uint8) (
 					}
 					return true, nil
 				}
-				return false, errors.New("No LastSignature found")
+				return false, errors.New("no LastSignature found")
 			}
 		}
 	}
@@ -279,6 +284,7 @@ func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (ti
 //----------------------------------------
 // Misc.
 
+//PrivValidatorsByAddress is private validators for address
 type PrivValidatorsByAddress []PrivValidator
 
 func (pvs PrivValidatorsByAddress) Len() int {
@@ -296,15 +302,21 @@ func (pvs PrivValidatorsByAddress) Swap(i, j int) {
 }
 
 //----------------------------------------
+
 // StateAgent implements PrivValidator
 type StateAgent interface {
 	GetValidator() *ValidatorSet
+	UpdateValidator(vset *ValidatorSet, makeids bool) error
 	GetLastValidator() *ValidatorSet
+	GetLastValidatorAddress() common.Address
 
 	GetLastBlockHeight() uint64
+	SetEndHeight(h uint64)
+	SetBeginHeight(h uint64)
 	GetChainID() string
-	MakeBlock() (*ctypes.Block, *PartSet, error)
-	ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error)
+	MakeBlock(v *SwitchValidator) (*ctypes.Block, error)
+	MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error)
+	ValidateBlock(block *ctypes.Block, result bool) (*KeepBlockSign, error)
 	ConsensusCommit(block *ctypes.Block) error
 
 	GetAddress() help.Address
@@ -314,31 +326,40 @@ type StateAgent interface {
 	PrivReset()
 }
 
+//StateAgentImpl agent state struct
 type StateAgentImpl struct {
 	Priv        *privValidator
 	Agent       ctypes.PbftAgentProxy
 	Validators  *ValidatorSet
+	ids         map[string]interface{}
+	lock        *sync.Mutex
 	ChainID     string
 	LastHeight  uint64
-	StartHeight uint64
+	BeginHeight uint64
 	EndHeight   uint64
 	CID         uint64
 }
 
+//NewStateAgent return new agent state
 func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 	vals *ValidatorSet, height, cid uint64) *StateAgentImpl {
 	lh := agent.GetCurrentHeight()
-	return &StateAgentImpl{
+	state := &StateAgentImpl{
 		Agent:       agent,
 		ChainID:     chainID,
 		Validators:  vals,
-		StartHeight: height,
+		BeginHeight: height,
+		lock:        new(sync.Mutex),
 		EndHeight:   0, // defualt 0,mean not work
 		LastHeight:  lh.Uint64(),
 		CID:         cid,
 	}
+	state.ids = vals.MakeIDs()
+	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", height, "end", state.EndHeight, "current", lh)
+	return state
 }
 
+//MakePartSet  block to partset
 func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
 	// We prefix the byte length, so that unmarshaling
 	// can easily happen via a reader.
@@ -352,16 +373,18 @@ func MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
 	}
 	return NewPartSetFromData(bz, partSize), nil
 }
+
+//MakeBlockFromPartSet partSet to block
 func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	if reader.IsComplete() {
 		maxsize := int64(MaxBlockBytes)
-		bytes := make([]byte, maxsize, maxsize)
-		_, err := cdc.UnmarshalBinaryReader(reader.GetReader(), &bytes, maxsize)
+		b := make([]byte, maxsize, maxsize)
+		_, err := cdc.UnmarshalBinaryReader(reader.GetReader(), &b, maxsize)
 		if err != nil {
 			return nil, err
 		}
 		var block ctypes.Block
-		if err = rlp.DecodeBytes(bytes, &block); err != nil {
+		if err = rlp.DecodeBytes(b, &block); err != nil {
 			return nil, err
 		}
 		return &block, nil
@@ -369,43 +392,105 @@ func MakeBlockFromPartSet(reader *PartSet) (*ctypes.Block, error) {
 	return nil, errors.New("not complete")
 }
 
+//PrivReset reset PrivValidator
 func (state *StateAgentImpl) PrivReset() {
 	state.Priv.Reset()
 }
+
+// HasPeerID judge the peerid whether in validators
+func (state *StateAgentImpl) HasPeerID(id string) error {
+	if state.ids == nil {
+		return errors.New("validators is nil")
+	}
+	state.lock.Lock()
+	defer state.lock.Unlock()
+	if _, ok := state.ids[id]; ok {
+		return nil
+	}
+	return fmt.Errorf("the peerid is not in validators,peerid=%s", id)
+}
+
+//SetEndHeight set now committee fast block height for end. (begin,end]
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
+	lh := state.Agent.GetCurrentHeight()
+	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 }
+
+// SetBeginHeight set height of block for the committee to begin. (begin,end]
+func (state *StateAgentImpl) SetBeginHeight(h uint64) {
+	if state.EndHeight > 0 && h < state.EndHeight {
+		state.BeginHeight = h
+		lh := state.Agent.GetCurrentHeight()
+		log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
+	}
+}
+
+//GetChainID is get state'chainID
 func (state *StateAgentImpl) GetChainID() string {
 	return state.ChainID
 }
+
+//SetPrivValidator set state a new PrivValidator
 func (state *StateAgentImpl) SetPrivValidator(priv PrivValidator) {
 	pp := (priv).(*privValidator)
 	state.Priv = pp
 }
-func (state *StateAgentImpl) MakeBlock() (*ctypes.Block, *PartSet, error) {
+
+//UpdateValidator set new Validators when committee member was changed
+func (state *StateAgentImpl) UpdateValidator(vset *ValidatorSet, makeids bool) error {
+	state.Validators = vset
+	if makeids {
+		ids := state.Validators.MakeIDs()
+		state.lock.Lock()
+		defer state.lock.Unlock()
+		state.ids = ids
+	}
+	return nil
+}
+
+//MakePartSet make block to part for partSiae
+func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*PartSet, error) {
+	return MakePartSet(partSize, block)
+}
+
+//MakeBlock from agent FetchFastBlock
+func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
-	watch := newInWatch(3, "FetchFastBlock")
-	block, err := state.Agent.FetchFastBlock(committeeID)
-	if err != nil || block == nil {
-		return nil, nil, err
+	var info *ctypes.SwitchInfos
+	if v != nil {
+		info = v.Infos
+	}
+	watch := help.NewTWatch(3, "FetchFastBlock")
+	help.DurationStat.AddStartStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	block, err := state.Agent.FetchFastBlock(committeeID, info)
+	help.DurationStat.AddEndStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	if err != nil {
+		return nil, err
 	}
 	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
-		return nil, nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
+		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
 	}
-	if state.StartHeight > block.NumberU64() {
-		return nil, nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.StartHeight)
+	if state.BeginHeight > block.NumberU64() {
+		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
 	}
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
-	parts, err2 := MakePartSet(BlockPartSizeBytes, block)
-	return block, parts, err2
+	return block, err
 }
+
+//ConsensusCommit is BroadcastConsensus block to agent
 func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	if block == nil {
 		return errors.New("error param")
 	}
-	watch := newInWatch(3, "BroadcastConsensus")
+	watch := help.NewTWatch(3, "BroadcastConsensus")
+	height := state.Agent.GetCurrentHeight().Uint64() + 1
+	help.DurationStat.AddEndStatTime("ConsensusTime", height)
+	help.DurationStat.AddStartStatTime("BroadcastConsensus", height)
 	err := state.Agent.BroadcastConsensus(block)
+	help.DurationStat.AddEndStatTime("BroadcastConsensus", height)
+	help.DurationStat.AddOtherStat("Transactions", len(block.Transactions()), height)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if err != nil {
@@ -413,12 +498,23 @@ func (state *StateAgentImpl) ConsensusCommit(block *ctypes.Block) error {
 	}
 	return nil
 }
-func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign, error) {
+
+//ValidateBlock get a verify block if nil return new
+func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*KeepBlockSign, error) {
 	if block == nil {
 		return nil, errors.New("block not have")
 	}
-	watch := newInWatch(3, "VerifyFastBlock")
-	sign, err := state.Agent.VerifyFastBlock(block)
+	if state.EndHeight > 0 && block.NumberU64() > state.EndHeight {
+		return nil, fmt.Errorf("over height range,cur=%v,end=%v", block.NumberU64(), state.EndHeight)
+	}
+	if state.BeginHeight > block.NumberU64() {
+		return nil, fmt.Errorf("no more height,cur=%v,start=%v", block.NumberU64(), state.BeginHeight)
+	}
+	watch := help.NewTWatch(3, "VerifyFastBlock")
+	help.DurationStat.AddStartStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	sign, err := state.Agent.VerifyFastBlock(block, result)
+	help.DurationStat.AddEndStatTime("VerifyFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
+	log.Debug("VerifyFastBlockResult", "height", sign.FastHeight, "result", sign.Result, "err", err)
 	watch.EndWatch()
 	watch.Finish(block.NumberU64())
 	if sign != nil {
@@ -430,56 +526,51 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block) (*KeepBlockSign,
 	}
 	return nil, err
 }
+
+//GetValidator is get state's Validators
 func (state *StateAgentImpl) GetValidator() *ValidatorSet {
 	return state.Validators
 }
+
+//GetLastValidator is get state's Validators
 func (state *StateAgentImpl) GetLastValidator() *ValidatorSet {
 	return state.Validators
 }
+
+func (state *StateAgentImpl) GetLastValidatorAddress() common.Address {
+	return state.Agent.GetFastLastProposer()
+}
+
+//GetLastBlockHeight is get fast block height for agent
 func (state *StateAgentImpl) GetLastBlockHeight() uint64 {
 	lh := state.Agent.GetCurrentHeight()
 	state.LastHeight = lh.Uint64()
 	return state.LastHeight
 }
 
+//GetAddress get priv_validator's address
 func (state *StateAgentImpl) GetAddress() help.Address {
 	return state.Priv.GetAddress()
 }
+
+//GetPubKey get priv_validator's public key
 func (state *StateAgentImpl) GetPubKey() tcrypto.PubKey {
 	return state.Priv.GetPubKey()
 }
+
+//SignVote sign of vote
 func (state *StateAgentImpl) SignVote(chainID string, vote *Vote) error {
 	return state.Priv.SignVote(chainID, vote)
 }
+
+//SignProposal sign of proposal msg
 func (state *StateAgentImpl) SignProposal(chainID string, proposal *Proposal) error {
-	return state.Priv.SignProposal(chainID, proposal)
+	return state.Priv.signProposal(chainID, proposal)
 }
+
+//Broadcast is agent Broadcast block
 func (state *StateAgentImpl) Broadcast(height *big.Int) {
 	// if fb := ss.getBlock(height.Uint64()); fb != nil {
 	// 	state.Agent.BroadcastFastBlock(fb)
 	// }
-}
-
-type inWatch struct {
-	begin  time.Time
-	end    time.Time
-	expect float64
-	str    string
-}
-
-func newInWatch(e float64, s string) *inWatch {
-	return &inWatch{
-		begin:  time.Now(),
-		end:    time.Now(),
-		expect: e,
-		str:    s,
-	}
-}
-func (in *inWatch) EndWatch() {
-	in.end = time.Now()
-}
-func (in *inWatch) Finish(comment interface{}) {
-	if d := in.end.Sub(in.begin); d.Seconds() > in.expect {
-		log.Warn(in.str, "not expecting time", d.Seconds(), "comment", comment)
-	}
 }

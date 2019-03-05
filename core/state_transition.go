@@ -22,17 +22,18 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
 var (
-	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
+	errInsufficientBalanceForGas         = errors.New("insufficient balance to from for gas")
+	errInsufficientBalanceForPayerForGas = errors.New("insufficient balance to payer for gas")
 )
 
 /*
-The State Transitioning Model
+StateTransition ：The State Transitioning Model
 
 A state transition is a change made when a transaction is applied to the current world state
 The state transitioning model does all all the necessary work to work out a valid new state root.
@@ -62,6 +63,7 @@ type StateTransition struct {
 
 // Message represents a message sent to a contract.
 type Message interface {
+	Payment() common.Address
 	From() common.Address
 	//FromFrontier() (common.Address, error)
 	To() *common.Address
@@ -69,6 +71,7 @@ type Message interface {
 	GasPrice() *big.Int
 	Gas() uint64
 	Value() *big.Int
+	Fee() *big.Int
 
 	Nonce() uint64
 	CheckNonce() bool
@@ -164,6 +167,21 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
+func (st *StateTransition) buyGasForPayment() error {
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if st.state.GetBalance(st.msg.Payment()).Cmp(mgval) < 0 {
+		return errInsufficientBalanceForPayerForGas
+	}
+	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
+		return err
+	}
+	st.gas += st.msg.Gas()
+
+	st.initialGas = st.msg.Gas()
+	st.state.SubBalance(st.msg.Payment(), mgval)
+	return nil
+}
+
 func (st *StateTransition) preCheck() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
@@ -173,6 +191,10 @@ func (st *StateTransition) preCheck() error {
 		} else if nonce > st.msg.Nonce() {
 			return ErrNonceTooLow
 		}
+	}
+	//if transaction contains payer,payer address sub gas
+	if st.msg.Payment() != params.EmptyAddress {
+		return st.buyGasForPayment()
 	}
 	return st.buyGas()
 }
@@ -206,11 +228,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		vmerr error
 	)
 	if contractCreation {
-		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
+		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value, msg.Fee())
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
+		ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value, msg.Fee())
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
@@ -221,8 +243,8 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
+
 	st.refundGas()
-	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return ret, st.gasUsed(), vmerr != nil, err
 }
@@ -237,8 +259,11 @@ func (st *StateTransition) refundGas() {
 
 	// Return etrue for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(st.msg.From(), remaining)
-
+	if st.msg.Payment() != params.EmptyAddress {
+		st.state.AddBalance(st.msg.Payment(), remaining)
+	} else {
+		st.state.AddBalance(st.msg.From(), remaining)
+	}
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
 	st.gp.AddGas(st.gas)

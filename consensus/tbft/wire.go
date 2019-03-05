@@ -1,7 +1,7 @@
 package tbft
 
 import (
-	amino "github.com/truechain/truechain-engineering-code/consensus/tbft/go-amino"
+	"github.com/tendermint/go-amino"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/types"
 )
 

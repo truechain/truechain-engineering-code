@@ -18,6 +18,8 @@ package minerva
 
 import (
 	"bytes"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -97,4 +99,49 @@ func BenchmarkTruehashFullSmall(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		truehashFull(dataset, hash, 0)
 	}
+}
+
+func TestTrueHash2(t *testing.T) {
+	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
+
+	for k := 0; k < TBLSIZE; k++ {
+		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
+		}
+	}
+	genLookupTable(dataset[:], table[:])
+
+	hash := hexutil.MustDecode("0x645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc")
+	nonce := uint64(0)
+
+	tt := new(big.Int).Div(maxUint128, big.NewInt(100000))
+	tb := tt.Bytes()
+	tmp_target := make([]byte, 16-len(tb))
+	tmp_target = append(tmp_target, tb...)
+	fmt.Println("target:", hexutil.Encode(tb))
+
+	target := new(big.Int).SetBytes(tmp_target)
+	target2 := new(big.Int).SetBytes(tb)
+	if target.Cmp(target2) == 0 {
+		fmt.Println("target equal...")
+	}
+	fruitTarget := new(big.Int).SetBytes([]byte{0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+
+	for {
+		_, result := truehashLight(dataset, hash, nonce)
+		headResult := result[:16]
+		if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
+			// get block
+			break
+
+		} else {
+			lastResult := result[16:]
+			if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
+				break
+			}
+		}
+		nonce++
+	}
+
 }

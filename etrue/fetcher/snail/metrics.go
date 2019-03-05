@@ -27,12 +27,4 @@ var (
 	propBroadcastOutTimer  = metrics.NewRegisteredTimer("etrue/snailfetcher/prop/broadcasts/out", nil)
 	propBroadcastDropMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/drop", nil)
 	propBroadcastDOSMeter  = metrics.NewRegisteredMeter("etrue/snailfetcher/prop/broadcasts/dos", nil)
-
-	headerFetchMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/fetch/headers", nil)
-	bodyFetchMeter   = metrics.NewRegisteredMeter("etrue/snailfetcher/fetch/bodies", nil)
-
-	headerFilterInMeter  = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/headers/in", nil)
-	headerFilterOutMeter = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/headers/out", nil)
-	bodyFilterInMeter    = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/bodies/in", nil)
-	bodyFilterOutMeter   = metrics.NewRegisteredMeter("etrue/snailfetcher/filter/bodies/out", nil)
 )

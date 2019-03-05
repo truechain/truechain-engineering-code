@@ -27,7 +27,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 	//"github.com/truechain/truechain-engineering-code/etrue"
 )
@@ -119,7 +119,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parent *types.SnailBlock, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
+func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, parent *types.SnailBlock, engine consensus.Engine, db etruedb.Database, n int, gen func(int, *BlockGen)) []*types.SnailBlock {
 	if config == nil {
 		config = params.TestChainConfig
 	}
@@ -127,7 +127,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 	genblock := func(i int, parent *types.SnailBlock) *types.SnailBlock {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewSnailBlockChain(db, nil, config, engine, vm.Config{})
+		blockchain, _ := NewSnailBlockChain(db, config, engine, vm.Config{}, fastChain)
 		blockchain.SetValidator(NewBlockValidator(config, fastChain, blockchain, engine))
 		defer blockchain.Stop()
 		blocks := make(types.SnailBlocks, 2)
@@ -178,7 +178,6 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 			Number:     parent.Number(),
 			Time:       new(big.Int).Sub(time, big.NewInt(10)),
 			Difficulty: parent.BlockDifficulty(),
-			UncleHash:  parent.UncleHash(),
 		}}),
 		Number: new(big.Int).Add(parent.Number(), common.Big1),
 		Time:   time,
@@ -186,7 +185,7 @@ func makeHeader(chain consensus.SnailChainReader, parent *types.SnailBlock, engi
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailHeader {
+func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailHeader {
 	blocks := makeBlockChain(fastChain, types.NewSnailBlockWithHeader(parent), n, engine, db, seed)
 	headers := make([]*types.SnailHeader, len(blocks))
 	for i, block := range blocks {
@@ -196,7 +195,7 @@ func makeHeaderChain(fastChain *core.BlockChain, parent *types.SnailHeader, n in
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.SnailBlock {
+func makeBlockChain(fastChain *core.BlockChain, parent *types.SnailBlock, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.SnailBlock {
 	if fastChain.CurrentBlock().NumberU64() == 0 {
 		fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastChain.CurrentBlock(), engine, db, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
 			b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
@@ -271,7 +270,6 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
 			Time:            tstamp,
 			Coinbase:        coinbaseAddr,
-			Fruit:           isFruit,
 			FastNumber:      fastNumber,
 			FruitDifficulty: fruitDiff,
 			FastHash:        fastchain.GetBlockByNumber(fastNumber.Uint64()).Hash(),
@@ -350,18 +348,15 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 		)
 		return block, nil
 
-	} else {
-		fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
-		if err != nil {
-			return nil, err
-		}
-		return fruit, nil
 	}
-
-	return nil, nil
-
+	fruit, err := makeFruit(chain, fastchain, new(big.Int).SetInt64(int64(makeStartFastNum)), pubkey, coinbaseAddr)
+	if err != nil {
+		return nil, err
+	}
+	return fruit, nil
 }
 
+//MakeSnailBlockFruits return fruits or blocks by given params and insert these in the chain
 func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
 	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
 	var blocks types.SnailBlocks
@@ -394,6 +389,7 @@ func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, ma
 	return blocks, nil
 }
 
+//MakeSnailBlockFruitsWithoutInsert return fruits or blocks by given params
 func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
 	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
 
@@ -424,9 +420,10 @@ func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.B
 	return blocks, nil
 }
 
+//MakeChain return snailChain and fastchain by given fastBlockNumbers and snailBlockNumbers
 func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	var (
-		testdb       = ethdb.NewMemDatabase()
+		testdb       = etruedb.NewMemDatabase()
 		genesis      = core.DefaultGenesisBlock()
 		engine       = minerva.NewFaker()
 		fruitnumbers int
@@ -442,7 +439,6 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 
 	fastGenesis := genesis.MustFastCommit(testdb)
 	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	//fastblocks := makeFast(fastGenesis, n * params.MinimumFruits, engine, testdb, canonicalSeed)
 
 	//engine.SetElection(core.NewFakeElection())
 	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, fastBlockNumbers, func(i int, b *core.BlockGen) {
@@ -452,7 +448,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
-	snailChain, _ := NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
+	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
 	snailChain.SetValidator(NewBlockValidator(nil, fastchain, snailChain, engine))
 
 	if fastBlockNumbers > snailBlockNumbers*params.MinimumFruits {
@@ -468,6 +464,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	return snailChain, fastchain
 }
 
+//MakeSnailChain return snailChain and fastchain by given snailBlockNumbers and a default fastBlockNumbers(60)
 func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers)
 }

@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"sync/atomic"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,12 +39,45 @@ var (
 type Transaction struct {
 	data txdata
 	// caches
+	hash    atomic.Value
+	size    atomic.Value
+	from    atomic.Value
+	payment atomic.Value
+}
+
+type RawTransaction struct {
+	data raw_txdata
+	// caches
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
 }
 
 type txdata struct {
+	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
+	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
+	GasLimit     uint64          `json:"gas"      gencodec:"required"`
+	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
+	Amount       *big.Int        `json:"value"    gencodec:"required"`
+	Payload      []byte          `json:"input"    gencodec:"required"`
+	Payer        *common.Address `json:"payer"    rlp:"nil"`
+	Fee          *big.Int        `json:"fee"   rlp:"nil"`
+
+	// Signature values
+	V *big.Int `json:"v" gencodec:"required"`
+	R *big.Int `json:"r" gencodec:"required"`
+	S *big.Int `json:"s" gencodec:"required"`
+
+	// Paied Signature values
+	PV *big.Int `json:"pv" rlp:"nil"` // nil means donnot have payment
+	PR *big.Int `json:"pr" rlp:"nil"`
+	PS *big.Int `json:"ps" rlp:"nil"`
+
+	// This is only used when marshaling to JSON.
+	Hash *common.Hash `json:"hash" rlp:"-"`
+}
+
+type raw_txdata struct {
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -60,6 +94,39 @@ type txdata struct {
 	Hash *common.Hash `json:"hash" rlp:"-"`
 }
 
+func (rawTransaction *RawTransaction) ConvertTransaction() *Transaction {
+	cpy := &RawTransaction{data: rawTransaction.data}
+	cpy_data := cpy.data
+
+	tx := new(Transaction)
+	//fmt.Println("data.Recipient", cpy_data.Recipient)
+	if cpy_data.Recipient == nil {
+		tx = NewContractCreation(cpy_data.AccountNonce, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	} else {
+		tx = NewTransaction(cpy_data.AccountNonce, *cpy_data.Recipient, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	}
+	tx.data.V = cpy_data.V
+	tx.data.R = cpy_data.R
+	tx.data.S = cpy_data.S
+	return tx
+}
+
+func (tx *Transaction) ConvertRawTransaction() *RawTransaction {
+	cpy := &Transaction{data: tx.data}
+	cpy_data := cpy.data
+
+	raw_tx := new(RawTransaction)
+	if cpy_data.Recipient == nil {
+		raw_tx = NewRawTransactionContract(cpy_data.AccountNonce, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	} else {
+		raw_tx = NewRawTransaction(cpy_data.AccountNonce, *cpy_data.Recipient, cpy_data.Amount, cpy_data.GasLimit, cpy_data.Price, cpy_data.Payload)
+	}
+	raw_tx.data.V = cpy_data.V
+	raw_tx.data.R = cpy_data.R
+	raw_tx.data.S = cpy_data.S
+	return raw_tx
+}
+
 type txdataMarshaling struct {
 	AccountNonce hexutil.Uint64
 	Price        *hexutil.Big
@@ -72,18 +139,73 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	return NewTransaction_Payment(nonce, to, amount, common.Big0, gasLimit, gasPrice, data, common.Address{})
+}
+
+func NewTransaction_Payment(nonce uint64, to common.Address, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
+	if payer == (common.Address{}) {
+		return newTransaction(nonce, &to, nil, amount, fee, gasLimit, gasPrice, data)
+	}
+	return newTransaction(nonce, &to, &payer, amount, fee, gasLimit, gasPrice, data)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return NewContractCreation_Payment(nonce, amount, common.Big0, gasLimit, gasPrice, data, common.Address{})
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func NewContractCreation_Payment(nonce uint64, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, payer common.Address) *Transaction {
+	if payer == (common.Address{}) {
+		return newTransaction(nonce, nil, nil, amount, fee, gasLimit, gasPrice, data)
+	}
+	return newTransaction(nonce, nil, &payer, amount, fee, gasLimit, gasPrice, data)
+}
+
+func newTransaction(nonce uint64, to *common.Address, payer *common.Address, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 	d := txdata{
+		AccountNonce: nonce,
+		Recipient:    to,
+		Payer:        payer,
+		Payload:      data,
+		Amount:       new(big.Int),
+		Fee:          new(big.Int),
+		GasLimit:     gasLimit,
+		Price:        new(big.Int),
+		V:            new(big.Int),
+		R:            new(big.Int),
+		S:            new(big.Int),
+		PV:           new(big.Int),
+		PR:           new(big.Int),
+		PS:           new(big.Int),
+	}
+	if amount != nil {
+		d.Amount.Set(amount)
+	}
+	if fee != nil {
+		d.Fee.Set(fee)
+	}
+	if gasPrice != nil {
+		d.Price.Set(gasPrice)
+	}
+
+	return &Transaction{data: d}
+}
+
+func NewRawTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *RawTransaction {
+	return newRawTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+}
+
+func NewRawTransactionContract(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *RawTransaction {
+	return newRawTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+}
+
+func newRawTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *RawTransaction {
+	if len(data) > 0 {
+		data = common.CopyBytes(data)
+	}
+	d := raw_txdata{
 		AccountNonce: nonce,
 		Recipient:    to,
 		Payload:      data,
@@ -100,8 +222,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
 	}
-
-	return &Transaction{data: d}
+	return &RawTransaction{data: d}
 }
 
 // ChainId returns which chain id this transaction was signed for (if at all)
@@ -112,6 +233,10 @@ func (tx *Transaction) ChainId() *big.Int {
 // Protected returns whether the transaction is protected from replay protection.
 func (tx *Transaction) Protected() bool {
 	return isProtectedV(tx.data.V)
+}
+
+func (tx *Transaction) Protected_Payment() bool {
+	return isProtectedV(tx.data.PV)
 }
 
 func isProtectedV(V *big.Int) bool {
@@ -147,6 +272,49 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 	return data.MarshalJSON()
 }
 
+func (tx *Transaction) Info() string {
+	str := ""
+	if tx != nil {
+		str += fmt.Sprintf("nonce=%v,price =%v ,v=%v,r=%v,s=%v,Pv=%v,Pr=%v,Ps=%v,",
+			tx.data.AccountNonce, tx.data.Price,
+			tx.data.V, tx.data.R, tx.data.S, tx.data.PV, tx.data.PR, tx.data.PS)
+	}
+	return str
+}
+
+func (tx *RawTransaction) Info() string {
+	str := ""
+	if tx != nil {
+		str += fmt.Sprintf("nonce=%v,price=%v gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v v=%v,r=%v,s=%v,",
+			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, tx.data.Recipient.String(), tx.data.Amount, tx.data.Payload,
+			tx.data.V, tx.data.R, tx.data.S)
+	}
+	return str
+}
+
+// EncodeRLP implements rlp.Encoder
+func (tx *RawTransaction) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, &tx.data)
+}
+
+// DecodeRLP implements rlp.Decoder
+func (tx *RawTransaction) DecodeRLP(s *rlp.Stream) error {
+	_, size, _ := s.Kind()
+	err := s.Decode(&tx.data)
+	if err == nil {
+		tx.size.Store(common.StorageSize(rlp.ListSize(size)))
+	}
+	return err
+}
+
+// MarshalJSON encodes the web3 RPC transaction format.
+/*func (tx *RawTransaction) MarshalJSON() ([]byte, error) {
+	hash := tx.Hash()
+	data := tx.data
+	data.Hash = &hash
+	return data.MarshalJSON()
+}*/
+
 // UnmarshalJSON decodes the web3 RPC transaction format.
 func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	var dec txdata
@@ -171,6 +339,7 @@ func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Pay
 func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Fee() *big.Int      { return new(big.Int).Set(tx.data.Fee) }
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
@@ -219,12 +388,17 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		gasPrice:   new(big.Int).Set(tx.data.Price),
 		to:         tx.data.Recipient,
 		amount:     tx.data.Amount,
+		fee:        tx.data.Fee,
 		data:       tx.data.Payload,
 		checkNonce: true,
 	}
 
 	var err error
 	msg.from, err = Sender(s, tx)
+	if err != nil {
+		return msg, err
+	}
+	msg.payment, err = Payer(s, tx)
 	return msg, err
 }
 
@@ -240,11 +414,35 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	return cpy, nil
 }
 
+func (tx *Transaction) WithSignature_Payment(signer Signer, sig []byte) (*Transaction, error) {
+	pr, ps, pv, err := signer.SignatureValues(tx, sig)
+	if err != nil {
+		return nil, err
+	}
+	cpy := &Transaction{data: tx.data}
+	cpy.data.PR, cpy.data.PS, cpy.data.PV = pr, ps, pv
+	return cpy, nil
+}
+
 // Cost returns amount + gasprice * gaslimit.
 func (tx *Transaction) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
 	total.Add(total, tx.data.Amount)
+	total.Add(total, tx.data.Fee)
 	return total
+}
+
+// AmountCost returns amount+Fee.
+func (tx *Transaction) AmountCost() *big.Int {
+	total := tx.data.Amount
+	total.Add(total, tx.data.Fee)
+	return total
+}
+
+// GasCost returns gasprice * gaslimit.
+func (tx *Transaction) GasCost() *big.Int {
+	gas := new(big.Int).Mul(tx.data.Price, new(big.Int).SetUint64(tx.data.GasLimit))
+	return gas
 }
 
 func (tx *Transaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) {
@@ -381,15 +579,17 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 type Message struct {
 	to         *common.Address
 	from       common.Address
+	payment    common.Address
 	nonce      uint64
 	amount     *big.Int
+	fee        *big.Int
 	gasLimit   uint64
 	gasPrice   *big.Int
 	data       []byte
 	checkNonce bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
+func NewMessage(from common.Address, to *common.Address, payment common.Address, nonce uint64, amount *big.Int, fee *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
 	return Message{
 		from:       from,
 		to:         to,
@@ -399,14 +599,18 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		gasPrice:   gasPrice,
 		data:       data,
 		checkNonce: checkNonce,
+		payment:    payment,
+		fee:        fee,
 	}
 }
 
-func (m Message) From() common.Address { return m.from }
-func (m Message) To() *common.Address  { return m.to }
-func (m Message) GasPrice() *big.Int   { return m.gasPrice }
-func (m Message) Value() *big.Int      { return m.amount }
-func (m Message) Gas() uint64          { return m.gasLimit }
-func (m Message) Nonce() uint64        { return m.nonce }
-func (m Message) Data() []byte         { return m.data }
-func (m Message) CheckNonce() bool     { return m.checkNonce }
+func (m Message) From() common.Address    { return m.from }
+func (m Message) To() *common.Address     { return m.to }
+func (m Message) Payment() common.Address { return m.payment }
+func (m Message) GasPrice() *big.Int      { return m.gasPrice }
+func (m Message) Value() *big.Int         { return m.amount }
+func (m Message) Fee() *big.Int           { return m.fee }
+func (m Message) Gas() uint64             { return m.gasLimit }
+func (m Message) Nonce() uint64           { return m.nonce }
+func (m Message) Data() []byte            { return m.data }
+func (m Message) CheckNonce() bool        { return m.checkNonce }

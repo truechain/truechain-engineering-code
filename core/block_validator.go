@@ -51,7 +51,7 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // validated at this point.
 func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) error {
 	// Check whether the block's known, and if not, that it's linkable
-	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
+	if fv.bc.HasBlockAndState(block.Hash(), block.NumberU64()) && fv.bc.CurrentBlock().NumberU64() >= block.NumberU64() {
 		return ErrKnownBlock
 	}
 	if !fv.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
@@ -65,13 +65,11 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	//validate reward snailBlock
 	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
 		snailNumber := block.SnailNumber().Uint64()
-		blockReward := fv.bc.GetFastHeightBySnailHeight(snailNumber)
-		if blockReward != nil {
-			if fv.bc.CurrentBlock().NumberU64() < snailNumber {
-				log.Error("validateRewardError", "snailNumber", snailNumber,
-					"currentNumber", fv.bc.CurrentBlock().NumberU64(), "err", ErrSnailBlockRewarded)
-				return ErrSnailBlockRewarded
-			}
+		blockReward := fv.bc.GetBlockReward(snailNumber)
+		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
+			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
+				"currentNumber", block.NumberU64(), "err", ErrSnailBlockRewarded)
+			return ErrSnailBlockRewarded
 		} else {
 			currentRewardedNumber := fv.bc.NextSnailNumberReward()
 			if currentRewardedNumber.Uint64() != snailNumber {
@@ -84,15 +82,15 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 
 	// Header validity is known at this point, check the uncles and transactions
 	header := block.Header()
-	//if err := fv.engine.VerifyUncles(fv.bc, block); err != nil {
-	//	return err
-	//}
-	//if hash := types.CalcUncleHash(block.Uncles()); hash != header.UncleHash {
-	//return fmt.Errorf("uncle root hash mismatch: have %x, want %x", hash, header.UncleHash)
-	//}
 
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
+	}
+
+	if e := fv.bc.engine.GetElection(); e != nil {
+		if err := e.VerifySwitchInfo(block.Number(), block.SwitchInfos()); err != nil {
+			return consensus.ErrInvalidSwitchInfo
+		}
 	}
 
 	if validateSign {
@@ -100,7 +98,15 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())
 			return err
 		}
+
+
+		if err := fv.bc.engine.VerifySwitchInfo(block.Number(), block.SwitchInfos()); err != nil {
+			log.Info("Fast VerifySwitchInfo Err", "number", block.NumberU64(), "signs",  block.SwitchInfos())
+			return err
+		}
+
 	}
+
 
 	return nil
 }
@@ -135,7 +141,7 @@ func (fv *BlockValidator) ValidateState(block, parent *types.Block, statedb *sta
 
 // CalcGasLimit computes the gas limit of the next block after parent.
 // This is miner strategy, not consensus protocol.
-func FastCalcGasLimit(parent *types.Block) uint64 {
+func FastCalcGasLimit(parent *types.Block, gasFloor, gasCeil uint64) uint64 {
 	// contrib = (parentGasUsed * 3 / 2) / 1024
 	contrib := (parent.GasUsed() + parent.GasUsed()/2) / params.GasLimitBoundDivisor
 
@@ -155,10 +161,17 @@ func FastCalcGasLimit(parent *types.Block) uint64 {
 	}
 	// however, if we're now below the target (TargetGasLimit) we increase the
 	// limit as much as we can (parentGasLimit / 1024 -1)
-	if limit < params.TargetGasLimit {
+
+	// If we're outside our allowed gas range, we try to hone towards them
+	if limit < gasFloor {
 		limit = parent.GasLimit() + decay
-		if limit > params.TargetGasLimit {
-			limit = params.TargetGasLimit
+		if limit > gasFloor {
+			limit = gasFloor
+		}
+	} else if limit > gasCeil {
+		limit = parent.GasLimit() - decay
+		if limit < gasCeil {
+			limit = gasCeil
 		}
 	}
 	return limit

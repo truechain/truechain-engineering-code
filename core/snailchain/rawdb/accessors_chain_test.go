@@ -25,12 +25,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 )
 
 // Tests block header storage and retrieval operations.
 func TestHeaderStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 
 	// Create a test header to move around the database and make sure it's really new
 	header := &types.SnailHeader{Number: big.NewInt(42), Extra: []byte("test header")}
@@ -63,7 +63,7 @@ func TestHeaderStorage(t *testing.T) {
 
 // Tests block body storage and retrieval operations.
 func TestBodyStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 
 	// Create a test body to move around the database and make sure it's really new
 	//body := &types.SnailBody{Fruits: []*types.Header{{Extra: []byte("test header")}}}
@@ -102,7 +102,7 @@ func TestBodyStorage(t *testing.T) {
 
 //// Tests block storage and retrieval operations.
 func TestBlockStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 
 	// Create a test block to move around the database and make sure it's really new
 	block := types.NewSnailBlockWithHeader(&types.SnailHeader{Extra: []byte("test header")})
@@ -146,7 +146,7 @@ func TestBlockStorage(t *testing.T) {
 //
 // Tests that partial block contents don't get reassembled into full blocks.
 func TestPartialBlockStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 	block := types.NewSnailBlockWithHeader(&types.SnailHeader{
 		Extra:     []byte("test block"),
 		UncleHash: types.EmptyUncleHash,
@@ -178,7 +178,7 @@ func TestPartialBlockStorage(t *testing.T) {
 
 // Tests block total difficulty storage and retrieval operations.
 func TestTdStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 
 	// Create a test TD to move around the database and make sure it's really new
 	hash, td := common.Hash{}, big.NewInt(314)
@@ -201,7 +201,7 @@ func TestTdStorage(t *testing.T) {
 
 // Tests that canonical numbers can be mapped to hashes and retrieved.
 func TestCanonicalMappingStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 
 	// Create a test canonical number and assinged hash to move around
 	hash, number := common.Hash{0: 0xff}, uint64(314)
@@ -224,7 +224,7 @@ func TestCanonicalMappingStorage(t *testing.T) {
 
 // Tests that head headers and head blocks can be assigned, individually.
 func TestHeadStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+	db := etruedb.NewMemDatabase()
 
 	blockHead := types.NewBlockWithHeader(&types.Header{Extra: []byte("test block header")})
 	blockFull := types.NewBlockWithHeader(&types.Header{Extra: []byte("test block full")})
@@ -257,56 +257,30 @@ func TestHeadStorage(t *testing.T) {
 	}
 }
 
-// Tests that receipts associated with a single block can be stored and retrieved.
-func TestBlockReceiptStorage(t *testing.T) {
-	db := ethdb.NewMemDatabase()
+func TestCommitteeStates(t *testing.T) {
+	db := etruedb.NewMemDatabase()
+	states := []uint64{10, 12, 14}
+	updated := []uint64{10, 12, 14, 20, 30}
 
-	receipt1 := &types.Receipt{
-		Status:            types.ReceiptStatusFailed,
-		CumulativeGasUsed: 1,
-		Logs: []*types.Log{
-			{Address: common.BytesToAddress([]byte{0x11})},
-			{Address: common.BytesToAddress([]byte{0x01, 0x11})},
-		},
-		TxHash:          common.BytesToHash([]byte{0x11, 0x11}),
-		ContractAddress: common.BytesToAddress([]byte{0x01, 0x11, 0x11}),
-		GasUsed:         111111,
+	WriteCommitteeStates(db, 0, states)
+	nums := ReadCommitteeStates(db, 0)
+	if len(nums) != len(states) {
+		t.Fatalf("Read Committee states invalid: %v", nums)
 	}
-	receipt2 := &types.Receipt{
-		PostState:         common.Hash{2}.Bytes(),
-		CumulativeGasUsed: 2,
-		Logs: []*types.Log{
-			{Address: common.BytesToAddress([]byte{0x22})},
-			{Address: common.BytesToAddress([]byte{0x02, 0x22})},
-		},
-		TxHash:          common.BytesToHash([]byte{0x22, 0x22}),
-		ContractAddress: common.BytesToAddress([]byte{0x02, 0x22, 0x22}),
-		GasUsed:         222222,
-	}
-	receipts := []*types.Receipt{receipt1, receipt2}
-
-	// Check that no receipt entries are in a pristine database
-	hash := common.BytesToHash([]byte{0x03, 0x14})
-	if rs := ReadReceipts(db, hash, 0); len(rs) != 0 {
-		t.Fatalf("non existent receipts returned: %v", rs)
-	}
-	// Insert the receipt slice into the database and check presence
-	WriteReceipts(db, hash, 0, receipts)
-	if rs := ReadReceipts(db, hash, 0); len(rs) == 0 {
-		t.Fatalf("no receipts returned")
-	} else {
-		for i := 0; i < len(receipts); i++ {
-			rlpHave, _ := rlp.EncodeToBytes(rs[i])
-			rlpWant, _ := rlp.EncodeToBytes(receipts[i])
-
-			if !bytes.Equal(rlpHave, rlpWant) {
-				t.Fatalf("receipt #%d: receipt mismatch: have %v, want %v", i, rs[i], receipts[i])
-			}
+	for i := range nums {
+		if nums[i] != states[i] {
+			t.Fatalf("Read Committee states error at %v", i)
 		}
 	}
-	// Delete the receipt slice and check purge
-	DeleteReceipts(db, hash, 0)
-	if rs := ReadReceipts(db, hash, 0); len(rs) != 0 {
-		t.Fatalf("deleted receipts returned: %v", rs)
+
+	WriteCommitteeStates(db, 0, updated)
+	nums = ReadCommitteeStates(db, 0)
+	if len(nums) != len(updated) {
+		t.Fatalf("Read Committee states invalid: %v", nums)
+	}
+	for i := range nums {
+		if nums[i] != updated[i] {
+			t.Fatalf("Read Committee states error at %v", i)
+		}
 	}
 }

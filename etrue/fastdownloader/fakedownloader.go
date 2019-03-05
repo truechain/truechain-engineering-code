@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	minerva "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	dtypes "github.com/truechain/truechain-engineering-code/etrue/types"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/trie"
@@ -22,9 +22,9 @@ import (
 type DownloadTester struct {
 	downloader *Downloader
 
-	genesis *types.Block   // Genesis blocks used by the tester and peers
-	stateDb ethdb.Database // Database used by the tester for syncing from peers
-	peerDb  ethdb.Database // Database of the peers containing all data
+	genesis *types.Block     // Genesis blocks used by the tester and peers
+	stateDb etruedb.Database // Database used by the tester for syncing from peers
+	peerDb  etruedb.Database // Database of the peers containing all data
 
 	ownHashes   []common.Hash                  // Hash chain belonging to the tester
 	ownHeaders  map[common.Hash]*types.Header  // Headers belonging to the tester
@@ -49,7 +49,7 @@ var (
 )
 
 // newTester creates a new downloader test mocker.
-func NewTester(testdb *ethdb.MemDatabase) *DownloadTester {
+func NewTester(testdb *etruedb.MemDatabase) *DownloadTester {
 
 	genesis := core.GenesisFastBlockForTesting(testdb, testAddress, big.NewInt(1000000000))
 
@@ -68,7 +68,7 @@ func NewTester(testdb *ethdb.MemDatabase) *DownloadTester {
 		peerChainNums:     make(map[string]map[common.Hash]*big.Int),
 		peerMissingStates: make(map[string]map[common.Hash]bool),
 	}
-	tester.stateDb = ethdb.NewMemDatabase()
+	tester.stateDb = etruedb.NewMemDatabase()
 	tester.stateDb.Put(genesis.Root().Bytes(), []byte{0x00})
 	tester.downloader = New(FullSync, tester.stateDb, new(event.TypeMux), tester, nil, tester.dropPeer)
 
@@ -200,7 +200,7 @@ func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uin
 	dl.lock.RUnlock()
 
 	// Synchronise with the chosen peer and ensure proper cleanup afterwards
-	err := dl.downloader.synchronise(id, hash, td, mode, origin, height)
+	err := dl.downloader.synchronise(id, hash, mode, origin, height)
 	select {
 	case <-dl.downloader.cancelCh:
 		// Ok, downloader fully cancelled after sync cycle
@@ -209,6 +209,15 @@ func (dl *DownloadTester) sync(id string, td *big.Int, mode SyncMode, origin uin
 		panic("downloader active post sync cycle") // panic will be caught by tester
 	}
 	return err
+}
+
+// HasFastBlock checks if a block is present in the testers canonical chain.
+func (dl *DownloadTester) HasFastBlock(hash common.Hash, number uint64) bool {
+	dl.lock.RLock()
+	defer dl.lock.RUnlock()
+
+	_, ok := dl.ownReceipts[hash]
+	return ok
 }
 
 // HasHeader checks if a header is present in the testers canonical chain.
@@ -381,7 +390,7 @@ func (dl *DownloadTester) Rollback(hashes []common.Hash) {
 	}
 }
 
-func (dl *DownloadTester) GetBlockNumber() uint64  {
+func (dl *DownloadTester) GetBlockNumber() uint64 {
 
 	if dl.CurrentFastBlock().NumberU64() > dl.CurrentBlock().NumberU64() {
 		return dl.CurrentFastBlock().NumberU64()
@@ -544,15 +553,18 @@ func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain b
 
 	transactions := make([][]*types.Transaction, 0, len(hashes))
 	signs := make([][]*types.PbftSign, 0, len(hashes))
+	infos := make([]*types.SwitchInfos, 0, len(hashes))
+
 	//[]*types.PbftSign
 
 	for _, hash := range hashes {
 		if block, ok := blocks[hash]; ok {
 			transactions = append(transactions, block.Transactions())
 			signs = append(signs, block.Signs())
+			infos = append(infos, block.SwitchInfos())
 		}
 	}
-	go dlp.dl.downloader.DeliverBodies(dlp.id, transactions, signs)
+	go dlp.dl.downloader.DeliverBodies(dlp.id, transactions, signs, infos)
 
 	return nil
 }
@@ -596,7 +608,7 @@ func (dlp *DownloadTesterPeer) RequestNodeData(hashes []common.Hash, isFastchain
 			}
 		}
 	}
-	go dlp.dl.downloader.DeliverNodeData(dlp.id, results)
+	//go dlp.dl.downloader.DeliverNodeData(dlp.id, results)
 
 	return nil
 }

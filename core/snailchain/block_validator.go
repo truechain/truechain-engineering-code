@@ -24,7 +24,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
-	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -69,7 +68,7 @@ func NewBlockValidator(config *params.ChainConfig, fc *core.BlockChain, sc *Snai
 
 //ValidateRewarded verify whether the block has been rewarded.
 func (v *BlockValidator) ValidateRewarded(number uint64) error {
-	if br := v.fastchain.GetFastHeightBySnailHeight(number); br != nil {
+	if br := v.fastchain.GetBlockReward(number); br != nil {
 		log.Info("err reward snail block", "number", number, "reward hash", br.SnailHash, "fast number", br.FastNumber, "fast hash", br.FastHash)
 		return ErrRewardedBlock
 	}
@@ -121,7 +120,7 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 			return ErrInvalidFruits
 		}
 		if err := v.ValidateFruit(fruit, block, false); err != nil {
-			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "err", err)
+			log.Info("ValidateBody snail validate fruit error", "block", block.Number(), "fruit", fruit.FastNumber(), "hash", fruit.FastHash(), "err", err)
 			return err
 		}
 
@@ -136,23 +135,6 @@ func (v *BlockValidator) ValidateBody(block *types.SnailBlock) error {
 	return nil
 }
 
-// ValidateState validates the various changes that happen after a state
-// transition, such as amount of used gas, the receipt roots and the state root
-// itself. ValidateState returns a database batch if the validation was a success
-// otherwise nil and an error is returned.
-func (v *BlockValidator) ValidateState(block, parent *types.SnailBlock, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
-	header := block.Header()
-
-	// Validate the received block's bloom with the one derived from the generated receipts.
-	// For valid blocks this should always validate to true.
-	rbloom := types.CreateBloom(receipts)
-	if rbloom != header.Bloom {
-		return fmt.Errorf("invalid bloom (remote: %x  local: %x)", header.Bloom, rbloom)
-	}
-
-	return nil
-}
-
 //ValidateFruit is to verify if the fruit is legal
 func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical bool) error {
 	//check number(fb)
@@ -162,7 +144,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 		return consensus.ErrFutureBlock
 	}
 
-	fb := v.fastchain.GetBlock(fruit.FastHash(), fruit.FastNumber().Uint64())
+	fb := v.fastchain.GetHeader(fruit.FastHash(), fruit.FastNumber().Uint64())
 	if fb == nil {
 		return ErrInvalidFast
 	}
@@ -186,7 +168,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	}
 
 	header := fruit.Header()
-	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true); err != nil {
+	if err := v.engine.VerifySnailHeader(v.bc, v.fastchain, header, true, true); err != nil {
 		log.Info("validate fruit verify failed.", "err", err)
 		return err
 	}

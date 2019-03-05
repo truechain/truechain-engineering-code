@@ -28,15 +28,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/internal/trueapi"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/miner"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"github.com/truechain/truechain-engineering-code/trie"
 )
@@ -62,11 +63,29 @@ func (api *PublicTruechainAPI) Coinbase() (common.Address, error) {
 	return api.Etherbase()
 }
 
-func (api *PublicTruechainAPI) CommitteeNumber() uint64{
+// Pubkey is the address that mining rewards will be send to (alias for Etherbase)
+func (api *PublicTruechainAPI) Pubkey() string {
+	return common.Bytes2Hex(api.e.agent.committeeNode.Publickey)
+}
+
+// CommitteeBase is the address that generate by pubkey
+func (api *PublicTruechainAPI) CommitteeBase() common.Address {
+	pubKey, _ := crypto.UnmarshalPubkey(api.e.agent.committeeNode.Publickey)
+	return crypto.PubkeyToAddress(*pubKey)
+}
+
+//IsCommitteeMember return node whether current committee member
+func (api *PublicTruechainAPI) IsCommitteeMember() bool {
+	return api.e.agent.isCurrentCommitteeMember
+}
+
+//CommitteeNumber return number of current committee
+func (api *PublicTruechainAPI) CommitteeNumber() uint64 {
 	return api.e.agent.CommitteeNumber()
 }
 
-func (api *PublicTruechainAPI) GetCurrentState() map[string]interface{}{
+//GetCurrentState get current committee state
+func (api *PublicTruechainAPI) GetCurrentState() map[string]interface{} {
 	return api.e.agent.GetCommitteeStatus()
 }
 
@@ -116,6 +135,23 @@ func (api *PublicMinerAPI) GetWork() ([3]string, error) {
 		return work, fmt.Errorf("mining not ready: %v", err)
 	}
 	return work, nil
+}
+
+// GetDataset returns a work package for external miner. The work package consists of 3 strings
+// result[0], 32 bytes hex encoded current block header pow-hash
+// result[1], 32 bytes hex encoded seed hash used for DAG
+// result[2], 32 bytes hex encoded boundary condition ("target"), 2^256/difficulty
+func (api *PublicMinerAPI) GetDataset() ([10240][]byte, error) {
+	if !api.e.IsMining() {
+		if err := api.e.StartMining(false); err != nil {
+			return [10240][]byte{}, err
+		}
+	}
+	headers, err := api.agent.GetDataset()
+	if err != nil {
+		return headers, fmt.Errorf("mining not ready: %v", err)
+	}
+	return headers, nil
 }
 
 // SubmitHashrate can be used for remote miners to submit their hash rate. This enables the node to report the combined
@@ -176,8 +212,37 @@ func (api *PrivateMinerAPI) Stop() bool {
 	if th, ok := api.e.engine.(threaded); ok {
 		th.SetThreads(-1)
 	}
+	api.e.miner.SetFruitOnly(false)
 	api.e.StopMining()
 	return true
+}
+
+func (api *PrivateMinerAPI) StartFruit(threads *int) error {
+	// Set the number of threads if the seal engine supports it
+	if threads == nil {
+		threads = new(int)
+	} else if *threads == 0 {
+		*threads = -1 // Disable the miner from within
+	}
+	type threaded interface {
+		SetThreads(threads int)
+	}
+	if th, ok := api.e.engine.(threaded); ok {
+		log.Info("Updated mining threads", "threads", *threads)
+		th.SetThreads(*threads)
+	}
+	// Start the miner and return
+	if !api.e.IsMining() {
+		// Propagate the initial price point to the transaction pool
+		api.e.lock.RLock()
+		price := api.e.gasPrice
+		api.e.lock.RUnlock()
+
+		api.e.txPool.SetGasPrice(price)
+		api.e.miner.SetFruitOnly(true)
+		return api.e.StartMining(true)
+	}
+	return nil
 }
 
 // SetExtra sets the extra data string that is included when this miner mines a block.
@@ -190,11 +255,11 @@ func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
 
 // SetElection sets the election .
 func (api *PrivateMinerAPI) SetElection(toElect bool, pubkey []byte) (bool, error) {
-	if len(pubkey)<=0{
+	if len(pubkey) <= 0 {
 		return false, fmt.Errorf("SetElection fail the pubkey is nil")
 	}
 
-	api.e.Miner().SetElection(toElect,pubkey);
+	api.e.Miner().SetElection(toElect, pubkey)
 
 	return true, nil
 }
@@ -215,7 +280,7 @@ func (api *PrivateMinerAPI) SetEtherbase(etherbase common.Address) bool {
 	return true
 }
 
-// GetHashrate returns the current hashrate of the miner.
+// GetHashRate returns the current hashrate of the miner.
 func (api *PrivateMinerAPI) GetHashRate() uint64 {
 	return uint64(api.e.Miner().HashRate())
 }
@@ -354,7 +419,7 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error
 // the private debugging endpoint.
 type PrivateDebugAPI struct {
 	config *params.ChainConfig
-	etrue    *Truechain
+	etrue  *Truechain
 }
 
 // NewPrivateDebugAPI creates a new API definition for the full node-related

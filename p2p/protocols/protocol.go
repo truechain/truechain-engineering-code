@@ -29,7 +29,7 @@ devp2p subprotocols by abstracting away code standardly shared by protocols.
 package protocols
 
 import (
-	"bufio"
+	// "bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/p2p"
 )
@@ -118,6 +119,16 @@ type WrappedMsg struct {
 	Payload []byte
 }
 
+//For accounting, the design is to allow the Spec to describe which and how its messages are priced
+//To access this functionality, we provide a Hook interface which will call accounting methods
+//NOTE: there could be more such (horizontal) hooks in the future
+type Hook interface {
+	//A hook for sending messages
+	Send(peer *Peer, size uint32, msg interface{}) error
+	//A hook for receiving messages
+	Receive(peer *Peer, size uint32, msg interface{}) error
+}
+
 // Spec is a protocol specification including its name and version as well as
 // the types of messages which are exchanged
 type Spec struct {
@@ -136,6 +147,9 @@ type Spec struct {
 	// 0, 1 and 2 respectively)
 	// each message must have a single unique data type
 	Messages []interface{}
+
+	//hook for accounting (could be extended to multiple hooks in the future)
+	Hook Hook
 
 	initOnce sync.Once
 	codes    map[reflect.Type]uint64
@@ -239,25 +253,25 @@ func (p *Peer) Send(ctx context.Context, msg interface{}) error {
 	metrics.GetOrRegisterCounter("peer.send", nil).Inc(1)
 
 	var b bytes.Buffer
-	if tracing.Enabled {
-		writer := bufio.NewWriter(&b)
+	// if tracing.Enabled {
+	// 	writer := bufio.NewWriter(&b)
 
-		tracer := opentracing.GlobalTracer()
+	// 	tracer := opentracing.GlobalTracer()
 
-		sctx := spancontext.FromContext(ctx)
+	// 	sctx := spancontext.FromContext(ctx)
 
-		if sctx != nil {
-			err := tracer.Inject(
-				sctx,
-				opentracing.Binary,
-				writer)
-			if err != nil {
-				return err
-			}
-		}
+	// 	if sctx != nil {
+	// 		err := tracer.Inject(
+	// 			sctx,
+	// 			opentracing.Binary,
+	// 			writer)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
 
-		writer.Flush()
-	}
+	// 	writer.Flush()
+	// }
 
 	r, err := rlp.EncodeToBytes(msg)
 	if err != nil {
@@ -309,20 +323,20 @@ func (p *Peer) handleIncoming(handle func(ctx context.Context, msg interface{}) 
 
 	// if tracing is enabled and the context coming within the request is
 	// not empty, try to unmarshal it
-	if tracing.Enabled && len(wmsg.Context) > 0 {
-		var sctx opentracing.SpanContext
+	// if tracing.Enabled && len(wmsg.Context) > 0 {
+	// 	var sctx opentracing.SpanContext
 
-		tracer := opentracing.GlobalTracer()
-		sctx, err = tracer.Extract(
-			opentracing.Binary,
-			bytes.NewReader(wmsg.Context))
-		if err != nil {
-			log.Error(err.Error())
-			return err
-		}
+	// 	tracer := opentracing.GlobalTracer()
+	// 	sctx, err = tracer.Extract(
+	// 		opentracing.Binary,
+	// 		bytes.NewReader(wmsg.Context))
+	// 	if err != nil {
+	// 		log.Error(err.Error())
+	// 		return err
+	// 	}
 
-		ctx = spancontext.WithContext(ctx, sctx)
-	}
+	// 	ctx = spancontext.WithContext(ctx, sctx)
+	// }
 
 	val, ok := p.spec.NewMsg(msg.Code)
 	if !ok {

@@ -22,9 +22,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // Constants to match up protocol versions and messages
@@ -40,7 +40,7 @@ var ProtocolName = "etrue"
 var ProtocolVersions = []uint{eth63, eth62}
 
 // ProtocolLengths are the number of implemented message corresponding to different protocol versions.
-var ProtocolLengths = []uint64{27, 8}
+var ProtocolLengths = []uint64{20, 8}
 
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
@@ -62,30 +62,27 @@ const (
 	FruitMsg      = 0x0a
 	SnailBlockMsg = 0x0b
 	// Protocol messages belonging to eth/63
-	GetNodeDataMsg = 0x0d
-	NodeDataMsg    = 0x0e
-	GetReceiptsMsg = 0x0f
-	ReceiptsMsg    = 0x10
+	GetNodeDataMsg = 0x0c
+	NodeDataMsg    = 0x0d
+	GetReceiptsMsg = 0x0e
+	ReceiptsMsg    = 0x0f
 
 	//snail sync
-	GetSnailBlockHeadersMsg   = 0x11
-	SnailBlockHeadersMsg      = 0x12
-	GetSnailBlockBodiesMsg    = 0x13
-	SnailBlockBodiesMsg       = 0x14
-	GetFastOneBlockHeadersMsg = 0x15
-	FastOneBlockHeadersMsg    = 0x16
+	GetSnailBlockHeadersMsg   = 0x10
+	SnailBlockHeadersMsg      = 0x11
+	GetSnailBlockBodiesMsg    = 0x12
+	SnailBlockBodiesMsg       = 0x13
 )
 
 type errCode int
 
 const (
-	ErrMsgTooLarge              = iota
+	ErrMsgTooLarge = iota
 	ErrDecode
 	ErrInvalidMsgCode
 	ErrProtocolVersionMismatch
 	ErrNetworkIdMismatch
 	ErrGenesisBlockMismatch
-	ErrFastGenesisBlockMismatch
 	ErrNoStatusMsg
 	ErrExtraStatusMsg
 	ErrSuspendedPeer
@@ -103,7 +100,6 @@ var errorToString = map[int]string{
 	ErrProtocolVersionMismatch:  "Protocol version mismatch",
 	ErrNetworkIdMismatch:        "NetworkId mismatch",
 	ErrGenesisBlockMismatch:     "Genesis block mismatch",
-	ErrFastGenesisBlockMismatch: "Fast Genesis block mismatch",
 	ErrNoStatusMsg:              "No status message",
 	ErrExtraStatusMsg:           "Extra status message",
 	ErrSuspendedPeer:            "Suspended peer",
@@ -156,10 +152,10 @@ type statusData struct {
 	ProtocolVersion  uint32
 	NetworkId        uint64
 	TD               *big.Int
+	FastHeight       *big.Int
 	CurrentBlock     common.Hash
 	GenesisBlock     common.Hash
 	CurrentFastBlock common.Hash
-	GenesisFastBlock common.Hash
 }
 
 // newBlockHashesData is the network packet for the block announcements.
@@ -228,6 +224,7 @@ type newSnailBlockData struct {
 type blockBody struct {
 	Transactions []*types.Transaction // Transactions contained within a block
 	Signs        []*types.PbftSign    // Signs contained within a block
+	Infos        *types.SwitchInfos   //change info
 }
 
 // blockBodiesData is the network packet for block content distribution.

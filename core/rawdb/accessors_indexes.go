@@ -18,9 +18,9 @@ package rawdb
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 // ReadTxLookupEntry retrieves the positional metadata associated with a transaction
@@ -62,6 +62,14 @@ func WriteTxLookupEntries(db DatabaseWriter, block *types.Block) {
 // DeleteTxLookupEntry removes all transaction data associated with a hash.
 func DeleteTxLookupEntry(db DatabaseDeleter, hash common.Hash) {
 	db.Delete(txLookupKey(hash))
+}
+
+// HasTxLookupEntry verifies the existence of a txLookup entry corresponding to the hash.
+func HasTxLookupEntry(db DatabaseReader, hash common.Hash) bool {
+	if has, err := db.Has(txLookupKey(hash)); !has || err != nil {
+		return false
+	}
+	return true
 }
 
 // ReadTransaction retrieves a specific transaction from the database, along with

@@ -26,7 +26,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
@@ -34,6 +33,9 @@ type hashrate struct {
 	ping time.Time
 	rate uint64
 }
+
+const UPDATABLOCKLENGTH = 12000 //12000  3000
+const DATASETHEADLENGH = 10240
 
 // RemoteAgent for Remote mine
 type RemoteAgent struct {
@@ -127,8 +129,8 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		block := a.currentWork.Block
 
 		res[0] = block.HashNoNonce().Hex()
-		seedHash := ethash.SeedHash(block.NumberU64())
-		res[1] = common.BytesToHash(seedHash).Hex()
+		DatasetHash := a.engine.DataSetHash(block.NumberU64())
+		res[1] = DatasetHash.Hex()
 		// Calculate the "target" to be returned to the external miner
 		n := big.NewInt(1)
 		n.Lsh(n, 255)
@@ -162,7 +164,7 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 
 	//pointer := a.snailchain.GetHeaderByHash(result.PointerHash)
 
-	if err := a.engine.VerifySnailSeal(a.snailchain, result); err != nil {
+	if err := a.engine.VerifySnailSeal(a.snailchain, result, false); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
 	}
@@ -180,6 +182,33 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	delete(a.work, hash)
 
 	return true
+}
+
+//GetWork return the current block hash without nonce
+func (a *RemoteAgent) GetDataset() ([DATASETHEADLENGH][]byte, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	var res [DATASETHEADLENGH][]byte
+	if a.currentWork != nil {
+		block := a.currentWork.Block
+		epoch := uint64((block.Number().Uint64() - 1) / UPDATABLOCKLENGTH)
+		if epoch == 0 {
+			return res, nil
+		}
+		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
+
+		for i := 0; i < DATASETHEADLENGH; i++ {
+			header := a.snailchain.GetHeaderByNumber(uint64(i) + st_block_num)
+			if header == nil {
+				//log.Error("----updateTBL--The skip is nil---- ", "blockNum is:  ", (uint64(i) + st_block_num))
+				return res, errors.New("GetDataset get heard fial")
+			}
+			res[i] = header.Hash().Bytes()
+		}
+		return res, nil
+	}
+	return res, errors.New("No work available yet, Don't panic.")
 }
 
 // loop monitors mining events on the work and quit channels, updating the internal

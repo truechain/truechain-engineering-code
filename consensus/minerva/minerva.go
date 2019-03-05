@@ -253,6 +253,10 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 		lru.futureItem = future
 	}
 
+	//return item, lru.futureItem
+	if (epoch + 1) != lru.future {
+		return item, nil
+	}
 	return item, lru.futureItem
 }
 
@@ -276,8 +280,8 @@ func newDataset(epoch uint64) interface{} {
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
 	}
-	//truehashTableInit(ds.evenDataset)
-	log.Info("--- create a new dateset ", "epoch is", epoch)
+	log.Info("create a new dateset", "epoch", epoch)
+
 	return ds
 }
 
@@ -375,7 +379,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	// when change the algorithm before 12000*n
 	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
 		go func() {
-			log.Info("start to create a future dataset")
+			//log.Info("start to create a future dataset")
 			if futureI != nil {
 				future := futureI.(*dataset)
 				future.generate(m.datasets.future, m)
@@ -397,21 +401,21 @@ func (d *dataset) generate(epoch uint64, m *Minerva) {
 	d.once.Do(func() {
 		if d.dateInit == 0 {
 			if epoch <= 0 {
-				log.Info("TableInit is start,:epoch is:  ", "------", epoch)
+				log.Info("TableInit is start", "epoch", epoch)
 				m.truehashTableInit(d.dataset)
 				d.datasetHash = d.Hash()
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
-				log.Info("updateLookupTBL is start,:epoch is:  ", "------", epoch)
+				log.Info("updateLookupTBL is start", "epoch", epoch)
 				flag, _, cont := m.updateLookupTBL(epoch, d.dataset)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
 					d.datasetHash = d.Hash()
 
-					log.Info("updateLookupTBL change success", "epoch is:", epoch, "---consistent is:", d.consistent.String())
+					log.Info("updateLookupTBL change success", "epoch", epoch, "consistent", d.consistent.String())
 				} else {
-					log.Error("updateLookupTBL is err  ", "epoch is:  ", epoch)
+					log.Error("updateLookupTBL err", "epoch", epoch)
 				}
 			}
 			d.dateInit = 1
@@ -544,6 +548,15 @@ func SeedHash(block uint64) []byte {
 	return seedHash(block)
 }
 
+func (m *Minerva) DataSetHash(block uint64) common.Hash {
+	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
+	currentI, _ := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	return current.datasetHash
+
+}
+
 type fakeElection struct {
 	privates []*ecdsa.PrivateKey
 	members  []*types.CommitteeMember
@@ -553,14 +566,14 @@ func newFakeElection() *fakeElection {
 	var priKeys []*ecdsa.PrivateKey
 	var members []*types.CommitteeMember
 
-	for i := 0; int64(i) < params.MinimumCommitteeNumber.Int64(); i++ {
+	for i := 0; i < params.MinimumCommitteeNumber; i++ {
 		priKey, err := crypto.GenerateKey()
 		priKeys = append(priKeys, priKey)
 		if err != nil {
 			log.Error("initMembers", "error", err)
 		}
 		coinbase := crypto.PubkeyToAddress(priKey.PublicKey)
-		m := &types.CommitteeMember{coinbase, &priKey.PublicKey}
+		m := &types.CommitteeMember{coinbase, crypto.PubkeyToAddress(priKey.PublicKey), crypto.FromECDSAPub(&priKey.PublicKey), types.StateUsedFlag, types.TypeFixed}
 		members = append(members, m)
 	}
 	return &fakeElection{privates: priKeys, members: members}
@@ -580,13 +593,18 @@ func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeM
 		pubkey, _ := crypto.SigToPub(sign.HashWithNoSign().Bytes(), sign.Sign)
 		pubkeyByte := crypto.FromECDSAPub(pubkey)
 		for _, m := range e.members {
-			if bytes.Equal(pubkeyByte, crypto.FromECDSAPub(m.Publickey)) {
+			if bytes.Equal(pubkeyByte, m.Publickey) {
 				members[i] = m
 			}
 		}
 	}
 
 	return members, errs
+}
+
+// VerifySwitchInfo verify committee members and it's state
+func (e *fakeElection) VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error {
+	return nil
 }
 
 func (e *fakeElection) GenerateFakeSigns(fb *types.Block) ([]*types.PbftSign, error) {

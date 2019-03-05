@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/event"
 )
@@ -110,7 +109,7 @@ func (ts *TrueScan) txHandleLoop() error {
 }
 
 func (ts *TrueScan) handleTx(tx *types.Transaction) {
-	from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
+	from, err := types.NewTIP1Signer(tx.ChainId()).Sender(tx)
 	if err != nil {
 		return
 	}
@@ -193,10 +192,9 @@ func (ts *TrueScan) handleElection(ee *types.ElectionEvent) {
 	members := ee.CommitteeMembers
 	mas := make([]*pbftMemberMsg, len(members))
 	for i, member := range members {
-		bs := crypto.FromECDSAPub(member.Publickey)
 		mas[i] = &pbftMemberMsg{
 			Coinbase: member.Coinbase.String(),
-			PubKey:   "0x" + hex.EncodeToString(bs),
+			PubKey:   "0x" + hex.EncodeToString(member.Publickey),
 		}
 	}
 	cvm := &ChangeViewMsg{
@@ -337,7 +335,7 @@ func (ts *TrueScan) handleFastChain(fbe types.FastBlockEvent) {
 		if r == nil {
 			continue
 		}
-		from, err := types.NewEIP155Signer(tx.ChainId()).Sender(tx)
+		from, err := types.NewTIP1Signer(tx.ChainId()).Sender(tx)
 		if err != nil {
 			continue
 		}

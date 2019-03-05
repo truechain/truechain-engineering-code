@@ -90,7 +90,7 @@ type Engine interface {
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
 	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
-	VerifySnailHeader(chain SnailChainReader, fastchain ChainReader, header *types.SnailHeader, seal bool) error
+	VerifySnailHeader(chain SnailChainReader, fastchain ChainReader, header *types.SnailHeader, seal bool, isFruit bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 	// concurrently. The method returns a quit channel to abort the operations and
@@ -105,17 +105,15 @@ type Engine interface {
 	// the input slice).
 	VerifySnailHeaders(chain SnailChainReader, headers []*types.SnailHeader, seals []bool) (chan<- struct{}, <-chan error)
 
-	// VerifyUncles verifies that the given block's uncles conform to the consensus
-	// rules of a given engine.
-	VerifySnailUncles(chain SnailChainReader, block *types.SnailBlock) error
-
 	// VerifySeal checks whether the crypto seal on a header is valid according to
 	// the consensus rules of the given engine.
-	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader) error
+	VerifySnailSeal(chain SnailChainReader, header *types.SnailHeader, isFruit bool) error
 
 	VerifyFreshness(chain SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error
 
 	VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error
+
+	VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -140,16 +138,21 @@ type Engine interface {
 
 	CalcSnailDifficulty(chain SnailChainReader, time uint64, parents []*types.SnailHeader) *big.Int
 
-	GetDifficulty(header *types.SnailHeader) (*big.Int, *big.Int)
+	GetDifficulty(header *types.SnailHeader, isFruit bool) (*big.Int, *big.Int)
 
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
+
+	DataSetHash(block uint64) common.Hash
 }
 
 //Election module implementation committee interface
 type CommitteeElection interface {
-	//VerifySigns verify the fast chain committee signatures in batches
+	// VerifySigns verify the fast chain committee signatures in batches
 	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
+
+	// VerifySwitchInfo verify committee members and it's state
+	VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)

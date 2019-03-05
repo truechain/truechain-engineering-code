@@ -40,12 +40,13 @@ func TestTestMode(t *testing.T) {
 
 	go minerva.ConSeal(nil, block, nil, results)
 
+	isFruit := block.IsFruit()
+
 	select {
 	case block := <-results:
-		header.Fruit = block.IsFruit()
 		header.Nonce = types.EncodeNonce(block.Nonce())
 		header.MixDigest = block.MixDigest()
-		if err := minerva.VerifySnailSeal(nil, header); err != nil {
+		if err := minerva.VerifySnailSeal(nil, header, isFruit); err != nil {
 			t.Fatalf("unexpected verification error: %v", err)
 		}
 	case <-time.NewTimer(time.Second * 500).C:
@@ -84,7 +85,7 @@ func verifyTest(wg *sync.WaitGroup, e *Minerva, workerIndex, epochs int) {
 			block = 0
 		}
 		head := &types.SnailHeader{Number: big.NewInt(block), Difficulty: big.NewInt(180), FruitDifficulty: big.NewInt(100)}
-		e.VerifySnailSeal(nil, head)
+		e.VerifySnailSeal(nil, head, false)
 	}
 }
 

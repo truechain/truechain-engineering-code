@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with go-ethereum. If not, see <http://www.gnu.org/licenses/>.
 
-// Package utils contains internal helper functions for go-ethereum commands.
+// Package utils contains internal helper functions for truechain-engineering-code commands.
 package utils
 
 import (
@@ -23,16 +23,14 @@ import (
 	"io"
 	"os"
 	"os/signal"
-		"strings"
+	"strings"
 	"syscall"
 
-				"github.com/truechain/truechain-engineering-code/core/types"
-				"github.com/ethereum/go-ethereum/log"
-		"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
-
-
 
 func ImportSnailChain(chain *snailchain.SnailBlockChain, fn string) error {
 	// Watch for Ctrl-C while the import is running.
@@ -135,8 +133,6 @@ func missingSnailBlocks(chain *snailchain.SnailBlockChain, blocks []*types.Snail
 	}
 	return nil
 }
-
-
 
 // ExportChain exports a blockchain into the specified file, truncating any data
 // already present in the file.

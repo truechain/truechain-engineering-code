@@ -51,7 +51,11 @@ var DefaultConfig = Config{
 	DatabaseCache: 768,
 	TrieCache:     256,
 	TrieTimeout:   60 * time.Minute,
-	GasPrice:      big.NewInt(18 * params.Shannon),
+	MinerGasFloor: 8000000,
+	MinerGasCeil:  8000000,
+	//GasPrice:      big.NewInt(18 * params.Shannon),
+
+	GasPrice: big.NewInt(1 * params.Babbage),
 
 	TxPool:    core.DefaultTxPoolConfig,
 	SnailPool: snailchain.DefaultSnailPoolConfig,
@@ -74,8 +78,15 @@ func init() {
 			home = user.HomeDir
 		}
 	}
-	if runtime.GOOS == "windows" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Minerva")
+	if runtime.GOOS == "darwin" {
+		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "Library", "Minerva")
+	} else if runtime.GOOS == "windows" {
+		localappdata := os.Getenv("LOCALAPPDATA")
+		if localappdata != "" {
+			DefaultConfig.Ethash.DatasetDir = filepath.Join(localappdata, "Minerva")
+		} else {
+			DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Local", "Minerva")
+		}
 	} else {
 		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".minerva")
 	}
@@ -91,9 +102,13 @@ type Config struct {
 	// SnailGenesis *snailchain.Genesis
 
 	// Protocol options
-	NetworkId uint64 // Network ID to use for selecting peers to connect to
-	SyncMode  downloader.SyncMode
-	NoPruning bool
+	NetworkId    uint64 // Network ID to use for selecting peers to connect to
+	SyncMode     downloader.SyncMode
+	NoPruning    bool
+	DeletedState bool
+
+	// Whitelist of required block number -> hash values to accept
+	Whitelist map[uint64]common.Hash `toml:"-"`
 
 	// Light client options
 	LightServ  int `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
@@ -118,6 +133,9 @@ type Config struct {
 	// StandByPort is the TCP port number on which to start the pbft server.
 	StandbyPort int `toml:",omitempty"`
 
+	// Ultra Light client options
+	ULC *ULCConfig `toml:",omitempty"`
+
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`
 	DatabaseHandles    int  `toml:"-"`
@@ -126,10 +144,12 @@ type Config struct {
 	TrieTimeout        time.Duration
 
 	// Mining-related options
-	Etherbase    common.Address `toml:",omitempty"`
-	MinerThreads int            `toml:",omitempty"`
-	ExtraData    []byte         `toml:",omitempty"`
-	GasPrice     *big.Int
+	Etherbase     common.Address `toml:",omitempty"`
+	MinerThreads  int            `toml:",omitempty"`
+	ExtraData     []byte         `toml:",omitempty"`
+	MinerGasFloor uint64
+	MinerGasCeil  uint64
+	GasPrice      *big.Int
 
 	// Ethash options
 	Ethash ethash.Config

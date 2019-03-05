@@ -22,9 +22,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/truechain/truechain-engineering-code/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 )
 
 // Prove constructs a merkle proof for key. The result contains all encoded nodes
@@ -34,10 +34,10 @@ import (
 // If the trie does not contain a value for key, the returned proof contains all
 // nodes of the longest existing prefix of the key (at least the root node), ending
 // with the node that proves the absence of the key.
-func (t *Trie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
+func (t *Trie) Prove(key []byte, fromLevel uint, proofDb etruedb.Putter) error {
 	// Collect all nodes on the path to key.
 	key = keybytesToHex(key)
-	nodes := []node{}
+	var nodes []node
 	tn := t.root
 	for len(key) > 0 && tn != nil {
 		switch n := tn.(type) {
@@ -66,6 +66,8 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
 		}
 	}
 	hasher := newHasher(0, 0, nil)
+	defer returnHasherToPool(hasher)
+
 	for i, n := range nodes {
 		// Don't bother checking for errors here since hasher panics
 		// if encoding doesn't work and we're not writing to any database.
@@ -95,7 +97,7 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
 // If the trie does not contain a value for key, the returned proof contains all
 // nodes of the longest existing prefix of the key (at least the root node), ending
 // with the node that proves the absence of the key.
-func (t *SecureTrie) Prove(key []byte, fromLevel uint, proofDb ethdb.Putter) error {
+func (t *SecureTrie) Prove(key []byte, fromLevel uint, proofDb etruedb.Putter) error {
 	return t.trie.Prove(key, fromLevel, proofDb)
 }
 

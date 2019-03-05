@@ -25,7 +25,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -57,7 +57,6 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 		}
 		panic("coinbase can only be set once")
 	}
-	//b.header.Coinbase = addr
 	b.gasPool = new(GasPool).AddGas(b.header.GasLimit)
 }
 
@@ -150,7 +149,6 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	//b.header.Difficulty = b.engine.CalcDifficulty(b.chainReader, b.header.Time.Uint64(), b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -165,12 +163,10 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 // Blocks created by GenerateChain do not contain valid proof of work
 // values. Inserting them into BlockChain requires use of FakePow or
 // a similar non-validating proof of work implementation.
-func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
+func GenerateChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db etruedb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
-
-
 
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
@@ -187,7 +183,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			//fmt.Println("====================================================")
 			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
@@ -217,20 +212,16 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	return blocks, receipts
 }
 
-
-func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db ethdb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts,*BlockChain) {
+func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db etruedb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts, *BlockChain) {
 	if config == nil {
 		config = params.TestChainConfig
 	}
 
-
 	blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	genblock := func(i int, parent *types.Block, statedb *state.StateDB,blockchain *BlockChain) (*types.Block, types.Receipts) {
+	genblock := func(i int, parent *types.Block, statedb *state.StateDB, blockchain *BlockChain) (*types.Block, types.Receipts) {
 		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
 		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-
-		//defer blockchain.Stop()
 
 		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
@@ -240,7 +231,6 @@ func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine 
 		}
 
 		if b.engine != nil {
-			//fmt.Println("====================================================")
 			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
@@ -263,16 +253,14 @@ func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine 
 		if err != nil {
 			panic(err)
 		}
-		block, receipt := genblock(i, parent, statedb,blockchain)
+		block, receipt := genblock(i, parent, statedb, blockchain)
 		blocks[i] = block
 		receipts[i] = receipt
 		parent = block
 
 	}
-	return blocks, receipts,blockchain
+	return blocks, receipts, blockchain
 }
-
-
 
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
 	var time *big.Int
@@ -285,14 +273,14 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 	return &types.Header{
 		Root:       state.IntermediateRoot(true),
 		ParentHash: parent.Hash(),
-		GasLimit:   FastCalcGasLimit(parent),
+		GasLimit:   FastCalcGasLimit(parent, parent.GasLimit(), parent.GasLimit()),
 		Number:     new(big.Int).Add(parent.Number(), common.Big1),
 		Time:       time,
 	}
 }
 
 // makeHeaderChain creates a deterministic chain of headers rooted at parent.
-func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Header {
+func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Header {
 	blocks := makeBlockChain(types.NewBlockWithHeader(parent), n, engine, db, seed)
 	headers := make([]*types.Header, len(blocks))
 	for i, block := range blocks {
@@ -302,7 +290,7 @@ func makeHeaderChain(parent *types.Header, n int, engine consensus.Engine, db et
 }
 
 // makeBlockChain creates a deterministic chain of blocks rooted at parent.
-func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethdb.Database, seed int) []*types.Block {
+func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db etruedb.Database, seed int) []*types.Block {
 	blocks, _ := GenerateChain(params.TestChainConfig, parent, engine, db, n, func(i int, b *BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(seed), 19: byte(i)})
 
@@ -311,16 +299,17 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db ethd
 	return blocks
 }
 
-func NewCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
-	db,blockchain,err := newCanonical(engine, n, full)
-	return db,blockchain,err
+func NewCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
+	db, blockchain, err := newCanonical(engine, n, full)
+	return db, blockchain, err
 }
+
 // newCanonical creates a chain database, and injects a deterministic canonical
 // chain. Depending on the full flag, if creates either a full block chain or a
 // header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
+func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
 	var (
-		db = ethdb.NewMemDatabase()
+		db = etruedb.NewMemDatabase()
 	)
 
 	BaseGenesis := DefaultGenesisBlock()

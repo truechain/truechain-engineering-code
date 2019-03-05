@@ -30,7 +30,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/core/vm"
-	"github.com/truechain/truechain-engineering-code/ethdb"
+	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -41,12 +41,12 @@ var fastchain *core.BlockChain
 var snailblockchain *SnailBlockChain
 var engine consensus.Engine
 var chainConfig *params.ChainConfig
-var peerDb ethdb.Database // Database of the peers containing all data
+var peerDb etruedb.Database // Database of the peers containing all data
 var genesis *core.Genesis
 var snailGenesis *types.SnailBlock
 
 func init() {
-	peerDb = ethdb.NewMemDatabase()
+	peerDb = etruedb.NewMemDatabase()
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig = params.TestChainConfig
 	testSnailPoolConfig.Journal = ""
@@ -64,7 +64,7 @@ func init() {
 	fastchain.InsertChain(fastblocks)
 
 	snailGenesis = genesis.MustSnailCommit(peerDb)
-	snailblockchain, _ = NewSnailBlockChain(peerDb, nil, params.TestChainConfig, engine, vm.Config{})
+	snailblockchain, _ = NewSnailBlockChain(peerDb, params.TestChainConfig, engine, vm.Config{}, fastchain)
 	/*if err != nil{
 		fmt.Print(err)
 	}*/
@@ -131,7 +131,6 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 			Number:          new(big.Int).SetUint64(uint64(makeBlockNum)),
 			Time:            big.NewInt(tstamp),
 			Coinbase:        coinbaseAddr,
-			Fruit:           isFruit,
 			FastNumber:      fastNumber,
 			Difficulty:      diff,
 			FruitDifficulty: fruitDiff,
@@ -219,8 +218,7 @@ func makeSnailFruit(chain *SnailBlockChain, fastchain *core.BlockChain, makeBloc
 
 func setupSnailPool() *SnailPool {
 
-	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
-	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
+	pool := NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
 	return pool
 }
 
@@ -270,7 +268,6 @@ func TestInvalidFruits(t *testing.T) {
 	var header *types.SnailHeader
 	header = &types.SnailHeader{
 		header.Hash(),
-		header.Hash(),
 		common.BytesToAddress([]byte{0}),
 		header.Hash(),
 		big.NewInt(0),
@@ -278,17 +275,14 @@ func TestInvalidFruits(t *testing.T) {
 		header.Hash(),
 		big.NewInt(182),
 		header.Hash(),
-		types.BytesToBloom([]byte{0}),
 		big.NewInt(0),
 		big.NewInt(2000),
-		nil,
+		big.NewInt(0),
 		[]byte{0},
-		false,
 		nil,
 		[]byte{0},
 		header.Hash(),
 		[8]byte{},
-		true,
 	}
 	var ft *types.SnailBlock
 	ft = types.NewSnailBlock(header, nil, nil, nil)
@@ -451,8 +445,7 @@ func testFruitJournaling(t *testing.T) {
 	// Terminate the old pool,create a new pool and ensure relevant fruit survive
 	pool.Stop()
 
-	sv := NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
 
 	pending, unverified = pool.Stats()
 	if unverified != 0 {
@@ -465,8 +458,7 @@ func testFruitJournaling(t *testing.T) {
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
-	sv = NewBlockValidator(chainConfig, fastchain, snailblockchain, engine)
-	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine, sv)
+	pool = NewSnailPool(testSnailPoolConfig, fastchain, snailblockchain, engine)
 	pending, unverified = pool.Stats()
 	if pending != 0 {
 		t.Fatalf("pending fruits mismatched: have %d, want %d", pending, 0)
