@@ -20,16 +20,16 @@ package p2p
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
-
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/p2p/enode"
-	"github.com/truechain/truechain-engineering-code/event"
 )
 
 const (
@@ -134,6 +134,7 @@ func newMeteredConn(conn net.Conn, ingress bool, ip net.IP) net.Conn {
 // Read delegates a network read to the underlying connection, bumping the common
 // and the peer ingress traffic meters along the way.
 func (c *meteredConn) Read(b []byte) (n int, err error) {
+	watch := help.NewTWatch(3, fmt.Sprintf("ip: %d, tcp Send", c.RemoteAddr()))
 	n, err = c.Conn.Read(b)
 	ingressTrafficMeter.Mark(int64(n))
 	c.lock.RLock()
@@ -141,6 +142,8 @@ func (c *meteredConn) Read(b []byte) (n int, err error) {
 		c.ingressMeter.Mark(int64(n))
 	}
 	c.lock.RUnlock()
+	watch.EndWatch()
+	watch.Finish(fmt.Sprintf("end  n: %d err: %v ", n, err))
 	return n, err
 }
 
