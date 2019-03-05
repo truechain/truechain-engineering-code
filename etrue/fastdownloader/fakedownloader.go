@@ -553,7 +553,7 @@ func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain b
 
 	transactions := make([][]*types.Transaction, 0, len(hashes))
 	signs := make([][]*types.PbftSign, 0, len(hashes))
-	infos := make([]*types.CommitteeMember, 0, len(hashes))
+	infos := make([][]*types.CommitteeMember, 0, len(hashes))
 
 	//[]*types.PbftSign
 
@@ -561,7 +561,7 @@ func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain b
 		if block, ok := blocks[hash]; ok {
 			transactions = append(transactions, block.Transactions())
 			signs = append(signs, block.Signs())
-			infos = append(infos, block.SwitchInfos()...)
+			infos = append(infos, block.SwitchInfos())
 		}
 	}
 	go dlp.dl.downloader.DeliverBodies(dlp.id, transactions, signs, infos)
