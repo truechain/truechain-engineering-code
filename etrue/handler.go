@@ -747,7 +747,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
 		signs := make([][]*types.PbftSign, len(request))
-		infos := make([]*types.SwitchInfos, len(request))
+		infos := make([][]*types.CommitteeMember, len(request))
 
 		for i, body := range request {
 			transactions[i] = body.Transactions
