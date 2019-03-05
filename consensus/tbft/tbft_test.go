@@ -1319,3 +1319,14 @@ func newRound(round int, vs *ttypes.ValidatorSet) *ttypes.ValidatorSet {
 	}
 	return validators
 }
+
+func TestStat(t *testing.T) {
+	for i := 0; i <= 30; i++ {
+		help.DurationStat.AddStartStatTime("b", uint64(i))
+		help.DurationStat.AddEndStatTime("b", uint64(i))
+		help.DurationStat.AddOtherStat("a", i, uint64(i))
+		if i > 20 {
+			fmt.Println(help.DurationStat.PrintDurStat())
+		}
+	}
+}

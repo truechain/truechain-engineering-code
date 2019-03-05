@@ -95,7 +95,7 @@ func RandHexBytes32() [32]byte {
 
 func TestVoteRlpCommitteeMember(t *testing.T) {
 	var si types2.SwitchInfos
-	si.CID = 1
+	si.CID = common.Big1
 	var m types2.CommitteeMember
 	m.CommitteeBase = common.Address{0}
 	m.Coinbase = common.Address{0}

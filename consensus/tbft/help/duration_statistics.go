@@ -5,28 +5,25 @@ import (
 	"time"
 )
 
-var dsLocal *durationStat
+const CacheLen = 20
 
-//DurationStat base
-func DurationStat() *durationStat {
-	if dsLocal != nil {
-		return dsLocal
-	}
-	dsLocal = &durationStat{
-		statTimeArray: make(map[uint64]statTime),
-		otherStatInfo: make(map[uint64]map[string]interface{}),
-		statMaxLen:    20,
+var DurationStat = newDurationStat()
+
+func newDurationStat() *durationStat {
+	return &durationStat{
+		StatTimeArray: make(map[uint64]statTime),
+		OtherStatInfo: make(map[uint64]map[string]interface{}),
+		StatMaxLen:    CacheLen,
 		lock:          new(sync.Mutex),
 	}
-	return dsLocal
 }
 
 type statTime map[string]runTime
 
 type durationStat struct {
-	statTimeArray map[uint64]statTime
-	otherStatInfo map[uint64]map[string]interface{}
-	statMaxLen    uint64
+	StatTimeArray map[uint64]statTime
+	OtherStatInfo map[uint64]map[string]interface{}
+	StatMaxLen    uint64
 	lock          *sync.Mutex //Being not
 }
 
@@ -53,10 +50,10 @@ func (t statTime) toMap() map[string]interface{} {
 
 func (d *durationStat) PrintDurStat() map[uint64]interface{} {
 	s := make(map[uint64]interface{})
-	for k, v := range d.statTimeArray {
+	for k, v := range d.StatTimeArray {
 		stat := make(map[string]interface{})
 		stat["stat"] = v.toMap()
-		if other, ok := d.otherStatInfo[k]; ok {
+		if other, ok := d.OtherStatInfo[k]; ok {
 			stat["other"] = other
 		}
 		s[k] = stat
@@ -66,7 +63,7 @@ func (d *durationStat) PrintDurStat() map[uint64]interface{} {
 
 func (d *durationStat) addStatTime(flag string, ifBegin bool, round uint64) {
 	var tt statTime = make(map[string]runTime)
-	if v, ok := d.statTimeArray[round]; ok {
+	if v, ok := d.StatTimeArray[round]; ok {
 		tt = v
 	}
 	var r runTime
@@ -79,26 +76,29 @@ func (d *durationStat) addStatTime(flag string, ifBegin bool, round uint64) {
 		r.end = time.Now()
 	}
 	tt[flag] = r
-	d.statTimeArray[round] = tt
+	d.StatTimeArray[round] = tt
 
-	if round > d.statMaxLen {
-		delete(d.statTimeArray, round-d.statMaxLen)
+	if round > d.StatMaxLen {
+		delete(d.StatTimeArray, round-d.StatMaxLen)
 	}
 }
+
 func (d *durationStat) AddStartStatTime(flag string, height uint64) {
 	d.addStatTime(flag, true, height)
 }
+
 func (d *durationStat) AddEndStatTime(flag string, height uint64) {
 	d.addStatTime(flag, false, height)
 }
+
 func (d *durationStat) AddOtherStat(k string, v interface{}, height uint64) {
 	info := make(map[string]interface{})
-	if v, ok := d.otherStatInfo[height]; ok {
+	if v, ok := d.OtherStatInfo[height]; ok {
 		info = v
 	}
 	info[k] = v
-	d.otherStatInfo[height] = info
-	if height > d.statMaxLen {
-		delete(d.otherStatInfo, height-d.statMaxLen)
+	d.OtherStatInfo[height] = info
+	if height > d.StatMaxLen {
+		delete(d.OtherStatInfo, height-d.StatMaxLen)
 	}
 }
