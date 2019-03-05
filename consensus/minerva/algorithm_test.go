@@ -18,11 +18,13 @@ package minerva
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 )
 
 // Tests whether the truehash lookup works for both light as well as the full
@@ -101,7 +103,30 @@ func BenchmarkTruehashFullSmall(b *testing.B) {
 	}
 }
 
+func makeDatasetHash(dataset []uint64) {
+	var datas []byte
+	tmp := make([]byte, 8)
+	for _, v := range dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	fmt.Println("datalen:", len(datas), "256:", datas[256])
+	sha512 := makeHasher(sha3.New512())
+	var sha512_out [64]byte
+	sha512(sha512_out[:], datas[:])
+	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
+}
+func makeTestSha3() {
+	datas := []byte{1, 2, 3, 4, 5, 6}
+
+	sha512 := makeHasher(sha3.New512())
+	var sha512_out [64]byte
+
+	sha512(sha512_out[:], datas[:])
+	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
+}
 func TestTrueHash2(t *testing.T) {
+	makeTestSha3()
 	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
 
@@ -111,9 +136,10 @@ func TestTrueHash2(t *testing.T) {
 		}
 	}
 	genLookupTable(dataset[:], table[:])
+	makeDatasetHash(dataset)
 
 	hash := hexutil.MustDecode("0x645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc")
-	nonce := uint64(0)
+	nonce := uint64(79183) // mining for windows
 
 	tt := new(big.Int).Div(maxUint128, big.NewInt(100000))
 	tb := tt.Bytes()
@@ -126,7 +152,7 @@ func TestTrueHash2(t *testing.T) {
 	if target.Cmp(target2) == 0 {
 		fmt.Println("target equal...")
 	}
-	fruitTarget := new(big.Int).SetBytes([]byte{0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	//fruitTarget := new(big.Int).SetBytes([]byte{0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
 
 	for {
 		_, result := truehashLight(dataset, hash, nonce)
@@ -137,7 +163,7 @@ func TestTrueHash2(t *testing.T) {
 
 		} else {
 			lastResult := result[16:]
-			if new(big.Int).SetBytes(lastResult).Cmp(fruitTarget) <= 0 {
+			if new(big.Int).SetBytes(lastResult).Cmp(target) <= 0 {
 				break
 			}
 		}
