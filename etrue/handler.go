@@ -1313,9 +1313,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			}
 
 			if len(pm.txsCh) > 0 && len(txs) < txPackSize {
-				if len(txs)%3 == 0 {
-					log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
-				}
+				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 				continue
 			}
 
