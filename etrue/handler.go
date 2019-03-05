@@ -1319,11 +1319,24 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				continue
 			}
 
-			if len(txs) > txPackSize*2 {
-				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+			maxSize := txPackSize * 3
+			txLen := len(txs)
+			if txLen > maxSize {
+				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
+
+				for i := 0; i < txLen; {
+					i = i + maxSize
+					if i < txLen {
+						pm.BroadcastTxs(txs[:maxSize])
+						txs = append(txs[:0], txs[maxSize:]...)
+					} else {
+						pm.BroadcastTxs(txs[:txLen%maxSize])
+					}
+				}
+			} else {
+				pm.BroadcastTxs(txs)
 			}
 
-			pm.BroadcastTxs(txs)
 			txs = append(txs[:0], txs[len(txs):]...)
 
 			// Err() channel will be closed when unsubscribing.
