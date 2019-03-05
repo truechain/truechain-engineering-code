@@ -463,7 +463,7 @@ func (voteSet *VoteSet) MakePbftSigns(thash []byte) ([]*ttypes.PbftSign, error) 
 			s := &ttypes.PbftSign{
 				FastHash:   hash,
 				FastHeight: new(big.Int).SetUint64(vote.Height),
-				Result:     vote.Result,
+				Result:     uint32(vote.Result),
 				Sign:       vote.ResultSign,
 			}
 			signs = append(signs, s)

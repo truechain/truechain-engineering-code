@@ -41,7 +41,7 @@ type nodeInfo struct {
 	ID      tp2p.ID
 	Adrress *tp2p.NetAddress
 	IP      string
-	Port    uint
+	Port    uint32
 	Enable  bool
 	Flag    uint32
 }

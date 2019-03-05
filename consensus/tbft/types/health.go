@@ -33,7 +33,7 @@ var EnableHealthMgr = true
 type Health struct {
 	ID    tp2p.ID
 	IP    string
-	Port  uint
+	Port  uint32
 	Tick  int32
 	State uint32
 	HType uint32
@@ -214,7 +214,7 @@ func (h *HealthMgr) PutBackHealth(he *Health) {
 }
 
 //UpdataHealthInfo update one health
-func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte) {
+func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint32, pk []byte) {
 	enter := h.GetHealth(pk)
 	if enter != nil && enter.ID != "" {
 		enter.ID, enter.IP, enter.Port = id, ip, port

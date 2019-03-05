@@ -189,8 +189,8 @@ func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 	agent.privateKey = config.PrivateKey
 	agent.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
-		Port:      uint(config.Port),
-		Port2:     uint(config.StandbyPort),
+		Port:      uint32(config.Port),
+		Port2:     uint32(config.StandbyPort),
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&agent.privateKey.PublicKey),
 	}
@@ -820,7 +820,7 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 }
 
 //GenerateSignWithVote  generate sign from committeeMember in fastBlock
-func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint, result bool) (*types.PbftSign, error) {
+func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint32, result bool) (*types.PbftSign, error) {
 	if !result {
 		vote = types.VoteAgreeAgainst
 	}
