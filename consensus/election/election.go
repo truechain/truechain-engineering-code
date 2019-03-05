@@ -404,10 +404,21 @@ func (e *Election) getElectionMembers(snailBeginNumber *big.Int, snailEndNumber 
 	blockNum := new(big.Int).Add(e.getLastNumber(snailBeginNumber, snailEndNumber), common.Big1).Uint64()
 	block := e.fastchain.GetBlockByNumber(blockNum)
 	if block != nil {
-		info := e.fastchain.GetBlockByNumber(blockNum).SwitchInfos()
-		members := &types.ElectionCommittee{Members: info.Members, Backups: info.BackMembers}
-		e.commiteeCache.Add(committeeNum.Uint64(), members)
-		return members
+		var (
+			members []*types.CommitteeMember
+			backups []*types.CommitteeMember
+		)
+		for _, m := range e.fastchain.GetBlockByNumber(blockNum).SwitchInfos() {
+			if m.Flag == types.StateUsedFlag {
+				members = append(members, m)
+			}
+			if m.Flag == types.StateUnusedFlag {
+				backups = append(backups, m)
+			}
+		}
+		committee := &types.ElectionCommittee{Members: members, Backups: backups}
+		e.commiteeCache.Add(committeeNum.Uint64(), committee)
+		return committee
 	}
 
 	// Elect members from snailblock
@@ -484,6 +495,7 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		if preEndFast == nil {
 			return nil
 		}
+
 
 		log.Debug("get committee", "electFirst", preBeginElectionNumber, "electLast", preEndElectionNumber, "lastFast", preEndFast)
 
@@ -590,7 +602,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 				log.Warn("Switch block not exists", "number", num)
 				break
 			}
-			for _, s := range b.SwitchInfos().Vals {
+			for _, s := range b.SwitchInfos() {
 				switch s.Flag {
 				case types.StateAppendFlag:
 					states[s.CommitteeBase] = types.StateAppendFlag
@@ -609,7 +621,7 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 				log.Warn("Switch block not exists", "number", num)
 				break
 			}
-			for _, s := range b.SwitchInfos().Vals {
+			for _, s := range b.SwitchInfos() {
 				switch s.Flag {
 				case types.StateAppendFlag:
 					states[s.CommitteeBase] = types.StateAppendFlag
@@ -934,7 +946,7 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 	states := make(map[common.Address]uint32)
 	for _, num := range c.switches {
 		b := e.fastchain.GetBlockByNumber(num.Uint64())
-		for _, s := range b.SwitchInfos().Vals {
+		for _, s := range b.SwitchInfos() {
 			switch s.Flag {
 			case types.StateAppendFlag:
 				states[s.CommitteeBase] = types.StateAppendFlag
@@ -981,12 +993,10 @@ func (e *Election) filterWithSwitchInfo(c *committee) (members, backups []*types
 }
 
 // updateMembers update Committee members if switchinfo found in block
-func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) {
-	if infos == nil || len(infos.Vals) == 0 {
+func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMember) {
+	if len(infos) == 0 {
 		return
 	}
-	log.Info("Election update committee member state", "committee", infos.CID, "block", fastNumber)
-
 	var (
 		committee *committee
 		endfast   *big.Int
@@ -994,17 +1004,19 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos *types.SwitchInfos) 
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if infos.CID.Cmp(e.committee.id) == 0 {
-		committee = e.committee
-	} else if infos.CID.Cmp(e.nextCommittee.id) == 0 {
-		committee = e.nextCommittee
-	} else {
-		log.Warn("Election switchinfo not in current Committee", "committee", infos.CID)
+
+	committee = e.electedCommittee(fastNumber)
+	if committee == nil {
+		log.Warn("Election update switchinfo get no Committee", "block", fastNumber)
+		return
+	}
+	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
 		return
 	}
 
+	log.Info("Election update committee member state", "block", fastNumber)
 	committee.switches = append(committee.switches, fastNumber)
-	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), infos.CID.Uint64(), committee.switches)
+	rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), committee.id.Uint64(), committee.switches)
 
 	// Update pbft server's committee info via pbft agent proxy
 	members, backups := e.filterWithSwitchInfo(committee)
@@ -1140,8 +1152,8 @@ func (e *Election) switchLoop() {
 		case ev := <-e.switchEventCh:
 			if ev.Block != nil {
 				info := ev.Block.SwitchInfos()
-				if len(info.Vals) > 0 {
-					log.Info("Election receive committee switch info", "committee", info.CID)
+				if len(info) > 0 {
+					log.Info("Election receive committee switch info", "block", ev.Block.Number())
 					e.updateMembers(ev.Block.Number(), info)
 				}
 			}
