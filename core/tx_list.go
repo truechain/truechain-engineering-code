@@ -130,6 +130,7 @@ func (m *txSortedMap) Cap(threshold int) types.Transactions {
 	if len(m.items) <= threshold {
 		return nil
 	}
+	log.Warn("Cap", "len(m.items)", len(m.items), "threshold", threshold)
 	// Otherwise gather and drop the highest nonce'd transactions
 	var drops types.Transactions
 
