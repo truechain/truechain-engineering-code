@@ -1680,7 +1680,7 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 
 func (cs *ConsensusState) swithResult(block *types.Block) {
 	sw := block.SwitchInfos()
-	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
+	if (cs.state.GetLastBlockHeight()+1) == cs.cm.StartHeight.Uint64() || len(sw) > 2 {
 		mem := append(cs.cm.Members, cs.cm.BackMembers...)
 		for _, v := range sw {
 			have := false
