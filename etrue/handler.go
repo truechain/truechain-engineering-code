@@ -1358,9 +1358,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 			}
 
 			if len(pm.txsCh) > 0 && len(fruits) < fruitPackSize {
-				if len(fruits)%2 == 0 {
-					log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
-				}
+				log.Debug("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
 				continue
 			}
 
