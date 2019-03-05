@@ -488,6 +488,14 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 	return nil
 }
 
+
+func (m *Minerva) VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error {
+
+	return m.election.VerifySwitchInfo(fastnumber,info)
+
+}
+
+
 //VerifyFreshness the fruit have fresh is 17 blocks
 func (m *Minerva) VerifyFreshness(chain consensus.SnailChainReader, fruit, block *types.SnailHeader, canonical bool) error {
 	var headerNumber *big.Int

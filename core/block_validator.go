@@ -98,6 +98,13 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())
 			return err
 		}
+
+
+		if err := fv.bc.engine.VerifySwitchInfo(block.Number(), block.SwitchInfos()); err != nil {
+			log.Info("Fast VerifySwitchInfo Err", "number", block.NumberU64(), "signs",  block.SwitchInfos())
+			return err
+		}
+
 	}
 
 

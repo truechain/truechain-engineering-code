@@ -113,6 +113,8 @@ type Engine interface {
 
 	VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error
 
+	VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error
+
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
