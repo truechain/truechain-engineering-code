@@ -275,9 +275,9 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 func (tx *Transaction) Info() string {
 	str := ""
 	if tx != nil {
-		str += fmt.Sprintf("nonce=%v,price =%v ,v=%v,r=%v,s=%v,Pv=%v,Pr=%v,Ps=%v,",
-			tx.data.AccountNonce, tx.data.Price,
-			tx.data.V, tx.data.R, tx.data.S, tx.data.PV, tx.data.PR, tx.data.PS)
+		str += fmt.Sprintf("value=%v,fee=%v",
+			tx.data.Amount,
+			tx.data.Fee)
 	}
 	return str
 }
@@ -434,7 +434,8 @@ func (tx *Transaction) Cost() *big.Int {
 
 // AmountCost returns amount+Fee.
 func (tx *Transaction) AmountCost() *big.Int {
-	total := tx.data.Amount
+	total := big.NewInt(0)
+	total.Add(total, tx.data.Amount)
 	total.Add(total, tx.data.Fee)
 	return total
 }
