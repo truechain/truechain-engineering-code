@@ -376,14 +376,14 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 }
 
 // VerifySwitchInfo verify committee members and it's state
-func (e *Election) VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error {
+func (e *Election) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error {
 	return nil
 }
 
 func (e *Election) getGenesisCommittee() []*types.CommitteeMember {
 	block := e.fastchain.GetBlockByNumber(0)
 	if block != nil {
-		return block.SwitchInfos().Members
+		return block.SwitchInfos()
 	}
 	return nil
 }

@@ -672,7 +672,7 @@ func (agent *PbftAgent) GetFastLastProposer() common.Address {
 }
 
 //FetchFastBlock  generate fastBlock as leader
-func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
+func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.CommitteeMember) (*types.Block, error) {
 	log.Info("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
@@ -701,7 +701,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 		Time:       big.NewInt(tstamp),
 	}
 	if infos != nil {
-		header.CommitteeHash = infos.Hash()
+		header.CommitteeHash = types.RlpHash(infos)
 	} else {
 		header.CommitteeHash = params.EmptyHash
 	}

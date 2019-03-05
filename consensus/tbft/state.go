@@ -902,14 +902,10 @@ func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.
 
 	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
 		//make all committee
-		info := &types.SwitchInfos{
-			CID:         cs.cm.Id,
-			Vals:        nil,
-			Members:     cs.cm.Members,
-			BackMembers: cs.cm.BackMembers,
-		}
+		memers := append(cs.cm.Members, cs.cm.BackMembers...)
+
 		v = &ttypes.SwitchValidator{
-			Infos: info,
+			Infos: memers,
 		}
 	} else {
 		if len(cs.svs) > 0 {
@@ -1686,7 +1682,7 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	sw := block.SwitchInfos()
 	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
 		mem := append(cs.cm.Members, cs.cm.BackMembers...)
-		for _, v := range sw.Vals {
+		for _, v := range sw {
 			have := false
 			for _, vm := range mem {
 				if bytes.Equal(v.CommitteeBase.Bytes(), vm.CommitteeBase.Bytes()) {
@@ -1702,14 +1698,14 @@ func (cs *ConsensusState) swithResult(block *types.Block) {
 	}
 
 	log.Debug("swithResult", "sw", sw)
-	if sw == nil || len(sw.Vals) < 2 {
+	if sw == nil || len(sw) < 2 {
 		return
 	}
-	log.Info("swithResult", "sw", sw, "vals", sw.Vals)
+	log.Info("swithResult", "sw", sw, "vals", sw)
 	// stop fetch until update committee members
 	cs.state.SetEndHeight(block.NumberU64())
 
-	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
+	aEnter, rEnter := sw[0], sw[1]
 	var add, remove *ttypes.Health
 	if aEnter.Flag == types.StateAppendFlag {
 		add = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
@@ -1745,9 +1741,9 @@ func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	sw := block.SwitchInfos()
 
-	if sw != nil && len(sw.Vals) > 2 {
+	if sw != nil && len(sw) > 2 {
 		mem := append(cs.cm.Members, cs.cm.BackMembers...)
-		for _, v := range sw.Vals {
+		for _, v := range sw {
 			have := false
 			for _, vm := range mem {
 				if bytes.Equal(v.CommitteeBase.Bytes(), vm.CommitteeBase.Bytes()) {
@@ -1763,13 +1759,13 @@ func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 		return true
 	}
 
-	if sw != nil && len(sw.Vals) > 0 {
-		var aEnter, rEnter *types.SwitchEnter
-		if len(sw.Vals) == 1 {
-			rEnter = sw.Vals[0]
+	if sw != nil && len(sw) > 0 {
+		var aEnter, rEnter *types.CommitteeMember
+		if len(sw) == 1 {
+			rEnter = sw[0]
 		}
-		if len(sw.Vals) == 2 {
-			aEnter, rEnter = sw.Vals[0], sw.Vals[1]
+		if len(sw) == 2 {
+			aEnter, rEnter = sw[0], sw[1]
 		}
 
 		var add, remove *ttypes.Health
@@ -1816,7 +1812,7 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 		return nil, errors.New("block is nil")
 	}
 	res := cs.switchVerify(block)
-	if len(block.SwitchInfos().Vals) == 0 {
+	if len(block.SwitchInfos()) == 0 {
 		res = true
 	}
 	log.Debug("validateBlock", "res", res, "info", block.SwitchInfos())

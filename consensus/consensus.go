@@ -113,7 +113,7 @@ type Engine interface {
 
 	VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error
 
-	VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error
+	VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
@@ -152,7 +152,7 @@ type CommitteeElection interface {
 	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
 
 	// VerifySwitchInfo verify committee members and it's state
-	VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error
+	VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)

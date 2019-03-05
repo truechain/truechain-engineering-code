@@ -138,7 +138,7 @@ type PbftSign struct {
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int, infos *SwitchInfos) (*Block, error)
+	FetchFastBlock(committeeId *big.Int, infos []*CommitteeMember) (*Block, error)
 	VerifyFastBlock(*Block, bool) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
@@ -391,7 +391,6 @@ func (s *SwitchInfos) String() string {
 func (s *SwitchInfos) ToHash() common.Hash {
 	return rlpHash(s)
 }
-
 
 func (s *SwitchInfos) Equal(other *SwitchInfos) bool {
 	if s == nil && other == nil {

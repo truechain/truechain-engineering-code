@@ -280,7 +280,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		member.MType = types.TypeFixed
 		member.CommitteeBase = crypto.PubkeyToAddress(*pubkey)
 	}
-	return types.NewBlock(head, nil, nil, nil, committee)
+	return types.NewBlock(head, nil, nil, nil, committee.Members)
 }
 
 // MustFastCommit writes the genesis block and state to db, panicking on error.
