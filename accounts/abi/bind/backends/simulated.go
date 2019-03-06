@@ -403,7 +403,7 @@ func (m callmsg) To() *common.Address     { return m.CallMsg.To }
 func (m callmsg) GasPrice() *big.Int      { return m.CallMsg.GasPrice }
 func (m callmsg) Gas() uint64             { return m.CallMsg.Gas }
 func (m callmsg) Value() *big.Int         { return m.CallMsg.Value }
-func (m callmsg) Fee() *big.Int           { return nil }
+func (m callmsg) Fee() *big.Int           { return m.CallMsg.Fee }
 func (m callmsg) Data() []byte            { return m.CallMsg.Data }
 
 // filterBackend implements filters.Backend to support filtering for logs without
