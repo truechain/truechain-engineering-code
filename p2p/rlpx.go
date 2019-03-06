@@ -615,7 +615,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 		msg.Size = uint32(len(payload))
 	}
 	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Error("1 ++txTest++", "code", msg.Code, "size", msg.Size, "snappy", rw.snappy, "second", d.Seconds())
+		log.Debug("1 ++txTest++", "code", msg.Code, "size", msg.Size, "snappy", rw.snappy, "second", d.Seconds())
 	}
 
 	wbegin = time.Now()
@@ -635,7 +635,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 		return err
 	}
 	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Error("2 ++txTest++", "code", msg.Code, "size", msg.Size, "headbuf", len(headbuf), "write_head", d.Seconds())
+		log.Debug("2 ++txTest++", "code", msg.Code, "size", msg.Size, "headbuf", len(headbuf), "write_head", d.Seconds())
 	}
 
 	wbegin = time.Now()
@@ -659,13 +659,13 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 	fmacseed := rw.egressMAC.Sum(nil)
 	mac := updateMAC(rw.egressMAC, rw.macCipher, fmacseed)
 	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Error("3 ++txTest++", "code", msg.Code, "size", msg.Size, "mac", len(mac), "encrypted", d.Seconds())
+		log.Debug("3 ++txTest++", "code", msg.Code, "size", msg.Size, "mac", len(mac), "encrypted", d.Seconds())
 	}
 
 	wbegin = time.Now()
 	_, err := rw.conn.Write(mac)
 	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Error("4 ++txTest++", "code", msg.Code, "size", msg.Size, "conn_write", d.Seconds())
+		log.Debug("4 ++txTest++", "code", msg.Code, "size", msg.Size, "conn_write", d.Seconds())
 	}
 	return err
 }
