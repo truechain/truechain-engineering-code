@@ -65,7 +65,7 @@ const (
 	// maxQueuedNodeInfo is the maximum number of node info propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
-	maxQueuedNodeInfo = 32
+	maxQueuedNodeInfo = 128
 
 	// maxQueuedAnns is the maximum number of block announcements to queue up before
 	// dropping broadcasts. Similarly to block propagations, there's no point to queue
