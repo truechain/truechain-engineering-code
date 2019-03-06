@@ -1026,9 +1026,6 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 		endfast   *big.Int
 	)
 
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
 	committee = e.electedCommittee(fastNumber)
 	if committee == nil {
 		log.Warn("Election update switchinfo get no Committee", "block", fastNumber)
@@ -1037,6 +1034,9 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
 		return
 	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
 	log.Info("Election update committee member state", "block", fastNumber)
 	committee.switches = append(committee.switches, fastNumber)
