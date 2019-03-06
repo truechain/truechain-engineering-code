@@ -701,7 +701,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		Time:       big.NewInt(tstamp),
 	}
 	if infos != nil {
-		log.Warn("fetch fb infos not nil")
 		header.CommitteeHash = types.RlpHash(infos)
 	} else {
 		header.CommitteeHash = params.EmptyHash
@@ -799,7 +798,6 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 
 //generate rewardSnailHegiht
 func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
-	log.Info("go into rewardSnailBlock")
 	var (
 		rewardSnailHegiht *big.Int
 		blockReward       = agent.fastChain.CurrentReward()
@@ -971,12 +969,10 @@ func (agent *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) e
 }
 
 func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, feeAmount *big.Int) {
-	log.Info("go into commitTransactions")
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 	var coalescedLogs []*types.Log
-	count := 0
 	for {
 		// If we don't have enough gas for any further transactions then we're done
 		if env.gasPool.Gas() < params.TxGas {
@@ -985,10 +981,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		}
 		// Retrieve the next transaction and abort if all done
 		tx := txs.Peek()
-		count += 1
-		log.Info("commitTransactions", "count", count, "tx.Info", tx.Info())
 		if tx == nil {
-			log.Info("commitTransactions tx is nil")
 			break
 		}
 		// Error may be ignored here. The error has already been checked
