@@ -203,8 +203,7 @@ func (s TIP1Signer) Hash(tx *Transaction) common.Hash {
 	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
 	var hash common.Hash
 	//payer and fee is nil or default value
-	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
-		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) && tx.data.Fee == nil {
 		hash = rlpHash([]interface{}{
 			tx.data.AccountNonce,
 			tx.data.Price,
@@ -396,8 +395,7 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
-	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
-		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) && tx.data.Fee == nil {
 		return rlpHash([]interface{}{
 			tx.data.AccountNonce,
 			tx.data.Price,

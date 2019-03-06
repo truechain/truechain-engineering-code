@@ -475,7 +475,7 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 	if err != nil {
 		return nil, err
 	}
-	if args.Fee == nil || args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Fee == nil { //normal ethereum transaction
 		//fmt.Println("into no fee")
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
@@ -971,7 +971,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	fields["signs"] = signs
 
-
 	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
 		members := map[string]interface{}{
 			"Coinbase":      commit.Coinbase,
@@ -1439,9 +1438,6 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
 	}
-	if args.Fee == nil {
-		args.Fee = (*hexutil.Big)(common.Big0)
-	}
 	if args.Nonce == nil {
 		nonce, err := b.GetPoolNonce(ctx, args.From)
 		if err != nil {
@@ -1677,7 +1673,7 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err != nil {
 		return nil, err
 	}
-	if args.Payment == (common.Address{}) && args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Payment == (common.Address{}) && args.Fee == nil { //normal ethereum transaction
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
 			return nil, err
@@ -1747,7 +1743,7 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	if err := sendArgs.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != (*hexutil.Big)(common.Big0) {
+	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != nil {
 		log.Error("tx has payment or fee cannot use Resend api")
 	}
 	matchTx := sendArgs.toTransaction()
