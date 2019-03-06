@@ -166,7 +166,7 @@ func (miner *Miner) update() {
 			switch ev.Data.(type) {
 			case downloader.StartEvent:
 				log.RedisLog("-----------------get download info startEvent")
-				log.Info("Miner update get download info startEvent")
+				log.Info("Miner update get download info startEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "commit", miner.commitFlag)
 				atomic.StoreInt32(&miner.canStart, 0)
 				if miner.Mining() {
 					miner.Stop()
@@ -175,7 +175,7 @@ func (miner *Miner) update() {
 				log.Info("Mining aborted due to sync")
 
 			case downloader.DoneEvent, downloader.FailedEvent:
-				log.Info("Miner update get download info DoneEvent,FailedEvent")
+				log.Info("Miner update get download info DoneEvent,FailedEvent", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
 				shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
 
 				atomic.StoreInt32(&miner.canStart, 1)
@@ -203,7 +203,7 @@ func (miner *Miner) update() {
 					miner.Start(miner.coinbase)
 
 				}
-				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining)
+				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
 
 			case CommitteeStop:
 				log.Info("Miner update committee stop")

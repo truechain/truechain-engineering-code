@@ -190,8 +190,8 @@ func (agent *PbftAgent) initNodeInfo(etrue Backend) {
 	agent.privateKey = config.PrivateKey
 	agent.committeeNode = &types.CommitteeNode{
 		IP:        config.Host,
-		Port:      uint(config.Port),
-		Port2:     uint(config.StandbyPort),
+		Port:      uint32(config.Port),
+		Port2:     uint32(config.StandbyPort),
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&agent.privateKey.PublicKey),
 	}
@@ -673,7 +673,7 @@ func (agent *PbftAgent) GetFastLastProposer() common.Address {
 }
 
 //FetchFastBlock  generate fastBlock as leader
-func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
+func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.CommitteeMember) (*types.Block, error) {
 	log.Info("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
@@ -702,7 +702,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos *types.Switch
 		Time:       big.NewInt(tstamp),
 	}
 	if infos != nil {
-		header.CommitteeHash = infos.Hash()
+		header.CommitteeHash = types.RlpHash(infos)
 	} else {
 		header.CommitteeHash = params.EmptyHash
 	}
@@ -821,7 +821,7 @@ func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
 }
 
 //GenerateSignWithVote  generate sign from committeeMember in fastBlock
-func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint, result bool) (*types.PbftSign, error) {
+func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint32, result bool) (*types.PbftSign, error) {
 	if !result {
 		vote = types.VoteAgreeAgainst
 	}
@@ -998,17 +998,17 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
-			log.Trace("Gas limit exceeded for current block", "sender", from)
+			log.Warn("Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
 
 		case core.ErrNonceTooLow:
 			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
+			log.Warn("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
 
 		case core.ErrNonceTooHigh:
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
+			log.Warn("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 
 		case nil:
@@ -1020,7 +1020,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Warn("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 		}
 	}

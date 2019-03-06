@@ -134,7 +134,7 @@ type Header struct {
 	Root          common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash        common.Hash    `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash   common.Hash    `json:"receiptsRoot"     gencodec:"required"`
-	CommitteeHash common.Hash    `json:"committeeRoot"     gencodec:"required"`
+	CommitteeHash common.Hash    `json:"committeeRoot"    gencodec:"required"`
 	Proposer      common.Address `json:"maker"            gencodec:"required"`
 	Bloom         Bloom          `json:"logsBloom"        gencodec:"required"`
 	SnailHash     common.Hash    `json:"snailHash"        gencodec:"required"`
@@ -182,7 +182,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 type Body struct {
 	Transactions []*Transaction
 	Signs        []*PbftSign
-	Infos        *SwitchInfos
+	Infos        []*CommitteeMember
 }
 
 // BlockReward
@@ -199,7 +199,7 @@ type Block struct {
 	transactions Transactions
 
 	signs PbftSigns
-	infos *SwitchInfos
+	infos CommitteeMembers
 	// caches
 	hash atomic.Value
 	size atomic.Value
@@ -221,10 +221,9 @@ type Block struct {
 // The values of TxHash, ReceiptHash and Bloom in header
 // are ignored and set to values derived from the given txs
 // and receipts.
-func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign, infos *SwitchInfos) *Block {
+func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*PbftSign, infos []*CommitteeMember) *Block {
 	b := &Block{
 		header: CopyHeader(header),
-		infos:  &SwitchInfos{},
 	}
 
 	// TODO: panic if len(txs) != len(receipts)
@@ -247,16 +246,9 @@ func NewBlock(header *Header, txs []*Transaction, receipts []*Receipt, signs []*
 		b.signs = make(PbftSigns, len(signs))
 		copy(b.signs, signs)
 	}
-	if infos != nil {
-		if b.infos.CID = new(big.Int); infos.CID != nil {
-			b.infos.CID.Set(infos.CID)
-		}
-		b.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
-		copy(b.infos.Vals, infos.Vals)
-		b.infos.Members = make([]*CommitteeMember, len(infos.Members))
-		copy(b.infos.Members, infos.Members)
-		b.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
-		copy(b.infos.BackMembers, infos.BackMembers)
+	if len(infos) != 0 {
+		b.infos = make([]*CommitteeMember, len(infos))
+		copy(b.infos, infos)
 	}
 	b.header.CommitteeHash = rlpHash(b.infos)
 	return b
@@ -278,12 +270,12 @@ func (b *Body) GetLeaderSign() *PbftSign {
 }
 
 // GetSwitchInfo get info for shift committee
-func (b *Body) GetSwitchInfo() *SwitchInfos {
+func (b *Body) GetSwitchInfo() []*CommitteeMember {
 	return b.Infos
 }
 
 // SetSwitchInfo set info for shift committee
-func (b *Body) SetSwitchInfo(infos *SwitchInfos) {
+func (b *Body) SetSwitchInfo(infos []*CommitteeMember) {
 	b.Infos = infos
 }
 
@@ -319,7 +311,7 @@ type extblock struct {
 	Header *Header
 	Txs    []*Transaction
 	Signs  []*PbftSign
-	Infos  *SwitchInfos
+	Infos  []*CommitteeMember
 }
 
 // DecodeRLP decodes the truechain
@@ -360,21 +352,21 @@ func (b *Block) GasUsed() uint64       { return b.header.GasUsed }
 func (b *Block) SnailNumber() *big.Int { return new(big.Int).Set(b.header.SnailNumber) }
 func (b *Block) Time() *big.Int        { return new(big.Int).Set(b.header.Time) }
 
-func (b *Block) Proposer() common.Address   { return b.header.Proposer }
-func (b *Block) NumberU64() uint64          { return b.header.Number.Uint64() }
-func (b *Block) SnailHash() common.Hash     { return b.header.SnailHash }
-func (b *Block) Bloom() Bloom               { return b.header.Bloom }
-func (b *Block) Coinbase() common.Address   { return common.Address{} }
-func (b *Block) Root() common.Hash          { return b.header.Root }
-func (b *Block) ParentHash() common.Hash    { return b.header.ParentHash }
-func (b *Block) TxHash() common.Hash        { return b.header.TxHash }
-func (b *Block) ReceiptHash() common.Hash   { return b.header.ReceiptHash }
-func (b *Block) UncleHash() common.Hash     { return common.Hash{} }
-func (b *Block) Extra() []byte              { return common.CopyBytes(b.header.Extra) }
-func (b *Block) Signs() []*PbftSign         { return b.signs }
-func (b *Block) Header() *Header            { return CopyHeader(b.header) }
-func (b *Block) CommitteeHash() common.Hash { return b.header.CommitteeHash }
-func (b *Block) SwitchInfos() *SwitchInfos  { return b.infos }
+func (b *Block) Proposer() common.Address        { return b.header.Proposer }
+func (b *Block) NumberU64() uint64               { return b.header.Number.Uint64() }
+func (b *Block) SnailHash() common.Hash          { return b.header.SnailHash }
+func (b *Block) Bloom() Bloom                    { return b.header.Bloom }
+func (b *Block) Coinbase() common.Address        { return common.Address{} }
+func (b *Block) Root() common.Hash               { return b.header.Root }
+func (b *Block) ParentHash() common.Hash         { return b.header.ParentHash }
+func (b *Block) TxHash() common.Hash             { return b.header.TxHash }
+func (b *Block) ReceiptHash() common.Hash        { return b.header.ReceiptHash }
+func (b *Block) UncleHash() common.Hash          { return common.Hash{} }
+func (b *Block) Extra() []byte                   { return common.CopyBytes(b.header.Extra) }
+func (b *Block) Signs() []*PbftSign              { return b.signs }
+func (b *Block) Header() *Header                 { return CopyHeader(b.header) }
+func (b *Block) CommitteeHash() common.Hash      { return b.header.CommitteeHash }
+func (b *Block) SwitchInfos() []*CommitteeMember { return b.infos }
 
 // Body returns the non-header content of the block.
 func (b *Block) Body() *Body { return &Body{b.transactions, b.signs, b.infos} }
@@ -421,7 +413,7 @@ func (b *Block) IsAward() bool {
 }
 
 func (b *Block) IsSwitch() bool {
-	if b.infos != nil && len(b.infos.Vals) > 0 {
+	if b.infos != nil && len(b.infos) > 0 {
 		return true
 	}
 	return false
@@ -433,17 +425,6 @@ func (b *Block) IsProposal() bool {
 		return true
 	}
 	return false
-}
-
-func (b *Block) SetSwitchInfo(info *SwitchInfos) {
-	b.infos.CID = info.CID
-	b.infos.Vals = make([]*SwitchEnter, 0, len(info.Vals))
-	b.infos.Vals = append(b.infos.Vals, info.Vals...)
-	b.infos.Members = make([]*CommitteeMember, len(info.Members))
-	b.infos.Members = append(b.infos.Members, info.Members...)
-	b.infos.BackMembers = make([]*CommitteeMember, len(info.BackMembers))
-	b.infos.BackMembers = append(b.infos.BackMembers, info.BackMembers...)
-	b.header.CommitteeHash = rlpHash(b.infos)
 }
 
 // Size returns the true RLP encoded storage size of the block, either by encoding
@@ -470,25 +451,17 @@ func (b *Block) WithSeal(header *Header) *Block {
 }
 
 // WithBody returns a new block with the given transaction contents.
-func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, infos *SwitchInfos) *Block {
+func (b *Block) WithBody(transactions []*Transaction, signs []*PbftSign, infos []*CommitteeMember) *Block {
 	block := &Block{
 		header:       CopyHeader(b.header),
 		transactions: make([]*Transaction, len(transactions)),
 		signs:        make([]*PbftSign, len(signs)),
-		infos:        &SwitchInfos{},
+		infos:        make([]*CommitteeMember, len(infos)),
 	}
 
 	copy(block.transactions, transactions)
 	copy(block.signs, signs)
-	if infos != nil {
-		block.infos.CID = infos.CID
-		block.infos.Vals = make([]*SwitchEnter, len(infos.Vals))
-		copy(block.infos.Vals, infos.Vals)
-		block.infos.Members = make([]*CommitteeMember, len(infos.Members))
-		copy(block.infos.Members, infos.Members)
-		block.infos.BackMembers = make([]*CommitteeMember, len(infos.BackMembers))
-		copy(block.infos.BackMembers, infos.BackMembers)
-	}
+	copy(block.infos, infos)
 	b.header.CommitteeHash = rlpHash(b.infos)
 
 	return block

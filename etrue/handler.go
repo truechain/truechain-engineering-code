@@ -747,7 +747,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Deliver them all to the downloader for queuing
 		transactions := make([][]*types.Transaction, len(request))
 		signs := make([][]*types.PbftSign, len(request))
-		infos := make([]*types.SwitchInfos, len(request))
+		infos := make([][]*types.CommitteeMember, len(request))
 
 		for i, body := range request {
 			transactions[i] = body.Transactions
@@ -1313,9 +1313,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 			}
 
 			if len(pm.txsCh) > 0 && len(txs) < txPackSize {
-				if len(txs)%3 == 0 {
-					log.Info("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
-				}
+				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 				continue
 			}
 
@@ -1360,9 +1358,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 			}
 
 			if len(pm.txsCh) > 0 && len(fruits) < fruitPackSize {
-				if len(fruits)%2 == 0 {
-					log.Info("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Txs", len(fruitsEvent.Fruits), "txs", len(fruits))
-				}
+				log.Debug("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
 				continue
 			}
 

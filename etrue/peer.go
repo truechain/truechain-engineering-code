@@ -65,7 +65,7 @@ const (
 	// maxQueuedNodeInfo is the maximum number of node info propagations to queue up before
 	// dropping broadcasts. There's not much point in queueing stale blocks, so a few
 	// that might cover uncles should be enough.
-	maxQueuedNodeInfo = 32
+	maxQueuedNodeInfo = 128
 
 	// maxQueuedAnns is the maximum number of block announcements to queue up before
 	// dropping broadcasts. Similarly to block propagations, there's no point to queue
@@ -365,7 +365,7 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 		}
 	default:
 		p.dropTx += uint64(len(txs))
-		p.Log().Info("Dropping transaction propagation", "count", len(txs), "size", txs[0].Size(), "dropTx", p.dropTx, "queuedTxs", len(p.queuedTxs), "peer", p.RemoteAddr())
+		p.Log().Debug("Dropping transaction propagation", "count", len(txs), "size", txs[0].Size(), "dropTx", p.dropTx, "queuedTxs", len(p.queuedTxs), "peer", p.RemoteAddr())
 	}
 }
 
@@ -402,7 +402,7 @@ func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
 	case p.queuedNodeInfo <- nodeInfo:
 		p.knownNodeInfos.Add(nodeInfo.Hash())
 	default:
-		p.Log().Info("Dropping nodeInfo propagation", "size", nodeInfo.Size(), "queuedNodeInfo", len(p.queuedNodeInfo), "peer", p.RemoteAddr())
+		p.Log().Debug("Dropping nodeInfo propagation", "size", nodeInfo.Size(), "queuedNodeInfo", len(p.queuedNodeInfo), "peer", p.RemoteAddr())
 	}
 }
 
@@ -425,7 +425,7 @@ func (p *peer) AsyncSendFruits(fruits []*types.SnailBlock) {
 			p.knownFruits.Add(fruit.Hash())
 		}
 	default:
-		p.Log().Info("Dropping fruits propagation", "size", fruits[0].Size(), "count", len(fruits), "queuedFruits", len(p.queuedFruits), "peer", p.RemoteAddr())
+		p.Log().Debug("Dropping fruits propagation", "size", fruits[0].Size(), "count", len(fruits), "queuedFruits", len(p.queuedFruits), "peer", p.RemoteAddr())
 	}
 }
 
@@ -452,7 +452,7 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.Block) {
 	case p.queuedFastAnns <- block:
 		p.knownFastBlocks.Add(block.Hash())
 	default:
-		p.Log().Info("Dropping fast block announcement", "number", block.NumberU64(), "hash", block.Hash(), "queuedFastAnns", len(p.queuedFastAnns), "peer", p.RemoteAddr())
+		p.Log().Debug("Dropping fast block announcement", "number", block.NumberU64(), "hash", block.Hash(), "queuedFastAnns", len(p.queuedFastAnns), "peer", p.RemoteAddr())
 	}
 }
 
@@ -470,7 +470,7 @@ func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
 	case p.queuedFastProps <- &propFastEvent{block: block}:
 		p.knownFastBlocks.Add(block.Hash())
 	default:
-		p.Log().Info("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash(), "queuedFastProps", len(p.queuedFastProps), "peer", p.RemoteAddr())
+		p.Log().Debug("Dropping block propagation", "number", block.NumberU64(), "hash", block.Hash(), "queuedFastProps", len(p.queuedFastProps), "peer", p.RemoteAddr())
 	}
 }
 
@@ -487,7 +487,7 @@ func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int)
 	case p.queuedSnailBlock <- &snailBlockEvent{block: snailBlock, td: td}:
 		p.knownSnailBlocks.Add(snailBlock.Hash())
 	default:
-		p.Log().Info("Dropping snailBlock propagation", "number", snailBlock.NumberU64(), "hash", snailBlock.Hash(), "queuedSnailBlock", len(p.queuedSnailBlock), "peer", p.RemoteAddr())
+		p.Log().Debug("Dropping snailBlock propagation", "number", snailBlock.NumberU64(), "hash", snailBlock.Hash(), "queuedSnailBlock", len(p.queuedSnailBlock), "peer", p.RemoteAddr())
 	}
 }
 

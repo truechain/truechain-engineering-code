@@ -107,7 +107,8 @@ func newTester() *downloadTester {
 }
 
 // makeChain creates a chain of n blocks starting at and including parent.
-// the returned hash chain is ordered head->parent. In addition, every 3rd block
+// the returned hash chain is ordered 0.
+// head->parent. In addition, every 3rd block
 // contains a transaction and every 5th an uncle to allow testing correct block
 // reassembly.
 func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, heavy bool) ([]common.Hash, map[common.Hash]*types.SnailHeader, map[common.Hash]*types.SnailBlock, []common.Hash, map[common.Hash]*types.Header, map[common.Hash]*types.Block, map[common.Hash]types.Receipts) {
@@ -129,7 +130,7 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 
 	fastchain.InsertChain(fastblocks)
 
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{})
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, &dl.GetBlockChain())
 
 	blocks, err := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
 

@@ -488,7 +488,7 @@ func (m *Minerva) VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs [
 	return nil
 }
 
-func (m *Minerva) VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error {
+func (m *Minerva) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error {
 
 	return m.election.VerifySwitchInfo(fastnumber, info)
 
@@ -787,7 +787,6 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 
 // gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
-	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	if feeAmount.Uint64() == 0 {
 		return nil
 	}
@@ -799,7 +798,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
-		LogPrint("gas", v.Coinbase, committeeGas)
+		log.Debug("[Consensus AddBalance]", "CoinBase:", v.Coinbase, "committeeGas", committeeGas)
 	}
 	return nil
 }

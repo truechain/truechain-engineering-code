@@ -7,11 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
-	"math/big"
+	"github.com/truechain/truechain-engineering-code/params"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,7 +33,7 @@ var EnableHealthMgr = true
 type Health struct {
 	ID    tp2p.ID
 	IP    string
-	Port  uint
+	Port  uint32
 	Tick  int32
 	State uint32
 	HType uint32
@@ -84,7 +83,7 @@ func (h *Health) Equal(other *Health) bool {
 type SwitchValidator struct {
 	Remove    *Health
 	Add       *Health
-	Infos     *ctypes.SwitchInfos
+	Infos     []*ctypes.CommitteeMember
 	Resion    string
 	From      int // 0-- add ,1-- resore
 	DoorCount int
@@ -109,7 +108,29 @@ func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 		return false
 	}
 	return s.ID == other.ID && s.Remove.Equal(other.Remove) &&
-		s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
+		s.Add.Equal(other.Add) && EqualCommitteeMemberArray(s.Infos, other.Infos)
+}
+
+func EqualCommitteeMemberArray(a, b []*ctypes.CommitteeMember) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	for _, v := range a {
+		have := false
+		for _, vm := range b {
+			if v.Compared(vm) {
+				have = true
+				break
+			}
+		}
+		if !have {
+			return false
+		}
+	}
+	return true
 }
 
 // EqualWithoutID return true they are same id or both nil otherwise return false
@@ -120,7 +141,7 @@ func (s *SwitchValidator) EqualWithoutID(other *SwitchValidator) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
+	return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add) && EqualCommitteeMemberArray(s.Infos, other.Infos)
 }
 
 // EqualWithRemove return true they are same id or both nil otherwise return false
@@ -193,7 +214,7 @@ func (h *HealthMgr) PutBackHealth(he *Health) {
 }
 
 //UpdataHealthInfo update one health
-func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte) {
+func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint32, pk []byte) {
 	enter := h.GetHealth(pk)
 	if enter != nil && enter.ID != "" {
 		enter.ID, enter.IP, enter.Port = id, ip, port
@@ -320,28 +341,22 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 }
 
 func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, from int) *SwitchValidator {
-	vals := make([]*ctypes.SwitchEnter, 0, 0)
+	vals := make([]*ctypes.CommitteeMember, 0, 0)
 	if add != nil {
-		vals = append(vals, &ctypes.SwitchEnter{
+		vals = append(vals, &ctypes.CommitteeMember{
 			CommitteeBase: common.BytesToAddress(add.Val.Address),
 			Flag:          ctypes.StateAppendFlag,
 		})
 	}
-	vals = append(vals, &ctypes.SwitchEnter{
+	vals = append(vals, &ctypes.CommitteeMember{
 		CommitteeBase: common.BytesToAddress(remove.Val.Address),
 		Flag:          ctypes.StateRemovedFlag,
 	})
 	// will need check vals with validatorSet
-	infos := &ctypes.SwitchInfos{
-		CID:         new(big.Int).SetUint64(h.cid),
-		Vals:        vals,
-		Members:     nil,
-		BackMembers: nil,
-	}
 	uid := h.uid
 	h.uid++
 	return &SwitchValidator{
-		Infos:     infos,
+		Infos:     vals,
 		Resion:    resion,
 		From:      from,
 		DoorCount: 0,
@@ -387,8 +402,8 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	}
 
 	if res.From == 0 {
-		if len(res.Infos.Vals) > 2 {
-			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
+		if len(res.Infos) > 2 {
+			enter1, enter2 := res.Infos[0], res.Infos[1]
 			var add, remove *Health
 			if enter1.Flag == ctypes.StateAppendFlag {
 				add = h.GetHealth(enter1.CommitteeBase.Bytes())

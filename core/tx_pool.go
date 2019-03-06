@@ -874,10 +874,10 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	select {
 	case pool.newTxsCh <- txs:
 		return nil
-	default:
+		/*default:
 		remoteTxsDiscardCount = remoteTxsDiscardCount.Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
 		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
-		errs[0] = errors.New("newTxsCh is full")
+		errs[0] = errors.New("newTxsCh is full")*/
 	}
 	return errs
 }

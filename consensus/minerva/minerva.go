@@ -603,7 +603,7 @@ func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeM
 }
 
 // VerifySwitchInfo verify committee members and it's state
-func (e *fakeElection) VerifySwitchInfo(fastnumber *big.Int, info *types.SwitchInfos) error {
+func (e *fakeElection) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error {
 	return nil
 }
 

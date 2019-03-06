@@ -280,7 +280,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		member.MType = types.TypeFixed
 		member.CommitteeBase = crypto.PubkeyToAddress(*pubkey)
 	}
-	return types.NewBlock(head, nil, nil, nil, committee)
+	return types.NewBlock(head, nil, nil, nil, committee.Members)
 }
 
 // MustFastCommit writes the genesis block and state to db, panicking on error.
@@ -546,10 +546,9 @@ func DefaultTestnetGenesisBlock() *Genesis {
 	coinbase := common.HexToAddress("0x0000000000000000000000000000000000000000")
 	// amount, _ := new(big.Int).SetString("90000000000000000000000", 10)
 	return &Genesis{
-		Config:    params.TestnetChainConfig,
-		Nonce:     928,
-		ExtraData: nil,
-		//hexutil.MustDecode("0x3535353535353535353535353535353535353535353535353535353535353535")
+		Config:     params.TestnetChainConfig,
+		Nonce:      928,
+		ExtraData:  hexutil.MustDecode("0x54727565436861696E20546573744E6574203033"),
 		GasLimit:   20971520,
 		Difficulty: big.NewInt(6000000),
 		Timestamp:  1537891200,

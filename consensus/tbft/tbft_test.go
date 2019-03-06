@@ -73,7 +73,7 @@ func IDAdd(agent string) {
 
 var ccc bool
 
-func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos *types.SwitchInfos) (*types.Block, error) {
+func (pap *PbftAgentProxyImp) FetchFastBlock(committeeID *big.Int, infos []*types.CommitteeMember) (*types.Block, error) {
 	header := new(types.Header)
 	header.Number = getIDForCache(pap.Name) //getID()
 	fmt.Println(pap.Name, header.Number)
@@ -99,7 +99,7 @@ func (pap *PbftAgentProxyImp) GetSeedMember() []*types.CommitteeMember {
 	return nil
 }
 
-func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint) (*types.PbftSign, error) {
+func (pap *PbftAgentProxyImp) GenerateSignWithVote(fb *types.Block, vote uint32) (*types.PbftSign, error) {
 	voteSign := &types.PbftSign{
 		Result:     vote,
 		FastHeight: fb.Header().Number,
@@ -285,7 +285,7 @@ func TestPbftRunFor2(t *testing.T) {
 }
 
 func TestPbftRunFor4(t *testing.T) {
-	log.OpenLogDebug(4)
+	log.OpenLogDebug(3)
 	IDCacheInit()
 	start := make(chan int)
 	pr1 := getPrivateKey(0)

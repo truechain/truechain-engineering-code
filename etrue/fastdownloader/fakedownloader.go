@@ -553,7 +553,7 @@ func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain b
 
 	transactions := make([][]*types.Transaction, 0, len(hashes))
 	signs := make([][]*types.PbftSign, 0, len(hashes))
-	infos := make([]*types.SwitchInfos, 0, len(hashes))
+	infos := make([][]*types.CommitteeMember, 0, len(hashes))
 
 	//[]*types.PbftSign
 

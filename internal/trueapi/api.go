@@ -970,21 +970,7 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	}
 
 	fields["signs"] = signs
-	formatSwitchEnter := func(witch *types.SwitchEnter) (map[string]interface{}, error) {
-		SwitchEntermap := map[string]interface{}{
-			"CommitteeBase": witch.CommitteeBase,
-			"Flag":          hexutil.Uint(witch.Flag),
-		}
-		return SwitchEntermap, nil
-	}
 
-	sw := b.SwitchInfos()
-	sw_vals := make([]interface{}, len(sw.Vals))
-	for i, sw_val := range sw.Vals {
-		if sw_vals[i], err = formatSwitchEnter(sw_val); err != nil {
-			return nil, err
-		}
-	}
 
 	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
 		members := map[string]interface{}{
@@ -996,28 +982,14 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		}
 		return members, nil
 	}
-	members := make([]interface{}, len(sw.Members))
-	for i, member := range sw.Members {
-		if members[i], err = formatMembers(member); err != nil {
+	switchInfos := make([]interface{}, len(b.SwitchInfos()))
+	for i, member := range b.SwitchInfos() {
+		if switchInfos[i], err = formatMembers(member); err != nil {
 			return nil, err
 		}
 	}
 
-	backMembers := make([]interface{}, len(sw.BackMembers))
-	for i, backMember := range sw.BackMembers {
-		if backMembers[i], err = formatMembers(backMember); err != nil {
-			return nil, err
-		}
-	}
-
-	sws := map[string]interface{}{
-		"CID":         sw.CID,
-		"vals":        sw_vals,
-		"Members":     members,
-		"BackMembers": backMembers,
-	}
-
-	fields["switchInfos"] = sws
+	fields["switchInfos"] = switchInfos
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
@@ -1038,14 +1010,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		}
 		fields["transactions"] = transactions
 	}
-
-	// remove nonexistent field: uncles
-	// uncles := b.Uncles()
-	// uncleHashes := make([]common.Hash, len(uncles))
-	// for i, uncle := range uncles {
-	// 	uncleHashes[i] = uncle.Hash()
-	// }
-	// fields["uncles"] = uncleHashes
 
 	return fields, nil
 }

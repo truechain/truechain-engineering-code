@@ -114,11 +114,11 @@ type PbftAgentFetcher interface {
 // bodyFilterTask represents a batch of block bodies (transactions and uncles)
 // needing fetcher filtering.
 type bodyFilterTask struct {
-	peer         string                 // The source peer of block bodies
-	transactions [][]*types.Transaction // Collection of transactions per block bodies
-	signs        [][]*types.PbftSign    // Collection of sign per block bodies
-	infos        []*types.SwitchInfos   // committee change
-	time         time.Time              // Arrival time of the blocks' contents
+	peer         string                     // The source peer of block bodies
+	transactions [][]*types.Transaction     // Collection of transactions per block bodies
+	signs        [][]*types.PbftSign        // Collection of sign per block bodies
+	infos        [][]*types.CommitteeMember // committee change
+	time         time.Time                  // Arrival time of the blocks' contents
 }
 
 // inject represents a schedules import operation.
@@ -356,7 +356,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, []*types.SwitchInfos) {
+func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, [][]*types.CommitteeMember) {
 	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
 
 	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", peer, len(transactions), signs[0][0].FastHeight))

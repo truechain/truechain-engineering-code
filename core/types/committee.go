@@ -74,8 +74,7 @@ func NewCommitteeMember(coinBase common.Address, publicKey []byte, flag, mType u
 }
 
 func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
-	if c.MType == d.MType && c.Coinbase.String() != d.Coinbase.String() &&
-		bytes.Compare(c.CommitteeBase.Bytes(), d.CommitteeBase.Bytes()) == 0 {
+	if c.MType == d.MType && c.Coinbase == d.Coinbase && c.CommitteeBase == d.CommitteeBase && bytes.Equal(c.Publickey, d.Publickey) {
 		return true
 	}
 	return false
@@ -117,8 +116,8 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 //CommitteeNode contains  main info of committee node
 type CommitteeNode struct {
 	IP        string
-	Port      uint
-	Port2     uint
+	Port      uint32
+	Port2     uint32
 	Coinbase  common.Address
 	Publickey []byte
 }
@@ -133,12 +132,12 @@ type PbftSigns []*PbftSign
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
-	Result     uint        // 0--against,1--agree
+	Result     uint32      // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int, infos *SwitchInfos) (*Block, error)
+	FetchFastBlock(committeeId *big.Int, infos []*CommitteeMember) (*Block, error)
 	VerifyFastBlock(*Block, bool) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
@@ -391,7 +390,6 @@ func (s *SwitchInfos) String() string {
 func (s *SwitchInfos) ToHash() common.Hash {
 	return rlpHash(s)
 }
-
 
 func (s *SwitchInfos) Equal(other *SwitchInfos) bool {
 	if s == nil && other == nil {

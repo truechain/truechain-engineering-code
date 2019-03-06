@@ -125,7 +125,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
 		txs   [][]*types.Transaction
 		signs [][]*types.PbftSign
-		infos []*types.SwitchInfos
+		infos [][]*types.CommitteeMember
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))

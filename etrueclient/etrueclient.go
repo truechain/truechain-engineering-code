@@ -509,5 +509,8 @@ func toCallArg(msg truechain.CallMsg) interface{} {
 	if msg.GasPrice != nil {
 		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
 	}
+	if msg.Fee != nil {
+		arg["fee"] = (*hexutil.Big)(msg.Fee)
+	}
 	return arg
 }

@@ -457,9 +457,10 @@ func (state *StateAgentImpl) MakePartSet(partSize uint, block *ctypes.Block) (*P
 //MakeBlock from agent FetchFastBlock
 func (state *StateAgentImpl) MakeBlock(v *SwitchValidator) (*ctypes.Block, error) {
 	committeeID := new(big.Int).SetUint64(state.CID)
-	var info *ctypes.SwitchInfos
+	var info []*ctypes.CommitteeMember
 	if v != nil {
-		info = v.Infos
+		info = make([]*ctypes.CommitteeMember, len(v.Infos))
+		copy(info, v.Infos)
 	}
 	watch := help.NewTWatch(3, "FetchFastBlock")
 	help.DurationStat.AddStartStatTime("FetchFastBlock", state.Agent.GetCurrentHeight().Uint64()+1)
@@ -519,7 +520,7 @@ func (state *StateAgentImpl) ValidateBlock(block *ctypes.Block, result bool) (*K
 	watch.Finish(block.NumberU64())
 	if sign != nil {
 		return &KeepBlockSign{
-			Result: sign.Result,
+			Result: uint(sign.Result),
 			Sign:   sign.Sign,
 			Hash:   sign.FastHash,
 		}, err
