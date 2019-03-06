@@ -406,11 +406,15 @@ func (agent *PbftAgent) loop() {
 				flag := agent.getMemberFlagFromCommittee(receivedCommitteeInfo)
 				// flag : used  start  removed  stop
 				if flag == types.StateRemovedFlag {
+					agent.isCurrentCommitteeMember = false
 					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStop)))
 					agent.stopSend()
 				} else if flag == types.StateUsedFlag {
+					agent.isCurrentCommitteeMember = true
 					help.CheckAndPrintError(agent.server.Notify(committeeID, int(types.CommitteeStart)))
 					help.CheckAndPrintError(agent.server.UpdateCommittee(receivedCommitteeInfo))
+				} else {
+					agent.isCurrentCommitteeMember = false
 				}
 			case types.CommitteeOver:
 				committeeID := copyCommitteeID(ch.CommitteeID)
