@@ -125,7 +125,18 @@ func makeTestSha3() {
 	sha512(sha512_out[:], datas[:])
 	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
 }
+func makeTestsha256() {
+	data := []byte{1, 2, 3, 4, 5, 6}
+	fmt.Println("datalen:", len(data))
+	sha256 := makeHasher(sha3.New256())
+	var sha256_out [32]byte
+
+	sha256(sha256_out[:], data[:])
+	fmt.Println("seedhash:", hexutil.Encode(sha256_out[:]))
+	fmt.Println("seedhash:", sha256_out[:])
+}
 func TestTrueHash2(t *testing.T) {
+	makeTestsha256()
 	makeTestSha3()
 	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
 	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
@@ -139,7 +150,7 @@ func TestTrueHash2(t *testing.T) {
 	makeDatasetHash(dataset)
 
 	hash := hexutil.MustDecode("0x645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc")
-	nonce := uint64(79183) // mining for windows
+	nonce := uint64(80408) // mining for windows
 
 	tt := new(big.Int).Div(maxUint128, big.NewInt(100000))
 	tb := tt.Bytes()
