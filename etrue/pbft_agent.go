@@ -701,6 +701,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		Time:       big.NewInt(tstamp),
 	}
 	if infos != nil {
+		log.Warn("fetch fb infos not nil")
 		header.CommitteeHash = types.RlpHash(infos)
 	} else {
 		header.CommitteeHash = params.EmptyHash
@@ -798,6 +799,7 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 
 //generate rewardSnailHegiht
 func (agent *PbftAgent) rewardSnailBlock(header *types.Header) {
+	log.Info("go into rewardSnailBlock")
 	var (
 		rewardSnailHegiht *big.Int
 		blockReward       = agent.fastChain.CurrentReward()
@@ -969,10 +971,12 @@ func (agent *PbftAgent) makeCurrent(parent *types.Block, header *types.Header) e
 }
 
 func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, feeAmount *big.Int) {
+	log.Info("go into commitTransactions")
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(env.header.GasLimit)
 	}
 	var coalescedLogs []*types.Log
+	count := 0
 	for {
 		// If we don't have enough gas for any further transactions then we're done
 		if env.gasPool.Gas() < params.TxGas {
@@ -981,7 +985,10 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		}
 		// Retrieve the next transaction and abort if all done
 		tx := txs.Peek()
+		count += 1
+		log.Info("commitTransactions", "count", count, "tx.Info", tx.Info())
 		if tx == nil {
+			log.Info("commitTransactions tx is nil")
 			break
 		}
 		// Error may be ignored here. The error has already been checked
@@ -997,17 +1004,17 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		switch err {
 		case core.ErrGasLimitReached:
 			// Pop the current out-of-gas transaction without shifting in the next from the account
-			log.Trace("Gas limit exceeded for current block", "sender", from)
+			log.Warn("Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
 
 		case core.ErrNonceTooLow:
 			// New head notification data race between the transaction pool and miner, shift
-			log.Trace("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
+			log.Warn("Skipping transaction with low nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Shift()
 
 		case core.ErrNonceTooHigh:
 			// Reorg notification data race between the transaction pool and miner, skip account =
-			log.Trace("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
+			log.Warn("Skipping account with hight nonce", "sender", from, "nonce", tx.Nonce())
 			txs.Pop()
 
 		case nil:
@@ -1019,7 +1026,7 @@ func (env *AgentWork) commitTransactions(mux *event.TypeMux, txs *types.Transact
 		default:
 			// Strange error, discard the transaction and get the next in line (note, the
 			// nonce-too-high clause will prevent us from executing in vain).
-			log.Debug("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
+			log.Warn("Transaction failed, account skipped", "hash", tx.Hash(), "err", err)
 			txs.Shift()
 		}
 	}

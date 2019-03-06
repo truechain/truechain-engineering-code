@@ -748,6 +748,7 @@ func (m *Minerva) PrepareSnail(fastchain consensus.ChainReader, chain consensus.
 // setting the final state and assembling the block.
 func (m *Minerva) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB,
 	txs []*types.Transaction, receipts []*types.Receipt, feeAmount *big.Int) (*types.Block, error) {
+	log.Info("go into Finalize")
 	if header != nil && header.SnailHash != (common.Hash{}) && header.SnailNumber != nil {
 		log.Info("Finalize:", "header.SnailHash", header.SnailHash, "header.SnailNumber", header.SnailNumber)
 		sBlockHeader := m.sbc.GetHeaderByNumber(header.SnailNumber.Uint64())
@@ -787,7 +788,7 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 
 // gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
-	log.Debug("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
+	log.Info("FinalizeFastGas:", "fastNumber", fastNumber, "feeAmount", feeAmount)
 	if feeAmount.Uint64() == 0 {
 		return nil
 	}
@@ -799,7 +800,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
-		LogPrint("gas", v.Coinbase, committeeGas)
+		log.Info("[Consensus AddBalance]", "CoinBase:", v.Coinbase, "committeeGas", committeeGas)
 	}
 	return nil
 }
