@@ -276,14 +276,14 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 	var err error
-	defer func() {
+	sendEvent := func() {
 		// reset on error
 		if err != nil {
 			pm.downloader.Mux.Post(downloader.FailedEvent{err})
 		} else {
 			pm.downloader.Mux.Post(downloader.DoneEvent{})
 		}
-	}()
+	}
 
 	// Make sure the peer's TD is higher than our own
 	currentBlock := pm.snailchain.CurrentBlock()
@@ -300,6 +300,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 		if fastHeight > currentNumber {
 			pm.downloader.Mux.Post(downloader.StartEvent{})
+			defer sendEvent()
 			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FullSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
@@ -348,6 +349,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 	pm.downloader.Mux.Post(downloader.StartEvent{})
+	defer sendEvent()
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Error("ProtocolManager end", "err", err)
