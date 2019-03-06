@@ -214,7 +214,7 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 		return core.ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
-	if len(pool.allFruits) >= 8192 {
+	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
 		log.Debug("fruits pool is full", "len(pool.allFruits)", len(pool.allFruits))
 	}
 	if append {
