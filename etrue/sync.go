@@ -291,7 +291,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
-	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
+	log.Info("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
 
 	if pTd.Cmp(td) <= 0 {
 

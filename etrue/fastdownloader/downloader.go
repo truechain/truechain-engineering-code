@@ -334,7 +334,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 func (d *Downloader) Synchronise(id string, head common.Hash, mode SyncMode, origin uint64, height uint64) error {
 
 	err := d.synchronise(id, head, mode, origin, height)
-	defer log.Debug("fast Synchronise exit")
+	defer log.Info("fast Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -428,7 +428,7 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, orig
 		return errTooOld
 	}
 
-	log.Debug("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "mode", d.mode, "origin", origin, "height", height)
+	log.Info("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "mode", d.mode, "origin", origin, "height", height)
 	defer func(start time.Time) {
 		log.Debug("Fast Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
