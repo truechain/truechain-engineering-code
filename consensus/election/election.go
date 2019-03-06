@@ -378,6 +378,9 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 
 // VerifySwitchInfo verify committee members and it's state
 func (e *Election) VerifySwitchInfo(fastNumber *big.Int, info []*types.CommitteeMember) error {
+	if e.singleNode == true {
+		return nil
+	}
 	committee := e.electedCommittee(fastNumber)
 	if committee == nil {
 		log.Error("Failed to fetch elected committee", "fast", fastNumber)
@@ -519,7 +522,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		if preEndFast == nil {
 			return nil
 		}
-
 
 		log.Debug("get committee", "electFirst", preBeginElectionNumber, "electLast", preEndElectionNumber, "lastFast", preEndFast)
 
