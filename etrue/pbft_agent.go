@@ -870,7 +870,12 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		}
 		return voteSign, err
 	}
+	/*err = agent.verifyRewardInCommittee(fb)
+	if err != nil {
+		return nil, err
+	}*/
 	err = bc.Validator().ValidateBody(fb, false)
+
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && agent.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
@@ -925,6 +930,18 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		return nil, signError
 	}
 	return voteSign, nil
+}
+
+func (agent *PbftAgent) verifyRewardInCommittee(fb *types.Block) error {
+	supposedRewardedNumber := agent.fastChain.NextSnailNumberReward()
+	currentSnailBlock := agent.snailChain.CurrentBlock().Number()
+	space := new(big.Int).Sub(currentSnailBlock, supposedRewardedNumber).Int64()
+	if space < params.SnailConfirmInterval.Int64() {
+		log.Error("validateRewardError", "currentSnailNumber", agent.snailChain.CurrentBlock().Number(),
+			"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", core.ErrSnailNumberRewardTooFast)
+		return core.ErrSnailNumberRewardTooFast
+	}
+	return nil
 }
 
 //BroadcastConsensus  when More than 2/3 signs with agree,

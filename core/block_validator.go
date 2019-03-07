@@ -24,7 +24,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
-	"math/big"
 )
 
 // BlockValidator is responsible for validating block headers, uncles and
@@ -69,12 +68,12 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		blockReward := fv.bc.GetBlockReward(snailNumber)
 		supposedRewardedNumber := fv.bc.NextSnailNumberReward()
 
-		space := new(big.Int).Sub(fv.bc.sc.CurrentBlock().Number(), supposedRewardedNumber).Int64()
+		/*space := new(big.Int).Sub(fv.bc.sc.CurrentBlock().Number(), supposedRewardedNumber).Int64()
 		if space < params.SnailConfirmInterval.Int64() {
 			log.Error("validateRewardError", "currentSnailNumber", fv.bc.sc.CurrentBlock().Number(),
 				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", ErrSnailNumberRewardTooFast)
 			return ErrSnailNumberRewardTooFast
-		}
+		}*/
 
 		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
 			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
