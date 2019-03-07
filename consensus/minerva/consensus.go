@@ -798,7 +798,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
-		log.Debug("[Consensus AddBalance]", "CoinBase:", v.Coinbase, "committeeGas", committeeGas)
+		LogPrint("committee's gas award", v.Coinbase, committeeGas)
 	}
 	return nil
 }
