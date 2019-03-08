@@ -568,7 +568,6 @@ func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.Sn
 
 	return calcDifficulty(config, time, parents)
 
-	//return calcDifficulty(time, parents[0])
 }
 
 //CalcFruitDifficulty is the Fruit difficulty adjustment algorithm

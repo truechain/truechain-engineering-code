@@ -98,7 +98,7 @@ type btHeaderMarshaling struct {
 }
 
 func (t *BlockTest) Run() error {
-	config, ok := Forks[t.json.Network]
+	config, ok := FastForks[t.json.Network]
 	if !ok {
 		return UnsupportedForkError{t.json.Network}
 	}
@@ -212,15 +212,6 @@ func validateHeader(h *btHeader, h2 *types.Header) error {
 	if h.Bloom != h2.Bloom {
 		return fmt.Errorf("Bloom: want: %x have: %x", h.Bloom, h2.Bloom)
 	}
-	if h.Coinbase != h2.Coinbase {
-		return fmt.Errorf("Coinbase: want: %x have: %x", h.Coinbase, h2.Coinbase)
-	}
-	if h.MixHash != h2.MixDigest {
-		return fmt.Errorf("MixHash: want: %x have: %x", h.MixHash, h2.MixDigest)
-	}
-	if h.Nonce != h2.Nonce {
-		return fmt.Errorf("Nonce: want: %x have: %x", h.Nonce, h2.Nonce)
-	}
 	if h.Number.Cmp(h2.Number) != 0 {
 		return fmt.Errorf("Number: want: %v have: %v", h.Number, h2.Number)
 	}
@@ -236,14 +227,8 @@ func validateHeader(h *btHeader, h2 *types.Header) error {
 	if h.StateRoot != h2.Root {
 		return fmt.Errorf("State hash: want: %x have: %x", h.StateRoot, h2.Root)
 	}
-	if h.UncleHash != h2.UncleHash {
-		return fmt.Errorf("Uncle hash: want: %x have: %x", h.UncleHash, h2.UncleHash)
-	}
 	if !bytes.Equal(h.ExtraData, h2.Extra) {
 		return fmt.Errorf("Extra data: want: %x have: %x", h.ExtraData, h2.Extra)
-	}
-	if h.Difficulty.Cmp(h2.Difficulty) != 0 {
-		return fmt.Errorf("Difficulty: want: %v have: %v", h.Difficulty, h2.Difficulty)
 	}
 	if h.GasLimit != h2.GasLimit {
 		return fmt.Errorf("GasLimit: want: %d have: %d", h.GasLimit, h2.GasLimit)

@@ -17,25 +17,20 @@
 package tests
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"strings"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/core"
+	"github.com/truechain/truechain-engineering-code/core/state"
+	"github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/core/vm"
+	"github.com/truechain/truechain-engineering-code/etruedb"
+	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/sha3"
+	"math/big"
 )
 
 // StateTest checks transaction processing without block context.
@@ -56,7 +51,7 @@ func (t *StateTest) UnmarshalJSON(in []byte) error {
 
 type stJSON struct {
 	Env  stEnv                    `json:"env"`
-	Pre  core.GenesisAlloc        `json:"pre"`
+	Pre  types.GenesisAlloc        `json:"pre"`
 	Tx   stTransaction            `json:"transaction"`
 	Out  hexutil.Bytes            `json:"out"`
 	Post map[string][]stPostState `json:"post"`
@@ -126,15 +121,15 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	if !ok {
 		return nil, UnsupportedForkError{subtest.Fork}
 	}
-	block := t.genesis(config).ToBlock(nil)
-	statedb := MakePreState(rawdb.NewMemoryDatabase(), t.json.Pre)
+	block := t.genesis(config).ToFastBlock(nil)
+	statedb := MakePreState(etruedb.NewMemDatabase(), t.json.Pre)
 
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	msg, err := t.json.Tx.toMessage(post)
 	if err != nil {
 		return nil, err
 	}
-	context := core.NewEVMContext(msg, block.Header(), nil, &t.json.Env.Coinbase)
+	context := core.NewEVMContext(msg, block.Header(), nil)
 	context.GetHash = vmTestBlockHash
 	evm := vm.NewEVM(context, statedb, config, vmconfig)
 
@@ -145,7 +140,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 		statedb.RevertToSnapshot(snapshot)
 	}
 	// Commit block
-	statedb.Commit(config.IsEIP158(block.Number()))
+	statedb.Commit(true)
 	// Add 0-value mining reward. This only makes a difference in the cases
 	// where
 	// - the coinbase suicided, or
@@ -153,7 +148,7 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	//   the coinbase gets no txfee, so isn't created, and thus needs to be touched
 	statedb.AddBalance(block.Coinbase(), new(big.Int))
 	// And _now_ get the state root
-	root := statedb.IntermediateRoot(config.IsEIP158(block.Number()))
+	root := statedb.IntermediateRoot(true)
 	// N.B: We need to do this in a two-step process, because the first Commit takes care
 	// of suicides, and we need to touch the coinbase _after_ it has potentially suicided.
 	if root != common.Hash(post.Root) {
@@ -169,7 +164,7 @@ func (t *StateTest) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB {
+func MakePreState(db etruedb.Database, accounts types.GenesisAlloc) *state.StateDB {
 	sdb := state.NewDatabase(db)
 	statedb, _ := state.New(common.Hash{}, sdb)
 	for addr, a := range accounts {
@@ -200,52 +195,53 @@ func (t *StateTest) genesis(config *params.ChainConfig) *core.Genesis {
 
 func (tx *stTransaction) toMessage(ps stPostState) (core.Message, error) {
 	// Derive sender from private key if present.
-	var from common.Address
-	if len(tx.PrivateKey) > 0 {
-		key, err := crypto.ToECDSA(tx.PrivateKey)
-		if err != nil {
-			return nil, fmt.Errorf("invalid private key: %v", err)
-		}
-		from = crypto.PubkeyToAddress(key.PublicKey)
-	}
-	// Parse recipient if present.
-	var to *common.Address
-	if tx.To != "" {
-		to = new(common.Address)
-		if err := to.UnmarshalText([]byte(tx.To)); err != nil {
-			return nil, fmt.Errorf("invalid to address: %v", err)
-		}
-	}
-
-	// Get values specific to this post state.
-	if ps.Indexes.Data > len(tx.Data) {
-		return nil, fmt.Errorf("tx data index %d out of bounds", ps.Indexes.Data)
-	}
-	if ps.Indexes.Value > len(tx.Value) {
-		return nil, fmt.Errorf("tx value index %d out of bounds", ps.Indexes.Value)
-	}
-	if ps.Indexes.Gas > len(tx.GasLimit) {
-		return nil, fmt.Errorf("tx gas limit index %d out of bounds", ps.Indexes.Gas)
-	}
-	dataHex := tx.Data[ps.Indexes.Data]
-	valueHex := tx.Value[ps.Indexes.Value]
-	gasLimit := tx.GasLimit[ps.Indexes.Gas]
-	// Value, Data hex encoding is messy: https://github.com/ethereum/tests/issues/203
-	value := new(big.Int)
-	if valueHex != "0x" {
-		v, ok := math.ParseBig256(valueHex)
-		if !ok {
-			return nil, fmt.Errorf("invalid tx value %q", valueHex)
-		}
-		value = v
-	}
-	data, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid tx data %q", dataHex)
-	}
-
-	msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, tx.GasPrice, data, true)
-	return msg, nil
+	//var from common.Address
+	//if len(tx.PrivateKey) > 0 {
+	//	key, err := crypto.ToECDSA(tx.PrivateKey)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("invalid private key: %v", err)
+	//	}
+	//	from = crypto.PubkeyToAddress(key.PublicKey)
+	//}
+	//// Parse recipient if present.
+	//var to *common.Address
+	//if tx.To != "" {
+	//	to = new(common.Address)
+	//	if err := to.UnmarshalText([]byte(tx.To)); err != nil {
+	//		return nil, fmt.Errorf("invalid to address: %v", err)
+	//	}
+	//}
+	//
+	//// Get values specific to this post state.
+	//if ps.Indexes.Data > len(tx.Data) {
+	//	return nil, fmt.Errorf("tx data index %d out of bounds", ps.Indexes.Data)
+	//}
+	//if ps.Indexes.Value > len(tx.Value) {
+	//	return nil, fmt.Errorf("tx value index %d out of bounds", ps.Indexes.Value)
+	//}
+	//if ps.Indexes.Gas > len(tx.GasLimit) {
+	//	return nil, fmt.Errorf("tx gas limit index %d out of bounds", ps.Indexes.Gas)
+	//}
+	//dataHex := tx.Data[ps.Indexes.Data]
+	//valueHex := tx.Value[ps.Indexes.Value]
+	//gasLimit := tx.GasLimit[ps.Indexes.Gas]
+	//// Value, Data hex encoding is messy: https://github.com/ethereum/tests/issues/203
+	//value := new(big.Int)
+	//if valueHex != "0x" {
+	//	v, ok := math.ParseBig256(valueHex)
+	//	if !ok {
+	//		return nil, fmt.Errorf("invalid tx value %q", valueHex)
+	//	}
+	//	value = v
+	//}
+	//data, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
+	//if err != nil {
+	//	return nil, fmt.Errorf("invalid tx data %q", dataHex)
+	//}
+	//
+	//msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, tx.GasPrice, data, true)
+	//return msg, nil
+	return nil,nil
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
