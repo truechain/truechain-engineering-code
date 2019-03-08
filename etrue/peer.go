@@ -605,7 +605,7 @@ func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool, call string
 		return p2p.Send(p.rw, GetFastBlockBodiesMsg, datas)
 	}
 	p.Log().Debug("Fetching batch of block bodies  GetSnailBlockBodiesMsg", "count", len(hashes))
-	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, datas)
+	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, hashes)
 }
 
 // RequestNodeData fetches a batch of arbitrary data from a node's known state
