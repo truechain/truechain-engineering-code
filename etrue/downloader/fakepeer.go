@@ -121,7 +121,7 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 
 // RequestBodies implements downloader.Peer, returning a batch of block bodies
 // corresponding to the specified block hashes.
-func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool, call string) error {
+func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
 		fruits [][]*types.SnailBlock
 		signs  [][]*types.PbftSign

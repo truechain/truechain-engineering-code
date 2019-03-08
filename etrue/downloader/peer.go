@@ -22,7 +22,6 @@ package downloader
 import (
 	"errors"
 	"fmt"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"math"
 	"math/big"
 	"sync"
@@ -92,7 +91,7 @@ func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
 
-func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, string) error {
+func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
 
@@ -217,7 +216,7 @@ func (p *peerConnection) FetchBodies(request *etrue.FetchRequest) error {
 	for _, header := range request.Sheaders {
 		hashes = append(hashes, header.Hash())
 	}
-	go p.peer.RequestBodies(hashes, false, types.DownloaderCall)
+	go p.peer.RequestBodies(hashes, false)
 
 	return nil
 }

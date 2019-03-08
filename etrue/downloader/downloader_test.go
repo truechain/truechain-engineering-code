@@ -1690,7 +1690,7 @@ func (ftp *floodingTestPeer) RequestHeadersByHash(hash common.Hash, count int, s
 	return ftp.peer.RequestHeadersByHash(hash, count, skip, reverse, isFastchain)
 }
 func (ftp *floodingTestPeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
-	return ftp.peer.RequestBodies(hashes, isFastchain, "test")
+	return ftp.peer.RequestBodies(hashes, isFastchain)
 }
 func (ftp *floodingTestPeer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 	return ftp.peer.RequestReceipts(hashes, isFastchain)

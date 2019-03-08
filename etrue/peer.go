@@ -525,14 +525,14 @@ func (p *peer) RequestSnailBodies(hashes []common.Hash) error {
 }
 
 // SendFastBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendFastBlockHeaders(headerData BlockHeadersData) error {
-	return p2p.Send(p.rw, FastBlockHeadersMsg, headerData)
+func (p *peer) SendFastBlockHeaders(headers []*types.Header) error {
+	return p2p.Send(p.rw, FastBlockHeadersMsg, headers)
 }
 
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
-func (p *peer) SendFastBlockBodiesRLP(bodiesData BlockBodiesRawData) error {
-	return p2p.Send(p.rw, FastBlockBodiesMsg, bodiesData)
+func (p *peer) SendFastBlockBodiesRLP(bodies []rlp.RawValue) error {
+	return p2p.Send(p.rw, FastBlockBodiesMsg, bodies)
 }
 
 // SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
@@ -561,7 +561,7 @@ func (p *peer) RequestOneFastHeader(hash common.Hash) error {
 	} else {
 		p.Log().Debug("Fetching single header  GetFastBlockHeadersMsg", "hash", hash)
 	}
-	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false, call: types.FetcherCall})
+	return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
 // RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
@@ -573,7 +573,7 @@ func (p *peer) RequestHeadersByHash(origin common.Hash, amount int, skip int, re
 		} else {
 			p.Log().Debug("Fetching batch of headers  GetFastOneBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 		}
-		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, call: types.DownloaderCall})
+		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
 	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
@@ -585,7 +585,7 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 
 	if isFastchain {
 		p.Log().Debug("Fetching batch of headers GetFastBlockHeadersMsg number", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse, call: types.DownloaderCall})
+		return p2p.Send(p.rw, GetFastBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
 	}
 	p.Log().Debug("Fetching batch of headers  GetSnailBlockHeadersMsg number", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
 	return p2p.Send(p.rw, GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
@@ -594,15 +594,11 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
-func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool, call string) error {
-	datas := make([]getBlockBodiesData, len(hashes))
-	for _, hash := range hashes {
-		datas = append(datas, getBlockBodiesData{hash, call})
-	}
+func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 
 	if isFastchain {
 		p.Log().Debug("Fetching batch of block bodies  GetFastBlockBodiesMsg", "count", len(hashes))
-		return p2p.Send(p.rw, GetFastBlockBodiesMsg, datas)
+		return p2p.Send(p.rw, GetFastBlockBodiesMsg, hashes)
 	}
 	p.Log().Debug("Fetching batch of block bodies  GetSnailBlockBodiesMsg", "count", len(hashes))
 	return p2p.Send(p.rw, GetSnailBlockBodiesMsg, hashes)

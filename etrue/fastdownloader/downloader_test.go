@@ -394,10 +394,10 @@ func TestInactiveDownloader62(t *testing.T) {
 	defer tester.terminate()
 
 	// Check that neither block headers nor bodies are accepted
-	if err := tester.downloader.DeliverHeaders("bad peer", []*types.Header{}, "test"); err != errNoSyncActive {
+	if err := tester.downloader.DeliverHeaders("bad peer", []*types.Header{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
-	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.Transaction{}, [][]*types.PbftSign{}, [][]*types.CommitteeMember{}, ""); err != errNoSyncActive {
+	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.Transaction{}, [][]*types.PbftSign{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
 }
@@ -411,10 +411,10 @@ func TestInactiveDownloader63(t *testing.T) {
 	defer tester.terminate()
 
 	// Check that neither block headers nor bodies are accepted
-	if err := tester.downloader.DeliverHeaders("bad peer", []*types.Header{}, "test"); err != errNoSyncActive {
+	if err := tester.downloader.DeliverHeaders("bad peer", []*types.Header{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
-	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.Transaction{}, [][]*types.PbftSign{}, [][]*types.CommitteeMember{}, ""); err != errNoSyncActive {
+	if err := tester.downloader.DeliverBodies("bad peer", [][]*types.Transaction{}, [][]*types.PbftSign{}); err != errNoSyncActive {
 		t.Errorf("error mismatch: have %v, want %v", err, errNoSyncActive)
 	}
 	if err := tester.downloader.DeliverReceipts("bad peer", [][]*types.Receipt{}); err != errNoSyncActive {
@@ -1159,7 +1159,7 @@ func (ftp *FloodingTestPeer) RequestHeadersByHash(hash common.Hash, count int, s
 	return ftp.peer.RequestHeadersByHash(hash, count, skip, reverse, isFastchain)
 }
 func (ftp *FloodingTestPeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
-	return ftp.peer.RequestBodies(hashes, isFastchain, "test")
+	return ftp.peer.RequestBodies(hashes, isFastchain)
 }
 func (ftp *FloodingTestPeer) RequestReceipts(hashes []common.Hash, isFastchain bool) error {
 	return ftp.peer.RequestReceipts(hashes, isFastchain)
@@ -1175,7 +1175,7 @@ func (ftp *FloodingTestPeer) RequestHeadersByNumber(from uint64, count, skip int
 		ftp.pend.Add(1)
 
 		go func() {
-			ftp.tester.downloader.DeliverHeaders(peer, []*types.Header{{}, {}, {}, {}}, "test")
+			ftp.tester.downloader.DeliverHeaders(peer, []*types.Header{{}, {}, {}, {}})
 			deliveriesDone <- struct{}{}
 			ftp.pend.Done()
 		}()
