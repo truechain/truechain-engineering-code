@@ -454,14 +454,16 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock().Header() // Special case during testing
 	}
-	statedb, err := pool.chain.StateAt(newHead.Root)
+	//statedb, err := pool.chain.StateAt(newHead.Root)
+	statedb, err := pool.chain.StateAt(pool.chain.CurrentBlock().Header().Root)
 	if err != nil {
 		log.Error("Failed to reset txpool state", "err", err)
 		return
 	}
 	pool.currentState = statedb
 	pool.pendingState = state.ManageState(statedb)
-	pool.currentMaxGas = newHead.GasLimit
+	//pool.currentMaxGas = newHead.GasLimit
+	pool.currentMaxGas = pool.chain.CurrentBlock().Header().GasLimit
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
