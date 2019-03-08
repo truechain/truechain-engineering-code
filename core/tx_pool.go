@@ -86,6 +86,8 @@ var (
 	// transaction with a negative value.
 	ErrNegativeValue = errors.New("negative value")
 
+	ErrNegativeFee = errors.New("negative fee")
+
 	// ErrOversizedData is returned if the input data of a transaction is greater
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
@@ -617,6 +619,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// transactions but may occur if you create a transaction using the RPC.
 	if tx.Value().Sign() < 0 {
 		return ErrNegativeValue
+	}
+	if tx.Fee() != nil && tx.Fee().Sign() < 0 {
+		return ErrNegativeFee
 	}
 	// Ensure the transaction doesn't exceed the current block limit gas.
 	if pool.currentMaxGas < tx.Gas() {
