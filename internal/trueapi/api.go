@@ -1648,26 +1648,8 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return nil, err
 	}
-	/*if args.Payment == (common.Address{}) {
-		//fmt.Println("afsd")
-		raw_tx := args.toRawTransaction()
-		tx := raw_tx.ConvertTransaction()
-		signed, err := s.sign(args.From, tx)
-		raw_tx_signed := signed.ConvertRawTransaction()
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("signed", signed.Info())
-		data, err := rlp.EncodeToBytes(raw_tx_signed)
-		if err != nil {
-			return nil, err
-		}
-		//fmt.Println("api method signTransaction signed", signed.Info())
-		return &SignTransactionResult{data, signed}, nil
-	}*/
-
 	tx := args.toTransaction()
-	fmt.Println("api method signTransaction received payment", args.Payment.String())
+	//fmt.Println("api method signTransaction received payment", args.Payment.String())
 	//sign from
 	signed, err := s.sign(args.From, tx)
 	if err != nil {
