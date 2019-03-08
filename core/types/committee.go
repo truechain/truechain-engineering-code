@@ -46,6 +46,12 @@ const (
 	VoteAgree
 )
 
+// FetcherCall is distinguish fetcher call HeadersMsg and bodyMsg.
+var FetcherCall = "fetcher"
+
+// DownloaderCall is distinguish fetcher call HeadersMsg and bodyMsg.
+var DownloaderCall = "downloader"
+
 //CommitteeMembers committee members
 type CommitteeMembers []*CommitteeMember
 

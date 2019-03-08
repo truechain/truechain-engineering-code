@@ -535,7 +535,7 @@ func (dlp *DownloadTesterPeer) RequestHeadersByNumber(origin uint64, amount int,
 	// Delay delivery a bit to allow attacks to unfold
 	go func() {
 		time.Sleep(time.Millisecond)
-		dlp.dl.downloader.DeliverHeaders(dlp.id, result)
+		dlp.dl.downloader.DeliverHeaders(dlp.id, result, types.DownloaderCall)
 	}()
 	return nil
 }
@@ -543,7 +543,7 @@ func (dlp *DownloadTesterPeer) RequestHeadersByNumber(origin uint64, amount int,
 // RequestBodies constructs a getBlockBodies method associated with a particular
 // peer in the download tester. The returned function can be used to retrieve
 // batches of block bodies from the particularly requested peer.
-func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
+func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain bool, call string) error {
 	dlp.waitDelay()
 
 	dlp.dl.lock.RLock()
@@ -564,7 +564,7 @@ func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain b
 			infos = append(infos, block.SwitchInfos())
 		}
 	}
-	go dlp.dl.downloader.DeliverBodies(dlp.id, transactions, signs, infos)
+	go dlp.dl.downloader.DeliverBodies(dlp.id, transactions, signs, infos, types.DownloaderCall)
 
 	return nil
 }

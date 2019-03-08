@@ -1299,12 +1299,12 @@ func (d *Downloader) commitFastSyncData(results []*etrue.FetchResult) error {
 
 // DeliverHeaders injects a new batch of block headers received from a remote
 // node into the download schedule.
-func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err error) {
+func (d *Downloader) DeliverHeaders(id string, headers []*types.Header, call string) (err error) {
 	return d.deliver(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
-func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember) (err error) {
+func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, call string) (err error) {
 
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, signs, infos}, bodyInMeter, bodyDropMeter)
 }

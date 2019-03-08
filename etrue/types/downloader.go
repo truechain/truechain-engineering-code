@@ -35,7 +35,7 @@ type LightPeer interface {
 type Peer interface {
 	LightPeer
 
-	RequestBodies([]common.Hash, bool) error
+	RequestBodies([]common.Hash, bool, string) error
 	RequestReceipts([]common.Hash, bool) error
 	RequestNodeData([]common.Hash, bool) error
 }

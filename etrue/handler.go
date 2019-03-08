@@ -681,19 +681,22 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendFastBlockHeaders(headers)
+		return p.SendFastBlockHeaders(BlockHeadersData{headers, query.call})
 
 	case msg.Code == FastBlockHeadersMsg:
 
 		// A batch of headers arrived to one of our previous requests
-		var headers []*types.Header
-		if err := msg.Decode(&headers); err != nil {
+		var headerData BlockHeadersData
+		if err := msg.Decode(&headerData); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
+		headers := make([]*types.Header, len(headerData.headers))
+		copy(headers, headerData.headers)
+
 		filter := len(headers) == 1
 		if len(headers) > 0 {
-			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number)
+			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.call)
 		}
 		if filter {
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
@@ -702,7 +705,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(headers) > 0 || !filter {
 			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
-			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.call)
 			if err != nil {
 				log.Debug("Failed to deliver headers", "err", err)
 			}
@@ -717,26 +720,26 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Gather blocks until the fetch or network limits is reached
 		var (
-			hash   common.Hash
-			bytes  int
-			bodies []rlp.RawValue
+			hashData getBlockBodiesData
+			bytes    int
+			bodies   []rlp.RawValue
 		)
 		for bytes < softResponseLimit && len(bodies) < downloader.MaxBlockFetch {
 			// Retrieve the hash of the next block
-			if err := msgStream.Decode(&hash); err == rlp.EOL {
+			if err := msgStream.Decode(&hashData); err == rlp.EOL {
 				break
 			} else if err != nil {
 				return errResp(ErrDecode, "msg %v: %v", msg, err)
 			}
 			// Retrieve the requested block body, stopping if enough was found
-			if data := pm.blockchain.GetBodyRLP(hash); len(data) != 0 {
+			if data := pm.blockchain.GetBodyRLP(hashData.Hash); len(data) != 0 {
 				bodies = append(bodies, data)
 				bytes += len(data)
 			}
 		}
 
 		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendFastBlockBodiesRLP(bodies)
+		return p.SendFastBlockBodiesRLP(BlockBodiesRawData{bodies, hashData.call})
 
 	case msg.Code == FastBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
@@ -745,11 +748,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver them all to the downloader for queuing
-		transactions := make([][]*types.Transaction, len(request))
-		signs := make([][]*types.PbftSign, len(request))
-		infos := make([][]*types.CommitteeMember, len(request))
+		transactions := make([][]*types.Transaction, len(request.bodiesData))
+		signs := make([][]*types.PbftSign, len(request.bodiesData))
+		infos := make([][]*types.CommitteeMember, len(request.bodiesData))
 
-		for i, body := range request {
+		for i, body := range request.bodiesData {
 			transactions[i] = body.Transactions
 			signs[i] = body.Signs
 			infos[i] = body.Infos
@@ -765,7 +768,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
-			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos)
+			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.call)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
