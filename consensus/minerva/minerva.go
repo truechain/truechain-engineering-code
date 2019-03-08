@@ -32,6 +32,7 @@ import (
 	"time"
 	"unsafe"
 
+	"encoding/binary"
 	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
@@ -548,12 +549,24 @@ func SeedHash(block uint64) []byte {
 	return seedHash(block)
 }
 
-func (m *Minerva) DataSetHash(block uint64) common.Hash {
+func (m *Minerva) DataSetHash(block uint64) []byte {
+
+	var datas []byte
+	tmp := make([]byte, 8)
+	output := make([]byte, DGSTSIZE)
 	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	return current.datasetHash
+	//getDataset
+	sha256 := makeHasher(sha3.New256())
+
+	for _, v := range current.dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	sha256(output, datas[:])
+	return output
 
 }
 

@@ -143,7 +143,7 @@ type Engine interface {
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
 
-	DataSetHash(block uint64) common.Hash
+	DataSetHash(block uint64) []byte
 }
 
 //Election module implementation committee interface

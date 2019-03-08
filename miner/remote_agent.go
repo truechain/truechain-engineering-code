@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"encoding/hex"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -127,17 +128,16 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
-
+		block.Number()
 		res[0] = block.HashNoNonce().Hex()
 		DatasetHash := a.engine.DataSetHash(block.NumberU64())
-		res[1] = DatasetHash.Hex()
+		res[1] = hex.EncodeToString(DatasetHash)
 		// Calculate the "target" to be returned to the external miner
 		n := big.NewInt(1)
 		n.Lsh(n, 255)
 		n.Div(n, block.BlockDifficulty())
 		n.Lsh(n, 1)
 		res[2] = common.BytesToHash(n.Bytes()).Hex()
-
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
