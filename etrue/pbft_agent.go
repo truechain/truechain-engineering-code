@@ -870,12 +870,17 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		}
 		return voteSign, err
 	}
+
 	err = agent.verifyRewardInCommittee(fb)
 	if err != nil {
-		return nil, err
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
+		if signError != nil {
+			return nil, signError
+		}
+		return voteSign, nil
 	}
-	err = bc.Validator().ValidateBody(fb, false)
 
+	err = bc.Validator().ValidateBody(fb, false)
 	if err != nil {
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && agent.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
