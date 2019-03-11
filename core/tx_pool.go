@@ -866,6 +866,7 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	log.Trace("AddRemotes", "len(txs)", len(txs))
 	errs := make([]error, len(txs))
 	select {
 	case pool.newTxsCh <- txs:
