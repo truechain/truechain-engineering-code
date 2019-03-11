@@ -203,6 +203,9 @@ func (s TIP1Signer) Hash(tx *Transaction) common.Hash {
 	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
 	var hash common.Hash
 	//payer and fee is nil or default value
+	if tx.data.Fee != nil && tx.data.Fee.Uint64() == 0 {
+		tx.data.Fee = nil
+	}
 	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) && tx.data.Fee == nil {
 		hash = rlpHash([]interface{}{
 			tx.data.AccountNonce,
