@@ -598,8 +598,7 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 //
 // Note, this function assumes that the `mu` mutex is held!
 func (bc *BlockChain) insert(block *types.Block) {
-	// If the block is on a side chain or an unknown one, force other heads onto it too
-	updateHeads := rawdb.ReadCanonicalHash(bc.db, block.NumberU64()) != block.Hash()
+
 
 	// Add the block to the canonical chain number scheme and mark as the head
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
@@ -608,12 +607,14 @@ func (bc *BlockChain) insert(block *types.Block) {
 	bc.currentBlock.Store(block)
 
 	// If the block is better than our head or is on a different chain, force update heads
-	if updateHeads {
-		bc.isFallback = false;
-		bc.hc.SetCurrentHeader(block.Header())
-		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
+	bc.hc.SetCurrentHeader(block.Header())
+	rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 
-		bc.currentFastBlock.Store(block)
+	bc.currentFastBlock.Store(block)
+
+
+	if bc.isFallback && block.NumberU64() == bc.CurrentFastBlock().NumberU64() {
+		bc.isFallback = false;
 	}
 
 
