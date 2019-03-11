@@ -1034,6 +1034,12 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 		return
 	}
 	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
+		// Switches height array should be nil at committee start block
+		if len(committee.switches) > 0 {
+			log.Info("Reset committee switchinfo on start block", "committee", committee.id, "current", fastNumber)
+			committee.switches = nil
+			rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), committee.id.Uint64(), nil)
+		}
 		return
 	}
 
