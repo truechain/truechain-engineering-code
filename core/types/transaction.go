@@ -275,10 +275,14 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 
 func (tx *Transaction) Info() string {
 	str := ""
+	payer := ""
+	if tx.data.Payer != nil {
+		payer = common.Bytes2Hex(tx.data.Payer[:])
+	}
 	if tx != nil {
 		str += fmt.Sprintf("nonce=%v,price=%v gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v,payment=%v v=%v,r=%v,s=%v,",
-			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, tx.data.Recipient.String(), tx.data.Amount, tx.data.Payload,
-			tx.data.Payer, tx.data.V, tx.data.R, tx.data.S)
+			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, common.Bytes2Hex(tx.data.Recipient[:]), tx.data.Amount, tx.data.Payload,
+			payer, tx.data.V, tx.data.R, tx.data.S)
 	}
 	return str
 }
