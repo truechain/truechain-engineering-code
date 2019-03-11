@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
-	"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/truechain/truechain-engineering-code/accounts/abi/bind"
+	"github.com/truechain/truechain-engineering-code/accounts/abi/bind/backends"
+	"github.com/truechain/truechain-engineering-code/core/types"
 )
 
 var testKey, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
@@ -61,7 +61,7 @@ func TestWaitDeployed(t *testing.T) {
 
 		// Create the transaction.
 		tx := types.NewContractCreation(0, big.NewInt(0), test.gas, big.NewInt(1), common.FromHex(test.code))
-		tx, _ = types.SignTx(tx, types.HomesteadSigner{}, testKey)
+		tx, _ = types.SignTx(tx, types.NewTIP1Signer(tx.ChainId()), testKey)
 
 		// Wait for it to get mined in the background.
 		var (
