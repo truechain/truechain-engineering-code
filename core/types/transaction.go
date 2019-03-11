@@ -276,9 +276,9 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 func (tx *Transaction) Info() string {
 	str := ""
 	if tx != nil {
-		str += fmt.Sprintf("nonce=%v,price=%v gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v v=%v,r=%v,s=%v,",
+		str += fmt.Sprintf("nonce=%v,price=%v gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v,payment=%v v=%v,r=%v,s=%v,",
 			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, tx.data.Recipient.String(), tx.data.Amount, tx.data.Payload,
-			tx.data.V, tx.data.R, tx.data.S)
+			tx.data.Payer, tx.data.V, tx.data.R, tx.data.S)
 	}
 	return str
 }
