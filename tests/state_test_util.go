@@ -17,11 +17,13 @@
 package tests
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -31,6 +33,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"golang.org/x/crypto/sha3"
 	"math/big"
+	"strings"
 )
 
 // StateTest checks transaction processing without block context.
@@ -195,53 +198,52 @@ func (t *StateTest) genesis(config *params.ChainConfig) *core.Genesis {
 
 func (tx *stTransaction) toMessage(ps stPostState) (core.Message, error) {
 	// Derive sender from private key if present.
-	//var from common.Address
-	//if len(tx.PrivateKey) > 0 {
-	//	key, err := crypto.ToECDSA(tx.PrivateKey)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("invalid private key: %v", err)
-	//	}
-	//	from = crypto.PubkeyToAddress(key.PublicKey)
-	//}
-	//// Parse recipient if present.
-	//var to *common.Address
-	//if tx.To != "" {
-	//	to = new(common.Address)
-	//	if err := to.UnmarshalText([]byte(tx.To)); err != nil {
-	//		return nil, fmt.Errorf("invalid to address: %v", err)
-	//	}
-	//}
-	//
-	//// Get values specific to this post state.
-	//if ps.Indexes.Data > len(tx.Data) {
-	//	return nil, fmt.Errorf("tx data index %d out of bounds", ps.Indexes.Data)
-	//}
-	//if ps.Indexes.Value > len(tx.Value) {
-	//	return nil, fmt.Errorf("tx value index %d out of bounds", ps.Indexes.Value)
-	//}
-	//if ps.Indexes.Gas > len(tx.GasLimit) {
-	//	return nil, fmt.Errorf("tx gas limit index %d out of bounds", ps.Indexes.Gas)
-	//}
-	//dataHex := tx.Data[ps.Indexes.Data]
-	//valueHex := tx.Value[ps.Indexes.Value]
-	//gasLimit := tx.GasLimit[ps.Indexes.Gas]
-	//// Value, Data hex encoding is messy: https://github.com/ethereum/tests/issues/203
-	//value := new(big.Int)
-	//if valueHex != "0x" {
-	//	v, ok := math.ParseBig256(valueHex)
-	//	if !ok {
-	//		return nil, fmt.Errorf("invalid tx value %q", valueHex)
-	//	}
-	//	value = v
-	//}
-	//data, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
-	//if err != nil {
-	//	return nil, fmt.Errorf("invalid tx data %q", dataHex)
-	//}
-	//
-	//msg := types.NewMessage(from, to, tx.Nonce, value, gasLimit, tx.GasPrice, data, true)
-	//return msg, nil
-	return nil,nil
+	var from common.Address
+	if len(tx.PrivateKey) > 0 {
+		key, err := crypto.ToECDSA(tx.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid private key: %v", err)
+		}
+		from = crypto.PubkeyToAddress(key.PublicKey)
+	}
+	// Parse recipient if present.
+	var to *common.Address
+	if tx.To != "" {
+		to = new(common.Address)
+		if err := to.UnmarshalText([]byte(tx.To)); err != nil {
+			return nil, fmt.Errorf("invalid to address: %v", err)
+		}
+	}
+
+	// Get values specific to this post state.
+	if ps.Indexes.Data > len(tx.Data) {
+		return nil, fmt.Errorf("tx data index %d out of bounds", ps.Indexes.Data)
+	}
+	if ps.Indexes.Value > len(tx.Value) {
+		return nil, fmt.Errorf("tx value index %d out of bounds", ps.Indexes.Value)
+	}
+	if ps.Indexes.Gas > len(tx.GasLimit) {
+		return nil, fmt.Errorf("tx gas limit index %d out of bounds", ps.Indexes.Gas)
+	}
+	dataHex := tx.Data[ps.Indexes.Data]
+	valueHex := tx.Value[ps.Indexes.Value]
+	gasLimit := tx.GasLimit[ps.Indexes.Gas]
+	// Value, Data hex encoding is messy: https://github.com/ethereum/tests/issues/203
+	value := new(big.Int)
+	if valueHex != "0x" {
+		v, ok := math.ParseBig256(valueHex)
+		if !ok {
+			return nil, fmt.Errorf("invalid tx value %q", valueHex)
+		}
+		value = v
+	}
+	data, err := hex.DecodeString(strings.TrimPrefix(dataHex, "0x"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid tx data %q", dataHex)
+	}
+
+	msg := types.NewMessage(from, to,common.Address{}, tx.Nonce, value,nil, gasLimit, tx.GasPrice, data, true)
+	return msg, nil
 }
 
 func rlpHash(x interface{}) (h common.Hash) {

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/cmd/utils"
@@ -91,11 +92,11 @@ func withTrace(t *testing.T, gasLimit uint64, test func(vm.Config) error) {
 	}
 	buf := new(bytes.Buffer)
 	w := bufio.NewWriter(buf)
-	//tracer := vm.NewJSONLogger(&vm.LogConfig{DisableMemory: true}, w)
-	//err2 := test(vm.Config{Debug: true, Tracer: tracer})
-	//if !reflect.DeepEqual(err, err2) {
-	//	t.Errorf("different error for second run: %v", err2)
-	//}
+	tracer := vm.NewJSONLogger(&vm.LogConfig{DisableMemory: true}, w)
+	err2 := test(vm.Config{Debug: true, Tracer: tracer})
+	if !reflect.DeepEqual(err, err2) {
+		t.Errorf("different error for second run: %v", err2)
+	}
 	w.Flush()
 	if buf.Len() == 0 {
 		t.Log("no EVM operation logs generated")
