@@ -153,6 +153,8 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	var isFinish bool
+
 	log.Info("--------get submit work", "nonce", nonce, "mixDigest", mixDigest, "hash", hash)
 
 	// Make sure the work submitted is present
@@ -166,11 +168,34 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.Nonce = nonce
 	result.MixDigest = mixDigest
 
+	if work.Block.Fruits() == nil {
+		// only block
+		if err := a.engine.VerifySnailSeal(a.snailchain, result, false); err != nil {
+			log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
+			return false
+		}
+	} else {
+		// maybe have block or fruit
+		errFruit := a.engine.VerifySnailSeal(a.snailchain, result, true)
+
+		errBlock := a.engine.VerifySnailSeal(a.snailchain, result, false)
+
+		if errFruit != nil && errBlock != nil {
+			log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
+			return false
+		}
+
+		if errBlock == nil {
+			isFinish = true
+		}
+
+	}
+
 	//pointer := a.snailchain.GetHeaderByHash(result.PointerHash)
-	if err := a.engine.VerifySnailSeal(a.snailchain, result, false); err != nil {
+	/*if err := a.engine.VerifySnailSeal(a.snailchain, result, false); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
-	}
+	}*/
 	block := work.Block.WithSeal(result)
 
 	//neo for result struct add fruit result with to change the fun
@@ -182,7 +207,9 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	//Neo 20180624
 	a.returnCh <- &Result{work, block}
 
-	delete(a.work, hash)
+	if isFinish {
+		delete(a.work, hash)
+	}
 
 	return true
 }
