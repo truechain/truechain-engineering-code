@@ -225,7 +225,7 @@ type ConsensusConfig struct {
 	TimeoutPrecommit      int `mapstructure:"timeout_precommit"`
 	TimeoutPrecommitDelta int `mapstructure:"timeout_precommit_delta"`
 	TimeoutCommit         int `mapstructure:"timeout_commit"`
-	TimeoutCatchup	  int `mapstructure:"timeout_consensus"`
+	TimeoutCatchup        int `mapstructure:"timeout_consensus"`
 
 	// Make progress as soon as we have all the precommits (as if TimeoutCommit = 0)
 	SkipTimeoutCommit bool `mapstructure:"skip_timeout_commit"`
@@ -250,10 +250,10 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		TimeoutPrecommit:            3000,
 		TimeoutPrecommitDelta:       500,
 		TimeoutCommit:               1000,
-		TimeoutCatchup:			 	 1000, 	
+		TimeoutCatchup:              1000,
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
-		CreateEmptyBlocksInterval:   5000,
+		CreateEmptyBlocksInterval:   0,
 		PeerGossipSleepDuration:     100,
 		PeerQueryMaj23SleepDuration: 2000,
 	}
@@ -273,7 +273,7 @@ func TestConsensusConfig() *ConsensusConfig {
 	cfg.SkipTimeoutCommit = true
 	cfg.PeerGossipSleepDuration = 5
 	cfg.PeerQueryMaj23SleepDuration = 250
-	
+
 	return cfg
 }
 
@@ -286,23 +286,25 @@ func (cfg *ConsensusConfig) WaitForTxs() bool {
 func (cfg *ConsensusConfig) EmptyBlocksInterval() time.Duration {
 	return time.Duration(cfg.CreateEmptyBlocksInterval) * time.Millisecond
 }
+
 // WaitForEmptyBlocks rerutns true if the consensus should wait for transactions before entering the propose step
 func (cfg *ConsensusConfig) WaitForEmptyBlocks(times int) bool {
 	if times < 1 {
 		return false
 	}
 	sum := cfg.CreateEmptyBlocksInterval / 1000
-	if cfg.CreateEmptyBlocksInterval % 1000 > 0 {
+	if cfg.CreateEmptyBlocksInterval%1000 > 0 {
 		sum++
 	}
 	wait := sum >= times
 	return wait
 }
+
 // EmptyBlocksIntervalForPer rerutns time Duration that how long it wait for per times
 func (cfg *ConsensusConfig) EmptyBlocksIntervalForPer(times int) time.Duration {
 	sum := cfg.CreateEmptyBlocksInterval / 1000
 	if sum < times {
-		return time.Duration(cfg.CreateEmptyBlocksInterval - (times * 1000)) * time.Millisecond
+		return time.Duration(cfg.CreateEmptyBlocksInterval-(times*1000)) * time.Millisecond
 	}
 	return time.Duration(1000) * time.Millisecond
 }
@@ -326,10 +328,12 @@ func (cfg *ConsensusConfig) Precommit(round int) time.Duration {
 func (cfg *ConsensusConfig) Commit(t time.Time) time.Time {
 	return t.Add(time.Duration(cfg.TimeoutCommit) * time.Millisecond)
 }
+
 // CatchupTime catch up same consensus for peer
 func (cfg *ConsensusConfig) CatchupTime(t time.Time) time.Time {
 	return t.Add(time.Duration(cfg.TimeoutCatchup) * time.Millisecond)
 }
+
 // PeerGossipSleep returns the amount of time to sleep if there is nothing to send from the ConsensusReactor
 func (cfg *ConsensusConfig) PeerGossipSleep() time.Duration {
 	return time.Duration(cfg.PeerGossipSleepDuration) * time.Millisecond
