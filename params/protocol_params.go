@@ -123,5 +123,5 @@ var (
 
 	MaximumCommitteeNumber  = big.NewInt(50)
 	ProposalCommitteeNumber = 20
-	MinimumCommitteeNumber  = 7
+	MinimumCommitteeNumber  = 4
 )
