@@ -253,7 +253,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		TimeoutCatchup:              1000,
 		SkipTimeoutCommit:           false,
 		CreateEmptyBlocks:           true,
-		CreateEmptyBlocksInterval:   0,
+		CreateEmptyBlocksInterval:   1000,
 		PeerGossipSleepDuration:     100,
 		PeerQueryMaj23SleepDuration: 2000,
 	}
