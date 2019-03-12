@@ -680,6 +680,9 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	log.Info("into GenerateFastBlock...", "committeeId", committeeID)
 	agent.mu.Lock()
 	defer agent.mu.Unlock()
+	if agent.fastChain.IsFallback() {
+		return nil, core.ErrIsFallback
+	}
 	var (
 		parent       = agent.fastChain.CurrentBlock()
 		parentNumber = parent.Number()
@@ -826,8 +829,7 @@ func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint32, resul
 		FastHash:   fb.Hash(),
 	}
 	if vote == types.VoteAgreeAgainst {
-		log.Warn("vote AgreeAgainst", "number",
-			fb.Number(), "hash", fb.Hash(), "vote", vote, "result", result)
+		log.Warn("vote AgreeAgainst", "number", fb.Number(), "hash", fb.Hash(), "vote", vote, "result", result)
 	}
 	var err error
 	signHash := voteSign.HashWithNoSign().Bytes()
@@ -853,6 +855,13 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
 func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.PbftSign, error) {
+	if agent.fastChain.IsFallback() {
+		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
+		if signError != nil {
+			return nil, signError
+		}
+		return voteSign, core.ErrIsFallback
+	}
 	var (
 		bc     = agent.fastChain
 		parent = bc.GetBlock(fb.ParentHash(), fb.NumberU64()-1)

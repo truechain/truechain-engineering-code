@@ -41,4 +41,6 @@ var (
 
 	//fetch number of newBlock exceed specified number
 	ErrExceedNumber = errors.New("number exceed specified number")
+
+	ErrIsFallback = errors.New("block and state is falling back")
 )
