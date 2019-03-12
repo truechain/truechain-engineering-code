@@ -18,6 +18,7 @@ package minerva
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -704,6 +705,40 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	}
 
 	return nil
+}
+
+// VerifySnailSeal implements consensus.Engine, checking whether the given block satisfies
+// the PoW difficulty requirements.
+func (m *Minerva) VerifySnailSeal2(hight *big.Int, nonce string, headNoNoncehash string, ftarg *big.Int, btarg *big.Int, haveFruits bool) (bool, bool, []byte) {
+	// If we're running a fake PoW, accept any seal as valid
+
+	nonceHash, _ := hex.DecodeString(nonce)
+	headHash := common.HexToHash(headNoNoncehash)
+
+	dataset := m.getDataset(hight.Uint64())
+	//m.CheckDataSetState(header.Number.Uint64())
+	digest, result := truehashLight(dataset.dataset, headHash.Bytes(), binary.BigEndian.Uint64(nonceHash[:]))
+
+	headResult := result[:16]
+	if new(big.Int).SetBytes(headResult).Cmp(btarg) <= 0 {
+		// Correct nonce found, create a new header with it
+		if haveFruits {
+			return true, false, digest
+
+		}
+
+	} else {
+		lastResult := result[16:]
+
+		if new(big.Int).SetBytes(lastResult).Cmp(ftarg) <= 0 {
+			return true, true, digest
+		} else {
+			return false, false, []byte{}
+		}
+
+	}
+
+	return false, false, []byte{}
 }
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a

@@ -17,7 +17,6 @@
 package miner
 
 import (
-	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -133,11 +132,14 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		DatasetHash := a.engine.DataSetHash(block.NumberU64())
 		res[1] = hex.EncodeToString(DatasetHash)
 		// Calculate the "target" to be returned to the external miner
-		n := big.NewInt(1)
+		/*n := big.NewInt(1)
 		n.Lsh(n, 255)
 		n.Div(n, block.BlockDifficulty())
 		n.Lsh(n, 1)
-		res[2] = common.BytesToHash(n.Bytes()).Hex()
+		res[2] = common.BytesToHash(n.Bytes()).Hex()*/
+		//log.Info("------diff", "is", block.BlockDifficulty())
+		res[2] = common.BytesToHash(block.FruitDifficulty().Bytes()).Hex()
+		//log.Info("------res[2]", "is", res[2])
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
@@ -151,6 +153,8 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	log.Info("--------get submit work", "nonce", nonce, "mixDigest", mixDigest, "hash", hash)
+
 	// Make sure the work submitted is present
 	work := a.work[hash]
 	if work == nil {
@@ -163,7 +167,6 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 	result.MixDigest = mixDigest
 
 	//pointer := a.snailchain.GetHeaderByHash(result.PointerHash)
-
 	if err := a.engine.VerifySnailSeal(a.snailchain, result, false); err != nil {
 		log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 		return false
