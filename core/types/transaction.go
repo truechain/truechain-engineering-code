@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"strconv"
 )
 
 //go:generate gencodec -type txdata -field-override txdataMarshaling -out gen_tx_json.go
@@ -276,20 +277,25 @@ func (tx *Transaction) MarshalJSON() ([]byte, error) {
 func (tx *Transaction) Info() string {
 	str := ""
 	payer := ""
-	fee := tx.data.Fee
-
+	recipient := ""
+	fee := ""
+	payload := ""
+	if tx.data.Fee != nil {
+		fee = strconv.Itoa(int(tx.data.Fee.Int64()))
+	}
 	if tx.data.Payer != nil {
 		payer = common.Bytes2Hex(tx.data.Payer[:])
 	}
-	if fee != nil {
-		str += fmt.Sprintf("nonce=%v,price=%v, gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v,payment=%v ,fee=%v,v=%v,r=%v,s=%v,",
-			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, common.Bytes2Hex(tx.data.Recipient[:]), tx.data.Amount, tx.data.Payload,
-			payer, fee, tx.data.V, tx.data.R, tx.data.S)
-	} else {
-		str += fmt.Sprintf("nonce=%v,price=%v, gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v,payment=%v, v=%v,r=%v,s=%v,",
-			tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, common.Bytes2Hex(tx.data.Recipient[:]), tx.data.Amount, tx.data.Payload,
-			payer, tx.data.V, tx.data.R, tx.data.S)
+	if tx.data.Recipient != nil {
+		recipient = common.Bytes2Hex(tx.data.Recipient[:])
 	}
+	if tx.data.Payload != nil {
+		payload = common.Bytes2Hex(tx.data.Payload[:])
+	}
+
+	str += fmt.Sprintf("nonce=%v,price=%v, gaslimit=%v,Recipient=%v,Amount=%v,Payload=%v,chainId=%v,fee=%v,payment=%v, v=%v,r=%v,s=%v,",
+		tx.data.AccountNonce, tx.data.Price, tx.data.GasLimit, recipient, tx.data.Amount, payload, tx.ChainId(),
+		fee, payer, tx.data.V, tx.data.R, tx.data.S)
 	return str
 }
 
