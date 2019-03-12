@@ -605,16 +605,15 @@ func (bc *BlockChain) insert(block *types.Block) {
 	rawdb.WriteHeadBlockHash(bc.db, block.Hash())
 
 	bc.currentBlock.Store(block)
+	bc.hc.SetCurrentHeader(block.Header())
 
 
 
-
-	if block.NumberU64() == bc.CurrentFastBlock().NumberU64() {
+	if block.NumberU64() >= bc.CurrentFastBlock().NumberU64() {
 
 		bc.isFallback = false;
 
 		// If the block is better than our head or is on a different chain, force update heads
-		bc.hc.SetCurrentHeader(block.Header())
 		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
 		bc.currentFastBlock.Store(block)
 	}
