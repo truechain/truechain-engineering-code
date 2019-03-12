@@ -150,6 +150,7 @@ type BlockChain struct {
 	badBlocks *lru.Cache // Bad block cache
 
 	isFallback	 bool
+	lastBlock    atomic.Value
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -195,6 +196,7 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 		vmConfig:      vmConfig,
 		badBlocks:     badBlocks,
 		isFallback:		false,
+
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -297,12 +299,23 @@ func (bc *BlockChain) loadLastState() error {
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
 	}
 
+
+	// Restore the last known currentReward
+	bc.lastBlock.Store(currentBlock)
+	if head := rawdb.ReadLastBlockHash(bc.db); head != (common.Hash{}) {
+		if block := bc.GetBlockByHash(head); block != nil {
+			bc.lastBlock.Store(block)
+		}
+	}
+
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
+	lastBlock := bc.CurrentLastBlock()
 
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
 	log.Info("Loaded most recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 	log.Info("Loaded most recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
+	log.Info("Loaded most recent local lastBlock", "number", lastBlock.Number(), "hash", lastBlock.Hash())
 	return nil
 }
 
@@ -462,6 +475,14 @@ func (bc *BlockChain) CurrentFastBlock() *types.Block {
 	return bc.currentFastBlock.Load().(*types.Block)
 }
 
+// CurrentFastBlock retrieves the current fast-sync head block of the canonical
+// chain. The block is retrieved from the blockchain's internal cache.
+func (bc *BlockChain) CurrentLastBlock() *types.Block {
+	return bc.lastBlock.Load().(*types.Block)
+}
+
+
+
 // SetProcessor sets the processor required for making state modifications.
 func (bc *BlockChain) SetProcessor(processor Processor) {
 	bc.procmu.Lock()
@@ -606,16 +627,15 @@ func (bc *BlockChain) insert(block *types.Block) {
 
 	bc.currentBlock.Store(block)
 	bc.hc.SetCurrentHeader(block.Header())
+	rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
+	bc.currentFastBlock.Store(block)
 
 
-
-	if block.NumberU64() >= bc.CurrentFastBlock().NumberU64() {
-
+	if block.NumberU64() >= bc.CurrentLastBlock().NumberU64() {
 		bc.isFallback = false;
 
-		// If the block is better than our head or is on a different chain, force update heads
-		rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
-		bc.currentFastBlock.Store(block)
+		rawdb.WriteLastBlockHash(bc.db, block.Hash())
+		bc.lastBlock.Store(block)
 	}
 
 

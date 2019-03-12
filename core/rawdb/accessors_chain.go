@@ -107,6 +107,24 @@ func WriteHeadRewardNumber(db DatabaseWriter, number uint64) {
 	}
 }
 
+// ReadLastBlockNumber retrieves the hash of the current canonical head block.
+func ReadLastBlockHash(db DatabaseReader) common.Hash {
+	data, _ := db.Get(lastBlockKey)
+	if len(data) == 0 {
+		return common.Hash{}
+	}
+	return common.BytesToHash(data)
+}
+
+// WriteLastBlockNumber stores the head block's hash.
+func WriteLastBlockHash(db DatabaseWriter, hash common.Hash) {
+	if err := db.Put(lastBlockKey, hash.Bytes()); err != nil {
+		log.Crit("Failed to store last block's hash", "err", err)
+	}
+}
+
+
+
 // ReadHeadFastBlockHash retrieves the hash of the current fast-sync head block.
 func ReadHeadFastBlockHash(db DatabaseReader) common.Hash {
 	data, _ := db.Get(headFastBlockKey)

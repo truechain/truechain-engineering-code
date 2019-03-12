@@ -34,6 +34,8 @@ var (
 
 	headRewardKey = []byte("LastReward")
 
+	lastBlockKey = []byte("LastBlockIndex")
+
 	// headFastBlockKey tracks the latest known incomplete block's hash duirng fast sync.
 	headFastBlockKey = []byte("LastFast")
 
