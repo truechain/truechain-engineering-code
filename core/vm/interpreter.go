@@ -18,8 +18,10 @@ package vm
 
 import (
 	"fmt"
+	"hash"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -39,42 +41,77 @@ type Config struct {
 	// may be left uninitialised and will be set to the default
 	// table.
 	JumpTable [256]operation
+
+	// Type of the EWASM interpreter
+	EWASMInterpreter string
+	// Type of the EVM interpreter
+	EVMInterpreter string
 }
 
 // Interpreter is used to run Ethereum based contracts and will utilise the
 // passed environment to query external sources for state information.
 // The Interpreter will run the byte code VM based on the passed
 // configuration.
-type Interpreter struct {
+type Interpreter interface {
+	// Run loops and evaluates the contract's code with the given input data and returns
+	// the return byte-slice and an error if one occurred.
+	Run(contract *Contract, input []byte, static bool) ([]byte, error)
+	// CanRun tells if the contract, passed as an argument, can be
+	// run by the current interpreter. This is meant so that the
+	// caller can do something like:
+	//
+	// ```golang
+	// for _, interpreter := range interpreters {
+	//   if interpreter.CanRun(contract.code) {
+	//     interpreter.Run(contract.code, input)
+	//   }
+	// }
+	// ```
+	CanRun([]byte) bool
+}
+
+// keccakState wraps sha3.state. In addition to the usual hash methods, it also supports
+// Read to get a variable amount of data from the hash state. Read is faster than Sum
+// because it doesn't copy the internal state, but also modifies the internal state.
+type keccakState interface {
+	hash.Hash
+	Read([]byte) (int, error)
+}
+
+// EVMInterpreter represents an EVM interpreter
+type EVMInterpreter struct {
 	evm      *EVM
 	cfg      Config
 	gasTable params.GasTable
 	intPool  *intPool
 
+	hasher    keccakState // Keccak256 hasher instance shared across opcodes
+	hasherBuf common.Hash // Keccak256 hasher result array shared aross opcodes
+
 	readOnly   bool   // Whether to throw on stateful modifications
 	returnData []byte // Last CALL's return data for subsequent reuse
 }
 
-// NewInterpreter returns a new instance of the Interpreter.
-func NewInterpreter(evm *EVM, cfg Config) *Interpreter {
+// NewEVMInterpreter returns a new instance of the Interpreter.
+func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	// We use the STOP instruction whether to see
 	// the jump table was initialised. If it was not
 	// we'll set the default jump table.
 	if !cfg.JumpTable[STOP].valid {
 		switch {
 		default:
-			cfg.JumpTable = byzantiumInstructionSet
+			cfg.JumpTable = constantinopleInstructionSet
 		}
 	}
 
-	return &Interpreter{
+	return &EVMInterpreter{
 		evm:      evm,
 		cfg:      cfg,
 		gasTable: evm.ChainConfig().GasTable(evm.BlockNumber),
 	}
 }
 
-func (in *Interpreter) enforceRestrictions(op OpCode, operation operation, stack *Stack) error {
+func (in *EVMInterpreter) enforceRestrictions(op OpCode, operation operation, stack *Stack) error {
 	if in.readOnly {
 		// If the interpreter is operating in readonly mode, make sure no
 		// state-modifying operation is performed. The 3rd stack item
@@ -94,7 +131,7 @@ func (in *Interpreter) enforceRestrictions(op OpCode, operation operation, stack
 // It's important to note that any errors returned by the interpreter should be
 // considered a revert-and-consume-all-gas operation except for
 // errExecutionReverted which means revert-and-keep-gas-left.
-func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err error) {
+func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
 	if in.intPool == nil {
 		in.intPool = poolOfIntPools.get()
 		defer func() {
@@ -106,6 +143,13 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 	// Increment the call depth which is restricted to 1024
 	in.evm.depth++
 	defer func() { in.evm.depth-- }()
+
+	// Make sure the readOnly is only set if we aren't in readOnly yet.
+	// This makes also sure that the readOnly flag isn't removed for child calls.
+	if readOnly && !in.readOnly {
+		in.readOnly = true
+		defer func() { in.readOnly = false }()
+	}
 
 	// Reset the previous call's return data. It's unimportant to preserve the old buffer
 	// as every returning call will return new data anyway.
@@ -129,6 +173,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		pcCopy  uint64 // needed for the deferred Tracer
 		gasCopy uint64 // for Tracer to log gas remaining before execution
 		logged  bool   // deferred Tracer should ignore already logged steps
+		res     []byte // result of the opcode execution function
 	)
 	contract.Input = input
 
@@ -163,11 +208,11 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		if !operation.valid {
 			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
 		}
-		if err := operation.validateStack(stack); err != nil {
+		if err = operation.validateStack(stack); err != nil {
 			return nil, err
 		}
 		// If the operation is valid, enforce and write restrictions
-		if err := in.enforceRestrictions(op, operation, stack); err != nil {
+		if err = in.enforceRestrictions(op, operation, stack); err != nil {
 			return nil, err
 		}
 
@@ -201,7 +246,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		}
 
 		// execute the operation
-		res, err := operation.execute(&pc, in.evm, contract, mem, stack)
+		res, err = operation.execute(&pc, in, contract, mem, stack)
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
 		if verifyPool {
@@ -225,4 +270,10 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		}
 	}
 	return nil, nil
+}
+
+// CanRun tells if the contract, passed as an argument, can be
+// run by the current interpreter.
+func (in *EVMInterpreter) CanRun(code []byte) bool {
+	return true
 }

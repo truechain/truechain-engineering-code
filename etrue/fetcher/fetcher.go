@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/core/types"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 	"math/big"
 	"sync"
 )
@@ -57,7 +57,7 @@ type blockRetrievalFn func(common.Hash) *types.Block
 type headerRequesterFn func(common.Hash) error
 
 // bodyRequesterFn is a callback type for sending a body retrieval request.
-type bodyRequesterFn func([]common.Hash, bool) error
+type bodyRequesterFn func([]common.Hash, bool, string) error
 
 // headerVerifierFn is a callback type to verify a block's header for fast propagation.
 type headerVerifierFn func(header *types.Header) error
@@ -114,11 +114,11 @@ type PbftAgentFetcher interface {
 // bodyFilterTask represents a batch of block bodies (transactions and uncles)
 // needing fetcher filtering.
 type bodyFilterTask struct {
-	peer         string                 // The source peer of block bodies
-	transactions [][]*types.Transaction // Collection of transactions per block bodies
-	signs        [][]*types.PbftSign    // Collection of sign per block bodies
-	infos        []*types.SwitchInfos   // committee change
-	time         time.Time              // Arrival time of the blocks' contents
+	peer         string                     // The source peer of block bodies
+	transactions [][]*types.Transaction     // Collection of transactions per block bodies
+	signs        [][]*types.PbftSign        // Collection of sign per block bodies
+	infos        [][]*types.CommitteeMember // committee change
+	time         time.Time                  // Arrival time of the blocks' contents
 }
 
 // inject represents a schedules import operation.
@@ -224,7 +224,7 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		fetching:      make(map[common.Hash]*announce),
 		fetched:       make(map[common.Hash][]*announce),
 		completing:    make(map[common.Hash]*announce),
-		queue:         prque.New(),
+		queue:         prque.New(nil),
 		queues:        make(map[string]int),
 		queued:        make(map[common.Hash]*inject),
 
@@ -356,7 +356,7 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 
 // FilterBodies extracts all the block bodies that were explicitly requested by
 // the fetcher, returning those that should be handled differently.
-func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos []*types.SwitchInfos, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, []*types.SwitchInfos) {
+func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, [][]*types.CommitteeMember) {
 	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
 
 	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", peer, len(transactions), signs[0][0].FastHeight))
@@ -426,7 +426,7 @@ func (f *Fetcher) loop() {
 					number := block.NumberU64()
 					log.Trace("Loop check", "number", number, "height", height, "same block", len(blocks), "peer", peer)
 					if number > height+1 {
-						f.queue.Push(opMulti, -float32(number))
+						f.queue.Push(opMulti, -int64(number))
 						if f.queueChangeHook != nil {
 							f.queueChangeHook(hash, true)
 						}
@@ -491,7 +491,7 @@ func (f *Fetcher) loop() {
 							index = -1
 						}
 					} else {
-						f.queue.Push(opMulti, -float32(blocks[0].NumberU64()))
+						f.queue.Push(opMulti, -int64(blocks[0].NumberU64()))
 						finished = true
 					}
 				}
@@ -627,7 +627,7 @@ func (f *Fetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
-				go f.completing[hashes[0]].fetchBodies(hashes, true)
+				go f.completing[hashes[0]].fetchBodies(hashes, true, types.FetcherCall)
 			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleComplete(completeTimer)
@@ -926,7 +926,7 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 			opMulti.blocks = append(opMulti.blocks, opOld.block)
 		}
 
-		f.queue.Push(opMulti, -float32(block.NumberU64()))
+		f.queue.Push(opMulti, -int64(block.NumberU64()))
 		if f.queueChangeHook != nil {
 			f.queueChangeHook(op.block.Hash(), true)
 		}

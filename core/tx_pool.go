@@ -19,10 +19,12 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"math"
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -84,6 +86,8 @@ var (
 	// ErrNegativeValue is a sanity error to ensure noone is able to specify a
 	// transaction with a negative value.
 	ErrNegativeValue = errors.New("negative value")
+
+	ErrNegativeFee = errors.New("negative fee")
 
 	// ErrOversizedData is returned if the input data of a transaction is greater
 	// than some meaningful limit a user might use. This is not a consensus error
@@ -243,9 +247,10 @@ type TxPool struct {
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
 
-	newTxsCh  chan []*types.Transaction
-	wg        sync.WaitGroup // for shutdown sync
-	rpcTxslen *big.Int
+	newTxsCh    chan []*types.Transaction
+	wg          sync.WaitGroup // for shutdown sync
+	rpcTxslen   *big.Int
+	remoteTxlen atomic.Value
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -289,6 +294,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 
 	pool.rpcTxslen = new(big.Int).SetInt64(0)
+	pool.remoteTxlen.Store(uint64(0))
 
 	// Start the event loop and return
 	pool.wg.Add(1)
@@ -303,7 +309,7 @@ func (pool *TxPool) addremote() {
 		// Handle new remote transactions
 		case txs := <-pool.newTxsCh:
 			if txs != nil {
-				pool.addTxs(txs, false)
+				pool.addTxs(txs, false, "remote")
 			}
 		}
 	}
@@ -453,14 +459,16 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock().Header() // Special case during testing
 	}
-	statedb, err := pool.chain.StateAt(newHead.Root)
+	//statedb, err := pool.chain.StateAt(newHead.Root)
+	statedb, err := pool.chain.StateAt(pool.chain.CurrentBlock().Header().Root)
 	if err != nil {
-		log.Error("Failed to reset txpool state", "err", err)
+		log.Error("Failed to reset txpool state", "number", newHead.Number, "err", err)
 		return
 	}
 	pool.currentState = statedb
 	pool.pendingState = state.ManageState(statedb)
-	pool.currentMaxGas = newHead.GasLimit
+	//pool.currentMaxGas = newHead.GasLimit
+	pool.currentMaxGas = pool.chain.CurrentBlock().Header().GasLimit
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -615,6 +623,9 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Value().Sign() < 0 {
 		return ErrNegativeValue
 	}
+	if tx.Fee() != nil && tx.Fee().Sign() < 0 {
+		return ErrNegativeFee
+	}
 	// Ensure the transaction doesn't exceed the current block limit gas.
 	if pool.currentMaxGas < tx.Gas() {
 		return ErrGasLimit
@@ -651,6 +662,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		}
 	} else {
 		if pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
+			log.Warn("validate balance", "from", from, "balance", pool.currentState.GetBalance(from), "cost", tx.Cost())
 			return ErrInsufficientFunds
 		}
 	}
@@ -836,9 +848,6 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // pricing constraints.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 	pool.rpcTxslen = pool.rpcTxslen.Add(pool.rpcTxslen, common.Big1)
-	if pool.rpcTxslen.Uint64()%100 == 0 {
-		log.Info("----------all txs is", "pool.rpcTxslen", pool.rpcTxslen)
-	}
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -853,21 +862,29 @@ func (pool *TxPool) AddRemote(tx *types.Transaction) error {
 // marking the senders as a local ones in the mean time, ensuring they go around
 // the local pricing constraints.
 func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
-	return pool.addTxs(txs, !pool.config.NoLocals)
+	return pool.addTxs(txs, !pool.config.NoLocals, "local")
 }
 
 // AddRemotes enqueues a batch of transactions into the pool if they are valid.
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	log.Trace("AddRemotes", "len(txs)", len(txs))
 	errs := make([]error, len(txs))
+	lenTx := pool.remoteTxlen.Load().(uint64) + 1
+	if lenTx > 0 && lenTx%1000 == 0 {
+		log.Warn("AddRemotes", "txs", len(txs), "newTxsCh", len(pool.newTxsCh), "lenTx", lenTx)
+	}
+	pool.remoteTxlen.Store(lenTx)
 	select {
 	case pool.newTxsCh <- txs:
+		lenTx = pool.remoteTxlen.Load().(uint64) - 1
+		pool.remoteTxlen.Store(lenTx)
 		return nil
-	default:
+		/*default:
 		remoteTxsDiscardCount = remoteTxsDiscardCount.Add(remoteTxsDiscardCount, big.NewInt(int64(len(txs))))
-		log.Debug("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
-		errs[0] = errors.New("newTxsCh is full")
+		log.Info("discard remote txs", "count", len(txs), "remoteTxsDiscardCount", remoteTxsDiscardCount, "txs[0].Hash()", txs[0].Hash())
+		errs[0] = errors.New("newTxsCh is full")*/
 	}
 	return errs
 }
@@ -890,7 +907,14 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 }
 
 // addTxs attempts to queue a batch of transactions if they are valid.
-func (pool *TxPool) addTxs(txs []*types.Transaction, local bool) []error {
+func (pool *TxPool) addTxs(txs []*types.Transaction, local bool, mark string) []error {
+
+	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg addTxs newTxsCh: %d txs: %d", len(pool.newTxsCh), len(txs)))
+	defer func() {
+		watch.EndWatch()
+		watch.Finish(fmt.Sprintf("end   mark: %s", mark))
+	}()
+
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 

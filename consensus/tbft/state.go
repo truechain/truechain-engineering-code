@@ -104,6 +104,7 @@ type ConsensusState struct {
 	evsw ttypes.EventSwitch
 	svs  []*ttypes.SwitchValidator
 	hm   *ttypes.HealthMgr
+	cm   *types.CommitteeInfo
 }
 
 // CSOption sets an optional parameter on the ConsensusState.
@@ -163,6 +164,10 @@ func (cs *ConsensusState) SetEventBus(b *ttypes.EventBus) {
 //SetHealthMgr sets peer  health
 func (cs *ConsensusState) SetHealthMgr(h *ttypes.HealthMgr) {
 	cs.hm = h
+}
+
+func (cs *ConsensusState) SetCommitteeInfo(c *types.CommitteeInfo) {
+	cs.cm = c
 }
 
 // String returns a string.
@@ -685,6 +690,7 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundSt
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *ConsensusState) enterNewRound(height uint64, round int) {
+	help.DurationStat.AddStartStatTime("ConsensusTime", height+1)
 	//logger := log.With("height", height, "round", round)
 	if cs.Height != height || round < int(cs.Round) || (int(cs.Round) == round && cs.Step != ttypes.RoundStepNewHeight) {
 		log.Debug(fmt.Sprintf("enterNewRound(%v/%v): Invalid args. Current step: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
@@ -749,7 +755,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 			doing = false
 			log.Error(estr)
 		} else if !cs.isProposer() {
-			estr = fmt.Sprint(estr, "Not our turn to propose ", "proposer", hexutil.Encode(cs.Validators.GetProposer().Address), "privValidator", cs.privValidator)
+			estr = fmt.Sprint(estr, "Not our turn to propose ", "proposer", hexutil.Encode(cs.Validators.GetProposer().Address)) //, "privValidator", cs.privValidator)
 			doing = false
 			log.Info(estr)
 		}
@@ -893,19 +899,29 @@ func (cs *ConsensusState) isProposalComplete() bool {
 func (cs *ConsensusState) createProposalBlock(round int) (*types.Block, *ttypes.PartSet, error) {
 	// remove commit in block
 	var v *ttypes.SwitchValidator
-	if len(cs.svs) > 0 {
-		tmp := cs.svs[0]
-		if tmp.DoorCount == 0 || tmp.DoorCount >= ttypes.BlackDoorCount {
-			if tmp.Round == -1 {
-				tmp.Round = round
-			}
-			v = tmp
-			log.Info("Make Proposal and move item", "item", v)
+
+	if (cs.state.GetLastBlockHeight() + 1) == cs.cm.StartHeight.Uint64() {
+		//make all committee
+		memers := append(cs.cm.Members, cs.cm.BackMembers...)
+
+		v = &ttypes.SwitchValidator{
+			Infos: memers,
 		}
-		if tmp.DoorCount >= ttypes.BlackDoorCount {
-			tmp.DoorCount = 1
-		} else {
-			tmp.DoorCount++
+	} else {
+		if len(cs.svs) > 0 {
+			tmp := cs.svs[0]
+			if tmp.DoorCount == 0 || tmp.DoorCount >= ttypes.BlackDoorCount {
+				if tmp.Round == -1 {
+					tmp.Round = round
+				}
+				v = tmp
+				log.Info("Make Proposal and move item", "item", v)
+			}
+			if tmp.DoorCount >= ttypes.BlackDoorCount {
+				tmp.DoorCount = 1
+			} else {
+				tmp.DoorCount++
+			}
 		}
 	}
 
@@ -987,7 +1003,7 @@ func (cs *ConsensusState) defaultDoPrevote(height uint64, round int) {
 	// Prevote cs.ProposalBlock
 	// NOTE: the proposal signature is validated when it is received,
 	// and the proposal block parts are validated as they are received (against the merkle hash in the proposal)
-	log.Info("enterPrevote: ProposalBlock is valid")
+	log.Debug("enterPrevote: ProposalBlock is valid")
 	tmp := cs.ProposalBlock.Hash()
 	cs.signAddVote(ttypes.VoteTypePrevote, tmp[:], cs.ProposalBlockParts.Header(), ksign)
 }
@@ -1349,7 +1365,7 @@ func (cs *ConsensusState) defaultSetProposal(proposal *ttypes.Proposal) error {
 
 	cs.Proposal = proposal
 	cs.ProposalBlockParts = ttypes.NewPartSetFromHeader(proposal.BlockPartsHeader)
-	log.Info("Received proposal", "proposal", proposal)
+	log.Debug("Received proposal", "proposal", proposal)
 	return nil
 }
 
@@ -1663,25 +1679,41 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 }
 
 func (cs *ConsensusState) swithResult(block *types.Block) {
-
 	sw := block.SwitchInfos()
-	log.Info("swithResult", "sw", sw)
-	if sw == nil || len(sw.Vals) < 2 {
+	if (cs.state.GetLastBlockHeight()+1) == cs.cm.StartHeight.Uint64() || len(sw) > 2 {
+		mem := append(cs.cm.Members, cs.cm.BackMembers...)
+		for _, v := range sw {
+			have := false
+			for _, vm := range mem {
+				if bytes.Equal(v.CommitteeBase.Bytes(), vm.CommitteeBase.Bytes()) {
+					have = true
+					break
+				}
+			}
+			if !have {
+				log.Error("swithResult", v.CommitteeBase, "false")
+			}
+		}
 		return
 	}
-	log.Info("swithResult", "sw", sw, "vals", sw.Vals)
+
+	log.Debug("swithResult", "sw", sw)
+	if sw == nil || len(sw) < 2 {
+		return
+	}
+	log.Info("swithResult", "sw", sw, "vals", sw)
 	// stop fetch until update committee members
 	cs.state.SetEndHeight(block.NumberU64())
 
-	aEnter, rEnter := sw.Vals[0], sw.Vals[1]
+	aEnter, rEnter := sw[0], sw[1]
 	var add, remove *ttypes.Health
 	if aEnter.Flag == types.StateAppendFlag {
-		add = cs.hm.GetHealth(aEnter.Pk)
+		add = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 		if rEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(rEnter.Pk)
+			remove = cs.hm.GetHealth(rEnter.CommitteeBase.Bytes())
 		}
 	} else if aEnter.Flag == types.StateRemovedFlag {
-		remove = cs.hm.GetHealth(aEnter.Pk)
+		remove = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
 	}
 	if remove == nil {
 		log.Error("swithResult,remove is nil")
@@ -1708,17 +1740,42 @@ func (cs *ConsensusState) notifyHealthMgr(sv *ttypes.SwitchValidator) {
 
 func (cs *ConsensusState) switchVerify(block *types.Block) bool {
 	sw := block.SwitchInfos()
-	if sw != nil && len(sw.Vals) > 2 {
-		aEnter, rEnter := sw.Vals[0], sw.Vals[1]
-		var add, remove *ttypes.Health
-		if aEnter.Flag == types.StateAppendFlag {
-			add = cs.hm.GetHealth(aEnter.Pk)
-			if rEnter.Flag == types.StateRemovedFlag {
-				remove = cs.hm.GetHealth(rEnter.Pk)
+
+	if sw != nil && len(sw) > 2 {
+		mem := append(cs.cm.Members, cs.cm.BackMembers...)
+		for _, v := range sw {
+			have := false
+			for _, vm := range mem {
+				if bytes.Equal(v.CommitteeBase.Bytes(), vm.CommitteeBase.Bytes()) {
+					have = true
+					break
+				}
 			}
-		} else if aEnter.Flag == types.StateRemovedFlag {
-			remove = cs.hm.GetHealth(aEnter.Pk)
+			if !have {
+				log.Error("switchVerify", v.CommitteeBase, "false")
+				return false
+			}
 		}
+		return true
+	}
+
+	if sw != nil && len(sw) > 0 {
+		var aEnter, rEnter *types.CommitteeMember
+		if len(sw) == 1 {
+			rEnter = sw[0]
+		}
+		if len(sw) == 2 {
+			aEnter, rEnter = sw[0], sw[1]
+		}
+
+		var add, remove *ttypes.Health
+		if aEnter != nil && aEnter.Flag == types.StateAppendFlag {
+			add = cs.hm.GetHealth(aEnter.CommitteeBase.Bytes())
+		}
+		if rEnter.Flag == types.StateRemovedFlag {
+			remove = cs.hm.GetHealth(rEnter.CommitteeBase.Bytes())
+		}
+
 		if remove == nil {
 			log.Error("swithResult,remove is nil", "Type Error,add", add, "remove", remove)
 			return false
@@ -1755,10 +1812,10 @@ func (cs *ConsensusState) validateBlock(block *types.Block) (*ttypes.KeepBlockSi
 		return nil, errors.New("block is nil")
 	}
 	res := cs.switchVerify(block)
-	if len(block.SwitchInfos().Vals) == 0 {
+	if len(block.SwitchInfos()) == 0 {
 		res = true
 	}
-	log.Info("validateBlock", "res", res, "info", block.SwitchInfos())
+	log.Debug("validateBlock", "res", res, "info", block.SwitchInfos())
 	return cs.state.ValidateBlock(block, res)
 }
 

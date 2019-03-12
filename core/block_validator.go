@@ -66,16 +66,25 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
 		snailNumber := block.SnailNumber().Uint64()
 		blockReward := fv.bc.GetBlockReward(snailNumber)
+		supposedRewardedNumber := fv.bc.NextSnailNumberReward()
+
+		/*space := new(big.Int).Sub(fv.bc.sc.CurrentBlock().Number(), supposedRewardedNumber).Int64()
+		if space < params.SnailConfirmInterval.Int64() {
+			log.Error("validateRewardError", "currentSnailNumber", fv.bc.sc.CurrentBlock().Number(),
+				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", ErrSnailNumberRewardTooFast)
+			return ErrSnailNumberRewardTooFast
+		}*/
+
 		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
 			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
-				"currentNumber", block.NumberU64(), "err", ErrSnailBlockRewarded)
-			return ErrSnailBlockRewarded
+				"currentNumber", block.NumberU64(), "err", ErrSnailNumberAlreadyRewarded)
+			return ErrSnailNumberAlreadyRewarded
 		} else {
-			currentRewardedNumber := fv.bc.NextSnailNumberReward()
-			if currentRewardedNumber.Uint64() != snailNumber {
+			//supposedRewardedNumber := fv.bc.NextSnailNumberReward()
+			if supposedRewardedNumber.Uint64() != snailNumber {
 				log.Error("validateRewardError", "snailNumber", snailNumber,
-					"currentRewardedNumber", currentRewardedNumber, "err", ErrSnailBlockRewarded)
-				return ErrSnailNumberReward
+					"supposedRewardedNumber", supposedRewardedNumber, "err", ErrRewardSnailNumberWrong)
+				return ErrRewardSnailNumberWrong
 			}
 		}
 	}
@@ -92,6 +101,12 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())
 			return err
 		}
+
+		if err := fv.bc.engine.VerifySwitchInfo(block.Number(), block.SwitchInfos()); err != nil {
+			log.Info("Fast VerifySwitchInfo Err", "number", block.NumberU64(), "signs", block.SwitchInfos())
+			return err
+		}
+
 	}
 
 	return nil

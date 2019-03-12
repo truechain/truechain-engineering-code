@@ -20,14 +20,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"io"
 	"io/ioutil"
 	"sync/atomic"
 	"time"
 
-	"github.com/truechain/truechain-engineering-code/event"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/event"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 )
 
 // Msg defines the structure of a p2p message.
@@ -87,12 +88,19 @@ type MsgReadWriter interface {
 	MsgWriter
 }
 
+type writeCounter common.StorageSize
+
+func (c *writeCounter) Write(b []byte) (int, error) {
+	*c += writeCounter(len(b))
+	return len(b), nil
+}
+
 // Send writes an RLP-encoded message with the given code.
 // data should encode as an RLP list.
 func Send(w MsgWriter, msgcode uint64, data interface{}) error {
 	size, r, err := rlp.EncodeToReader(data)
 	if err != nil {
-		return err
+		return errors.New(fmt.Sprintf("msgcode: %d, error %s", msgcode, err.Error()))
 	}
 	return w.WriteMsg(Msg{Code: msgcode, Size: uint32(size), Payload: r})
 }
@@ -253,13 +261,13 @@ type msgEventer struct {
 	MsgReadWriter
 
 	feed     *event.Feed
-	peerID   discover.NodeID
+	peerID   enode.ID
 	Protocol string
 }
 
 // newMsgEventer returns a msgEventer which sends message events to the given
 // feed
-func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID discover.NodeID, proto string) *msgEventer {
+func newMsgEventer(rw MsgReadWriter, feed *event.Feed, peerID enode.ID, proto string) *msgEventer {
 	return &msgEventer{
 		MsgReadWriter: rw,
 		feed:          feed,

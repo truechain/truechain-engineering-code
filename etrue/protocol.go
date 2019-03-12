@@ -68,10 +68,10 @@ const (
 	ReceiptsMsg    = 0x0f
 
 	//snail sync
-	GetSnailBlockHeadersMsg   = 0x10
-	SnailBlockHeadersMsg      = 0x11
-	GetSnailBlockBodiesMsg    = 0x12
-	SnailBlockBodiesMsg       = 0x13
+	GetSnailBlockHeadersMsg = 0x10
+	SnailBlockHeadersMsg    = 0x11
+	GetSnailBlockBodiesMsg  = 0x12
+	SnailBlockBodiesMsg     = 0x13
 )
 
 type errCode int
@@ -94,15 +94,15 @@ func (e errCode) String() string {
 
 // XXX change once legacy code is out
 var errorToString = map[int]string{
-	ErrMsgTooLarge:              "Message too long",
-	ErrDecode:                   "Invalid message",
-	ErrInvalidMsgCode:           "Invalid message code",
-	ErrProtocolVersionMismatch:  "Protocol version mismatch",
-	ErrNetworkIdMismatch:        "NetworkId mismatch",
-	ErrGenesisBlockMismatch:     "Genesis block mismatch",
-	ErrNoStatusMsg:              "No status message",
-	ErrExtraStatusMsg:           "Extra status message",
-	ErrSuspendedPeer:            "Suspended peer",
+	ErrMsgTooLarge:             "Message too long",
+	ErrDecode:                  "Invalid message",
+	ErrInvalidMsgCode:          "Invalid message code",
+	ErrProtocolVersionMismatch: "Protocol version mismatch",
+	ErrNetworkIdMismatch:       "NetworkId mismatch",
+	ErrGenesisBlockMismatch:    "Genesis block mismatch",
+	ErrNoStatusMsg:             "No status message",
+	ErrExtraStatusMsg:          "Extra status message",
+	ErrSuspendedPeer:           "Suspended peer",
 }
 
 type txPool interface {
@@ -171,6 +171,13 @@ type getBlockHeadersData struct {
 	Amount  uint64       // Maximum number of headers to retrieve
 	Skip    uint64       // Blocks to skip between consecutive headers
 	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
+	Call    string       // Distinguish fetcher and downloader
+}
+
+// BlockHeadersData represents a block header send.
+type BlockHeadersData struct {
+	Headers []*types.Header
+	Call    string // Distinguish fetcher and downloader
 }
 
 // hashOrNumber is a combined field for specifying an origin block.
@@ -220,15 +227,30 @@ type newSnailBlockData struct {
 	TD    *big.Int
 }
 
+// getBlockBodiesData represents a block body query.
+type getBlockBodiesData struct {
+	Hash common.Hash // Block hash from which to retrieve Bodies (excludes Number)
+	Call string      // Distinguish fetcher and downloader
+}
+
+// BlockBodiesRawData represents a block header send.
+type BlockBodiesRawData struct {
+	Bodies []rlp.RawValue
+	Call   string // Distinguish fetcher and downloader
+}
+
 // blockBody represents the data content of a single block.
 type blockBody struct {
-	Transactions []*types.Transaction // Transactions contained within a block
-	Signs        []*types.PbftSign    // Signs contained within a block
-	Infos        *types.SwitchInfos   //change info
+	Transactions []*types.Transaction     // Transactions contained within a block
+	Signs        []*types.PbftSign        // Signs contained within a block
+	Infos        []*types.CommitteeMember //change info
 }
 
 // blockBodiesData is the network packet for block content distribution.
-type blockBodiesData []*blockBody
+type blockBodiesData struct {
+	BodiesData []*blockBody
+	Call       string // Distinguish fetcher and downloader
+}
 
 // blockBody represents the data content of a single block.
 type snailBlockBody struct {

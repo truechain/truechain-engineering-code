@@ -18,20 +18,18 @@
 package les
 
 import (
-	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/rawdb"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 )
 
 // Constants to match up protocol versions and messages
@@ -74,16 +72,14 @@ const (
 	GetHeaderProofsMsg = 0x0d
 	HeaderProofsMsg    = 0x0e
 	// Protocol messages belonging to LPV2
-	GetProofsV2Msg         = 0x0f
-	ProofsV2Msg            = 0x10
-	GetHelperTrieProofsMsg = 0x11
-	HelperTrieProofsMsg    = 0x12
-	SendTxV2Msg            = 0x13
-	GetTxStatusMsg         = 0x14
-	TxStatusMsg            = 0x15
+	GetProofsV2Msg          = 0x0f
+	ProofsV2Msg             = 0x10
+	GetHelperTrieProofsMsg  = 0x11
+	HelperTrieProofsMsg     = 0x12
+	SendTxV2Msg             = 0x13
+	GetTxStatusMsg          = 0x14
+	TxStatusMsg             = 0x15
 	GetSnailBlockHeadersMsg = 0x16
-
-
 )
 
 type errCode int
@@ -151,18 +147,18 @@ func (a *announceData) sign(privKey *ecdsa.PrivateKey) {
 }
 
 // checkSignature verifies if the block announcement has a valid signature by the given pubKey
-func (a *announceData) checkSignature(pubKey *ecdsa.PublicKey) error {
+func (a *announceData) checkSignature(id enode.ID) error {
 	var sig []byte
 	if err := a.Update.decode().get("sign", &sig); err != nil {
 		return err
 	}
 	rlp, _ := rlp.EncodeToBytes(announceBlock{a.Hash, a.Number, a.Td})
-	recPubkey, err := secp256k1.RecoverPubkey(crypto.Keccak256(rlp), sig)
+	recPubkey, err := crypto.SigToPub(crypto.Keccak256(rlp), sig)
 	if err != nil {
 		return err
 	}
-	pbytes := elliptic.Marshal(pubKey.Curve, pubKey.X, pubKey.Y)
-	if bytes.Equal(pbytes, recPubkey) {
+
+	if id == enode.PubkeyToIDV4(recPubkey) {
 		return nil
 	}
 	return errors.New("Wrong signature")

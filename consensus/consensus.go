@@ -113,6 +113,8 @@ type Engine interface {
 
 	VerifySigns(fastnumber *big.Int, fastHash common.Hash, signs []*types.PbftSign) error
 
+	VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error
+
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
 	Prepare(chain ChainReader, header *types.Header) error
@@ -141,13 +143,16 @@ type Engine interface {
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
 
-	DataSetHash(block uint64) common.Hash
+	DataSetHash(block uint64) []byte
 }
 
 //Election module implementation committee interface
 type CommitteeElection interface {
-	//VerifySigns verify the fast chain committee signatures in batches
+	// VerifySigns verify the fast chain committee signatures in batches
 	VerifySigns(pvs []*types.PbftSign) ([]*types.CommitteeMember, []error)
+
+	// VerifySwitchInfo verify committee members and it's state
+	VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)

@@ -2,7 +2,6 @@ package types
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"io"
 	"math/big"
 	"strings"
-	"time"
+	"sync/atomic"
 )
 
 const (
@@ -34,9 +34,9 @@ const (
 	StateRemovedFlag   = 0xa3
 	StateAppendFlag    = 0xa4
 	// health enter type
-	TypeFixed  = 0xa5
-	TypeWorked = 0xa6
-	TypeBack   = 0xa7
+	TypeFixed  = 0xa1
+	TypeWorked = 0xa2
+	TypeBack   = 0xa3
 )
 
 const (
@@ -46,14 +46,21 @@ const (
 	VoteAgree
 )
 
+// FetcherCall is distinguish fetcher call HeadersMsg and bodyMsg.
+var FetcherCall = "fetcher"
+
+// DownloaderCall is distinguish fetcher call HeadersMsg and bodyMsg.
+var DownloaderCall = "downloader"
+
 //CommitteeMembers committee members
 type CommitteeMembers []*CommitteeMember
 
 type CommitteeMember struct {
-	Coinbase  common.Address
-	Publickey *ecdsa.PublicKey
-	Flag      int32
-	MType     int32
+	Coinbase      common.Address
+	CommitteeBase common.Address
+	Publickey     []byte
+	Flag          uint32
+	MType         uint32
 }
 
 // ElectionCommittee defines election members result
@@ -62,24 +69,34 @@ type ElectionCommittee struct {
 	Backups []*CommitteeMember
 }
 
+func NewCommitteeMember(coinBase common.Address, publicKey []byte, flag, mType uint32) *CommitteeMember {
+	return &CommitteeMember{
+		Coinbase:      coinBase,
+		Publickey:     publicKey,
+		CommitteeBase: common.BytesToAddress(crypto.Keccak256(publicKey[1:])[12:]),
+		Flag:          flag,
+		MType:         mType,
+	}
+}
+
 func (c *CommitteeMember) Compared(d *CommitteeMember) bool {
-	if c.MType == d.MType && c.Coinbase.String() != d.Coinbase.String() &&
-		bytes.Compare(crypto.FromECDSAPub(c.Publickey), crypto.FromECDSAPub(d.Publickey)) == 0 {
+	if c.MType == d.MType && c.Coinbase == d.Coinbase && c.CommitteeBase == d.CommitteeBase && bytes.Equal(c.Publickey, d.Publickey) {
 		return true
 	}
 	return false
 }
 
 func (c *CommitteeMember) String() string {
-	return fmt.Sprintf("F:%d,T:%d,C:%s,P:%s", c.Flag, c.MType, hexutil.Encode(c.Coinbase[:]),
-		hexutil.Encode(crypto.FromECDSAPub(c.Publickey)))
+	return fmt.Sprintf("F:%d,T:%d,C:%s,P:%s,A:%s", c.Flag, c.MType, hexutil.Encode(c.Coinbase[:]),
+		hexutil.Encode(c.Publickey), hexutil.Encode(c.CommitteeBase[:]))
 }
 
 func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 	type committee struct {
 		Address common.Address `json:"address,omitempty"`
 		PubKey  *hexutil.Bytes `json:"publickey,omitempty"`
-		Flag    int32          `json:"flag,omitempty"`
+		Flag    uint32         `json:"flag,omitempty"`
+		MType   uint32         `json:"mType,omitempty"`
 	}
 	var dec committee
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -88,22 +105,25 @@ func (c *CommitteeMember) UnmarshalJSON(input []byte) error {
 
 	c.Coinbase = dec.Address
 	c.Flag = dec.Flag
-
-	var err error
+	c.MType = dec.MType
 	if dec.PubKey != nil {
-		c.Publickey, err = crypto.UnmarshalPubkey(*dec.PubKey)
+		c.Publickey = *dec.PubKey
+	}
+	/*var err error
+	if dec.PubKey != nil {
+		_, err = crypto.UnmarshalPubkey(*dec.PubKey)
 		if err != nil {
 			return err
 		}
-	}
+	}*/
 	return nil
 }
 
 //CommitteeNode contains  main info of committee node
 type CommitteeNode struct {
 	IP        string
-	Port      uint
-	Port2     uint
+	Port      uint32
+	Port2     uint32
 	Coinbase  common.Address
 	Publickey []byte
 }
@@ -118,12 +138,12 @@ type PbftSigns []*PbftSign
 type PbftSign struct {
 	FastHeight *big.Int
 	FastHash   common.Hash // fastblock hash
-	Result     uint        // 0--against,1--agree
+	Result     uint32      // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
 }
 
 type PbftAgentProxy interface {
-	FetchFastBlock(committeeId *big.Int, infos *SwitchInfos) (*Block, error)
+	FetchFastBlock(committeeId *big.Int, infos []*CommitteeMember) (*Block, error)
 	VerifyFastBlock(*Block, bool) (*PbftSign, error)
 	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
@@ -139,6 +159,7 @@ type PbftServerProxy interface {
 	Notify(id *big.Int, action int) error
 	SetCommitteeStop(committeeId *big.Int, stop uint64) error
 	GetCommitteeStatus(committeeID *big.Int) map[string]interface{}
+	IsLeader(committeeID *big.Int) bool
 }
 
 // Hash returns the block hash of the PbftSign, which is simply the keccak256 hash of its
@@ -162,6 +183,13 @@ type CommitteeInfo struct {
 	EndHeight   *big.Int
 	Members     []*CommitteeMember
 	BackMembers []*CommitteeMember
+}
+
+func (c *CommitteeInfo) GetAllMembers() []*CommitteeMember {
+	var members []*CommitteeMember
+	members = append(members, c.Members...)
+	members = append(members, c.BackMembers...)
+	return members
 }
 
 func (c *CommitteeInfo) String() string {
@@ -195,21 +223,77 @@ type Sign []byte
 
 //EncryptNodeMessage  all information of the committee
 type EncryptNodeMessage struct {
-	CreatedAt   time.Time
+	CreatedAt   *big.Int
+	CommitteeID *big.Int
+	Nodes       []EncryptCommitteeNode
+	Sign        //sign msg
+
+	// caches
+	hash atomic.Value
+	size atomic.Value
+}
+
+// "external" EncryptNode encoding. used for etrue protocol, etc.
+type extEncryptNode struct {
+	CreatedAt   *big.Int
 	CommitteeID *big.Int
 	Nodes       []EncryptCommitteeNode
 	Sign        //sign msg
 }
 
+// DecodeRLP decodes the truechain
+func (c *EncryptNodeMessage) DecodeRLP(s *rlp.Stream) error {
+	var ee extEncryptNode
+	_, size, _ := s.Kind()
+	if err := s.Decode(&ee); err != nil {
+		return err
+	}
+	c.CreatedAt, c.CommitteeID, c.Nodes, c.Sign = ee.CreatedAt, ee.CommitteeID, ee.Nodes, ee.Sign
+	c.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the truechain RLP block format.
+func (c *EncryptNodeMessage) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extEncryptNode{
+		CreatedAt:   c.CreatedAt,
+		CommitteeID: c.CommitteeID,
+		Nodes:       c.Nodes,
+		Sign:        c.Sign,
+	})
+}
+
+func (c *EncryptNodeMessage) String(str string) {
+	log.Info(str, "reatedAt", c.CreatedAt.Uint64(), "CommitteeID", c.CommitteeID)
+}
+
 func (c *EncryptNodeMessage) HashWithoutSign() common.Hash {
 	return RlpHash([]interface{}{
+		c.CreatedAt,
 		c.Nodes,
 		c.CommitteeID,
 	})
 }
 
 func (c *EncryptNodeMessage) Hash() common.Hash {
-	return RlpHash(c)
+	if hash := c.hash.Load(); hash != nil {
+		return hash.(common.Hash)
+	}
+	v := RlpHash(c)
+	c.hash.Store(v)
+	return v
+}
+
+type CommitteeNodeTag struct {
+	CommitteeID *big.Int
+	PubKey      []byte
+}
+
+func (c *CommitteeNodeTag) Hash() common.Hash {
+	return RlpHash([]interface{}{
+		c.CommitteeID,
+		c.PubKey,
+	})
 }
 
 func RlpHash(x interface{}) (h common.Hash) {
@@ -221,10 +305,20 @@ func RlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
+func (c *EncryptNodeMessage) Size() common.StorageSize {
+	if size := c.size.Load(); size != nil {
+		return size.(common.StorageSize)
+	}
+	wc := writeCounter(0)
+	rlp.Encode(&wc, c)
+	c.size.Store(common.StorageSize(wc))
+	return common.StorageSize(wc)
+}
+
 // SwitchEnter is the enter inserted in block when committee member changed
 type SwitchEnter struct {
-	Pk   []byte
-	Flag uint32
+	CommitteeBase common.Address
+	Flag          uint32
 }
 
 // Hash return SwitchInfos hash bytes
@@ -236,7 +330,7 @@ func (s *SwitchEnter) String() string {
 	if s == nil {
 		return "switchEnter-nil"
 	}
-	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.Pk), s.Flag)
+	return fmt.Sprintf("p:%s,s:%d", hexutil.Encode(s.CommitteeBase.Bytes()), s.Flag)
 }
 func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil && other == nil {
@@ -245,7 +339,7 @@ func (s *SwitchEnter) Equal(other *SwitchEnter) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return bytes.Equal(s.Pk, other.Pk) && s.Flag == other.Flag
+	return bytes.Equal(s.CommitteeBase.Bytes(), other.CommitteeBase.Bytes()) && s.Flag == other.Flag
 }
 
 type SwitchEnters []*SwitchEnter
@@ -278,8 +372,10 @@ func (s SwitchEnters) Equal(other SwitchEnters) bool {
 
 // SwitchInfos is the infos inserted in block when committee member changed
 type SwitchInfos struct {
-	CID  uint64
-	Vals []*SwitchEnter
+	CID         *big.Int
+	Members     []*CommitteeMember
+	BackMembers []*CommitteeMember
+	Vals        []*SwitchEnter
 }
 
 func (s *SwitchInfos) String() string {
@@ -295,6 +391,10 @@ func (s *SwitchInfos) String() string {
 		}
 	}
 	return fmt.Sprintf("SwitchInfos{CID:%d,Vals:{%s}}", s.CID, strings.Join(memStrings, "\n  "))
+}
+
+func (s *SwitchInfos) ToHash() common.Hash {
+	return rlpHash(s)
 }
 
 func (s *SwitchInfos) Equal(other *SwitchInfos) bool {

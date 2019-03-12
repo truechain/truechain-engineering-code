@@ -531,6 +531,14 @@ func (bc *SnailBlockChain) GetBodyRLP(hash common.Hash) rlp.RawValue {
 
 // HasBlock checks if a block is fully present in the database or not.
 func (bc *SnailBlockChain) HasBlock(hash common.Hash, number uint64) bool {
+	if bc.blockCache.Contains(hash) {
+		return true
+	}
+	return rawdb.HasBody(bc.db, hash, number)
+}
+
+// HasConfirmedBlock checks if a block is fully present in the database or not.and number must bigger than currentBlockNumber
+func (bc *SnailBlockChain) HasConfirmedBlock(hash common.Hash, number uint64) bool {
 	if number > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
 		return false
 	}
@@ -549,6 +557,10 @@ func (bc *SnailBlockChain) HasState(hash common.Hash) bool {
 // HasBlockAndState checks if a block and associated state trie is fully present
 // in the database or not, caching it if present.
 func (bc *SnailBlockChain) HasBlockAndState(hash common.Hash, number uint64) bool {
+	//if get number bigger than currentNumber return nil
+	if number > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
+		return false
+	}
 	// Check first that the block itself is known
 	block := bc.GetBlock(hash, number)
 	if block == nil {
@@ -821,6 +833,7 @@ func (bc *SnailBlockChain) InsertChain(chain types.SnailBlocks) (int, error) {
 	// Pre-checks passed, start the full block imports
 	bc.wg.Add(1)
 	bc.chainmu.Lock()
+	log.Debug("InsertChain...", "start", chain[0].NumberU64(), "end", chain[len(chain)-1].NumberU64())
 	n, events, err := bc.insertChain(chain, true)
 	bc.chainmu.Unlock()
 	bc.wg.Done()
@@ -1385,15 +1398,6 @@ func (bc *SnailBlockChain) GetFruitByFastHash(fastHash common.Hash) (*types.Snai
 func (bc *SnailBlockChain) GetFruit(fastHash common.Hash) *types.SnailBlock {
 	fruit, _, _, _ := rawdb.ReadFruit(bc.db, fastHash)
 	return fruit
-}
-
-// GetGenesisCommittee retrieves Genesis CommitteeMembers from the database
-func (bc *SnailBlockChain) GetGenesisCommittee() []*types.CommitteeMember {
-	committee := rawdb.ReadGenesisCommittee(bc.db)
-	if committee == nil {
-		return nil
-	}
-	return committee
 }
 
 // Config retrieves the blockchain's chain configuration.

@@ -26,7 +26,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	dtype "github.com/truechain/truechain-engineering-code/etrue/types"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 )
 
 const (
@@ -37,7 +37,6 @@ const (
 	// A pack can get larger than this if a single transactions exceeds this size.
 	txsyncPackSize    = 64 * 1024
 	fruitsyncPackSize = 50 * 1024
-	maxheight         = 600
 )
 
 type txsync struct {
@@ -89,7 +88,7 @@ func (pm *ProtocolManager) syncFruits(p *peer) {
 // the transactions in small packs to one peer at a time.
 func (pm *ProtocolManager) txsyncLoop() {
 	var (
-		pending = make(map[discover.NodeID]*txsync)
+		pending = make(map[enode.ID]*txsync)
 		sending = false               // whether a send is active
 		pack    = new(txsync)         // the pack that is being sent
 		done    = make(chan error, 1) // result of the send
@@ -160,7 +159,7 @@ func (pm *ProtocolManager) txsyncLoop() {
 // the fruits in small packs to one peer at a time.
 func (pm *ProtocolManager) fruitsyncLoop() {
 	var (
-		pending = make(map[discover.NodeID]*fruitsync)
+		pending = make(map[enode.ID]*fruitsync)
 		sending = false               // whether a send is active
 		pack    = new(fruitsync)      // the pack that is being sent
 		done    = make(chan error, 1) // result of the send
@@ -277,14 +276,14 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		return
 	}
 	var err error
-	defer func() {
+	sendEvent := func() {
 		// reset on error
 		if err != nil {
 			pm.downloader.Mux.Post(downloader.FailedEvent{err})
 		} else {
 			pm.downloader.Mux.Post(downloader.DoneEvent{})
 		}
-	}()
+	}
 
 	// Make sure the peer's TD is higher than our own
 	currentBlock := pm.snailchain.CurrentBlock()
@@ -292,7 +291,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	pHead, pTd := peer.Head()
 	_, fastHeight := peer.fastHead, peer.fastHeight.Uint64()
 
-	log.Debug("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
+	log.Info("synchronise  ", "pHead", pHead, "pTd", pTd, "td", td, "fastHead", peer.fastHead, "fastHeight", fastHeight)
 
 	if pTd.Cmp(td) <= 0 {
 
@@ -301,6 +300,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 
 		if fastHeight > currentNumber {
 			pm.downloader.Mux.Post(downloader.StartEvent{})
+			defer sendEvent()
 			if err := pm.downloader.SyncFast(peer.id, pHead, fastHeight, downloader.FullSync); err != nil {
 				log.Error("ProtocolManager fast sync: ", "err", err)
 				return
@@ -349,6 +349,7 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 	}
 
 	pm.downloader.Mux.Post(downloader.StartEvent{})
+	defer sendEvent()
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
 	if err = pm.downloader.Synchronise(peer.id, pHead, pTd, mode); err != nil {
 		log.Error("ProtocolManager end", "err", err)

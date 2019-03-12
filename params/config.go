@@ -195,7 +195,8 @@ func (c *ChainConfig) String() string {
 //
 // The returned GasTable's fields shouldn't, under any circumstances, be changed.
 func (c *ChainConfig) GasTable(num *big.Int) GasTable {
-	return GasTableEIP158
+	return GasTableConstantinople
+
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported

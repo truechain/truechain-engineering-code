@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/metrics"
 	"math/big"
 	"strings"
 	"time"
@@ -457,6 +458,9 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs, passwd string) (*SignTransactionResult, error) {
 	// No need to obtain the noncelock mutex, since we won't be sending this
 	// tx into the transaction pool, but right back to the user
+	if args.Payment != (common.Address{}) { //personal.SignTransaction should not contain payment
+		return nil, fmt.Errorf("payment should not assigned")
+	}
 	if args.Gas == nil {
 		return nil, fmt.Errorf("gas not specified")
 	}
@@ -466,15 +470,12 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 	if args.Nonce == nil {
 		return nil, fmt.Errorf("nonce not specified")
 	}
-	if args.Payment != (common.Address{}) { //personal.SignTransaction should not contain payment
-		return nil, fmt.Errorf("payment should not assigned")
-	}
+
 	signed, err := s.signTransaction(ctx, args, passwd)
 	if err != nil {
 		return nil, err
 	}
-
-	if args.Fee == nil || args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Fee == nil { //normal ethereum transaction
 		//fmt.Println("into no fee")
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
@@ -969,28 +970,25 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 	}
 
 	fields["signs"] = signs
-	formatSwitchEnter := func(witch *types.SwitchEnter) (map[string]interface{}, error) {
-		SwitchEntermap := map[string]interface{}{
-			"PK":   hexutil.Bytes(witch.Pk),
-			"Flag": hexutil.Uint(witch.Flag),
-		}
-		return SwitchEntermap, nil
-	}
 
-	sw := b.SwitchInfos()
-	sw_vals := make([]interface{}, len(sw.Vals))
-	for i, sw_val := range sw.Vals {
-		if sw_vals[i], err = formatSwitchEnter(sw_val); err != nil {
+	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
+		members := map[string]interface{}{
+			"Coinbase":      commit.Coinbase,
+			"CommitteeBase": commit.CommitteeBase,
+			"Publickey":     commit.Publickey,
+			"Flag":          commit.Flag,
+			"MType":         commit.MType,
+		}
+		return members, nil
+	}
+	switchInfos := make([]interface{}, len(b.SwitchInfos()))
+	for i, member := range b.SwitchInfos() {
+		if switchInfos[i], err = formatMembers(member); err != nil {
 			return nil, err
 		}
 	}
 
-	sws := map[string]interface{}{
-		"CID":  sw.CID,
-		"vals": sw_vals,
-	}
-
-	fields["switchInfos"] = sws
+	fields["switchInfos"] = switchInfos
 
 	if inclTx {
 		formatTx := func(tx *types.Transaction) (interface{}, error) {
@@ -1011,14 +1009,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 		}
 		fields["transactions"] = transactions
 	}
-
-	// remove nonexistent field: uncles
-	// uncles := b.Uncles()
-	// uncleHashes := make([]common.Hash, len(uncles))
-	// for i, uncle := range uncles {
-	// 	uncleHashes[i] = uncle.Hash()
-	// }
-	// fields["uncles"] = uncleHashes
 
 	return fields, nil
 }
@@ -1179,10 +1169,7 @@ type RPCTransaction struct {
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
-		signer = types.NewTIP1Signer(tx.ChainId())
-	}
+	var signer types.Signer = types.NewTIP1Signer(tx.ChainId())
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
 
@@ -1356,10 +1343,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	receipt := receipts[index]
 
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
-		signer = types.NewTIP1Signer(tx.ChainId())
-	}
+	var signer types.Signer = types.NewTIP1Signer(tx.ChainId())
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
@@ -1448,9 +1432,6 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
 	}
-	if args.Fee == nil {
-		args.Fee = (*hexutil.Big)(common.Big0)
-	}
 	if args.Nonce == nil {
 		nonce, err := b.GetPoolNonce(ctx, args.From)
 		if err != nil {
@@ -1504,6 +1485,7 @@ func (args *SendTxArgs) toRawTransaction() *types.RawTransaction {
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+	metrics.NewRegisteredMeter("etrue/prop/local_tx/in", nil).Mark(1)
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
@@ -1550,8 +1532,9 @@ func (s *PublicTransactionPoolAPI) signPayment(payment common.Address, tx *types
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	log.Debug("SendTransaction", "args",
+		fmt.Sprintf("API recieved  from=%v\n ,Payment=%v", args.From.String(), args.Payment.String()))
 	// Look up the wallet containing the requested signer
-	//fmt.Printf("SendTransaction API recieved  from=%v\n ,Payment=%v", args.From.String(), args.Payment.String())
 	account := accounts.Account{Address: args.From}
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
@@ -1568,15 +1551,6 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-	/*if args.Payment == (common.Address{}) {
-		raw_tx := args.toRawTransaction()
-		tx := raw_tx.ConvertTransaction()
-		signed, err := s.sign(args.From, tx)
-		if err != nil {
-			return params.EmptyHash, err
-		}
-		return submitTransaction(ctx, s.b, signed)
-	}*/
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 	//sign sender
@@ -1611,13 +1585,13 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	return submitTransaction(ctx, s.b, tx)
 }
 
-func (s *PublicTransactionPoolAPI) SendNewRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+func (s *PublicTransactionPoolAPI) SendTrueRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
-		log.Error("api method SendRawPayerTransaction error", "tx.info", tx.Info(), "error", err)
+		log.Error("api method SendTrueRawTransaction error", "tx.info", tx.Info(), "error", err)
 		return common.Hash{}, err
 	}
-	log.Info("api method SendRawPayerTransaction info", "tx.info", tx.Info())
+	log.Info("api method SendTrueRawTransaction info", "tx.info", tx.Info())
 	return submitTransaction(ctx, s.b, tx)
 }
 
@@ -1668,32 +1642,14 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return nil, err
 	}
-	/*if args.Payment == (common.Address{}) {
-		//fmt.Println("afsd")
-		raw_tx := args.toRawTransaction()
-		tx := raw_tx.ConvertTransaction()
-		signed, err := s.sign(args.From, tx)
-		raw_tx_signed := signed.ConvertRawTransaction()
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("signed", signed.Info())
-		data, err := rlp.EncodeToBytes(raw_tx_signed)
-		if err != nil {
-			return nil, err
-		}
-		//fmt.Println("api method signTransaction signed", signed.Info())
-		return &SignTransactionResult{data, signed}, nil
-	}*/
-
 	tx := args.toTransaction()
-	fmt.Println("api method signTransaction received payment", args.Payment.String())
+	//fmt.Println("api method signTransaction received payment", args.Payment.String())
 	//sign from
 	signed, err := s.sign(args.From, tx)
 	if err != nil {
 		return nil, err
 	}
-	if args.Payment == (common.Address{}) && args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Payment == (common.Address{}) && args.Fee == nil { //normal ethereum transaction
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
 			return nil, err
@@ -1742,10 +1698,7 @@ func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, err
 	}
 	transactions := make([]*RPCTransaction, 0, len(pending))
 	for _, tx := range pending {
-		var signer types.Signer = types.HomesteadSigner{}
-		if tx.Protected() {
-			signer = types.NewTIP1Signer(tx.ChainId())
-		}
+		var signer types.Signer = types.NewTIP1Signer(tx.ChainId())
 		from, _ := types.Sender(signer, tx)
 		if _, exists := accounts[from]; exists {
 			transactions = append(transactions, newRPCPendingTransaction(tx))
@@ -1763,6 +1716,9 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	if err := sendArgs.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
+	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != nil {
+		log.Error("tx has payment or fee cannot use Resend api")
+	}
 	matchTx := sendArgs.toTransaction()
 	pending, err := s.b.GetPoolTransactions()
 	if err != nil {
@@ -1770,17 +1726,14 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	}
 
 	for _, p := range pending {
-		var signer types.Signer = types.HomesteadSigner{}
-		if p.Protected() {
-			signer = types.NewTIP1Signer(p.ChainId())
-		}
+		var signer types.Signer = types.NewTIP1Signer(p.ChainId())
 		wantSigHash := signer.Hash(matchTx)
 
 		if pFrom, err := types.Sender(signer, p); err == nil && pFrom == sendArgs.From && signer.Hash(p) == wantSigHash {
-			if pPayment, err := types.Payer(signer, p); err != nil || pPayment != sendArgs.Payment {
+			/*if pPayment, err := types.Payer(signer, p); err != nil || pPayment != sendArgs.Payment {
 				log.Error("pPayment error ", "from", sendArgs.From, "to", sendArgs.To, "payment", sendArgs.Payment)
 				continue
-			}
+			}*/
 			// Match. Re-sign and send the transaction.
 			if gasPrice != nil && (*big.Int)(gasPrice).Sign() != 0 {
 				sendArgs.GasPrice = gasPrice

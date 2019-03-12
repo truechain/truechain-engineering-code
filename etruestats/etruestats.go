@@ -865,7 +865,7 @@ type nodeStats struct {
 	Active            bool `json:"active"`
 	Syncing           bool `json:"syncing"`
 	Mining            bool `json:"mining"`
-	isCommitteeMember bool `json:"isCommitteeMember"`
+	IsCommitteeMember bool `json:"isCommitteeMember"`
 	Hashrate          int  `json:"hashrate"`
 	Peers             int  `json:"peers"`
 	GasPrice          int  `json:"gasPrice"`
@@ -893,7 +893,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		price, _ := s.etrue.APIBackend.SuggestPrice(context.Background())
 		gasprice = int(price.Uint64())
 
-		isCommitteeMember = s.etrue.PbftAgent().IsCurrentCommitteeMember()
+		isCommitteeMember = s.etrue.PbftAgent().IsCommitteeMember()
 	} else {
 		sync := s.les.Downloader().Progress()
 		syncing = s.les.BlockChain().CurrentHeader().Number.Uint64() >= sync.HighestBlock
@@ -908,7 +908,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		GasPrice:          gasprice,
 		Syncing:           syncing,
 		Uptime:            100,
-		isCommitteeMember: isCommitteeMember,
+		IsCommitteeMember: isCommitteeMember,
 	}
 	stats := map[string]interface{}{
 		"id":    s.node,

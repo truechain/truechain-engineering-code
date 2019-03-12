@@ -195,6 +195,8 @@ type BlockChain interface {
 
 	// InsertChain inserts a batch of blocks into the local chain.
 	InsertChain(types.SnailBlocks) (int, error)
+
+	HasConfirmedBlock(hash common.Hash, number uint64) bool
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -314,7 +316,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
 	err := d.synchronise(id, head, td, mode)
-	defer log.Debug("snail Synchronise exit")
+	defer log.Info("snail Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -352,9 +354,9 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	// Post a user notification of the sync (only once per session)
-	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
+	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
 		log.Info("snail Block synchronisation started")
-	}
+	//}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
 	d.peers.Reset()
@@ -695,7 +697,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				h := headers[i].Hash()
 				n := headers[i].Number.Uint64()
 
-				if d.blockchain.HasBlock(h, n) {
+				if d.blockchain.HasConfirmedBlock(h, n) {
 					number, hash = n, h
 					break
 				}
@@ -758,7 +760,7 @@ func (d *Downloader) findAncestor(p etrue.PeerConnection, remoteHeader *types.Sn
 				h := headers[0].Hash()
 				n := headers[0].Number.Uint64()
 
-				if !d.blockchain.HasBlock(h, n) {
+				if !d.blockchain.HasConfirmedBlock(h, n) {
 					end = check
 					break
 				}
@@ -1061,7 +1063,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan etrue.DataPack,
 		case packet := <-deliveryCh:
 			// If the peer was previously banned and failed to deliver its pack
 			// in a reasonable time frame, ignore its message.
-			log.Info("snail downloader ", "id", packet.PeerId(), "function", "fetchParts")
+			log.Debug("snail downloader ", "id", packet.PeerId(), "function", "fetchParts")
 			if peer := d.peers.Peer(packet.PeerId()); peer != nil {
 				// Deliver the received chunk of data and check chain validity
 				accepted, err := deliver(packet)
@@ -1499,7 +1501,7 @@ func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
 // deliver injects a new batch of data received from a remote node.
 func (d *Downloader) deliver(id string, destCh chan etrue.DataPack, packet etrue.DataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
-	log.Info("snail downloader ", "id", id, "function", "deliver")
+	log.Debug("snail downloader ", "id", id, "function", "deliver")
 	inMeter.Mark(int64(packet.Items()))
 	defer func() {
 		if err != nil {

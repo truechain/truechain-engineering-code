@@ -18,9 +18,13 @@ package minerva
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 )
 
 // Tests whether the truehash lookup works for both light as well as the full
@@ -97,4 +101,84 @@ func BenchmarkTruehashFullSmall(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		truehashFull(dataset, hash, 0)
 	}
+}
+
+func makeDatasetHash(dataset []uint64) {
+	var datas []byte
+	tmp := make([]byte, 8)
+	for _, v := range dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	fmt.Println("datalen:", len(datas), "256:", datas[256])
+	sha512 := makeHasher(sha3.New512())
+	var sha512_out [64]byte
+	sha512(sha512_out[:], datas[:])
+	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
+}
+func makeTestSha3() {
+	datas := []byte{1, 2, 3, 4, 5, 6}
+
+	sha512 := makeHasher(sha3.New512())
+	var sha512_out [64]byte
+
+	sha512(sha512_out[:], datas[:])
+	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
+}
+func makeTestsha256() {
+	data := []byte{1, 2, 3, 4, 5, 6}
+	fmt.Println("datalen:", len(data))
+	sha256 := makeHasher(sha3.New256())
+	var sha256_out [32]byte
+
+	sha256(sha256_out[:], data[:])
+	fmt.Println("seedhash:", hexutil.Encode(sha256_out[:]))
+	fmt.Println("seedhash:", sha256_out[:])
+}
+func TestTrueHash2(t *testing.T) {
+	makeTestsha256()
+	makeTestSha3()
+	dataset := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
+
+	for k := 0; k < TBLSIZE; k++ {
+		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
+		}
+	}
+	genLookupTable(dataset[:], table[:])
+	makeDatasetHash(dataset)
+
+	hash := hexutil.MustDecode("0x645cf20198c2f3861e947d4f67e3ab63b7b2e24dcc9095bd9123e7b33371f6cc")
+	nonce := uint64(80408) // mining for windows
+
+	tt := new(big.Int).Div(maxUint128, big.NewInt(100000))
+	tb := tt.Bytes()
+	tmp_target := make([]byte, 16-len(tb))
+	tmp_target = append(tmp_target, tb...)
+	fmt.Println("target:", hexutil.Encode(tb))
+
+	target := new(big.Int).SetBytes(tmp_target)
+	target2 := new(big.Int).SetBytes(tb)
+	if target.Cmp(target2) == 0 {
+		fmt.Println("target equal...")
+	}
+	//fruitTarget := new(big.Int).SetBytes([]byte{0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+
+	for {
+		_, result := truehashLight(dataset, hash, nonce)
+		headResult := result[:16]
+		if new(big.Int).SetBytes(headResult).Cmp(target) <= 0 {
+			// get block
+			break
+
+		} else {
+			lastResult := result[16:]
+			if new(big.Int).SetBytes(lastResult).Cmp(target) <= 0 {
+				break
+			}
+		}
+		nonce++
+	}
+
 }

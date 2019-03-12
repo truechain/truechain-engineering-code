@@ -56,7 +56,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics/influxdb"
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/p2p/nat"
 	"github.com/truechain/truechain-engineering-code/p2p/netutil"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -667,9 +667,9 @@ func setBootstrapNodes(ctx *cli.Context, cfg *p2p.Config) {
 		return // already set, don't apply defaults.
 	}
 
-	cfg.BootstrapNodes = make([]*discover.Node, 0, len(urls))
+	cfg.BootstrapNodes = make([]*enode.Node, 0, len(urls))
 	for _, url := range urls {
-		node, err := discover.ParseNode(url)
+		node, err := enode.ParseV4(url)
 		if err != nil {
 			log.Error("Bootstrap URL invalid", "enode", url, "err", err)
 			continue

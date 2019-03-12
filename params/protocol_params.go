@@ -43,11 +43,22 @@ const (
 	LogDataGas            uint64 = 8     // Per byte in a LOG* operation's data.
 	CallStipend           uint64 = 2300  // Free gas given at beginning of call.
 
-	Sha3Gas          uint64 = 30    // Once per SHA3 operation.
-	Sha3WordGas      uint64 = 6     // Once per word of the SHA3 operation's data.
-	SstoreResetGas   uint64 = 5000  // Once per SSTORE operation if the zeroness changes from zero.
-	SstoreClearGas   uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
-	SstoreRefundGas  uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
+	Sha3Gas     uint64 = 30 // Once per SHA3 operation.
+	Sha3WordGas uint64 = 6  // Once per word of the SHA3 operation's data.
+
+	SstoreResetGas  uint64 = 5000  // Once per SSTORE operation if the zeroness changes from zero.
+	SstoreClearGas  uint64 = 5000  // Once per SSTORE operation if the zeroness doesn't change.
+	SstoreRefundGas uint64 = 15000 // Once per SSTORE operation if the zeroness changes to zero.
+
+	NetSstoreNoopGas  uint64 = 200   // Once per SSTORE operation if the value doesn't change.
+	NetSstoreInitGas  uint64 = 20000 // Once per SSTORE operation from clean zero.
+	NetSstoreCleanGas uint64 = 5000  // Once per SSTORE operation from clean non-zero.
+	NetSstoreDirtyGas uint64 = 200   // Once per SSTORE operation from dirty.
+
+	NetSstoreClearRefund      uint64 = 15000 // Once per SSTORE operation for clearing an originally existing storage slot
+	NetSstoreResetRefund      uint64 = 4800  // Once per SSTORE operation for resetting to the original non-zero value
+	NetSstoreResetClearRefund uint64 = 19800 // Once per SSTORE operation for resetting to the original zero value
+
 	JumpdestGas      uint64 = 1     // Refunded gas, once per SSTORE operation if the zeroness changes to zero.
 	EpochDuration    uint64 = 30000 // Duration between proof-of-work epochs.
 	CallGas          uint64 = 40    // Once per CALL operation & message call transaction.
@@ -110,7 +121,7 @@ var (
 
 	ElectionFruitsThreshold uint64 = 100 // fruit size threshold for committee election
 
-	MaximumCommitteeNumber = big.NewInt(50)
-	ProposalCommitteeNumber = 21
-	MinimumCommitteeNumber = 7
+	MaximumCommitteeNumber  = big.NewInt(50)
+	ProposalCommitteeNumber = 20
+	MinimumCommitteeNumber  = 7
 )

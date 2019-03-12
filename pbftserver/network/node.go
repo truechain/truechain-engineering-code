@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/pbftserver/consensus"
 	"github.com/truechain/truechain-engineering-code/pbftserver/lock"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
@@ -392,7 +392,7 @@ func (node *Node) GetPrepare(prepareMsg *consensus.VoteMsg) error {
 			//fmt.Println("---------------------------------------,sign == nil", sign == nil, "res=nil", res == nil)
 			CurrentState.MySign = sign
 			lock.PSLog("CheckMsg Result ", result)
-			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, result)
+			commitMsg.Pass = node.Verify.SignMsg(CurrentState.MsgLogs.ReqMsg.Height, uint(result))
 			commitMsg.Signs = sign
 			//save Pass
 			CurrentState.BlockResults = commitMsg.Pass

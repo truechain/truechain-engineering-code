@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/rpc"
 	"math/big"
-	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -190,29 +189,47 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	waitGroup := &sync.WaitGroup{}
 	Time := time.Now()
 
-	r := rand.New(rand.NewSource(Time.UnixNano()))
-	tNumbers := r.Intn(count)
+	for i := 0; i < count; i++ {
+		var result string
+		// get balance
+		err := client.Call(&result, "etrue_getBalance", account[i], "latest")
+		if err != nil {
+			fmt.Println("etrue_getBalance Error:", err)
+			msg <- false
+			return
+		}
+		balance := getBalanceValue(result)
+		if balance.Cmp(big.NewInt(int64(100000))) < 0 {
+			fmt.Println(" Lack of balance  ", balance, " i ", i)
+			continue
+		}
 
-	for i := 0; i < tNumbers; i++ {
 		waitGroup.Add(1)
-		go sendTransaction(client, account[i], i, waitGroup)
+		go sendTransaction(client, account[i], i, "", "0x2100", waitGroup)
 	}
 	waitGroup.Wait()
-	fmt.Println("Complete", Count, "time", Time, "tNumbers", tNumbers)
+	fmt.Println(" Complete ", Count, " time ", Time, " count ", count)
 }
 
 //send one transaction
-func sendTransaction(client *rpc.Client, from string, index int, wait *sync.WaitGroup) {
+func sendTransaction(client *rpc.Client, from string, index int, son string, value string, wait *sync.WaitGroup) {
 	defer wait.Done()
 
-	address := genAddress()
-	if to == 1 {
-		if account[to] != "" {
-			address = account[to]
+	var address string
+
+	if son == "" {
+		address = genAddress()
+		if to == 1 {
+			if account[to] != "" {
+				address = account[to]
+			}
 		}
+	} else {
+		address = son
 	}
 
-	result, err := sendRawTransaction(client, from, address, "0x2100")
+	result, err := sendRawTransaction(client, from, address, value)
+
 	if err != nil {
 		fmt.Println("sendRawTransaction", "result ", result, "index", index, " error", err, " address ", address)
 	}
@@ -267,7 +284,7 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	value := "0x" + fmt.Sprintf("%x", average)
 	averageTrue := new(big.Int).Set(average)
 	fmt.Println("sendBalanceNewAccount ", " true ", averageTrue.Div(averageTrue, big.NewInt(1000000000000000000)), " average ", average, " hex ", value)
-
+	waitGroup := &sync.WaitGroup{}
 	for {
 		for i := 0; i < count; i++ {
 			//main unlock account
@@ -309,14 +326,13 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 					noBalance = append(noBalance, i)
 				}
 			}
-
-			fmt.Println(i, " sendRawTransaction main address ", account[from], " son address ", account[i], " value ", value)
-			if result, err := sendRawTransaction(client, account[from], account[i], value); err != nil {
-				fmt.Println("sendRawTransaction son address error ", result, " err ", err)
-				return false
-			}
-			time.Sleep(time.Second)
+			fmt.Println(i, " Transaction main address ", account[from], " son address ", account[i], " value ", value)
+			waitGroup.Add(1)
+			go sendTransaction(client, account[from], i, account[i], value, waitGroup)
 		}
+
+		waitGroup.Wait()
+		time.Sleep(time.Second * 8)
 
 		if find {
 			break

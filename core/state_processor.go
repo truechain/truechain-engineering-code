@@ -26,7 +26,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/params"
 
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
 
@@ -113,7 +112,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, gp *GasPool,
 	*usedGas += gas
 	gasFee := new(big.Int).Mul(new(big.Int).SetUint64(gas), msg.GasPrice())
 	feeAmount.Add(gasFee, feeAmount)
-	if msg.Fee() != nil && msg.Fee() != common.Big0 {
+	if msg.Fee() != nil {
 		feeAmount.Add(msg.Fee(), feeAmount) //add fee
 	}
 

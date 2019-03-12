@@ -38,7 +38,7 @@ func NewPbftAgetTest() *PbftAgent {
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&priKey.PublicKey),
 	}
-	PrintNode("send", committeeNode)
+	//PrintNode("send", committeeNode)
 	pbftAgent := &PbftAgent{
 		privateKey:    priKey,
 		committeeNode: committeeNode,
@@ -48,18 +48,20 @@ func NewPbftAgetTest() *PbftAgent {
 
 func generateCommitteeMemberBySelfPriKey() *types.CommitteeMember {
 	priKey := agent.privateKey
-	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	committeeBase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	pubKeyBytes := crypto.FromECDSAPub(&priKey.PublicKey)
 	committeeMember := &types.CommitteeMember{
-		coinbase,
-		&priKey.PublicKey, 0xa1, 0}
+		common.Address{}, committeeBase,
+		pubKeyBytes, 0xa1, 0}
 
 	return committeeMember
 }
 
 func generateMember() (*ecdsa.PrivateKey, *types.CommitteeMember) {
 	priKey, _ := crypto.GenerateKey()
-	coinbase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
-	m := &types.CommitteeMember{coinbase, &priKey.PublicKey, 0xa1, 0}
+	committeeBase := crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+	pubKeyBytes := crypto.FromECDSAPub(&priKey.PublicKey)
+	m := &types.CommitteeMember{common.Address{}, committeeBase, pubKeyBytes, 0xa1, 0}
 	return priKey, m
 }
 
@@ -197,8 +199,7 @@ func StopNodeWork(t *testing.T) {
 func printNodeWork(t *testing.T, nodeWork *nodeInfoWork, str string) {
 	t.Log(str, " tag=", nodeWork.tag, ", isMember=", nodeWork.isCommitteeMember, ", isCurrent=", nodeWork.isCurrent,
 		", nodeWork1=", agent.nodeInfoWorks[0].isCurrent, ", nodeWork2=", agent.nodeInfoWorks[1].isCurrent,
-		", committeeId=", nodeWork.committeeInfo.Id, ", committeeInfoMembers=", len(nodeWork.committeeInfo.Members),
-		", cacheSignLen=", len(nodeWork.cacheSign))
+		", committeeId=", nodeWork.committeeInfo.Id, ", committeeInfoMembers=", len(nodeWork.committeeInfo.Members))
 }
 
 //////////////////////////////////////////////////////////////////////////////////

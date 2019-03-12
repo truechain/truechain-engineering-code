@@ -38,7 +38,6 @@ const (
 	fruitChanSize         = 1024
 	chainHeadChanSize     = 10
 	fastchainHeadChanSize = 1024
-	fastBlockChanSize     = 1024
 )
 
 var (
@@ -215,7 +214,7 @@ func (pool *SnailPool) appendFruit(fruit *types.SnailBlock, append bool) error {
 		return core.ErrExceedNumber
 	}
 	pool.allFruits[fruit.FastHash()] = fruit
-	if len(pool.allFruits) >= 8192 {
+	if uint64(len(pool.allFruits)) >= pool.config.FruitCount {
 		log.Debug("fruits pool is full", "len(pool.allFruits)", len(pool.allFruits))
 	}
 	if append {
@@ -296,11 +295,6 @@ func (pool *SnailPool) addFruit(fruit *types.SnailBlock) error {
 
 // journalFruit adds the specified fruit to the local disk journal
 func (pool *SnailPool) journalFruit(fruit *types.SnailBlock) {
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg journalFruit"))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	// Only journal if it's enabled
 	if pool.journal == nil {
 		return
@@ -565,11 +559,6 @@ func (pool *SnailPool) Stop() {
 func (pool *SnailPool) AddRemoteFruits(fruits []*types.SnailBlock, local bool) []error {
 
 	errs := make([]error, len(fruits))
-	watch := help.NewTWatch(3, fmt.Sprintf("handleMsg AddRemoteFruits newFruitCh:%d, len(fruits): %d", len(pool.newFruitCh), len(fruits)))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	addFruits := make([]*types.SnailBlock, 0, len(fruits))
 	for i, fruit := range fruits {
 		log.Trace("AddRemoteFruits", "number", fruit.FastNumber(), "diff", fruit.FruitDifficulty(), "pointer", fruit.PointNumber())

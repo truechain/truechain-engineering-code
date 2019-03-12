@@ -88,7 +88,7 @@ func (p *FakePeer) RequestHeadersByHash(hash common.Hash, amount int, skip int, 
 			}
 		}
 	}
-	p.dl.DeliverHeaders(p.id, headers)
+	p.dl.DeliverHeaders(p.id, headers, types.DownloaderCall)
 	return nil
 }
 
@@ -115,7 +115,7 @@ func (p *FakePeer) RequestHeadersByNumber(number uint64, amount int, skip int, r
 		}
 		headers = append(headers, origin)
 	}
-	p.dl.DeliverHeaders(p.id, headers)
+	p.dl.DeliverHeaders(p.id, headers, types.DownloaderCall)
 	return nil
 }
 
@@ -125,7 +125,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 	var (
 		txs   [][]*types.Transaction
 		signs [][]*types.PbftSign
-		infos []*types.SwitchInfos
+		infos [][]*types.CommitteeMember
 	)
 	for _, hash := range hashes {
 		block := rawdb.ReadBlock(p.db, hash, *p.hc.GetBlockNumber(hash))
@@ -134,7 +134,7 @@ func (p *FakePeer) RequestBodies(hashes []common.Hash, isFastchain bool) error {
 		infos = append(infos, block.SwitchInfos())
 	}
 
-	p.dl.DeliverBodies(p.id, txs, signs, infos)
+	p.dl.DeliverBodies(p.id, txs, signs, infos, types.DownloaderCall)
 	return nil
 }
 

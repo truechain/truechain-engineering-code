@@ -87,7 +87,7 @@ func Payer(signer Signer, tx *Transaction) (common.Address, error) {
 		return params.EmptyAddress, err
 	}
 	if addr != *tx.data.Payer {
-		log.Error("Payer err,signed_addr !=tx.data.Payer ", "signed_payer", addr, "old_payer", *tx.data.Payer)
+		log.Error("Payer err,signed_addr !=tx.data.Payer ", "signed_payer", addr, "tx_payer", *tx.data.Payer)
 		return params.EmptyAddress, ErrPayersign
 	}
 	tx.payment.Store(sigCache_payment{signer: signer, payment: addr})
@@ -160,9 +160,6 @@ func (s TIP1Signer) Equal(s2 Signer) bool {
 var big8 = big.NewInt(8)
 
 func (s TIP1Signer) Sender(tx *Transaction) (common.Address, error) {
-	if !tx.Protected() {
-		return HomesteadSigner{}.Sender(tx)
-	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
@@ -172,9 +169,6 @@ func (s TIP1Signer) Sender(tx *Transaction) (common.Address, error) {
 }
 
 func (s TIP1Signer) Payer(tx *Transaction) (common.Address, error) {
-	if !tx.Protected_Payment() {
-		return HomesteadSigner{}.Payer(tx)
-	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
@@ -186,7 +180,7 @@ func (s TIP1Signer) Payer(tx *Transaction) (common.Address, error) {
 // WithSignature returns a new transaction with the given signature. This signature
 // needs to be in the [R || S || V] format where V is 0 or 1.
 func (s TIP1Signer) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
-	R, S, V, err = HomesteadSigner{}.SignatureValues(tx, sig)
+	R, S, V, err = SignatureValues(tx, sig)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -203,8 +197,10 @@ func (s TIP1Signer) Hash(tx *Transaction) common.Hash {
 	//fmt.Println("Hash method,tx.data.Payer", tx.data.Payer)
 	var hash common.Hash
 	//payer and fee is nil or default value
-	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
-		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
+	if tx.data.Fee != nil && tx.data.Fee.Uint64() == 0 {
+		tx.data.Fee = nil
+	}
+	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) && tx.data.Fee == nil {
 		hash = rlpHash([]interface{}{
 			tx.data.AccountNonce,
 			tx.data.Price,
@@ -353,37 +349,9 @@ func (s EIP155Signer) Hash_Payment(tx *Transaction) common.Hash {
 
 // HomesteadTransaction implements TransactionInterface using the
 // homestead rules.
-type HomesteadSigner struct{ FrontierSigner }
+//type HomesteadSigner struct{ FrontierSigner }
 
-func (s HomesteadSigner) Equal(s2 Signer) bool {
-	_, ok := s2.(HomesteadSigner)
-	return ok
-}
-
-// SignatureValues returns signature values. This signature
-// needs to be in the [R || S || V] format where V is 0 or 1.
-func (hs HomesteadSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
-	return hs.FrontierSigner.SignatureValues(tx, sig)
-}
-
-func (hs HomesteadSigner) Sender(tx *Transaction) (common.Address, error) {
-	return recoverPlain(hs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, true)
-}
-
-func (hs HomesteadSigner) Payer(tx *Transaction) (common.Address, error) {
-	return common.Address{}, nil
-}
-
-type FrontierSigner struct{}
-
-func (s FrontierSigner) Equal(s2 Signer) bool {
-	_, ok := s2.(FrontierSigner)
-	return ok
-}
-
-// SignatureValues returns signature values. This signature
-// needs to be in the [R || S || V] format where V is 0 or 1.
-func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
+func SignatureValues(tx *Transaction, sig []byte) (r, s, v *big.Int, err error) {
 	if len(sig) != 65 {
 		panic(fmt.Sprintf("wrong size for signature: got %d, want 65", len(sig)))
 	}
@@ -393,55 +361,7 @@ func (fs FrontierSigner) SignatureValues(tx *Transaction, sig []byte) (r, s, v *
 	return r, s, v, nil
 }
 
-// Hash returns the hash to be signed by the sender.
-// It does not uniquely identify the transaction.
-func (fs FrontierSigner) Hash(tx *Transaction) common.Hash {
-	if (tx.data.Payer == nil || *tx.data.Payer == (common.Address{})) &&
-		(tx.data.Fee == nil || tx.data.Fee == common.Big0) {
-		return rlpHash([]interface{}{
-			tx.data.AccountNonce,
-			tx.data.Price,
-			tx.data.GasLimit,
-			tx.data.Recipient,
-			tx.data.Amount,
-			tx.data.Payload,
-		})
-	}
-	return rlpHash([]interface{}{
-		tx.data.AccountNonce,
-		tx.data.Price,
-		tx.data.GasLimit,
-		tx.data.Recipient,
-		tx.data.Amount,
-		tx.data.Payload,
-		tx.data.Payer,
-		tx.data.Fee,
-	})
-}
-
-func (fs FrontierSigner) Hash_Payment(tx *Transaction) common.Hash {
-	return rlpHash([]interface{}{
-		tx.data.AccountNonce,
-		tx.data.Price,
-		tx.data.GasLimit,
-		tx.data.Recipient,
-		tx.data.Amount,
-		tx.data.Payload,
-		tx.data.Payer,
-		tx.data.Fee,
-		tx.data.V,
-		tx.data.R,
-		tx.data.S,
-	})
-}
-
-func (fs FrontierSigner) Sender(tx *Transaction) (common.Address, error) {
-	return recoverPlain(fs.Hash(tx), tx.data.R, tx.data.S, tx.data.V, false)
-}
-
-func (fs FrontierSigner) Payer(tx *Transaction) (common.Address, error) {
-	return common.Address{}, nil
-}
+//type FrontierSigner struct{}
 
 func recoverPlain(sighash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
 	if Vb.BitLen() > 8 {

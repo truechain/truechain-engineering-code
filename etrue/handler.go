@@ -42,7 +42,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/p2p"
-	"github.com/truechain/truechain-engineering-code/p2p/discover"
+	"github.com/truechain/truechain-engineering-code/p2p/enode"
 	"github.com/truechain/truechain-engineering-code/params"
 )
 
@@ -56,9 +56,13 @@ const (
 	blockChanSize = 64
 	signChanSize  = 512
 	nodeChanSize  = 256
-	fruitChanSize = 256
+	// fruitChanSize is the size of channel listening to NewFruitsEvent.
+	// The number is referenced from the size of snail pool.
+	fruitChanSize = 4096
 	// minimim number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
+	txPackSize        = 5
+	fruitPackSize     = 2
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
@@ -197,7 +201,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 			NodeInfo: func() interface{} {
 				return manager.NodeInfo()
 			},
-			PeerInfo: func(id discover.NodeID) interface{} {
+			PeerInfo: func(id enode.ID) interface{} {
 				if p := manager.peers.Peer(fmt.Sprintf("%x", id[:8])); p != nil {
 					return p.Info()
 				}
@@ -460,7 +464,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg code:%d, err: %s", p.id, msg.Code, err))
+	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg code:%d, err: %v", p.id, msg.Code, err))
 	defer func() {
 		watch.EndWatch()
 		watch.Finish("end")
@@ -600,6 +604,8 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		first := true
 		maxNonCanonical := uint64(100)
 
+		log.Debug("GetFastBlockHeadersMsg", "peer", p.id, "call", query.Call)
+
 		// Gather headers until the fetch or network limits is reached
 		var (
 			bytes   common.StorageSize
@@ -676,20 +682,23 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += query.Skip + 1
 			}
 		}
-		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendFastBlockHeaders(headers)
+		log.Debug("Handle send fast block headers", "headers:", len(headers), "time", time.Now().Sub(now), "peer", p.id, "call", query.Call)
+		return p.SendFastBlockHeaders(&BlockHeadersData{headers, query.Call})
 
 	case msg.Code == FastBlockHeadersMsg:
 
 		// A batch of headers arrived to one of our previous requests
-		var headers []*types.Header
-		if err := msg.Decode(&headers); err != nil {
+		var headerData *BlockHeadersData
+		if err := msg.Decode(&headerData); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
+		headers := make([]*types.Header, len(headerData.Headers))
+		copy(headers, headerData.Headers)
+
 		filter := len(headers) == 1
 		if len(headers) > 0 {
-			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number)
+			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
 		}
 		if filter {
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
@@ -698,7 +707,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(headers) > 0 || !filter {
 			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
-			err := pm.fdownloader.DeliverHeaders(p.id, headers)
+			err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
 			if err != nil {
 				log.Debug("Failed to deliver headers", "err", err)
 			}
@@ -713,26 +722,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// Gather blocks until the fetch or network limits is reached
 		var (
-			hash   common.Hash
-			bytes  int
-			bodies []rlp.RawValue
+			hashData getBlockBodiesData
+			bytes    int
+			bodies   []rlp.RawValue
 		)
 		for bytes < softResponseLimit && len(bodies) < downloader.MaxBlockFetch {
 			// Retrieve the hash of the next block
-			if err := msgStream.Decode(&hash); err == rlp.EOL {
+			if err := msgStream.Decode(&hashData); err == rlp.EOL {
 				break
 			} else if err != nil {
 				return errResp(ErrDecode, "msg %v: %v", msg, err)
 			}
 			// Retrieve the requested block body, stopping if enough was found
-			if data := pm.blockchain.GetBodyRLP(hash); len(data) != 0 {
+			if data := pm.blockchain.GetBodyRLP(hashData.Hash); len(data) != 0 {
 				bodies = append(bodies, data)
 				bytes += len(data)
 			}
 		}
-
 		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendFastBlockBodiesRLP(bodies)
+		return p.SendFastBlockBodiesRLP(&BlockBodiesRawData{bodies, hashData.Call})
 
 	case msg.Code == FastBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
@@ -741,11 +749,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Deliver them all to the downloader for queuing
-		transactions := make([][]*types.Transaction, len(request))
-		signs := make([][]*types.PbftSign, len(request))
-		infos := make([]*types.SwitchInfos, len(request))
+		transactions := make([][]*types.Transaction, len(request.BodiesData))
+		signs := make([][]*types.PbftSign, len(request.BodiesData))
+		infos := make([][]*types.CommitteeMember, len(request.BodiesData))
 
-		for i, body := range request {
+		for i, body := range request.BodiesData {
 			transactions[i] = body.Transactions
 			signs[i] = body.Signs
 			infos[i] = body.Infos
@@ -761,7 +769,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
-			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos)
+			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}
@@ -975,6 +983,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
+			propTxnInTxsMeter.Mark(1)
 			p.MarkTransaction(tx.Hash())
 		}
 		log.Trace("receive TxMsg", "peer", p.id, "len(txs)", len(txs), "ip", p.RemoteAddr())
@@ -1116,9 +1125,9 @@ func (pm *ProtocolManager) BroadcastFastBlock(block *types.Block, propagate bool
 	// Otherwise if the block is indeed in out own chain, announce it
 	if pm.blockchain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
-			peer.AsyncSendNewFastBlock(block)
+			peer.AsyncSendNewFastBlockHash(block)
 		}
-		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block sign", block.GetLeaderSign() != nil, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
+		log.Debug("Announced fast block", "num", block.Number(), "hash", hash.String(), "block size", block.Size(), "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
 	}
 }
 
@@ -1295,10 +1304,42 @@ func (pm *ProtocolManager) minedSnailBlockLoop() {
 	}
 }
 func (pm *ProtocolManager) txBroadcastLoop() {
+	var (
+		txs = make([]*types.Transaction, 0, txPackSize)
+	)
+
 	for {
 		select {
-		case event := <-pm.txsCh:
-			pm.BroadcastTxs(event.Txs)
+		case eventTx := <-pm.txsCh:
+
+			for _, tx := range eventTx.Txs {
+				txs = append(txs, tx)
+			}
+
+			if len(pm.txsCh) > 0 && len(txs) < txPackSize {
+				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
+				continue
+			}
+
+			maxSize := txPackSize * 3
+			txLen := len(txs)
+			if txLen > maxSize {
+				log.Warn("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", txLen)
+
+				for i := 0; i < txLen; {
+					i = i + maxSize
+					if i < txLen {
+						pm.BroadcastTxs(txs[:maxSize])
+						txs = append(txs[:0], txs[maxSize:]...)
+					} else {
+						pm.BroadcastTxs(txs[:txLen%maxSize])
+					}
+				}
+			} else {
+				pm.BroadcastTxs(txs)
+			}
+
+			txs = append(txs[:0], txs[len(txs):]...)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.txsSub.Err():
@@ -1309,10 +1350,24 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 
 //  fruits
 func (pm *ProtocolManager) fruitBroadcastLoop() {
+	var (
+		fruits = make([]*types.SnailBlock, 0, fruitPackSize)
+	)
+
 	for {
 		select {
 		case fruitsEvent := <-pm.fruitsch:
+			for _, fruit := range fruitsEvent.Fruits {
+				fruits = append(fruits, fruit)
+			}
+
+			if len(pm.txsCh) > 0 && len(fruits) < fruitPackSize {
+				log.Debug("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
+				continue
+			}
+
 			pm.BroadcastFruits(fruitsEvent.Fruits)
+			fruits = append(fruits[:0], fruits[len(fruits):]...)
 
 			// Err() channel will be closed when unsubscribing.
 		case <-pm.fruitsSub.Err():

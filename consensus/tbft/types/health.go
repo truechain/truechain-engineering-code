@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p"
 	ctypes "github.com/truechain/truechain-engineering-code/core/types"
+	"github.com/truechain/truechain-engineering-code/params"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,32 +18,31 @@ import (
 
 const (
 	//HealthOut peer time out
-	HealthOut = 180
-	//MixValidator min committee count
-	MixValidator   = 2
+	HealthOut = 1200
+
 	BlackDoorCount = 4
 
 	SwitchPartWork = 0
 	SwitchPartBack = 1
 	SwitchPartSeed = 2
-
-	EnableHealthMgr = true
 )
+
+var EnableHealthMgr = true
 
 //Health struct
 type Health struct {
 	ID    tp2p.ID
 	IP    string
-	Port  uint
+	Port  uint32
 	Tick  int32
-	State int32
-	HType int32
+	State uint32
+	HType uint32
 	Val   *Validator
 	Self  bool
 }
 
 //NewHealth new
-func NewHealth(id tp2p.ID, t, state int32, val *Validator, Self bool) *Health {
+func NewHealth(id tp2p.ID, t, state uint32, val *Validator, Self bool) *Health {
 	return &Health{
 		ID:    id,
 		State: state,
@@ -63,7 +63,7 @@ func (h *Health) String() string {
 
 //SimpleString string
 func (h *Health) SimpleString() string {
-	s := atomic.LoadInt32(&h.State)
+	s := atomic.LoadUint32(&h.State)
 	t := atomic.LoadInt32(&h.Tick)
 	return fmt.Sprintf("state:%d,tick:%d", s, t)
 }
@@ -83,7 +83,7 @@ func (h *Health) Equal(other *Health) bool {
 type SwitchValidator struct {
 	Remove    *Health
 	Add       *Health
-	Infos     *ctypes.SwitchInfos
+	Infos     []*ctypes.CommitteeMember
 	Resion    string
 	From      int // 0-- add ,1-- resore
 	DoorCount int
@@ -108,7 +108,29 @@ func (s *SwitchValidator) Equal(other *SwitchValidator) bool {
 		return false
 	}
 	return s.ID == other.ID && s.Remove.Equal(other.Remove) &&
-		s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
+		s.Add.Equal(other.Add) && EqualCommitteeMemberArray(s.Infos, other.Infos)
+}
+
+func EqualCommitteeMemberArray(a, b []*ctypes.CommitteeMember) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	for _, v := range a {
+		have := false
+		for _, vm := range b {
+			if v.Compared(vm) {
+				have = true
+				break
+			}
+		}
+		if !have {
+			return false
+		}
+	}
+	return true
 }
 
 // EqualWithoutID return true they are same id or both nil otherwise return false
@@ -119,7 +141,7 @@ func (s *SwitchValidator) EqualWithoutID(other *SwitchValidator) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add) && s.Infos.Equal(other.Infos)
+	return s.Remove.Equal(other.Remove) && s.Add.Equal(other.Add) && EqualCommitteeMemberArray(s.Infos, other.Infos)
 }
 
 // EqualWithRemove return true they are same id or both nil otherwise return false
@@ -192,7 +214,7 @@ func (h *HealthMgr) PutBackHealth(he *Health) {
 }
 
 //UpdataHealthInfo update one health
-func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint, pk []byte) {
+func (h *HealthMgr) UpdataHealthInfo(id tp2p.ID, ip string, port uint32, pk []byte) {
 	enter := h.GetHealth(pk)
 	if enter != nil && enter.ID != "" {
 		enter.ID, enter.IP, enter.Port = id, ip, port
@@ -212,6 +234,7 @@ func (h *HealthMgr) ChanTo() chan *SwitchValidator {
 
 //OnStart mgr start
 func (h *HealthMgr) OnStart() error {
+	EnableHealthMgr = true
 	if h.healthTick == nil {
 		h.healthTick = time.NewTicker(1 * time.Second)
 		go h.healthGoroutine()
@@ -221,6 +244,7 @@ func (h *HealthMgr) OnStart() error {
 
 //OnStop mgr stop
 func (h *HealthMgr) OnStop() {
+	EnableHealthMgr = false
 	if h.healthTick != nil {
 		h.healthTick.Stop()
 	}
@@ -280,7 +304,6 @@ func (h *HealthMgr) work(sshift bool) {
 	if !EnableHealthMgr {
 		return
 	}
-
 	for _, v := range h.Work {
 		h.checkSwitchValidator(v, sshift)
 	}
@@ -298,7 +321,7 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 				log.Warn("Health", "id", v.ID, "val", val)
 				back := h.pickUnuseValidator()
 				cur := h.makeSwitchValidators(v, back, "Switch", 0)
-				atomic.StoreInt32(&v.State, int32(ctypes.StateSwitchingFlag))
+				atomic.StoreUint32(&v.State, ctypes.StateSwitchingFlag)
 				h.setCurSV(cur)
 				log.Info("CheckSwitchValidator(remove,add)", "info:", cur, "cid", h.cid)
 				go h.Switch(cur)
@@ -318,50 +341,22 @@ func (h *HealthMgr) checkSwitchValidator(v *Health, sshift bool) {
 }
 
 func (h *HealthMgr) makeSwitchValidators(remove, add *Health, resion string, from int) *SwitchValidator {
-	vals := make([]*ctypes.SwitchEnter, 0, 0)
+	vals := make([]*ctypes.CommitteeMember, 0, 0)
 	if add != nil {
-		vals = append(vals, &ctypes.SwitchEnter{
-			Pk:   add.Val.PubKey.Bytes(),
-			Flag: ctypes.StateAppendFlag,
+		vals = append(vals, &ctypes.CommitteeMember{
+			CommitteeBase: common.BytesToAddress(add.Val.Address),
+			Flag:          ctypes.StateAppendFlag,
 		})
 	}
-	vals = append(vals, &ctypes.SwitchEnter{
-		Pk:   remove.Val.PubKey.Bytes(),
-		Flag: ctypes.StateRemovedFlag,
+	vals = append(vals, &ctypes.CommitteeMember{
+		CommitteeBase: common.BytesToAddress(remove.Val.Address),
+		Flag:          ctypes.StateRemovedFlag,
 	})
-	for _, v := range h.Work {
-		if !v.Equal(remove) && v.State == ctypes.StateUsedFlag {
-			vals = append(vals, &ctypes.SwitchEnter{
-				Pk:   v.Val.PubKey.Bytes(),
-				Flag: uint32(atomic.LoadInt32(&v.State)),
-			})
-		}
-	}
-	for _, v := range h.Back {
-		if !v.Equal(remove) && !v.Equal(add) && v.State == ctypes.StateUsedFlag {
-			vals = append(vals, &ctypes.SwitchEnter{
-				Pk:   v.Val.PubKey.Bytes(),
-				Flag: uint32(atomic.LoadInt32(&v.State)),
-			})
-		}
-	}
-	for _, v := range h.seed {
-		if !v.Equal(remove) && !v.Equal(add) && v.State == ctypes.StateUsedFlag {
-			vals = append(vals, &ctypes.SwitchEnter{
-				Pk:   v.Val.PubKey.Bytes(),
-				Flag: uint32(atomic.LoadInt32(&v.State)),
-			})
-		}
-	}
 	// will need check vals with validatorSet
-	infos := &ctypes.SwitchInfos{
-		CID:  h.cid,
-		Vals: vals,
-	}
 	uid := h.uid
 	h.uid++
 	return &SwitchValidator{
-		Infos:     infos,
+		Infos:     vals,
 		Resion:    resion,
 		From:      from,
 		DoorCount: 0,
@@ -389,7 +384,7 @@ func (h *HealthMgr) isShiftSV() (bool, int) {
 			cnt++
 		}
 	}
-	return cnt > MixValidator, cnt
+	return cnt > params.MinimumCommitteeNumber, cnt
 }
 
 //switchResult handle the sv after consensus and the result removed from self
@@ -407,27 +402,30 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 	}
 
 	if res.From == 0 {
-		if len(res.Infos.Vals) > 2 {
-			enter1, enter2 := res.Infos.Vals[0], res.Infos.Vals[1]
+		if len(res.Infos) > 2 {
+			enter1, enter2 := res.Infos[0], res.Infos[1]
 			var add, remove *Health
 			if enter1.Flag == ctypes.StateAppendFlag {
-				add = h.GetHealth(enter1.Pk)
+				add = h.GetHealth(enter1.CommitteeBase.Bytes())
 				if enter2.Flag == ctypes.StateRemovedFlag {
-					remove = h.GetHealth(enter2.Pk)
+					remove = h.GetHealth(enter2.CommitteeBase.Bytes())
 				}
 			} else if enter1.Flag == ctypes.StateRemovedFlag {
-				remove = h.GetHealth(enter1.Pk)
+
+				remove = h.GetHealth(enter1.CommitteeBase.Bytes())
 			}
 			if !remove.Equal(res.Remove) || !add.Equal(res.Add) {
 				log.Error("switchResult item not match", "cid", h.cid, "remove", remove, "Remove", res.Remove, "add", add, "Add", res.Add)
 			}
 			if remove != nil {
-				atomic.StoreInt32(&remove.State, int32(ctypes.StateRemovedFlag))
+
+				atomic.StoreUint32(&remove.State, ctypes.StateRemovedFlag)
 				atomic.StoreInt32(&remove.Tick, 0) // issues for the sv was in another proposal queue
 				ss += "Success"
 			}
 			if add != nil {
-				atomic.StoreInt32(&add.State, int32(ctypes.StateUsedFlag))
+
+				atomic.StoreUint32(&add.State, ctypes.StateUsedFlag)
 				atomic.StoreInt32(&add.Tick, 0)
 			}
 		}
@@ -438,12 +436,14 @@ func (h *HealthMgr) switchResult(res *SwitchValidator) {
 //pickUnuseValidator get a back committee
 func (h *HealthMgr) pickUnuseValidator() *Health {
 	for _, v := range h.Back {
-		if s := atomic.CompareAndSwapInt32(&v.State, int32(ctypes.StateUnusedFlag), int32(ctypes.StateSwitchingFlag)); s {
+
+		if s := atomic.CompareAndSwapUint32(&v.State, ctypes.StateUnusedFlag, ctypes.StateSwitchingFlag); s {
 			return v
 		}
 	}
 	for _, v := range h.seed {
-		if swap := atomic.CompareAndSwapInt32(&v.State, int32(ctypes.StateUnusedFlag), int32(ctypes.StateSwitchingFlag)); swap {
+
+		if swap := atomic.CompareAndSwapUint32(&v.State, ctypes.StateUnusedFlag, ctypes.StateSwitchingFlag); swap {
 			return v
 		}
 	}
@@ -468,22 +468,25 @@ func (h *HealthMgr) Update(id tp2p.ID) {
 	}
 }
 
-func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
+func (h *HealthMgr) getHealthFromPart(address []byte, part int) *Health {
 	if part == SwitchPartBack { // back
 		for _, v := range h.Back {
-			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
+
+			if bytes.Equal(address, v.Val.Address) {
 				return v
 			}
 		}
 	} else if part == SwitchPartWork { // work
 		for _, v := range h.Work {
-			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
+
+			if bytes.Equal(address, v.Val.Address) {
 				return v
 			}
 		}
 	} else if part == SwitchPartSeed {
 		for _, v := range h.seed {
-			if bytes.Equal(pk, v.Val.PubKey.Bytes()) {
+
+			if bytes.Equal(address, v.Val.Address) {
 				return v
 			}
 		}
@@ -492,13 +495,16 @@ func (h *HealthMgr) getHealthFromPart(pk []byte, part int) *Health {
 }
 
 //GetHealth get a Health for mgr
-func (h *HealthMgr) GetHealth(pk []byte) *Health {
-	enter := h.getHealthFromPart(pk, SwitchPartWork)
+
+func (h *HealthMgr) GetHealth(adress []byte) *Health {
+	enter := h.getHealthFromPart(adress, SwitchPartWork)
 	if enter == nil {
-		enter = h.getHealthFromPart(pk, SwitchPartBack)
+
+		enter = h.getHealthFromPart(adress, SwitchPartBack)
 	}
 	if enter == nil {
-		enter = h.getHealthFromPart(pk, SwitchPartSeed)
+
+		enter = h.getHealthFromPart(adress, SwitchPartSeed)
 	}
 	return enter
 }
@@ -527,7 +533,8 @@ func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
 	}
 
 	rTick := atomic.LoadInt32(&remove.Tick)
-	rState := atomic.LoadInt32(&remove.State)
+
+	rState := atomic.LoadUint32(&remove.State)
 	if rState >= ctypes.StateUsedFlag && rState <= ctypes.StateSwitchingFlag && rTick >= HealthOut {
 		rRes = true
 	}
@@ -535,7 +542,7 @@ func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
 
 	aRes := false
 	if add != nil {
-		aState := atomic.LoadInt32(&add.State)
+		aState := atomic.LoadUint32(&add.State)
 		if aState != ctypes.StateRemovedFlag && aState != ctypes.StateUsedFlag {
 			aRes = true
 		}
@@ -553,9 +560,8 @@ func (h *HealthMgr) verifySwitchEnter(remove, add *Health) error {
 func (h *HealthMgr) UpdateFromCommittee(member, backMember ctypes.CommitteeMembers) {
 	for _, v := range member {
 		for k, v2 := range h.Work {
-			pk := crypto.PubKeyTrue(*v.Publickey)
-			if bytes.Equal(pk.Address(), v2.Val.Address) {
-				atomic.StoreInt32(&h.Work[k].State, v.Flag)
+			if bytes.Equal(v.CommitteeBase.Bytes(), v2.Val.Address) {
+				atomic.StoreUint32(&h.Work[k].State, v.Flag)
 				break
 			}
 		}
@@ -563,17 +569,15 @@ func (h *HealthMgr) UpdateFromCommittee(member, backMember ctypes.CommitteeMembe
 	for _, v := range backMember {
 		if v.MType == ctypes.TypeBack {
 			for k, v2 := range h.Back {
-				pk := crypto.PubKeyTrue(*v.Publickey)
-				if bytes.Equal(pk.Address(), v2.Val.Address) {
-					atomic.StoreInt32(&h.Back[k].State, v.Flag)
+				if bytes.Equal(v.CommitteeBase.Bytes(), v2.Val.Address) {
+					atomic.StoreUint32(&h.Back[k].State, v.Flag)
 					break
 				}
 			}
 		} else if v.MType == ctypes.TypeFixed {
 			for k, v2 := range h.seed {
-				pk := crypto.PubKeyTrue(*v.Publickey)
-				if bytes.Equal(pk.Address(), v2.Val.Address) {
-					atomic.StoreInt32(&h.seed[k].State, v.Flag)
+				if bytes.Equal(v.CommitteeBase.Bytes(), v2.Val.Address) {
+					atomic.StoreUint32(&h.seed[k].State, v.Flag)
 					break
 				}
 			}
@@ -596,12 +600,11 @@ func (h *HealthMgr) checkSaveSwitchValidator(members ctypes.CommitteeMembers) {
 		}
 		rOK, aOk := false, false
 		for _, v := range members {
-			pk := crypto.PubKeyTrue(*v.Publickey)
-			if bytes.Equal(pk.Address(), remove.Val.Address) && v.Flag == ctypes.StateUsedFlag {
+			if bytes.Equal(v.CommitteeBase.Bytes(), remove.Val.Address) && v.Flag == ctypes.StateUsedFlag {
 				rOK = true
 			}
 
-			if add == nil || (bytes.Equal(pk.Address(), add.Val.Address) && v.Flag == ctypes.StateUnusedFlag) {
+			if add == nil || (bytes.Equal(v.CommitteeBase.Bytes(), add.Val.Address) && v.Flag == ctypes.StateUnusedFlag) {
 				aOk = true
 			}
 		}

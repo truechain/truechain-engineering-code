@@ -102,6 +102,7 @@ type CallMsg struct {
 	Gas      uint64   // if 0, the call executes with near-infinite gas
 	GasPrice *big.Int // wei <-> gas exchange ratio
 	Value    *big.Int // amount of wei sent along with the call
+	Fee      *big.Int // amount of wei sent along with the call
 	Data     []byte   // input data, usually an ABI-encoded contract method invocation
 }
 
