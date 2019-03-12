@@ -697,9 +697,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		copy(headers, headerData.Headers)
 
 		filter := len(headers) == 1
-		if len(headers) > 0 {
+		if len(headers) > 0 && strings.Contains(headerData.Call, types.DownloaderCall) {
 			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
+		} else {
+			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
 		}
+
 		if filter {
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
 			headers = pm.fetcherFast.FilterHeaders(p.id, headers, time.Now())
