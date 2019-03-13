@@ -305,7 +305,7 @@ func (agent *PbftAgent) startSend(receivedCommitteeInfo *types.CommitteeInfo, is
 			}
 		}()
 	} else {
-		log.Info("node isnot committee member", "committeeId", receivedCommitteeInfo.Id)
+		log.Info("node is not committee member", "committeeId", receivedCommitteeInfo.Id)
 	}
 }
 
