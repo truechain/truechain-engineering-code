@@ -51,8 +51,8 @@ type vmJSON struct {
 	Logs          common.UnprefixedHash `json:"logs"`
 	GasRemaining  *math.HexOrDecimal64  `json:"gas"`
 	Out           hexutil.Bytes         `json:"out"`
-	Pre           types.GenesisAlloc     `json:"pre"`
-	Post          types.GenesisAlloc     `json:"post"`
+	Pre           types.GenesisAlloc    `json:"pre"`
+	Post          types.GenesisAlloc    `json:"post"`
 	PostStateRoot common.Hash           `json:"postStateRoot"`
 }
 
@@ -119,7 +119,7 @@ func (t *VMTest) Run(vmconfig vm.Config) error {
 func (t *VMTest) exec(statedb *state.StateDB, vmconfig vm.Config) ([]byte, uint64, error) {
 	evm := t.newEVM(statedb, vmconfig)
 	e := t.json.Exec
-	return evm.Call(vm.AccountRef(e.Caller), e.Address, e.Data, e.GasLimit, e.Value,nil)
+	return evm.Call(vm.AccountRef(e.Caller), e.Address, e.Data, e.GasLimit, e.Value, nil)
 }
 
 func (t *VMTest) newEVM(statedb *state.StateDB, vmconfig vm.Config) *vm.EVM {

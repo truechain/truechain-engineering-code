@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
-	crypto "github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft/help"
 	tmconn "github.com/truechain/truechain-engineering-code/consensus/tbft/tp2p/conn"
 	"github.com/truechain/truechain-engineering-code/params"
@@ -280,7 +280,11 @@ func (p *peer) Send(chID byte, msgBytes []byte) bool {
 	} else if !p.hasChannel(chID) {
 		return false
 	}
-	return p.mconn.Send(chID, msgBytes)
+	result := p.mconn.Send(chID, msgBytes)
+	if result {
+		MSend(msgBytes)
+	}
+	return result
 }
 
 // TrySend msg bytes to the channel identified by chID byte. Immediately returns
@@ -426,6 +430,7 @@ func createMConnection(
 			panic(fmt.Sprintf("Unknown channel %X", chID))
 		}
 		reactor.Receive(chID, p, msgBytes)
+		MReceive(msgBytes)
 	}
 
 	onError := func(r interface{}) {
