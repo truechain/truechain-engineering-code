@@ -362,22 +362,6 @@ func New(config Config) *Minerva {
 	return minerva
 }
 
-func New2() *Minerva {
-
-	minerva := &Minerva{
-		//config: config,
-		//caches:   newlru("cache", config.CachesInMem, newCache),
-		datasets: newlru("dataset", 1, newDataset),
-		update:   make(chan struct{}),
-		hashrate: metrics.NewMeter(),
-	}
-
-	//MinervaLocal.CheckDataSetState(1)
-	minerva.getDataset(1)
-
-	return minerva
-}
-
 // NewTestData Method test usage
 func (m *Minerva) NewTestData(block uint64) {
 	m.getDataset(block)
