@@ -181,7 +181,7 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 		errBlock := a.engine.VerifySnailSeal(a.snailchain, result, false)
 
 		if errFruit != nil && errBlock != nil {
-			log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
+			//log.Warn("Invalid proof-of-work submitted", "hash", hash, "err", err)
 			return false
 		}
 
