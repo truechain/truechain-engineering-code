@@ -118,8 +118,8 @@ func makeDatasetHash(dataset []uint64) {
 		datas = append(datas, tmp...)
 	}
 	fmt.Println("datalen:", len(datas), "256:", datas[256])
-	sha512 := makeHasher(sha3.New512())
-	var sha512_out [64]byte
+	sha512 := makeHasher(sha3.New256())
+	var sha512_out [32]byte
 	sha512(sha512_out[:], datas[:])
 	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
 }
@@ -184,7 +184,7 @@ func TestMakeDatasetHash(t *testing.T) {
 
 	filename := "d:\\1.txt"
 	heads := fetchhashfromFile(filename)
-
+	fmt.Println("test 2 dataset")
 	dataset2 := updateLookupTBL(dataset1, heads)
 	makeDatasetHash(dataset2)
 	fmt.Println("finish2...")
@@ -261,6 +261,12 @@ func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
 	for i := 0; i < OFF_CYCLE_LEN; i++ {
 		hash := heads[i]
 		val := hash.Bytes()
+		if i == 0 {
+			fmt.Println("hash0:", val)
+		} else if i == OFF_CYCLE_LEN-1 {
+			fmt.Println("hash", OFF_CYCLE_LEN, ":", val)
+		}
+
 		offset[i*4] = (int(val[0]) & offsetCnst) - 4
 		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
 		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
@@ -269,8 +275,13 @@ func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
 
 	//get skip cnst 2048 lenght
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
-		hash := heads[i]
+		hash := heads[i+OFF_CYCLE_LEN]
 		val := hash.Bytes()
+		if i == 0 {
+			fmt.Println("2hash0:", val)
+		} else if i == SKIP_CYCLE_LEN-1 {
+			fmt.Println("2hash", SKIP_CYCLE_LEN, ":", val)
+		}
 		for k := 0; k < 16; k++ {
 			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
 		}
