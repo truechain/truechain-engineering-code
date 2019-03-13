@@ -39,9 +39,6 @@ const SLEEPTIME = 120
 // SLEEPTX The interval between send son address
 const SLEEPTX = 5
 
-var gensisAccount1 = "0x7c357530174275dd30e46319b89f71186256e4f7"
-var gensisAccount2 = "0x4cf807958b9f6d9fd9331397d7a89a079ef43288"
-
 // get par
 func main() {
 	if len(os.Args) < 4 {
@@ -126,32 +123,17 @@ func send(count int, ip string) {
 		fmt.Println("no account")
 		return
 	}
+
 	fmt.Println("already have accounts is in local:", len(account))
 
-	for i := len(account); i < count; i++ {
-		//new account
-		var address string
-		err = client.Call(&address, "personal_newAccount", "admin")
-		if err != nil {
-			fmt.Println("personal_newAccount Error:", err.Error())
-			msg <- false
-			return
-		}
-		account = append(account, address)
-		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", len(account), "address", address)
-	}
-	fmt.Println("personal_newAccount success ", len(account), "main address ", account[from])
+	fmt.Println("personal_newAccount success ", len(account), " result ", createSonAccount(client, count), "main address ", account[from])
 
 	// get balance
-	var result string
-	err = client.Call(&result, "etrue_getBalance", account[from], "latest")
-	if err != nil {
-		fmt.Println("etrue_getBalance Error:", err)
-		msg <- false
+	result := getAccountBalance(client, account[from])
+	if result == "" {
 		return
 	}
-
-	balance := getBalanceValue(result)
+	balance := getBalanceValue(result, true)
 
 	//main unlock account
 	_, err = unlockAccount(client, account[from], "admin", 9000000, "main")
@@ -193,15 +175,13 @@ func sendTransactions(client *rpc.Client, account []string, count int, wait *syn
 	Time := time.Now()
 
 	for i := 0; i < count; i++ {
-		var result string
-		// get balance
-		err := client.Call(&result, "etrue_getBalance", account[i], "latest")
-		if err != nil {
-			fmt.Println("etrue_getBalance Error:", err)
-			msg <- false
+
+		result := getAccountBalance(client, account[i])
+		if result == "" {
 			return
 		}
-		balance := getBalanceValue(result)
+
+		balance := getBalanceValue(result, false)
 		if balance.Cmp(big.NewInt(int64(100000))) < 0 {
 			fmt.Println(" Lack of balance  ", balance, " i ", i)
 			continue
@@ -269,18 +249,47 @@ func genAddress() string {
 	return address.Hex()
 }
 
-func getBalanceValue(hex string) *big.Int {
+func getBalanceValue(hex string, print bool) *big.Int {
 	if strings.HasPrefix(hex, "0x") {
 		hex = strings.TrimPrefix(hex, "0x")
 	}
 	value, _ := new(big.Int).SetString(hex, 16)
 	balance := new(big.Int).Set(value)
-	fmt.Println("etrue_getBalance Ok:", " true ", balance.Div(balance, big.NewInt(1000000000000000000)), " value ", value, " hex ", hex)
+	if print {
+		fmt.Println("etrue_getBalance Ok:", " true ", balance.Div(balance, big.NewInt(1000000000000000000)), " value ", value, " hex ", hex)
+	}
 	return value
 }
 
-func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
+func getAccountBalance(client *rpc.Client, account string) string {
 	var result string
+	// get balance
+	err := client.Call(&result, "etrue_getBalance", account, "latest")
+	if err != nil {
+		fmt.Println("etrue_getBalance Error:", err)
+		msg <- false
+		return ""
+	}
+	return result
+}
+
+func createSonAccount(client *rpc.Client, count int) bool {
+	for i := len(account); i < count; i++ {
+		//new account
+		var address string
+		err := client.Call(&address, "personal_newAccount", "admin")
+		if err != nil {
+			fmt.Println("personal_newAccount Error:", err.Error())
+			msg <- false
+			return false
+		}
+		account = append(account, address)
+		fmt.Println("personal_newAccount ", i, " accounts ", " Ok ", len(account), "address", address)
+	}
+	return true
+}
+
+func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	average := main.Div(main, big.NewInt(int64(len(account)*2)))
 	value := "0x" + fmt.Sprintf("%x", average)
 	averageTrue := new(big.Int).Set(average)
@@ -289,13 +298,12 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 	waitGroup := &sync.WaitGroup{}
 	for i := 0; i < count; i++ {
 		// get balance
-		err := client.Call(&result, "etrue_getBalance", account[i], "latest")
-		if err != nil {
-			fmt.Println("etrue_getBalance Error:", err)
-			msg <- false
+		result := getAccountBalance(client, account[i])
+		if result == "" {
 			return false
 		}
-		balance := getBalanceValue(result)
+		balance := getBalanceValue(result, true)
+
 		if balance.Cmp(average) < 0 {
 			waitGroup.Add(1)
 			go sendTransaction(client, account[from], i, account[i], value, waitGroup)
@@ -307,7 +315,6 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 }
 
 func checkSonAccountBalance(client *rpc.Client, count int, main *big.Int) bool {
-	var result string
 	find := false
 	getBalance := true
 	average := main.Div(main, big.NewInt(int64(len(account)*2)))
@@ -340,13 +347,11 @@ func checkSonAccountBalance(client *rpc.Client, count int, main *big.Int) bool {
 
 			if getBalance {
 				// get balance
-				err := client.Call(&result, "etrue_getBalance", account[i], "latest")
-				if err != nil {
-					fmt.Println("etrue_getBalance Error:", err)
-					msg <- false
+				result := getAccountBalance(client, account[i])
+				if result == "" {
 					return false
 				}
-				balance := getBalanceValue(result)
+				balance := getBalanceValue(result, true)
 				balanceTrue := new(big.Int).Set(balance)
 				fmt.Println("etrue_getBalance son address ", account[i], " result ", balance, " i ", i, " true ", balanceTrue.Div(balanceTrue, big.NewInt(1000000000000000000)))
 				if balance.Cmp(average) >= 0 {
