@@ -317,7 +317,7 @@ func sendBalanceNewAccount(client *rpc.Client, count int, main *big.Int) bool {
 func checkSonAccountBalance(client *rpc.Client, count int, main *big.Int) bool {
 	find := false
 	getBalance := true
-	average := main.Div(main, big.NewInt(int64(len(account)*2)))
+	average := main
 	value := "0x" + fmt.Sprintf("%x", average)
 	averageTrue := new(big.Int).Set(average)
 	fmt.Println("checkSonAccountBalance ", " true ", averageTrue.Div(averageTrue, big.NewInt(1000000000000000000)), " average ", average, " hex ", value)
