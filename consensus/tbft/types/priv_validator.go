@@ -355,7 +355,7 @@ func NewStateAgent(agent ctypes.PbftAgentProxy, chainID string,
 		CID:         cid,
 	}
 	state.ids = vals.MakeIDs()
-	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", height, "end", state.EndHeight, "current", lh)
+	log.Debug("SetBeginEnd in Committee", "cid", state.CID, "begin", height, "end", state.EndHeight, "current", lh)
 	return state
 }
 
@@ -414,7 +414,7 @@ func (state *StateAgentImpl) HasPeerID(id string) error {
 func (state *StateAgentImpl) SetEndHeight(h uint64) {
 	state.EndHeight = h
 	lh := state.Agent.GetCurrentHeight()
-	log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
+	log.Debug("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 }
 
 // SetBeginHeight set height of block for the committee to begin. (begin,end]
@@ -422,7 +422,7 @@ func (state *StateAgentImpl) SetBeginHeight(h uint64) {
 	if state.EndHeight > 0 && h < state.EndHeight {
 		state.BeginHeight = h
 		lh := state.Agent.GetCurrentHeight()
-		log.Info("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
+		log.Debug("SetBeginEnd in Committee", "cid", state.CID, "begin", state.BeginHeight, "end", state.EndHeight, "current", lh)
 	}
 }
 

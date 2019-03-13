@@ -303,7 +303,7 @@ func (sw *Switch) StopPeerForError(peer Peer, reason interface{}) {
 			// self-reported address for inbound persistent peers
 			addr = peer.NodeInfo().NetAddress()
 		}
-		log.Info("StopPeerForError for Reconnecting to peer", "addr", addr)
+		log.Debug("StopPeerForError for Reconnecting to peer", "addr", addr)
 		go sw.reconnectToPeer(addr)
 	}
 }
@@ -377,7 +377,7 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 			return
 		}
 
-		log.Info("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
+		log.Debug("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
 		// sleep a set amount
 		sw.randomSleep(reconnectInterval)
 		continue
@@ -397,7 +397,7 @@ func (sw *Switch) reconnectToPeer(addr *NetAddress) {
 		if err == nil {
 			return // success
 		}
-		log.Info("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
+		log.Debug("Error reconnecting to peer. Trying again", "tries", i, "err", err, "addr", addr)
 	}
 	log.Error("Failed to reconnect to peer. Giving up", "addr", addr, "elapsed", time.Since(start))
 }
@@ -539,7 +539,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		// leave room for MinNumOutboundPeers
 		maxPeers := sw.config.MaxNumPeers - DefaultMinNumOutboundPeers
 		if maxPeers <= sw.peers.Size() {
-			log.Info("Ignoring inbound connection: already have enough peers", "address", inConn.RemoteAddr().String(), "numPeers", sw.peers.Size(), "max", maxPeers)
+			log.Debug("Ignoring inbound connection: already have enough peers", "address", inConn.RemoteAddr().String(), "numPeers", sw.peers.Size(), "max", maxPeers)
 			help.CheckAndPrintError(inConn.Close())
 			continue
 		}
@@ -547,8 +547,8 @@ func (sw *Switch) listenerRoutine(l Listener) {
 		// New inbound connection!
 		err := sw.addInboundPeerWithConfig(inConn, sw.config)
 		if err != nil {
-			log.Info("Ignoring inbound connection " + err.Error())
-			log.Info("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
+			log.Debug("Ignoring inbound connection " + err.Error())
+			log.Debug("Ignoring inbound connection: error while adding peer", "address", inConn.RemoteAddr().String(), "err", err)
 			continue
 		}
 	}
@@ -686,7 +686,7 @@ func (sw *Switch) addPeer(pc peerConn) error {
 	peer := newPeer(pc, sw.mConfig, peerNodeInfo, sw.reactorsByCh, sw.chDescs, sw.StopPeerForError)
 	//peer.SetLogger(sw.Logger.With("peer", addr))
 
-	log.Info("Successful handshake with peer", "peerNodeInfo", peerNodeInfo)
+	log.Debug("Successful handshake with peer", "peerNodeInfo", peerNodeInfo)
 
 	// All good. Start peer
 	if sw.IsRunning() {
