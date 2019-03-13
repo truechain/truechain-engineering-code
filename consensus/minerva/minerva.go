@@ -391,7 +391,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	currentI, futureI := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	current.generate(epoch, m)
+	current.generate(epoch, m, nil)
 
 	// when change the algorithm before 12000*n
 	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
@@ -399,7 +399,7 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 			//log.Info("start to create a future dataset")
 			if futureI != nil {
 				future := futureI.(*dataset)
-				future.generate(m.datasets.future, m)
+				future.generate(m.datasets.future, m, nil)
 			}
 		}()
 	}
@@ -409,12 +409,27 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	return current
 }
 
+// dataset tries to retrieve a mining dataset for the specified block number
+func (m *Minerva) getDatasetbyHeads(block uint64, headershash *[STARTUPDATENUM][]byte) *dataset {
+	// Retrieve the requested ethash dataset
+	//each 12000 change the mine algorithm block -1 is make sure the 12000 is use epoch 0
+	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
+	currentI, _ := m.datasets.get(epoch)
+	current := currentI.(*dataset)
+
+	current.generate(epoch, m, headershash)
+
+	log.Info("getDataset:", "epoch is ", current.epoch, "futrue epoch is", m.datasets.future, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
+
+	return current
+}
+
 func (d *dataset) Hash() common.Hash {
 	return rlpHash(d.dataset)
 }
 
 // generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(epoch uint64, m *Minerva) {
+func (d *dataset) generate(epoch uint64, m *Minerva, headershash *[STARTUPDATENUM][]byte) {
 	d.once.Do(func() {
 		if d.dateInit == 0 {
 			if epoch <= 0 {
@@ -424,7 +439,7 @@ func (d *dataset) generate(epoch uint64, m *Minerva) {
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
 				log.Info("updateLookupTBL is start", "epoch", epoch)
-				flag, _, cont := m.updateLookupTBL(epoch, d.dataset)
+				flag, _, cont := m.updateLookupTBL(epoch, d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))

@@ -303,12 +303,13 @@ func (m *Minerva) truehashTableInit(tableLookup []uint64) {
 	genLookupTable(tableLookup[:], table[:])
 }
 
-func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []uint64, string) {
+func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64, headershash *[STARTUPDATENUM][]byte) (bool, []uint64, string) {
 	const offsetCnst = 0x7
 	const skipCnst = 0x3
 	var offset [OFF_SKIP_LEN]int
 	var skip [OFF_SKIP_LEN]int
 	var cont string
+	var sblockchain consensus.SnailChainReader
 
 	log.Info("updateupTBL start ，", "epoch", epoch)
 	if epoch <= 0 {
@@ -316,10 +317,13 @@ func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []ui
 		return false, nil, ""
 	}
 
-	sblockchain := m.sbc
-	if sblockchain == nil {
-		log.Error("snail block chain is nil  ", "epoch", epoch)
-		return false, nil, ""
+	//local way
+	if headershash != nil {
+		sblockchain = m.sbc
+		if sblockchain == nil {
+			log.Error("snail block chain is nil  ", "epoch", epoch)
+			return false, nil, ""
+		}
 	}
 
 	// each epoch need start to 1 to 10240
@@ -328,32 +332,43 @@ func (m *Minerva) updateLookupTBL(epoch uint64, plookupTbl []uint64) (bool, []ui
 
 	//get offset cnst  8192 lenght
 	for i := 0; i < OFF_CYCLE_LEN; i++ {
-
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
-		if header == nil {
-			log.Error("updateTBL the offset is nil ", "blockNum", (uint64(i) + st_block_num))
-			return false, nil, ""
+		var val []byte
+		if headershash != nil {
+			header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num)
+			if header == nil {
+				log.Error("updateTBL the offset is nil ", "blockNum", (uint64(i) + st_block_num))
+				return false, nil, ""
+			}
+			val = header.Hash().Bytes()
+			cont += header.Hash().String()
+		} else {
+			val = headershash[i]
 		}
-		val := header.Hash().Bytes()
 		offset[i*4] = (int(val[0]) & offsetCnst) - 4
 		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
 		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
 		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
-		cont += header.Hash().String()
+
 	}
 
 	//get skip cnst 2048 lenght
 	for i := 0; i < SKIP_CYCLE_LEN; i++ {
-		header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN))
-		if header == nil {
-			log.Error("updateTBL the skip is nil", "blockNum", (uint64(i) + st_block_num))
-			return false, nil, ""
+		var val []byte
+		if headershash != nil {
+			header := sblockchain.GetHeaderByNumber(uint64(i) + st_block_num + uint64(OFF_CYCLE_LEN))
+			if header == nil {
+				log.Error("updateTBL the skip is nil", "blockNum", (uint64(i) + st_block_num))
+				return false, nil, ""
+			}
+			val = header.Hash().Bytes()
+			cont += header.Hash().String()
+		} else {
+			val = headershash[i+OFF_CYCLE_LEN]
 		}
-		val := header.Hash().Bytes()
 		for k := 0; k < 16; k++ {
 			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
 		}
-		cont += header.Hash().String()
+
 	}
 
 	ds := m.UpdateTBL(offset, skip, plookupTbl)
