@@ -53,7 +53,7 @@ const (
 	electionChanSize    = 64
 	nodeSize            = 10
 	committeeIDChanSize = 3
-	sendNodeTime        = 1 * time.Minute
+	sendNodeTime        = 3 * time.Minute
 	maxKnownNodes       = 512
 	fetchBlockTime      = 2
 )
@@ -707,6 +707,10 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 		GasLimit:   core.FastCalcGasLimit(parent, agent.gasFloor, agent.gasCeil),
 		Time:       big.NewInt(tstamp),
 	}
+	if err := agent.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
+		return nil, err
+	}
+
 	if infos != nil {
 		header.CommitteeHash = types.RlpHash(infos)
 	} else {
@@ -716,9 +720,6 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	pubKey, _ := crypto.UnmarshalPubkey(agent.committeeNode.Publickey)
 	header.Proposer = crypto.PubkeyToAddress(*pubKey)
 
-	if err := agent.validateBlockSpace(header); err == types.ErrSnailBlockTooSlow {
-		return nil, err
-	}
 	//getParent by height and hash
 	if err := agent.engine.Prepare(agent.fastChain, header); err != nil {
 		log.Error("Failed to prepare header for generateFastBlock", "err", err)
@@ -785,7 +786,7 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 	if snailBlock.NumberU64() == 0 {
 		space := new(big.Int).Sub(header.Number, common.Big0).Int64()
 		if space >= params.FastToFruitSpace.Int64() {
-			log.Warn("snailBlockNumber equals zero", "currentFastNumber", header.Number)
+			log.Warn("validateBlockSpace snailBlockNumber=0", "currentFastNumber", header.Number, "space", space)
 			return types.ErrSnailBlockTooSlow
 		}
 	}
@@ -794,9 +795,8 @@ func (agent *PbftAgent) validateBlockSpace(header *types.Header) error {
 		lastFruitNum := blockFruits[len(blockFruits)-1].FastNumber()
 		space := new(big.Int).Sub(header.Number, lastFruitNum).Int64()
 		if space >= params.FastToFruitSpace.Int64() {
-			log.Info("validateBlockSpace method ", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
-				"currentFastNumber", header.Number)
-			log.Warn("fetchFastBlock validateBlockSpace warn", "space", space)
+			log.Warn("validateBlockSpace", "snailNumber", snailBlock.Number(), "lastFruitNum", lastFruitNum,
+				"currentFastNumber", header.Number, "space", space)
 			return types.ErrSnailBlockTooSlow
 		}
 	}

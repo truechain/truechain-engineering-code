@@ -66,21 +66,13 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
 		snailNumber := block.SnailNumber().Uint64()
 		blockReward := fv.bc.GetBlockReward(snailNumber)
-		supposedRewardedNumber := fv.bc.NextSnailNumberReward()
-
-		/*space := new(big.Int).Sub(fv.bc.sc.CurrentBlock().Number(), supposedRewardedNumber).Int64()
-		if space < params.SnailConfirmInterval.Int64() {
-			log.Error("validateRewardError", "currentSnailNumber", fv.bc.sc.CurrentBlock().Number(),
-				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", ErrSnailNumberRewardTooFast)
-			return ErrSnailNumberRewardTooFast
-		}*/
 
 		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
 			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
 				"currentNumber", block.NumberU64(), "err", ErrSnailNumberAlreadyRewarded)
 			return ErrSnailNumberAlreadyRewarded
 		} else {
-			//supposedRewardedNumber := fv.bc.NextSnailNumberReward()
+			supposedRewardedNumber := fv.bc.NextSnailNumberReward()
 			if supposedRewardedNumber.Uint64() != snailNumber {
 				log.Error("validateRewardError", "snailNumber", snailNumber,
 					"supposedRewardedNumber", supposedRewardedNumber, "err", ErrRewardSnailNumberWrong)
@@ -89,9 +81,8 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		}
 	}
 
-	// Header validity is known at this point, check the uncles and transactions
+	// Header validity is known at this point, check the transactions
 	header := block.Header()
-
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
@@ -106,9 +97,7 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 			log.Info("Fast VerifySwitchInfo Err", "number", block.NumberU64(), "signs", block.SwitchInfos())
 			return err
 		}
-
 	}
-
 	return nil
 }
 
