@@ -17,14 +17,21 @@
 package minerva
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"math/big"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Tests whether the truehash lookup works for both light as well as the full
@@ -135,6 +142,53 @@ func makeTestsha256() {
 	fmt.Println("seedhash:", hexutil.Encode(sha256_out[:]))
 	fmt.Println("seedhash:", sha256_out[:])
 }
+func readLine(fileName string, handler func(string)) error {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	buf := bufio.NewReader(f)
+	for {
+		line, err := buf.ReadString('\n')
+		line = strings.TrimSpace(line)
+		handler(line)
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+func fetchhashfromFile(fileName string) []common.Hash {
+	heads := make([]common.Hash, 0)
+	readLine(fileName, func(line string) {
+		if hash, err := hex.DecodeString(line); err == nil {
+			heads = append(heads, common.BytesToHash(hash))
+		}
+	})
+	return heads
+}
+func TestMakeDatasetHash(t *testing.T) {
+	dataset1 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
+
+	for k := 0; k < TBLSIZE; k++ {
+		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
+		}
+	}
+	genLookupTable(dataset1[:], table[:])
+	makeDatasetHash(dataset1)
+
+	filename := "d:\\1.txt"
+	heads := fetchhashfromFile(filename)
+
+	dataset2 := updateLookupTBL(dataset1, heads)
+	makeDatasetHash(dataset2)
+	fmt.Println("finish2...")
+}
 func TestTrueHash2(t *testing.T) {
 	makeTestsha256()
 	makeTestSha3()
@@ -181,4 +235,82 @@ func TestTrueHash2(t *testing.T) {
 		nonce++
 	}
 
+}
+
+func truehashTableInit(tableLookup []uint64) {
+
+	log.Debug("truehashTableInit start ")
+	var table [TBLSIZE * DATALENGTH * PMTSIZE]uint32
+
+	for k := 0; k < TBLSIZE; k++ {
+		for x := 0; x < DATALENGTH*PMTSIZE; x++ {
+			table[k*DATALENGTH*PMTSIZE+x] = tableOrg[k][x]
+		}
+		//fmt.Printf("%d,", k+1)
+	}
+	genLookupTable(tableLookup[:], table[:])
+}
+
+func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
+	const offsetCnst = 0x7
+	const skipCnst = 0x3
+	var offset [OFF_SKIP_LEN]int
+	var skip [OFF_SKIP_LEN]int
+
+	//get offset cnst  8192 lenght
+	for i := 0; i < OFF_CYCLE_LEN; i++ {
+		hash := heads[i]
+		val := hash.Bytes()
+		offset[i*4] = (int(val[0]) & offsetCnst) - 4
+		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
+		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
+		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
+	}
+
+	//get skip cnst 2048 lenght
+	for i := 0; i < SKIP_CYCLE_LEN; i++ {
+		hash := heads[i]
+		val := hash.Bytes()
+		for k := 0; k < 16; k++ {
+			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
+		}
+	}
+
+	ds := updateTBL(offset, skip, plookupTbl)
+	return ds
+}
+func updateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []uint64) []uint64 {
+
+	lktWz := uint32(DATALENGTH / 64)
+	lktSz := uint32(DATALENGTH) * lktWz
+
+	for k := 0; k < TBLSIZE; k++ {
+
+		plkt := uint32(k) * lktSz
+
+		for x := 0; x < DATALENGTH; x++ {
+			idx := k*DATALENGTH + x
+			pos := offset[idx] + x
+			sk := skip[idx]
+			y := pos - sk*PMTSIZE/2
+			c := 0
+			for i := 0; i < PMTSIZE; i++ {
+				if y >= 0 && y < SKIP_CYCLE_LEN {
+					vI := uint32(y / 64)
+					vR := uint32(y % 64)
+					plookupTbl[plkt+vI] |= 1 << vR
+					c = c + 1
+
+				}
+				y = y + sk
+			}
+			if c == 0 {
+				vI := uint32(x / 64)
+				vR := uint32(x % 64)
+				plookupTbl[plkt+vI] |= 1 << vR
+			}
+			plkt += lktWz
+		}
+	}
+	return plookupTbl
 }
