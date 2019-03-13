@@ -1497,7 +1497,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 	// Not necessarily a bad peer, but not favourable behaviour.
 	if vote.Height != cs.Height {
 		err = ErrVoteHeightMismatch
-		log.Info("Vote ignored and not added", "voteHeight", vote.Height, "csHeight", cs.Height, "err", err)
+		log.Debug("Vote ignored and not added", "voteHeight", vote.Height, "csHeight", cs.Height, "err", err)
 		return
 	}
 
