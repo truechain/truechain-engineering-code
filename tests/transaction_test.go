@@ -27,13 +27,11 @@ func TestTransaction(t *testing.T) {
 	t.Parallel()
 
 	txt := new(testMatcher)
-	txt.config(`^Homestead/`, params.ChainConfig{
-	})
-	txt.config(`^EIP155/`, params.ChainConfig{
+
+	txt.config(`^Frontier/`, params.ChainConfig{
 		ChainID:        big.NewInt(1),
 	})
-	txt.config(`^Byzantium/`, params.ChainConfig{
-	})
+
 
 	txt.walk(t, transactionTestDir, func(t *testing.T, name string, test *TransactionTest) {
 		cfg := txt.findConfig(name)

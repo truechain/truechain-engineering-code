@@ -1,17 +1,15 @@
 package types
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/hex"
+	"math/big"
 	"encoding/json"
-	"fmt"
-	"strings"
 
+	"strings"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
-
-	"math/big"
-
 	"github.com/ethereum/go-ethereum/common"
 )
 

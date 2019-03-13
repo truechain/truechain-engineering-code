@@ -22,7 +22,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/params"
 )
@@ -54,7 +54,7 @@ func (test *DifficultyTest) Run(config *params.ChainConfig) error {
 		Number:     parentNumber,
 	}
 
-	actual := ethash.CalcFruitDifficulty(config, test.CurrentTimestamp.Uint64(),0 ,parent)
+	actual := minerva.CalcFruitDifficulty(config, test.CurrentTimestamp.Uint64(),0 ,parent)
 	exp := test.CurrentDifficulty
 
 	if actual.Cmp(exp) != 0 {

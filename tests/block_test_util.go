@@ -30,7 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/truechain/truechain-engineering-code/consensus"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/state"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -117,9 +117,9 @@ func (t *BlockTest) Run() error {
 	}
 	var engine consensus.Engine
 	if t.json.SealEngine == "NoProof" {
-		engine = ethash.NewFaker()
+		engine = minerva.NewFaker()
 	} else {
-		engine = ethash.NewShared()
+		engine = minerva.NewShared()
 	}
 	chain, err := core.NewBlockChain(db, &core.CacheConfig{TrieCleanLimit: 0}, config, engine, vm.Config{})
 	if err != nil {

@@ -31,14 +31,10 @@ var Forks = map[string]*params.ChainConfig{
 }
 
 
-
 // Forks table defines supported forks and their chain config.
 var FastForks = map[string]*params.ChainConfig{
 	"Frontier": {
 		ChainID: big.NewInt(1),
-	},
-	"Homestead": {
-		ChainID:        big.NewInt(1),
 	},
 }
 
