@@ -942,26 +942,29 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		request.Block.ReceivedAt = msg.ReceivedAt
-		request.Block.ReceivedFrom = p
+		for _, block := range request.Block {
 
-		// Mark the peer as owning the block and schedule it for import
-		p.MarkFastBlock(request.Block.Hash())
-		pm.fetcherFast.Enqueue(p.id, request.Block)
+			block.ReceivedAt = msg.ReceivedAt
+			block.ReceivedFrom = p
 
-		// Assuming the block is importable by the peer, but possibly not yet done so,
-		// calculate the head height that the peer truly must have.
-		height := new(big.Int).Sub(request.Block.Number(), common.Big1)
-		// Update the peers height if better than the previous
-		if fastHeight := p.FastHeight(); height.Cmp(fastHeight) > 0 {
-			p.SetFastHeight(height)
+			// Mark the peer as owning the block and schedule it for import
+			p.MarkFastBlock(block.Hash())
+			pm.fetcherFast.Enqueue(p.id, block)
 
-			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-			// a singe block (as the true TD is below the propagated block), however this
-			// scenario should easily be covered by the fetcher.
-			currentBlock := pm.blockchain.CurrentBlock()
-			if currentBlock.Number().Cmp(new(big.Int).Sub(height, common.Big256)) < 0 {
-				go pm.synchronise(p)
+			// Assuming the block is importable by the peer, but possibly not yet done so,
+			// calculate the head height that the peer truly must have.
+			height := new(big.Int).Sub(block.Number(), common.Big1)
+			// Update the peers height if better than the previous
+			if fastHeight := p.FastHeight(); height.Cmp(fastHeight) > 0 {
+				p.SetFastHeight(height)
+
+				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+				// a singe block (as the true TD is below the propagated block), however this
+				// scenario should easily be covered by the fetcher.
+				currentBlock := pm.blockchain.CurrentBlock()
+				if currentBlock.Number().Cmp(new(big.Int).Sub(height, common.Big256)) < 0 {
+					go pm.synchronise(p)
+				}
 			}
 		}
 
@@ -1043,43 +1046,44 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	case msg.Code == NewSnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
 		//var snailBlocks []*types.SnailBlock
-		log.Debug("receive NewSnailBlockMsg")
 		var request newBlockData
 		if err := msg.Decode(&request); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
-		request.Block.ReceivedAt = msg.ReceivedAt
-		request.Block.ReceivedFrom = p
+		for _, block := range request.SnailBlock {
+			block.ReceivedAt = msg.ReceivedAt
+			block.ReceivedFrom = p
 
-		var snailBlock = request.SnailBlock
-		if snailBlock == nil {
-			return errResp(ErrDecode, "snailBlock  is nil")
-		}
-		log.Debug("enqueue NewSnailBlockMsg", "number", snailBlock.Number())
-		p.MarkSnailBlock(snailBlock.Hash())
-		pm.fetcherSnail.Enqueue(p.id, snailBlock)
+			log.Debug("enqueue NewSnailBlockMsg", "number", block.Number())
+			p.MarkSnailBlock(block.Hash())
+			pm.fetcherSnail.Enqueue(p.id, block)
 
-		// Assuming the block is importable by the peer, but possibly not yet done so,
-		// calculate the head hash and TD that the peer truly must have.
-		trueHead := request.Block.ParentHash()
-		diff := request.SnailBlock.Difficulty()
-		if diff == nil {
-			log.Error("get request block diff failed.")
-			return errResp(ErrDecode, "snail block diff is nil")
-		}
-		trueTD := new(big.Int).Sub(request.TD, request.SnailBlock.Difficulty())
+			if request.TD == nil {
+				return errResp(ErrDecode, "snail td  is nil")
+			}
 
-		// Update the peers total difficulty if better than the previous
-		if _, td := p.Head(); trueTD.Cmp(td) > 0 || td == nil {
-			p.SetHead(trueHead, trueTD)
+			// Assuming the block is importable by the peer, but possibly not yet done so,
+			// calculate the head hash and TD that the peer truly must have.
+			trueHead := block.ParentHash()
+			diff := block.Difficulty()
+			if diff == nil {
+				log.Error("get request block diff failed.")
+				return errResp(ErrDecode, "snail block diff is nil")
+			}
+			trueTD := new(big.Int).Sub(request.TD, block.Difficulty())
 
-			// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
-			// a singe block (as the true TD is below the propagated block), however this
-			// scenario should easily be covered by the fetcher.
-			currentBlock := pm.snailchain.CurrentBlock()
-			if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
-				// TODO: fix the issue
-				go pm.synchronise(p)
+			// Update the peers total difficulty if better than the previous
+			if _, td := p.Head(); trueTD.Cmp(td) > 0 || td == nil {
+				p.SetHead(trueHead, trueTD)
+
+				// Schedule a sync if above ours. Note, this will not fire a sync for a gap of
+				// a singe block (as the true TD is below the propagated block), however this
+				// scenario should easily be covered by the fetcher.
+				currentBlock := pm.snailchain.CurrentBlock()
+				if trueTD.Cmp(pm.snailchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())) > 0 {
+					// TODO: fix the issue
+					go pm.synchronise(p)
+				}
 			}
 		}
 
