@@ -27,7 +27,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -557,6 +556,10 @@ var (
 	zeroHeader = []byte{0xC2, 0x80, 0x80}
 	// sixteen zero bytes
 	zero16 = make([]byte, 16)
+
+	headSize = 256 / 8
+	macSize  = 128 / 8
+	_        = headSize + macSize // space of packet frame data
 )
 
 // rlpxFrameRW implements a simplified version of RLPx framing.
@@ -599,8 +602,6 @@ func newRLPXFrameRW(conn io.ReadWriter, s secrets) *rlpxFrameRW {
 }
 
 func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
-	wbegin := time.Now()
-
 	ptype, _ := rlp.EncodeToBytes(msg.Code)
 
 	// if snappy is enabled, compress message now
@@ -614,11 +615,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 		msg.Payload = bytes.NewReader(payload)
 		msg.Size = uint32(len(payload))
 	}
-	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Debug("1 ++txTest++", "code", msg.Code, "size", msg.Size, "snappy", rw.snappy, "second", d.Seconds())
-	}
 
-	wbegin = time.Now()
 	// write header
 	headbuf := make([]byte, 32)
 	fsize := uint32(len(ptype)) + msg.Size
@@ -634,11 +631,7 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 	if _, err := rw.conn.Write(headbuf); err != nil {
 		return err
 	}
-	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Debug("2 ++txTest++", "code", msg.Code, "size", msg.Size, "headbuf", len(headbuf), "write_head", d.Seconds())
-	}
 
-	wbegin = time.Now()
 	// write encrypted frame, updating the egress MAC hash with
 	// the data written to conn.
 	tee := cipher.StreamWriter{S: rw.enc, W: io.MultiWriter(rw.conn, rw.egressMAC)}
@@ -658,15 +651,8 @@ func (rw *rlpxFrameRW) WriteMsg(msg Msg) error {
 	// frame content was written to it as well.
 	fmacseed := rw.egressMAC.Sum(nil)
 	mac := updateMAC(rw.egressMAC, rw.macCipher, fmacseed)
-	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Debug("3 ++txTest++", "code", msg.Code, "size", msg.Size, "mac", len(mac), "encrypted", d.Seconds())
-	}
 
-	wbegin = time.Now()
 	_, err := rw.conn.Write(mac)
-	if d := time.Now().Sub(wbegin); d.Seconds() > 1 {
-		log.Debug("4 ++txTest++", "code", msg.Code, "size", msg.Size, "conn_write", d.Seconds())
-	}
 	return err
 }
 

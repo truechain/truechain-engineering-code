@@ -159,7 +159,6 @@ type Fetcher struct {
 	inject     chan *inject
 	injectSign chan *injectSign
 
-	blockFilter  chan chan []*types.Block
 	headerFilter chan chan *headerFilterTask
 	bodyFilter   chan chan *bodyFilterTask
 
@@ -213,7 +212,6 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		notify:        make(chan *announce),
 		inject:        make(chan *inject),
 		injectSign:    make(chan *injectSign),
-		blockFilter:   make(chan chan []*types.Block),
 		headerFilter:  make(chan chan *headerFilterTask),
 		bodyFilter:    make(chan chan *bodyFilterTask),
 		doneBlockSign: make(chan *injectDone),
@@ -358,12 +356,6 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, [][]*types.CommitteeMember) {
 	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
-
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", peer, len(transactions), signs[0][0].FastHeight))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -704,6 +696,7 @@ func (f *Fetcher) loop() {
 				return
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
+			watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", task.peer, len(task.transactions[0]), task.signs[0][0].FastHeight))
 
 			log.Debug("Loop bodyFilter", "transactions", len(task.transactions), "f.completing", len(f.completing))
 			blocks := []*types.Block{}
@@ -753,6 +746,8 @@ func (f *Fetcher) loop() {
 					f.enqueue(announce.origin, block)
 				}
 			}
+			watch.EndWatch()
+			watch.Finish(fmt.Sprintf("end  blocks: %d completing: %d ", len(blocks), len(f.completing)))
 		}
 	}
 }
