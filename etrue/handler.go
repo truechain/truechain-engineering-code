@@ -367,7 +367,7 @@ func (pm *ProtocolManager) Stop() {
 }
 
 func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
-	return newPeer(pv, p, newMeteredMsgWriter(rw))
+	return newPeer(pv, p, newMeteredMsgWriter(rw), pm.removePeer)
 }
 
 func resolveVersionFromName(name string) bool {
@@ -743,7 +743,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendFastBlockBodiesRLP(&BlockBodiesRawData{bodies, hashData.Call})
+		go p.SendFastBlockBodiesRLP(&BlockBodiesRawData{bodies, hashData.Call})
 
 	case msg.Code == FastBlockBodiesMsg:
 		// A batch of block bodies arrived to one of our previous requests
@@ -805,7 +805,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
-		return p.SendSnailBlockBodiesRLP(bodies)
+		go p.SendSnailBlockBodiesRLP(bodies)
 
 	case msg.Code == SnailBlockBodiesMsg:
 
