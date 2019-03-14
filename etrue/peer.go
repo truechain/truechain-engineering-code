@@ -444,7 +444,6 @@ func (p *peer) SendNewFastBlockHashes(hashes []common.Hash, numbers []uint64, si
 	for i := 0; i < len(hashes); i++ {
 		request[i].Hash = hashes[i]
 		request[i].Number = numbers[i]
-		request[i].Sign = signs[i]
 	}
 	return p.Send(NewFastBlockHashesMsg, request)
 }

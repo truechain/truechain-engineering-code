@@ -84,7 +84,6 @@ type announce struct {
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
 	header *types.Header // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
-	sign   *types.PbftSign
 
 	origin string // Identifier of the peer originating the notification
 
@@ -258,7 +257,7 @@ func (f *Fetcher) Stop() {
 
 // Notify announces the fetcher of the potential availability of a new block in
 // the network.
-func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *types.PbftSign, time time.Time,
+func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
 	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg notify number:%d", peer, number))
 	defer func() {
@@ -268,13 +267,12 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *typ
 	block := &announce{
 		hash:        hash,
 		number:      number,
-		sign:        sign,
 		time:        time,
 		origin:      peer,
 		fetchHeader: headerFetcher,
 		fetchBodies: bodyFetcher,
 	}
-	log.Debug("Notify fast block hash", "peer", block.origin, "number", block.number, "hash", block.hash, "sign", block.sign.Hash())
+	log.Debug("Notify fast block hash", "peer", block.origin, "number", block.number, "hash", block.hash)
 
 	select {
 	case f.notify <- block:
