@@ -87,6 +87,10 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 
+	if  hash := types.RlpHash(block.SwitchInfos()) ;hash!= header.CommitteeHash {
+		return fmt.Errorf("SwitchInfos root hash mismatch: have %x, want %x", hash, header.TxHash)
+	}
+
 	if validateSign {
 		if err := fv.bc.engine.VerifySigns(block.Number(), block.Hash(), block.Signs()); err != nil {
 			log.Info("Fast VerifySigns Err", "number", block.NumberU64(), "signs", block.Signs())

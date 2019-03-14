@@ -64,7 +64,6 @@ type btJSON struct {
 type btBlock struct {
 	BlockHeader  *btHeader
 	Rlp          string
-	UncleHeaders []*btHeader
 }
 
 //go:generate gencodec -type btHeader -field-override btHeaderMarshaling -out gen_btheader.go
@@ -80,7 +79,6 @@ type btHeader struct {
 	ReceiptTrie      common.Hash
 	StateRoot        common.Hash
 	TransactionsTrie common.Hash
-	UncleHash        common.Hash
 	ExtraData        []byte
 	Difficulty       *big.Int
 	GasLimit         uint64
@@ -98,7 +96,7 @@ type btHeaderMarshaling struct {
 }
 
 func (t *BlockTest) Run() error {
-	config, ok := FastForks[t.json.Network]
+	config, ok := Forks[t.json.Network]
 	if !ok {
 		return UnsupportedForkError{t.json.Network}
 	}
@@ -112,6 +110,7 @@ func (t *BlockTest) Run() error {
 	if gblock.Hash() != t.json.Genesis.Hash {
 		return fmt.Errorf("genesis block hash doesn't match test: computed=%x, test=%x", gblock.Hash().Bytes()[:6], t.json.Genesis.Hash[:6])
 	}
+	fmt.Println(gblock.Root().String())
 	if gblock.Root() != t.json.Genesis.StateRoot {
 		return fmt.Errorf("genesis block state root does not match test: computed=%x, test=%x", gblock.Root().Bytes()[:6], t.json.Genesis.StateRoot[:6])
 	}
