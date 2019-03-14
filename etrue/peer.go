@@ -219,15 +219,14 @@ func (p *peer) broadcast() {
 			p.Log().Trace("Broadcast fruits", "count", len(fruits))
 
 		case snailBlock := <-p.queuedSnailBlock:
-			p.Log().Debug("Propagated snailBlock begin", "peer", p.RemoteAddr(), "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
-			if err := p.SendNewSnailBlock(snailBlock.block, snailBlock.td); err != nil {
+			if err := p.SendNewBlock(nil, snailBlock.block, snailBlock.td); err != nil {
 				p.Log().Debug("Propagated snailBlock success", "peer", p.RemoteAddr(), "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 				return
 			}
 			p.Log().Trace("Propagated snailBlock", "number", snailBlock.block.Number(), "hash", snailBlock.block.Hash(), "td", snailBlock.td)
 
 		case prop := <-p.queuedFastProps:
-			if err := p.SendNewFastBlock(prop.block); err != nil {
+			if err := p.SendNewBlock(prop.block, nil, nil); err != nil {
 				return
 			}
 			p.Log().Trace("Propagated fast block", "number", prop.block.Number(), "hash", prop.block.Hash())
@@ -464,7 +463,7 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.Block) {
 func (p *peer) SendNewFastBlock(block *types.Block) error {
 	p.knownFastBlocks.Add(block.Hash())
 	log.Debug("SendNewFastBlock", "size", block.Size(), "peer", p.id)
-	return p.Send(NewFastBlockMsg, []interface{}{block})
+	return p.Send(NewFastBlockMsg, &newBlockData{Block: block})
 }
 
 // AsyncSendNewFastBlock queues an entire block for propagation to a remote peer. If
@@ -478,10 +477,16 @@ func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
 	}
 }
 
-func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
-	p.knownSnailBlocks.Add(snailBlock.Hash())
-	log.Debug("SendNewSnailBlock", "size", snailBlock.Size(), "peer", p.id)
-	return p.Send(NewSnailBlockMsg, []interface{}{snailBlock, td})
+func (p *peer) SendNewBlock(block *types.Block, snailBlock *types.SnailBlock, td *big.Int) error {
+	if td != nil {
+		p.knownSnailBlocks.Add(snailBlock.Hash())
+		log.Debug("SendNewSnailBlock", "number", snailBlock.Number(), "td", td, "hash", snailBlock.Hash(), "size", snailBlock.Size(), "peer", p.id)
+		return p.Send(NewSnailBlockMsg, &newBlockData{SnailBlock: snailBlock, TD: td})
+	} else {
+		p.knownFastBlocks.Add(block.Hash())
+		log.Debug("SendNewFastBlock", "size", block.Size(), "peer", p.id)
+		return p.Send(NewFastBlockMsg, &newBlockData{Block: block})
+	}
 }
 
 // AsyncSendNewSnailBlock queues an entire snailBlock for propagation to a remote peer. If
