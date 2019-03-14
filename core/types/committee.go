@@ -44,13 +44,10 @@ const (
 	VoteAgreeAgainst = iota
 	//VoteAgree vote sign with agree
 	VoteAgree
+
+	FetcherCall
+	DownloaderCall
 )
-
-// FetcherCall is distinguish fetcher call HeadersMsg and bodyMsg.
-var FetcherCall = "fetcher"
-
-// DownloaderCall is distinguish fetcher call HeadersMsg and bodyMsg.
-var DownloaderCall = "downloader"
 
 //CommitteeMembers committee members
 type CommitteeMembers []*CommitteeMember
