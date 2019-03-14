@@ -89,7 +89,7 @@ type Engine interface {
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainReader, header *types.Header) error
 	VerifySnailHeader(chain SnailChainReader, fastchain ChainReader, header *types.SnailHeader, seal bool, isFruit bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers

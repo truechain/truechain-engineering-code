@@ -870,7 +870,7 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		log.Warn("VerifyFastBlock ErrHeightNotYet error", "header", fb.Number())
 		return nil, types.ErrHeightNotYet
 	}
-	err := agent.engine.VerifyHeader(bc, fb.Header(), true)
+	err := agent.engine.VerifyHeader(bc, fb.Header())
 	if err != nil {
 		log.Error("verifyFastBlock verifyHeader error", "header", fb.Number(), "err", err)
 		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)

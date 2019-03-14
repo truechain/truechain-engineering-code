@@ -222,7 +222,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 
 	fastValidator := func(header *types.Header) error {
 		//mecMark how to get ChainFastReader
-		return engine.VerifyHeader(blockchain, header, true)
+		return engine.VerifyHeader(blockchain, header)
 	}
 	fastHeighter := func() uint64 {
 		return blockchain.CurrentFastBlock().NumberU64()

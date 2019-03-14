@@ -74,7 +74,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Truechain m engine.
-func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
+func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
