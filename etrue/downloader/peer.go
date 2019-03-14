@@ -92,7 +92,7 @@ func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
 
-func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, string) error {
+func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, uint32) error {
 	panic("RequestReceipts not supported in light client mode sync")
 }
 

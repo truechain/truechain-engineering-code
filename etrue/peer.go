@@ -199,10 +199,7 @@ func (p *peer) broadcast() {
 
 			//add for sign
 		case signs := <-p.queuedSign:
-			if err := p.SendSign(signs); err != nil {
-				return
-			}
-			p.Log().Trace("Broadcast sign")
+			p.Log().Trace("Broadcast sign", "signs", signs)
 
 			//add for node info
 		case nodeInfo := <-p.queuedNodeInfo:
@@ -386,15 +383,6 @@ func (p *peer) AsyncSendTransactions(txs []*types.Transaction) {
 	}
 }
 
-//SendSigns sends signs to the peer and includes the hashes
-// in its signs hash set for future reference.
-func (p *peer) SendSign(signs []*types.PbftSign) error {
-	for _, sign := range signs {
-		p.knownSign.Add(sign.Hash())
-	}
-	return p.Send(BlockSignMsg, signs)
-}
-
 func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 	select {
 	case p.queuedSign <- signs:
@@ -411,7 +399,7 @@ func (p *peer) AsyncSendSign(signs []*types.PbftSign) {
 func (p *peer) SendNodeInfo(nodeInfo *types.EncryptNodeMessage) error {
 	p.knownNodeInfos.Add(nodeInfo.Hash())
 	log.Trace("SendNodeInfo", "size", nodeInfo.Size(), "peer", p.id)
-	return p.Send(PbftNodeInfoMsg, nodeInfo)
+	return p.Send(TbftNodeInfoMsg, nodeInfo)
 }
 
 func (p *peer) AsyncSendNodeInfo(nodeInfo *types.EncryptNodeMessage) {
@@ -430,7 +418,7 @@ func (p *peer) SendFruits(fruits types.Fruits) error {
 		p.knownFruits.Add(fruit.Hash())
 	}
 	log.Debug("SendFruits", "fts", len(fruits), "size", fruits[0].Size(), "peer", p.id)
-	return p.Send(FruitMsg, fruits)
+	return p.Send(NewFruitMsg, fruits)
 }
 
 // AsyncSendFruits queues list of fruits propagation to a remote
@@ -494,7 +482,7 @@ func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
 func (p *peer) SendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int) error {
 	p.knownSnailBlocks.Add(snailBlock.Hash())
 	log.Debug("SendNewSnailBlock", "size", snailBlock.Size(), "peer", p.id)
-	return p.Send(SnailBlockMsg, []interface{}{snailBlock, td})
+	return p.Send(NewSnailBlockMsg, []interface{}{snailBlock, td})
 }
 
 // AsyncSendNewSnailBlock queues an entire snailBlock for propagation to a remote peer. If
@@ -509,8 +497,12 @@ func (p *peer) AsyncSendNewSnailBlock(snailBlock *types.SnailBlock, td *big.Int)
 }
 
 // SendSnailFastBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendSnailBlockHeaders(headers []*types.SnailHeader) error {
-	return p.Send(SnailBlockHeadersMsg, headers)
+func (p *peer) SendBlockHeaders(headerData *BlockHeadersData) error {
+	if headerData.Headers != nil {
+		return p.Send(FastBlockHeadersMsg, headerData)
+	} else {
+		return p.Send(SnailBlockHeadersMsg, headerData)
+	}
 }
 
 // RequestOneFastHeader is a wrapper around the header query functions to fetch a
@@ -520,42 +512,14 @@ func (p *peer) RequestOneSnailHeader(hash common.Hash) error {
 	return p.Send(GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: uint64(1), Skip: uint64(0), Reverse: false})
 }
 
-// RequestHeadersByHash fetches a batch of blocks' headers corresponding to the
-// specified header query, based on the hash of an origin block.
-func (p *peer) RequestSnailHeadersByHash(origin common.Hash, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromhash", origin, "skip", skip, "reverse", reverse)
-	return p.Send(GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Hash: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
-}
-
-// RequestSnailHeadersByNumber fetches a batch of blocks' headers corresponding to the
-// specified header query, based on the number of an origin block.
-func (p *peer) RequestSnailHeadersByNumber(origin uint64, amount int, skip int, reverse bool) error {
-	p.Log().Debug("Fetching batch of headers", "count", amount, "fromnum", origin, "skip", skip, "reverse", reverse)
-	return p.Send(GetSnailBlockHeadersMsg, &getBlockHeadersData{Origin: hashOrNumber{Number: origin}, Amount: uint64(amount), Skip: uint64(skip), Reverse: reverse})
-}
-
-// RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
-// specified.
-func (p *peer) RequestSnailBodies(hashes []common.Hash) error {
-	p.Log().Debug("Fetching batch of block bodies", "count", len(hashes))
-	return p.Send(GetSnailBlockBodiesMsg, hashes)
-}
-
-// SendFastBlockHeaders sends a batch of block headers to the remote peer.
-func (p *peer) SendFastBlockHeaders(headerData *BlockHeadersData) error {
-	return p.Send(FastBlockHeadersMsg, headerData)
-}
-
-// SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
+// SendBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
-func (p *peer) SendFastBlockBodiesRLP(bodiesData *BlockBodiesRawData) error {
-	return p.Send(FastBlockBodiesMsg, bodiesData)
-}
-
-// SendFastBlockBodiesRLP sends a batch of block contents to the remote peer from
-// an already RLP encoded format.
-func (p *peer) SendSnailBlockBodiesRLP(bodies []rlp.RawValue) error {
-	return p.Send(SnailBlockBodiesMsg, bodies)
+func (p *peer) SendBlockBodiesRLP(bodiesData *BlockBodiesRawData, fast bool) error {
+	if fast {
+		return p.Send(FastBlockBodiesMsg, bodiesData)
+	} else {
+		return p.Send(SnailBlockBodiesMsg, bodiesData)
+	}
 }
 
 // SendNodeDataRLP sends a batch of arbitrary internal data, corresponding to the
@@ -611,7 +575,7 @@ func (p *peer) RequestHeadersByNumber(origin uint64, amount int, skip int, rever
 
 // RequestBodies fetches a batch of blocks' bodies corresponding to the hashes
 // specified.
-func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool, call string) error {
+func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool, call uint32) error {
 	datas := make([]getBlockBodiesData, len(hashes))
 	for _, hash := range hashes {
 		datas = append(datas, getBlockBodiesData{hash, call})

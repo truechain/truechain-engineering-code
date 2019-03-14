@@ -85,7 +85,7 @@ func (w *lightPeerWrapper) RequestHeadersByHash(h common.Hash, amount int, skip 
 func (w *lightPeerWrapper) RequestHeadersByNumber(i uint64, amount int, skip int, reverse bool, isFastchain bool) error {
 	return w.peer.RequestHeadersByNumber(i, amount, skip, reverse, isFastchain)
 }
-func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, string) error {
+func (w *lightPeerWrapper) RequestBodies([]common.Hash, bool, uint32) error {
 	panic("RequestBodies not supported in light client mode sync")
 }
 func (w *lightPeerWrapper) RequestReceipts([]common.Hash, bool) error {

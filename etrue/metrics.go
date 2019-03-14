@@ -131,24 +131,22 @@ func (rw *meteredMsgReadWriter) ReadMsg() (p2p.Msg, error) {
 	case msg.Code == SnailBlockBodiesMsg:
 		packets, traffic = reqSBodyInPacketsMeter, reqSBodyInTrafficMeter
 
-	case rw.version >= eth63 && msg.Code == NodeDataMsg:
+	case msg.Code == NodeDataMsg:
 		packets, traffic = reqStateInPacketsMeter, reqStateInTrafficMeter
-	case rw.version >= eth63 && msg.Code == ReceiptsMsg:
+	case msg.Code == ReceiptsMsg:
 		packets, traffic = reqReceiptInPacketsMeter, reqReceiptInTrafficMeter
 
 	case msg.Code == NewFastBlockHashesMsg:
 		packets, traffic = propFHashInPacketsMeter, propFHashInTrafficMeter
 	case msg.Code == NewFastBlockMsg:
 		packets, traffic = propFBlockInPacketsMeter, propFBlockInTrafficMeter
-	case msg.Code == SnailBlockMsg:
+	case msg.Code == NewSnailBlockMsg:
 		packets, traffic = propSBlockInPacketsMeter, propSBlockInTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnInPacketsMeter, propTxnInTrafficMeter
-	case msg.Code == FruitMsg:
+	case msg.Code == NewFruitMsg:
 		packets, traffic = propFtnInPacketsMeter, propFtnInTrafficMeter
-	case msg.Code == BlockSignMsg:
-		//packets, traffic = propBlockSignInPacketsMeter, propBlockSignInTrafficMeter
-	case msg.Code == PbftNodeInfoMsg:
+	case msg.Code == TbftNodeInfoMsg:
 		packets, traffic = propNodeInfoPacketsMeter, propNodeInfoInTrafficMeter
 	case msg.Code == GetFastBlockHeadersMsg:
 		packets, traffic = getHeadInPacketsMeter, getHeadInTrafficMeter
@@ -178,24 +176,22 @@ func (rw *meteredMsgReadWriter) WriteMsg(msg p2p.Msg) error {
 	case msg.Code == SnailBlockBodiesMsg:
 		packets, traffic = reqSBodyOutPacketsMeter, reqSBodyOutTrafficMeter
 
-	case rw.version >= eth63 && msg.Code == NodeDataMsg:
+	case msg.Code == NodeDataMsg:
 		packets, traffic = reqStateOutPacketsMeter, reqStateOutTrafficMeter
-	case rw.version >= eth63 && msg.Code == ReceiptsMsg:
+	case msg.Code == ReceiptsMsg:
 		packets, traffic = reqReceiptOutPacketsMeter, reqReceiptOutTrafficMeter
 
 	case msg.Code == NewFastBlockHashesMsg:
 		packets, traffic = propFHashOutPacketsMeter, propFHashOutTrafficMeter
 	case msg.Code == NewFastBlockMsg:
 		packets, traffic = propFBlockOutPacketsMeter, propFBlockOutTrafficMeter
-	case msg.Code == SnailBlockMsg:
+	case msg.Code == NewSnailBlockMsg:
 		packets, traffic = propSBlockOutPacketsMeter, propSBlockOutTrafficMeter
 	case msg.Code == TxMsg:
 		packets, traffic = propTxnOutPacketsMeter, propTxnOutTrafficMeter
-	case msg.Code == FruitMsg:
+	case msg.Code == NewFruitMsg:
 		packets, traffic = propFtnOutPacketsMeter, propFtnOutTrafficMeter
-	case msg.Code == BlockSignMsg:
-		//packets, traffic = propBlockSignOutPacketsMeter, propBlockSignOutTrafficMeter
-	case msg.Code == PbftNodeInfoMsg:
+	case msg.Code == TbftNodeInfoMsg:
 		packets, traffic = propNodeInfoOutPacketsMeter, propNodeInfoOutTrafficMeter
 	case msg.Code == GetFastBlockHeadersMsg:
 		packets, traffic = getHeadOutPacketsMeter, getHeadOutTrafficMeter

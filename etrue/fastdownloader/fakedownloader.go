@@ -543,7 +543,7 @@ func (dlp *DownloadTesterPeer) RequestHeadersByNumber(origin uint64, amount int,
 // RequestBodies constructs a getBlockBodies method associated with a particular
 // peer in the download tester. The returned function can be used to retrieve
 // batches of block bodies from the particularly requested peer.
-func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain bool, call string) error {
+func (dlp *DownloadTesterPeer) RequestBodies(hashes []common.Hash, isFastchain bool, call uint32) error {
 	dlp.waitDelay()
 
 	dlp.dl.lock.RLock()

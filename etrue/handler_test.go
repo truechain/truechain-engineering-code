@@ -488,7 +488,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	defer pm.Stop()
 	var peers []*testPeer
 	for i := 0; i < totalPeers; i++ {
-		peer, _ := newTestPeer(fmt.Sprintf("peer %d", i), eth63, pm, true)
+		peer, _ := newTestPeer(fmt.Sprintf("peer %d", i), etrue63, pm, true)
 		defer peer.close()
 		peers = append(peers, peer)
 	}
