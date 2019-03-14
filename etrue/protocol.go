@@ -238,11 +238,22 @@ type blockBody struct {
 	Transactions []*types.Transaction     // Transactions contained within a block
 	Signs        []*types.PbftSign        // Signs contained within a block
 	Infos        []*types.CommitteeMember //change info
-	Fruits       []*types.SnailBlock
 }
 
 // blockBodiesData is the network packet for block content distribution.
 type blockBodiesData struct {
 	BodiesData []*blockBody
+	Call       uint32 // Distinguish fetcher and downloader
+}
+
+// blockBody represents the data content of a single block.
+type snailBlockBody struct {
+	Fruits []*types.SnailBlock
+	Signs  []*types.PbftSign
+}
+
+// blockBodiesData is the network packet for block content distribution.
+type snailBlockBodiesData struct {
+	BodiesData []*snailBlockBody
 	Call       uint32 // Distinguish fetcher and downloader
 }
