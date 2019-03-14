@@ -142,8 +142,6 @@ type Election struct {
 
 	fastChainEventCh  chan types.ChainFastEvent
 	fastChainEventSub event.Subscription
-	switchEventCh     chan types.ChainFastEvent
-	switchEventSub    event.Subscription
 
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
@@ -187,7 +185,6 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 		fastchain:         fastBlockChain,
 		snailchain:        snailBlockChain,
 		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
-		switchEventCh:     make(chan types.ChainFastEvent, fastChainHeadSize),
 		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
 		singleNode:        config.GetNodeType(),
 		electionMode:      ElectModeEtrue,
@@ -200,7 +197,6 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	}
 
 	election.fastChainEventSub = election.fastchain.SubscribeChainEvent(election.fastChainEventCh)
-	election.switchEventSub = election.fastchain.SubscribeChainEvent(election.switchEventCh)
 	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
@@ -1067,6 +1063,16 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 	})
 }
 
+// FinalizeCommittee upddate current committee state
+func (e *Election) FinalizeCommittee(block *types.Block) error {
+	info := block.SwitchInfos()
+	if len(info) > 0 {
+		log.Info("Election receive committee switch info", "block", block.Number())
+		e.updateMembers(block.Number(), info)
+	}
+	return nil
+}
+
 // Start load current committ and starts election processing
 func (e *Election) Start() error {
 	// get current committee info
@@ -1187,28 +1193,11 @@ func (e *Election) Start() error {
 
 	// Start the event loop and return
 	go e.loop()
-	go e.switchLoop()
 
 	return nil
 }
 
-// switchloop update committee members flag based on fast block chain event
-func (e *Election) switchLoop() {
-	for {
-		select {
-		case ev := <-e.switchEventCh:
-			if ev.Block != nil {
-				info := ev.Block.SwitchInfos()
-				if len(info) > 0 {
-					log.Info("Election receive committee switch info", "block", ev.Block.Number())
-					e.updateMembers(ev.Block.Number(), info)
-				}
-			}
-		}
-	}
-}
-
-//Monitor both chains and trigger elections at the same time
+// Monitor both chains and trigger elections at the same time
 func (e *Election) loop() {
 	// Keep waiting for and reacting to the various events
 	for {

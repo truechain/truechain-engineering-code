@@ -819,6 +819,11 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
+// FinalizeCommittee upddate current committee state
+func (m *Minerva) FinalizeCommittee(block *types.Block) error {
+	return m.election.FinalizeCommittee(block)
+}
+
 // gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
 	if feeAmount.Uint64() == 0 {

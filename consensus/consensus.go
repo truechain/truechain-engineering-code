@@ -129,6 +129,8 @@ type Engine interface {
 	FinalizeSnail(chain SnailChainReader, header *types.SnailHeader,
 		uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error)
 
+	FinalizeCommittee(block *types.Block) error
+
 	// Seal generates a new block for the given input block with the local miner's
 	Seal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
 
@@ -153,6 +155,8 @@ type CommitteeElection interface {
 
 	// VerifySwitchInfo verify committee members and it's state
 	VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error
+
+	FinalizeCommittee(block *types.Block) error
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)
