@@ -216,8 +216,8 @@ func (hn *hashOrNumber) DecodeRLP(s *rlp.Stream) error {
 
 // newFastBlockData is the network packet for the block propagation message.
 type newBlockData struct {
-	Block      *types.Block
-	SnailBlock *types.SnailBlock
+	Block      []*types.Block
+	SnailBlock []*types.SnailBlock
 	TD         *big.Int
 }
 

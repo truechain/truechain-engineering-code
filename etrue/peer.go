@@ -459,13 +459,6 @@ func (p *peer) AsyncSendNewFastBlockHash(block *types.Block) {
 	}
 }
 
-// SendNewFastBlock propagates an entire fast block to a remote peer.
-func (p *peer) SendNewFastBlock(block *types.Block) error {
-	p.knownFastBlocks.Add(block.Hash())
-	log.Debug("SendNewFastBlock", "size", block.Size(), "peer", p.id)
-	return p.Send(NewFastBlockMsg, &newBlockData{Block: block})
-}
-
 // AsyncSendNewFastBlock queues an entire block for propagation to a remote peer. If
 // the peer's broadcast queue is full, the event is silently dropped.
 func (p *peer) AsyncSendNewFastBlock(block *types.Block) {
@@ -481,11 +474,11 @@ func (p *peer) SendNewBlock(block *types.Block, snailBlock *types.SnailBlock, td
 	if td != nil {
 		p.knownSnailBlocks.Add(snailBlock.Hash())
 		log.Debug("SendNewSnailBlock", "number", snailBlock.Number(), "td", td, "hash", snailBlock.Hash(), "size", snailBlock.Size(), "peer", p.id)
-		return p.Send(NewSnailBlockMsg, &newBlockData{SnailBlock: snailBlock, TD: td})
+		return p.Send(NewSnailBlockMsg, &newBlockData{SnailBlock: []*types.SnailBlock{snailBlock}, TD: td})
 	} else {
 		p.knownFastBlocks.Add(block.Hash())
 		log.Debug("SendNewFastBlock", "size", block.Size(), "peer", p.id)
-		return p.Send(NewFastBlockMsg, &newBlockData{Block: block})
+		return p.Send(NewFastBlockMsg, &newBlockData{Block: []*types.Block{block}})
 	}
 }
 
