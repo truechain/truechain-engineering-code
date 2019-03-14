@@ -586,7 +586,7 @@ func (p *peer) RequestBodies(hashes []common.Hash, isFastchain bool, call uint32
 		return p.Send(GetFastBlockBodiesMsg, datas)
 	}
 	p.Log().Debug("Fetching batch of block bodies  GetSnailBlockBodiesMsg", "count", len(hashes))
-	return p.Send(GetSnailBlockBodiesMsg, hashes)
+	return p.Send(GetSnailBlockBodiesMsg, datas)
 }
 
 // RequestNodeData fetches a batch of arbitrary data from a node's known state
