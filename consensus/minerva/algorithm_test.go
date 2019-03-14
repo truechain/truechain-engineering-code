@@ -117,11 +117,48 @@ func makeDatasetHash(dataset []uint64) {
 		binary.LittleEndian.PutUint64(tmp, v)
 		datas = append(datas, tmp...)
 	}
-	fmt.Println("datalen:", len(datas), "256:", datas[256])
 	sha512 := makeHasher(sha3.New256())
-	var sha512_out [32]byte
-	sha512(sha512_out[:], datas[:])
-	fmt.Println("seedhash:", hexutil.Encode(sha512_out[:]))
+	output := make([]byte, 32)
+	sha512(output, datas[:])
+	//fmt.Println("**seedhash:", output)
+	fmt.Println("**seedhash:", hexutil.Encode(output))
+}
+func makeDatasetHash2(dataset []int) []byte {
+	var datas []byte
+	tmp := make([]byte, 4)
+	for _, v := range dataset {
+		binary.LittleEndian.PutUint32(tmp, uint32(v))
+		datas = append(datas, tmp...)
+	}
+	sha512 := makeHasher(sha3.New256())
+	output := make([]byte, 32)
+	sha512(output, datas[:])
+	return output
+}
+func makeDatasetHash3(dataset []uint64) []byte {
+	var datas []byte
+	tmp := make([]byte, 8)
+	for _, v := range dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	sha512 := makeHasher(sha3.New256())
+	output := make([]byte, 32)
+	sha512(output, datas[:])
+	return output
+}
+func makeDatasetHash4(dataset []common.Hash) []byte {
+	var datas []byte
+	// tmp := make([]byte, 0)
+	for _, v := range dataset {
+		// binary.LittleEndian.PutUint64(tmp, v)
+		hash := v[:16]
+		datas = append(datas, hash[:]...)
+	}
+	sha512 := makeHasher(sha3.New256())
+	output := make([]byte, 32)
+	sha512(output, datas[:16])
+	return output
 }
 func makeTestSha3() {
 	datas := []byte{1, 2, 3, 4, 5, 6}
@@ -183,11 +220,59 @@ func TestMakeDatasetHash(t *testing.T) {
 	makeDatasetHash(dataset1)
 
 	filename := "d:\\1.txt"
-	heads := fetchhashfromFile(filename)
+	aheads := fetchhashfromFile(filename)
+	heads := aheads[:10240]
+	fmt.Println("test head:", len(heads))
+	headhash := makeDatasetHash4(heads)
+	fmt.Println("headhash:", hexutil.Encode(headhash))
 	fmt.Println("test 2 dataset")
-	dataset2 := updateLookupTBL(dataset1, heads)
+	dataset2 := make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32)
+	dataset2 = updateLookupTBL(dataset2, heads)
 	makeDatasetHash(dataset2)
 	fmt.Println("finish2...")
+}
+func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
+	const offsetCnst = 0x7
+	const skipCnst = 0x3
+	var offset [OFF_SKIP_LEN]int
+	var skip [OFF_SKIP_LEN]int
+
+	//get offset cnst  8192 lenght
+	for i := 0; i < OFF_CYCLE_LEN; i++ {
+		hash := heads[i]
+		val := hash.Bytes()
+		// if i == 0 {
+		// 	fmt.Println("hash0:", val)
+		// } else if i == OFF_CYCLE_LEN-1 {
+		// 	fmt.Println("hash", OFF_CYCLE_LEN, ":", val)
+		// }
+
+		offset[i*4] = (int(val[0]) & offsetCnst) - 4
+		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
+		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
+		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
+	}
+	ohash := makeDatasetHash2(offset[:])
+	fmt.Println("ohash:", hexutil.Encode(ohash))
+	//get skip cnst 2048 lenght
+	for i := 0; i < SKIP_CYCLE_LEN; i++ {
+		hash := heads[i+OFF_CYCLE_LEN]
+		val := hash.Bytes()
+		// if i == 0 {
+		// 	fmt.Println("2hash0:", val)
+		// } else if i == SKIP_CYCLE_LEN-1 {
+		// 	fmt.Println("2hash", SKIP_CYCLE_LEN, ":", val)
+		// }
+		for k := 0; k < 16; k++ {
+			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
+		}
+	}
+	shash := makeDatasetHash2(skip[:])
+	fmt.Println("shash:", hexutil.Encode(shash))
+	phash := makeDatasetHash3(plookupTbl)
+	fmt.Println("phash:", hexutil.Encode(phash))
+	ds := updateTBL(offset, skip, plookupTbl)
+	return ds
 }
 func TestTrueHash2(t *testing.T) {
 	makeTestsha256()
@@ -236,7 +321,6 @@ func TestTrueHash2(t *testing.T) {
 	}
 
 }
-
 func truehashTableInit(tableLookup []uint64) {
 
 	log.Debug("truehashTableInit start ")
@@ -251,47 +335,9 @@ func truehashTableInit(tableLookup []uint64) {
 	genLookupTable(tableLookup[:], table[:])
 }
 
-func updateLookupTBL(plookupTbl []uint64, heads []common.Hash) []uint64 {
-	const offsetCnst = 0x7
-	const skipCnst = 0x3
-	var offset [OFF_SKIP_LEN]int
-	var skip [OFF_SKIP_LEN]int
-
-	//get offset cnst  8192 lenght
-	for i := 0; i < OFF_CYCLE_LEN; i++ {
-		hash := heads[i]
-		val := hash.Bytes()
-		if i == 0 {
-			fmt.Println("hash0:", val)
-		} else if i == OFF_CYCLE_LEN-1 {
-			fmt.Println("hash", OFF_CYCLE_LEN, ":", val)
-		}
-
-		offset[i*4] = (int(val[0]) & offsetCnst) - 4
-		offset[i*4+1] = (int(val[1]) & offsetCnst) - 4
-		offset[i*4+2] = (int(val[2]) & offsetCnst) - 4
-		offset[i*4+3] = (int(val[3]) & offsetCnst) - 4
-	}
-
-	//get skip cnst 2048 lenght
-	for i := 0; i < SKIP_CYCLE_LEN; i++ {
-		hash := heads[i+OFF_CYCLE_LEN]
-		val := hash.Bytes()
-		if i == 0 {
-			fmt.Println("2hash0:", val)
-		} else if i == SKIP_CYCLE_LEN-1 {
-			fmt.Println("2hash", SKIP_CYCLE_LEN, ":", val)
-		}
-		for k := 0; k < 16; k++ {
-			skip[i*16+k] = (int(val[k]) & skipCnst) + 1
-		}
-	}
-
-	ds := updateTBL(offset, skip, plookupTbl)
-	return ds
-}
 func updateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []uint64) []uint64 {
 
+	// fmt.Println("aaaaa:", plookupTbl[990], plookupTbl[991], plookupTbl[992], plookupTbl[993])
 	lktWz := uint32(DATALENGTH / 64)
 	lktSz := uint32(DATALENGTH) * lktWz
 
@@ -311,7 +357,6 @@ func updateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []ui
 					vR := uint32(y % 64)
 					plookupTbl[plkt+vI] |= 1 << vR
 					c = c + 1
-
 				}
 				y = y + sk
 			}
@@ -323,5 +368,6 @@ func updateTBL(offset [OFF_SKIP_LEN]int, skip [OFF_SKIP_LEN]int, plookupTbl []ui
 			plkt += lktWz
 		}
 	}
+	fmt.Println("ddddd:", plookupTbl[990], plookupTbl[991], plookupTbl[992], plookupTbl[993])
 	return plookupTbl
 }
