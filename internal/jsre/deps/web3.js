@@ -1768,27 +1768,27 @@ var ETRUE_UNITS = [
     'Gwei',
     'szabo',
     'finney',
-    'femtoether',
-    'picoether',
-    'nanoether',
-    'microether',
-    'milliether',
+    'femtoetrue',
+    'picoetrue',
+    'nanoetrue',
+    'microetrue',
+    'millietrue',
     'nano',
     'micro',
     'milli',
-    'ether',
+    'etrue',
     'grand',
-    'Mether',
-    'Gether',
-    'Tether',
-    'Pether',
-    'Eether',
-    'Zether',
-    'Yether',
-    'Nether',
-    'Dether',
-    'Vether',
-    'Uether'
+    'Meetrue',
+    'Getrue',
+    'Tetrue',
+    'Petrue',
+    'Eetrue',
+    'Zetrue',
+    'Yetrue',
+    'Netrue',
+    'Detrue',
+    'Vetrue',
+    'Uetrue'
 ];
 
 module.exports = {
@@ -1884,33 +1884,33 @@ var sha3 = require('./sha3.js');
 var utf8 = require('utf8');
 
 var unitMap = {
-    'noether':      '0',
+    'noetrue':      '0',
     'wei':          '1',
     'kwei':         '1000',
     'Kwei':         '1000',
     'babbage':      '1000',
-    'femtoether':   '1000',
+    'femtoetrue':   '1000',
     'mwei':         '1000000',
     'Mwei':         '1000000',
     'lovelace':     '1000000',
-    'picoether':    '1000000',
+    'picoetrue':    '1000000',
     'gwei':         '1000000000',
     'Gwei':         '1000000000',
     'shannon':      '1000000000',
-    'nanoether':    '1000000000',
+    'nanoetrue':    '1000000000',
     'nano':         '1000000000',
     'szabo':        '1000000000000',
-    'microether':   '1000000000000',
+    'microetrue':   '1000000000000',
     'micro':        '1000000000000',
     'finney':       '1000000000000000',
-    'milliether':    '1000000000000000',
+    'millietrue':    '1000000000000000',
     'milli':         '1000000000000000',
-    'ether':        '1000000000000000000',
-    'kether':       '1000000000000000000000',
+    'etrue':        '1000000000000000000',
+    'ketrue':       '1000000000000000000000',
     'grand':        '1000000000000000000000',
-    'mether':       '1000000000000000000000000',
-    'gether':       '1000000000000000000000000000',
-    'tether':       '1000000000000000000000000000000'
+    'metrue':       '1000000000000000000000000',
+    'getrue':       '1000000000000000000000000000',
+    'tetrue':       '1000000000000000000000000000000'
 };
 
 /**
@@ -2129,7 +2129,7 @@ var toHex = function (val) {
  * @throws error if the unit is not correct:w
  */
 var getValueOfUnit = function (unit) {
-    unit = unit ? unit.toLowerCase() : 'ether';
+    unit = unit ? unit.toLowerCase() : 'etrue';
     var unitValue = unitMap[unit];
     if (unitValue === undefined) {
         throw new Error('This unit doesn\'t exists, please use the one of the following units' + JSON.stringify(unitMap, null, 2));
