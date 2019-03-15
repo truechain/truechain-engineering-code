@@ -69,7 +69,7 @@ processing will proceed even if an individual RLP-file import failure occurs.`,
 		Action:    utils.MigrateFlags(exportChain),
 		Name:      "export",
 		Usage:     "Export blockchain into file",
-		ArgsUsage: "<filename> [<blockNumFirst> <blockNumLast>]",
+		ArgsUsage: "<filename> <type> [<blockNumFirst> <blockNumLast>]",
 		Flags: []cli.Flag{
 			utils.DataDirFlag,
 			utils.CacheFlag,
@@ -295,30 +295,53 @@ func importChain(ctx *cli.Context) error {
 }
 
 func exportChain(ctx *cli.Context) error {
-	if len(ctx.Args()) < 1 {
+	if len(ctx.Args()) < 2 {
 		utils.Fatalf("This command requires an argument.")
 	}
 	stack := makeFullNode(ctx)
 	fchain, schain, _ := utils.MakeChain(ctx, stack)
 	start := time.Now()
 
+	fmt.Println(ctx.Args())
 	var err error
-	fp := ctx.Args().First()
-	if len(ctx.Args()) < 3 {
-		err = utils.ExportChain(fchain, fp)
-		err = utils.ExportSnailChain(schain, fp)
-	} else {
-		// This can be improved to allow for numbers larger than 9223372036854775807
-		first, ferr := strconv.ParseInt(ctx.Args().Get(1), 10, 64)
-		last, lerr := strconv.ParseInt(ctx.Args().Get(2), 10, 64)
-		if ferr != nil || lerr != nil {
-			utils.Fatalf("Export error in parsing parameters: block number not an integer\n")
+
+	if  ctx.Args().Get(1) == "fast" {
+
+
+		fp := ctx.Args().First()
+		if len(ctx.Args()) < 3 {
+			err = utils.ExportChain(fchain, fp)
+		} else {
+			// This can be improved to allow for numbers larger than 9223372036854775807
+			first, ferr := strconv.ParseInt(ctx.Args().Get(2), 10, 64)
+			last, lerr := strconv.ParseInt(ctx.Args().Get(3), 10, 64)
+			if ferr != nil || lerr != nil {
+				utils.Fatalf("Export error in parsing parameters: block number not an integer\n")
+			}
+			if first < 0 || last < 0 {
+				utils.Fatalf("Export error: block number must be greater than 0\n")
+			}
+			err = utils.ExportAppendChain(fchain, fp, uint64(first), uint64(last))
 		}
-		if first < 0 || last < 0 {
-			utils.Fatalf("Export error: block number must be greater than 0\n")
+
+	}else {
+
+		fp := ctx.Args().First()
+		if len(ctx.Args()) < 3 {
+			err = utils.ExportSnailChain(schain, fp)
+		} else {
+			// This can be improved to allow for numbers larger than 9223372036854775807
+			first, ferr := strconv.ParseInt(ctx.Args().Get(2), 10, 64)
+			last, lerr := strconv.ParseInt(ctx.Args().Get(3), 10, 64)
+			if ferr != nil || lerr != nil {
+				utils.Fatalf("Export error in parsing parameters: block number not an integer\n")
+			}
+			if first < 0 || last < 0 {
+				utils.Fatalf("Export error: block number must be greater than 0\n")
+			}
+			err = utils.ExportAppendSnailChain(schain, fp, uint64(first), uint64(last))
 		}
-		err = utils.ExportAppendChain(fchain, fp, uint64(first), uint64(last))
-		err = utils.ExportAppendSnailChain(schain, fp, uint64(first), uint64(last))
+
 	}
 
 	if err != nil {
