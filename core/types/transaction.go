@@ -375,6 +375,14 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
+func (tx *Transaction) Payer() *common.Address {
+	if tx.data.Payer == nil {
+		return nil
+	}
+	payer := *tx.data.Payer
+	return &payer
+}
+
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *Transaction) Hash() common.Hash {
@@ -474,6 +482,10 @@ func (tx *Transaction) GasCost() *big.Int {
 
 func (tx *Transaction) RawSignatureValues() (*big.Int, *big.Int, *big.Int) {
 	return tx.data.V, tx.data.R, tx.data.S
+}
+
+func (tx *Transaction) TrueRawSignatureValues() (*big.Int, *big.Int, *big.Int) {
+	return tx.data.PV, tx.data.PR, tx.data.PS
 }
 
 // Transactions is a Transaction slice type for basic sorting.

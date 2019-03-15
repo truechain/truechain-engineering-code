@@ -1164,6 +1164,11 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	Payer            *common.Address `json:"payer"`
+	Fee              *hexutil.Big    `json:"fee"`
+	PV               *hexutil.Big    `json:"pv"`
+	PR               *hexutil.Big    `json:"pr"`
+	PS               *hexutil.Big    `json:"ps"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1185,6 +1190,16 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
+	}
+	if tx.Payer() != nil {
+		result.Payer = tx.Payer()
+		pv, pr, ps := tx.TrueRawSignatureValues()
+		result.PV = (*hexutil.Big)(pv)
+		result.PR = (*hexutil.Big)(pr)
+		result.PS = (*hexutil.Big)(ps)
+	}
+	if tx.Fee() != nil {
+		result.Fee = (*hexutil.Big)(tx.Fee())
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = blockHash
@@ -1717,7 +1732,8 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 		return common.Hash{}, err
 	}
 	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != nil {
-		log.Error("tx has payment or fee cannot use Resend api")
+		log.Error("tx has payment or fee cannot use Resend")
+		return common.Hash{}, errors.New("tx has payment or fee cannot use Resend")
 	}
 	matchTx := sendArgs.toTransaction()
 	pending, err := s.b.GetPoolTransactions()
