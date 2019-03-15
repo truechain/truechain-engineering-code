@@ -1,13 +1,17 @@
 ## TrueChain Engineering Code
 
-TrueChain is a truly fast, permissionless, secure and scalable public blockchain platform which is supported by hybrid consensus technology called Minerva and a global developer community. 
+TrueChain is a truly fast, permissionless, secure and scalable public blockchain platform 
+which is supported by hybrid consensus technology called Minerva and a global developer community. 
  
-TrueChain uses hybrid consensus combining PBFT and fPoW to solve the biggest problem confronting public blockchain: the contradiction between decentralization and efficiency. 
+TrueChain uses hybrid consensus combining PBFT and fPoW to solve the biggest problem confronting public blockchain: 
+the contradiction between decentralization and efficiency. 
 
-TrueChain uses PBFT as fast-chain to process transactions, and leave the oversight and election of PBFT to the hands of PoW nodes. Besides, TrueChain integrates fruitchain technology into the traditional PoW protocol to become fPoW, 
- to make the chain even more decentralized and fair. 
+TrueChain uses PBFT as fast-chain to process transactions, and leave the oversight and election of PBFT to the hands of PoW nodes. 
+Besides, TrueChain integrates fruitchain technology into the traditional PoW protocol to become fPoW, 
+to make the chain even more decentralized and fair. 
  
- TrueChain also creates a hybrid consensus incentive model and a stable gas fee mechanism to lower the cost for the developers and operators of DApps, and provide better infrastructure for decentralized eco-system. 
+TrueChain also creates a hybrid consensus incentive model and a stable gas fee mechanism to lower the cost for the developers 
+and operators of DApps, and provide better infrastructure for decentralized eco-system. 
 
 
 ## Building the source
@@ -27,7 +31,54 @@ The execuable command getrue will be found in the `cmd` directory.
 
 ## Running getrue
 
-### Defining the private genesis state
+Going through all the possible command line flags is out of scope here (please consult our
+[CLI Wiki page](https://github.com/truechain/truechain-engineering-code/wiki/Command-Line-Options)), 
+also you can quickly run your own getrue instance with a few common parameter combos.
+
+### Running on the Truechain main network
+
+Truechain main network will launch later. You can get mainnet informations from our [website](https://www.truechain.pro).
+
+
+### Running on the Truechain test network
+
+Truechain has launched testnet at 2018-09-28. Everyone can join the test network with your node.
+```
+$ getrue --testnet console
+```
+
+This command will:
+
+ * Start getrue in full node mode, it to
+   download more data in exchange for avoiding processing the entire history of the Truechain test network.
+ * Start up Getrue's built-in interactive console,
+   (via the trailing `console` subcommand) through which you can invoke all official [`web3` methods](https://github.com/truechain/truechain-engineering-code/wiki/RPC-API)
+   as well as Geth's own [management APIs](https://github.com/truechain/truechain-engineering-code/wiki/Management-API).
+   This too is optional and if you leave it out you can always attach to an already running Getrue instance
+   with `getrue attach`.
+ * Connect to the test network, which uses testnet P2P bootnodes, different network IDs and genesis states.
+
+
+### Configuration
+
+As an alternative to passing the numerous flags to the `getrue` binary, you can also pass a configuration file via:
+
+```
+$ getrue --config /path/to/your_config.toml
+```
+
+To get an idea how the file should look like you can use the `dumpconfig` subcommand to export your existing configuration:
+
+```
+$ getrue --your-favourite-flags dumpconfig
+```
+
+### Operating a private network
+
+Maintaining your own private network is more involved as a lot of configurations taken for granted in
+the official networks need to be manually set up.
+
+#### Defining the private genesis state
 
 First, you'll need to create the genesis state of your networks, which all nodes need to be aware of
 and agree upon. We provide a single node JSON file at cmd/getrue/genesis_single.json:
@@ -71,7 +122,7 @@ $ getrue init path/to/genesis.json
 ```
 
 
-### Running a private miner
+#### Running a private miner
 
 To start a getrue instance for single node, use genesis as above, and run it with these flags:
 
