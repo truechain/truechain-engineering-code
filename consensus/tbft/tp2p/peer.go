@@ -3,6 +3,7 @@ package tp2p
 import (
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
 	"net"
 	"sync/atomic"
 	"time"
@@ -282,7 +283,7 @@ func (p *peer) Send(chID byte, msgBytes []byte) bool {
 	}
 	result := p.mconn.Send(chID, msgBytes)
 	if result {
-		MSend(msgBytes)
+		metrics.MSend(msgBytes)
 	}
 	return result
 }
@@ -430,7 +431,7 @@ func createMConnection(
 			panic(fmt.Sprintf("Unknown channel %X", chID))
 		}
 		reactor.Receive(chID, p, msgBytes)
-		MReceive(msgBytes)
+		metrics.MReceive(msgBytes)
 	}
 
 	onError := func(r interface{}) {
