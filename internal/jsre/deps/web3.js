@@ -1768,27 +1768,27 @@ var ETRUE_UNITS = [
     'Gwei',
     'szabo',
     'finney',
-    'femtoetrue',
-    'picoetrue',
-    'nanoetrue',
-    'microetrue',
-    'millietrue',
+    'femtotrue',
+    'picotrue',
+    'nanotrue',
+    'microtrue',
+    'millitrue',
     'nano',
     'micro',
     'milli',
     'etrue',
     'grand',
-    'Meetrue',
-    'Getrue',
-    'Tetrue',
-    'Petrue',
-    'Eetrue',
-    'Zetrue',
-    'Yetrue',
-    'Netrue',
-    'Detrue',
-    'Vetrue',
-    'Uetrue'
+    'Metrue',
+    'Gtrue',
+    'Ttrue',
+    'Ptrue',
+    'Etrue',
+    'Ztrue',
+    'Ytrue',
+    'Ntrue',
+    'Dtrue',
+    'Vtrue',
+    'Utrue'
 ];
 
 module.exports = {
@@ -1884,33 +1884,33 @@ var sha3 = require('./sha3.js');
 var utf8 = require('utf8');
 
 var unitMap = {
-    'noetrue':      '0',
+    'notrue':      '0',
     'wei':          '1',
     'kwei':         '1000',
     'Kwei':         '1000',
     'babbage':      '1000',
-    'femtoetrue':   '1000',
+    'femtotrue':   '1000',
     'mwei':         '1000000',
     'Mwei':         '1000000',
     'lovelace':     '1000000',
-    'picoetrue':    '1000000',
+    'picotrue':    '1000000',
     'gwei':         '1000000000',
     'Gwei':         '1000000000',
     'shannon':      '1000000000',
-    'nanoetrue':    '1000000000',
+    'nanotrue':    '1000000000',
     'nano':         '1000000000',
     'szabo':        '1000000000000',
-    'microetrue':   '1000000000000',
+    'microtrue':   '1000000000000',
     'micro':        '1000000000000',
     'finney':       '1000000000000000',
-    'millietrue':    '1000000000000000',
+    'millitrue':    '1000000000000000',
     'milli':         '1000000000000000',
-    'etrue':        '1000000000000000000',
-    'ketrue':       '1000000000000000000000',
+    'true':        '1000000000000000000',
+    'ktrue':       '1000000000000000000000',
     'grand':        '1000000000000000000000',
-    'metrue':       '1000000000000000000000000',
-    'getrue':       '1000000000000000000000000000',
-    'tetrue':       '1000000000000000000000000000000'
+    'mtrue':       '1000000000000000000000000',
+    'gtrue':       '1000000000000000000000000000',
+    'ttrue':       '1000000000000000000000000000000'
 };
 
 /**
@@ -2129,7 +2129,7 @@ var toHex = function (val) {
  * @throws error if the unit is not correct:w
  */
 var getValueOfUnit = function (unit) {
-    unit = unit ? unit.toLowerCase() : 'etrue';
+    unit = unit ? unit.toLowerCase() : 'true';
     var unitValue = unitMap[unit];
     if (unitValue === undefined) {
         throw new Error('This unit doesn\'t exists, please use the one of the following units' + JSON.stringify(unitMap, null, 2));
