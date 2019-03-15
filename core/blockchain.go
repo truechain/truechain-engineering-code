@@ -267,8 +267,6 @@ func (bc *BlockChain) loadLastState() error {
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 
 		// Send a message to the committee if you find a chain backtracking
-		bc.isFallback = true
-
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
 		}
@@ -308,10 +306,15 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 
+
+
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
 	lastBlock := bc.CurrentLastBlock()
 
+	if currentBlock.NumberU64() <  lastBlock.NumberU64(){
+		bc.isFallback = true
+	}
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
 	log.Info("Loaded most recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 	log.Info("Loaded most recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
