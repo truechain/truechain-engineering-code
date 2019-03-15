@@ -72,6 +72,8 @@ const (
 	// above some healthy uncle limit, so use that.
 	maxQueuedFastAnns = 4
 
+	maxQueuedDrop = 1
+
 	handshakeTimeout = 5 * time.Second
 )
 
@@ -160,7 +162,7 @@ func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter, dropPeer peerDropFn
 		queuedFastAnns:   make(chan *types.Block, maxQueuedFastAnns),
 		term:             make(chan struct{}),
 		dropTx:           0,
-		dropEvent:        make(chan *dropPeerEvent),
+		dropEvent:        make(chan *dropPeerEvent, maxQueuedDrop),
 		dropPeer:         dropPeer,
 	}
 }
@@ -240,6 +242,7 @@ func (p *peer) broadcast() {
 		case event := <-p.dropEvent:
 			log.Info("Drop peer", "id", event.id, "err", event.reason)
 			p.dropPeer(event.id)
+			return
 
 		case <-p.term:
 			return
@@ -604,7 +607,11 @@ func (p *peer) Send(msgcode uint64, data interface{}) error {
 	err := p2p.Send(p.rw, msgcode, data)
 
 	if err != nil {
-		p.dropEvent <- &dropPeerEvent{p.id, err.Error()}
+		select {
+		case p.dropEvent <- &dropPeerEvent{p.id, err.Error()}:
+		default:
+			p.Log().Info("Dropping Send propagation", "peer", p.id, "err", err)
+		}
 	}
 	return err
 }

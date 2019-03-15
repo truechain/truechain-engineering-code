@@ -62,7 +62,7 @@ const (
 	// minimim number of peers to broadcast new blocks to
 	minBroadcastPeers = 4
 	txPackSize        = 5
-	fruitPackSize     = 2
+	fruitPackSize     = 3
 )
 
 // errIncompatibleConfig is returned if the requested protocols and configs are
@@ -737,7 +737,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
+		log.Debug("Handle send fast block bodies rlp", "bodies", len(bodies), "bytes", bytes/1024, "time", time.Now().Sub(now), "peer", p.id)
 		go p.SendBlockBodiesRLP(&BlockBodiesRawData{bodies, hashData.Call}, true)
 
 	case msg.Code == FastBlockBodiesMsg:
@@ -798,7 +798,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "time", time.Now().Sub(now), "peer", p.id)
+		log.Debug("Handle send snail block bodies rlp", "bodies", len(bodies), "bytes", bytes/1024, "time", time.Now().Sub(now), "peer", p.id)
 		go p.SendBlockBodiesRLP(&BlockBodiesRawData{Bodies: bodies}, false)
 
 	case msg.Code == SnailBlockBodiesMsg:
@@ -1041,7 +1041,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			log.Debug("add fruit from p2p", "peerid", p.id, "number", fruit.FastNumber(), "hash", fruit.Hash())
 		}
 
-		pm.SnailPool.AddRemoteFruits(fruits, false)
+		go pm.SnailPool.AddRemoteFruits(fruits, false)
 
 	case msg.Code == NewSnailBlockMsg:
 		// snailBlock arrived, make sure we have a valid and fresh chain to handle them
