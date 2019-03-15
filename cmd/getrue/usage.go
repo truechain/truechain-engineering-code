@@ -93,14 +93,13 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.EnableElectionFlag,
 		},
 	},
-	{Name: "PBFT COMMITTEE",
+	{Name: "TBFT COMMITTEE",
 		Flags: []cli.Flag{
 			utils.BFTIPFlag,
 			utils.BFTPortFlag,
 			utils.BFTStandbyPortFlag,
 			utils.BftKeyFileFlag,
 			utils.BftKeyHexFlag,
-			utils.BftKeyFileFlag,
 		},
 	},
 

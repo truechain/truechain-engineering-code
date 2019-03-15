@@ -180,10 +180,12 @@ var (
 	BFTPortFlag = cli.Uint64Flag{
 		Name:  "bftport",
 		Usage: "committee node port ",
+		Value: uint64(etrue.DefaultConfig.Port),
 	}
 	BFTStandbyPortFlag = cli.Uint64Flag{
 		Name:  "bftport2",
 		Usage: "committee node standby port ",
+		Value: uint64(etrue.DefaultConfig.StandbyPort),
 	}
 	BftKeyFileFlag = cli.StringFlag{
 		Name:  "bftkey",
