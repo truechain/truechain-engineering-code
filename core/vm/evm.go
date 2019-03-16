@@ -170,7 +170,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 
 	// Fail if we're trying to transfer more than the available balance
-	if fee != nil && fee != common.Big0 {
+	if fee != nil {
 		amount := big.NewInt(0)
 		amount = amount.Add(value, fee)
 		if !evm.CanTransfer(evm.StateDB, caller.Address(), amount) {
@@ -367,7 +367,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 		return nil, common.Address{}, gas, ErrDepth
 	}
 
-	if fee != nil && fee != common.Big0 {
+	if fee != nil {
 		amount := big.NewInt(0)
 		amount = amount.Add(value, fee)
 		if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), amount) {
@@ -426,7 +426,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
 	// when we're in homestead this also counts for code storage gas errors.
-	if maxCodeSizeExceeded || (err != nil || err != ErrCodeStoreOutOfGas) {
+	if maxCodeSizeExceeded || err != nil && err != ErrCodeStoreOutOfGas {
 		evm.StateDB.RevertToSnapshot(snapshot)
 		if err != errExecutionReverted {
 			contract.UseGas(contract.Gas)

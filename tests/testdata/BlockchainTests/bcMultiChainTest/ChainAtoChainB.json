@@ -1,0 +1,133 @@
+{
+    "ChainAtoChainB_Constantinople" : {
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.5.0.dev2-72+commit.ff0ca2db",
+            "lllcversion" : "Version: 0.5.0-develop.2018.10.10+commit.06200b4b.Linux.g++",
+            "source" : "src/BlockchainTestsFiller/bcMultiChainTest/ChainAtoChainBFiller.json",
+            "sourceHash" : "785e1a3f61e56ebc8754d720c746c26efc50d66cffeb552ac09ae6f5b5e2e272"
+        },
+        "blocks" : [
+
+        ],
+        "genesisBlockHeader" : {
+            "nonce"      : "0x0000000000000042",
+            "timestamp"  : "0x00",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "extraData"  : "0x",
+            "gasLimit"   : "0x1500000",
+            "gasUsed" : "0x0",
+            "difficulty" : "0x100",
+            "mixhash"    : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase"   : "0x0000000000000000000000000000000000000000",
+            "stateRoot" : "0x8692eaaceed0de9e66b0298e0fae0bd1cdd970828c14ae6fcc1c392d7095a60c",
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "hash" : "0x9499b5174a51d04cc20ad4ecbf529c9c94d5f7adb39e1d143ec01fdd7a6f668a",
+            "number" : "0x00",
+            "transactionsRoot" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "committee":[
+                {
+                    "address": "0x76ea2f3a002431fede1141b660dbb75c26ba6d97",
+                    "publickey": "0x04044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac1"
+                }
+            ],"switchInfos":[
+                {
+                    "Coinbase":"0x76ea2f3a002431fede1141b660dbb75c26ba6d97",
+                    "CommitteeBase":"0x76ea2f3a002431fede1141b660dbb75c26ba6d97",
+                    "Flag":161,
+                    "MType":161,
+                    "Publickey":"BARDCHQrYZdt5zRO24Zi1tEL4cR33Ubo5MQzwSiEQqeRg0gIlBBymf97BwZJDx+5ybfJ5irmLVe9hKHkaUYNisE="
+                }
+            ],"signs":[
+
+            ]
+        },
+        "genesisRLP" : "0xf877c0c0f873f8719476ea2f3a002431fede1141b660dbb75c26ba6d979476ea2f3a002431fede1141b660dbb75c26ba6d97b84104044308742b61976de7344edb8662d6d10be1c477dd46e8e4c433c1288442a79183480894107299ff7b0706490f1fb9c9b7c9e62ae62d57bd84a1e469460d8ac181a181a1",
+        "lastblockhash" : "0x9499b5174a51d04cc20ad4ecbf529c9c94d5f7adb39e1d143ec01fdd7a6f668a",
+        "network" : "Constantinople",
+        "postState" : {
+
+            "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x7c357530174275dd30e46319b89f71186256e4f7" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xeeb69c67751e9f4917b605840fa9a28be4517871" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x9810a954bb88fdc251374d666ed7e06748ea672d" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+
+        },
+        "pre" : {
+            "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a": {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }, "0xbd54a6c8298a70e9636d0555a77ffa412abdd71a" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x3c2e0a65a023465090aaedaa6ed2975aec9ef7f9" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x7c357530174275dd30e46319b89f71186256e4f7" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xeeb69c67751e9f4917b605840fa9a28be4517871" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0x9810a954bb88fdc251374d666ed7e06748ea672d" : {
+                "balance" : "0x130ee8e7179044000000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+
+        },
+        "sealEngine" : "NoProof"
+    }
+}

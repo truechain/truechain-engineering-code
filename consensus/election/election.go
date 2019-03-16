@@ -142,8 +142,6 @@ type Election struct {
 
 	fastChainEventCh  chan types.ChainFastEvent
 	fastChainEventSub event.Subscription
-	switchEventCh     chan types.ChainFastEvent
-	switchEventSub    event.Subscription
 
 	snailChainEventCh  chan types.ChainSnailEvent
 	snailChainEventSub event.Subscription
@@ -187,7 +185,6 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 		fastchain:         fastBlockChain,
 		snailchain:        snailBlockChain,
 		fastChainEventCh:  make(chan types.ChainFastEvent, fastChainHeadSize),
-		switchEventCh:     make(chan types.ChainFastEvent, fastChainHeadSize),
 		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
 		singleNode:        config.GetNodeType(),
 		electionMode:      ElectModeEtrue,
@@ -200,7 +197,6 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	}
 
 	election.fastChainEventSub = election.fastchain.SubscribeChainEvent(election.fastChainEventCh)
-	election.switchEventSub = election.fastchain.SubscribeChainEvent(election.switchEventCh)
 	election.snailChainEventSub = election.snailchain.SubscribeChainEvent(election.snailChainEventCh)
 	election.commiteeCache, _ = lru.New(committeeCacheLimit)
 
@@ -378,6 +374,9 @@ func (e *Election) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeMembe
 
 // VerifySwitchInfo verify committee members and it's state
 func (e *Election) VerifySwitchInfo(fastNumber *big.Int, info []*types.CommitteeMember) error {
+	if e.singleNode == true {
+		return nil
+	}
 	committee := e.electedCommittee(fastNumber)
 	if committee == nil {
 		log.Error("Failed to fetch elected committee", "fast", fastNumber)
@@ -519,7 +518,6 @@ func (e *Election) getCommittee(fastNumber *big.Int, snailNumber *big.Int) *comm
 		if preEndFast == nil {
 			return nil
 		}
-
 
 		log.Debug("get committee", "electFirst", preBeginElectionNumber, "electLast", preEndElectionNumber, "lastFast", preEndFast)
 
@@ -1032,6 +1030,12 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 		return
 	}
 	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
+		// Switches height array should be nil at committee start block
+		if len(committee.switches) > 0 {
+			log.Info("Reset committee switchinfo on start block", "committee", committee.id, "current", fastNumber)
+			committee.switches = nil
+			rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), committee.id.Uint64(), nil)
+		}
 		return
 	}
 
@@ -1059,6 +1063,16 @@ func (e *Election) updateMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 	})
 }
 
+// FinalizeCommittee upddate current committee state
+func (e *Election) FinalizeCommittee(block *types.Block) error {
+	info := block.SwitchInfos()
+	if len(info) > 0 {
+		log.Info("Election receive committee switch info", "block", block.Number())
+		e.updateMembers(block.Number(), info)
+	}
+	return nil
+}
+
 // Start load current committ and starts election processing
 func (e *Election) Start() error {
 	// get current committee info
@@ -1079,14 +1093,29 @@ func (e *Election) Start() error {
 			break
 		}
 	}
+	switchNum := new(big.Int).Add(currentCommittee.beginFastNumber, common.Big1)
+	if len(currentCommittee.switches) > 0 {
+		switchNum = new(big.Int).Add(currentCommittee.switches[len(currentCommittee.switches)-1], common.Big1)
+	}
+	for switchNum.Cmp(fastHeadNumber) <= 0 {
+		block := e.fastchain.GetBlockByNumber(switchNum.Uint64())
+		if block != nil && len(block.SwitchInfos()) > 0 {
+			log.Info("Election append switch block height", "number", switchNum)
+			currentCommittee.switches = append(currentCommittee.switches, switchNum)
+			rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), currentCommittee.id.Uint64(), currentCommittee.switches)
+		}
+		switchNum = new(big.Int).Add(switchNum, common.Big1)
+	}
 
 	e.committee = currentCommittee
 
 	if currentCommittee.endFastNumber.Cmp(common.Big0) > 0 {
 		// over the switch block, to elect next committee
-		electEndSnailNumber := new(big.Int).Add(currentCommittee.lastElectionNumber, params.ElectionPeriodNumber)
+		electEndSnailNumber := new(big.Int).Sub(currentCommittee.switchCheckNumber, params.SnailConfirmInterval)
 		electBeginSnailNumber := new(big.Int).Add(new(big.Int).Sub(electEndSnailNumber, params.ElectionPeriodNumber), common.Big1)
-
+		if electEndSnailNumber.Cmp(params.ElectionPeriodNumber) < 0 {
+			electBeginSnailNumber = new(big.Int).Set(common.Big1)
+		}
 		members := e.getElectionMembers(electBeginSnailNumber, electEndSnailNumber)
 
 		// get next committee
@@ -1164,28 +1193,11 @@ func (e *Election) Start() error {
 
 	// Start the event loop and return
 	go e.loop()
-	go e.switchLoop()
 
 	return nil
 }
 
-// switchloop update committee members flag based on fast block chain event
-func (e *Election) switchLoop() {
-	for {
-		select {
-		case ev := <-e.switchEventCh:
-			if ev.Block != nil {
-				info := ev.Block.SwitchInfos()
-				if len(info) > 0 {
-					log.Info("Election receive committee switch info", "block", ev.Block.Number())
-					e.updateMembers(ev.Block.Number(), info)
-				}
-			}
-		}
-	}
-}
-
-//Monitor both chains and trigger elections at the same time
+// Monitor both chains and trigger elections at the same time
 func (e *Election) loop() {
 	// Keep waiting for and reacting to the various events
 	for {

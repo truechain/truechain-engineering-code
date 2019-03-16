@@ -161,7 +161,7 @@ func (a *addrBook) FilePath() string {
 func (a *addrBook) AddOurAddress(addr *tp2p.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	log.Info("Add our address to book", "addr", addr)
+	log.Debug("Add our address to book", "addr", addr)
 	a.ourAddrs[addr.String()] = struct{}{}
 }
 

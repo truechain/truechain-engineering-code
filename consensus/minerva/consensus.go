@@ -18,6 +18,7 @@ package minerva
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -73,7 +74,7 @@ func (m *Minerva) AuthorSnail(header *types.SnailHeader) (common.Address, error)
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Truechain m engine.
-func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error { // TODO remove seal
+func (m *Minerva) VerifyHeader(chain consensus.ChainReader, header *types.Header) error {
 	// Short circuit if the header is known, or it's parent not
 	number := header.Number.Uint64()
 
@@ -568,7 +569,6 @@ func CalcDifficulty(config *params.ChainConfig, time uint64, parents []*types.Sn
 
 	return calcDifficulty(config, time, parents)
 
-	//return calcDifficulty(time, parents[0])
 }
 
 //CalcFruitDifficulty is the Fruit difficulty adjustment algorithm
@@ -707,6 +707,40 @@ func (m *Minerva) VerifySnailSeal(chain consensus.SnailChainReader, header *type
 	return nil
 }
 
+// VerifySnailSeal implements consensus.Engine, checking whether the given block satisfies
+// the PoW difficulty requirements.
+func (m *Minerva) VerifySnailSeal2(hight *big.Int, nonce string, headNoNoncehash string, ftarg *big.Int, btarg *big.Int, haveFruits bool) (bool, bool, []byte) {
+	// If we're running a fake PoW, accept any seal as valid
+
+	nonceHash, _ := hex.DecodeString(nonce)
+	headHash := common.HexToHash(headNoNoncehash)
+
+	dataset := m.getDataset(hight.Uint64())
+	//m.CheckDataSetState(header.Number.Uint64())
+	digest, result := truehashLight(dataset.dataset, headHash.Bytes(), binary.BigEndian.Uint64(nonceHash[:]))
+
+	headResult := result[:16]
+	if new(big.Int).SetBytes(headResult).Cmp(btarg) <= 0 {
+		// Correct nonce found, create a new header with it
+		if haveFruits {
+			return true, false, digest
+
+		}
+
+	} else {
+		lastResult := result[16:]
+
+		if new(big.Int).SetBytes(lastResult).Cmp(ftarg) <= 0 {
+			return true, true, digest
+		} else {
+			return false, false, []byte{}
+		}
+
+	}
+
+	return false, false, []byte{}
+}
+
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the minerva protocol. The changes are done inline.
 func (m *Minerva) Prepare(chain consensus.ChainReader, header *types.Header) error {
@@ -785,6 +819,11 @@ func (m *Minerva) FinalizeSnail(chain consensus.SnailChainReader, header *types.
 	return types.NewSnailBlock(header, fruits, signs, uncles), nil
 }
 
+// FinalizeCommittee upddate current committee state
+func (m *Minerva) FinalizeCommittee(block *types.Block) error {
+	return m.election.FinalizeCommittee(block)
+}
+
 // gas allocation
 func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fastHash common.Hash, feeAmount *big.Int) error {
 	if feeAmount.Uint64() == 0 {
@@ -798,7 +837,7 @@ func (m *Minerva) finalizeFastGas(state *state.StateDB, fastNumber *big.Int, fas
 	committeeGas = new(big.Int).Div(feeAmount, big.NewInt(int64(len(committee))))
 	for _, v := range committee {
 		state.AddBalance(v.Coinbase, committeeGas)
-		log.Debug("[Consensus AddBalance]", "CoinBase:", v.Coinbase, "committeeGas", committeeGas)
+		LogPrint("committee's gas award", v.Coinbase, committeeGas)
 	}
 	return nil
 }

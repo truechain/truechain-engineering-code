@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -112,4 +113,31 @@ func TestOutGenesisJson(t *testing.T) {
 			fmt.Println(string(bytes))
 		}
 	}
+}
+
+func TestGetOrderPk(t *testing.T) {
+	privArray := []string{
+		"61273ae43cd45ebfced19da23bab4de17c6beaab5a93be88a82e93c91fe0acda",
+		"73cbeb5aba75192d496855e9229255a0427f04321993878c4c63ed3f775c7ace",
+		"9bd323b3e4021957018cdb81147a830d19bc3352c2492adfac377c1068c8a853",
+		"0bf0ab615d5b14f491126f64392191f271bac1f6a2563a0f529e6c40cc54ba08",
+		"b3b9a14fbab67e2e5116df48d5e383d2f5581b46e93242db472f5961d95d1e4f",
+		"80aa082c87dbc4749afb6fad6a4875d1e8c1e02b6a031f6b54e89615603c6fb0",
+		"cdf4fe841825c7b281652ee54ba07c08ea6c3bccec72737965d3724504a0a410",
+		"0813e992dce0f659f4473dabacd6f7488d6ec64de7c8495122aa803bda40e677",
+		"e042331fee4106536a4861312ca2d7817cfcaf414fb43a12618cdbb6a4a1d7e2",
+		"e98bacfbcb186f46d4c7edb3a9a0764e43164cdb37aed4cf8b9448be7d069027",
+		"6358710ab517ae8c013f8bb587ee941ac22cd361bbb28dc4a46a2bb7bf474a60",
+		"60b8c3f8bddcabb70e008ac48e2eb80bdb09ec58f98cbbf6e5ec212c88c512fe",
+		"2a013b718f498ffa4c258794dad547b58b954b0df01875b26ff72c3f637cd6f5",
+	}
+
+	var pk []string
+
+	for _, v := range privArray {
+		pk = append(pk, getPk(v))
+	}
+
+	sort.Strings(pk)
+	fmt.Println(pk)
 }

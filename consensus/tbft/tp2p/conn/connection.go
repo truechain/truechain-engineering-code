@@ -271,7 +271,7 @@ func (c *MConnection) Send(chID byte, msgBytes []byte) bool {
 		default:
 		}
 	} else {
-		log.Error("Send failed", "channel", chID, "conn", c, "msgBytes", fmt.Sprintf("%X", msgBytes))
+		log.Error("Send failed", "channel", chID, "conn", c)
 	}
 	return success
 }

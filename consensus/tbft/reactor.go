@@ -227,7 +227,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src tp2p.Peer, msgBytes []byte)
 
 	case DataChannel:
 		if conR.FastSync() {
-			log.Info("Ignoring message received during fastSync", "msg", msg)
+			log.Debug("Ignoring message received during fastSync", "msg", msg)
 			return
 		}
 		switch msg := msg.(type) {
@@ -248,7 +248,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src tp2p.Peer, msgBytes []byte)
 
 	case VoteChannel:
 		if conR.FastSync() {
-			log.Info("Ignoring message received during fastSync", "msg", msg)
+			log.Debug("Ignoring message received during fastSync", "msg", msg)
 			return
 		}
 		switch msg := msg.(type) {
@@ -274,7 +274,7 @@ func (conR *ConsensusReactor) Receive(chID byte, src tp2p.Peer, msgBytes []byte)
 		}
 	case VoteSetBitsChannel:
 		if conR.FastSync() {
-			log.Info("Ignoring message received during fastSync", "msg", msg)
+			log.Debug("Ignoring message received during fastSync", "msg", msg)
 			return
 		}
 		switch msg := msg.(type) {
@@ -387,9 +387,9 @@ func (conR *ConsensusReactor) broadcastHasVoteMessage(vote *ttypes.Vote) {
 
 func makeRoundStepMessages(rs *ttypes.RoundState) (nrsMsg *NewRoundStepMessage, csMsg *CommitStepMessage) {
 	nrsMsg = &NewRoundStepMessage{
-		Height: rs.Height,
-		Round:  uint(rs.Round),
-		Step:   rs.Step,
+		Height:                rs.Height,
+		Round:                 uint(rs.Round),
+		Step:                  rs.Step,
 		SecondsSinceStartTime: uint(time.Since(rs.StartTime).Seconds()),
 		LastCommitRound:       uint(rs.LastCommit.Round()),
 	}

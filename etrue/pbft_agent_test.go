@@ -38,7 +38,7 @@ func NewPbftAgetTest() *PbftAgent {
 		Coinbase:  coinbase,
 		Publickey: crypto.FromECDSAPub(&priKey.PublicKey),
 	}
-	PrintNode("send", committeeNode)
+	//PrintNode("send", committeeNode)
 	pbftAgent := &PbftAgent{
 		privateKey:    priKey,
 		committeeNode: committeeNode,

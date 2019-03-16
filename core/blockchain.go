@@ -151,6 +151,9 @@ type BlockChain struct {
 	vmConfig  vm.Config
 
 	badBlocks *lru.Cache // Bad block cache
+
+	isFallback	 bool
+	lastBlock    atomic.Value
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -195,6 +198,8 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 		engine:        engine,
 		vmConfig:      vmConfig,
 		badBlocks:     badBlocks,
+		isFallback:		false,
+
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
@@ -263,6 +268,8 @@ func (bc *BlockChain) loadLastState() error {
 	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
+
+		// Send a message to the committee if you find a chain backtracking
 		if err := bc.repair(&currentBlock); err != nil {
 			return err
 		}
@@ -293,12 +300,28 @@ func (bc *BlockChain) loadLastState() error {
 		rawdb.WriteHeadRewardNumber(bc.db, rewardHead.SnailNumber.Uint64())
 	}
 
+
+	// Restore the last known currentReward
+	bc.lastBlock.Store(currentBlock)
+	if head := rawdb.ReadLastBlockHash(bc.db); head != (common.Hash{}) {
+		if block := bc.GetBlockByHash(head); block != nil {
+			bc.lastBlock.Store(block)
+		}
+	}
+
+
+
 	// Issue a status log for the user
 	currentFastBlock := bc.CurrentFastBlock()
+	lastBlock := bc.CurrentLastBlock()
 
+	if currentBlock.NumberU64() <  lastBlock.NumberU64(){
+		bc.isFallback = true
+	}
 	log.Info("Loaded most recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
 	log.Info("Loaded most recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 	log.Info("Loaded most recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
+	log.Info("Loaded most recent local lastBlock", "number", lastBlock.Number(), "hash", lastBlock.Hash())
 	return nil
 }
 
@@ -458,6 +481,14 @@ func (bc *BlockChain) CurrentFastBlock() *types.Block {
 	return bc.currentFastBlock.Load().(*types.Block)
 }
 
+// CurrentFastBlock retrieves the current fast-sync head block of the canonical
+// chain. The block is retrieved from the blockchain's internal cache.
+func (bc *BlockChain) CurrentLastBlock() *types.Block {
+	return bc.lastBlock.Load().(*types.Block)
+}
+
+
+
 // SetProcessor sets the processor required for making state modifications.
 func (bc *BlockChain) SetProcessor(processor Processor) {
 	bc.procmu.Lock()
@@ -594,18 +625,28 @@ func (bc *BlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
 //
 // Note, this function assumes that the `mu` mutex is held!
 func (bc *BlockChain) insert(block *types.Block) {
-	// If the block is on a side chain or an unknown one, force other heads onto it too
+
 
 	// Add the block to the canonical chain number scheme and mark as the head
 	rawdb.WriteCanonicalHash(bc.db, block.Hash(), block.NumberU64())
 	rawdb.WriteHeadBlockHash(bc.db, block.Hash())
-	bc.currentBlock.Store(block)
 
-	// If the block is better than our head or is on a different chain, force update heads
+	bc.currentBlock.Store(block)
 	bc.hc.SetCurrentHeader(block.Header())
 	rawdb.WriteHeadFastBlockHash(bc.db, block.Hash())
-
 	bc.currentFastBlock.Store(block)
+
+
+	if block.NumberU64() >= bc.CurrentLastBlock().NumberU64() {
+		bc.isFallback = false;
+
+		rawdb.WriteLastBlockHash(bc.db, block.Hash())
+		bc.lastBlock.Store(block)
+	}
+
+
+
+
 }
 
 // Genesis retrieves the chain's genesis block.
@@ -1343,6 +1384,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, []
 		if err != nil {
 			return it.index, events, coalescedLogs, err
 		}
+		bc.engine.FinalizeCommittee(block)
 		blockInsertTimer.UpdateSince(start)
 		blockExecutionTimer.Update(t1.Sub(t0))
 		blockValidationTimer.Update(t2.Sub(t1))
@@ -1842,6 +1884,10 @@ func (bc *BlockChain) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.
 // SubscribeChainHeadEvent registers a subscription of types.ChainFastHeadEvent.
 func (bc *BlockChain) SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription {
 	return bc.scope.Track(bc.chainHeadFeed.Subscribe(ch))
+}
+
+func (bc *BlockChain) IsFallback() bool {
+	return bc.isFallback
 }
 
 // SubscribeChainSideEvent registers a subscription of types.ChainFastSideEvent.

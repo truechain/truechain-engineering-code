@@ -44,6 +44,9 @@ const (
 	VoteAgreeAgainst = iota
 	//VoteAgree vote sign with agree
 	VoteAgree
+
+	FetcherCall
+	DownloaderCall
 )
 
 //CommitteeMembers committee members

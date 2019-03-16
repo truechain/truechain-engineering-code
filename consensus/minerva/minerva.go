@@ -32,6 +32,7 @@ import (
 	"time"
 	"unsafe"
 
+	"encoding/binary"
 	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
@@ -361,6 +362,22 @@ func New(config Config) *Minerva {
 	return minerva
 }
 
+func New2() *Minerva {
+
+	minerva := &Minerva{
+		//config: config,
+		//caches:   newlru("cache", config.CachesInMem, newCache),
+		datasets: newlru("dataset", 1, newDataset),
+		update:   make(chan struct{}),
+		hashrate: metrics.NewMeter(),
+	}
+
+	//MinervaLocal.CheckDataSetState(1)
+	minerva.getDataset(1)
+
+	return minerva
+}
+
 // NewTestData Method test usage
 func (m *Minerva) NewTestData(block uint64) {
 	m.getDataset(block)
@@ -548,12 +565,24 @@ func SeedHash(block uint64) []byte {
 	return seedHash(block)
 }
 
-func (m *Minerva) DataSetHash(block uint64) common.Hash {
+func (m *Minerva) DataSetHash(block uint64) []byte {
+
+	var datas []byte
+	tmp := make([]byte, 8)
+	output := make([]byte, DGSTSIZE)
 	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
 	current := currentI.(*dataset)
 
-	return current.datasetHash
+	//getDataset
+	sha256 := makeHasher(sha3.New256())
+
+	for _, v := range current.dataset {
+		binary.LittleEndian.PutUint64(tmp, v)
+		datas = append(datas, tmp...)
+	}
+	sha256(output, datas[:])
+	return output
 
 }
 
@@ -604,6 +633,11 @@ func (e *fakeElection) VerifySigns(signs []*types.PbftSign) ([]*types.CommitteeM
 
 // VerifySwitchInfo verify committee members and it's state
 func (e *fakeElection) VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error {
+	return nil
+}
+
+// FinalizeCommittee upddate current committee state
+func (e *fakeElection) FinalizeCommittee(block *types.Block) error {
 	return nil
 }
 

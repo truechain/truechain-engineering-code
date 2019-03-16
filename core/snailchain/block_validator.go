@@ -141,6 +141,7 @@ func (v *BlockValidator) ValidateFruit(fruit, block *types.SnailBlock, canonical
 	//
 	currentNumber := v.fastchain.CurrentHeader().Number
 	if fruit.FastNumber().Cmp(currentNumber) > 0 {
+		log.Warn("ValidateFruit", "currentHeaderNumber", v.fastchain.CurrentHeader().Number, "currentBlockNumber", v.fastchain.CurrentBlock().Number())
 		return consensus.ErrFutureBlock
 	}
 

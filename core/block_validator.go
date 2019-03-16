@@ -66,25 +66,29 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 	if block.SnailNumber() != nil && block.SnailNumber().Uint64() != 0 {
 		snailNumber := block.SnailNumber().Uint64()
 		blockReward := fv.bc.GetBlockReward(snailNumber)
+
 		if blockReward != nil && block.NumberU64() != blockReward.FastNumber.Uint64() {
 			log.Error("validateRewardError", "snailNumber", blockReward.FastNumber.Uint64(),
-				"currentNumber", block.NumberU64(), "err", ErrSnailBlockRewarded)
-			return ErrSnailBlockRewarded
+				"currentNumber", block.NumberU64(), "err", ErrSnailNumberAlreadyRewarded)
+			return ErrSnailNumberAlreadyRewarded
 		} else {
-			currentRewardedNumber := fv.bc.NextSnailNumberReward()
-			if currentRewardedNumber.Uint64() != snailNumber {
+			supposedRewardedNumber := fv.bc.NextSnailNumberReward()
+			if supposedRewardedNumber.Uint64() != snailNumber {
 				log.Error("validateRewardError", "snailNumber", snailNumber,
-					"currentRewardedNumber", currentRewardedNumber, "err", ErrSnailBlockRewarded)
-				return ErrSnailNumberReward
+					"supposedRewardedNumber", supposedRewardedNumber, "err", ErrRewardSnailNumberWrong)
+				return ErrRewardSnailNumberWrong
 			}
 		}
 	}
 
-	// Header validity is known at this point, check the uncles and transactions
+	// Header validity is known at this point, check the transactions
 	header := block.Header()
-
 	if hash := types.DeriveSha(block.Transactions()); hash != header.TxHash {
 		return fmt.Errorf("transaction root hash mismatch: have %x, want %x", hash, header.TxHash)
+	}
+
+	if  hash := types.RlpHash(block.SwitchInfos()) ;hash!= header.CommitteeHash {
+		return fmt.Errorf("SwitchInfos root hash mismatch: have %x, want %x", hash, header.TxHash)
 	}
 
 	if validateSign {
@@ -94,12 +98,10 @@ func (fv *BlockValidator) ValidateBody(block *types.Block, validateSign bool) er
 		}
 
 		if err := fv.bc.engine.VerifySwitchInfo(block.Number(), block.SwitchInfos()); err != nil {
-			log.Info("Fast VerifySwitchInfo Err", "number", block.NumberU64(), "signs",  block.SwitchInfos())
+			log.Info("Fast VerifySwitchInfo Err", "number", block.NumberU64(), "signs", block.SwitchInfos())
 			return err
 		}
-
 	}
-
 	return nil
 }
 

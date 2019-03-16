@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/consensus/tbft/metrics"
 	"reflect"
 	"runtime/debug"
 	"sync"
@@ -690,7 +691,6 @@ func (cs *ConsensusState) handleTimeoutForTask(ti timeoutInfo, rs ttypes.RoundSt
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *ConsensusState) enterNewRound(height uint64, round int) {
-	help.DurationStat.AddStartStatTime("ConsensusTime", height+1)
 	//logger := log.With("height", height, "round", round)
 	if cs.Height != height || round < int(cs.Round) || (int(cs.Round) == round && cs.Step != ttypes.RoundStepNewHeight) {
 		log.Debug(fmt.Sprintf("enterNewRound(%v/%v): Invalid args. Current step: %v/%v/%v", height, round, cs.Height, cs.Round, cs.Step))
@@ -794,6 +794,7 @@ func (cs *ConsensusState) tryEnterProposal(height uint64, round int, wait uint) 
 		wait++
 		cs.scheduleTimeoutWithWait(timeoutInfo{dd, height, uint(round), ttypes.RoundStepNewRound, wait})
 	} else {
+		metrics.MTimesCount(metrics.FetchFastBlockTC, time.Duration(wait))
 		cs.enterPropose(height, round, block, blockParts)
 	}
 }
@@ -1118,6 +1119,7 @@ func (cs *ConsensusState) enterPrecommit(height uint64, round int) {
 		tmpPro := cs.ProposalBlock.Hash()
 		return help.EqualHashes(tmpPro[:], blockID.Hash)
 	}() {
+		metrics.MTimes(metrics.PreVoteTime, true)
 		log.Info("enterPrecommit: +2/3 prevoted proposal block. Locking", "hash", hexutil.Encode(blockID.Hash))
 		// Validate the block.
 		ksign, err := cs.validateBlock(cs.ProposalBlock)
@@ -1497,7 +1499,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 	// Not necessarily a bad peer, but not favourable behaviour.
 	if vote.Height != cs.Height {
 		err = ErrVoteHeightMismatch
-		log.Info("Vote ignored and not added", "voteHeight", vote.Height, "csHeight", cs.Height, "err", err)
+		log.Debug("Vote ignored and not added", "voteHeight", vote.Height, "csHeight", cs.Height, "err", err)
 		return
 	}
 
@@ -1587,6 +1589,8 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 			if len(blockID.Hash) == 0 {
 				cs.enterNewRound(height, int(vote.Round)+1)
 			} else {
+				metrics.MTimes(metrics.PreCommitTime, true)
+				metrics.MTimesCount(metrics.FetchFastBlockRoundTC, time.Duration(vote.Round))
 				cs.enterNewRound(height, int(vote.Round))
 				cs.enterPrecommit(height, int(vote.Round))
 				cs.enterCommit(height, int(vote.Round))
@@ -1651,6 +1655,11 @@ func (cs *ConsensusState) signAddVote(typeB byte, hash []byte, header ttypes.Par
 			copy(vote.ResultSign, keepsign.Sign)
 		}
 		cs.sendInternalMessage(msgInfo{&VoteMessage{vote}, ""})
+		if vote.Type == ttypes.VoteTypePrevote {
+			metrics.MTimes(metrics.PreVoteTime, false)
+		} else {
+			metrics.MTimes(metrics.PreCommitTime, false)
+		}
 		log.Info("Signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)
 		return vote
 	}

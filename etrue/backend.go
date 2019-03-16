@@ -561,6 +561,7 @@ func (s *Truechain) Stop() error {
 		s.lesServer.Stop()
 	}
 	s.txPool.Stop()
+	s.snailPool.Stop()
 	s.miner.Stop()
 	s.APIBackend.Stop()
 	s.eventMux.Stop()

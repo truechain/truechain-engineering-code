@@ -89,7 +89,7 @@ type Engine interface {
 	// VerifyHeader checks whether a header conforms to the consensus rules of a
 	// given engine. Verifying the seal may be done optionally here, or explicitly
 	// via the VerifySeal method.
-	VerifyHeader(chain ChainReader, header *types.Header, seal bool) error
+	VerifyHeader(chain ChainReader, header *types.Header) error
 	VerifySnailHeader(chain SnailChainReader, fastchain ChainReader, header *types.SnailHeader, seal bool, isFruit bool) error
 
 	// VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
@@ -129,6 +129,8 @@ type Engine interface {
 	FinalizeSnail(chain SnailChainReader, header *types.SnailHeader,
 		uncles []*types.SnailHeader, fruits []*types.SnailBlock, signs []*types.PbftSign) (*types.SnailBlock, error)
 
+	FinalizeCommittee(block *types.Block) error
+
 	// Seal generates a new block for the given input block with the local miner's
 	Seal(chain SnailChainReader, block *types.SnailBlock, stop <-chan struct{}) (*types.SnailBlock, error)
 
@@ -143,7 +145,7 @@ type Engine interface {
 	// APIs returns the RPC APIs this consensus engine provides.
 	APIs(chain ChainReader) []rpc.API
 
-	DataSetHash(block uint64) common.Hash
+	DataSetHash(block uint64) []byte
 }
 
 //Election module implementation committee interface
@@ -153,6 +155,8 @@ type CommitteeElection interface {
 
 	// VerifySwitchInfo verify committee members and it's state
 	VerifySwitchInfo(fastnumber *big.Int, info []*types.CommitteeMember) error
+
+	FinalizeCommittee(block *types.Block) error
 
 	//Get a list of committee members
 	//GetCommittee(FastNumber *big.Int, FastHash common.Hash) (*big.Int, []*types.CommitteeMember)

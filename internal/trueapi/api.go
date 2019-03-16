@@ -475,7 +475,7 @@ func (s *PrivateAccountAPI) SignTransaction(ctx context.Context, args SendTxArgs
 	if err != nil {
 		return nil, err
 	}
-	if args.Fee == nil || args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Fee == nil { //normal ethereum transaction
 		//fmt.Println("into no fee")
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
@@ -971,7 +971,6 @@ func RPCMarshalBlock(b *types.Block, inclTx bool, fullTx bool) (map[string]inter
 
 	fields["signs"] = signs
 
-
 	formatMembers := func(commit *types.CommitteeMember) (map[string]interface{}, error) {
 		members := map[string]interface{}{
 			"Coinbase":      commit.Coinbase,
@@ -1165,15 +1164,17 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	Payer            *common.Address `json:"payer"`
+	Fee              *hexutil.Big    `json:"fee"`
+	PV               *hexutil.Big    `json:"pv"`
+	PR               *hexutil.Big    `json:"pr"`
+	PS               *hexutil.Big    `json:"ps"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
 // representation, with the given location metadata set (if available).
 func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
-		signer = types.NewTIP1Signer(tx.ChainId())
-	}
+	var signer types.Signer = types.NewTIP1Signer(tx.ChainId())
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
 
@@ -1189,6 +1190,16 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
+	}
+	if tx.Payer() != nil {
+		result.Payer = tx.Payer()
+		pv, pr, ps := tx.TrueRawSignatureValues()
+		result.PV = (*hexutil.Big)(pv)
+		result.PR = (*hexutil.Big)(pr)
+		result.PS = (*hexutil.Big)(ps)
+	}
+	if tx.Fee() != nil {
+		result.Fee = (*hexutil.Big)(tx.Fee())
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = blockHash
@@ -1347,10 +1358,7 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 	}
 	receipt := receipts[index]
 
-	var signer types.Signer = types.FrontierSigner{}
-	if tx.Protected() {
-		signer = types.NewTIP1Signer(tx.ChainId())
-	}
+	var signer types.Signer = types.NewTIP1Signer(tx.ChainId())
 	from, _ := types.Sender(signer, tx)
 
 	fields := map[string]interface{}{
@@ -1438,9 +1446,6 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
-	}
-	if args.Fee == nil {
-		args.Fee = (*hexutil.Big)(common.Big0)
 	}
 	if args.Nonce == nil {
 		nonce, err := b.GetPoolNonce(ctx, args.From)
@@ -1652,32 +1657,14 @@ func (s *PublicTransactionPoolAPI) SignTransaction(ctx context.Context, args Sen
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return nil, err
 	}
-	/*if args.Payment == (common.Address{}) {
-		//fmt.Println("afsd")
-		raw_tx := args.toRawTransaction()
-		tx := raw_tx.ConvertTransaction()
-		signed, err := s.sign(args.From, tx)
-		raw_tx_signed := signed.ConvertRawTransaction()
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("signed", signed.Info())
-		data, err := rlp.EncodeToBytes(raw_tx_signed)
-		if err != nil {
-			return nil, err
-		}
-		//fmt.Println("api method signTransaction signed", signed.Info())
-		return &SignTransactionResult{data, signed}, nil
-	}*/
-
 	tx := args.toTransaction()
-	fmt.Println("api method signTransaction received payment", args.Payment.String())
+	//fmt.Println("api method signTransaction received payment", args.Payment.String())
 	//sign from
 	signed, err := s.sign(args.From, tx)
 	if err != nil {
 		return nil, err
 	}
-	if args.Payment == (common.Address{}) && args.Fee == (*hexutil.Big)(common.Big0) { //normal ethereum transaction
+	if args.Payment == (common.Address{}) && args.Fee == nil { //normal ethereum transaction
 		raw_tx_signed := signed.ConvertRawTransaction()
 		if err != nil {
 			return nil, err
@@ -1726,10 +1713,7 @@ func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, err
 	}
 	transactions := make([]*RPCTransaction, 0, len(pending))
 	for _, tx := range pending {
-		var signer types.Signer = types.HomesteadSigner{}
-		if tx.Protected() {
-			signer = types.NewTIP1Signer(tx.ChainId())
-		}
+		var signer types.Signer = types.NewTIP1Signer(tx.ChainId())
 		from, _ := types.Sender(signer, tx)
 		if _, exists := accounts[from]; exists {
 			transactions = append(transactions, newRPCPendingTransaction(tx))
@@ -1747,8 +1731,9 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	if err := sendArgs.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
-	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != (*hexutil.Big)(common.Big0) {
-		log.Error("tx has payment or fee cannot use Resend api")
+	if sendArgs.Payment != (common.Address{}) || sendArgs.Fee != nil {
+		log.Error("tx has payment or fee cannot use Resend")
+		return common.Hash{}, errors.New("tx has payment or fee cannot use Resend")
 	}
 	matchTx := sendArgs.toTransaction()
 	pending, err := s.b.GetPoolTransactions()
@@ -1757,10 +1742,7 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	}
 
 	for _, p := range pending {
-		var signer types.Signer = types.HomesteadSigner{}
-		if p.Protected() {
-			signer = types.NewTIP1Signer(p.ChainId())
-		}
+		var signer types.Signer = types.NewTIP1Signer(p.ChainId())
 		wantSigHash := signer.Hash(matchTx)
 
 		if pFrom, err := types.Sender(signer, p); err == nil && pFrom == sendArgs.From && signer.Hash(p) == wantSigHash {

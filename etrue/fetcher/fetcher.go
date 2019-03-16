@@ -57,7 +57,7 @@ type blockRetrievalFn func(common.Hash) *types.Block
 type headerRequesterFn func(common.Hash) error
 
 // bodyRequesterFn is a callback type for sending a body retrieval request.
-type bodyRequesterFn func([]common.Hash, bool) error
+type bodyRequesterFn func([]common.Hash, bool, uint32) error
 
 // headerVerifierFn is a callback type to verify a block's header for fast propagation.
 type headerVerifierFn func(header *types.Header) error
@@ -84,7 +84,6 @@ type announce struct {
 	number uint64        // Number of the block being announced (0 = unknown | old protocol)
 	header *types.Header // Header of the block partially reassembled (new protocol)
 	time   time.Time     // Timestamp of the announcement
-	sign   *types.PbftSign
 
 	origin string // Identifier of the peer originating the notification
 
@@ -159,7 +158,6 @@ type Fetcher struct {
 	inject     chan *inject
 	injectSign chan *injectSign
 
-	blockFilter  chan chan []*types.Block
 	headerFilter chan chan *headerFilterTask
 	bodyFilter   chan chan *bodyFilterTask
 
@@ -213,7 +211,6 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastFast
 		notify:        make(chan *announce),
 		inject:        make(chan *inject),
 		injectSign:    make(chan *injectSign),
-		blockFilter:   make(chan chan []*types.Block),
 		headerFilter:  make(chan chan *headerFilterTask),
 		bodyFilter:    make(chan chan *bodyFilterTask),
 		doneBlockSign: make(chan *injectDone),
@@ -260,7 +257,7 @@ func (f *Fetcher) Stop() {
 
 // Notify announces the fetcher of the potential availability of a new block in
 // the network.
-func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *types.PbftSign, time time.Time,
+func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
 	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg notify number:%d", peer, number))
 	defer func() {
@@ -270,13 +267,12 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, sign *typ
 	block := &announce{
 		hash:        hash,
 		number:      number,
-		sign:        sign,
 		time:        time,
 		origin:      peer,
 		fetchHeader: headerFetcher,
 		fetchBodies: bodyFetcher,
 	}
-	log.Debug("Notify fast block hash", "peer", block.origin, "number", block.number, "hash", block.hash, "sign", block.sign.Hash())
+	log.Debug("Notify fast block hash", "peer", block.origin, "number", block.number, "hash", block.hash)
 
 	select {
 	case f.notify <- block:
@@ -358,12 +354,6 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 // the fetcher, returning those that should be handled differently.
 func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction, signs [][]*types.PbftSign, infos [][]*types.CommitteeMember, time time.Time) ([][]*types.Transaction, [][]*types.PbftSign, [][]*types.CommitteeMember) {
 	log.Debug("Filtering fast bodies", "peer", peer, "txs", len(transactions), "signs", len(signs), "number", signs[0][0].FastHeight)
-
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", peer, len(transactions), signs[0][0].FastHeight))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *bodyFilterTask)
@@ -627,7 +617,7 @@ func (f *Fetcher) loop() {
 					f.completingHook(hashes)
 				}
 				bodyFetchMeter.Mark(int64(len(hashes)))
-				go f.completing[hashes[0]].fetchBodies(hashes, true)
+				go f.completing[hashes[0]].fetchBodies(hashes, true, types.FetcherCall)
 			}
 			// Schedule the next fetch if blocks are still pending
 			f.rescheduleComplete(completeTimer)
@@ -704,6 +694,7 @@ func (f *Fetcher) loop() {
 				return
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
+			watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast bodies: %d, number: %d", task.peer, len(task.transactions[0]), task.signs[0][0].FastHeight))
 
 			log.Debug("Loop bodyFilter", "transactions", len(task.transactions), "f.completing", len(f.completing))
 			blocks := []*types.Block{}
@@ -753,6 +744,8 @@ func (f *Fetcher) loop() {
 					f.enqueue(announce.origin, block)
 				}
 			}
+			watch.EndWatch()
+			watch.Finish(fmt.Sprintf("end  blocks: %d completing: %d ", len(blocks), len(f.completing)))
 		}
 	}
 }
