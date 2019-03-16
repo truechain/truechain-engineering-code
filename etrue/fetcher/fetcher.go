@@ -739,7 +739,7 @@ func (f *Fetcher) loop() {
 			}
 			// Schedule the retrieved blocks for ordered import
 			for _, block := range blocks {
-				log.Debug("Loop filter end", "transactions", len(task.transactions), "blocks", len(blocks), "number", block.Number())
+				log.Debug("Loop filter end", "transactions", len(task.transactions), "blocks", len(blocks), "number", block.Number(), "sign", len(block.Signs()))
 				if announce := f.completing[block.Hash()]; announce != nil {
 					f.enqueue(announce.origin, block)
 				}
@@ -860,7 +860,7 @@ func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 			if ok, signHashs := f.agreeAtSameHeight(number, verifySigns[0].FastHash, committeeNumber); ok {
 				propSignInMeter.Mark(1)
 				f.blockConsensus[number] = append(f.blockConsensus[number], signHashs...)
-				log.Debug("Queued propagated sign", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash)
+				log.Debug("Consensus arrive", "peer", peer, "number", number, "sign length", len(f.signMultiHash[number]), "hash", hash, "signHashs", len(signHashs))
 			}
 		}
 	}
@@ -1121,9 +1121,13 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 	defer f.blockMutex.Unlock()
 	if insert := f.queued[hash]; insert != nil {
 		f.queues[insert.origin]--
-		log.Trace("Forget block", "number", insert.block.Number(), "queues", f.queues[insert.origin])
+		log.Trace("Forget block", "number", insert.block.Number(), "queues", f.queues[insert.origin], "queuesSign", f.queuesSign[insert.origin])
 		if f.queues[insert.origin] == 0 {
 			delete(f.queues, insert.origin)
+		}
+		f.queuesSign[insert.origin]--
+		if f.queuesSign[insert.origin] == 0 {
+			delete(f.queuesSign, insert.origin)
 		}
 		delete(f.queued, hash)
 	}
@@ -1133,11 +1137,7 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 // state.
 func (f *Fetcher) forgetSign(hash common.Hash) {
 	if insert := f.queuedSign[hash]; insert != nil {
-		f.queuesSign[insert.origin]--
-		log.Trace("Forget sign", "number", insert.sign.FastHeight, "queuesSign", f.queuesSign[insert.origin])
-		if f.queuesSign[insert.origin] == 0 {
-			delete(f.queuesSign, insert.origin)
-		}
+		log.Trace("Forget sign", "number", insert.sign.FastHeight, "queuedSign", len(f.queuedSign))
 		delete(f.queuedSign, hash)
 	}
 }

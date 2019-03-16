@@ -96,6 +96,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		return nil, nil, err
 	}
 	pm.Start(1000)
+	pm.Start2(1000)
 	return pm, db, nil
 }
 
@@ -235,24 +236,29 @@ func newTestPeer(name string, version int, pm *ProtocolManager, shake bool) (*te
 	// Execute any implicitly requested handshakes and return
 	if shake {
 		var (
-			genesis = pm.blockchain.Genesis()
-			head    = pm.blockchain.CurrentHeader()
-			td      = pm.blockchain.GetTd(head.Hash(), head.Number.Uint64())
+			genesis    = pm.snailchain.Genesis()
+			head       = pm.snailchain.CurrentHeader()
+			td         = pm.snailchain.GetTd(head.Hash(), head.Number.Uint64())
+			fastHead   = pm.blockchain.CurrentHeader()
+			fastHash   = fastHead.Hash()
+			fastHeight = pm.blockchain.CurrentBlock().Number()
 		)
-		tp.handshake(nil, td, head.Hash(), genesis.Hash())
+		tp.handshake(nil, td, head.Hash(), genesis.Hash(), fastHeight, fastHash)
 	}
 	return tp, errc
 }
 
 // handshake simulates a trivial handshake that expects the same state from the
 // remote side as we are simulating locally.
-func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesis common.Hash) {
+func (p *testPeer) handshake(t *testing.T, td *big.Int, head common.Hash, genesis common.Hash, fastHeight *big.Int, fasthead common.Hash) {
 	msg := &statusData{
-		ProtocolVersion: uint32(p.version),
-		NetworkId:       DefaultConfig.NetworkId,
-		TD:              td,
-		CurrentBlock:    head,
-		GenesisBlock:    genesis,
+		ProtocolVersion:  uint32(p.version),
+		NetworkId:        DefaultConfig.NetworkId,
+		TD:               td,
+		FastHeight:       fastHeight,
+		CurrentBlock:     head,
+		GenesisBlock:     genesis,
+		CurrentFastBlock: fasthead,
 	}
 	if err := p2p.ExpectMsg(p.app, StatusMsg, msg); err != nil {
 		t.Fatalf("status recv: %v", err)

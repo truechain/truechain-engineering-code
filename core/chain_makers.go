@@ -32,12 +32,11 @@ import (
 // BlockGen creates blocks for testing.
 // See GenerateChain for a detailed explanation.
 type BlockGen struct {
-	i           int
-	parent      *types.Block
-	chain       []*types.Block
-	chainReader consensus.ChainReader
-	header      *types.Header
-	statedb     *state.StateDB
+	i       int
+	parent  *types.Block
+	chain   []*types.Block
+	header  *types.Header
+	statedb *state.StateDB
 
 	gasPool  *GasPool
 	txs      []*types.Transaction
@@ -63,6 +62,10 @@ func (b *BlockGen) SetCoinbase(addr common.Address) {
 // SetExtra sets the extra data field of the generated block.
 func (b *BlockGen) SetExtra(data []byte) {
 	b.header.Extra = data
+}
+
+// SetNonce sets the nonce field of the generated block.
+func (b *BlockGen) SetNonce(nonce types.BlockNonce) {
 }
 
 // AddTx adds a transaction to the generated block. If no coinbase has
@@ -124,16 +127,16 @@ func (b *BlockGen) TxNonce(addr common.Address) uint64 {
 }
 
 // AddUncle adds an uncle header to the generated block.
-//func (b *BlockGen) AddUncle(h *types.Header) {
-//	b.uncles = append(b.uncles, h)
-//}
+func (b *BlockGen) AddUncle(h *types.Header) {
+	b.uncles = append(b.uncles, h)
+}
 
 // PrevBlock returns a previously generated block by number. It panics if
 // num is greater or equal to the number of the block being generated.
 // For index -1, PrevBlock returns the parent block given to GenerateChain.
 func (b *BlockGen) PrevBlock(index int) *types.Block {
 	if index >= b.i {
-		panic("block index out of range")
+		panic(fmt.Errorf("block index %d out of range (%d,%d)", index, -1, b.i))
 	}
 	if index == -1 {
 		return b.parent
@@ -145,7 +148,7 @@ func (b *BlockGen) PrevBlock(index int) *types.Block {
 // associated difficulty. It's useful to test scenarios where forking is not
 // tied to chain length directly.
 func (b *BlockGen) OffsetTime(seconds int64) {
-	b.header.Time.Add(b.header.Time, new(big.Int).SetInt64(seconds))
+	b.header.Time.Add(b.header.Time, big.NewInt(seconds))
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
@@ -167,23 +170,18 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	if config == nil {
 		config = params.TestChainConfig
 	}
-
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
+	chainreader := &fakeChainReader{config: config}
 	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
-		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
-		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
-		defer blockchain.Stop()
-
-		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
-		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
+		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
+		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
 			gen(i, b)
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
+			block, _ := b.engine.Finalize(chainreader, b.header, statedb, b.txs, b.receipts, new(big.Int))
 
 			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
 			block.SetSign(sign)
@@ -210,56 +208,6 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		parent = block
 	}
 	return blocks, receipts
-}
-
-func GenerateBlockChain(config *params.ChainConfig, parent *types.Block, engine consensus.Engine, db etruedb.Database, n int, gen func(int, *BlockGen)) ([]*types.Block, []types.Receipts, *BlockChain) {
-	if config == nil {
-		config = params.TestChainConfig
-	}
-
-	blockchain, _ := NewBlockChain(db, nil, config, engine, vm.Config{})
-	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
-	genblock := func(i int, parent *types.Block, statedb *state.StateDB, blockchain *BlockChain) (*types.Block, types.Receipts) {
-		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
-		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-
-		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
-		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
-		// Execute any user modifications to the block and finalize it
-		if gen != nil {
-			gen(i, b)
-		}
-
-		if b.engine != nil {
-			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.receipts, new(big.Int))
-
-			sign, err := b.engine.GetElection().GenerateFakeSigns(block)
-			block.SetSign(sign)
-			// Write state changes to db
-			root, err := statedb.Commit(true)
-			if err != nil {
-				panic(fmt.Sprintf("state write error: %v", err))
-			}
-			if err := statedb.Database().TrieDB().Commit(root, false); err != nil {
-				panic(fmt.Sprintf("trie write error: %v", err))
-			}
-			return block, b.receipts
-		}
-		return nil, nil
-	}
-
-	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
-		if err != nil {
-			panic(err)
-		}
-		block, receipt := genblock(i, parent, statedb, blockchain)
-		blocks[i] = block
-		receipts[i] = receipt
-		parent = block
-
-	}
-	return blocks, receipts, blockchain
 }
 
 func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
@@ -299,36 +247,18 @@ func makeBlockChain(parent *types.Block, n int, engine consensus.Engine, db etru
 	return blocks
 }
 
-func NewCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
-	db, blockchain, err := newCanonical(engine, n, full)
-	return db, blockchain, err
+type fakeChainReader struct {
+	config  *params.ChainConfig
+	genesis *types.Block
 }
 
-// newCanonical creates a chain database, and injects a deterministic canonical
-// chain. Depending on the full flag, if creates either a full block chain or a
-// header only chain.
-func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
-	var (
-		db = etruedb.NewMemDatabase()
-	)
-
-	BaseGenesis := DefaultGenesisBlock()
-	genesis := BaseGenesis.MustFastCommit(db)
-	// Initialize a fresh chain with only a genesis block
-	//Initialize a new chain
-	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
-	// Create and inject the requested chain
-	if n == 0 {
-		return db, blockchain, nil
-	}
-	if full {
-		// Full block-chain requested
-		blocks := makeBlockChain(genesis, n, engine, db, 1)
-		_, err := blockchain.InsertChain(blocks)
-		return db, blockchain, err
-	}
-	// Header-only chain requested
-	headers := makeHeaderChain(genesis.Header(), n, engine, db, 1)
-	_, err := blockchain.InsertHeaderChain(headers, 1)
-	return db, blockchain, err
+// Config returns the chain configuration.
+func (cr *fakeChainReader) Config() *params.ChainConfig {
+	return cr.config
 }
+
+func (cr *fakeChainReader) CurrentHeader() *types.Header                            { return nil }
+func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.Header           { return nil }
+func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.Header          { return nil }
+func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.Header { return nil }
+func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.Block   { return nil }

@@ -67,7 +67,7 @@ func TestProtocolCompatibility(t *testing.T) {
 	}
 }
 
-// Tests that block Headers can be retrieved from a remote chain based on user queries.
+// Tests that block headers can be retrieved from a remote chain based on user queries.
 func TestGetBlockHeaders62(t *testing.T) { testGetBlockHeaders(t, 62) }
 func TestGetBlockHeaders63(t *testing.T) { testGetBlockHeaders(t, 63) }
 
@@ -85,7 +85,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 	limit := uint64(downloader.MaxHeaderFetch)
 	tests := []struct {
 		query  *getBlockHeadersData // The query to execute for header retrieval
-		expect []common.Hash        // The hashes of the block whose Headers are expected
+		expect []common.Hash        // The hashes of the block whose headers are expected
 	}{
 		// A single random block should be retrievable by hash and number too
 		{
@@ -95,7 +95,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 			&getBlockHeadersData{Origin: hashOrNumber{Number: limit / 2}, Amount: 1},
 			[]common.Hash{pm.blockchain.GetBlockByNumber(limit / 2).Hash()},
 		},
-		// Multiple Headers should be retrievable in both directions
+		// Multiple headers should be retrievable in both directions
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Number: limit / 2}, Amount: 3},
 			[]common.Hash{
@@ -111,7 +111,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(limit/2 - 2).Hash(),
 			},
 		},
-		// Multiple Headers with skip lists should be retrievable
+		// Multiple headers with skip lists should be retrievable
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Number: limit / 2}, Skip: 3, Amount: 3},
 			[]common.Hash{
@@ -191,7 +191,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 				pm.blockchain.GetBlockByNumber(1).Hash(),
 			},
 		},
-		// Check that non existing Headers aren't returned
+		// Check that non existing headers aren't returned
 		{
 			&getBlockHeadersData{Origin: hashOrNumber{Hash: unknown}, Amount: 1},
 			[]common.Hash{},
@@ -202,7 +202,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 	}
 	// Run each of the tests and verify the results against the chain
 	for i, tt := range tests {
-		// Collect the Headers to expect in the response
+		// Collect the headers to expect in the response
 		headers := []*types.Header{}
 		for _, hash := range tt.expect {
 			headers = append(headers, pm.blockchain.GetBlockByHash(hash).Header())
@@ -210,7 +210,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 		// Send the hash request and verify the response
 		p2p.Send(peer.app, 0x03, tt.query)
 		if err := p2p.ExpectMsg(peer.app, 0x04, headers); err != nil {
-			t.Errorf("test %d: Headers mismatch: %v", i, err)
+			t.Errorf("test %d: headers mismatch: %v", i, err)
 		}
 		// If the test used number origins, repeat with hashes as the too
 		if tt.query.Origin.Hash == (common.Hash{}) {
@@ -219,7 +219,7 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 
 				p2p.Send(peer.app, 0x03, tt.query)
 				if err := p2p.ExpectMsg(peer.app, 0x04, headers); err != nil {
-					t.Errorf("test %d: Headers mismatch: %v", i, err)
+					t.Errorf("test %d: headers mismatch: %v", i, err)
 				}
 			}
 		}
@@ -293,7 +293,7 @@ func testGetBlockBodies(t *testing.T, protocol int) {
 		// Send the hash request and verify the response
 		p2p.Send(peer.app, 0x05, hashes)
 		if err := p2p.ExpectMsg(peer.app, 0x06, bodies); err != nil {
-			t.Errorf("test %d: Bodies mismatch: %v", i, err)
+			t.Errorf("test %d: bodies mismatch: %v", i, err)
 		}
 	}
 }
@@ -328,7 +328,7 @@ func testGetNodeData(t *testing.T, protocol int) {
 			block.SetCoinbase(acc2Addr)
 			block.SetExtra([]byte("yeehaw"))
 		case 3:
-			// Block 4 includes blocks 2 and 3 as uncle Headers (with modified extra data).
+			// Block 4 includes blocks 2 and 3 as uncle headers (with modified extra data).
 			b2 := block.PrevBlock(1).Header()
 			b2.Extra = []byte("foo")
 			b3 := block.PrevBlock(2).Header()
@@ -418,7 +418,7 @@ func testGetReceipt(t *testing.T, protocol int) {
 			block.SetCoinbase(acc2Addr)
 			block.SetExtra([]byte("yeehaw"))
 		case 3:
-			// Block 4 includes blocks 2 and 3 as uncle Headers (with modified extra data).
+			// Block 4 includes blocks 2 and 3 as uncle headers (with modified extra data).
 			b2 := block.PrevBlock(1).Header()
 			b2.Extra = []byte("foo")
 			b3 := block.PrevBlock(2).Header()
@@ -499,7 +499,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 	doneCh := make(chan struct{}, totalPeers)
 	for _, peer := range peers {
 		go func(p *testPeer) {
-			if err := p2p.ExpectMsg(p.app, NewFastBlockMsg, &newBlockData{Block: chain[0]}); err != nil {
+			if err := p2p.ExpectMsg(p.app, NewFastBlockMsg, &newBlockData{Block: []*types.Block{chain[0]}}); err != nil {
 				errCh <- err
 			} else {
 				doneCh <- struct{}{}
