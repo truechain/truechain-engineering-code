@@ -1070,10 +1070,12 @@ func (e *Election) switchMembers(fastNumber *big.Int, infos []*types.CommitteeMe
 		return
 	}
 	// Committee switch block numbers array should be nil at committee start block
-	if committee.beginFastNumber.Cmp(fastNumber) == 0 && len(committee.switches) > 0 {
-		log.Info("Reset committee switchinfo on start block", "committee", committee.id, "current", fastNumber)
-		committee.switches = nil
-		rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), committee.id.Uint64(), nil)
+	if committee.beginFastNumber.Cmp(fastNumber) == 0 {
+		if len(committee.switches) > 0 {
+			log.Info("Reset committee switchinfo on start block", "committee", committee.id, "current", fastNumber)
+			committee.switches = nil
+			rawdb.WriteCommitteeStates(e.snailchain.GetDatabase(), committee.id.Uint64(), nil)
+		}
 		return
 	}
 
@@ -1107,7 +1109,7 @@ func (e *Election) FinalizeCommittee(block *types.Block) error {
 
 	info := block.SwitchInfos()
 	if len(info) > 0 {
-		log.Info("Election receive committee switch info", "block", block.Number())
+		log.Info("Election receive committee switch block", "block", block.Number())
 		e.switchMembers(block.Number(), info)
 	}
 
