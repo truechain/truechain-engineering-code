@@ -256,6 +256,7 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 		}
 	}
 	root := statedb.IntermediateRoot(false)
+
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Time:       new(big.Int).SetUint64(g.Timestamp),
@@ -268,7 +269,6 @@ func (g *Genesis) ToFastBlock(db etruedb.Database) *types.Block {
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
-
 	statedb.Commit(false)
 	statedb.Database().TrieDB().Commit(root, true)
 

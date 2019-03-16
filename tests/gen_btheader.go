@@ -16,28 +16,26 @@ var _ = (*btHeaderMarshaling)(nil)
 
 func (b btHeader) MarshalJSON() ([]byte, error) {
 	type btHeader struct {
+		CommitteeHash		common.Hash
+		SnailHash			common.Hash
+		SnailNumber			 *math.HexOrDecimal256
 		Bloom            types.Bloom
-		Coinbase         common.Address
-		MixHash          common.Hash
-		Nonce            types.BlockNonce
 		Number           *math.HexOrDecimal256
 		Hash             common.Hash
 		ParentHash       common.Hash
 		ReceiptTrie      common.Hash
 		StateRoot        common.Hash
 		TransactionsTrie common.Hash
-		UncleHash        common.Hash
 		ExtraData        hexutil.Bytes
-		Difficulty       *math.HexOrDecimal256
 		GasLimit         math.HexOrDecimal64
 		GasUsed          math.HexOrDecimal64
 		Timestamp        *math.HexOrDecimal256
 	}
 	var enc btHeader
+	enc.CommitteeHash = b.CommitteeHash
+	enc.SnailHash = b.SnailHash
+	enc.SnailNumber =  (*math.HexOrDecimal256)(b.SnailNumber)
 	enc.Bloom = b.Bloom
-	enc.Coinbase = b.Coinbase
-	enc.MixHash = b.MixHash
-	enc.Nonce = b.Nonce
 	enc.Number = (*math.HexOrDecimal256)(b.Number)
 	enc.Hash = b.Hash
 	enc.ParentHash = b.ParentHash
@@ -45,7 +43,6 @@ func (b btHeader) MarshalJSON() ([]byte, error) {
 	enc.StateRoot = b.StateRoot
 	enc.TransactionsTrie = b.TransactionsTrie
 	enc.ExtraData = b.ExtraData
-	enc.Difficulty = (*math.HexOrDecimal256)(b.Difficulty)
 	enc.GasLimit = math.HexOrDecimal64(b.GasLimit)
 	enc.GasUsed = math.HexOrDecimal64(b.GasUsed)
 	enc.Timestamp = (*math.HexOrDecimal256)(b.Timestamp)
@@ -54,19 +51,17 @@ func (b btHeader) MarshalJSON() ([]byte, error) {
 
 func (b *btHeader) UnmarshalJSON(input []byte) error {
 	type btHeader struct {
+		CommitteeHash		*common.Hash
+		SnailHash			*common.Hash
+		SnailNumber			*math.HexOrDecimal256
 		Bloom            *types.Bloom
-		Coinbase         *common.Address
-		MixHash          *common.Hash
-		Nonce            *types.BlockNonce
 		Number           *math.HexOrDecimal256
 		Hash             *common.Hash
 		ParentHash       *common.Hash
 		ReceiptTrie      *common.Hash
 		StateRoot        *common.Hash
 		TransactionsTrie *common.Hash
-		UncleHash        *common.Hash
 		ExtraData        *hexutil.Bytes
-		Difficulty       *math.HexOrDecimal256
 		GasLimit         *math.HexOrDecimal64
 		GasUsed          *math.HexOrDecimal64
 		Timestamp        *math.HexOrDecimal256
@@ -75,17 +70,18 @@ func (b *btHeader) UnmarshalJSON(input []byte) error {
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
+
+	if dec.CommitteeHash != nil {
+		b.CommitteeHash = *dec.CommitteeHash
+	}
+	if dec.SnailHash != nil {
+		b.SnailHash = *dec.SnailHash
+	}
+	if dec.SnailNumber != nil {
+		b.SnailNumber = (*big.Int)(dec.SnailNumber)
+	}
 	if dec.Bloom != nil {
 		b.Bloom = *dec.Bloom
-	}
-	if dec.Coinbase != nil {
-		b.Coinbase = *dec.Coinbase
-	}
-	if dec.MixHash != nil {
-		b.MixHash = *dec.MixHash
-	}
-	if dec.Nonce != nil {
-		b.Nonce = *dec.Nonce
 	}
 	if dec.Number != nil {
 		b.Number = (*big.Int)(dec.Number)
@@ -107,9 +103,6 @@ func (b *btHeader) UnmarshalJSON(input []byte) error {
 	}
 	if dec.ExtraData != nil {
 		b.ExtraData = *dec.ExtraData
-	}
-	if dec.Difficulty != nil {
-		b.Difficulty = (*big.Int)(dec.Difficulty)
 	}
 	if dec.GasLimit != nil {
 		b.GasLimit = uint64(*dec.GasLimit)

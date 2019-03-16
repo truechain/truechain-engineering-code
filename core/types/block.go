@@ -128,7 +128,7 @@ func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) 
 // fast chain block structure
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
-// Header represents a block header in the true Fastblockchain.
+// Header represents a block header in the true blockchain.
 type Header struct {
 	ParentHash    common.Hash    `json:"parentHash"       gencodec:"required"`
 	Root          common.Hash    `json:"stateRoot"        gencodec:"required"`

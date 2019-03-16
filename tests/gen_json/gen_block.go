@@ -20,13 +20,9 @@ func main() {
 
 	db, _ := etruedb.NewLDBDatabase(path, cache, handles)
 	blockchain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, minerva.NewFaker(), vm.Config{})
-	block := blockchain.GetBlockByNumber(0)
+	block := blockchain.GetBlockByNumber(2)
 	rlpstr := blockchain.GetBodyRLP(block.Hash())
-
-
 	str ,_ := trueapi.RPCMarshalBlock(block,true,true)
-
-
 
 	mjson,_ :=json.Marshal(str)
 	mString :=string(mjson)
