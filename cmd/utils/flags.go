@@ -132,7 +132,7 @@ var (
 	}
 	NetworkIdFlag = cli.Uint64Flag{
 		Name:  "networkid",
-		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		Usage: "Network identifier",
 		Value: etrue.DefaultConfig.NetworkId,
 	}
 	TestnetFlag = cli.BoolFlag{
