@@ -55,7 +55,7 @@ func NewTimeMTimer(name string) (T TimeMTimer) {
 	return
 }
 
-func (tmt TimeMTimer) Update(end bool) {
+func (tmt *TimeMTimer) Update(end bool) {
 	var t time.Time
 	if !end {
 		tmt.T = time.Now()
