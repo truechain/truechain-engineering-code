@@ -38,12 +38,12 @@ const (
 	gatherSlack      = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
 	fetchTimeout     = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
 	lowCommitteeDist = 1                      // Maximum allowed backward distance from the chain head
-	maxQueueDist     = 1024                   // Maximum allowed distance from the chain head to queue
-	maxSignDist      = 8192                   // Maximum allowed distance from the chain head to queue
+	maxQueueDist     = 384                    // Maximum allowed distance from the chain head to queue
+	maxSignDist      = 384                    // Maximum allowed distance from the chain head to queue
 	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit       = 256                    // Maximum number of unique blocks a peer may have delivered
-	signLimit        = 2560                   // Maximum number of unique sign a peer may have delivered
-	lowSignDist      = 128                    // Maximum allowed sign distance from the chain head
+	blockLimit       = 128                    // Maximum number of unique blocks a peer may have delivered
+	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
+	lowSignDist      = 64                     // Maximum allowed sign distance from the chain head
 )
 
 var (
@@ -319,13 +319,14 @@ func (f *Fetcher) EnqueueSign(peer string, signs []*types.PbftSign) error {
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
-	log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
-
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
+	if len(headers) != 0 {
+		log.Debug("Filtering fast headers", "peer", peer, "headers", len(headers), "number", headers[0].Number)
+		watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg filtering fast headers: %d", peer, len(headers), "number", headers[0].Number))
+		defer func() {
+			watch.EndWatch()
+			watch.Finish("end")
+		}()
+	}
 
 	// Send the filter channel to the fetcher
 	filter := make(chan *headerFilterTask)
@@ -386,7 +387,7 @@ func (f *Fetcher) loop() {
 	completeTimer := time.NewTimer(0)
 
 	for {
-		log.Debug("Loop start", "fetching", len(f.fetching))
+		log.Debug("Loop start", "announced", len(f.announced), "fetching", len(f.fetching))
 		// Clean up any expired block fetches
 		for hash, announce := range f.fetching {
 			if time.Since(announce.time) > fetchTimeout {
@@ -409,9 +410,6 @@ func (f *Fetcher) loop() {
 					hash := block.Hash()
 					peer := peers[i]
 
-					if f.queueChangeHook != nil {
-						f.queueChangeHook(hash, false)
-					}
 					// If too high up the chain or phase, continue later
 					number := block.NumberU64()
 					log.Trace("Loop check", "number", number, "height", height, "same block", len(blocks), "peer", peer)
@@ -482,6 +480,9 @@ func (f *Fetcher) loop() {
 						}
 					} else {
 						f.queue.Push(opMulti, -int64(blocks[0].NumberU64()))
+						if f.queueChangeHook != nil {
+							f.queueChangeHook(blocks[0].Hash(), true)
+						}
 						finished = true
 					}
 				}
@@ -490,7 +491,7 @@ func (f *Fetcher) loop() {
 				break
 			}
 		}
-		log.Debug("Loop middle", "fetching", len(f.fetching))
+		log.Debug("Loop middle", "fetched", len(f.fetched), "completing", len(f.completing))
 		// Wait for an outside event to occur
 		select {
 		case <-f.quit:
@@ -633,8 +634,9 @@ func (f *Fetcher) loop() {
 				return
 			}
 			headerFilterInMeter.Mark(int64(len(task.headers)))
-
-			log.Debug("Loop headerFilter", "headers", len(task.headers), "number", task.headers[0].Number, "peer", task.peer)
+			if len(task.headers) != 0 {
+				log.Debug("Loop headerFilter", "headers", len(task.headers), "number", task.headers[0].Number, "peer", task.peer)
+			}
 			// Split the batch of headers into unknown ones (to return to the caller),
 			// known incomplete ones (requiring body retrievals) and completed blocks.
 			unknown, incomplete := []*types.Header{}, []*announce{}
@@ -872,8 +874,6 @@ func (f *Fetcher) enqueue(peer string, block *types.Block) {
 	hash := block.Hash()
 	number := block.NumberU64()
 
-	log.Debug("Enqueue inner fast block", "peer", peer, "number", number, "hash", hash)
-
 	// Ensure the peer isn't DOSing us
 	count := f.queues[peer] + 1
 	if count > blockLimit {
@@ -984,10 +984,13 @@ func (f *Fetcher) verifyComeAgreement(peer string, block *types.Block, signs []*
 		height := block.Number()
 		inBlock := types.NewBlockWithHeader(block.Header()).WithBody(block.Transactions(), signs, block.SwitchInfos())
 		find := f.insert(peer, inBlock, signHashs)
-		log.Debug("Agreement insert block", "number", height, "consensus sign number", len(signs), "insert result", find)
+		log.Debug("Agreement insert fast block", "number", height, "sign number", len(signs), "result", find, "hash", block.Hash(), "peer", peer)
 
 		propSignOutTimer.Mark(int64(len(signs)))
-		//f.broadcastSigns(signs)
+
+		if f.queueChangeHook != nil {
+			f.queueChangeHook(block.Hash(), false)
+		}
 
 		f.doneConsensus <- height
 	}()
@@ -1013,7 +1016,6 @@ func (f *Fetcher) insert(peer string, block *types.Block, signs []common.Hash) b
 		f.importedHook(block)
 	}
 
-	log.Debug("Importing propagated fast block", "peer", peer, "number", block.Number(), "hash", block.Hash())
 	return true
 }
 
@@ -1099,6 +1101,7 @@ func (f *Fetcher) forgetBlockHeight(height *big.Int) {
 	log.Trace("Forget block height", "height", height, "block len", len(f.blockMultiHash[number]), "sign len", len(f.signMultiHash[number]))
 	if blockHashs, ok := f.blockMultiHash[number]; ok {
 		for _, hash := range blockHashs {
+			f.forgetHash(hash)
 			f.forgetBlock(hash)
 		}
 	}
@@ -1121,7 +1124,6 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 	defer f.blockMutex.Unlock()
 	if insert := f.queued[hash]; insert != nil {
 		f.queues[insert.origin]--
-		log.Trace("Forget block", "number", insert.block.Number(), "queues", f.queues[insert.origin], "queuesSign", f.queuesSign[insert.origin])
 		if f.queues[insert.origin] == 0 {
 			delete(f.queues, insert.origin)
 		}
@@ -1137,7 +1139,6 @@ func (f *Fetcher) forgetBlock(hash common.Hash) {
 // state.
 func (f *Fetcher) forgetSign(hash common.Hash) {
 	if insert := f.queuedSign[hash]; insert != nil {
-		log.Trace("Forget sign", "number", insert.sign.FastHeight, "queuedSign", len(f.queuedSign))
 		delete(f.queuedSign, hash)
 	}
 }

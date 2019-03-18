@@ -694,9 +694,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 		filter := len(headers) == 1
 		if len(headers) > 0 && headerData.Call == types.DownloaderCall {
-			log.Info("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
+			log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "call", headerData.Call)
 		} else {
-			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "number", headers[0].Number, "call", headerData.Call)
+			log.Debug("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "call", headerData.Call)
 		}
 
 		if filter {
@@ -705,10 +705,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		// mecMark
 		if len(headers) > 0 || !filter {
-			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
-			err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
-			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
+			if headerData.Call == types.FetcherCall {
+				log.Warn("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
+				err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
+				if err != nil {
+					log.Debug("Failed to deliver headers", "err", err)
+				}
 			}
 		}
 
@@ -759,17 +763,21 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(transactions) > 0 || len(signs) > 0 || len(infos) > 0
 		if len(signs) > 0 {
-			log.Debug("FastBlockBodiesMsg", "len(signs)", len(signs), "number", signs[0][0].FastHeight, "len(transactions)", len(transactions))
+			log.Debug("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "transactions", len(transactions))
 		}
 		if filter {
 			transactions, signs, infos = pm.fetcherFast.FilterBodies(p.id, transactions, signs, infos, time.Now())
 		}
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
-			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
-			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
-			if err != nil {
-				log.Debug("Failed to deliver bodies", "err", err)
+			if request.Call == types.FetcherCall {
+				log.Warn("FastBlockHeadersMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
+				err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
+				if err != nil {
+					log.Debug("Failed to deliver bodies", "err", err)
+				}
 			}
 		}
 
