@@ -1202,7 +1202,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 
 	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
-	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
+	_, fastChain, _ := core.NewCanonical(engine, 0, true)
 	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain

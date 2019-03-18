@@ -18,6 +18,7 @@ package core
 
 import (
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/truechain/truechain-engineering-code/consensus"
 	"math/big"
 	"sync"
 	"testing"
@@ -39,6 +40,42 @@ var (
 	canonicalSeed = 1
 	forkSeed      = 2
 )
+
+
+func NewCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
+	return newCanonical(engine, n, full)
+}
+
+
+// newCanonical creates a chain database, and injects a deterministic canonical
+// chain. Depending on the full flag, if creates either a full block chain or a
+// header only chain.
+func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, *BlockChain, error) {
+	var (
+		db = etruedb.NewMemDatabase()
+	)
+
+	BaseGenesis := DefaultGenesisBlock()
+	genesis := BaseGenesis.MustFastCommit(db)
+	// Initialize a fresh chain with only a genesis block
+	//Initialize a new chain
+	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	// Create and inject the requested chain
+	if n == 0 {
+		return db, blockchain, nil
+	}
+	if full {
+		// Full block-chain requested
+		blocks := makeBlockChain(genesis, n, engine, db, canonicalSeed)
+		_, err := blockchain.InsertChain(blocks)
+		return db, blockchain, err
+	}
+	// Header-only chain requested
+	headers := makeHeaderChain(genesis.Header(), n, engine, db, canonicalSeed)
+	_, err := blockchain.InsertHeaderChain(headers, 1)
+	return db, blockchain, err
+}
+
 
 //The test block is inserted into the chain
 func TestInsertBlock(t *testing.T) {
