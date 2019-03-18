@@ -262,7 +262,7 @@ func (lru *lru) get(epoch uint64) (item, future interface{}) {
 }
 
 // dataset wraps an truehash dataset with some metadata to allow easier concurrent use.
-type dataset struct {
+type Dataset struct {
 	epoch uint64 // Epoch for which this cache is relevant
 	//dump    *os.File  // File descriptor of the memory mapped cache
 	//mmap    mmap.MMap // Memory map itself to unmap before releasing
@@ -274,9 +274,9 @@ type dataset struct {
 }
 
 // newDataset creates a new truehash mining dataset
-func newDataset(epoch uint64) interface{} {
+func NewDataset(epoch uint64) interface{} {
 
-	ds := &dataset{
+	ds := &Dataset{
 		epoch:    epoch,
 		dateInit: 0,
 		dataset:  make([]uint64, TBLSIZE*DATALENGTH*PMTSIZE*32),
@@ -284,6 +284,14 @@ func newDataset(epoch uint64) interface{} {
 	log.Info("create a new dateset", "epoch", epoch)
 
 	return ds
+}
+
+func (d *Dataset) GetDataSetEpoch() uint64 {
+	return d.epoch
+}
+
+func (d *Dataset) GetDataSet() []uint64 {
+	return d.dataset
 }
 
 // Mode defines the type and amount of PoW verification an minerva engine makes.
@@ -351,7 +359,7 @@ func New(config Config) *Minerva {
 	minerva := &Minerva{
 		config: config,
 		//caches:   newlru("cache", config.CachesInMem, newCache),
-		datasets: newlru("dataset", config.DatasetsInMem, newDataset),
+		datasets: newlru("dataset", config.DatasetsInMem, NewDataset),
 		update:   make(chan struct{}),
 		hashrate: metrics.NewMeter(),
 	}
@@ -368,22 +376,53 @@ func (m *Minerva) NewTestData(block uint64) {
 }
 
 // dataset tries to retrieve a mining dataset for the specified block number
-func (m *Minerva) getDataset(block uint64) *dataset {
+func (m *Minerva) getDataset(block uint64) *Dataset {
+
+	var headerHash [STARTUPDATENUM][]byte
 	// Retrieve the requested ethash dataset
 	//each 12000 change the mine algorithm block -1 is make sure the 12000 is use epoch 0
 	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, futureI := m.datasets.get(epoch)
-	current := currentI.(*dataset)
+	current := currentI.(*Dataset)
 
-	current.generate(epoch, m, nil)
+	//get header hash
+	if m.sbc == nil {
+		log.Error("snail block chain is nil  ", "epoch", epoch)
+		return nil
+	}
+
+	getHashList := func(headershash *[STARTUPDATENUM][]byte) bool {
+		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
+		for i := 0; i < STARTUPDATENUM; i++ {
+			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
+			if header == nil {
+				log.Error(" getDataset function getHead hash fail ", "blockNum is:  ", (uint64(i) + st_block_num))
+				return false
+			}
+			headerHash[i] = header.Hash().Bytes()
+		}
+		return true
+	}
+
+	if current.dateInit == 0 && epoch > 0 {
+		if !getHashList(&headerHash) {
+			return nil
+		}
+	}
+
+	current.Generate(epoch, &headerHash)
 
 	// when change the algorithm before 12000*n
 	if block >= (epoch+1)*UPDATABLOCKLENGTH-OFF_STATR {
+
 		go func() {
 			//log.Info("start to create a future dataset")
 			if futureI != nil {
-				future := futureI.(*dataset)
-				future.generate(m.datasets.future, m, nil)
+				future := futureI.(*Dataset)
+
+				getHashList(&headerHash)
+
+				future.Generate(m.datasets.future, &headerHash)
 			}
 		}()
 	}
@@ -393,37 +432,22 @@ func (m *Minerva) getDataset(block uint64) *dataset {
 	return current
 }
 
-// dataset tries to retrieve a mining dataset for the specified block number
-func (m *Minerva) getDatasetbyHeads(block uint64, headershash *[STARTUPDATENUM][]byte) *dataset {
-	// Retrieve the requested ethash dataset
-	//each 12000 change the mine algorithm block -1 is make sure the 12000 is use epoch 0
-	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
-	currentI, _ := m.datasets.get(epoch)
-	current := currentI.(*dataset)
-
-	current.generate(epoch, m, headershash)
-
-	log.Info("getDataset:", "epoch is ", current.epoch, "futrue epoch is", m.datasets.future, "blockNumber is ", block, "consistent is ", current.consistent, "dataset hash", current.datasetHash)
-
-	return current
-}
-
-func (d *dataset) Hash() common.Hash {
+func (d *Dataset) Hash() common.Hash {
 	return rlpHash(d.dataset)
 }
 
 // generate ensures that the dataset content is generated before use.
-func (d *dataset) generate(epoch uint64, m *Minerva, headershash *[STARTUPDATENUM][]byte) {
+func (d *Dataset) Generate(epoch uint64, headershash *[STARTUPDATENUM][]byte) {
 	d.once.Do(func() {
 		if d.dateInit == 0 {
 			if epoch <= 0 {
 				log.Info("TableInit is start", "epoch", epoch)
-				m.truehashTableInit(d.dataset)
+				d.truehashTableInit(d.dataset)
 				d.datasetHash = d.Hash()
 			} else {
 				// the new algorithm is use befor 10241 start block hear to calc
 				log.Info("updateLookupTBL is start", "epoch", epoch)
-				flag, _, cont := m.updateLookupTBL(epoch, d.dataset, headershash)
+				flag, _, cont := d.updateLookupTBL(d.dataset, headershash)
 				if flag {
 					// consistent is make sure the algorithm is current and not change
 					d.consistent = common.BytesToHash([]byte(cont))
@@ -571,7 +595,7 @@ func (m *Minerva) DataSetHash(block uint64) []byte {
 	output := make([]byte, DGSTSIZE)
 	epoch := uint64((block - 1) / UPDATABLOCKLENGTH)
 	currentI, _ := m.datasets.get(epoch)
-	current := currentI.(*dataset)
+	current := currentI.(*Dataset)
 
 	//getDataset
 	sha256 := makeHasher(sha3.New256())

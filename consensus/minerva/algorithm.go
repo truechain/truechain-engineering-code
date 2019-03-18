@@ -215,6 +215,10 @@ func truehashLight(dataset []uint64, hash []byte, nonce uint64) ([]byte, []byte)
 	return truehash(dataset[:], hash[:], nonce)
 }
 
+func TruehashLight(dataset []uint64, hash []byte, nonce uint64) ([]byte, []byte) {
+	return truehash(dataset[:], hash[:], nonce)
+}
+
 // truehashFull aggregates data from the full dataset (using the full in-memory
 // dataset) in order to produce our final value for a particular header hash and
 // nonce.
