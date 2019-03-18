@@ -1590,7 +1590,7 @@ func (cs *ConsensusState) addVote(vote *ttypes.Vote, peerID string) (added bool,
 				cs.enterNewRound(height, int(vote.Round)+1)
 			} else {
 				metrics.MTimes(metrics.PreCommitTime, true)
-				metrics.MTimesCount(metrics.FetchFastBlockRoundTC, time.Duration(vote.Round))
+				metrics.MTimesCount(metrics.FetchFastBlockRoundTC, time.Duration(vote.Round+1))
 				cs.enterNewRound(height, int(vote.Round))
 				cs.enterPrecommit(height, int(vote.Round))
 				cs.enterCommit(height, int(vote.Round))
