@@ -63,16 +63,19 @@ type btJSON struct {
 }
 
 type btBlock struct {
-	BlockHeader  *btHeader				`json:"blockHeader"`
+	BlockHeader  *btHeader
+	Txs    []*types.Transaction
+	Signs  []*types.PbftSign
+	Infos  []*types.CommitteeMember
 	Rlp          string
 }
 
 //go:generate gencodec -type btHeader -field-override btHeaderMarshaling -out gen_btheader.go
 
 type btHeader struct {
-	SnailHash		common.Hash
-	SnailNumber		*big.Int
-	CommitteeHash	common.Hash
+	SnailHash		 common.Hash
+	SnailNumber		 *big.Int
+	CommitteeHash	 common.Hash
 	Bloom            types.Bloom
 	Number           *big.Int
 	Hash             common.Hash

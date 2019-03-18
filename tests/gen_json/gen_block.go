@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/vm"
@@ -20,14 +21,16 @@ func main() {
 
 	db, _ := etruedb.NewLDBDatabase(path, cache, handles)
 	blockchain, _ := core.NewBlockChain(db, nil, params.AllMinervaProtocolChanges, minerva.NewFaker(), vm.Config{})
-	block := blockchain.GetBlockByNumber(2)
-	rlpstr := blockchain.GetBodyRLP(block.Hash())
+	block := blockchain.GetBlockByNumber(1)
+
+	byt ,_:= rlp.EncodeToBytes(block)
+
+	fmt.Println(hexutil.Bytes(byt))
 	str ,_ := trueapi.RPCMarshalBlock(block,true,true)
 
 	mjson,_ :=json.Marshal(str)
 	mString :=string(mjson)
 	fmt.Println(mString)
-	fmt.Println(hexutil.Bytes(rlpstr))
 
 }
 

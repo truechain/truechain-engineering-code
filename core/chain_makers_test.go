@@ -54,27 +54,19 @@ func ExampleGenerateChain() {
 		switch i {
 		case 0:
 			// In block 1, addr1 sends addr2 some ether.
-			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, nil, nil), signer, key1)
+			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, big.NewInt(1), nil), signer, key1)
 			gen.AddTx(tx)
 		case 1:
 			// In block 2, addr1 sends some more ether to addr2.
 			// addr2 passes it on to addr3.
-			tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(1000), params.TxGas, nil, nil), signer, key1)
-			tx2, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr3, big.NewInt(1000), params.TxGas, nil, nil), signer, key2)
+			tx1, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(1000), params.TxGas, big.NewInt(1), nil), signer, key1)
+			tx2, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr2), addr3, big.NewInt(1000), params.TxGas, big.NewInt(1) , nil), signer, key2)
 			gen.AddTx(tx1)
 			gen.AddTx(tx2)
 		case 2:
 			// Block 3 is empty but was mined by addr3.
 			gen.SetCoinbase(addr3)
 			gen.SetExtra([]byte("yeehaw"))
-			//case 3:
-			//	// Block 4 includes blocks 2 and 3 as uncle headers (with modified extra data).
-			//	b2 := gen.PrevBlock(1).Header()
-			//	b2.Extra = []byte("foo")
-			//	gen.AddUncle(b2)
-			//	b3 := gen.PrevBlock(2).Header()
-			//	b3.Extra = []byte("foo")
-			//	gen.AddUncle(b3)
 		}
 	})
 
