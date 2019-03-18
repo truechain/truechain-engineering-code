@@ -305,8 +305,7 @@ func exportChain(ctx *cli.Context) error {
 	fmt.Println(ctx.Args())
 	var err error
 
-	if  ctx.Args().Get(1) == "fast" {
-
+	if ctx.Args().Get(1) == "fast" {
 
 		fp := ctx.Args().First()
 		if len(ctx.Args()) < 3 {
@@ -324,7 +323,7 @@ func exportChain(ctx *cli.Context) error {
 			err = utils.ExportAppendChain(fchain, fp, uint64(first), uint64(last))
 		}
 
-	}else {
+	} else {
 
 		fp := ctx.Args().First()
 		if len(ctx.Args()) < 3 {
@@ -416,7 +415,7 @@ func copyDb(ctx *cli.Context) error {
 	speer := downloader.NewFakePeer("local", db, shc, sdl)
 	//fpeer := fastdownloader.NewFakePeer("local", db, hc, fdl)
 
-	if err = sdl.RegisterPeer("local", 63, speer); err != nil {
+	if err = sdl.RegisterPeer("local", 63, "chain", speer); err != nil {
 		return err
 	}
 	//if err = fdl.RegisterPeer("local", 63, fpeer); err != nil {
