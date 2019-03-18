@@ -434,7 +434,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	defer pm.removePeer(p.id)
 
 	//Register the peer in the downloader. If the downloader considers it banned, we disconnect
-	if err := pm.downloader.RegisterPeer(p.id, p.version, p); err != nil {
+	if err := pm.downloader.RegisterPeer(p.id, p.version, p.RemoteAddr().String(), p); err != nil {
 		p.Log().Error("Truechain downloader.RegisterPeer registration failed", "err", err)
 		return err
 	}
@@ -706,13 +706,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(headers) > 0 || !filter {
 			if headerData.Call == types.FetcherCall {
-				log.Warn("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
-			} else {
-				log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
-				err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
-				if err != nil {
-					log.Debug("Failed to deliver headers", "err", err)
-				}
+				log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
+			}
+			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
+			err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
+			if err != nil {
+				log.Debug("Failed to deliver headers", "err", err)
 			}
 		}
 
@@ -771,14 +770,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			if request.Call == types.FetcherCall {
-				log.Warn("FastBlockHeadersMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
-			} else {
-				log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
-				err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
-				if err != nil {
-					log.Debug("Failed to deliver bodies", "err", err)
-				}
+				log.Info("FastBlockHeadersMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
 			}
+			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
+			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
+			if err != nil {
+				log.Debug("Failed to deliver bodies", "err", err)
+			}
+
 		}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
