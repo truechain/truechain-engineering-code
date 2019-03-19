@@ -51,7 +51,7 @@ const (
 const (
 	chainHeadSize       = 256
 	electionChanSize    = 64
-	nodeSize            = 10
+	nodeSize            = 50
 	committeeIDChanSize = 3
 	sendNodeTime        = 3 * time.Minute
 	maxKnownNodes       = 512
@@ -947,14 +947,21 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 }
 
 func (agent *PbftAgent) verifyRewardInCommittee(fb *types.Block) error {
+	supposedRewardedNumber := agent.fastChain.NextSnailNumberReward()
+	currentSnailBlock := agent.snailChain.CurrentBlock().Number()
+	space := new(big.Int).Sub(currentSnailBlock, supposedRewardedNumber).Int64()
+
 	if fb.SnailNumber() != nil && fb.SnailNumber().Uint64() != 0 {
-		supposedRewardedNumber := agent.fastChain.NextSnailNumberReward()
-		currentSnailBlock := agent.snailChain.CurrentBlock().Number()
-		space := new(big.Int).Sub(currentSnailBlock, supposedRewardedNumber).Int64()
 		if space < params.SnailConfirmInterval.Int64() {
 			log.Error("validateRewardError", "currentSnailNumber", agent.snailChain.CurrentBlock().Number(),
 				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", core.ErrSnailNumberRewardTooFast)
 			return core.ErrSnailNumberRewardTooFast
+		}
+	} else {
+		if space > params.SnailMaximumRewardInterval.Int64() {
+			log.Error("validateRewardError", "currentSnailNumber", agent.snailChain.CurrentBlock().Number(),
+				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", core.ErrSnailNumberRewardTooFast)
+			return core.ErrSnailNumberRewardTooSlow
 		}
 	}
 	return nil
