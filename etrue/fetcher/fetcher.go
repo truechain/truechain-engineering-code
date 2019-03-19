@@ -39,11 +39,8 @@ const (
 	fetchTimeout     = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
 	lowCommitteeDist = 1                      // Maximum allowed backward distance from the chain head
 	maxQueueDist     = 512                    // Maximum allowed distance from the chain head to queue
-	maxSignDist      = 512                    // Maximum allowed distance from the chain head to queue
-	hashLimit        = 256                    // Maximum number of unique blocks a peer may have announced
-	blockLimit       = 128                    // Maximum number of unique blocks a peer may have delivered
-	signLimit        = 256                    // Maximum number of unique sign a peer may have delivered
-	lowSignDist      = 64                     // Maximum allowed sign distance from the chain head
+	hashLimit        = 512                    // Maximum number of unique blocks a peer may have announced
+	blockLimit       = 512                    // Maximum number of unique blocks a peer may have delivered
 )
 
 var (
@@ -258,11 +255,6 @@ func (f *Fetcher) Stop() {
 // the network.
 func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg notify number:%d", peer, number))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
 	block := &announce{
 		hash:        hash,
 		number:      number,
@@ -271,7 +263,6 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time
 		fetchHeader: headerFetcher,
 		fetchBodies: bodyFetcher,
 	}
-	log.Debug("Notify fast block hash", "peer", block.origin, "number", block.number, "hash", block.hash)
 
 	select {
 	case f.notify <- block:
@@ -283,12 +274,6 @@ func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time
 
 // Enqueue tries to fill gaps the the fetcher's future import queue.
 func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
-	watch := help.NewTWatch(3, fmt.Sprintf("peer: %s, handleMsg enqueue number:%d", peer, block.NumberU64()))
-	defer func() {
-		watch.EndWatch()
-		watch.Finish("end")
-	}()
-	log.Debug("Enqueue fast block", "peer", peer, "number", block.Number(), "hash", block.Hash().String())
 	op := &inject{
 		origin: peer,
 		block:  block,
@@ -344,6 +329,9 @@ func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.
 	// Retrieve the headers remaining after filtering
 	select {
 	case task := <-filter:
+		if len(task.headers) > 0 {
+			log.Debug("Filtering task headers", "peer", peer, "headers", len(task.headers), "number", task.headers[0].Number)
+		}
 		return task.headers
 	case <-f.quit:
 		return nil
@@ -372,6 +360,9 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	// Retrieve the bodies remaining after filtering
 	select {
 	case task := <-filter:
+		if len(task.transactions) > 0 {
+			log.Debug("Filtering task bodies", "peer", peer, "txs", len(task.transactions), "signs", len(task.signs), "number", task.signs[0][0].FastHeight)
+		}
 		return task.transactions, task.signs, task.infos
 	case <-f.quit:
 		return nil, nil, nil
@@ -386,7 +377,7 @@ func (f *Fetcher) loop() {
 	completeTimer := time.NewTimer(0)
 
 	for {
-		log.Debug("Loop start", "announced", len(f.announced), "fetching", len(f.fetching))
+		log.Debug("Loop start", "announced", len(f.announced), "fetching", len(f.fetching), "fetched", len(f.fetched), "completing", len(f.completing))
 		// Clean up any expired block fetches
 		for hash, announce := range f.fetching {
 			if time.Since(announce.time) > fetchTimeout {
@@ -424,7 +415,7 @@ func (f *Fetcher) loop() {
 					}
 					// Otherwise if fresh and still unknown, try and import
 					if number <= height {
-						log.Info("Height has exist", "num", number, "height", height, "peer", peer, "hash", hash)
+						log.Info("Block has already exist", "num", number, "height", height, "peer", peer, "hash", hash)
 						f.forgetBlockHeight(big.NewInt(int64(number)))
 						break
 					}
@@ -476,7 +467,6 @@ func (f *Fetcher) loop() {
 				break
 			}
 		}
-		log.Debug("Loop middle", "fetched", len(f.fetched), "completing", len(f.completing))
 		// Wait for an outside event to occur
 		select {
 		case <-f.quit:
@@ -767,21 +757,9 @@ func (f *Fetcher) rescheduleComplete(complete *time.Timer) {
 func (f *Fetcher) enqueueSign(peer string, signs []*types.PbftSign) {
 	hash := signs[0].Hash()
 	number := signs[0].FastHeight.Uint64()
-	height := f.chainHeight()
 
 	// Ensure the peer isn't DOSing us
 	count := f.queuesSign[peer] + 1
-	if count > signLimit {
-		log.Info("Discarded propagated sign, exceeded allowance", "peer", peer, "number", number, "hash", hash, "limit", signLimit)
-		propSignDOSMeter.Mark(1)
-		return
-	}
-	// Discard any past or too distant signs
-	if dist := int64(number) - int64(height); dist < -lowSignDist || dist > maxSignDist {
-		log.Info("Discarded propagated sign, too far away", "peer", peer, "number", number, "hash", hash, "distance", dist)
-		propSignDropMeter.Mark(1)
-		return
-	}
 
 	verifySigns := []*types.PbftSign{}
 	for _, sign := range signs {

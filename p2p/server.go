@@ -53,10 +53,10 @@ const (
 
 	// Maximum time allowed for reading a complete message.
 	// This is effectively the amount of time a connection can be idle.
-	frameReadTimeout = 30 * time.Second
+	frameReadTimeout = 20 * time.Second
 
 	// Maximum amount of time allowed for writing a complete message.
-	frameWriteTimeout = 30 * time.Second
+	frameWriteTimeout = 20 * time.Second
 )
 
 var errServerStopped = errors.New("server stopped")
