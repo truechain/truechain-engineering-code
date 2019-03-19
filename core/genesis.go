@@ -366,7 +366,7 @@ func (g *Genesis) ToSnailBlock(db etruedb.Database) *types.SnailBlock {
 		ParentHash:      g.ParentHash,
 		FastNumber:      fastBlock.Number(),
 		FastHash:        fastBlock.Hash(),
-		FruitDifficulty: g.Difficulty,
+		FruitDifficulty: new(big.Int).Div(g.Difficulty, params.FruitBlockRatio),
 		Coinbase:        g.Coinbase,
 	}
 	fruit := types.NewSnailBlock(fruitHead, nil, nil, nil)
@@ -383,7 +383,7 @@ func (g *Genesis) CommitSnail(db etruedb.Database) (*types.SnailBlock, error) {
 	}
 	snaildb.WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty)
 	snaildb.WriteBlock(db, block)
-	//snaildb.WriteReceipts(db, block.Hash(), block.NumberU64(), nil)
+	snaildb.WriteFtLookupEntries(db, block)
 	snaildb.WriteCanonicalHash(db, block.Hash(), block.NumberU64())
 	snaildb.WriteHeadBlockHash(db, block.Hash())
 	snaildb.WriteHeadHeaderHash(db, block.Hash())
