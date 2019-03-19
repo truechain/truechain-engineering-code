@@ -158,7 +158,7 @@ type BlockChain struct {
 // Processor.
 func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 	chainConfig *params.ChainConfig, engine consensus.Engine,
-	vmConfig vm.Config) (*BlockChain, error) {
+	vmConfig vm.Config,sc SnailChain) (*BlockChain, error) {
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
@@ -195,6 +195,7 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 		engine:        engine,
 		vmConfig:      vmConfig,
 		badBlocks:     badBlocks,
+		sc:sc,
 		isFallback:		false,
 
 	}
@@ -407,16 +408,19 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	}
 
 	// Restore the last known currentReward
-	currentReward := bc.GetLastRow()
-	if currentReward != nil {
-		bc.currentReward.Store(currentReward)
+	if bc.CurrentBlock().NumberU64() != 0 {
+		currentReward := bc.GetLastRow()
+		if currentReward != nil {
+			bc.currentReward.Store(currentReward)
+			rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
+		}
 	}
 
 	currentBlock := bc.CurrentBlock()
 	currentFastBlock := bc.CurrentFastBlock()
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
-	rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())
+
 
 	return bc.loadLastState()
 }
@@ -449,6 +453,9 @@ func (bc *BlockChain) GasLimit() uint64 {
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentBlock() *types.Block {
+	if bc.currentBlock.Load() == nil {
+		return nil
+	}
 	return bc.currentBlock.Load().(*types.Block)
 }
 
@@ -475,12 +482,18 @@ func (bc *BlockChain) NextSnailNumberReward() *big.Int {
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {
+	if bc.currentFastBlock.Load() == nil {
+		return nil
+	}
 	return bc.currentFastBlock.Load().(*types.Block)
 }
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentLastBlock() *types.Block {
+	if bc.lastBlock.Load() == nil {
+		return nil
+	}
 	return bc.lastBlock.Load().(*types.Block)
 }
 
@@ -544,10 +557,8 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	// Prepare the genesis block and reinitialise the chain
-	//if err := bc.hc.WriteTd(genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
-	//	log.Crit("Failed to write genesis block TD", "err", err)
-	//}
+
+
 	rawdb.WriteBlock(bc.db, genesis)
 
 	bc.genesisBlock = genesis

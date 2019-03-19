@@ -429,7 +429,7 @@ func (fhc *HeaderChain) SetHead(head uint64, delFn FastDeleteCallback) {
 			delFn(batch, hash, num)
 		}
 		rawdb.DeleteHeader(batch, hash, num)
-		rawdb.DeleteTd(batch, hash, num)
+		//rawdb.DeleteTd(batch, hash, num)
 
 		fhc.currentHeader.Store(fhc.GetHeader(hdr.ParentHash, hdr.Number.Uint64()-1))
 	}
