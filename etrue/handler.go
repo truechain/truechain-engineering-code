@@ -693,9 +693,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		copy(headers, headerData.Headers)
 
 		filter := len(headers) == 1
-		if len(headers) > 0 && headerData.Call == types.DownloaderCall {
-			log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "call", headerData.Call)
-		} else {
+		if len(headers) > 0 {
 			log.Debug("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "call", headerData.Call)
 		}
 
@@ -770,7 +768,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			if request.Call == types.FetcherCall {
-				log.Info("FastBlockHeadersMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+				log.Info("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
 			}
 			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
 			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
