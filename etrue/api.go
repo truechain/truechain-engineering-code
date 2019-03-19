@@ -103,8 +103,12 @@ type PublicMinerAPI struct {
 
 // NewPublicMinerAPI create a new PublicMinerAPI instance.
 func NewPublicMinerAPI(e *Truechain) *PublicMinerAPI {
+
 	agent := miner.NewRemoteAgent(e.BlockChain(), e.SnailBlockChain(), e.Engine())
-	e.Miner().Register(agent)
+
+	if e.Config().RemoteMine {
+		e.Miner().Register(agent)
+	}
 
 	return &PublicMinerAPI{e, agent}
 }

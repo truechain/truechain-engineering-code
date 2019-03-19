@@ -175,6 +175,9 @@ type Config struct {
 	//true indicate only mine fruit
 	Mine bool `toml:",omitempty"`
 
+	//true indicate only remote mine
+	RemoteMine bool `toml:",omitempty"`
+
 	//start for old pbft server
 	OldTbft bool `toml:",omitempty"`
 }

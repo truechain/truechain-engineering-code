@@ -94,6 +94,7 @@ var (
 		utils.MinerThreadsFlag,
 		utils.MineFruitFlag,
 		utils.MiningEnabledFlag,
+		utils.MiningRemoteEnableFlag,
 		utils.TargetGasLimitFlag,
 		utils.NATFlag,
 		utils.NoDiscoverFlag,

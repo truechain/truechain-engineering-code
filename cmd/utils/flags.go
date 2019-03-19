@@ -341,6 +341,12 @@ var (
 		Name:  "mine",
 		Usage: "Enable mining",
 	}
+
+	MiningRemoteEnableFlag = cli.BoolFlag{
+		Name:  "remote",
+		Usage: "Enable remote mining",
+	}
+
 	MineFruitFlag = cli.BoolFlag{
 		Name:  "minefruit",
 		Usage: "only mine fruit",
@@ -1076,6 +1082,9 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalBool(MiningEnabledFlag.Name) {
 		cfg.Mine = true
+	}
+	if ctx.GlobalBool(MiningRemoteEnableFlag.Name) {
+		cfg.RemoteMine = true
 	}
 	if ctx.GlobalBool(OldTbftFlag.Name) {
 		cfg.OldTbft = true

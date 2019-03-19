@@ -93,7 +93,7 @@ var committeemembers []*types.CommitteeMember
 
 // New is create a miner object
 func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine,
-	election CommitteeElection, mineFruit bool, singleNode bool) *Miner {
+	election CommitteeElection, mineFruit bool, singleNode bool, remoteMining bool) *Miner {
 	miner := &Miner{
 		truechain:  truechain,
 		mux:        mux,
@@ -107,7 +107,9 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 		canStart:   1,
 	}
 
-	miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
+	if !remoteMining {
+		miner.Register(NewCPUAgent(truechain.SnailBlockChain(), engine))
+	}
 	miner.electionSub = miner.election.SubscribeElectionEvent(miner.electionCh)
 
 	go miner.SetFruitOnly(mineFruit)
