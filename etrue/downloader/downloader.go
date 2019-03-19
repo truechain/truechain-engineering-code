@@ -316,7 +316,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 // adding various sanity checks as well as wrapping it with various log entries.
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
 	err := d.synchronise(id, head, td, mode)
-	defer log.Info("snail Synchronise exit")
+	defer log.Debug("snail Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -354,9 +354,9 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	defer atomic.StoreInt32(&d.synchronising, 0)
 
 	// Post a user notification of the sync (only once per session)
-	//if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-	log.Info("snail Block synchronisation started")
-	//}
+	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
+		log.Info("snail Block synchronisation started")
+	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()
 	d.peers.Reset()

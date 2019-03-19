@@ -335,7 +335,7 @@ func (d *Downloader) UnregisterPeer(id string) error {
 func (d *Downloader) Synchronise(id string, head common.Hash, mode SyncMode, origin uint64, height uint64) error {
 
 	err := d.synchronise(id, head, mode, origin, height)
-	defer log.Info("fast Synchronise exit")
+	defer log.Debug("fast Synchronise exit")
 	switch err {
 	case nil:
 	case errBusy:
@@ -374,7 +374,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, mode SyncMode, ori
 
 	// Post a user notification of the sync (only once per session)
 	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
-		log.Info("Fast Block synchronisation started", "origin", origin, "height", height)
+		log.Info("Fast Block synchronisation started", "origin", origin, "height", height,"mode", d.mode)
 	}
 
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
@@ -429,7 +429,6 @@ func (d *Downloader) syncWithPeer(p etrue.PeerConnection, hash common.Hash, orig
 		return errTooOld
 	}
 
-	log.Info("Fast Synchronising with the network", "peer", p.GetID(), "eth", p.GetVersion(), "head", hash, "mode", d.mode, "origin", origin, "height", height)
 	defer func(start time.Time) {
 		log.Debug("Fast Synchronisation terminated", "elapsed", time.Since(start))
 	}(time.Now())
@@ -713,7 +712,7 @@ func (d *Downloader) fetchHeaders(p etrue.PeerConnection, from uint64, height in
 			// Header retrieval timed out, consider the peer bad and drop
 			p.GetLog().Debug("Fast Header request timed out", "elapsed", ttl)
 			headerTimeoutMeter.Mark(1)
-			p.GetLog().Info("drop peer fast fetchHeaders timout ", "id", p.GetID())
+			p.GetLog().Trace("drop peer fast fetchHeaders timout ", "id", p.GetID())
 			d.dropPeer(p.GetID())
 
 			// Finish the sync gracefully instead of dumping the gathered data though
