@@ -50,16 +50,11 @@ import (
 var ErrInvalidDumpMagic = errors.New("invalid dump magic")
 
 var (
-	// maxUint256 is a big integer representing 2^256-1
-	maxUint256 = new(big.Int).Exp(big.NewInt(2), big.NewInt(256), big.NewInt(0))
-
+	// maxUint218 is a big integer representing 2^218-1
 	maxUint128 = new(big.Int).Exp(big.NewInt(2), big.NewInt(128), big.NewInt(0))
 
 	// sharedMinerva is a full instance that can be shared between multiple users.
 	sharedMinerva = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
-
-	// algorithmRevision is the data structure version used for file naming.
-	algorithmRevision = 1
 
 	// dumpMagic is a dataset dump header to sanity check a data dump.
 	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
@@ -94,18 +89,6 @@ var (
 
 	//SqrtMax ...
 	SqrtMax = 6400
-
-	//SnailBlockBodyFruitInitial Snail block body fruit initial 30*10^15
-	SnailBlockBodyFruitInitial = new(big.Int).Mul(big.NewInt(30), big.NewInt(1e15))
-
-	//SnailBlockRewardsFruitRatio Snail block rewards fruit ratio  10%
-	SnailBlockRewardsFruitRatio = 0.1
-
-	//CommitteesCount Number of committees
-	CommitteesCount = new(big.Int).SetInt64(1)
-
-	//MinerCount Miner quantity
-	MinerCount = new(big.Int).SetInt64(1)
 )
 
 // ConstSqrt ...
