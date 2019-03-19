@@ -60,9 +60,6 @@ const (
 	maxTimeFutureBlocks = 30
 	badBlockLimit       = 10
 	triesInMemory       = 128
-
-	// SnailBlockChainVersion ensures that an incompatible database forces a resync from scratch.
-	SnailBlockChainVersion = 3
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning
