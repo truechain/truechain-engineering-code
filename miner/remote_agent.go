@@ -119,11 +119,11 @@ func (a *RemoteAgent) GetHashRate() (tot int64) {
 }
 
 //GetWork return the current block hash without nonce
-func (a *RemoteAgent) GetWork() ([3]string, error) {
+func (a *RemoteAgent) GetWork() ([4]string, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	var res [3]string
+	var res [4]string
 
 	if a.currentWork != nil {
 		block := a.currentWork.Block
@@ -133,6 +133,7 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		res[1] = hex.EncodeToString(DatasetHash)
 		// Calculate the "target" to be returned to the external miner
 		res[2] = common.BytesToHash(block.FruitDifficulty().Bytes()).Hex()
+		res[3] = common.BytesToHash(block.BlockDifficulty().Bytes()).Hex()
 		a.work[block.HashNoNonce()] = a.currentWork
 		return res, nil
 	}
