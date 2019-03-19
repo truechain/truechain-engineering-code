@@ -1324,7 +1324,7 @@ func (pm *ProtocolManager) txBroadcastLoop() {
 				txs = append(txs, tx)
 			}
 
-			if len(pm.txsCh) > 0 && len(txs) < txPackSize {
+			if len(pm.txsCh) > txPackSize && len(txs) < txPackSize {
 				log.Debug("txBroadcastLoop", "txsCh", len(pm.txsCh), "Txs", len(eventTx.Txs), "txs", len(txs))
 				continue
 			}
@@ -1369,7 +1369,7 @@ func (pm *ProtocolManager) fruitBroadcastLoop() {
 				fruits = append(fruits, fruit)
 			}
 
-			if len(pm.txsCh) > 0 && len(fruits) < fruitPackSize {
+			if len(pm.txsCh) > fruitPackSize && len(fruits) < fruitPackSize {
 				log.Debug("fruitBroadcastLoop", "fruitsch", len(pm.fruitsch), "Fts", len(fruitsEvent.Fruits), "fts", len(fruits))
 				continue
 			}
