@@ -274,7 +274,7 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
 	if head > bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64() {
 		log.Error("the height can't set,because it is higher than current height", "height", head, "current height", bc.currentBlock.Load().(*types.SnailBlock).Number().Uint64())
-		return errors.New("the height is too high,can not be set")
+		return errors.New("the height you give is too high,can not be set")
 	}
 	/*	err := bc.Validator().ValidateRewarded(head + 1)
 		if err != nil {
