@@ -51,7 +51,6 @@ func init() {
 	MaxForkAncestry = uint64(10000)
 	blockCacheItems = 25
 	fsHeaderContCheck = 500 * time.Millisecond
-	//fsMinFullBlocks = 16       // Number of blocks to retrieve fully even in fast sync
 }
 
 // downloadTester is a test simulator for mocking out local block chain.
@@ -87,7 +86,6 @@ func newTester() *downloadTester {
 
 	tester := &downloadTester{
 		genesis: genesis,
-
 		peerDb:            testdb,
 		ownHashes:         []common.Hash{genesis.Hash()},
 		ownHeaders:        map[common.Hash]*types.SnailHeader{genesis.Hash(): genesis.Header()},
@@ -131,12 +129,9 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	})
 
 	fastchain.InsertChain(fastblocks)
-
 	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
 
-	blocks, err := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
-
-	fmt.Print(err)
+	blocks, _ := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
 	snailChain.InsertChain(blocks)
 
 	// Convert the block-chain into a hash-chain and header/block maps
@@ -648,21 +643,7 @@ func assertOwnForkedChain(t *testing.T, tester *downloadTester, common int, leng
 	if bs := len(tester.ownBlocks); bs != blocks {
 		t.Fatalf("synchronised blocks mismatch: have %v, want %v", bs, blocks)
 	}
-	// Verify the state trie too for fast syncs
-	/*if tester.downloader.mode == FastSync {
-		pivot := uint64(0)
-		var index int
-		if pivot := int(tester.downloader.queue.fastSyncPivot); pivot < common {
-			index = pivot
-		} else {
-			index = len(tester.ownHashes) - lengths[len(lengths)-1] + int(tester.downloader.queue.fastSyncPivot)
-		}
-		if index > 0 {
-			if statedb, err := state.New(tester.ownHeaders[tester.ownHashes[index]].Root, state.NewDatabase(trie.NewDatabase(tester.stateDb))); statedb == nil || err != nil {
-				t.Fatalf("state reconstruction failed: %v", err)
-			}
-		}
-	}*/
+
 }
 
 // Tests that simple synchronization against a canonical chain works correctly.
@@ -670,14 +651,15 @@ func assertOwnForkedChain(t *testing.T, tester *downloadTester, common int, leng
 // binary searching.
 func TestCanonicalSynchronisation62(t *testing.T)      { testCanonicalSynchronisation(t, 62, FullSync) }
 func TestCanonicalSynchronisation63Full(t *testing.T)  { testCanonicalSynchronisation(t, 63, FullSync) }
+func TestCanonicalSynchronisation63Fast(t *testing.T)  { testCanonicalSynchronisation(t, 63, FastSync) }
 func TestCanonicalSynchronisation64Full(t *testing.T)  { testCanonicalSynchronisation(t, 64, FullSync) }
 
 func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	t.Parallel()
 
 	tester := newTester()
-	//defer tester.terminate()
-	//
+	defer tester.terminate()
+
 	//// Create a small enough block chain to download
 	targetBlocks := blockCacheItems - 15
 
@@ -693,9 +675,7 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	if err := tester.sync("peer", nil, mode); err != nil {
 		t.Fatalf("failed to synchronise blocks: %v", err)
 	}
-
 	assertOwnChain(t, tester, targetBlocks+1)
-	fmt.Println("ok")
 
 }
 
