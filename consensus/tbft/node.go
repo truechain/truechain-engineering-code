@@ -666,7 +666,7 @@ func (n *Node) GetCommitteeStatus(committeeID *big.Int) map[string]interface{} {
 
 func (n *Node) IsLeader(committeeID *big.Int) bool {
 	s := getCommittee(n, committeeID.Uint64())
-	if s != nil {
+	if s != nil && s.consensusState != nil {
 		return s.consensusState.isProposer()
 	}
 	return false
