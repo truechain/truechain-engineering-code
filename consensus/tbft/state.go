@@ -831,7 +831,7 @@ func (cs *ConsensusState) enterPropose(height uint64, round int, blk *types.Bloc
 }
 
 func (cs *ConsensusState) isProposer() bool {
-	if cs.Validators.GetProposer() == nil || cs.privValidator == nil {
+	if cs.Validators == nil || cs.Validators.GetProposer() == nil || cs.privValidator == nil {
 		return false
 	}
 	return bytes.Equal(cs.Validators.GetProposer().Address, cs.privValidator.GetAddress())
