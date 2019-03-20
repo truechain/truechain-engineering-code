@@ -108,7 +108,6 @@ type BlockChain struct {
 	gcproc time.Duration    // Accumulates canonical block processing for trie dumping
 
 	hc               *HeaderChain
-	sc               SnailChain
 	rmLogsFeed       event.Feed
 	chainFeed        event.Feed
 	chainSideFeed    event.Feed
@@ -158,7 +157,7 @@ type BlockChain struct {
 // Processor.
 func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 	chainConfig *params.ChainConfig, engine consensus.Engine,
-	vmConfig vm.Config,sc SnailChain) (*BlockChain, error) {
+	vmConfig vm.Config) (*BlockChain, error) {
 
 	if cacheConfig == nil {
 		cacheConfig = &CacheConfig{
@@ -195,7 +194,6 @@ func NewBlockChain(db etruedb.Database, cacheConfig *CacheConfig,
 		engine:        engine,
 		vmConfig:      vmConfig,
 		badBlocks:     badBlocks,
-		sc:sc,
 		isFallback:		false,
 
 	}
@@ -323,25 +321,8 @@ func (bc *BlockChain) loadLastState() error {
 	return nil
 }
 
-func (bc *BlockChain) GetLastRow() *types.BlockReward {
 
-	sNumber := bc.sc.CurrentBlock().NumberU64()
-
-	//fmt.Println(sNumber)
-	for i := sNumber; i > 0; i-- {
-
-		sBlock := bc.sc.GetBlockByNumber(i)
-		if sBlock == nil {
-			continue
-		}
-		reward := bc.GetBlockReward(sBlock.NumberU64())
-		if reward != nil {
-			return reward
-		}
-	}
-	return nil
-}
-
+//Gets the nearest reward block based on the current height of the fast chain
 func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 	block := bc.CurrentBlock()
 
@@ -409,7 +390,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 
 	// Restore the last known currentReward
 	if bc.CurrentBlock().NumberU64() != 0 {
-		currentReward := bc.GetLastRow()
+		currentReward := bc.GetLastRowByFastCurrentBlock()
 		if currentReward != nil {
 			bc.currentReward.Store(currentReward)
 			rawdb.WriteHeadRewardNumber(bc.db, currentReward.SnailNumber.Uint64())

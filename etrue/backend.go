@@ -177,7 +177,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Truechain, error) {
 		cacheConfig = &core.CacheConfig{Deleted: config.DeletedState, Disabled: config.NoPruning, TrieNodeLimit: config.TrieCache, TrieTimeLimit: config.TrieTimeout}
 	)
 
-	etrue.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, etrue.chainConfig, etrue.engine, vmConfig, etrue.snailblockchain)
+	etrue.blockchain, err = core.NewBlockChain(chainDb, cacheConfig, etrue.chainConfig, etrue.engine, vmConfig)
 	if err != nil {
 		return nil, err
 	}

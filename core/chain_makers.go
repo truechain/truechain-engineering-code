@@ -281,7 +281,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 	genesis := BaseGenesis.MustFastCommit(db)
 	// Initialize a fresh chain with only a genesis block
 	//Initialize a new chain
-	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{},nil)
+	blockchain, _ := NewBlockChain(db, nil, params.AllMinervaProtocolChanges, engine, vm.Config{})
 	// Create and inject the requested chain
 	if n == 0 {
 		return db, blockchain, nil

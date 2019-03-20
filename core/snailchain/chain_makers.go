@@ -438,7 +438,7 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	}
 
 	fastGenesis := genesis.MustFastCommit(testdb)
-	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{},nil)
+	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	//engine.SetElection(core.NewFakeElection())
 	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, fastBlockNumbers, func(i int, b *core.BlockGen) {
