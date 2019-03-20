@@ -18,7 +18,7 @@ import (
 
 const (
 	//HealthOut peer time out
-	HealthOut = 1200
+	HealthOut = 1800
 
 	BlackDoorCount = 4
 
