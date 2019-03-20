@@ -704,12 +704,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(headers) > 0 || !filter {
 			if headerData.Call == types.FetcherCall {
-				log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
-			}
-			log.Debug("FastBlockHeadersMsg", "len(headers)", len(headers), "filter", filter)
-			err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
-			if err != nil {
-				log.Debug("Failed to deliver headers", "err", err)
+				log.Warn("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("FastBlockHeadersMsg", "headers", len(headers), "filter", filter)
+				err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
+				if err != nil {
+					log.Debug("Failed to deliver headers", "err", err)
+				}
 			}
 		}
 
@@ -768,14 +769,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			if request.Call == types.FetcherCall {
-				log.Info("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+				log.Warn("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+			} else {
+				log.Debug("FastBlockBodiesMsg", "transactions", len(transactions), "signs", len(signs), "infos", len(infos), "filter", filter)
+				err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
+				if err != nil {
+					log.Debug("Failed to deliver bodies", "err", err)
+				}
 			}
-			log.Debug("FastBlockBodiesMsg", "len(transactions)", len(transactions), "len(signs)", len(signs), "len(infos)", len(infos), "filter", filter)
-			err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)
-			if err != nil {
-				log.Debug("Failed to deliver bodies", "err", err)
-			}
-
 		}
 
 	case msg.Code == GetSnailBlockBodiesMsg:
@@ -1021,8 +1022,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			p.MarkSign(sign.Hash())
 		}
-		// committee no current block
-		pm.fetcherFast.EnqueueSign(p.id, signs)
 
 		//fruit structure
 
