@@ -255,9 +255,9 @@ func (d *Downloader) Progress() truechain.SyncProgress {
 	current := d.blockchain.CurrentBlock().NumberU64()
 
 	return truechain.SyncProgress{
-		StartingBlock: d.syncStatsChainOrigin,
-		CurrentBlock:  current,
-		HighestBlock:  d.syncStatsChainHeight,
+		StartingSnailBlock: d.syncStatsChainOrigin,
+		CurrentSnailBlock:  current,
+		HighestSnailBlock:  d.syncStatsChainHeight,
 		PulledStates:  d.syncStatsState.processed,
 		KnownStates:   d.syncStatsState.processed + d.syncStatsState.pending,
 	}
