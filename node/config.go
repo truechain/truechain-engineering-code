@@ -467,14 +467,21 @@ func (c *Config) BftCommitteeKey() *ecdsa.PrivateKey {
 	}
 	return key
 }
-func (c *Config) SaveEncryptBftKey(endata []byte) error {
+func (c *Config) GetBftkeyFile() (string, error) {
 	keyfile := c.ResolvePath(bftCommitteePrivateKey)
 	instanceDir := filepath.Join(c.DataDir, c.name())
 	if err := os.MkdirAll(instanceDir, 0700); err != nil {
-		log.Error(fmt.Sprintf("Failed to persist node key: %v", err))
-		return err
+		log.Error(fmt.Sprintf("Failed to get BftkeyFile: %v", err))
+		return "", err
 	}
 	keyfile = filepath.Join(instanceDir, bftCommitteePrivateKey)
+	return keyfile, nil
+}
+func (c *Config) SaveEncryptBftKey(endata []byte) error {
+	keyfile, ferr := c.GetBftkeyFile()
+	if ferr != nil {
+		return ferr
+	}
 	err := ioutil.WriteFile(keyfile, endata, 0644)
 	if err != nil {
 		log.Error("SaveEncryptBftKey failed:", err)

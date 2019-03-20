@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -18,10 +19,13 @@ func pkcs5Padding(ciphertext []byte, blockSize int) []byte {
 	return append(ciphertext, padtext...)
 }
 
-func pkcs5UnPadding(origData []byte) []byte {
+func pkcs5UnPadding(origData []byte) ([]byte, error) {
 	length := len(origData)
 	unpadding := int(origData[length-1])
-	return origData[:(length - unpadding)]
+	if unpadding > length {
+		return nil, errors.New("wrong data len")
+	}
+	return origData[:(length - unpadding)], nil
 }
 
 func aesEncrypt(origData, key []byte) ([]byte, error) {
@@ -48,8 +52,7 @@ func aesDecrypt(crypted, key []byte) ([]byte, error) {
 	blockMode := cipher.NewCBCDecrypter(block, key[:blockSize])
 	origData := make([]byte, len(crypted))
 	blockMode.CryptBlocks(origData, crypted)
-	origData = pkcs5UnPadding(origData)
-	return origData, nil
+	return pkcs5UnPadding(origData)
 }
 
 func getpasswordFromScreen(create bool) string {
