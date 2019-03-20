@@ -18,14 +18,12 @@
 package minerva
 
 import (
-	"encoding/binary"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"hash"
 )
 
 const (
-	epochLength    = 12000 // Blocks per epoch
-	datasetParents = 256   // Number of parents of each dataset element
+	epochLength = 12000 // Blocks per epoch
 )
 
 //var trueInit int = 0;
@@ -58,28 +56,6 @@ func seedHash(block uint64) []byte {
 		sha256(seed, seed)
 	}
 	return seed
-}
-
-// swap changes the byte order of the buffer assuming a uint32 representation.
-func swap(buffer []byte) {
-	for i := 0; i < len(buffer); i += 4 {
-		binary.BigEndian.PutUint32(buffer[i:], binary.LittleEndian.Uint32(buffer[i:]))
-	}
-}
-
-// fnv is an algorithm inspired by the FNV hash, which in some cases is used as
-// a non-associative substitute for XOR. Note that we multiply the prime with
-// the full 32-bit input, in contrast with the FNV-1 spec which multiplies the
-// prime with one byte (octet) in turn.
-func fnv(a, b uint32) uint32 {
-	return a*0x01000193 ^ b
-}
-
-// fnvHash mixes in data into mix using the ethash fnv method.
-func fnvHash(mix []uint32, data []uint32) {
-	for i := 0; i < len(mix); i++ {
-		mix[i] = mix[i]*0x01000193 ^ data[i]
-	}
 }
 
 // truehash aggregates data from the full dataset in order to produce our final

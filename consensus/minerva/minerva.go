@@ -20,20 +20,9 @@ package minerva
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
-	"math/big"
-	"math/rand"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strconv"
-	"sync"
-	"time"
-	"unsafe"
-
-	"encoding/binary"
-	"github.com/edsrzf/mmap-go"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
@@ -44,6 +33,10 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"math/big"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 // ErrInvalidDumpMagic errorinfo
@@ -55,12 +48,6 @@ var (
 
 	// sharedMinerva is a full instance that can be shared between multiple users.
 	sharedMinerva = New(Config{"", 3, 0, "", 1, 0, ModeNormal})
-
-	// dumpMagic is a dataset dump header to sanity check a data dump.
-	dumpMagic = []uint32{0xbaddcafe, 0xfee1dead}
-
-	//SnailBlockRewardsInitial Snail block rewards initial 116.48733*10^18
-	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
 
 	//SnailBlockRewardsBase Snail block rewards base value is 115.555555555555 * 10^12
 	SnailBlockRewardsBase = 115555555555555
@@ -95,94 +82,6 @@ var (
 type ConstSqrt struct {
 	Num  int     `json:"num"`
 	Sqrt float64 `json:"sqrt"`
-}
-
-// isLittleEndian returns whether the local system is running in little or big
-// endian byte order.
-func isLittleEndian() bool {
-	n := uint32(0x01020304)
-	return *(*byte)(unsafe.Pointer(&n)) == 0x04
-}
-
-// memoryMap tries to memory map a file of uint32s for read only access.
-func memoryMap(path string) (*os.File, mmap.MMap, []uint32, error) {
-	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	mem, buffer, err := memoryMapFile(file, false)
-	if err != nil {
-		file.Close()
-		return nil, nil, nil, err
-	}
-	for i, magic := range dumpMagic {
-		if buffer[i] != magic {
-			mem.Unmap()
-			file.Close()
-			return nil, nil, nil, ErrInvalidDumpMagic
-		}
-	}
-	return file, mem, buffer[len(dumpMagic):], err
-}
-
-// memoryMapFile tries to memory map an already opened file descriptor.
-func memoryMapFile(file *os.File, write bool) (mmap.MMap, []uint32, error) {
-	// Try to memory map the file
-	flag := mmap.RDONLY
-	if write {
-		flag = mmap.RDWR
-	}
-	mem, err := mmap.Map(file, flag, 0)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Yay, we managed to memory map the file, here be dragons
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&mem))
-	header.Len /= 4
-	header.Cap /= 4
-
-	return mem, *(*[]uint32)(unsafe.Pointer(&header)), nil
-}
-
-// memoryMapAndGenerate tries to memory map a temporary file of uint32s for write
-// access, fill it with the data from a generator and then move it into the final
-// path requested.
-func memoryMapAndGenerate(path string, size uint64, generator func(buffer []uint32)) (*os.File, mmap.MMap, []uint32, error) {
-	// Ensure the data folder exists
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return nil, nil, nil, err
-	}
-	// Create a huge temporary empty file to fill with data
-	temp := path + "." + strconv.Itoa(rand.Int())
-
-	dump, err := os.Create(temp)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if err = dump.Truncate(int64(len(dumpMagic))*4 + int64(size)); err != nil {
-		return nil, nil, nil, err
-	}
-	// Memory map the file for writing and fill it with the generator
-	mem, buffer, err := memoryMapFile(dump, true)
-	if err != nil {
-		dump.Close()
-		return nil, nil, nil, err
-	}
-	copy(buffer, dumpMagic)
-
-	data := buffer[len(dumpMagic):]
-	generator(data)
-
-	if err := mem.Unmap(); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := dump.Close(); err != nil {
-		return nil, nil, nil, err
-	}
-	if err := os.Rename(temp, path); err != nil {
-		return nil, nil, nil, err
-	}
-	return memoryMap(path)
 }
 
 // lru tracks caches or datasets by their last use time, keeping at most N of them.

@@ -30,7 +30,11 @@ import (
 	osMath "math"
 )
 
-var FrontierBlockReward = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+var (
+	FrontierBlockReward = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+	//SnailBlockRewardsInitial Snail block rewards initial 116.48733*10^18
+	SnailBlockRewardsInitial = new(big.Int).Mul(big.NewInt(11648733), big.NewInt(1e13))
+)
 
 type diffTest struct {
 	ParentTimestamp    uint64

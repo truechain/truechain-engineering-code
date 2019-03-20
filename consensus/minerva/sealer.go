@@ -80,11 +80,6 @@ func (m *Minerva) Seal(chain consensus.SnailChainReader, block *types.SnailBlock
 		// Outside abort, stop all miner threads
 		close(abort)
 		//TODO found function
-		/*
-			case result = <-found:
-				// One of the threads found a block, abort all others
-				close(abort)
-		*/
 	case <-m.update:
 		// Thread count was changed on user request, restart
 		close(abort)
