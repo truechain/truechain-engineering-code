@@ -40,7 +40,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/state"
@@ -1308,18 +1308,17 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	// 	//TODO not need clique
 	// 	//engine = clique.New(config.Clique, chainDb)
 	// } else {
-	engine = ethash.NewFaker()
+	engine = minerva.NewFaker()
 	if !ctx.GlobalBool(FakePoWFlag.Name) {
-		engine = ethash.New(ethash.Config{
-			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.Ethash.CacheDir),
-			CachesInMem:    etrue.DefaultConfig.Ethash.CachesInMem,
-			CachesOnDisk:   etrue.DefaultConfig.Ethash.CachesOnDisk,
-			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.Ethash.DatasetDir),
-			DatasetsInMem:  etrue.DefaultConfig.Ethash.DatasetsInMem,
-			DatasetsOnDisk: etrue.DefaultConfig.Ethash.DatasetsOnDisk,
+		engine = minerva.New(minerva.Config{
+			CacheDir:       stack.ResolvePath(etrue.DefaultConfig.MinervaHash.CacheDir),
+			CachesInMem:    etrue.DefaultConfig.MinervaHash.CachesInMem,
+			CachesOnDisk:   etrue.DefaultConfig.MinervaHash.CachesOnDisk,
+			DatasetDir:     stack.ResolvePath(etrue.DefaultConfig.MinervaHash.DatasetDir),
+			DatasetsInMem:  etrue.DefaultConfig.MinervaHash.DatasetsInMem,
+			DatasetsOnDisk: etrue.DefaultConfig.MinervaHash.DatasetsOnDisk,
 		})
 	}
-	// }
 	if gcmode := ctx.GlobalString(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
@@ -1334,7 +1333,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (fchain *core.BlockChain, sch
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
 
-	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg,schain)
+	fchain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg, schain)
 	schain, err = snailchain.NewSnailBlockChain(chainDb, config, engine, vmcfg, fchain)
 
 	if err != nil {

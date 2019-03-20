@@ -28,7 +28,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
@@ -39,7 +39,7 @@ import (
 // DefaultConfig contains default settings for use on the Truechain main net.
 var DefaultConfig = Config{
 	SyncMode: downloader.FullSync,
-	Ethash: ethash.Config{
+	MinervaHash: minerva.Config{
 		CacheDir:       "minerva",
 		CachesInMem:    2,
 		CachesOnDisk:   3,
@@ -76,16 +76,16 @@ func init() {
 		}
 	}
 	if runtime.GOOS == "darwin" {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "Library", "Minerva")
+		DefaultConfig.MinervaHash.DatasetDir = filepath.Join(home, "Library", "Minerva")
 	} else if runtime.GOOS == "windows" {
 		localappdata := os.Getenv("LOCALAPPDATA")
 		if localappdata != "" {
-			DefaultConfig.Ethash.DatasetDir = filepath.Join(localappdata, "Minerva")
+			DefaultConfig.MinervaHash.DatasetDir = filepath.Join(localappdata, "Minerva")
 		} else {
-			DefaultConfig.Ethash.DatasetDir = filepath.Join(home, "AppData", "Local", "Minerva")
+			DefaultConfig.MinervaHash.DatasetDir = filepath.Join(home, "AppData", "Local", "Minerva")
 		}
 	} else {
-		DefaultConfig.Ethash.DatasetDir = filepath.Join(home, ".minerva")
+		DefaultConfig.MinervaHash.DatasetDir = filepath.Join(home, ".minerva")
 	}
 }
 
@@ -148,8 +148,8 @@ type Config struct {
 	MinerGasCeil  uint64
 	GasPrice      *big.Int
 
-	// Ethash options
-	Ethash ethash.Config
+	// MinervaHash options
+	MinervaHash minerva.Config
 
 	// Transaction pool options
 	TxPool core.TxPoolConfig

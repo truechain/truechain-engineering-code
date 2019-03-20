@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethash "github.com/truechain/truechain-engineering-code/consensus/minerva"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/etrue/downloader"
 	"github.com/truechain/truechain-engineering-code/etrue/gasprice"
@@ -20,21 +20,21 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		Genesis                 *core.Genesis `toml:",omitempty"`
 		NetworkId               uint64
 		SyncMode                downloader.SyncMode
-		LightServ               int  `toml:",omitempty"`
-		LightPeers              int  `toml:",omitempty"`
-		EnableElection          bool  `toml:",omitempty"`
-		CommitteeKey  			hexutil.Bytes `toml:",omitempty"`
-		Host	                string `toml:",omitempty"`
-		Port	                int `toml:",omitempty"`
-		StandbyPort	            int `toml:",omitempty"`
-		SkipBcVersionCheck      bool `toml:"-"`
-		DatabaseHandles         int  `toml:"-"`
+		LightServ               int           `toml:",omitempty"`
+		LightPeers              int           `toml:",omitempty"`
+		EnableElection          bool          `toml:",omitempty"`
+		CommitteeKey            hexutil.Bytes `toml:",omitempty"`
+		Host                    string        `toml:",omitempty"`
+		Port                    int           `toml:",omitempty"`
+		StandbyPort             int           `toml:",omitempty"`
+		SkipBcVersionCheck      bool          `toml:"-"`
+		DatabaseHandles         int           `toml:"-"`
 		DatabaseCache           int
 		Etherbase               common.Address `toml:",omitempty"`
 		MinerThreads            int            `toml:",omitempty"`
 		ExtraData               hexutil.Bytes  `toml:",omitempty"`
 		GasPrice                *big.Int
-		Ethash                  ethash.Config
+		MinervaHash             minerva.Config
 		TxPool                  core.TxPoolConfig
 		GPO                     gasprice.Config
 		EnablePreimageRecording bool
@@ -58,7 +58,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.MinerThreads = c.MinerThreads
 	enc.ExtraData = c.ExtraData
 	enc.GasPrice = c.GasPrice
-	enc.Ethash = c.Ethash
+	enc.MinervaHash = c.MinervaHash
 	enc.TxPool = c.TxPool
 	enc.GPO = c.GPO
 	enc.EnablePreimageRecording = c.EnablePreimageRecording
@@ -71,21 +71,21 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		Genesis                 *core.Genesis `toml:",omitempty"`
 		NetworkId               *uint64
 		SyncMode                *downloader.SyncMode
-		EnableElection          *bool  `toml:",omitempty"`
-		CommitteeKey  			*hexutil.Bytes `toml:",omitempty"`
-		Host	                *string `toml:",omitempty"`
-		Port	                *int `toml:",omitempty"`
-		StandbyPort	            *int `toml:",omitempty"`
-		LightServ               *int  `toml:",omitempty"`
-		LightPeers              *int  `toml:",omitempty"`
-		SkipBcVersionCheck      *bool `toml:"-"`
-		DatabaseHandles         *int  `toml:"-"`
+		EnableElection          *bool          `toml:",omitempty"`
+		CommitteeKey            *hexutil.Bytes `toml:",omitempty"`
+		Host                    *string        `toml:",omitempty"`
+		Port                    *int           `toml:",omitempty"`
+		StandbyPort             *int           `toml:",omitempty"`
+		LightServ               *int           `toml:",omitempty"`
+		LightPeers              *int           `toml:",omitempty"`
+		SkipBcVersionCheck      *bool          `toml:"-"`
+		DatabaseHandles         *int           `toml:"-"`
 		DatabaseCache           *int
 		Etherbase               *common.Address `toml:",omitempty"`
 		MinerThreads            *int            `toml:",omitempty"`
 		ExtraData               *hexutil.Bytes  `toml:",omitempty"`
 		GasPrice                *big.Int
-		Ethash                  *ethash.Config
+		MinervaHash             *minerva.Config
 		TxPool                  *core.TxPoolConfig
 		GPO                     *gasprice.Config
 		EnablePreimageRecording *bool
@@ -146,8 +146,8 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.GasPrice != nil {
 		c.GasPrice = dec.GasPrice
 	}
-	if dec.Ethash != nil {
-		c.Ethash = *dec.Ethash
+	if dec.MinervaHash != nil {
+		c.MinervaHash = *dec.MinervaHash
 	}
 	if dec.TxPool != nil {
 		c.TxPool = *dec.TxPool
