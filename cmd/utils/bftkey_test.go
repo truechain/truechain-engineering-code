@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -37,4 +38,19 @@ func TestEnter(t *testing.T) {
 		fmt.Println("aesDecrypt key:", hexutil.Encode(data2))
 	}
 	fmt.Println("finish")
+}
+
+func EncryptBftKey(key, password string) {
+	pass := make([]byte, 16)
+	copy(pass, password)
+	enData, err := aesEncrypt([]byte(key), []byte(pass))
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	_ = ioutil.WriteFile("./bftkey", enData, 0644)
+}
+
+func TestEncryptBftKey(t *testing.T) {
+	EncryptBftKey("1bc73ab677ed9c3518417339bb5716e32fbc56e888c98d2e63e190dd51ca7eda", "123456")
 }
