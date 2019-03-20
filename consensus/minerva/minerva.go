@@ -302,7 +302,7 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 			if futureI != nil {
 				future := futureI.(*Dataset)
 
-				if !getHashList(&headerHash, future.epoch) {
+				if !getHashList(&headerHash, epoch+1) {
 					return
 				}
 				future.Generate(m.datasets.future, &headerHash)
