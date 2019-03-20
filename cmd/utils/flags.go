@@ -1101,7 +1101,7 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(BFTStandbyPortFlag.Name) {
 		cfg.StandbyPort = int(ctx.GlobalUint64(BFTStandbyPortFlag.Name))
 	}
-	
+
 	keyfile,_ := stack.Config().GetBftkeyFile()
 	if pkey,err := LoadBftKey(keyfile);err != nil {
 		var endata []byte
@@ -1111,6 +1111,8 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 		}
 		cfg.PrivateKey = pkey
 		stack.Config().SaveEncryptBftKey(endata)
+	} else {
+		cfg.PrivateKey = pkey
 	}
 	//set PrivateKey by config,file or hex
 	// setBftCommitteeKey(ctx, cfg)

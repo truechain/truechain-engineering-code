@@ -102,6 +102,7 @@ func LoadBftKey(file string) (*ecdsa.PrivateKey, error) {
 	copy(password, []byte(pass))
 
 	if key, err := aesDecrypt(data, password); err != nil {
+		Fatalf("wrong password:%v", err)
 		return nil, err
 	} else {
 		return crypto.ToECDSA(key)
