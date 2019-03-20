@@ -37,7 +37,6 @@ import (
 
 // Minerva protocol constants.
 var (
-	//maxUncles              = 2                // Maximum number of uncles allowed in a single block
 	allowedFutureBlockTime = 15 * time.Second // Max time from current time allowed for blocks, before they're considered future blocks
 )
 
