@@ -277,6 +277,10 @@ func toBlockNumArg(number *big.Int) string {
 }
 
 type rpcProgress struct {
+	StartingSnailBlock uint64 // Snail Block number where sync began
+	CurrentSnailBlock  uint64 // Current block number where sync is at
+	HighestSnailBlock  uint64 // Highest alleged block number in the chain
+
 	StartingBlock hexutil.Uint64
 	CurrentBlock  hexutil.Uint64
 	HighestBlock  hexutil.Uint64
@@ -301,6 +305,10 @@ func (ec *Client) SyncProgress(ctx context.Context) (*truechain.SyncProgress, er
 		return nil, err
 	}
 	return &truechain.SyncProgress{
+		StartingSnailBlock: uint64(progress.StartingSnailBlock),
+		CurrentSnailBlock:  uint64(progress.CurrentSnailBlock),
+		HighestSnailBlock:  uint64(progress.HighestSnailBlock),
+
 		StartingBlock: uint64(progress.StartingBlock),
 		CurrentBlock:  uint64(progress.CurrentBlock),
 		HighestBlock:  uint64(progress.HighestBlock),
