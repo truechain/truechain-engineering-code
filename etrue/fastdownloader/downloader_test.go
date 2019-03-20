@@ -32,11 +32,18 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 )
 
+var (
+	fsHeaderContCheck int64
+	//fsMinFullBlocks  int
+)
+
+
 // Reduce some of the parameters to make the tester faster.
 func init() {
 	MaxForkAncestry = uint64(10000)
 	blockCacheItems = 1024
-	fsHeaderContCheck = 500 * time.Millisecond
+	fsHeaderContCheck = 500 * int64(time.Millisecond)
+	//fsMinFullBlocks = 16       // Number of blocks to retrieve fully even in fast sync
 }
 
 // newTester creates a new downloader test mocker.
@@ -140,13 +147,13 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	targetBlocks := blockCacheItems - 15
 	hashes, headers, blocks, receipts := tester.makeChain(targetBlocks, 0, tester.genesis, nil, false)
 
-	tester.newPeer("peer", protocol, hashes, headers, blocks, receipts)
+	tester.NewPeer("peer", protocol, hashes, headers, blocks, receipts)
 
 	pNum := tester.peerChainNums["peer"]
-	Num := tester.CurrentBlock().NumberU64()
+	Num := tester.CurrentBlock()
 
 	origin := Num
-	height := pNum - Num
+	height :=  pNum - Num
 
 	if height < 0 {
 		height = 0
@@ -158,6 +165,8 @@ func testCanonicalSynchronisation(t *testing.T, protocol int, mode SyncMode) {
 	}
 	assertOwnChain(t, tester, targetBlocks+1)
 }
+
+
 
 // Tests that if a large batch of blocks are being downloaded, it is throttled
 // until the cached blocks are retrieved.
