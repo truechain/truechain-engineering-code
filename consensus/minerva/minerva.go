@@ -374,7 +374,7 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 		return nil
 	}
 
-	getHashList := func(headershash *[STARTUPDATENUM][]byte) bool {
+	getHashList := func(headershash *[STARTUPDATENUM][]byte, epoch uint64) bool {
 		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
 		for i := 0; i < STARTUPDATENUM; i++ {
 			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
@@ -388,7 +388,7 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 	}
 
 	if current.dateInit == 0 && epoch > 0 {
-		if !getHashList(&headerHash) {
+		if !getHashList(&headerHash, epoch) {
 			return nil
 		}
 	}
@@ -403,8 +403,9 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 			if futureI != nil {
 				future := futureI.(*Dataset)
 
-				getHashList(&headerHash)
-
+				if !getHashList(&headerHash, future.epoch) {
+					return
+				}
 				future.Generate(m.datasets.future, &headerHash)
 			}
 		}()
