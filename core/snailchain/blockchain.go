@@ -225,6 +225,7 @@ func (bc *SnailBlockChain) loadLastState() error {
 		maxFruitNumber = currentBlock.Fruits()[len(currentBlock.Fruits())-1].FastNumber()
 	}
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
+	rawdb.WriteHeadHeaderHash(bc.db, currentBlock.Header().Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, bc.blockchain.CurrentBlock().Hash())
 	batch := bc.db.NewBatch()
 	for _, ft := range remove {
