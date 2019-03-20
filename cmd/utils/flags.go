@@ -1101,13 +1101,22 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	if ctx.GlobalIsSet(BFTStandbyPortFlag.Name) {
 		cfg.StandbyPort = int(ctx.GlobalUint64(BFTStandbyPortFlag.Name))
 	}
-
-	//set PrivateKey by config,file or hex
-	setBftCommitteeKey(ctx, cfg)
-	if cfg.PrivateKey == nil {
-		//set PrivateKey by default file
-		cfg.PrivateKey = stack.Config().BftCommitteeKey()
+	if pkey,err := LoadBftKey(ctx.GlobalString(BftKeyFileFlag.Name));err != nil {
+		var endata []byte
+		pkey,endata,err = GenEncryptBftKey()
+		if err != nil {
+			Fatalf("GenEncryptBftKey failed:",err)
+		}
+		cfg.PrivateKey = pkey
+		stack.Config().SaveEncryptBftKey(endata)
 	}
+	//set PrivateKey by config,file or hex
+	// setBftCommitteeKey(ctx, cfg)
+	// if cfg.PrivateKey == nil {
+	// 	//set PrivateKey by default file
+	// 	cfg.PrivateKey = stack.Config().BftCommitteeKey()
+	// }
+	
 	cfg.CommitteeKey = crypto.FromECDSA(cfg.PrivateKey)
 	if bytes.Equal(cfg.CommitteeKey, []byte{}) {
 		Fatalf("init load CommitteeKey  nil.")

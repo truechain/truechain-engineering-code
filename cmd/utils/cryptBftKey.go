@@ -6,8 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"fmt"
-	"io"
-	"os"
+	"io/ioutil"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -71,16 +70,21 @@ func getpasswordFromScreen(create bool) string {
 	return pass
 }
 func getEncryptDataFromFile(file string) ([]byte, error) {
-	data := make([]byte, 64)
-	fd, err := os.Open(file)
+	// data := make([]byte, 0)
+	// fd, err := os.Open(file)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// defer fd.Close()
+	// if _, err := io.ReadFull(fd, data); err != nil {
+	// 	return nil, err
+	// }
+	// return data, nil
+	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
-	defer fd.Close()
-	if _, err := io.ReadFull(fd, data); err != nil {
-		return nil, err
-	}
-	return data, nil
+	return b, err
 }
 
 func LoadBftKey(file string) (*ecdsa.PrivateKey, error) {
