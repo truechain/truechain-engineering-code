@@ -271,15 +271,16 @@ func (bc *SnailBlockChain) loadLastState() error {
 // nodes after a fast sync).
 func (bc *SnailBlockChain) SetHead(head uint64) error {
 	log.Warn("Rewinding blockchain", "target", head)
-
-	err := bc.Validator().ValidateRewarded(head + 1)
-	if err != nil {
-		log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
-		return err
-	}
+	/*	err := bc.Validator().ValidateRewarded(head + 1)
+		if err != nil {
+			log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
+			return err
+		}*/
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
+	//retroversion fastchain
+	fastNumber := bc.GetBlockByNumber(head).Fruits()[len(bc.GetBlockByNumber(head).Fruits())-1].FastNumber()
+	bc.blockchain.SetHead(fastNumber.Uint64())
 	// Rewind the header chain, deleting all block bodies and FtLookupEntry until then
 	delFn := func(db rawdb.DatabaseDeleter, hash common.Hash, num uint64) {
 		rawdb.DeleteBody(db, hash, num)
