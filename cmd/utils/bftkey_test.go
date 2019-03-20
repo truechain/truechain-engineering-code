@@ -43,7 +43,8 @@ func TestEnter(t *testing.T) {
 func EncryptBftKey(key, password string) {
 	pass := make([]byte, 16)
 	copy(pass, password)
-	enData, err := aesEncrypt([]byte(key), []byte(pass))
+	data, _ := hexutil.Decode(key)
+	enData, err := aesEncrypt(data, pass)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -52,5 +53,5 @@ func EncryptBftKey(key, password string) {
 }
 
 func TestEncryptBftKey(t *testing.T) {
-	EncryptBftKey("1bc73ab677ed9c3518417339bb5716e32fbc56e888c98d2e63e190dd51ca7eda", "123456")
+	EncryptBftKey("0x1bc73ab677ed9c3518417339bb5716e32fbc56e888c98d2e63e190dd51ca7eda", "123456")
 }

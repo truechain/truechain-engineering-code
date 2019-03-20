@@ -73,16 +73,6 @@ func getpasswordFromScreen(create bool) string {
 	return pass
 }
 func getEncryptDataFromFile(file string) ([]byte, error) {
-	// data := make([]byte, 0)
-	// fd, err := os.Open(file)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// defer fd.Close()
-	// if _, err := io.ReadFull(fd, data); err != nil {
-	// 	return nil, err
-	// }
-	// return data, nil
 	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -91,7 +81,6 @@ func getEncryptDataFromFile(file string) ([]byte, error) {
 }
 
 func LoadBftKey(file string) (*ecdsa.PrivateKey, error) {
-
 	data, err := getEncryptDataFromFile(file)
 	if err != nil {
 		fmt.Println("Failed to load bft key:", err)
@@ -106,11 +95,6 @@ func LoadBftKey(file string) (*ecdsa.PrivateKey, error) {
 		return nil, err
 	} else {
 		return crypto.ToECDSA(key)
-		// if key, err := hex.DecodeString(string(data1)); err == nil {
-		//     return crypto.ToECDSA(key)
-		// } else {
-		//     return nil, err
-		// }
 	}
 }
 
