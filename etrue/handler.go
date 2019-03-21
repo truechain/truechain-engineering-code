@@ -177,10 +177,6 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	// Initiate a sub-protocol for every implemented version we can handle
 	manager.SubProtocols = make([]p2p.Protocol, 0, len(ProtocolVersions))
 	for i, version := range ProtocolVersions {
-		// Skip protocol version if incompatible with the mode of operation
-		if mode == downloader.FastSync {
-			continue
-		}
 		// Compatible; initialise the sub-protocol
 		version := version // Closure for the run
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
@@ -704,7 +700,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(headers) > 0 || !filter {
 			if headerData.Call == types.FetcherCall {
-				log.Warn("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
+				log.Info("FastBlockHeadersMsg", "headers", len(headers), "number", headers[0].Number, "hash", headers[0].Hash(), "p", p.RemoteAddr())
 			} else {
 				log.Debug("FastBlockHeadersMsg", "headers", len(headers), "filter", filter)
 				err := pm.fdownloader.DeliverHeaders(p.id, headers, headerData.Call)
@@ -769,7 +765,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// mecMark
 		if len(transactions) > 0 || len(signs) > 0 || len(infos) > 0 || !filter {
 			if request.Call == types.FetcherCall {
-				log.Warn("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
+				log.Info("FastBlockBodiesMsg", "signs", len(signs), "number", signs[0][0].FastHeight, "hash", signs[0][0].Hash(), "p", p.RemoteAddr())
 			} else {
 				log.Debug("FastBlockBodiesMsg", "transactions", len(transactions), "signs", len(signs), "infos", len(infos), "filter", filter)
 				err := pm.fdownloader.DeliverBodies(p.id, transactions, signs, infos, request.Call)

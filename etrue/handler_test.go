@@ -18,6 +18,7 @@ package etrue
 
 import (
 	"fmt"
+	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"math"
 	"math/big"
 	"math/rand"
@@ -47,7 +48,7 @@ func TestProtocolCompatibility(t *testing.T) {
 		compatible bool
 	}{
 		{61, downloader.FullSync, true}, {62, downloader.FullSync, true}, {63, downloader.FullSync, true},
-		{61, downloader.FastSync, false}, {62, downloader.FastSync, false}, {63, downloader.FastSync, true},
+		{63, downloader.FastSync, true},
 	}
 	// Make sure anything we screw up is restored
 	backup := ProtocolVersions
@@ -68,7 +69,6 @@ func TestProtocolCompatibility(t *testing.T) {
 }
 
 // Tests that block headers can be retrieved from a remote chain based on user queries.
-func TestGetBlockHeaders62(t *testing.T) { testGetBlockHeaders(t, 62) }
 func TestGetBlockHeaders63(t *testing.T) { testGetBlockHeaders(t, 63) }
 
 func testGetBlockHeaders(t *testing.T, protocol int) {
@@ -227,7 +227,6 @@ func testGetBlockHeaders(t *testing.T, protocol int) {
 }
 
 // Tests that block contents can be retrieved from a remote chain based on their hashes.
-func TestGetBlockBodies62(t *testing.T) { testGetBlockBodies(t, 62) }
 func TestGetBlockBodies63(t *testing.T) { testGetBlockBodies(t, 63) }
 
 func testGetBlockBodies(t *testing.T, protocol int) {
@@ -474,17 +473,39 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		config  = &params.ChainConfig{}
 		gspec   = &core.Genesis{Config: config}
 		genesis = gspec.MustFastCommit(db)
+
+		snailGenesis = gspec.MustSnailCommit(db)
+
+		priKey, _     = crypto.GenerateKey()
+		coinbase      = crypto.PubkeyToAddress(priKey.PublicKey) //coinbase
+		committeeNode = &types.CommitteeNode{
+			IP:        "127.0.0.1",
+			Port:      8080,
+			Port2:     8090,
+			Coinbase:  coinbase,
+			Publickey: crypto.FromECDSAPub(&priKey.PublicKey),
+		}
+		pbftAgent = &PbftAgent{
+			privateKey:    priKey,
+			committeeNode: committeeNode,
+		}
 	)
+
 	blockchain, err := core.NewBlockChain(db, nil, config, pow, vm.Config{})
 	if err != nil {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
+
+	snailChain, _ := snailchain.NewSnailBlockChain(db, gspec.Config, pow, vm.Config{}, blockchain)
+
 	//
-	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), nil, pow, blockchain, nil, db, nil)
+	pm, err := NewProtocolManager(config, downloader.FullSync, DefaultConfig.NetworkId, evmux, new(testTxPool), new(testSnailPool), pow, blockchain, snailChain, db, pbftAgent)
 	if err != nil {
 		t.Fatalf("failed to start test protocol manager: %v", err)
 	}
 	pm.Start(1000)
+	pm.Start2(1000)
+
 	defer pm.Stop()
 	var peers []*testPeer
 	for i := 0; i < totalPeers; i++ {
@@ -493,6 +514,8 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		peers = append(peers, peer)
 	}
 	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
+	_ = snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, ethash.NewFaker(), db, 1, func(i int, gen *snailchain.BlockGen) {})
+
 	pm.BroadcastFastBlock(chain[0], true /*propagate*/)
 
 	errCh := make(chan error, totalPeers)

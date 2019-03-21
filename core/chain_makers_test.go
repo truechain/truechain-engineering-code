@@ -19,11 +19,6 @@ package core
 import (
 	"fmt"
 	"math/big"
-	"testing"
-	"time"
-	"crypto/ecdsa"
-	"bytes"
-	"runtime"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
@@ -31,9 +26,11 @@ import (
 	"github.com/truechain/truechain-engineering-code/core/vm"
 	"github.com/truechain/truechain-engineering-code/etruedb"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/core/state"
-	"github.com/truechain/truechain-engineering-code/common"
 )
+
+func init() {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+}
 
 func ExampleGenerateChain() {
 	var (
@@ -45,23 +42,23 @@ func ExampleGenerateChain() {
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
 		db      = etruedb.NewMemDatabase()
 	)
-
+	chainId := big.NewInt(3)
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{
-		Config: &params.ChainConfig{},
-		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(1000000)}},
+		Config: &params.ChainConfig{ChainID: chainId},
+		Alloc:  types.GenesisAlloc{addr1: {Balance: big.NewInt(3000000)}},
 	}
 	genesis := gspec.MustFastCommit(db)
 
+	signer := types.MakeSigner(gspec.Config, nil)
 	// This call generates a chain of 5 blocks. The function runs for
 	// each block and adds different features to gen based on the
 	// block index.
-	signer := types.NewTIP1Signer(nil)
 	chain, _ := GenerateChain(gspec.Config, genesis, minerva.NewFaker(), db, 5, func(i int, gen *BlockGen) {
 		switch i {
 		case 0:
 			// In block 1, addr1 sends addr2 some ether.
-			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(10000), params.TxGas, big.NewInt(1), nil), signer, key1)
+			tx, _ := types.SignTx(types.NewTransaction(gen.TxNonce(addr1), addr2, big.NewInt(30000), params.TxGas, big.NewInt(1), nil), signer, key1)
 			gen.AddTx(tx)
 		case 1:
 			// In block 2, addr1 sends some more ether to addr2.
@@ -129,9 +126,9 @@ func TestMakeBlock1(t *testing.T) {
 	// block index.
 	signer := types.HomesteadSigner{}
 	cnt := 4000/4
-	finish := make(chan int)	
+	finish := make(chan int)
 	type tmp struct {
-		addr common.Address 
+		addr common.Address
 		key *ecdsa.PrivateKey
 	}
 	addrs := []tmp {
@@ -212,7 +209,7 @@ func TestMakeBlock2(t *testing.T) {
 	signer := types.HomesteadSigner{}
 	cnt := 1
 	type tmp struct {
-		addr common.Address 
+		addr common.Address
 		key *ecdsa.PrivateKey
 	}
 	addrs := []tmp {
@@ -221,8 +218,8 @@ func TestMakeBlock2(t *testing.T) {
 		{addr3,key3},
 		{addr4,key4},
 	}
-	ptxs1 := make([]*types.Transaction,0,0) 
-	ptxs2 := make([]*types.Transaction,0,0) 
+	ptxs1 := make([]*types.Transaction,0,0)
+	ptxs2 := make([]*types.Transaction,0,0)
 	begin := time.Now()
 	block1, recpt1 := GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *BlockGen) {
 		from,key := addrs[0].addr,addrs[0].key
@@ -250,11 +247,11 @@ func TestMakeBlock2(t *testing.T) {
 	pos := 0
 	for i:=2*cnt-1;i>=cnt;i-- {
 		indexs[pos] = i
-		pos++ 
+		pos++
 	}
 	for i:=cnt-1;i>=0;i-- {
 		indexs[pos] = i
-		pos++ 
+		pos++
 	}
 	/////////////////////////////////////////////////////////////////////////////////
 	block2, recpt2 := GenerateChain(gspec.Config, genesis2, ethash.NewFaker(), tmpDB, 1, func(i int, gen *BlockGen) {
@@ -300,7 +297,7 @@ func verifyInBatch(sum,count int) {
 		sign 	[]byte
 		priv	*ecdsa.PrivateKey
 		hash 	common.Hash
-	}	
+	}
 	gspec := &Genesis{
 		Config: &params.ChainConfig{HomesteadBlock: new(big.Int)},
 		GasLimit: 105000000,
@@ -362,7 +359,7 @@ func (b *BlockGen) AddTxWithChain2(bc *BlockChain, otxs,txs []*types.Transaction
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	
+
 	recpts := make([]*types.Receipt,len(otxs),len(otxs))
 
 	for i,tx := range txs {

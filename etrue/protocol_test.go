@@ -131,14 +131,10 @@ func testSendTransactions(t *testing.T, protocol int) {
 	defer pm.Stop()
 
 	// Fill the pool with big transactions.
-	const txsize = 7
-	alltxs := make([]*types.Transaction, 4610)
+	const txsize = txsyncPackSize / 10
+	alltxs := make([]*types.Transaction, 100)
 	for nonce := range alltxs {
 		alltxs[nonce] = newTestTransaction(testAccount, uint64(nonce), txsize)
-	}
-
-	for i := 0; i < 48; i++ {
-		_ = types.DeriveSha(types.Transactions(alltxs))
 	}
 
 	pm.txpool.AddRemotes(alltxs)
@@ -202,8 +198,8 @@ func TestGetBlockHeadersDataEncodeDecode(t *testing.T) {
 		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}}},
 
 		// Providing arbitrary query field should also work
-		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Number: 314}, Amount: 314, Skip: 1, Reverse: true}},
-		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: 314, Skip: 1, Reverse: true}},
+		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Number: 314}, Amount: 314, Skip: 1, Reverse: true, Call: types.FetcherCall}},
+		{fail: false, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash}, Amount: 314, Skip: 1, Reverse: true, Call: types.DownloaderCall}},
 
 		// Providing both the origin hash and origin number must fail
 		{fail: true, packet: &getBlockHeadersData{Origin: hashOrNumber{Hash: hash, Number: 314}}},
@@ -222,7 +218,7 @@ func TestGetBlockHeadersDataEncodeDecode(t *testing.T) {
 				t.Fatalf("test %d: failed to decode packet: %v", i, err)
 			}
 			if packet.Origin.Hash != tt.packet.Origin.Hash || packet.Origin.Number != tt.packet.Origin.Number || packet.Amount != tt.packet.Amount ||
-				packet.Skip != tt.packet.Skip || packet.Reverse != tt.packet.Reverse {
+				packet.Skip != tt.packet.Skip || packet.Reverse != tt.packet.Reverse || packet.Call != tt.packet.Call {
 				t.Fatalf("test %d: encode decode mismatch: have %+v, want %+v", i, packet, tt.packet)
 			}
 		}
