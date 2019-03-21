@@ -163,6 +163,39 @@ type PbftSign struct {
 	FastHash   common.Hash // fastblock hash
 	Result     uint32      // 0--against,1--agree
 	Sign       []byte      // sign for fastblock height + hash + result
+
+	// caches
+	size atomic.Value
+}
+
+// "external" PbftSign encoding. used for etrue protocol, etc.
+type extPbftSign struct {
+	FastHeight *big.Int
+	FastHash   common.Hash // fastblock hash
+	Result     uint32      // 0--against,1--agree
+	Sign       []byte      //sign msg
+}
+
+// DecodeRLP decodes the truechain
+func (c *PbftSign) DecodeRLP(s *rlp.Stream) error {
+	var ep extPbftSign
+	_, size, _ := s.Kind()
+	if err := s.Decode(&ep); err != nil {
+		return err
+	}
+	c.FastHeight, c.FastHash, c.Result, c.Sign = ep.FastHeight, ep.FastHash, ep.Result, ep.Sign
+	c.size.Store(common.StorageSize(rlp.ListSize(size)))
+	return nil
+}
+
+// EncodeRLP serializes b into the truechain RLP block format.
+func (p *PbftSign) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, extPbftSign{
+		FastHeight: p.FastHeight,
+		FastHash:   p.FastHash,
+		Result:     p.Result,
+		Sign:       p.Sign,
+	})
 }
 
 type PbftAgentProxy interface {

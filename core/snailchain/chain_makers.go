@@ -35,11 +35,10 @@ import (
 // BlockGen creates blocks for testing.
 // See GenerateChain for a detailed explanation.
 type BlockGen struct {
-	i           int
-	parent      *types.SnailBlock
-	chain       []*types.SnailBlock
-	chainReader consensus.SnailChainReader
-	header      *types.SnailHeader
+	i      int
+	parent *types.SnailBlock
+	chain  []*types.SnailBlock
+	header *types.SnailHeader
 
 	//gasPool *GasPool
 	uncles []*types.SnailHeader
@@ -103,8 +102,8 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-
-	b.header.Difficulty = b.engine.CalcSnailDifficulty(b.chainReader, b.header.Time.Uint64(), []*types.SnailHeader{b.parent.Header()})
+	chainreader := &fakeChainReader{config: b.config}
+	b.header.Difficulty = b.engine.CalcSnailDifficulty(chainreader, b.header.Time.Uint64(), []*types.SnailHeader{b.parent.Header()})
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -124,18 +123,10 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 		config = params.TestChainConfig
 	}
 	blocks := make(types.SnailBlocks, n)
+	chainreader := &fakeChainReader{config: config}
 	genblock := func(i int, parent *types.SnailBlock) *types.SnailBlock {
-		// TODO(karalabe): This is needed for clique, which depends on multiple blocks.
-		// It's nonetheless ugly to spin up a blockchain here. Get rid of this somehow.
-		blockchain, _ := NewSnailBlockChain(db, config, engine, vm.Config{}, fastChain)
-		blockchain.SetValidator(NewBlockValidator(config, fastChain, blockchain, engine))
-		defer blockchain.Stop()
-		blocks := make(types.SnailBlocks, 2)
-		blocks[0] = blockchain.genesisBlock
-		blocks[1] = parent
-		blockchain.InsertChain(blocks)
-		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, config: config, engine: engine}
-		b.header = makeHeader(b.chainReader, parent, b.engine)
+		b := &BlockGen{i: i, parent: parent, chain: blocks, config: config, engine: engine}
+		b.header = makeHeader(chainreader, parent, b.engine)
 
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
@@ -144,7 +135,7 @@ func GenerateChain(config *params.ChainConfig, fastChain *core.BlockChain, paren
 
 		if b.engine != nil {
 			// TODO: add fruits support
-			block, error := MakeSnailBlockFruit(blockchain, fastChain, i, params.MinimumFruits, blockchain.genesisBlock.PublicKey(), blockchain.genesisBlock.Coinbase(), true, blockchain.genesisBlock.BlockDifficulty())
+			block, error := MakeSnailBlockFruit(nil, fastChain, i, params.MinimumFruits /*blockchain.genesisBlock.PublicKey()*/, nil /*blockchain.genesisBlock.Coinbase()*/, common.Address{}, true /*blockchain.genesisBlock.BlockDifficulty()*/, nil)
 			if error != nil {
 				panic(error)
 			}
@@ -429,8 +420,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 		fruitnumbers int
 	)
 	cache := &core.CacheConfig{
-	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -468,3 +459,19 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers)
 }
+
+type fakeChainReader struct {
+	config  *params.ChainConfig
+	genesis *types.SnailBlock
+}
+
+// Config returns the chain configuration.
+func (cr *fakeChainReader) Config() *params.ChainConfig {
+	return cr.config
+}
+
+func (cr *fakeChainReader) CurrentHeader() *types.SnailHeader                            { return nil }
+func (cr *fakeChainReader) GetHeaderByNumber(number uint64) *types.SnailHeader           { return nil }
+func (cr *fakeChainReader) GetHeaderByHash(hash common.Hash) *types.SnailHeader          { return nil }
+func (cr *fakeChainReader) GetHeader(hash common.Hash, number uint64) *types.SnailHeader { return nil }
+func (cr *fakeChainReader) GetBlock(hash common.Hash, number uint64) *types.SnailBlock   { return nil }

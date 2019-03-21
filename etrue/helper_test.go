@@ -80,12 +80,12 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 			committeeNode: committeeNode,
 		}
 	)
-	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, blocks, generator)
+	chain, _ := core.GenerateChain(gspec.Config, genesis, engine, db, blocks, generator)
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
 	}
 
-	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, ethash.NewFaker(), db, blocks, snailGenerator)
+	schain := snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, engine, db, blocks, snailGenerator)
 	if _, err := snailChain.InsertChain(schain); err != nil {
 		panic(err)
 	}

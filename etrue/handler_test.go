@@ -513,8 +513,8 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		defer peer.close()
 		peers = append(peers, peer)
 	}
-	chain, _ := core.GenerateChain(gspec.Config, genesis, ethash.NewFaker(), db, 1, func(i int, gen *core.BlockGen) {})
-	_ = snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, ethash.NewFaker(), db, 1, func(i int, gen *snailchain.BlockGen) {})
+	chain, _ := core.GenerateChain(gspec.Config, genesis, pow, db, 1, func(i int, gen *core.BlockGen) {})
+	_ = snailchain.GenerateChain(gspec.Config, blockchain, snailGenesis, pow, db, 1, func(i int, gen *snailchain.BlockGen) {})
 
 	pm.BroadcastFastBlock(chain[0], true /*propagate*/)
 
