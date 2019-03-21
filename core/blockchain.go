@@ -1066,9 +1066,6 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	defer bc.wg.Done()
 
 	// Make sure no inconsistent state is leaked during insertion
-	bc.chainmu.Lock()
-	defer bc.chainmu.Unlock()
-
 	currentBlock := bc.CurrentBlock()
 
 	// Write other block data using a batch.
