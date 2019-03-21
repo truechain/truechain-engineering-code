@@ -390,6 +390,7 @@ func NewFakeFailer(fail uint64) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeFail: fail,
+		election: newFakeElection(),
 	}
 }
 
@@ -402,6 +403,7 @@ func NewFakeDelayer(delay time.Duration) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeDelay: delay,
+		election: newFakeElection(),
 	}
 }
 
