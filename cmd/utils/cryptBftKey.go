@@ -7,8 +7,10 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io/ioutil"
 	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -61,14 +63,18 @@ func getpasswordFromScreen(create bool) string {
 		var p1, p2 string
 		for len(p1) != 6 || (p1 != "" && 0 != strings.Compare(p1, p2)) {
 			fmt.Println("please enter password for create bft private key:6 byte")
-			fmt.Scanln(&p1)
+			p1byte, _ := terminal.ReadPassword(int(syscall.Stdin))
+			p1 = string(p1byte)
 			fmt.Println("please confirm password:")
-			fmt.Scanln(&p2)
+			p2byte, _ := terminal.ReadPassword(int(syscall.Stdin))
+			p2 = string(p2byte)
+			//fmt.Scanln(&p2)
 		}
 		pass = p1
 	} else {
 		fmt.Println("please enter your password for bft private key:")
-		fmt.Scanln(&pass)
+		p1byte, _ := terminal.ReadPassword(int(syscall.Stdin))
+		pass = string(p1byte)
 	}
 	return pass
 }
