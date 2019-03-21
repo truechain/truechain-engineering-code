@@ -751,8 +751,6 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	// Make sure no inconsistent state is leaked during insertion
-	bc.chainmu.Lock()
-	defer bc.chainmu.Unlock()
 
 	currentBlock := bc.CurrentBlock()
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
