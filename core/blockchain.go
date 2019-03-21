@@ -388,6 +388,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 		bc.currentFastBlock.Store(bc.genesisBlock)
 	}
 
+	rawdb.WriteHeadRewardNumber(bc.db, 0)
 	// Restore the last known currentReward
 	if bc.CurrentBlock().NumberU64() != 0 {
 		currentReward := bc.GetLastRowByFastCurrentBlock()
