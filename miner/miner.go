@@ -114,8 +114,8 @@ func New(truechain Backend, config *params.ChainConfig, mux *event.TypeMux, engi
 
 	go miner.SetFruitOnly(mineFruit)
 
-	// single node not need care about the election
-	if !miner.singleNode {
+	// single node and remote agent not need care about the election
+	if !miner.singleNode || remoteMining {
 		go miner.loop()
 	}
 
