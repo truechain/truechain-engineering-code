@@ -842,9 +842,6 @@ func (agent *PbftAgent) GenerateSignWithVote(fb *types.Block, vote uint32, resul
 	if err != nil {
 		log.Error("fb GenerateSign error ", "err", err)
 	}
-	if voteSign == nil {
-		log.Warn("voteSign is nil ", "voteSign", voteSign)
-	}
 	return voteSign, err
 }
 
@@ -861,10 +858,7 @@ func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
 func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.PbftSign, error) {
 	if agent.fastChain.IsFallback() {
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		return voteSign, core.ErrIsFallback
 	}
 	var (
@@ -878,20 +872,14 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 	err := agent.engine.VerifyHeader(bc, fb.Header())
 	if err != nil {
 		log.Error("verifyFastBlock verifyHeader error", "header", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		return voteSign, err
 	}
 
 	err = agent.verifyRewardInCommittee(fb)
 	if err != nil {
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
-		return voteSign, nil
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
+		return voteSign, err
 	}
 
 	err = bc.Validator().ValidateBody(fb, false)
@@ -899,26 +887,17 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		// if return blockAlready kown ,indicate block already insert chain by fetch
 		if err == core.ErrKnownBlock && agent.fastChain.CurrentBlock().Number().Cmp(fb.Number()) >= 0 {
 			log.Info("block already insert chain by fetch .", "number", fb.Number())
-			voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree, result)
-			if signError != nil {
-				return nil, signError
-			}
+			voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgree, result)
 			return voteSign, nil //if err equals ErrKnownBlock return nil
 		}
 		log.Error("verifyFastBlock validateBody error", "height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		return voteSign, err
 	}
 	state, err := bc.State()
 	if err != nil {
 		log.Error("verifyFastBlock getCurrent state error", "height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		return voteSign, err
 	}
 
@@ -936,25 +915,16 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 			return nil, err
 		}
 		log.Error("verifyFastBlock process error", "height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		return voteSign, err
 	}
 	err = bc.Validator().ValidateState(fb, parent, state, receipts, usedGas)
 	if err != nil {
 		log.Error("verifyFastBlock validateState error", "Height:", fb.Number(), "err", err)
-		voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
-		if signError != nil {
-			return nil, signError
-		}
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
 		return voteSign, err
 	}
-	voteSign, signError := agent.GenerateSignWithVote(fb, types.VoteAgree, result)
-	if signError != nil {
-		return nil, signError
-	}
+	voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgree, result)
 	return voteSign, nil
 }
 
