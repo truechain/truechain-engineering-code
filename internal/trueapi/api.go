@@ -1865,11 +1865,6 @@ func (api *PrivateDebugAPI) ChaindbCompact() error {
 
 // SetHead rewinds the head of the blockchain to a previous block.
 func (api *PrivateDebugAPI) SetHead(number hexutil.Uint64) {
-	api.b.SetHead(uint64(number))
-}
-
-// SetSnailHead rewinds the head of the snail blockchain to a previous block.
-func (api *PrivateDebugAPI) SetSnailHead(number hexutil.Uint64) {
 	api.b.SetSnailHead(uint64(number))
 }
 
