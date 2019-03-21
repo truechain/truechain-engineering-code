@@ -122,16 +122,16 @@ func (dl *downloadTester) makeChain(n int, seed byte, parent *types.SnailBlock, 
 	)
 	cache := &core.CacheConfig{}
 
-	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
+	fastChain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
 	fastblocks, receipts := core.GenerateChain(params.TestChainConfig, dl.ftester.GetGenesis(), engine, testdb, n*params.MinimumFruits, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
-	fastchain.InsertChain(fastblocks)
-	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
+	fastChain.InsertChain(fastblocks)
+	snailChain, _ := snailchain.NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastChain)
 
-	blocks, _ := snailchain.MakeSnailBlockFruits(snailChain, fastchain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
+	blocks, _ := snailchain.MakeSnailBlockFruits(snailChain, fastChain, 1, n, 1, n*params.MinimumFruits, parent.PublicKey(), parent.Coinbase(), true, nil)
 	snailChain.InsertChain(blocks)
 
 	// Convert the block-chain into a hash-chain and header/block maps
