@@ -131,6 +131,7 @@ type TransportCommitteeNode struct {
 	IP    string
 	Port  uint32
 	Port2 uint32
+	EXT   []byte
 }
 
 func (tcn *TransportCommitteeNode) ConvertTransportToCommitteeNode(pubKey *ecdsa.PublicKey) *CommitteeNode {
