@@ -103,7 +103,6 @@ type SnailBlockChain struct {
 	scope         event.SubscriptionScope
 	genesisBlock  *types.SnailBlock
 
-	mu      sync.RWMutex // global mutex for locking chain operations
 	chainmu sync.RWMutex // blockchain insertion lock
 	procmu  sync.RWMutex // block processor lock
 
@@ -281,8 +280,8 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 			log.Error("the hight can't set,because it's next block is already rewarded", "hight", head)
 			return err
 		}*/
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
 	//retroversion fastchain
 	fastNumber := bc.GetBlockByNumber(head).Fruits()[len(bc.GetBlockByNumber(head).Fruits())-1].FastNumber()
 	bc.blockchain.SetHead(fastNumber.Uint64())
@@ -352,9 +351,9 @@ func (bc *SnailBlockChain) FastSyncCommitHead(hash common.Hash) error {
 	}
 
 	// If all checks out, manually set the head block
-	bc.mu.Lock()
+	bc.chainmu.Lock()
 	bc.currentBlock.Store(block)
-	bc.mu.Unlock()
+	bc.chainmu.Unlock()
 
 	log.Info("Committed new head block", "number", block.Number(), "hash", hash)
 	return nil
@@ -403,8 +402,8 @@ func (bc *SnailBlockChain) ResetWithGenesisBlock(genesis *types.SnailBlock) erro
 	if err := bc.SetHead(0); err != nil {
 		return err
 	}
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
 
 	// Prepare the genesis block and reinitialise the chain
 	/*if err := bc.hc.WriteSnailTd(genesis.Hash(), genesis.NumberU64(), genesis.Difficulty()); err != nil {
@@ -442,8 +441,8 @@ func (bc *SnailBlockChain) Export(w io.Writer) error {
 
 // ExportN writes a subset of the active chain to the given writer.
 func (bc *SnailBlockChain) ExportN(w io.Writer, first uint64, last uint64) error {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
+	bc.chainmu.RLock()
+	defer bc.chainmu.RUnlock()
 
 	if first > last {
 		return fmt.Errorf("export failed: first (%d) is greater than last (%d)", first, last)
@@ -696,8 +695,8 @@ const (
 // Rollback is designed to remove a chain of links from the database that aren't
 // certain enough to be valid.
 func (bc *SnailBlockChain) Rollback(chain []common.Hash) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
 
 	for i := len(chain) - 1; i >= 0; i-- {
 		hash := chain[i]
@@ -752,8 +751,8 @@ func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status 
 		return NonStatTy, consensus.ErrUnknownAncestor
 	}
 	// Make sure no inconsistent state is leaked during insertion
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
+	bc.chainmu.Lock()
+	defer bc.chainmu.Unlock()
 
 	currentBlock := bc.CurrentBlock()
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
@@ -1317,8 +1316,8 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFr
 	defer bc.wg.Done()
 
 	whFunc := func(header *types.SnailHeader) error {
-		bc.mu.Lock()
-		defer bc.mu.Unlock()
+		bc.chainmu.Lock()
+		defer bc.chainmu.Unlock()
 
 		_, err := bc.hc.WriteHeader(header)
 		return err

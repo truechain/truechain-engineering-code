@@ -92,11 +92,11 @@ func (s *PublicTrueAPI) Syncing() (interface{}, error) {
 		"startingSnailBlock": hexutil.Uint64(progress.StartingSnailBlock),
 		"currentSnailBlock":  hexutil.Uint64(progress.CurrentSnailBlock),
 		"highestSnailBlock":  hexutil.Uint64(progress.HighestSnailBlock),
-		"startingBlock": hexutil.Uint64(progress.StartingBlock),
-		"currentBlock":  hexutil.Uint64(progress.CurrentBlock),
-		"highestBlock":  hexutil.Uint64(progress.HighestBlock),
-		"pulledStates":  hexutil.Uint64(progress.PulledStates),
-		"knownStates":   hexutil.Uint64(progress.KnownStates),
+		"startingBlock":      hexutil.Uint64(progress.StartingBlock),
+		"currentBlock":       hexutil.Uint64(progress.CurrentBlock),
+		"highestBlock":       hexutil.Uint64(progress.HighestBlock),
+		"pulledStates":       hexutil.Uint64(progress.PulledStates),
+		"knownStates":        hexutil.Uint64(progress.KnownStates),
 	}, nil
 }
 
