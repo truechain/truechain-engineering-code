@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
@@ -123,6 +124,30 @@ type CommitteeNode struct {
 	Port2     uint32
 	Coinbase  common.Address
 	Publickey []byte
+}
+
+//
+type TransportCommitteeNode struct {
+	IP    string
+	Port  uint32
+	Port2 uint32
+}
+
+func (tcn *TransportCommitteeNode) ConvertTransportToCommitteeNode(pubKey *ecdsa.PublicKey) *CommitteeNode {
+	return &CommitteeNode{
+		IP:        tcn.IP,
+		Port:      tcn.Port,
+		Port2:     tcn.Port2,
+		Publickey: crypto.FromECDSAPub(pubKey),
+	}
+}
+
+func (cn *CommitteeNode) ConvertCommitteeNodeToTransport() *TransportCommitteeNode {
+	return &TransportCommitteeNode{
+		IP:    cn.IP,
+		Port:  cn.Port,
+		Port2: cn.Port2,
+	}
 }
 
 func (c *CommitteeNode) String() string {

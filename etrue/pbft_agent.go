@@ -273,6 +273,9 @@ func (agent *PbftAgent) IsCommitteeMember() bool {
 
 //IsLeader get current committee leader
 func (agent *PbftAgent) IsLeader() bool {
+	if agent.currentCommitteeInfo == nil || agent.currentCommitteeInfo.Id == nil || !agent.currentCommitteeInfo.Id.IsUint64() {
+		return false
+	}
 	return agent.server.IsLeader(agent.currentCommitteeInfo.Id)
 }
 
@@ -445,7 +448,7 @@ func (agent *PbftAgent) loop() {
 				}
 				log.Debug("received repeat nodeInfo", "repeat", repeatReceivedMetrics.Count(), "old", oldReceivedMetrics.Count(), "new", newReceivedMetrics.Count())
 			} else {
-				if isCommittee, nodeWork, nodeTagHash := agent.cryNodeInfoIsCommittee(cryNodeInfo); isCommittee {
+				if isCommittee, nodeWork, nodeTagHash, pubKey := agent.cryNodeInfoIsCommittee(cryNodeInfo); isCommittee {
 					savedTime, bool := agent.committeeNodeTag.Get(nodeTagHash)
 					if bool && savedTime.(*big.Int).Cmp(cryNodeInfo.CreatedAt) > 0 {
 						continue
@@ -459,7 +462,7 @@ func (agent *PbftAgent) loop() {
 					go agent.nodeInfoFeed.Send(types.NodeInfoEvent{cryNodeInfo})
 					if nodeWork.isCommitteeMember {
 						nodeHandleMetrics.Mark(1)
-						agent.handlePbftNode(cryNodeInfo, nodeWork)
+						agent.handlePbftNode(cryNodeInfo, nodeWork, pubKey)
 					}
 					log.Debug("broadcast cryNodeInfo...", "committeeId", cryNodeInfo.CommitteeID, "nodeM", nodeHandleMetrics.Count(), "diff", differentReceivedMetrics.Count())
 				}
@@ -574,36 +577,36 @@ func (agent *PbftAgent) sendSign(receiveBlock *types.Block) error {
 	return nil
 }
 
-func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMessage) (bool, *nodeInfoWork, common.Hash) {
+func (agent *PbftAgent) cryNodeInfoIsCommittee(encryptNode *types.EncryptNodeMessage) (bool, *nodeInfoWork, common.Hash, *ecdsa.PublicKey) {
 	members1 := agent.nodeInfoWorks[0].committeeInfo.Members
 	members2 := agent.nodeInfoWorks[1].committeeInfo.Members
 	if len(members1) == 0 && len(members2) == 0 {
 		log.Error("received cryNodeInfo members = 0")
-		return false, nil, common.Hash{}
+		return false, nil, common.Hash{}, nil
 	}
 	committeeID1 := agent.nodeInfoWorks[0].committeeInfo.Id
 	committeeID2 := agent.nodeInfoWorks[1].committeeInfo.Id
 	if committeeID1 == nil && committeeID2 == nil {
 		log.Error("received cryNodeInfo committeeId1 and committeeId2 is nil")
-		return false, nil, common.Hash{}
+		return false, nil, common.Hash{}, nil
 	}
 	hashBytes := encryptNode.HashWithoutSign().Bytes()
 	pubKey, err := crypto.SigToPub(hashBytes, encryptNode.Sign)
 	if err != nil {
 		log.Error("encryptoNode SigToPub error", "err", err)
-		return false, nil, common.Hash{}
+		return false, nil, common.Hash{}, nil
 	}
 	pubKeyByte := crypto.FromECDSAPub(pubKey)
 	nodeTag := &types.CommitteeNodeTag{encryptNode.CommitteeID, pubKeyByte}
 	if committeeID1 != nil && committeeID1.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[0].committeeInfo, pubKeyByte) {
-		return true, agent.nodeInfoWorks[0], nodeTag.Hash()
+		return true, agent.nodeInfoWorks[0], nodeTag.Hash(), pubKey
 	}
 	if committeeID2 != nil && committeeID2.Cmp(encryptNode.CommitteeID) == 0 &&
 		agent.IsUsedOrUnusedMember(agent.nodeInfoWorks[1].committeeInfo, pubKeyByte) {
-		return true, agent.nodeInfoWorks[1], nodeTag.Hash()
+		return true, agent.nodeInfoWorks[1], nodeTag.Hash(), pubKey
 	}
-	return false, nil, common.Hash{}
+	return false, nil, common.Hash{}, nil
 }
 
 //send committeeNode to p2p,make other committeeNode receive and decrypt
@@ -617,7 +620,8 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 		CreatedAt:   big.NewInt(time.Now().Unix()),
 		CommitteeID: committeeInfo.Id,
 	}
-	nodeByte, err := rlp.EncodeToBytes(committeeNode)
+	transportCommitteeNode := committeeNode.ConvertCommitteeNodeToTransport()
+	nodeByte, err := rlp.EncodeToBytes(transportCommitteeNode)
 	if err != nil {
 		log.Error("EncodeToBytes error: ", "err", err)
 	}
@@ -639,8 +643,8 @@ func encryptNodeInfo(committeeInfo *types.CommitteeInfo, committeeNode *types.Co
 	return cryNodeInfo
 }
 
-func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork) {
-	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey)
+func (agent *PbftAgent) handlePbftNode(cryNodeInfo *types.EncryptNodeMessage, nodeWork *nodeInfoWork, pubKey *ecdsa.PublicKey) {
+	committeeNode := decryptNodeInfo(cryNodeInfo, agent.privateKey, pubKey)
 	if committeeNode != nil {
 		help.CheckAndPrintError(agent.server.PutNodes(cryNodeInfo.CommitteeID, []*types.CommitteeNode{committeeNode}))
 	}
@@ -656,14 +660,15 @@ func (agent *PbftAgent) AddRemoteNodeInfo(cryNodeInfo *types.EncryptNodeMessage)
 	return nil
 }
 
-func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.PrivateKey) *types.CommitteeNode {
+func decryptNodeInfo(cryNodeInfo *types.EncryptNodeMessage, privateKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey) *types.CommitteeNode {
 	//ecdsa.PrivateKey convert to ecies.PrivateKey
 	priKey := ecies.ImportECDSA(privateKey)
 	for _, encryptNode := range cryNodeInfo.Nodes {
 		decryptNode, err := priKey.Decrypt(encryptNode, nil, nil)
 		if err == nil { // can Decrypt by priKey
-			committeeNode := new(types.CommitteeNode) //receive nodeInfo
-			rlp.DecodeBytes(decryptNode, committeeNode)
+			transportCommitteeNode := new(types.TransportCommitteeNode) //receive nodeInfo
+			rlp.DecodeBytes(decryptNode, transportCommitteeNode)
+			committeeNode := transportCommitteeNode.ConvertTransportToCommitteeNode(pubKey)
 			return committeeNode
 		}
 	}
