@@ -921,6 +921,13 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		}
 		return voteSign, err
 	}
+
+	err = validateTxInCommittee(fb)
+	if err != nil {
+		voteSign, _ := agent.GenerateSignWithVote(fb, types.VoteAgreeAgainst, result)
+		return voteSign, err
+	}
+
 	receipts, _, usedGas, err := bc.Processor().Process(fb, state, agent.vmConfig) //update
 	if err != nil {
 		if err == types.ErrSnailHeightNotYet {
@@ -949,6 +956,27 @@ func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.Pb
 		return nil, signError
 	}
 	return voteSign, nil
+}
+
+func validateTxInCommittee(fb *types.Block) error {
+	var err error
+	for _, tx := range fb.Transactions() {
+		if tx.Size() > 32*1024 {
+			err = core.ErrOversizedData
+		} else if tx.Value().Sign() < 0 {
+			err = core.ErrNegativeValue
+		} else if tx.Fee() != nil && tx.Fee().Sign() < 0 {
+			err = core.ErrNegativeFee
+		} else if tx.GasPrice().Cmp(big.NewInt(core.MinimumGasPrice_local)) < 1 {
+			err = core.ErrUnderpriced
+		}
+		if err != nil {
+			log.Error("validateTxInCommittee", "hash", tx.Hash(), "err", err)
+			return err
+		}
+	}
+	return nil
+
 }
 
 func (agent *PbftAgent) verifyRewardInCommittee(fb *types.Block) error {

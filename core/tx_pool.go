@@ -39,9 +39,10 @@ import (
 
 const (
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 10
-	defaultGasPrice   = 1000000
-	txChanSize        = 2048
+	chainHeadChanSize     = 10
+	defaultGasPrice       = 1000000
+	txChanSize            = 2048
+	MinimumGasPrice_local = 0
 )
 
 var (
@@ -643,7 +644,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
-	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 || tx.GasPrice().Cmp(big.NewInt(0)) < 1 {
+	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 || tx.GasPrice().Cmp(big.NewInt(MinimumGasPrice_local)) < 1 {
 		return ErrUnderpriced
 	}
 	// Ensure the transaction adheres to nonce ordering
