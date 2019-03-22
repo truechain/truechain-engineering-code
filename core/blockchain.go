@@ -403,9 +403,9 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
 
 
-	log.Info("recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
-	log.Info("recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
-	log.Info("recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
+	log.Warn("recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
+	log.Warn("recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
+	log.Warn("recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
 
 	return bc.loadLastState()
 }
