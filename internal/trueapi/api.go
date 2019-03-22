@@ -1081,6 +1081,7 @@ func RPCMarshalFruit(fruit *types.SnailBlock, fullSigns bool) (map[string]interf
 		"nonce":           head.Nonce,
 		"mixHash":         head.MixDigest,
 		"miner":           head.Coinbase,
+		"publicKey":       head.Publickey,
 		"difficulty":      (*hexutil.Big)(head.Difficulty),
 		"fruitDifficulty": (*hexutil.Big)(head.FruitDifficulty),
 		"extraData":       hexutil.Bytes(head.Extra),
