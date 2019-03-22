@@ -449,7 +449,7 @@ func (w *worker) wait() {
 				fruits := block.Fruits()
 				log.Info("+++++ mined block  ---  ", "block number", block.Number(), "fruits", len(fruits), "first", fruits[0].FastNumber(), "end", fruits[len(fruits)-1].FastNumber())
 
-				stat, err := w.chain.WriteCanonicalBlock(block)
+				stat, err := w.chain.WriteMinedCanonicalBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
 					continue

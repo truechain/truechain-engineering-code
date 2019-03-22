@@ -739,8 +739,15 @@ func (bc *SnailBlockChain) WriteBlock(block *types.SnailBlock, td *big.Int) (err
 	return nil
 }
 
+func (bc *SnailBlockChain) WriteMinedCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
+	bc.chainmu.Lock()
+	bc.chainmu.Unlock()
+	log.Debug("WriteMinedCanonicalBlock", "number", block.Number(), "hash", block.Hash())
+	return bc.writeCanonicalBlock(block)
+}
+
 // WriteCanonicalBlock writes the block and all associated state to the database.
-func (bc *SnailBlockChain) WriteCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
+func (bc *SnailBlockChain) writeCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -940,7 +947,7 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
-		status, err := bc.WriteCanonicalBlock(block)
+		status, err := bc.writeCanonicalBlock(block)
 		t1 := time.Now()
 		if err != nil {
 			log.Info("Write new snail canonical block error", "number", block.Number(), "hash", block.Hash(), "err", err)
