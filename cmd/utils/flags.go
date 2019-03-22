@@ -203,7 +203,7 @@ var (
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
 		Name:  "syncmode",
-		Usage: `Blockchain sync mode ("fast", "full", "light",or "snapshot")`,
+		Usage: `Blockchain sync mode ("full", or "snapshot")`,
 		Value: &defaultSyncMode,
 	}
 	GCModeFlag = cli.StringFlag{
