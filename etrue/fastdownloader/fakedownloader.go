@@ -178,7 +178,7 @@ func (dl *DownloadTester) makeChainFork(n, f int, parent *types.Block, parentRec
 
 // terminate aborts any operations on the embedded downloader and releases all
 // held resources.
-func (dl *DownloadTester) terminate() {
+func (dl *DownloadTester) Terminate() {
 	dl.downloader.Terminate()
 }
 

@@ -513,6 +513,7 @@ func (d *Downloader) cancel() {
 // finish before returning.
 func (d *Downloader) Cancel() {
 	d.cancel()
+	d.fastDown.Cancel()
 	d.cancelWg.Wait()
 }
 
