@@ -93,7 +93,6 @@ type SnailBlockChain struct {
 	gcproc time.Duration    // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
-	rmLogsFeed    event.Feed
 	chainFeed     event.Feed
 	chainSideFeed event.Feed
 	chainHeadFeed event.Feed
@@ -1409,11 +1408,6 @@ func (bc *SnailBlockChain) Config() *params.ChainConfig { return bc.chainConfig 
 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *SnailBlockChain) Engine() consensus.Engine { return bc.engine }
-
-// SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
-func (bc *SnailBlockChain) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
-	return bc.scope.Track(bc.rmLogsFeed.Subscribe(ch))
-}
 
 // SubscribeChainEvent registers a subscription of ChainSnailEvent.
 func (bc *SnailBlockChain) SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription {
