@@ -739,6 +739,7 @@ func (bc *SnailBlockChain) WriteBlock(block *types.SnailBlock, td *big.Int) (err
 	return nil
 }
 
+// WriteMinedCanonicalBlock writes the minedblock to the database.
 func (bc *SnailBlockChain) WriteMinedCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
 	bc.chainmu.Lock()
 	bc.chainmu.Unlock()
@@ -746,7 +747,6 @@ func (bc *SnailBlockChain) WriteMinedCanonicalBlock(block *types.SnailBlock) (st
 	return bc.writeCanonicalBlock(block)
 }
 
-// WriteCanonicalBlock writes the block and all associated state to the database.
 func (bc *SnailBlockChain) writeCanonicalBlock(block *types.SnailBlock) (status WriteStatus, err error) {
 	bc.wg.Add(1)
 	defer bc.wg.Done()
