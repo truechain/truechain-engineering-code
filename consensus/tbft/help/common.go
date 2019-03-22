@@ -10,7 +10,7 @@ import (
 	"os"
 	"io"
 	"syscall"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -129,7 +129,7 @@ func Kill() error {
 	return p.Signal(syscall.SIGTERM)
 }
 func RlpHash(x interface{}) (h common.Hash) {
-	hw := sha3.NewKeccak256()
+	hw := sha3.NewLegacyKeccak256()
 	rlp.Encode(hw, x)
 	hw.Sum(h[:0])
 	return h

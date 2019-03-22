@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
+	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/truechain/truechain-engineering-code/core/types"
 	"github.com/truechain/truechain-engineering-code/etruedb"
@@ -47,7 +47,7 @@ func TestHeaderStorage(t *testing.T) {
 	if entry := ReadHeaderRLP(db, header.Hash(), header.Number.Uint64()); entry == nil {
 		t.Fatalf("Stored header RLP not found")
 	} else {
-		hasher := sha3.NewKeccak256()
+		hasher := sha3.NewLegacyKeccak256()
 		hasher.Write(entry)
 
 		if hash := common.BytesToHash(hasher.Sum(nil)); hash != header.Hash() {
@@ -71,7 +71,7 @@ func TestBodyStorage(t *testing.T) {
 	snailBlock := types.NewSnailBlock(&snailHeader, []*types.SnailBlock{}, []*types.PbftSign{}, []*types.SnailHeader{})
 	body := &types.SnailBody{Fruits: []*types.SnailBlock{snailBlock}, Signs: nil}
 
-	hasher := sha3.NewKeccak256()
+	hasher := sha3.NewLegacyKeccak256()
 	rlp.Encode(hasher, body)
 	hash := common.BytesToHash(hasher.Sum(nil))
 
@@ -86,7 +86,7 @@ func TestBodyStorage(t *testing.T) {
 	if entry := ReadBodyRLP(db, hash, 0); entry == nil {
 		t.Fatalf("Stored body RLP not found")
 	} else {
-		hasher := sha3.NewKeccak256()
+		hasher := sha3.NewLegacyKeccak256()
 		hasher.Write(entry)
 
 		if calc := common.BytesToHash(hasher.Sum(nil)); calc != hash {
