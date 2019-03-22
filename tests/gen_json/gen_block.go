@@ -15,7 +15,7 @@ import (
 
 func main() {
 
-	var path = "/Users/shijinyuan/code/GOPATH/src/github.com/truechain/truechain-engineering-code/cmd/getrue/data/getrue/chaindata"
+	var path = "./data/getrue/chaindata"
 	var cache = 768
 	var handles = 1024
 
