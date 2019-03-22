@@ -51,13 +51,10 @@ func TestHeaderVerification(t *testing.T) {
 			var results <-chan error
 
 			if valid {
+				engine := minerva.NewFaker()
 				_, results = engine.VerifyHeaders(blockchain, []*types.Header{headers[i]}, []bool{true})
 			}
 
-			//} else {
-			//	engine = minerva.NewFakeFailer(headers[i].Number.Uint64())
-			//	_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
-			//}
 			// Wait for the verification result
 			select {
 			case result := <-results:
@@ -107,15 +104,11 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 
 	// Run the header checker for the entire block chain at once both for a valid and
 	// also an invalid chain (enough if one arbitrary block is invalid).
-	for i, valid := range []bool{true, false} {
+	for i, valid := range []bool{true} {
 		var results <-chan error
 
 		if valid {
 			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, minerva.NewFaker(), vm.Config{})
-			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
-			chain.Stop()
-		} else {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, minerva.NewFakeFailer(uint64(len(headers)-1)), vm.Config{})
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		}
