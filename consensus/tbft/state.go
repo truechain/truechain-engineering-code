@@ -1680,12 +1680,9 @@ func (cs *ConsensusState) switchHandle(s *ttypes.SwitchValidator) {
 				log.Info("already has switch Item......")
 			}
 		} else if s.From == 1 { // restore
-			round := int(cs.Round)
-			if round > s.Round || s.Round == -1 {
-				v := cs.pickSwitchValidator(s, true)
-				v.From = 1
-				cs.notifyHealthMgr(v)
-			}
+			v := cs.pickSwitchValidator(s, true)
+			v.From = 1
+			cs.notifyHealthMgr(v)
 		}
 	}
 }
