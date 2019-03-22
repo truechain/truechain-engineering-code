@@ -139,7 +139,6 @@ type worker struct {
 	minedFruit    *types.SnailBlock //for addFruits delay to create a new list
 	snapshotState *state.StateDB
 
-	uncleMu        sync.Mutex
 	possibleUncles map[common.Hash]*types.SnailBlock
 
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
@@ -153,11 +152,10 @@ type worker struct {
 
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, etrue Backend, mux *event.TypeMux) *worker {
 	worker := &worker{
-		config: config,
-		engine: engine,
-		etrue:  etrue,
-		mux:    mux,
-		//txsCh:          make(chan chain.NewTxsEvent, txChanSize),
+		config:            config,
+		engine:            engine,
+		etrue:             etrue,
+		mux:               mux,
 		fruitCh:           make(chan types.NewFruitsEvent, fruitChanSize),
 		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
 		chainHeadCh:       make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
@@ -521,8 +519,6 @@ func (w *worker) makeCurrent(parent *types.SnailBlock, header *types.SnailHeader
 func (w *worker) commitNewWork() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.uncleMu.Lock()
-	defer w.uncleMu.Unlock()
 	w.currentMu.Lock()
 	defer w.currentMu.Unlock()
 
