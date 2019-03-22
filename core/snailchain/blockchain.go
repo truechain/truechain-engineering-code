@@ -337,10 +337,6 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 
 }
 
-func (bc *SnailBlockChain) SetHeadByFastChain() error {
-	return bc.loadLastState()
-}
-
 // FastSyncCommitHead sets the current head block to the one defined by the hash
 // irrelevant what the chain contents were prior.
 func (bc *SnailBlockChain) FastSyncCommitHead(hash common.Hash) error {
