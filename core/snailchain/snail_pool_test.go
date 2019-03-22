@@ -45,7 +45,7 @@ var peerDb etruedb.Database // Database of the peers containing all data
 var genesis *core.Genesis
 var snailGenesis *types.SnailBlock
 
-func init() {
+func pool_init() {
 	peerDb = etruedb.NewMemDatabase()
 	testSnailPoolConfig = DefaultSnailPoolConfig
 	chainConfig = params.TestChainConfig
@@ -264,6 +264,7 @@ func validateFruitEvents(events chan types.NewFruitsEvent, count int) error {
 }
 
 func TestInvalidFruits(t *testing.T) {
+	pool_init()
 	t.Parallel()
 	var header *types.SnailHeader
 	header = &types.SnailHeader{
@@ -294,6 +295,7 @@ func TestInvalidFruits(t *testing.T) {
 }
 
 func TestFruitQueue(t *testing.T) {
+	pool_init()
 	t.Parallel()
 
 	pool := setupSnailPool()
@@ -329,6 +331,7 @@ func TestFruitQueue(t *testing.T) {
 }
 
 func TestFruitDropping(t *testing.T) {
+	pool_init()
 	t.Parallel()
 
 	pool := setupSnailPool()
@@ -363,6 +366,7 @@ func TestFruitDropping(t *testing.T) {
 // Tests that the pool rejects replacement fruits that a new is difficulty
 // than old one.
 func TestFruitReplacement(t *testing.T) {
+	pool_init()
 	t.Parallel()
 
 	// Create a test account and fund it
@@ -394,7 +398,7 @@ func TestFruitReplacement(t *testing.T) {
 
 // Tests that local fruits are journaled to disk, but remote fruits
 // get discarded between restarts.
-func TestFruitJournaling(t *testing.T) { testFruitJournaling(t) }
+func TestFruitJournaling(t *testing.T) { pool_init(); testFruitJournaling(t) }
 
 func testFruitJournaling(t *testing.T) {
 	t.Parallel()
@@ -471,6 +475,7 @@ func testFruitJournaling(t *testing.T) {
 
 // Benchmarks the speed of iterative fruit insertion.
 func BenchmarkSnailPoolInsert(b *testing.B) {
+	pool_init()
 	// Generate a batch of fruits to enqueue into the pool
 	pool := setupSnailPool()
 	defer pool.Stop()
@@ -487,9 +492,18 @@ func BenchmarkSnailPoolInsert(b *testing.B) {
 }
 
 // Benchmarks the speed of batched fruit insertion.
-func BenchmarkSnailPoolBatchInsert100(b *testing.B)   { benchmarkSnailPoolBatchInsert(b, 100) }
-func BenchmarkSnailPoolBatchInsert1000(b *testing.B)  { benchmarkSnailPoolBatchInsert(b, 1000) }
-func BenchmarkSnailPoolBatchInsert10000(b *testing.B) { benchmarkSnailPoolBatchInsert(b, 10000) }
+func BenchmarkSnailPoolBatchInsert100(b *testing.B) {
+	pool_init()
+	benchmarkSnailPoolBatchInsert(b, 100)
+}
+func BenchmarkSnailPoolBatchInsert1000(b *testing.B) {
+	pool_init()
+	benchmarkSnailPoolBatchInsert(b, 1000)
+}
+func BenchmarkSnailPoolBatchInsert10000(b *testing.B) {
+	pool_init()
+	benchmarkSnailPoolBatchInsert(b, 10000)
+}
 
 func benchmarkSnailPoolBatchInsert(b *testing.B, size int) {
 	// Generate a batch of fruits to enqueue into the pool
