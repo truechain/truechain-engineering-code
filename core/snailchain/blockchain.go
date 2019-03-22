@@ -272,7 +272,9 @@ func (bc *SnailBlockChain) SetHead(head uint64) error {
 	defer bc.chainmu.Unlock()
 	//retroversion fastchain
 	fastNumber := bc.GetBlockByNumber(head).Fruits()[len(bc.GetBlockByNumber(head).Fruits())-1].FastNumber()
-	bc.blockchain.SetHead(fastNumber.Uint64())
+	if err := bc.blockchain.SetHead(fastNumber.Uint64()); err != nil {
+		return err
+	}
 	// Rewind the header chain, deleting all block bodies and FtLookupEntry until then
 	delFn := func(db rawdb.DatabaseDeleter, hash common.Hash, num uint64) {
 		rawdb.DeleteBody(db, hash, num)
