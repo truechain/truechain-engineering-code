@@ -59,7 +59,6 @@ const (
 	maxFutureBlocks     = 256
 	maxTimeFutureBlocks = 30
 	badBlockLimit       = 10
-	triesInMemory       = 128
 )
 
 // CacheConfig contains the configuration values for the trie caching/pruning

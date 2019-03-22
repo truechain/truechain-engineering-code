@@ -1242,7 +1242,7 @@ func TestTrieForkGC(t *testing.T) {
 	db := etruedb.NewMemDatabase()
 	genesis := new(core.Genesis).MustSnailCommit(db)
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
-	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
+	blocks := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 256, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
 
 	// Generate a bunch of fork blocks, each side forking from the canonical chain
 	forks := make([]*types.SnailBlock, len(blocks))
@@ -1283,8 +1283,8 @@ func TestLargeReorgTrieGC(t *testing.T) {
 
 	_, fastChain, _ := core.NewCanonical(minerva.NewFaker(), 0, true)
 	shared := GenerateChain(params.TestChainConfig, fastChain, genesis, engine, db, 64, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{1}) })
-	original := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
-	competitor := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 2*triesInMemory+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
+	original := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 256, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{2}) })
+	competitor := GenerateChain(params.TestChainConfig, fastChain, shared[len(shared)-1], engine, db, 256+1, func(i int, b *BlockGen) { b.SetCoinbase(common.Address{3}) })
 
 	// Import the shared chain and the original canonical one
 	diskdb := etruedb.NewMemDatabase()
