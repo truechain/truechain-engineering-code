@@ -208,7 +208,7 @@ func (b *TrueAPIBackend) GetReward(number int64) *types.BlockReward {
 }
 
 func (b *TrueAPIBackend) GetCommittee(number rpc.BlockNumber) (map[string]interface{}, error) {
-	return b.etrue.election.GetComitteeById(big.NewInt(number.Int64())), nil
+	return b.etrue.election.GetCommitteeById(big.NewInt(number.Int64())), nil
 }
 
 func (b *TrueAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {

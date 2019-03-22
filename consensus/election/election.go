@@ -670,8 +670,8 @@ func (e *Election) GetCommittee(fastNumber *big.Int) []*types.CommitteeMember {
 	return members
 }
 
-// GetComitteeById return committee info sepecified by Committee ID
-func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
+// GetCommitteeById return committee info sepecified by Committee ID
+func (e *Election) GetCommitteeById(id *big.Int) map[string]interface{} {
 	e.mu.RLock()
 	currentCommittee := e.committee
 	e.mu.RUnlock()
@@ -728,7 +728,7 @@ func (e *Election) GetComitteeById(id *big.Int) map[string]interface{} {
 		} else {
 			begin := new(big.Int).Add(beginElectionNumber, params.ElectionPeriodNumber)
 			end := new(big.Int).Add(endElectionNumber, params.ElectionPeriodNumber)
-			info["endNumber"] = new(big.Int).Sub(e.getLastNumber(begin, end), common.Big1).Uint64()
+			info["endNumber"] = e.getLastNumber(begin, end).Uint64()
 		}
 		return info
 	}
