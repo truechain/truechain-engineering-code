@@ -85,11 +85,9 @@ type CacheConfig struct {
 // canonical chain.
 type SnailBlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
-	cacheConfig *CacheConfig        // Cache configuration for pruning
-
-	db     etruedb.Database // Low level persistent database to store final content in
-	triegc *prque.Prque     // Priority queue mapping block numbers to tries to gc
-	gcproc time.Duration    // Accumulates canonical block processing for trie dumping
+	db          etruedb.Database    // Low level persistent database to store final content in
+	triegc      *prque.Prque        // Priority queue mapping block numbers to tries to gc
+	gcproc      time.Duration       // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	chainFeed     event.Feed
