@@ -17,6 +17,7 @@
 package snailchain
 
 import (
+	"github.com/ethereum/go-ethereum/log"
 	"math/big"
 
 	"fmt"
@@ -348,6 +349,28 @@ func makeSnailBlockFruitInternal(chain *SnailBlockChain, fastchain *core.BlockCh
 }
 
 //MakeSnailBlockFruits return fruits or blocks by given params and insert these in the chain
+func MakeSnailBlockFruits1(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, n int, pubkey []byte, coinbaseAddr common.Address, diff *big.Int) ([]*types.SnailBlock, error) {
+	var blocks types.SnailBlocks
+
+	//parent := chain.genesisBlock
+	log.Info("MakeSnailBlockFruits1", "makeStarblockNumber", makeStarblockNumber, "makeblockSize", n)
+	for i := makeStarblockNumber; i < makeStarblockNumber+n; i++ {
+		block, err := MakeSnailBlockFruit(chain, fastchain, i, params.MinimumFruits, pubkey, coinbaseAddr, true, diff)
+		if err != nil {
+			return nil, err
+		}
+
+		blocks = append(blocks, block)
+		log.Info("Make InsertChain", "blocks", len(blocks), "i", i, "fruit", len(block.Fruits()), "sign", len(block.Signs()), "PointNumber", block.PointNumber(), "FastNumber", block.FastNumber(), "Number", block.Number())
+		if _, error := chain.InsertChain(blocks); error != nil {
+			panic(error)
+		}
+	}
+
+	return blocks, nil
+}
+
+//MakeSnailBlockFruits return fruits or blocks by given params and insert these in the chain
 func MakeSnailBlockFruits(chain *SnailBlockChain, fastchain *core.BlockChain, makeStarblockNumber int, makeblockSize int,
 	makeStartFastNum int, makeFruitSize int, pubkey []byte, coinbaseAddr common.Address, isBlock bool, diff *big.Int) ([]*types.SnailBlock, error) {
 	var blocks types.SnailBlocks
@@ -414,10 +437,9 @@ func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.B
 //MakeChain return snailChain and fastchain by given fastBlockNumbers and snailBlockNumbers
 func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
 	var (
-		testdb       = etruedb.NewMemDatabase()
-		genesis      = core.DefaultGenesisBlock()
-		engine       = minerva.NewFaker()
-		fruitnumbers int
+		testdb  = etruedb.NewMemDatabase()
+		genesis = core.DefaultGenesisBlock()
+		engine  = minerva.NewFaker()
 	)
 	cache := &core.CacheConfig{
 		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
@@ -427,26 +449,24 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
 		return nil, nil
 	}
+	log.Info("Make fastchain", "number", snailBlockNumbers, "fast number", fastBlockNumbers)
 
 	fastGenesis := genesis.MustFastCommit(testdb)
 	fastchain, _ := core.NewBlockChain(testdb, cache, params.AllMinervaProtocolChanges, engine, vm.Config{})
 
-	//engine.SetElection(core.NewFakeElection())
 	fastblocks, _ := core.GenerateChain(params.TestChainConfig, fastGenesis, engine, testdb, fastBlockNumbers, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{0: byte(1), 19: byte(i)})
 	})
 
 	fastchain.InsertChain(fastblocks)
+	log.Info("Make SnailBlockChain", "number", fastchain.CurrentBlock().Number(), "fast number", len(fastblocks))
 
 	snailGenesis := genesis.MustSnailCommit(testdb)
 	snailChain, _ := NewSnailBlockChain(testdb, params.TestChainConfig, engine, vm.Config{}, fastchain)
-	snailChain.SetValidator(NewBlockValidator(nil, fastchain, snailChain, engine))
 
-	if fastBlockNumbers > snailBlockNumbers*params.MinimumFruits {
-		fruitnumbers = snailBlockNumbers * params.MinimumFruits
-	}
+	log.Info("MakeChain SnailBlockFruits1", "number", snailChain.CurrentBlock().Number(), "fast number", snailChain.CurrentFastBlock().Number())
 
-	_, err := MakeSnailBlockFruits(snailChain, fastchain, 1, snailBlockNumbers, 1, fruitnumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), true, big.NewInt(20000))
+	_, err := MakeSnailBlockFruits1(snailChain, fastchain, 1, snailBlockNumbers, snailGenesis.PublicKey(), snailGenesis.Coinbase(), big.NewInt(20000))
 	if err != nil {
 		panic(err)
 		return nil, nil

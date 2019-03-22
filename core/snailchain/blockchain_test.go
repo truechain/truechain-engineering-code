@@ -19,6 +19,7 @@ package snailchain
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/truechain/truechain-engineering-code/consensus"
 	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
@@ -29,9 +30,14 @@ import (
 	"github.com/truechain/truechain-engineering-code/params"
 	"math/big"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 )
+
+func init() {
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlTrace, log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+}
 
 // So we can deterministically seed different blockchains
 var (
@@ -77,6 +83,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 
 func TestMakeChain(t *testing.T) {
 	chain, _ := MakeChain(180, 3)
+	log.Info("TestMakeChain", "number", chain.CurrentBlock().Number(), "fast number", chain.CurrentFastBlock().Number())
 	blocks := chain.GetBlocksFromNumber(1)
 
 	for _, block := range blocks {
