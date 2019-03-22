@@ -233,7 +233,7 @@ func (pm *ProtocolManager) syncer() {
 	defer pm.fetcherFast.Stop()
 	defer pm.fetcherSnail.Stop()
 	defer pm.downloader.Terminate()
-	//defer pm.fdownloader.Terminate()
+	defer pm.fdownloader.Terminate()
 
 	// Wait for different events to fire synchronisation operations
 	forceSync := time.NewTicker(forceSyncCycle)
