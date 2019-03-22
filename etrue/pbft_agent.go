@@ -764,9 +764,7 @@ func (agent *PbftAgent) FetchFastBlock(committeeID *big.Int, infos []*types.Comm
 	if err != nil {
 		log.Error("generateBlock with sign error.", "err", err)
 	}
-	if voteSign != nil {
-		fastBlock.AppendSign(voteSign)
-	}
+	fastBlock.AppendSign(voteSign)
 	log.Info("out GenerateFastBlock...")
 	return fastBlock, err
 }
@@ -954,18 +952,19 @@ func (agent *PbftAgent) verifyRewardInCommittee(fb *types.Block) error {
 	currentSnailBlock := agent.snailChain.CurrentBlock().Number()
 	space := new(big.Int).Sub(currentSnailBlock, supposedRewardedNumber).Int64()
 
-	if fb.SnailNumber() != nil && fb.SnailNumber().Uint64() != 0 {
+	var err error
+	if fb.SnailNumber() != nil && fb.SnailNumber().Uint64() > 0 {
 		if space < params.SnailConfirmInterval.Int64() {
-			log.Error("validateRewardError", "currentSnailNumber", agent.snailChain.CurrentBlock().Number(),
-				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", core.ErrSnailNumberRewardTooFast)
-			return core.ErrSnailNumberRewardTooFast
+			err = core.ErrSnailNumberRewardTooFast
 		}
-	} else {
-		if space > params.SnailMaximumRewardInterval.Int64() {
-			log.Error("validateRewardError", "currentSnailNumber", agent.snailChain.CurrentBlock().Number(),
-				"supposedRewardedNumber", supposedRewardedNumber, "space", space, "err", core.ErrSnailNumberRewardTooFast)
-			return core.ErrSnailNumberRewardTooSlow
-		}
+	} else if space > params.SnailMaximumRewardInterval.Int64() {
+		err = core.ErrSnailNumberRewardTooSlow
+	}
+
+	if err != nil {
+		log.Error("verify reward in committee", "scn", agent.snailChain.CurrentBlock().Number(),
+			"srn", supposedRewardedNumber, "space", space, "err", err)
+		return err
 	}
 	return nil
 }
