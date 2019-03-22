@@ -1317,9 +1317,6 @@ func (bc *SnailBlockChain) InsertHeaderChain(chain []*types.SnailHeader, checkFr
 	defer bc.wg.Done()
 
 	whFunc := func(header *types.SnailHeader) error {
-		bc.chainmu.Lock()
-		defer bc.chainmu.Unlock()
-
 		_, err := bc.hc.WriteHeader(header)
 		return err
 	}
