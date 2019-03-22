@@ -47,33 +47,33 @@ func TestHeaderVerification(t *testing.T) {
 	defer blockchain.Stop()
 
 	for i := 0; i < len(blocks); i++ {
-		//for j, valid := range []bool{true} {
-		//	var results <-chan error
-		//
-		//	if valid {
-		//		_, results = engine.VerifyHeaders(blockchain, []*types.Header{headers[i]}, []bool{true})
-		//	}
-		//
-		//	//} else {
-		//	//	engine = minerva.NewFakeFailer(headers[i].Number.Uint64())
-		//	//	_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
-		//	//}
-		//	// Wait for the verification result
-		//	select {
-		//	case result := <-results:
-		//		if (result == nil) != valid {
-		//			t.Errorf("test %d.%d: validity mismatch: have %v, want %v", i, j, result, valid)
-		//		}
-		//	case <-time.After(time.Second):
-		//		t.Fatalf("test %d.%d: verification timeout", i, j)
-		//	}
-		//	// Make sure no more data is returned
-		//	select {
-		//	case result := <-results:
-		//		t.Fatalf("test %d.%d: unexpected result returned: %v", i, j, result)
-		//	case <-time.After(25 * time.Millisecond):
-		//	}
-		//}
+		for j, valid := range []bool{true} {
+			var results <-chan error
+
+			if valid {
+				_, results = engine.VerifyHeaders(blockchain, []*types.Header{headers[i]}, []bool{true})
+			}
+
+			//} else {
+			//	engine = minerva.NewFakeFailer(headers[i].Number.Uint64())
+			//	_, results = engine.VerifyHeaders(chain, []*types.Header{headers[i]}, []bool{true})
+			//}
+			// Wait for the verification result
+			select {
+			case result := <-results:
+				if (result == nil) != valid {
+					t.Errorf("test %d.%d: validity mismatch: have %v, want %v", i, j, result, valid)
+				}
+			case <-time.After(time.Second):
+				t.Fatalf("test %d.%d: verification timeout", i, j)
+			}
+			// Make sure no more data is returned
+			select {
+			case result := <-results:
+				t.Fatalf("test %d.%d: unexpected result returned: %v", i, j, result)
+			case <-time.After(25 * time.Millisecond):
+			}
+		}
 		if _, err := blockchain.InsertChain(blocks[i : i+1]); err != nil {
 			t.Fatalf("failed to insert block %d: %v", i, err)
 		}

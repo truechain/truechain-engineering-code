@@ -1708,9 +1708,6 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header, checkFreq int) (i
 	defer bc.wg.Done()
 
 	whFunc := func(header *types.Header) error {
-		bc.chainmu.Lock()
-		defer bc.chainmu.Unlock()
-
 		_, err := bc.hc.WriteHeader(header)
 		return err
 	}
