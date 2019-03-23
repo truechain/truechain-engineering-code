@@ -365,15 +365,12 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
 
-	log.Warn("recent CurrentBlock", "block", bc.CurrentBlock().NumberU64())
-	log.Warn("recent CurrentBlock 2", "block", bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()).NumberU64())
 	// Rewind the block chain, ensuring we don't end up with a stateless head block
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
 		bc.currentBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
 	}
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
-			log.Warn("recent state", "err", err)
 			// Rewound state missing, rolled back to before pivot, reset to genesis
 			bc.currentBlock.Store(bc.genesisBlock)
 		}
@@ -404,11 +401,6 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	currentFastBlock := bc.CurrentFastBlock()
 	rawdb.WriteHeadBlockHash(bc.db, currentBlock.Hash())
 	rawdb.WriteHeadFastBlockHash(bc.db, currentFastBlock.Hash())
-
-
-	log.Warn("recent local Fastheader", "number", currentHeader.Number, "hash", currentHeader.Hash())
-	log.Warn("recent local full Fastblock", "number", currentBlock.Number(), "hash", currentBlock.Hash())
-	log.Warn("recent local fast Fastblock", "number", currentFastBlock.Number(), "hash", currentFastBlock.Hash())
 
 	return bc.loadLastState()
 }
