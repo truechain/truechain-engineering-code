@@ -918,7 +918,7 @@ func (s *Service) reportStats(conn *websocket.Conn) error {
 		"id":    s.node,
 		"stats": nodeStats,
 	}
-	log.Warn("nodeStats", "nodeStats", nodeStats)
+	//log.Warn("nodeStats", "nodeStats", nodeStats)
 	report := map[string][]interface{}{
 		"emit": {"stats", stats},
 	}
