@@ -77,7 +77,6 @@ const (
 type SnailBlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	db          etruedb.Database    // Low level persistent database to store final content in
-	gcproc      time.Duration       // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
 	chainFeed     event.Feed
@@ -948,9 +947,6 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			blockInsertTimer.UpdateSince(bstart)
 			events = append(events, types.ChainSnailEvent{block, block.Hash()})
 			lastCanon = block
-
-			// Only count canonical blocks for GC processing time
-			bc.gcproc += proctime
 
 		case SideStatTy:
 
