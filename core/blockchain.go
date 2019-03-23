@@ -344,7 +344,7 @@ func (bc *BlockChain) GetLastRowByFastCurrentBlock() *types.BlockReward {
 // though, the head may be further rewound if block bodies are missing (non-archive
 // nodes after a fast sync).
 func (bc *BlockChain) SetHead(head uint64) error {
-	log.Warn("Rewinding blockchain", "target", head)
+	log.Warn("Rewinding Fast blockchain", "target", head)
 
 	bc.chainmu.Lock()
 	defer bc.chainmu.Unlock()
