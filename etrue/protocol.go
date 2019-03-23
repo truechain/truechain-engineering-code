@@ -131,9 +131,6 @@ type SnailPool interface {
 }
 
 type AgentNetworkProxy interface {
-	// SubscribeNewFastBlockEvent should return an event subscription of
-	// NewBlockEvent and send events to the given channel.
-	SubscribeNewFastBlockEvent(chan<- types.NewBlockEvent) event.Subscription
 	// SubscribeNewPbftSignEvent should return an event subscription of
 	// PbftSignEvent and send events to the given channel.
 	SubscribeNewPbftSignEvent(chan<- types.PbftSignEvent) event.Subscription

@@ -89,9 +89,6 @@ type PbftSignEvent struct {
 	PbftSign *PbftSign
 }
 
-// NewBlockEvent is posted when a block has been generate .
-type NewBlockEvent struct{ Block *Block }
-
 // NewMinedBlockEvent is posted when a block has been imported.
 type NewMinedBlockEvent struct{ Block *SnailBlock }
 
