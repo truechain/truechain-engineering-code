@@ -175,8 +175,8 @@ func (miner *Miner) update() {
 				atomic.StoreInt32(&miner.canStart, 0)
 				if miner.Mining() {
 					miner.Stop()
+					atomic.StoreInt32(&miner.shouldStart, 1)
 				}
-				atomic.StoreInt32(&miner.shouldStart, 1)
 				log.Info("Mining aborted due to sync")
 
 			case downloader.DoneEvent, downloader.FailedEvent:
@@ -204,8 +204,10 @@ func (miner *Miner) update() {
 				} else {
 					log.Info("Miner update not in commiteer munber so start to miner")
 					atomic.StoreInt32(&miner.commitFlag, 1)
-
-					miner.Start(miner.coinbase)
+					shouldStart := atomic.LoadInt32(&miner.shouldStart) == 1
+					if shouldStart {
+						miner.Start(miner.coinbase)
+					}
 
 				}
 				log.Info("Miner update get  election  msg  1 CommitteeStart", "canStart", miner.canStart, "shoutstart", miner.shouldStart, "mining", miner.mining, "mining", miner.commitFlag)
@@ -316,6 +318,7 @@ func (miner *Miner) PendingBlock() *types.Block {
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
 func (miner *Miner) PendingSnailBlock() *types.SnailBlock {
+
 	return miner.worker.pendingSnailBlock()
 }
 
