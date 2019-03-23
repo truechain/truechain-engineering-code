@@ -744,7 +744,7 @@ func (req *findnode) preverify(t *udp, from *net.UDPAddr, fromID enode.ID, fromK
 
 func (req *findnode) handle(t *udp, from *net.UDPAddr, fromID enode.ID, mac []byte) {
 	if req.Version != trueVersion {
-		log.Info("findnode", "error", fmt.Sprintf("error %d version number", req.Version))
+		log.Debug("findnode", "error", fmt.Sprintf("error %d version number", req.Version))
 		return
 	}
 	// Determine closest nodes.
