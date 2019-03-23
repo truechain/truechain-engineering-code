@@ -24,7 +24,6 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/hashicorp/golang-lru/simplelru"
@@ -33,6 +32,7 @@ import (
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
 	"github.com/truechain/truechain-engineering-code/rpc"
+	"golang.org/x/crypto/sha3"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -267,14 +267,15 @@ func (m *Minerva) getDataset(block uint64) *Dataset {
 	currentI, futureI := m.datasets.get(epoch)
 	current := currentI.(*Dataset)
 
-	//get header hash
-	if m.sbc == nil {
-		log.Error("snail block chain is nil  ", "epoch", epoch)
-		return nil
-	}
-
 	getHashList := func(headershash *[STARTUPDATENUM][]byte, epoch uint64) bool {
 		st_block_num := uint64((epoch-1)*UPDATABLOCKLENGTH + 1)
+
+		//get header hash
+		if m.sbc == nil {
+			log.Error("snail block chain is nil  ", "epoch", epoch)
+			return false
+		}
+
 		for i := 0; i < STARTUPDATENUM; i++ {
 			header := m.sbc.GetHeaderByNumber(uint64(i) + st_block_num)
 			if header == nil {
@@ -403,7 +404,7 @@ func NewFakeDelayer(delay time.Duration) *Minerva {
 			PowMode: ModeFake,
 		},
 		fakeDelay: delay,
-		election: newFakeElection(),
+		election:  newFakeElection(),
 	}
 }
 
