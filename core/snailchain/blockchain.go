@@ -926,7 +926,6 @@ func (bc *SnailBlockChain) insertChain(chain types.SnailBlocks, verifySeals bool
 			return it.index, events, ErrBlacklistedHash
 		}
 		t0 := time.Now()
-		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.
 		status, err := bc.writeCanonicalBlock(block)
