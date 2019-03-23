@@ -101,10 +101,9 @@ type PbftAgent struct {
 	cacheBlockMu *sync.Mutex //PbftAgent.cacheBlock mutex
 	mux          *event.TypeMux
 
-	signFeed         event.Feed
-	nodeInfoFeed     event.Feed
-	NewFastBlockFeed event.Feed
-	scope            event.SubscriptionScope //send scope
+	signFeed     event.Feed
+	nodeInfoFeed event.Feed
+	scope        event.SubscriptionScope //send scope
 
 	electionCh    chan types.ElectionEvent
 	cryNodeInfoCh chan *types.EncryptNodeMessage
@@ -1087,11 +1086,6 @@ func (env *AgentWork) commitTransaction(tx *types.Transaction, bc *core.BlockCha
 	env.txs = append(env.txs, tx)
 	env.receipts = append(env.receipts, receipt)
 	return receipt.Logs, nil
-}
-
-//SubscribeNewFastBlockEvent  registers a subscription of NewBlockEvent.
-func (agent *PbftAgent) SubscribeNewFastBlockEvent(ch chan<- types.NewBlockEvent) event.Subscription {
-	return agent.scope.Track(agent.NewFastBlockFeed.Subscribe(ch))
 }
 
 // SubscribeNewPbftSignEvent registers a subscription of PbftSignEvent and
