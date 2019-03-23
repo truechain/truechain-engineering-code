@@ -365,7 +365,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	bc.signCache.Purge()
 	bc.rewardCache.Purge()
 
-	log.Warn("recent CurrentBlock", "block", bc.CurrentBlock())
+	log.Warn("recent CurrentBlock", "block", bc.CurrentBlock().NumberU64())
 	// Rewind the block chain, ensuring we don't end up with a stateless head block
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil && currentHeader.Number.Uint64() < currentBlock.NumberU64() {
 		bc.currentBlock.Store(bc.GetBlock(currentHeader.Hash(), currentHeader.Number.Uint64()))
