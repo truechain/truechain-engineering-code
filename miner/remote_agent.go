@@ -184,7 +184,6 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 			if errFruit == nil {
 				// mine
 				isFruit = true
-
 			} else {
 				if errBlock == nil {
 					// mine block
@@ -266,7 +265,7 @@ func (a *RemoteAgent) loop(workCh chan *Work, quitCh chan struct{}) {
 			// cleanup
 			a.mu.Lock()
 			for hash, work := range a.work {
-				if time.Since(work.createdAt) > 7*(12*time.Second) {
+				if time.Since(work.createdAt) > 6*(600*time.Second) {
 					delete(a.work, hash)
 				}
 			}
