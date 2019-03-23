@@ -95,7 +95,7 @@ type SnailChain interface {
 	// GetBlockByHash retrieves a snail block from the database by its hash.
 	GetBlockByHash(hash common.Hash) *types.SnailBlock
 
-	SubscribeChainHeadEvent(ch chan<- types.ChainSnailHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.SnailChainHeadEvent) event.Subscription
 
 	Validator() SnailValidator
 }

@@ -59,9 +59,9 @@ type Backend interface {
 	GetReceipts(ctx context.Context, blockHash common.Hash) (types.Receipts, error)
 	GetTd(blockHash common.Hash) *big.Int
 	GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmCfg vm.Config) (*vm.EVM, func() error, error)
-	SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription
-	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
-	SubscribeChainSideEvent(ch chan<- types.ChainFastSideEvent) event.Subscription
+	SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
+	SubscribeChainSideEvent(ch chan<- types.FastChainSideEvent) event.Subscription
 	GetReward(number int64) *types.BlockReward
 	GetCommittee(id rpc.BlockNumber) (map[string]interface{}, error)
 

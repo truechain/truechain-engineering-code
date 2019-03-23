@@ -108,12 +108,12 @@ type worker struct {
 	minedfruitCh  chan types.NewMinedFruitEvent
 	minedfruitSub event.Subscription // for fruit pool
 
-	fastchainEventCh  chan types.ChainFastEvent
+	fastchainEventCh  chan types.FastChainEvent
 	fastchainEventSub event.Subscription //for fast block pool
 
-	chainHeadCh  chan types.ChainSnailHeadEvent
+	chainHeadCh  chan types.SnailChainHeadEvent
 	chainHeadSub event.Subscription
-	chainSideCh  chan types.ChainSnailSideEvent
+	chainSideCh  chan types.SnailChainSideEvent
 	chainSideSub event.Subscription
 	wg           sync.WaitGroup
 
@@ -157,9 +157,9 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		etrue:             etrue,
 		mux:               mux,
 		fruitCh:           make(chan types.NewFruitsEvent, fruitChanSize),
-		fastchainEventCh:  make(chan types.ChainFastEvent, fastchainHeadChanSize),
-		chainHeadCh:       make(chan types.ChainSnailHeadEvent, chainHeadChanSize),
-		chainSideCh:       make(chan types.ChainSnailSideEvent, chainSideChanSize),
+		fastchainEventCh:  make(chan types.FastChainEvent, fastchainHeadChanSize),
+		chainHeadCh:       make(chan types.SnailChainHeadEvent, chainHeadChanSize),
+		chainSideCh:       make(chan types.SnailChainSideEvent, chainSideChanSize),
 		minedfruitCh:      make(chan types.NewMinedFruitEvent, fruitChanSize),
 		chainDb:           etrue.ChainDb(),
 		recv:              make(chan *Result, resultQueueSize),
@@ -461,9 +461,9 @@ func (w *worker) wait() {
 				var (
 					events []interface{}
 				)
-				events = append(events, types.ChainSnailEvent{Block: block, Hash: block.Hash()})
+				events = append(events, types.SnailChainEvent{Block: block, Hash: block.Hash()})
 				if stat == chain.CanonStatTy {
-					events = append(events, types.ChainSnailHeadEvent{Block: block})
+					events = append(events, types.SnailChainHeadEvent{Block: block})
 				}
 				events = append(events, types.NewMinedFruitEvent{Block: block})
 				w.chain.PostChainEvents(events)

@@ -107,7 +107,7 @@ type PbftAgent struct {
 
 	electionCh    chan types.ElectionEvent
 	cryNodeInfoCh chan *types.EncryptNodeMessage
-	chainHeadCh   chan types.ChainFastHeadEvent
+	chainHeadCh   chan types.FastChainHeadEvent
 
 	electionSub       event.Subscription
 	chainHeadAgentSub event.Subscription
@@ -157,7 +157,7 @@ func NewPbftAgent(etrue Backend, config *params.ChainConfig, engine consensus.En
 		committeeIds:         make([]*big.Int, committeeIDChanSize),
 		endFastNumber:        make(map[*big.Int]*big.Int),
 		electionCh:           make(chan types.ElectionEvent, electionChanSize),
-		chainHeadCh:          make(chan types.ChainFastHeadEvent, chainHeadSize),
+		chainHeadCh:          make(chan types.FastChainHeadEvent, chainHeadSize),
 		cryNodeInfoCh:        make(chan *types.EncryptNodeMessage, nodeSize),
 		election:             election,
 		mux:                  new(event.TypeMux),

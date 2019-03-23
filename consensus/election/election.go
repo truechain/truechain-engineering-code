@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	snailchainHeadSize = 64
+	snailchainHeadSize  = 64
 	committeeCacheLimit = 256
 )
 
@@ -138,10 +138,10 @@ type Election struct {
 	electionFeed event.Feed
 	scope        event.SubscriptionScope
 
-	prepare     bool
-	switchNext  chan struct{}
+	prepare    bool
+	switchNext chan struct{}
 
-	snailChainEventCh  chan types.ChainSnailEvent
+	snailChainEventCh  chan types.SnailChainEvent
 	snailChainEventSub event.Subscription
 
 	fastchain  *core.BlockChain
@@ -163,7 +163,7 @@ type SnailBlockChain interface {
 	// CurrentBlock retrieves the head block from the local chain.
 	CurrentBlock() *types.SnailBlock
 
-	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
+	SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription
 
 	GetDatabase() etruedb.Database
 
@@ -182,7 +182,7 @@ func NewElection(fastBlockChain *core.BlockChain, snailBlockChain SnailBlockChai
 	election := &Election{
 		fastchain:         fastBlockChain,
 		snailchain:        snailBlockChain,
-		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
+		snailChainEventCh: make(chan types.SnailChainEvent, snailchainHeadSize),
 		prepare:           false,
 		switchNext:        make(chan struct{}),
 		singleNode:        config.GetNodeType(),
@@ -243,7 +243,7 @@ func NewFakeElection() *Election {
 	election := &Election{
 		fastchain:         nil,
 		snailchain:        nil,
-		snailChainEventCh: make(chan types.ChainSnailEvent, snailchainHeadSize),
+		snailChainEventCh: make(chan types.SnailChainEvent, snailchainHeadSize),
 		singleNode:        false,
 		committee:         elected,
 		electionMode:      ElectModeFake,
@@ -854,8 +854,8 @@ func (e *Election) getLastNumber(beginSnail, endSnail *big.Int) *big.Int {
 
 func (e *Election) getEndFast(id *big.Int) *big.Int {
 	var (
-		snailStartNumber    *big.Int
-		snailEndNumber      *big.Int
+		snailStartNumber *big.Int
+		snailEndNumber   *big.Int
 	)
 
 	switchCheckNumber := new(big.Int).Mul(new(big.Int).Add(id, common.Big1), params.ElectionPeriodNumber)
@@ -970,8 +970,8 @@ func (e *Election) electCommittee(snailBeginNumber *big.Int, snailEndNumber *big
 // calcCommittee return the sepecific committee when current block is bigger than switch check number
 func (e *Election) calcCommittee(id *big.Int) *committee {
 	var (
-		snailStartNumber    *big.Int
-		snailEndNumber      *big.Int
+		snailStartNumber *big.Int
+		snailEndNumber   *big.Int
 	)
 	if id.Cmp(common.Big0) == 0 {
 		return nil

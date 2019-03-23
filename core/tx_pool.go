@@ -140,7 +140,7 @@ type blockChain interface {
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (*state.StateDB, error)
 
-	SubscribeChainHeadEvent(ch chan<- types.ChainFastHeadEvent) event.Subscription
+	SubscribeChainHeadEvent(ch chan<- types.FastChainHeadEvent) event.Subscription
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
@@ -230,7 +230,7 @@ type TxPool struct {
 	gasPrice     *big.Int
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
-	chainHeadCh  chan types.ChainFastHeadEvent
+	chainHeadCh  chan types.FastChainHeadEvent
 	chainHeadSub event.Subscription
 	signer       types.Signer
 	mu           sync.RWMutex
@@ -270,7 +270,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		queue:       make(map[common.Address]*txList),
 		beats:       make(map[common.Address]time.Time),
 		all:         newTxLookup(),
-		chainHeadCh: make(chan types.ChainFastHeadEvent, chainHeadChanSize),
+		chainHeadCh: make(chan types.FastChainHeadEvent, chainHeadChanSize),
 		newTxsCh:    make(chan []*types.Transaction, txChanSize),
 		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}

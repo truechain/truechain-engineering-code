@@ -53,7 +53,7 @@ type ChainIndexerChain interface {
 	CurrentHeader() *types.SnailHeader
 
 	// SubscribeChainEvent subscribes to new head header notifications.
-	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
+	SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription
 }
 
 // IndexerChain interface is used for connecting the indexer to a snail blockchain
@@ -62,7 +62,7 @@ type IndexerChain interface {
 	CurrentHeader() *types.SnailHeader
 
 	// SubscribeChainEvent subscribes to new head header notifications.
-	SubscribeChainEvent(ch chan<- types.ChainSnailEvent) event.Subscription
+	SubscribeChainEvent(ch chan<- types.SnailChainEvent) event.Subscription
 }
 
 // ChainIndexer does a post-processing job for equally sized sections of the
@@ -136,7 +136,7 @@ func (c *ChainIndexer) AddKnownSectionHead(section uint64, shead common.Hash) {
 // cascading background processing. Children do not need to be started, they
 // are notified about new events by their parents.
 func (c *ChainIndexer) Start(chain IndexerChain) {
-	events := make(chan types.ChainSnailEvent, 10)
+	events := make(chan types.SnailChainEvent, 10)
 	sub := chain.SubscribeChainEvent(events)
 
 	go c.eventLoop(chain.CurrentHeader(), events, sub)
@@ -190,7 +190,7 @@ func (c *ChainIndexer) Close() error {
 // eventLoop is a secondary - optional - event loop of the indexer which is only
 // started for the outermost indexer to push chain head events into a processing
 // queue.
-func (c *ChainIndexer) eventLoop(currentHeader *types.SnailHeader, events chan types.ChainSnailEvent, sub event.Subscription) {
+func (c *ChainIndexer) eventLoop(currentHeader *types.SnailHeader, events chan types.SnailChainEvent, sub event.Subscription) {
 	// Mark the chain indexer as active, requiring an additional teardown
 	atomic.StoreUint32(&c.active, 1)
 

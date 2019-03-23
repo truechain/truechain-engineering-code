@@ -54,7 +54,7 @@ type TxPool struct {
 	quit         chan bool
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
-	chainHeadCh  chan types.ChainFastHeadEvent
+	chainHeadCh  chan types.FastChainHeadEvent
 	chainHeadSub event.Subscription
 	mu           sync.RWMutex
 	chain        *LightChain
@@ -92,7 +92,7 @@ func NewTxPool(config *params.ChainConfig, chain *LightChain, relay TxRelayBacke
 		pending:     make(map[common.Hash]*types.Transaction),
 		mined:       make(map[common.Hash][]*types.Transaction),
 		quit:        make(chan bool),
-		chainHeadCh: make(chan types.ChainFastHeadEvent, chainHeadChanSize),
+		chainHeadCh: make(chan types.FastChainHeadEvent, chainHeadChanSize),
 		chain:       chain,
 		relay:       relay,
 		odr:         chain.Odr(),

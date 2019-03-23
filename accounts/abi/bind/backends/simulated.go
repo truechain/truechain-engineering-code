@@ -457,7 +457,7 @@ func (fb *filterBackend) SubscribeNewTxsEvent(ch chan<- types.NewTxsEvent) event
 		return nil
 	})
 }
-func (fb *filterBackend) SubscribeChainEvent(ch chan<- types.ChainFastEvent) event.Subscription {
+func (fb *filterBackend) SubscribeChainEvent(ch chan<- types.FastChainEvent) event.Subscription {
 	return fb.bc.SubscribeChainEvent(ch)
 }
 func (fb *filterBackend) SubscribeRemovedLogsEvent(ch chan<- types.RemovedLogsEvent) event.Subscription {
