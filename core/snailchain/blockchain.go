@@ -43,7 +43,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/event"
 	"github.com/truechain/truechain-engineering-code/metrics"
 	"github.com/truechain/truechain-engineering-code/params"
-	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
 var (
@@ -78,7 +77,6 @@ const (
 type SnailBlockChain struct {
 	chainConfig *params.ChainConfig // Chain & network configuration
 	db          etruedb.Database    // Low level persistent database to store final content in
-	triegc      *prque.Prque        // Priority queue mapping block numbers to tries to gc
 	gcproc      time.Duration       // Accumulates canonical block processing for trie dumping
 
 	hc            *HeaderChain
@@ -133,7 +131,6 @@ func NewSnailBlockChain(db etruedb.Database, chainConfig *params.ChainConfig, en
 	bc := &SnailBlockChain{
 		chainConfig:  chainConfig,
 		db:           db,
-		triegc:       prque.New(),
 		quit:         make(chan struct{}),
 		bodyCache:    bodyCache,
 		bodyRLPCache: bodyRLPCache,
