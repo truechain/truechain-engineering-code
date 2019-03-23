@@ -74,7 +74,6 @@ var (
 		utils.BFTIPFlag,
 		utils.BftKeyFileFlag,
 		utils.BftKeyHexFlag,
-		utils.OldTbftFlag,
 
 		utils.GCModeFlag,
 		utils.LightServFlag,

@@ -177,9 +177,6 @@ type Config struct {
 
 	//true indicate only remote mine
 	RemoteMine bool `toml:",omitempty"`
-
-	//start for old pbft server
-	OldTbft bool `toml:",omitempty"`
 }
 
 func (c *Config) GetNodeType() bool {

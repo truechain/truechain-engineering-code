@@ -195,10 +195,6 @@ var (
 		Name:  "bftkeyhex",
 		Usage: "committee generate bft_privatekey as hex (for testing)",
 	}
-	OldTbftFlag = cli.BoolFlag{
-		Name:  "oldbft",
-		Usage: "run bft use http",
-	}
 
 	defaultSyncMode = etrue.DefaultConfig.SyncMode
 	SyncModeFlag    = TextMarshalerFlag{
@@ -1081,9 +1077,6 @@ func SetTruechainConfig(ctx *cli.Context, stack *node.Node, cfg *etrue.Config) {
 	}
 	if ctx.GlobalBool(MiningRemoteEnableFlag.Name) {
 		cfg.RemoteMine = true
-	}
-	if ctx.GlobalBool(OldTbftFlag.Name) {
-		cfg.OldTbft = true
 	}
 	if ctx.GlobalBool(SingleNodeFlag.Name) {
 		cfg.NodeType = true

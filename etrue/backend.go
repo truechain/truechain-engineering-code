@@ -18,7 +18,6 @@
 package etrue
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"github.com/truechain/truechain-engineering-code/consensus/tbft"
@@ -54,7 +53,6 @@ import (
 	"github.com/truechain/truechain-engineering-code/node"
 	"github.com/truechain/truechain-engineering-code/p2p"
 	"github.com/truechain/truechain-engineering-code/params"
-	"github.com/truechain/truechain-engineering-code/pbftserver"
 	"github.com/truechain/truechain-engineering-code/rpc"
 )
 
@@ -105,8 +103,7 @@ type Truechain struct {
 	networkID     uint64
 	netRPCService *trueapi.PublicNetAPI
 
-	pbftServerOld *pbftserver.PbftServerMgr
-	pbftServer    *tbft.Node
+	pbftServer *tbft.Node
 
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
@@ -506,24 +503,13 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-	if s.config.OldTbft {
-		return fmt.Errorf("oldpbft Temporarily incompatible")
-		s.startPbftServerOld()
-		if s.pbftServerOld == nil {
-			log.Error("start pbft server failed.")
-			return errors.New("start pbft server failed.")
-		}
-		//s.agent.server = s.pbftServerOld
-		log.Info("", "server", s.agent.server)
-	} else {
-		s.startPbftServer()
-		if s.pbftServer == nil {
-			log.Error("start pbft server failed.")
-			return errors.New("start pbft server failed.")
-		}
-		s.agent.server = s.pbftServer
-		log.Info("", "server", s.agent.server)
+	s.startPbftServer()
+	if s.pbftServer == nil {
+		log.Error("start pbft server failed.")
+		return errors.New("start pbft server failed.")
 	}
+	s.agent.server = s.pbftServer
+	log.Info("", "server", s.agent.server)
 	s.agent.Start()
 
 	s.election.Start()
@@ -543,11 +529,7 @@ func (s *Truechain) Start(srvr *p2p.Server) error {
 // Stop implements node.Service, terminating all internal goroutines used by the
 // Truechain protocol.
 func (s *Truechain) Stop() error {
-	if s.config.OldTbft {
-		s.stopPbftServerOld()
-	} else {
-		s.stopPbftServer()
-	}
+	s.stopPbftServer()
 	s.bloomIndexer.Close()
 	s.blockchain.Stop()
 	s.snailblockchain.Stop()
@@ -563,20 +545,6 @@ func (s *Truechain) Stop() error {
 	s.chainDb.Close()
 	close(s.shutdownChan)
 
-	return nil
-}
-func (s *Truechain) startPbftServerOld() error {
-	priv, err := crypto.ToECDSA(s.config.CommitteeKey)
-	if err != nil {
-		return err
-	}
-	pk := &ecdsa.PublicKey{
-		Curve: priv.Curve,
-		X:     new(big.Int).Set(priv.X),
-		Y:     new(big.Int).Set(priv.Y),
-	}
-	// var agent types.PbftAgentProxy
-	s.pbftServerOld = pbftserver.NewPbftServerMgr(pk, priv, s.agent)
 	return nil
 }
 
@@ -598,12 +566,6 @@ func (s *Truechain) startPbftServer() error {
 	return n1.Start()
 }
 
-func (s *Truechain) stopPbftServerOld() error {
-	if s.pbftServerOld != nil {
-		s.pbftServerOld.Finish()
-	}
-	return nil
-}
 func (s *Truechain) stopPbftServer() error {
 	if s.pbftServer != nil {
 		s.pbftServer.Stop()
