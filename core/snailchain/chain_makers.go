@@ -435,15 +435,14 @@ func MakeSnailBlockFruitsWithoutInsert(chain *SnailBlockChain, fastchain *core.B
 }
 
 //MakeChain return snailChain and fastchain by given fastBlockNumbers and snailBlockNumbers
-func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
+func MakeChain(fastBlockNumbers int, snailBlockNumbers int, engine consensus.Engine) (*SnailBlockChain, *core.BlockChain) {
 	var (
 		testdb  = etruedb.NewMemDatabase()
 		genesis = core.DefaultGenesisBlock()
-		engine  = minerva.NewFaker()
 	)
 	cache := &core.CacheConfig{
-		//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
-		//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
+	//TrieNodeLimit: etrue.DefaultConfig.TrieCache,
+	//TrieTimeLimit: etrue.DefaultConfig.TrieTimeout,
 	}
 
 	if fastBlockNumbers < snailBlockNumbers*params.MinimumFruits {
@@ -476,8 +475,8 @@ func MakeChain(fastBlockNumbers int, snailBlockNumbers int) (*SnailBlockChain, *
 }
 
 //MakeSnailChain return snailChain and fastchain by given snailBlockNumbers and a default fastBlockNumbers(60)
-func MakeSnailChain(snailBlockNumbers int) (*SnailBlockChain, *core.BlockChain) {
-	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers)
+func MakeSnailChain(snailBlockNumbers int, engine consensus.Engine) (*SnailBlockChain, *core.BlockChain) {
+	return MakeChain(snailBlockNumbers*params.MinimumFruits, snailBlockNumbers, engine)
 }
 
 type fakeChainReader struct {

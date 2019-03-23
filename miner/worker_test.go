@@ -66,7 +66,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	var (
 		db = etruedb.NewMemDatabase()
 	)
-	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum)
+	snailChainLocal, fastChainLocal = snailchain.MakeChain(fastChainHight, blockNum, minerva.NewFaker())
 	//sv := snailchain.NewBlockValidator(chainConfig, fastChainLocal, snailChainLocal, engine)
 
 	return &testWorkerBackend{

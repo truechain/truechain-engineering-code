@@ -82,7 +82,7 @@ func newCanonical(engine consensus.Engine, n int, full bool) (etruedb.Database, 
 }
 
 func TestMakeChain(t *testing.T) {
-	chain, _ := MakeChain(180, 3)
+	chain, _ := MakeChain(180, 3, minerva.NewFaker())
 	log.Info("TestMakeChain", "number", chain.CurrentBlock().Number(), "fast number", chain.CurrentFastBlock().Number())
 	blocks := chain.GetBlocksFromNumber(1)
 
@@ -206,15 +206,16 @@ func insertChain(done chan bool, blockchain *SnailBlockChain, chain types.SnailB
 }
 
 func TestLastBlock(t *testing.T) {
-	_, blockchain, _, err := newCanonical(minerva.NewFaker(), 3, true)
+	engine := minerva.NewFaker()
+	_, blockchain, _, err := newCanonical(engine, 3, true)
 	if err != nil {
 		t.Fatalf("failed to create pristine chain: %v", err)
 	}
 	defer blockchain.Stop()
 
-	chain, _ := MakeSnailChain(3)
+	chain, _ := MakeSnailChain(3, engine)
 	blocks := chain.GetBlocksFromNumber(1)
-
+	defer chain.Stop()
 	for _, block := range blocks {
 		fmt.Printf("%d => %x\n", block.Number(), block.Hash())
 	}

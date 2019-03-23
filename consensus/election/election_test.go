@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/truechain/truechain-engineering-code/consensus"
+	"github.com/truechain/truechain-engineering-code/consensus/minerva"
 	"github.com/truechain/truechain-engineering-code/core"
 	"github.com/truechain/truechain-engineering-code/core/snailchain"
 	"github.com/truechain/truechain-engineering-code/core/types"
@@ -116,7 +117,7 @@ func makeChain(n int) (*snailchain.SnailBlockChain, *core.BlockChain) {
 	// snail, _ := snailchain.NewSnailBlockChain(testdb, nil, params.TestChainConfig, engine, vm.Config{})
 	// blocks := makeSnail(snail, fastchain, snailGenesis, n, engine, testdb, canonicalSeed)
 	// snail.InsertChain(blocks)
-	snail, fastchain := snailchain.MakeChain(n*params.MinimumFruits, n)
+	snail, fastchain := snailchain.MakeChain(n*params.MinimumFruits, n, minerva.NewFaker())
 
 	return snail, fastchain
 }
