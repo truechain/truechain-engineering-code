@@ -8,9 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/sha3"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/crypto/sha3"
 	"io"
 	"math/big"
 	"strings"
@@ -201,7 +201,6 @@ func (p *PbftSign) EncodeRLP(w io.Writer) error {
 type PbftAgentProxy interface {
 	FetchFastBlock(committeeId *big.Int, infos []*CommitteeMember) (*Block, error)
 	VerifyFastBlock(*Block, bool) (*PbftSign, error)
-	BroadcastFastBlock(*Block)
 	BroadcastConsensus(block *Block) error
 	GetCurrentHeight() *big.Int
 	GetSeedMember() []*CommitteeMember

@@ -135,16 +135,6 @@ func (pap *PbftAgentProxyImp) VerifyFastBlock(block *types.Block, sign bool) (*t
 	return pap.GenerateSignWithVote(block, 1)
 }
 
-func (pap *PbftAgentProxyImp) BroadcastFastBlock(block *types.Block) {
-	IDAdd(pap.Name)
-	println("[AGENT]", pap.Name, "BroadcastFastBlock", "Number:", block.Header().Number.Uint64())
-}
-
-func (pap *PbftAgentProxyImp) BroadcastSign(sign *types.PbftSign, block *types.Block) error {
-	println("[AGENT]", pap.Name, "--------", "BroadcastSign", "Number:", block.Header().Number.Uint64())
-	return nil
-}
-
 var BcCount = 0
 
 func (pap *PbftAgentProxyImp) BroadcastConsensus(block *types.Block) error {

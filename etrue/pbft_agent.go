@@ -848,11 +848,6 @@ func (agent *PbftAgent) GenerateSign(fb *types.Block) (*types.PbftSign, error) {
 	return agent.GenerateSignWithVote(fb, types.VoteAgree, true)
 }
 
-//BroadcastFastBlock broadcast blockAndSign
-func (agent *PbftAgent) BroadcastFastBlock(fb *types.Block) {
-	//go agent.NewFastBlockFeed.Send(types.NewBlockEvent{Block: fb})
-}
-
 //VerifyFastBlock  committee member  verify fastBlock  and vote agree or disagree sign
 func (agent *PbftAgent) VerifyFastBlock(fb *types.Block, result bool) (*types.PbftSign, error) {
 	if agent.fastChain.IsFallback() {
