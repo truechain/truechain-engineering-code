@@ -373,6 +373,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 	}
 	if currentBlock := bc.CurrentBlock(); currentBlock != nil {
 		if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+			log.Warn("recent state", "err", err)
 			// Rewound state missing, rolled back to before pivot, reset to genesis
 			bc.currentBlock.Store(bc.genesisBlock)
 		}
