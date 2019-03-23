@@ -683,7 +683,7 @@ func (req *ping) preverify(t *udp, from *net.UDPAddr, fromID enode.ID, fromKey e
 func (req *ping) handle(t *udp, from *net.UDPAddr, fromID enode.ID, mac []byte) {
 	// Reply.
 	if req.Version != trueVersion {
-		log.Info("ping", "error", fmt.Sprintf("error %d version number", req.Version))
+		log.Debug("ping", "error", fmt.Sprintf("error %d version number", req.Version))
 		return
 	}
 	t.send(from, fromID, pongPacket, &pong{
